@@ -7,9 +7,11 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserAppearanceSettings;
+import com.linkedin.datahub.graphql.generated.CorpUserProperties;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
@@ -53,7 +55,7 @@ public class CorpUserMapper {
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
         MappingHelper<CorpUser> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(CORP_USER_KEY_ASPECT_NAME, this::mapCorpUserKey);
-        mappingHelper.mapToResult(CORP_USER_INFO_ASPECT_NAME, this::mapCorpUserInfo);
+        mappingHelper.mapToResult(CORP_USER_INFO_ASPECT_NAME, (corpUser, dataMap) -> this.mapCorpUserInfo(corpUser, dataMap, entityUrn));
         mappingHelper.mapToResult(CORP_USER_EDITABLE_INFO_ASPECT_NAME, (corpUser, dataMap) ->
             corpUser.setEditableProperties(CorpUserEditableInfoMapper.map(new CorpUserEditableInfo(dataMap))));
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (corpUser, dataMap) ->
@@ -123,10 +125,15 @@ public class CorpUserMapper {
         corpUser.setUsername(corpUserKey.getUsername());
     }
 
-    private void mapCorpUserInfo(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {
+    private void mapCorpUserInfo(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
         CorpUserInfo corpUserInfo = new CorpUserInfo(dataMap);
         corpUser.setProperties(CorpUserPropertiesMapper.map(corpUserInfo));
         corpUser.setInfo(CorpUserInfoMapper.map(corpUserInfo));
+        CorpUserProperties corpUserProperties = corpUser.getProperties();
+        if (corpUserInfo.hasCustomProperties()) {
+            corpUserProperties.setCustomProperties(CustomPropertiesMapper.map(corpUserInfo.getCustomProperties(), entityUrn));
+        }
+        corpUser.setProperties(corpUserProperties);
     }
 
     private void mapIsNativeUser(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {

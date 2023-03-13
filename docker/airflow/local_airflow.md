@@ -1,19 +1,30 @@
+:::caution
+
+This feature is currently unmaintained. As of 0.10.0 the container described is not published alongside the DataHub CLI. If you'd like to use it, please reach out to us on the [community slack.](docs/slack.md)
+
+:::
+
 # Running Airflow locally with DataHub
 
 ## Introduction
+
 This document describes how you can run Airflow side-by-side with DataHub's quickstart docker images to test out Airflow lineage with DataHub.
 This offers a much easier way to try out Airflow with DataHub, compared to configuring containers by hand, setting up configurations and networking connectivity between the two systems.
 
 ## Prerequisites
+
 - Docker: ensure that you have a working Docker installation and you have at least 8GB of memory to allocate to both Airflow and DataHub combined.
+
 ```
 docker info | grep Memory
 
 > Total Memory: 7.775GiB
 ```
+
 - Quickstart: Ensure that you followed [quickstart](../../docs/quickstart.md) to get DataHub up and running.
 
 ## Step 1: Set up your Airflow area
+
 - Create an area to host your airflow installation
 - Download the docker-compose file hosted in DataHub's repo in that directory
 - Download a sample dag to use for testing Airflow lineage
@@ -30,6 +41,7 @@ curl -L 'https://raw.githubusercontent.com/datahub-project/datahub/master/metada
 ```
 
 ### What is different between this docker-compose file and the official Apache Airflow docker compose file?
+
 - This docker-compose file is derived from the [official Airflow docker-compose file](https://airflow.apache.org/docs/apache-airflow/stable/start/docker.html#docker-compose-yaml) but makes a few critical changes to make interoperability with DataHub seamless.
 - The Airflow image in this docker compose file extends the [base Apache Airflow docker image](https://airflow.apache.org/docs/docker-stack/index.html) and is published [here](https://hub.docker.com/r/acryldata/airflow-datahub). It includes the latest `acryl-datahub` pip package installed by default so you don't need to install it yourself.
 - This docker-compose file sets up the networking so that
@@ -40,9 +52,11 @@ curl -L 'https://raw.githubusercontent.com/datahub-project/datahub/master/metada
 ## Step 2: Bring up Airflow
 
 First you need to initialize airflow in order to create initial database tables and the initial airflow user.
+
 ```
 docker-compose up airflow-init
 ```
+
 You should see the following final initialization message
 
 ```
@@ -51,6 +65,7 @@ airflow-init_1       | 2.1.3
 airflow_install_airflow-init_1 exited with code 0
 
 ```
+
 Afterwards you need to start the airflow docker-compose
 
 ```
@@ -96,6 +111,7 @@ flower_1             |
 
 Finally, Airflow should be healthy and up on port 58080. Navigate to [http://localhost:58080](http://localhost:58080) to confirm and find your Airflow webserver.
 The default username and password is:
+
 ```
 airflow:airflow
 ```
@@ -107,17 +123,19 @@ docker exec -it `docker ps | grep webserver | cut -d " " -f 1` airflow connectio
 ```
 
 ### Result
+
 ```
 Successfully added `conn_id`=datahub_rest_default : datahub_rest://:@http://datahub-gms:8080:
 ```
 
 ### What is the above command doing?
+
 - Find the container running airflow webserver: `docker ps | grep webserver | cut -d " " -f 1`
 - Running the `airflow connections add ...` command inside that container to register the `datahub_rest` connection type and connect it to the `datahub-gms` host on port 8080.
 - Note: This is what requires Airflow to be able to connect to `datahub-gms` the host (this is the container running datahub-gms image) and this is why we needed to connect the Airflow containers to the `datahub_network` using our custom docker-compose file.
 
-
 ## Step 4: Find the DAGs and run it
+
 Navigate the Airflow UI to find the sample Airflow dag we just brought in
 
 ![Find the DAG](../../docs/imgs/airflow/find_the_dag.png)

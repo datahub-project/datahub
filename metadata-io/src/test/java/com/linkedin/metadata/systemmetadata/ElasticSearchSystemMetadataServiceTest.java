@@ -1,6 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
-import com.linkedin.metadata.ElasticSearchTestConfiguration;
+import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -20,10 +20,10 @@ import org.testng.annotations.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.linkedin.metadata.ElasticSearchTestConfiguration.syncAfterWrite;
+import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
-@Import(ElasticSearchTestConfiguration.class)
+@Import(ESTestConfiguration.class)
 public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpringContextTests {
 
   @Autowired
@@ -70,7 +70,7 @@ public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpring
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
@@ -99,7 +99,7 @@ public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpring
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
@@ -128,7 +128,7 @@ public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpring
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, ESUtils.MAX_RESULT_SIZE);
 
@@ -156,11 +156,11 @@ public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpring
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     _client.deleteUrn("urn:li:chart:1");
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, ESUtils.MAX_RESULT_SIZE);
 
@@ -172,7 +172,7 @@ public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpring
   public void testInsertNullData() throws Exception {
     _client.insert(null, "urn:li:chart:1", "chartKey");
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 

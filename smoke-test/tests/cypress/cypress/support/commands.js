@@ -11,17 +11,24 @@
 //
 // -- This is a parent command --
 
+import dayjs from "dayjs";
+
 function selectorWithtestId (id) {
   return '[data-testid="' + id +'"]';
 }
+
+export function getTimestampMillisNumDaysAgo (numDays) {
+  return dayjs().subtract(numDays, 'day').valueOf();
+}
+
 
 Cypress.Commands.add('login', () => {
     cy.request({
       method: 'POST',
       url: '/logIn',
       body: {
-        username: Cypress.env('ADMIN_USERNAME'),
-        password: Cypress.env('ADMIN_PASSWORD'),
+         username: Cypress.env('ADMIN_USERNAME'),
+         password: Cypress.env('ADMIN_PASSWORD'),
       },
       retryOnStatusCodeFailure: true,
     });
@@ -69,7 +76,25 @@ Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
     "/dataset/" + urn
   );
   cy.waitTextVisible(dataset_name);
+});
+
+Cypress.Commands.add("goToEntityLineageGraph", (entity_type, urn) => {
+  cy.visit(
+    `/${entity_type}/${urn}?is_lineage_mode=true`
+  );
 })
+
+Cypress.Commands.add("goToEntityLineageGraph", (entity_type, urn, start_time_millis, end_time_millis) => {
+  cy.visit(
+    `/${entity_type}/${urn}?is_lineage_mode=true&start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`
+  );
+})
+
+Cypress.Commands.add("lineageTabClickOnUpstream", () => {
+  cy.get('[data-testid="lineage-tab-direction-select-option-downstream"] > b').click();
+  cy.get('[data-testid="lineage-tab-direction-select-option-upstream"] > b').click();
+})
+
 
 Cypress.Commands.add("goToChart", (urn) => {
   cy.visit(
@@ -119,9 +144,15 @@ Cypress.Commands.add("deleteFromDropdown", () => {
   cy.clickOptionWithText("Yes");
 });
 
-Cypress.Commands.add("addViaModel", (text, modelHeader) => {
+Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-form-item-control-input-content > input[type='text']").first().type(text);
+  cy.get(".ant-modal-footer > button:nth-child(2)").click();
+});
+
+Cypress.Commands.add("addViaModal", (text, modelHeader) => {
+  cy.waitTextVisible(modelHeader);
+  cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 

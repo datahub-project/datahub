@@ -147,6 +147,7 @@ export const dataset1 = {
         },
     },
     lastIngested: null,
+    exists: true,
     dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'The Great Test Dataset',
@@ -156,6 +157,7 @@ export const dataset1 = {
     privileges: {
         canEditLineage: false,
         canEditEmbed: false,
+        canEditQueries: false,
     },
     properties: {
         name: 'The Great Test Dataset',
@@ -220,6 +222,7 @@ export const dataset1 = {
             timestampMillis: 0,
             rowCount: 10,
             columnCount: 5,
+            sizeInBytes: 10,
             fieldProfiles: [
                 {
                     fieldPath: 'testColumn',
@@ -256,8 +259,10 @@ export const dataset2 = {
     privileges: {
         canEditLineage: false,
         canEditEmbed: false,
+        canEditQueries: false,
     },
     lastIngested: null,
+    exists: true,
     dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'Some Other Dataset',
@@ -305,6 +310,7 @@ export const dataset2 = {
             timestampMillis: 0,
             rowCount: 10,
             columnCount: 5,
+            sizeInBytes: 10000,
             fieldProfiles: [
                 {
                     fieldPath: 'testColumn',
@@ -349,7 +355,9 @@ export const dataset3 = {
     privileges: {
         canEditLineage: false,
         canEditEmbed: false,
+        canEditQueries: false,
     },
+    exists: true,
     lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'STREAM',
@@ -514,6 +522,7 @@ export const dataset3 = {
         {
             rowCount: 10,
             columnCount: 5,
+            sizeInBytes: 10000,
             timestampMillis: 0,
             fieldProfiles: [
                 {
@@ -827,6 +836,7 @@ export const container1 = {
     type: EntityType.Container,
     platform: dataPlatform,
     lastIngested: null,
+    exists: true,
     properties: {
         name: 'database1',
         externalUrl: null,
@@ -840,6 +850,7 @@ export const container2 = {
     type: EntityType.Container,
     platform: dataPlatform,
     lastIngested: null,
+    exists: true,
     properties: {
         name: 'schema1',
         externalUrl: null,
@@ -1136,6 +1147,7 @@ export const dataFlow1 = {
     flowId: 'flowId1',
     cluster: 'cluster1',
     lastIngested: null,
+    exists: true,
     properties: {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
@@ -1205,6 +1217,7 @@ export const dataJob1 = {
     dataFlow: dataFlow1,
     jobId: 'jobId1',
     lastIngested: null,
+    exists: true,
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -1359,6 +1372,7 @@ export const dataJob3 = {
     dataFlow: dataFlow1,
     jobId: 'jobId3',
     lastIngested: null,
+    exists: true,
     privileges: {
         canEditLineage: false,
         canEditEmbed: false,
@@ -1431,6 +1445,7 @@ export const mlModel = {
     description: 'a ml trust model',
     origin: 'PROD',
     lastIngested: null,
+    exists: true,
     platform: {
         urn: 'urn:li:dataPlatform:kafka',
         name: 'Kafka',

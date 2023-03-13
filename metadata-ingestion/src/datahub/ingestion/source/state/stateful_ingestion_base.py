@@ -13,7 +13,6 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     LineageConfig,
 )
-from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
@@ -62,12 +61,12 @@ class StatefulIngestionConfig(ConfigModel):
     max_checkpoint_state_size: pydantic.PositiveInt = Field(
         default=2**24,  # 16 MB
         description="The maximum size of the checkpoint state in bytes. Default is 16MB",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
         default=None,
         description="The ingestion state provider configuration.",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     ignore_old_state: bool = Field(
         default=False,
@@ -91,9 +90,7 @@ class StatefulIngestionConfig(ConfigModel):
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
 
 
-class StatefulIngestionConfigBase(
-    DatasetSourceConfigBase, GenericModel, Generic[CustomConfig]
-):
+class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
@@ -103,7 +100,7 @@ class StatefulIngestionConfigBase(
     )
 
 
-class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig):
+class StatefulLineageConfigMixin(LineageConfig):
     store_last_lineage_extraction_timestamp: bool = Field(
         default=False,
         description="Enable checking last lineage extraction date in store.",
@@ -122,7 +119,7 @@ class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig)
         return values
 
 
-class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
+class StatefulProfilingConfigMixin(ConfigModel):
     store_last_profiling_timestamps: bool = Field(
         default=False,
         description="Enable storing last profile timestamp in store.",
@@ -140,7 +137,7 @@ class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
         return values
 
 
-class UsageStatefulIngestionConfig(BaseTimeWindowConfig, StatefulIngestionConfigBase):
+class StatefulUsageConfigMixin(BaseTimeWindowConfig):
     store_last_usage_extraction_timestamp: bool = Field(
         default=True,
         description="Enable checking last usage timestamp in store.",
@@ -281,7 +278,7 @@ class StatefulIngestionSourceBase(Source):
             raise ValueError(f"No use-case handler for job_id{job_id}")
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         # This method is retained for backwards compatibility, but it is not
         # required that new sources implement it. We mainly need it for the
         # fallback logic in _get_last_checkpoint.

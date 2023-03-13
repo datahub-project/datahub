@@ -3,7 +3,6 @@ import logging
 import traceback
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -34,6 +33,10 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -149,11 +152,6 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
         if tester(sqlalchemy_uri):
             return platform
     return "external"
-
-
-class SqlContainerSubTypes(str, Enum):
-    DATABASE = "Database"
-    SCHEMA = "Schema"
 
 
 @dataclass
@@ -394,7 +392,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """
         The source identifier such as the specific source host address required for stateful ingestion.
         Individual subclasses need to override this method appropriately.
@@ -417,6 +415,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def gen_database_containers(
         self,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = gen_database_key(
             database,
@@ -428,16 +427,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from gen_database_container(
             database=database,
             database_container_key=database_container_key,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
+            extra_properties=extra_properties,
         )
 
     def gen_schema_containers(
         self,
         schema: str,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
 
         database_container_key = gen_database_key(
@@ -460,10 +461,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             schema=schema,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,
-            sub_types=[SqlContainerSubTypes.SCHEMA],
+            sub_types=[DatasetContainerSubTypes.SCHEMA],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
+            extra_properties=extra_properties,
         )
 
     def add_table_to_schema_container(
@@ -517,6 +519,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.gen_schema_containers(
                     database=db_name,
                     schema=schema,
+                    extra_properties=self.get_schema_properties(
+                        inspector=inspector, schema=schema, database=db_name
+                    ),
                 )
 
                 if sql_config.include_tables:
@@ -745,7 +750,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
                 aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["table"]),
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
             ),
         )
         self.report.report_workunit(subtypes_aspect)
@@ -1022,7 +1027,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
                 aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["view"]),
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
             ),
         )
         self.report.report_workunit(subtypes_aspect)

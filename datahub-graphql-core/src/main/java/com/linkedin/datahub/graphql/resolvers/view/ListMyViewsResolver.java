@@ -75,7 +75,9 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                 DEFAULT_SORT_CRITERION,
                 start,
                 count,
-                context.getAuthentication());
+                context.getAuthentication(),
+                true,
+            null);
 
         final ListViewsResult result = new ListViewsResult();
         result.setStart(gmsResult.getFrom());

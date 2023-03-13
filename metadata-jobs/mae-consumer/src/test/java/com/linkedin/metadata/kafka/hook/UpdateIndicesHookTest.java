@@ -17,9 +17,13 @@ import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -60,6 +64,8 @@ public class UpdateIndicesHookTest {
   private TimeseriesAspectService _mockTimeseriesAspectService;
   private SystemMetadataService _mockSystemMetadataService;
   private SearchDocumentTransformer _mockSearchDocumentTransformer;
+  private DataHubUpgradeKafkaListener _mockDataHubUpgradeKafkaListener;
+  private ConfigurationProvider _mockConfigurationProvider;
   private Urn _actorUrn;
 
   @BeforeMethod
@@ -72,6 +78,12 @@ public class UpdateIndicesHookTest {
     _mockTimeseriesAspectService = Mockito.mock(TimeseriesAspectService.class);
     _mockSystemMetadataService = Mockito.mock(SystemMetadataService.class);
     _mockSearchDocumentTransformer = Mockito.mock(SearchDocumentTransformer.class);
+    _mockDataHubUpgradeKafkaListener = Mockito.mock(DataHubUpgradeKafkaListener.class);
+    _mockConfigurationProvider = Mockito.mock(ConfigurationProvider.class);
+    ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
+    SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
+    systemUpdateConfiguration.setWaitForSystemUpdate(false);
+    Mockito.when(_mockConfigurationProvider.getElasticSearch()).thenReturn(elasticSearchConfiguration);
     _updateIndicesHook = new UpdateIndicesHook(
         _mockGraphService,
         _mockEntitySearchService,
@@ -87,6 +99,22 @@ public class UpdateIndicesHookTest {
     Urn upstreamUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
     Urn downstreamUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
     MetadataChangeLog event = createUpstreamLineageMCL(upstreamUrn, downstreamUrn);
+    _updateIndicesHook.invoke(event);
+
+    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
+    Mockito.verify(_mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(_mockGraphService, Mockito.times(1)).removeEdgesFromNode(
+        Mockito.eq(downstreamUrn),
+        Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+        Mockito.eq(newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING))
+    );
+  }
+
+  @Test
+  public void testFineGrainedLineageEdgesAreAddedRestate() throws Exception {
+    Urn upstreamUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
+    Urn downstreamUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    MetadataChangeLog event = createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.RESTATE);
     _updateIndicesHook.invoke(event);
 
     Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
@@ -148,10 +176,14 @@ public class UpdateIndicesHookTest {
   }
 
   private MetadataChangeLog createUpstreamLineageMCL(Urn upstreamUrn, Urn downstreamUrn) throws Exception {
+    return createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.UPSERT);
+  }
+
+  private MetadataChangeLog createUpstreamLineageMCL(Urn upstreamUrn, Urn downstreamUrn, ChangeType changeType) throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(Constants.DATASET_ENTITY_NAME);
     event.setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
-    event.setChangeType(ChangeType.UPSERT);
+    event.setChangeType(changeType);
 
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();

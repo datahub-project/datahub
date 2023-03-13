@@ -74,8 +74,8 @@ public class DataHubAuthorizerTest {
     policySearchResult.setEntities(new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(activePolicyUrn),
         new SearchEntity().setEntity(inactivePolicyUrn))));
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any())).thenReturn(
-        policySearchResult);
+    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any(),
+        eq(Boolean.TRUE), eq(null))).thenReturn(policySearchResult);
     when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME),
         eq(ImmutableSet.of(activePolicyUrn, inactivePolicyUrn)), eq(null), any())).thenReturn(
         ImmutableMap.of(
@@ -192,8 +192,8 @@ public class DataHubAuthorizerTest {
     emptyResult.setNumEntities(0);
     emptyResult.setEntities(new SearchEntityArray());
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any())).thenReturn(
-        emptyResult);
+    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any(),
+        eq(Boolean.TRUE), eq(null))).thenReturn(emptyResult);
     when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), eq(Collections.emptySet()), eq(null), any())).thenReturn(
         Collections.emptyMap());
 

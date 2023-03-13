@@ -46,6 +46,7 @@ if (project.hasProperty("releaseVersion")) {
 
 // trim version if it is of size 4 to size 3
 def versionParts = version.tokenize(".")
+cliMajorVersion = version
 if (versionParts.size() > 3) {
   // at-least 4 part version
   // we check if the 4th part is a .0 in which case we want to create a release
@@ -56,9 +57,6 @@ if (versionParts.size() > 3) {
   if (versionParts.size() > 3) {
       version = version + "-" + versionParts[3..versionParts.size()-1].join('-')
   }
-  cliMajorVersion = version
-} else if (versionParts.size() == 3) {
-  cliMajorVersion = version
 }
 
 if (snapshotVersion) {
@@ -72,7 +70,6 @@ if (snapshotVersion) {
       cliMajorVersion = versionParts[0..versionParts.size()-1].join('.')
   }
 }
-
 
 processResources {
   filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])

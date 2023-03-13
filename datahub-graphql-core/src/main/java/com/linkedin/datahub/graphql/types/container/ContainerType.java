@@ -3,13 +3,22 @@ package com.linkedin.datahub.graphql.types.container;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.container.mappers.ContainerMapper;
+import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -20,9 +29,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
-public class ContainerType implements com.linkedin.datahub.graphql.types.EntityType<Container, String> {
+public class ContainerType implements SearchableEntityType<Container, String>,
+        com.linkedin.datahub.graphql.types.EntityType<Container, String> {
 
   static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
       Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
@@ -38,6 +49,9 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
       Constants.DOMAINS_ASPECT_NAME,
       Constants.DEPRECATION_ASPECT_NAME
   );
+
+  private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
+  private static final String ENTITY_NAME = "container";
   private final EntityClient _entityClient;
 
   public ContainerType(final EntityClient entityClient)  {
@@ -94,5 +108,28 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
     } catch (URISyntaxException e) {
       throw new RuntimeException(String.format("Failed to convert urn string %s into Urn", urnStr));
     }
+  }
+
+  @Override
+  public SearchResults search(@Nonnull String query,
+                              @Nullable List<FacetFilterInput> filters,
+                              int start,
+                              int count,
+                              @Nonnull final QueryContext context) throws Exception {
+    final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+    final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start, count,
+            context.getAuthentication(), true, null);
+    return UrnSearchResultsMapper.map(searchResult);
+  }
+
+  @Override
+  public AutoCompleteResults autoComplete(@Nonnull String query,
+                                          @Nullable String field,
+                                          @Nullable List<FacetFilterInput> filters,
+                                          int limit,
+                                          @Nonnull final QueryContext context) throws Exception {
+    final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+    final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, facetFilters, limit, context.getAuthentication());
+    return AutoCompleteResultsMapper.map(result);
   }
 }

@@ -2,15 +2,16 @@ import logging
 import sys
 from typing import List
 
+import pytest
 from lark import Tree
 
+import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.resolver import (
     DataPlatformTable,
     SupportedDataPlatform,
 )
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -30,90 +31,106 @@ M_QUERIES = [
     'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
     'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
     'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]),\n    GSL_TEST_DB_Database = Source{[Name="GSL_TEST_DB",Kind="Database"]}[Data],\n    PUBLIC_Schema = GSL_TEST_DB_Database{[Name="PUBLIC",Kind="Schema"]}[Data],\n    SALES_FORECAST_Table = PUBLIC_Schema{[Name="SALES_FORECAST",Kind="Table"]}[Data],\n    SALES_ANALYST_Table = PUBLIC_Schema{[Name="SALES_ANALYST",Kind="Table"]}[Data],\n    RESULT = Table.Combine({SALES_FORECAST_Table, SALES_ANALYST_Table})\n\nin\n    RESULT',
+    'let\n    Source = GoogleBigQuery.Database(),\n    #"seraphic-music-344307" = Source{[Name="seraphic-music-344307"]}[Data],\n    school_dataset_Schema = #"seraphic-music-344307"{[Name="school_dataset",Kind="Schema"]}[Data],\n    first_Table = school_dataset_Schema{[Name="first",Kind="Table"]}[Data]\nin\n    first_Table',
+    'let    \nSource = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\ngcp_billing_Schema = #"gcp-project"{[Name=#"My bq project",Kind="Schema"]}[Data],\nF_GCP_COST_Table = gcp_billing_Schema{[Name="GCP_TABLE",Kind="Table"]}[Data]\nin\nF_GCP_COST_Table',
 ]
 
 
+@pytest.mark.integration
 def test_parse_m_query1():
     expression: str = M_QUERIES[0]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "TESTTABLE_Table"
 
 
+@pytest.mark.integration
 def test_parse_m_query2():
     expression: str = M_QUERIES[1]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom2"'
 
 
+@pytest.mark.integration
 def test_parse_m_query3():
     expression: str = M_QUERIES[2]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Conditional Column"'
 
 
+@pytest.mark.integration
 def test_parse_m_query4():
     expression: str = M_QUERIES[3]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Changed Type"'
 
 
+@pytest.mark.integration
 def test_parse_m_query5():
     expression: str = M_QUERIES[4]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Renamed Columns"'
 
 
+@pytest.mark.integration
 def test_parse_m_query6():
     expression: str = M_QUERIES[5]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
 
 
+@pytest.mark.integration
 def test_parse_m_query7():
     expression: str = M_QUERIES[6]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "Source"
 
 
+@pytest.mark.integration
 def test_parse_m_query8():
     expression: str = M_QUERIES[7]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
 
 
+@pytest.mark.integration
 def test_parse_m_query9():
     expression: str = M_QUERIES[8]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
 
 
+@pytest.mark.integration
 def test_parse_m_query10():
     expression: str = M_QUERIES[9]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Changed Type1"'
 
 
+@pytest.mark.integration
 def test_parse_m_query11():
     expression: str = M_QUERIES[10]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "Source"
 
 
+@pytest.mark.integration
 def test_parse_m_query12():
     expression: str = M_QUERIES[11]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
 
 
+@pytest.mark.integration
 def test_parse_m_query13():
     expression: str = M_QUERIES[12]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "two_source_table"
 
 
+@pytest.mark.integration
 def test_snowflake_regular_case():
     q: str = M_QUERIES[0]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -134,9 +151,10 @@ def test_snowflake_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -156,9 +174,10 @@ def test_postgres_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -178,9 +197,10 @@ def test_oracle_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_mssql_regular_case():
     q: str = M_QUERIES[15]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -201,6 +221,7 @@ def test_mssql_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_mssql_with_query():
     mssql_queries: List[str] = [
         M_QUERIES[3],
@@ -220,7 +241,7 @@ def test_mssql_with_query():
     ]
 
     for index, query in enumerate(mssql_queries):
-        table: PowerBiAPI.Table = PowerBiAPI.Table(
+        table: powerbi_data_classes.Table = powerbi_data_classes.Table(
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -240,6 +261,7 @@ def test_mssql_with_query():
         )
 
 
+@pytest.mark.integration
 def test_snowflake_native_query():
     snowflake_queries: List[str] = [
         M_QUERIES[1],
@@ -256,7 +278,7 @@ def test_snowflake_native_query():
     ]
 
     for index, query in enumerate(snowflake_queries):
-        table: PowerBiAPI.Table = PowerBiAPI.Table(
+        table: powerbi_data_classes.Table = powerbi_data_classes.Table(
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -276,8 +298,59 @@ def test_snowflake_native_query():
         )
 
 
+def test_google_bigquery_1():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[17],
+        name="first",
+        full_name="seraphic-music-344307.school_dataset.first",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter, native_query_enabled=False
+    )
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+    )
+
+
+def test_google_bigquery_2():
+    # The main purpose of this test is actually to validate that we're handling parameter
+    # references correctly.
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[18],
+        name="gcp_table",
+        full_name="my-test-project.gcp_billing.GCP_TABLE",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        native_query_enabled=False,
+        parameters={
+            "Parameter - Source": "my-test-project",
+            "My bq project": "gcp_billing",
+        },
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+    )
+
+
+@pytest.mark.integration
 def test_native_query_disabled():
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[1],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -291,9 +364,10 @@ def test_native_query_disabled():
     assert len(data_platform_tables) == 0
 
 
+@pytest.mark.integration
 def test_multi_source_table():
 
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[12],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -318,8 +392,9 @@ def test_multi_source_table():
     )
 
 
+@pytest.mark.integration
 def test_table_combine():
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[16],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -345,6 +420,7 @@ def test_table_combine():
     )
 
 
+@pytest.mark.integration
 def test_expression_is_none():
     """
     This test verifies the logging.debug should work if expression is None
@@ -354,7 +430,7 @@ def test_expression_is_none():
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     logging.getLogger().setLevel(logging.DEBUG)
 
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=None,  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",

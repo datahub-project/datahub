@@ -55,7 +55,12 @@ public enum DataHubUsageEventType {
   SET_GLOBAL_DEFAULT_VIEW_EVENT("SetGlobalDefaultViewEvent"),
   SET_USER_DEFAULT_VIEW_EVENT("SetUserDefaultViewEvent"),
   MANUALLY_CREATE_LINEAGE_EVENT("ManuallyCreateLineageEvent"),
-  MANUALLY_DELETE_LINEAGE_EVENT("ManuallyDeleteLineageEvent");
+  MANUALLY_DELETE_LINEAGE_EVENT("ManuallyDeleteLineageEvent"),
+  LINEAGE_GRAPH_TIME_RANGE_SELECTION_EVENT("LineageGraphTimeRangeSelectionEvent"),
+  LINEAGE_TAB_TIME_RANGE_SELECTION_EVENT("LineageTabTimeRangeSelectionEvent"),
+  CREATE_QUERY_EVENT("CreateQueryEvent"),
+  DELETE_QUERY_EVENT("DeleteQueryEvent"),
+  UPDATE_QUERY_EVENT("UpdateQueryEvent");
 
   private final String type;
 

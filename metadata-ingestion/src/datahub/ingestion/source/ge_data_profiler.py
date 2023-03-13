@@ -124,7 +124,7 @@ def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
             sa.select(
                 [
                     sa.text(  # type:ignore
-                        f'APPROX_COUNT_DISTINCT("{sa.column(column)}")'
+                        f"APPROX_COUNT_DISTINCT(`{column}`)"
                     )
                 ]
             ).select_from(self._table)
@@ -342,7 +342,24 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
-        dataset_profile.rowCount = self.dataset.get_row_count()
+        if (
+            self.config.profile_table_row_count_estimate_only
+            and self.dataset.engine.dialect.name.lower() == "postgresql"
+        ):
+            schema_name = self.dataset_name.split(".")[1]
+            table_name = self.dataset_name.split(".")[2]
+            logger.debug(
+                f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+            )
+            dataset_profile.rowCount = int(
+                self.dataset.engine.execute(
+                    sa.text(
+                        f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
+                    )
+                ).scalar()
+            )
+        else:
+            dataset_profile.rowCount = self.dataset.get_row_count()
 
     @_run_with_query_combiner
     def _get_dataset_column_min(

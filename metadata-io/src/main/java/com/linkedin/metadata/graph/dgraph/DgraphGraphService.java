@@ -6,9 +6,9 @@ import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+
 
 @Slf4j
 public class DgraphGraphService implements GraphService {
@@ -374,15 +375,20 @@ public class DgraphGraphService implements GraphService {
                         + "  %s\n"
                         + "\n"
                         + "  result (func: uid(%s), first: %d, offset: %d) %s {\n"
-                        + "    <urn>\n"
-                        + "    %s\n"
-                        + "  }\n"
-                        + "}",
-                filterExpressions,
-                destinationNodeFilter,
-                count, offset,
-                filterConditions,
-                relationships);
+                + "    <urn>\n"
+                + "    %s\n"
+                + "  }\n"
+                + "}",
+            filterExpressions,
+            destinationNodeFilter,
+            count, offset,
+            filterConditions,
+            relationships);
+    }
+
+    @Override
+    public void upsertEdge(final Edge edge) {
+        throw new UnsupportedOperationException("Upsert edge not supported by Neo4JGraphService at this time.");
     }
 
     @Override
@@ -393,7 +399,7 @@ public class DgraphGraphService implements GraphService {
     @Nonnull
     @Override
     public RelatedEntitiesResult findRelatedEntities(@Nullable List<String> sourceTypes,
-                                                     @Nonnull Filter sourceEntityFilter,
+        @Nonnull Filter sourceEntityFilter,
                                                      @Nullable List<String> destinationTypes,
                                                      @Nonnull Filter destinationEntityFilter,
                                                      @Nonnull List<String> relationshipTypes,

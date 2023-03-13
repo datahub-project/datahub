@@ -45,7 +45,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Standard Object\"]}",
+        "value": "{\"typeNames\": [\"Object\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

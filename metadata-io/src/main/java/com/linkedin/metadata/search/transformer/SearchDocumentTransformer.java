@@ -16,6 +16,8 @@ import com.linkedin.metadata.models.extractor.FieldExtractor;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,7 +38,10 @@ public class SearchDocumentTransformer {
   public Optional<String> transformSnapshot(final RecordTemplate snapshot, final EntitySpec entitySpec,
       final Boolean forDelete) {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
-        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchableFieldSpecs);
+        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchableFieldSpecs).entrySet()
+                // Delete expects urn to be preserved
+                .stream().filter(entry -> !forDelete || !"urn".equals(entry.getKey().getSearchableAnnotation().getFieldName()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
         FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchScoreFieldSpecs);
     if (extractedSearchableFields.isEmpty() && extractedSearchScoreFields.isEmpty()) {

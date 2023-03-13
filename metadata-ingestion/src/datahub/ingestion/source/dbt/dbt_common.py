@@ -19,6 +19,7 @@ from datahub.configuration.common import (
     LineageConfig,
 )
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -37,8 +38,10 @@ from datahub.ingestion.source.sql.sql_types import (
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
+    VERTICA_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
+    resolve_vertica_modified_type,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -104,6 +107,10 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -190,7 +197,9 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.test_results == EmitDirective.YES
 
 
-class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
+class DBTCommonConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, LineageConfig
+):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -255,13 +264,6 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
-    )
-    backcompat_skip_source_on_lineage_edge: bool = Field(
-        False,
-        description="[deprecated] Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
-    )
-    _deprecate_skip_source_on_lineage_edge = pydantic_field_deprecated(
-        "backcompat_skip_source_on_lineage_edge"
     )
 
     incremental_lineage: bool = Field(
@@ -434,7 +436,6 @@ def get_upstreams(
     target_platform_instance: Optional[str],
     environment: str,
     platform_instance: Optional[str],
-    legacy_skip_source_lineage: Optional[bool],
 ) -> List[str]:
     upstream_urns = []
 
@@ -453,10 +454,7 @@ def get_upstreams(
 
         materialized = upstream_manifest_node.materialization
 
-        resource_type = upstream_manifest_node.node_type
-        if materialized in {"view", "table", "incremental", "snapshot"} or (
-            resource_type == "source" and legacy_skip_source_lineage
-        ):
+        if materialized in {"view", "table", "incremental", "snapshot"}:
             # upstream urns point to the target platform
             platform_value = target_platform
             platform_instance_value = target_platform_instance
@@ -502,6 +500,7 @@ _field_type_mapping = {
     **BIGQUERY_TYPES_MAP,
     **SPARK_SQL_TYPES_MAP,
     **TRINO_SQL_TYPES_MAP,
+    **VERTICA_SQL_TYPES_MAP,
 }
 
 
@@ -520,6 +519,8 @@ def get_column_type(
         elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
             # Redshift uses a variant of Postgres, so we can use the same logic.
             TypeClass = resolve_postgres_modified_type(column_type)
+        elif dbt_adapter == "vertica":
+            TypeClass = resolve_vertica_modified_type(column_type)
 
     # if still not found, report the warning
     if TypeClass is None:
@@ -710,10 +711,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     }
                 )
             )
-            self.stale_entity_removal_handler.add_entity_to_state(
-                type="assertion",
-                urn=assertion_urn,
-            )
 
             if self.config.entities_enabled.can_emit_node_type("test"):
                 wu = MetadataChangeProposalWrapper(
@@ -732,7 +729,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
                 platform_instance=None,
-                legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
             for upstream_urn in sorted(upstream_urns):
@@ -878,8 +874,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # return dbt nodes + global custom properties
         raise NotImplementedError()
 
-    # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
             raise ConfigurationError(
                 "With PATCH semantics, dbt source requires a datahub_api to connect to. "
@@ -924,8 +925,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = []
         for node in all_nodes:
@@ -967,6 +966,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
 
+            is_primary_source = mce_platform == DBT_PLATFORM
             node_datahub_urn = node.get_urn(
                 mce_platform,
                 self.config.env,
@@ -977,16 +977,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
                 continue
-            self.stale_entity_removal_handler.add_entity_to_state(
-                "dataset", node_datahub_urn
-            )
+            if not is_primary_source:
+                # We previously, erroneously added non-dbt nodes to the state object.
+                # This call ensures that we don't try to soft-delete them after an
+                # upgrade of acryl-datahub.
+                self.stale_entity_removal_handler.add_urn_to_skip(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
                 meta_aspects = action_processor.process(node.meta)
 
             if self.config.enable_query_tag_mapping and node.query_tag:
-                self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
+                self.extract_query_tag_aspects(
+                    action_processor_tag, meta_aspects, node
+                )  # mutates meta_aspects
 
             if mce_platform == DBT_PLATFORM:
                 aspects = self._generate_base_aspects(
@@ -1038,6 +1042,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             MetadataWorkUnit(
                                 id=f"upstreamLineage-for-{node_datahub_urn}",
                                 mcp_raw=mcp,
+                                is_primary_source=is_primary_source,
                             )
                             for mcp in patch_builder.build()
                         ]
@@ -1053,7 +1058,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             if self.config.write_semantics == "PATCH":
                 mce = self.get_patched_mce(mce)
-            wu = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+            wu = MetadataWorkUnit(
+                id=dataset_snapshot.urn, mce=mce, is_primary_source=is_primary_source
+            )
             self.report.report_workunit(wu)
             yield wu
 
@@ -1356,7 +1363,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.target_platform_instance,
             self.config.env,
             self.config.platform_instance,
-            self.config.backcompat_skip_source_on_lineage_edge,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view

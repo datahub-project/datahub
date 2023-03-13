@@ -25,6 +25,8 @@ source:
     dataset_type_mapping:
         PostgreSql: postgres
         Oracle: oracle
+        Sql: mssql
+        GoogleBigQuery: bigquery
 
 sink:
   # sink configs

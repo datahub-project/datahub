@@ -36,7 +36,6 @@ public class TrackingService {
   private static final String APP_VERSION_FIELD = "appVersion";
   private static final String EVENT_TYPE_FIELD = "type";
   private static final String FAILED_EVENT_NANE = "FailedEvent";
-  private static final String SIGN_UP_TITLE_FIELD = "title";
   private static final String ENTITY_TYPE_FIELD = "entityType";
   private static final String ENTITY_TYPE_FILTER_FIELD = "entityTypeFilter";
   private static final String PAGE_NUMBER_FIELD = "pageNumber";
@@ -58,7 +57,7 @@ public class TrackingService {
   private static final String VIEW_TYPE_FIELD = "viewType";
 
   private static final Set<String> ALLOWED_EVENT_FIELDS = new HashSet<>(
-      ImmutableList.of(EVENT_TYPE_FIELD, SIGN_UP_TITLE_FIELD, ENTITY_TYPE_FIELD, ENTITY_TYPE_FILTER_FIELD,
+      ImmutableList.of(EVENT_TYPE_FIELD, ENTITY_TYPE_FIELD, ENTITY_TYPE_FILTER_FIELD,
           PAGE_NUMBER_FIELD, PAGE_FIELD, TOTAL_FIELD, INDEX_FIELD, RESULT_TYPE_FIELD, RENDER_ID_FIELD, MODULE_ID_FIELD,
           RENDER_TYPE_FIELD, SCENARIO_TYPE_FIELD, SECTION_FIELD, ACCESS_TOKEN_TYPE_FIELD, DURATION_FIELD,
           ROLE_URN_FIELD, POLICY_URN_FIELD, SOURCE_TYPE_FIELD, INTERVAL_FIELD, VIEW_TYPE_FIELD));

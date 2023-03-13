@@ -15,7 +15,7 @@ from requests.models import Response
 from requests.sessions import Session
 
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
-from datahub.emitter.request_helper import _make_curl_command
+from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -385,7 +385,7 @@ def get_urns_by_filter(
     ):
         filter_criteria.append(
             {
-                "field": "platform",
+                "field": "platform.keyword",
                 "value": f"urn:li:dataPlatform:{platform}",
                 "condition": "EQUAL",
             }
@@ -610,7 +610,7 @@ def post_entity(
     }
     payload = json.dumps(proposal)
     url = gms_host + endpoint
-    curl_command = _make_curl_command(session, "POST", url, payload)
+    curl_command = make_curl_command(session, "POST", url, payload)
     log.debug(
         "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
         curl_command,

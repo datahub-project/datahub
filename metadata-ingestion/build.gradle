@@ -1,5 +1,5 @@
 plugins {
-    id 'base'
+  id 'base'
 }
 
 ext {
@@ -18,7 +18,7 @@ task checkPythonVersion(type: Exec) {
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools>=63.0.0"
 }
 
 task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
@@ -90,7 +90,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 
-task testQuick(type: Exec, dependsOn: installDev) {
+task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
@@ -167,3 +167,10 @@ clean {
   delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache
+
+idea {
+  module {
+    sourceDirs += file('src')
+    testSourceDirs += file('tests')
+  }
+}

@@ -42,6 +42,7 @@ workbook_graphql_query = """
       luid
       uri
       projectName
+      projectLuid
       owner {
         username
       }
@@ -70,6 +71,7 @@ sheet_graphql_query = """
     name
     path
     luid
+    documentViewId
     createdAt
     updatedAt
     tags {
@@ -83,6 +85,7 @@ sheet_graphql_query = """
         id
         name
         projectName
+        projectLuid
         owner {
           username
         }
@@ -160,6 +163,7 @@ dashboard_graphql_query = """
         id
         name
         projectName
+        projectLuid
         owner {
           username
         }
@@ -243,6 +247,7 @@ embedded_datasource_graphql_query = """
         id
         name
         projectName
+        projectLuid
         owner {
           username
         }
@@ -278,12 +283,14 @@ custom_sql_graphql_query = """
             }
             ... on PublishedDatasource {
               projectName
+              luid
             }
             ... on EmbeddedDatasource {
               workbook {
                 id
                 name
                 projectName
+                projectLuid
               }
             }
           }
@@ -313,6 +320,7 @@ published_datasource_graphql_query = """
     __typename
     id
     name
+    luid
     hasExtracts
     extractLastRefreshTime
     extractLastIncrementalUpdateTime
@@ -616,7 +624,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
     return unique_custom_sql
 
 
-def clean_query(query):
+def clean_query(query: str) -> str:
     """
     Clean special chars in query
     """

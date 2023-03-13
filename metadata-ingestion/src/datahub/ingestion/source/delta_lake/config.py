@@ -8,8 +8,8 @@ from pydantic import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     ConfigModel,
-    EnvBasedSourceConfigBase,
-    PlatformSourceConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
@@ -35,7 +35,7 @@ class S3(ConfigModel):
     )
 
 
-class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."

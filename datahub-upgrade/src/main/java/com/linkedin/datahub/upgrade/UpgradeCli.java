@@ -1,6 +1,9 @@
 package com.linkedin.datahub.upgrade;
 
+import com.linkedin.datahub.upgrade.system.SystemUpdate;
+import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
+import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
@@ -49,6 +52,18 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("removeUnknownAspects")
   private RemoveUnknownAspects removeUnknownAspects;
 
+  @Inject
+  @Named("buildIndices")
+  private BuildIndices buildIndices;
+
+  @Inject
+  @Named("cleanIndices")
+  private CleanIndices cleanIndices;
+
+  @Inject
+  @Named("systemUpdate")
+  private SystemUpdate systemUpdate;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(noCodeUpgrade);
@@ -56,10 +71,13 @@ public class UpgradeCli implements CommandLineRunner {
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
     _upgradeManager.register(removeUnknownAspects);
+    _upgradeManager.register(buildIndices);
+    _upgradeManager.register(cleanIndices);
+    _upgradeManager.register(systemUpdate);
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
-    UpgradeResult result = _upgradeManager.execute(args.upgradeId, args.args);
+    UpgradeResult result = _upgradeManager.execute(args.upgradeId.trim(), args.args);
 
     if (UpgradeResult.Result.FAILED.equals(result.result())) {
       System.exit(1);
