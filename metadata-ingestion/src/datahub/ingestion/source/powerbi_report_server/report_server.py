@@ -14,7 +14,7 @@ from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -58,7 +58,7 @@ from datahub.utilities.dedup_list import deduplicate_list
 LOGGER = logging.getLogger(__name__)
 
 
-class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
+class PowerBiReportServerAPIConfig(EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(

@@ -1,9 +1,10 @@
 import json
 import logging
+from dataclasses import dataclass
+from enum import Enum
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type
 
-import pydantic
 from avro.schema import RecordSchema
 from deprecated import deprecated
 from requests.adapters import Response
@@ -48,15 +49,13 @@ class DatahubClientConfig(ConfigModel):
     disable_ssl_verification: bool = False
 
 
-class DataHubGraphConfig(DatahubClientConfig):
-    class Config:
-        extra = (
-            pydantic.Extra.allow
-        )  # lossy to allow interop with DataHubRestSinkConfig
+# Alias for backwards compatibility.
+# DEPRECATION: Remove in v0.10.2.
+DataHubGraphConfig = DatahubClientConfig
 
 
 class DataHubGraph(DatahubRestEmitter):
-    def __init__(self, config: Union[DatahubClientConfig, DataHubGraphConfig]) -> None:
+    def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(
             gms_server=self.config.server,
@@ -82,9 +81,9 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
 
-    def _get_generic(self, url: str) -> Dict:
+    def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
         try:
-            response = self._session.get(url)
+            response = self._session.get(url, params=params)
             response.raise_for_status()
             return response.json()
         except HTTPError as e:
@@ -358,6 +357,9 @@ class DataHubGraph(DatahubRestEmitter):
     def _get_search_endpoint(self):
         return f"{self.config.server}/entities?action=search"
 
+    def _get_relationships_endpoint(self):
+        return f"{self.config.server}/openapi/relationships/v1/"
+
     def _get_aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
 
@@ -453,7 +455,45 @@ class DataHubGraph(DatahubRestEmitter):
         results = self._post_generic(self._get_aspect_count_endpoint(), args)
         return results["value"]
 
+    class RelationshipDirection(str, Enum):
+        INCOMING = "INCOMING"
+        OUTGOING = "OUTGOING"
+
+    @dataclass
+    class RelatedEntity:
+        urn: str
+        relationship_type: str
+
+    def get_related_entities(
+        self,
+        entity_urn: str,
+        relationship_types: List[str],
+        direction: RelationshipDirection,
+    ) -> Iterable[RelatedEntity]:
+        relationship_endpoint = self._get_relationships_endpoint()
+        done = False
+        start = 0
+        while not done:
+            response = self._get_generic(
+                url=relationship_endpoint,
+                params={
+                    "urn": entity_urn,
+                    "direction": direction,
+                    "relationshipTypes": relationship_types,
+                    "start": start,
+                },
+            )
+            for related_entity in response.get("entities", []):
+                yield DataHubGraph.RelatedEntity(
+                    urn=related_entity["urn"],
+                    relationship_type=related_entity["relationshipType"],
+                )
+            done = response.get("count", 0) == 0 or response.get("count", 0) < len(
+                response.get("entities", [])
+            )
+            start = start + response.get("count", 0)
+
 
 def get_default_graph() -> DataHubGraph:
     (url, token) = get_url_and_token()
-    return DataHubGraph(DataHubGraphConfig(server=url, token=token))
+    return DataHubGraph(DatahubClientConfig(server=url, token=token))

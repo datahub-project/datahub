@@ -5,7 +5,7 @@ import { ANTD_GRAY } from '../../../constants';
 
 const Statement = styled.div<{ fullHeight?: boolean }>`
     background-color: ${ANTD_GRAY[2]};
-    height: ${(props) => (props.fullHeight && '380px') || '240px'};
+    height: ${(props) => (props.fullHeight && '378px') || '240px'};
     margin: 0px 0px 4px 0px;
     border-radius: 8px;
     :hover {

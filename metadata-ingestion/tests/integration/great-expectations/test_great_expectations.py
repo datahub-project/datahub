@@ -2,9 +2,11 @@ import shutil
 from typing import List
 from unittest import mock
 
-import great_expectations as ge
 import pytest
 from freezegun import freeze_time
+from great_expectations.data_context.data_context.file_data_context import (
+    FileDataContext,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
@@ -59,7 +61,7 @@ def test_ge_ingest(
             test_resources_dir / "setup/great_expectations",
             tmp_path / "great_expectations",
         )
-        context = ge.DataContext.create(tmp_path)
+        context = FileDataContext.create(tmp_path)
         context.run_checkpoint(checkpoint_name=checkpoint)
 
         emitter.write_to_file(tmp_path / "ge_mcps.json")

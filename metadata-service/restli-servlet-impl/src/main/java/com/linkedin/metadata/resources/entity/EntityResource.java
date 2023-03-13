@@ -331,12 +331,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             () -> {
               final SearchResult result;
               // This API is not used by the frontend for search bars so we default to structured
-              final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(false);
-              if (Boolean.TRUE.equals(finalFlags.isFulltext()) || Boolean.TRUE.equals(fulltext)) {
-                result = _entitySearchService.fullTextSearch(entityName, input, filter, sortCriterion, start, count);
-              } else {
-                result = _entitySearchService.structuredSearch(entityName, input, filter, sortCriterion, start, count);
-              }
+              result = _entitySearchService.search(entityName, input, filter, sortCriterion, start, count, searchFlags);
               return validateSearchResult(result, _entityService);
             },
             MetricRegistry.name(this.getClass(), "search"));
@@ -357,7 +352,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
-    final SearchFlags finalFlags = searchFlags != null ? searchFlags :  new SearchFlags().setFulltext(true);
+    final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
     return RestliUtil.toTask(() -> validateSearchResult(
         _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, finalFlags),
         _entityService), "searchAcrossEntities");
@@ -403,10 +398,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
         urnStr, direction, entityList, input);
-    final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
     return RestliUtil.toTask(() -> validateLineageSearchResult(
         _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
-            filter, sortCriterion, start, count, startTimeMillis, endTimeMillis, finalFlags), _entityService),
+            filter, sortCriterion, start, count, startTimeMillis, endTimeMillis, searchFlags), _entityService),
         "searchAcrossRelationships");
   }
 

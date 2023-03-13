@@ -17,11 +17,12 @@ from tests.utils import (
     wait_for_healthcheck_util,
     get_frontend_session,
     get_admin_credentials,
+    get_root_urn,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = (
-    "../metadata-ingestion/tests/integration/bigquery-usage/bigquery_usages_golden.json"
+    "./test_resources/bigquery_usages_golden.json"
 )
 bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
@@ -120,10 +121,7 @@ def _ensure_dataset_present(
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_group_not_present(
-    urn: str,
-    frontend_session
-) -> Any:
+def _ensure_group_not_present(urn: str, frontend_session) -> Any:
     json = {
         "query": """query corpGroup($urn: String!) {\n
             corpGroup(urn: $urn) {\n
@@ -148,7 +146,7 @@ def _ensure_group_not_present(
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
     ingest_file_via_rest(bootstrap_sample_data)
-    _ensure_user_present(urn="urn:li:corpuser:datahub")
+    _ensure_user_present(urn=get_root_urn())
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -481,7 +479,7 @@ def test_frontend_search_across_entities(frontend_session, query, min_expected_r
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_user_info(frontend_session):
 
-    urn = "urn:li:corpuser:datahub"
+    urn = get_root_urn()
     json = {
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
@@ -570,7 +568,7 @@ def test_ingest_with_system_metadata():
             "entity": {
                 "value": {
                     "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
-                        "urn": "urn:li:corpuser:datahub",
+                        "urn": get_root_urn(),
                         "aspects": [
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
@@ -603,7 +601,7 @@ def test_ingest_with_blank_system_metadata():
             "entity": {
                 "value": {
                     "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
-                        "urn": "urn:li:corpuser:datahub",
+                        "urn": get_root_urn(),
                         "aspects": [
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
@@ -633,7 +631,7 @@ def test_ingest_without_system_metadata():
             "entity": {
                 "value": {
                     "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
-                        "urn": "urn:li:corpuser:datahub",
+                        "urn": get_root_urn(),
                         "aspects": [
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
@@ -731,7 +729,7 @@ def test_frontend_me_query(frontend_session):
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
+    assert res_data["data"]["me"]["corpUser"]["urn"] == get_root_urn()
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["manageUserCredentials"] is True
@@ -1140,7 +1138,7 @@ def test_home_page_recommendations(frontend_session):
             listRecommendations(input: $input) { modules { title } } }""",
         "variables": {
             "input": {
-                "userUrn": "urn:li:corpuser:datahub",
+                "userUrn": get_root_urn(),
                 "requestContext": {"scenario": "HOME"},
                 "limit": 5,
             }
@@ -1171,7 +1169,7 @@ def test_search_results_recommendations(frontend_session):
             listRecommendations(input: $input) { modules { title }  } }""",
         "variables": {
             "input": {
-                "userUrn": "urn:li:corpuser:datahub",
+                "userUrn": get_root_urn(),
                 "requestContext": {
                     "scenario": "SEARCH_RESULTS",
                     "searchRequestContext": {"query": "asdsdsdds", "filters": []},
@@ -1202,7 +1200,7 @@ def test_generate_personal_access_token(frontend_session):
         "variables": {
             "input": {
                 "type": "PERSONAL",
-                "actorUrn": "urn:li:corpuser:datahub",
+                "actorUrn": get_root_urn(),
                 "duration": "ONE_MONTH",
             }
         },

@@ -1,6 +1,14 @@
+import { getTimestampMillisNumDaysAgo } from "../../support/commands";
+
 const JAN_1_2021_TIMESTAMP = 1609553357755;
 const JAN_1_2022_TIMESTAMP = 1641089357755;
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)';
+const TIMESTAMP_MILLIS_14_DAYS_AGO = getTimestampMillisNumDaysAgo(14);
+const TIMESTAMP_MILLIS_7_DAYS_AGO = getTimestampMillisNumDaysAgo(7);
+const TIMESTAMP_MILLIS_NOW = getTimestampMillisNumDaysAgo(0);
+const GNP_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.gnp,PROD)";
+const TRANSACTION_ETL_URN = "urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)";
+const MONTHLY_TEMPERATURE_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)";
 
 
 const startAtDataSetLineage = () => {
@@ -87,5 +95,65 @@ describe("impact analysis", () => {
     cy.contains("Downstream column: shipment_info").should("not.exist");
     cy.contains("some-cypress-feature-1").should("not.exist");
     cy.contains("Baz Chart 1").should("not.exist");
+  });
+
+  it("can see when the inputs to a data job change", () => {
+    cy.login();
+    // Between 14 days ago and 7 days ago, only transactions was an input
+    cy.visit(
+      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`
+    );
+    // Downstream
+    cy.contains("aggregated");
+    // Upstream
+    cy.lineageTabClickOnUpstream();
+    cy.contains("transactions");
+    cy.contains("user_profile").should("not.exist");
+    // 1 day ago, factor_income was removed from the join
+    cy.visit(
+      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+    );
+    // Downstream
+    cy.contains("aggregated");
+    // Upstream
+    cy.lineageTabClickOnUpstream();
+    cy.contains("transactions");
+    cy.contains("user_profile");
+  });
+
+  it("can see when a data job is replaced", () => {
+    cy.login();
+    // Between 14 days ago and 7 days ago, only temperature_etl_1 was an iput
+    cy.visit(
+      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`
+    );
+    cy.lineageTabClickOnUpstream();
+    cy.contains("temperature_etl_1");
+    cy.contains("temperature_etl_2").should("not.exist");
+    // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
+    cy.visit(
+      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+    );
+    cy.lineageTabClickOnUpstream();
+    cy.contains("temperature_etl_1").should("not.exist");
+    cy.contains("temperature_etl_2");
+  });
+
+  it("can see when a dataset join changes", () => {
+    cy.login();
+    // 8 days ago, both gdp and factor_income were joined to create gnp
+    cy.visit(
+      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+    );
+    cy.lineageTabClickOnUpstream();
+    cy.contains("gdp");
+    cy.contains("factor_income");
+    // 1 day ago, factor_income was removed from the join
+    cy.visit(
+      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+    );
+    cy.lineageTabClickOnUpstream();
+    cy.contains("gdp");
+    cy.contains("factor_income").should("not.exist");
   });
 });

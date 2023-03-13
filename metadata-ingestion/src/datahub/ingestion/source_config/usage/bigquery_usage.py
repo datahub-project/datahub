@@ -9,7 +9,8 @@ import pydantic
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 
@@ -58,7 +59,7 @@ class BigQueryCredential(ConfigModel):
             return fp.name
 
 
-class BigQueryUsageConfig(BigQueryBaseConfig, DatasetSourceConfigBase, BaseUsageConfig):
+class BigQueryUsageConfig(BigQueryBaseConfig, EnvConfigMixin, BaseUsageConfig):
     projects: Optional[List[str]] = pydantic.Field(
         default=None,
         description="List of project ids to ingest usage from. If not specified, will infer from environment.",
@@ -139,15 +140,10 @@ class BigQueryUsageConfig(BigQueryBaseConfig, DatasetSourceConfigBase, BaseUsage
         values["projects"] = [v]
         return None
 
-    @pydantic.validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"
-
-    @pydantic.validator("platform_instance")
-    def bigquery_platform_instance_is_meaningless(cls, v):
-        raise ConfigurationError(
-            "BigQuery project-ids are globally unique. You don't need to provide a platform_instance"
-        )
+    # BigQuery project-ids are globally unique.
+    platform_instance_not_supported_for_bigquery = pydantic_removed_field(
+        "platform_instance"
+    )
 
     @pydantic.validator("use_exported_bigquery_audit_metadata")
     def use_exported_bigquery_audit_metadata_uses_v2(cls, v, values):

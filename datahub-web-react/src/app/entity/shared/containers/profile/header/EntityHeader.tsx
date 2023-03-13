@@ -72,20 +72,13 @@ export function getCanEditName(
 }
 
 type Props = {
-    refreshBrowser?: () => void;
     headerDropdownItems?: Set<EntityMenuItems>;
     headerActionItems?: Set<EntityActionItem>;
     isNameEditable?: boolean;
     subHeader?: EntitySubHeaderSection;
 };
 
-export const EntityHeader = ({
-    refreshBrowser,
-    headerDropdownItems,
-    headerActionItems,
-    isNameEditable,
-    subHeader,
-}: Props) => {
+export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEditable, subHeader }: Props) => {
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const me = useGetAuthenticatedUser();
@@ -147,7 +140,6 @@ export const EntityHeader = ({
                                 entityData={entityData}
                                 menuItems={headerDropdownItems}
                                 refetchForEntity={refetch}
-                                refreshBrowser={refreshBrowser}
                             />
                         )}
                     </TopButtonsWrapper>

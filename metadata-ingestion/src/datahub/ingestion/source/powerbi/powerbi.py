@@ -23,6 +23,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PlatformDetail,
@@ -149,9 +150,12 @@ class Mapper:
     ) -> List[MetadataChangeProposalWrapper]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
+        # table.dataset should always be set, but we check it just in case.
+        parameters = table.dataset.parameters if table.dataset else None
+
         upstreams: List[UpstreamClass] = []
         upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-            table, self.__reporter
+            table, self.__reporter, parameters=parameters
         )
 
         for upstream_table in upstream_tables:
@@ -194,15 +198,18 @@ class Mapper:
             )
             upstreams.append(upstream_table_class)
 
-            if len(upstreams) > 0:
-                upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=Constant.DATASET,
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=ds_urn,
-                    aspect=upstream_lineage,
-                )
-                mcps.append(mcp)
+        if len(upstreams) > 0:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+            logger.debug(
+                f"DataSet Lineage = {ds_urn} and its lineage = {upstream_lineage}"
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityType=Constant.DATASET,
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=ds_urn,
+                aspect=upstream_lineage,
+            )
+            mcps.append(mcp)
 
         return mcps
 
@@ -525,7 +532,7 @@ class Mapper:
         container_work_units = gen_containers(
             container_key=workspace_key,
             name=workspace.name,
-            sub_types=["Workspace"],
+            sub_types=[BIContainerSubTypes.POWERBI_WORKSPACE],
         )
         return container_work_units
 
