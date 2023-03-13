@@ -274,15 +274,6 @@ function markdown_add_slug(
   contents.data.slug = slug;
 }
 
-// function copy_platform_logos(): void {
-//   execSync("mkdir -p " + OUTPUT_DIRECTORY + "/imgs/platform-logos");
-//   execSync(
-//     "cp -r ../datahub-web-react/src/images " +
-//       OUTPUT_DIRECTORY +
-//       "/imgs/platform-logos"
-//   );
-// }
-
 function new_url(original: string, filepath: string): string {
   if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
     // For absolute links to the hosted docs site, we transform them into local ones.
@@ -546,7 +537,6 @@ function write_markdown_file(
     markdown_add_edit_url(contents, filepath);
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
-    //copy_platform_logos();
     // console.log(contents);
 
     const out_path = `${OUTPUT_DIRECTORY}/${filepath}`;
