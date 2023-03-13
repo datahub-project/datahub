@@ -4,21 +4,31 @@ import { useEntityData } from '../../../EntityContext';
 import { useGetDatasetSchemaQuery } from '../../../../../../graphql/dataset.generated';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 
+// Whether to dynamically load the schema from the backend.
+const shouldLoadSchema = (entityType, entityData) => {
+    return entityType === EntityType.Dataset && !entityData?.schemaMetadata;
+};
+
 export const useGetEntityWithSchema = () => {
     const { urn, entityData, entityType } = useEntityData();
     // Load the dataset schema lazily.
-    const { data: rawData, loading } = useGetDatasetSchemaQuery({
+    const {
+        data: rawData,
+        loading,
+        refetch,
+    } = useGetDatasetSchemaQuery({
         variables: {
             urn,
         },
-        skip: entityType !== EntityType.Dataset,
+        skip: !shouldLoadSchema(entityType, entityData),
         fetchPolicy: 'cache-first',
     });
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     // Merge with sibling information as required.
     const combinedData = rawData && !isHideSiblingMode ? combineEntityDataWithSiblings(cloneDeep(rawData)) : rawData;
     return {
-        entityWithSchema: entityType === EntityType.Dataset ? combinedData?.dataset : entityData,
         loading,
+        entityWithSchema: shouldLoadSchema(entityType, entityData) ? combinedData?.dataset : entityData,
+        refetch,
     };
 };
