@@ -10,6 +10,8 @@ type Props = {
     shouldRefetch?: boolean;
     startTimeMillis?: number;
     endTimeMillis?: number;
+    skipCache?: boolean;
+    setSkipCache?: (skipCache: boolean) => void;
     resetShouldRefetch?: () => void;
 };
 
@@ -19,6 +21,8 @@ export const ImpactAnalysis = ({
     startTimeMillis,
     endTimeMillis,
     shouldRefetch,
+    skipCache,
+    setSkipCache,
     resetShouldRefetch,
 }: Props) => {
     const finalStartTimeMillis = (startTimeMillis === undefined && getDefaultLineageStartTime()) || startTimeMillis;
@@ -30,6 +34,8 @@ export const ImpactAnalysis = ({
                 direction,
                 startTimeMillis: finalStartTimeMillis,
                 endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
             })}
             defaultShowFilters
             defaultFilters={[{ field: 'degree', values: ['1'] }]}

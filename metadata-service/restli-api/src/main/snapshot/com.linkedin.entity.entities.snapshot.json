@@ -2358,7 +2358,10 @@
                     "type" : "string",
                     "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL"
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : true
                     }
                   } ],
                   "Aspect" : {
@@ -2376,6 +2379,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -2523,6 +2527,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -2585,6 +2590,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -5486,6 +5492,33 @@
     } ]
   }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataHubPolicyKey", "com.linkedin.metadata.key.DataHubRetentionKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.SchemaFieldKey", "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
+    "name" : "AnyResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "A common model for the result of any query. \nExpected to be included into other top level query results.",
+    "fields" : [ {
+      "name" : "freshness",
+      "type" : {
+        "type" : "record",
+        "name" : "FreshnessStats",
+        "doc" : "Stats that describe the freshness of a dataset or query result.\nUseful to describe consistency and staleness of results when served\nout of a cache or other eventually consistent system.",
+        "fields" : [ {
+          "name" : "cached",
+          "type" : "boolean",
+          "optional" : true
+        }, {
+          "name" : "systemFreshness",
+          "type" : {
+            "type" : "map",
+            "values" : "long"
+          },
+          "optional" : true
+        } ]
+      },
+      "doc" : "Freshness Stats to help a caller understand the freshness of the results\nUseful when the results are being retrieved from a cache, index or other eventually consistent storage",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
     "name" : "AutoCompleteEntity",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "Data model for an entity returned as an autocomplete suggestion",
@@ -5518,7 +5551,7 @@
       },
       "doc" : "Specific entities to recommend"
     } ]
-  }, {
+  }, "com.linkedin.metadata.query.FreshnessStats", {
     "type" : "record",
     "name" : "ListResult",
     "namespace" : "com.linkedin.metadata.query",
@@ -5587,6 +5620,18 @@
       "name" : "fulltext",
       "type" : "boolean",
       "doc" : "Structured or unstructured fulltext query",
+      "optional" : true
+    }, {
+      "name" : "skipHighlighting",
+      "type" : "boolean",
+      "doc" : "Whether to skip highlighting",
+      "default" : false,
+      "optional" : true
+    }, {
+      "name" : "skipAggregates",
+      "type" : "boolean",
+      "doc" : "Whether to skip aggregates/facets",
+      "default" : false,
       "optional" : true
     } ]
   }, {
@@ -5980,6 +6025,7 @@
     "name" : "LineageSearchResult",
     "namespace" : "com.linkedin.metadata.search",
     "doc" : "The model for the result of a lineage search query",
+    "include" : [ "com.linkedin.metadata.query.AnyResult" ],
     "fields" : [ {
       "name" : "entities",
       "type" : {
