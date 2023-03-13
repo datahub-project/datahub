@@ -80,11 +80,11 @@ public class AspectUtils {
 
     // Set fields determined from original
     // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an UPSERT
+    proposal.setChangeType(original.getChangeType());
     if (ChangeType.PATCH.equals(proposal.getChangeType())) {
       proposal.setChangeType(ChangeType.UPSERT);
-    } else {
-      proposal.setChangeType(original.getChangeType());
     }
+    
     if (original.getSystemMetadata() != null) {
       proposal.setSystemMetadata(original.getSystemMetadata());
     }
