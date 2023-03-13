@@ -27,6 +27,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -197,7 +198,7 @@ public class ESGraphQueryDAO {
     // Do a Level-order BFS
     Set<Urn> visitedEntities = ConcurrentHashMap.newKeySet();
     visitedEntities.add(entityUrn);
-    UrnArrayArray existingPaths = new UrnArrayArray();
+    Map<Urn, UrnArrayArray> existingPaths = new HashMap<>();
     List<Urn> currentLevel = ImmutableList.of(entityUrn);
 
     for (int i = 0; i < maxHops; i++) {
@@ -244,7 +245,7 @@ public class ESGraphQueryDAO {
   @WithSpan
   public List<LineageRelationship> getLineageRelationshipsInBatches(@Nonnull List<Urn> entityUrns,
       @Nonnull LineageDirection direction, GraphFilters graphFilters, Set<Urn> visitedEntities, int numHops,
-      long remainingTime, UrnArrayArray existingPaths, @Nullable Long startTimeMillis,
+      long remainingTime, Map<Urn, UrnArrayArray> existingPaths, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     List<List<Urn>> batches = Lists.partition(entityUrns, BATCH_SIZE);
     return ConcurrencyUtils.getAllCompleted(batches.stream()
@@ -268,7 +269,7 @@ public class ESGraphQueryDAO {
   @WithSpan
   private List<LineageRelationship> getLineageRelationships(@Nonnull List<Urn> entityUrns,
       @Nonnull LineageDirection direction, GraphFilters graphFilters, Set<Urn> visitedEntities, int numHops,
-      UrnArrayArray existingPaths, @Nullable Long startTimeMillis,
+      Map<Urn, UrnArrayArray> existingPaths, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     Map<String, List<Urn>> urnsPerEntityType = entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
     Map<String, List<EdgeInfo>> edgesPerEntityType = urnsPerEntityType.keySet()
@@ -294,37 +295,33 @@ public class ESGraphQueryDAO {
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
   }
 
-  private UrnArrayArray getAndUpdatePaths(UrnArrayArray existingPaths, Urn parentUrn, Urn childUrn, RelationshipDirection direction) {
+  private UrnArrayArray getAndUpdatePaths(Map<Urn, UrnArrayArray> existingPaths, Urn parentUrn, Urn childUrn) {
     try {
-      UrnArrayArray currentPaths = existingPaths.stream()
-          .filter(path -> path.get(direction == RelationshipDirection.OUTGOING ? 0 : path.size() - 1).equals(parentUrn))
-          .collect(Collectors.toCollection(UrnArrayArray::new));
-      UrnArrayArray resultPaths = new UrnArrayArray();
-      if (currentPaths.size() > 0) {
-        for (UrnArray path : currentPaths) {
-          UrnArray copyOfPath = path.clone();
-          if (direction == RelationshipDirection.OUTGOING) {
-            copyOfPath.add(0, childUrn);
-          } else {
-            copyOfPath.add(childUrn);
-          }
-          resultPaths.add(copyOfPath);
-          existingPaths.add(copyOfPath);
+      UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
+      // Collect all full-paths to this child node. This is what will be returned.
+      UrnArrayArray pathsToChild = new UrnArrayArray();
+      if (pathsToParent != null && pathsToParent.size() > 0) {
+        // If there are existing paths for this parent, then we attempt
+        // to append the child to each of the existing paths (lengthen it).
+        // We then store this as a separate, unique path for the child.
+        for (UrnArray pathToParent : pathsToParent) {
+          UrnArray pathToChild = pathToParent.clone();
+          pathToChild.add(childUrn);
+          pathsToChild.add(pathToChild);
+          existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
+          existingPaths.get(childUrn).add(pathToChild);
         }
       } else {
-        UrnArray path = new UrnArray();
-        if (direction == RelationshipDirection.OUTGOING) {
-          path.addAll(ImmutableList.of(childUrn, parentUrn));
-        } else {
-          path.addAll(ImmutableList.of(parentUrn, childUrn));
-        }
-        resultPaths.add(path);
-        existingPaths.add(path);
+        // No existing paths to this parent urn. Let's create one!
+        UrnArray pathToChild = new UrnArray();
+        pathToChild.addAll(ImmutableList.of(parentUrn, childUrn));
+        pathsToChild.add(pathToChild);
+        existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
+        existingPaths.get(childUrn).add(pathToChild);
       }
-      return resultPaths;
+      return pathsToChild;
     } catch (CloneNotSupportedException e) {
-      log.error(String.format("Failed to create paths for parentUrn %s and childUrn %s", parentUrn, childUrn), e);
-      throw new RuntimeException(e);
+      throw new RuntimeException(String.format("Failed to create paths for parentUrn %s and childUrn %s", parentUrn, childUrn), e);
     }
   }
 
@@ -332,9 +329,10 @@ public class ESGraphQueryDAO {
   @WithSpan
   private List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
       @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
-      int numHops, UrnArrayArray existingPaths) {
+      int numHops, Map<Urn, UrnArrayArray> existingPaths) {
     final List<LineageRelationship> result = new LinkedList<>();
-    for (SearchHit hit : searchResponse.getHits().getHits()) {
+    final SearchHit[] hits = searchResponse.getHits().getHits();
+    for (SearchHit hit : hits) {
       final Map<String, Object> document = hit.getSourceAsMap();
       final Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
       final Urn destinationUrn =
@@ -364,8 +362,7 @@ public class ESGraphQueryDAO {
             Pair.of(sourceUrn.getEntityType(),
                 new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(destinationUrn);
-          final UrnArrayArray paths =
-              getAndUpdatePaths(existingPaths, sourceUrn, destinationUrn, RelationshipDirection.OUTGOING);
+          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, sourceUrn, destinationUrn);
           final LineageRelationship relationship =
               createLineageRelationship(
                   type,
@@ -388,8 +385,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
             Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(sourceUrn);
-          final UrnArrayArray paths =
-              getAndUpdatePaths(existingPaths, destinationUrn, sourceUrn, RelationshipDirection.INCOMING);
+          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, destinationUrn, sourceUrn);
           final LineageRelationship relationship = createLineageRelationship(
               type,
               sourceUrn,
@@ -403,6 +399,7 @@ public class ESGraphQueryDAO {
           result.add(relationship);
         }
       }
+      count++;
     }
     return result;
   }
