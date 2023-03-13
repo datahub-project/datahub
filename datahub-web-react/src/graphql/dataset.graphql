@@ -40,21 +40,6 @@ query getDataset($urn: String!) {
 
 fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
-    schemaMetadata(version: 0) {
-        ...schemaMetadataFields
-    }
-    editableSchemaMetadata {
-        editableSchemaFieldInfo {
-            fieldPath
-            description
-            globalTags {
-                ...globalTagsFields
-            }
-            glossaryTerms {
-                ...glossaryTerms
-            }
-        }
-    }
     deprecation {
         actor
         deprecated
@@ -288,3 +273,60 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
         }
     }
 }
+<<<<<<< HEAD
+=======
+
+query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentState) {
+    dataset(urn: $urn) {
+        incidents(start: $start, count: $count, state: $state) {
+            ...incidentsFields
+        }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    incidents(start: $start, count: $count, state: $state) {
+                        ...incidentsFields
+                    }
+                }
+            }
+        }
+    }
+}
+
+fragment datasetSchema on Dataset {
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+}
+
+query getDatasetSchema($urn: String!) {
+    dataset(urn: $urn) {
+        ...datasetSchema
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    ...datasetSchema
+                }
+            }
+        }
+    }
+}
+>>>>>>> 0e748ab0ff... Loading schema dynamically for datasets
