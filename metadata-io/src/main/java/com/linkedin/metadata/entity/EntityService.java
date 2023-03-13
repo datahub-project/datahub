@@ -21,6 +21,7 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.validator.Validator;
@@ -1029,7 +1030,8 @@ public class EntityService {
       AuditStamp auditStamp, AspectSpec aspectSpec) {
     log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
-    final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
+    // Uses new data map to prevent side effects on original
+    final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(new DataMap(mcp.data()));
     metadataChangeLog.setEntityUrn(entityUrn);
     metadataChangeLog.setCreated(auditStamp);
     // The change log produced by this method is always an upsert as it contains the entire RecordTemplate update
