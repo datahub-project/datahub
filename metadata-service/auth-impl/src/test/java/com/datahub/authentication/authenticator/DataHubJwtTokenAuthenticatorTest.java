@@ -1,5 +1,12 @@
 package com.datahub.authentication.authenticator;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.plugins.auth.authentication.Authenticator;
+import com.datahub.authentication.AuthenticatorContext;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.HashSet;

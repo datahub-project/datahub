@@ -1,5 +1,10 @@
 package com.datahub.authentication.token;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.plugins.auth.authentication.Authenticator;
+import com.datahub.authentication.AuthenticatorContext;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
 import java.math.BigInteger;
