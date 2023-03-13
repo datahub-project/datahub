@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.testng.Assert;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class ESGraphQueryDAOTest {
