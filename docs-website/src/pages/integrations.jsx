@@ -14,13 +14,9 @@ function DataProviderComponent() {
     siteConfig,
     metadata,
     "DataHub Integrations",
-<<<<<<< HEAD
     "Services that integrate with DataHub",
     false,
     true
-=======
-    "Services that integrate with DataHub"
->>>>>>> c4d1d82a0 (docs(): add sources summary page (#7480))
   );
 }
 

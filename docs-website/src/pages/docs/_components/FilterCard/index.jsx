@@ -5,7 +5,6 @@ import Link from "@docusaurus/Link";
 import styles from "./quicklinkcard.module.scss";
 import { Tag } from "antd";
 
-<<<<<<< HEAD
 const FilterCard = ({
   image,
   title,
@@ -17,9 +16,6 @@ const FilterCard = ({
   useFilters,
   filterState,
 }) => {
-=======
-const FilterCard = ({ image, title, description, to, filters, tags, useTags, useFilters }) => {
->>>>>>> c4d1d82a0 (docs(): add sources summary page (#7480))
   function renderFilters() {
     const keys = Object.keys(filters);
 
@@ -86,7 +82,6 @@ const FilterCard = ({ image, title, description, to, filters, tags, useTags, use
           fontSize: "0.65rem",
         }}
       >
-<<<<<<< HEAD
         {tags
           .filter((tag) => {
             return filterState.includes(tag);
@@ -106,23 +101,6 @@ const FilterCard = ({ image, title, description, to, filters, tags, useTags, use
               {tag.trim()}
             </Tag>
           ))}
-=======
-        {tags.map((tag, i) => (
-          <Tag
-            key={tag + i}
-            value={tag}
-            style={{
-              marginTop: 0,
-              marginBottom: ".15rem",
-              marginLeft: ".15rem",
-              marginRight: 0,
-              fontSize: "0.65rem",
-            }}
-          >
-            {tag.trim()}
-          </Tag>
-        ))}
->>>>>>> c4d1d82a0 (docs(): add sources summary page (#7480))
       </div>
     );
   }
@@ -139,19 +117,11 @@ const FilterCard = ({ image, title, description, to, filters, tags, useTags, use
           <h2>{title}</h2>
         </div>
         <hr />
-<<<<<<< HEAD
         <div className="card__body">
           <div>{description}</div>
         </div>
         {(useTags || useFilters) && (
           <div className="card__footer">
-=======
-        <div class="card__body">
-          <div>{description}</div>
-        </div>
-        {(useTags || useFilters) && (
-          <div class="card__footer">
->>>>>>> c4d1d82a0 (docs(): add sources summary page (#7480))
             {useTags && renderTags()}
             {useFilters && renderFilters()}
           </div>
