@@ -15,7 +15,6 @@ import java.util.stream.Stream;
 import org.apache.http.entity.ContentType;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
-import static com.linkedin.metadata.Constants.*;
 
 
 public abstract class AbstractPatchBuilder<T extends AbstractPatchBuilder<T>> {

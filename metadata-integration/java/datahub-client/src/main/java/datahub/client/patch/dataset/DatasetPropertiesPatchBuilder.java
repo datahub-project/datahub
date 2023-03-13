@@ -3,18 +3,20 @@ package datahub.client.patch.dataset;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
-import datahub.client.patch.AbstractPatchBuilder;
+import datahub.client.patch.common.CustomPropertiesPatchBuilder;
+import datahub.client.patch.subtypesSupport.CustomPropertiesPatchBuilderSupport;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
+import lombok.Getter;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilder<DatasetPropertiesPatchBuilder> {
+public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilder<DatasetPropertiesPatchBuilder>
+    implements CustomPropertiesPatchBuilderSupport<DatasetPropertiesPatchBuilder> {
 
   public static final String BASE_PATH = "/";
 
@@ -26,7 +28,6 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
   public static final String QUALIFIED_NAME_KEY = "qualifiedName";
   public static final String URI_KEY = "uri";
 
-  private Map<String, String> customProperties = null;
   private String externalUrl = null;
   private String name = null;
   private String qualifiedName = null;
@@ -34,11 +35,8 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
   private String uri = null;
   // Should we even put this here? We don't really use this field anymore
   private List<String> tags = null;
-
-  public DatasetPropertiesPatchBuilder customProperties(Map<String, String> customProperties) {
-    this.customProperties = customProperties;
-    return this;
-  }
+  @Getter
+  private CustomPropertiesPatchBuilder<DatasetPropertiesPatchBuilder> customPropertiesPatchBuilder;
 
   public DatasetPropertiesPatchBuilder externalUrl(String externalUrl) {
     this.externalUrl = externalUrl;
@@ -65,6 +63,10 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
     return this;
   }
 
+  /**
+   * Use GlobalTags instead
+   */
+  @Deprecated
   public DatasetPropertiesPatchBuilder tags(List<String> tags) {
     this.tags = tags;
     return this;
@@ -79,8 +81,8 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
   protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
     List<ImmutableTriple<String, String, JsonNode>> triples = new ArrayList<>();
 
-    if (customProperties != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + CUSTOM_PROPERTIES_KEY, OBJECT_MAPPER.valueToTree(customProperties)));
+    if (customPropertiesPatchBuilder != null) {
+      triples.addAll(customPropertiesPatchBuilder.getSubPaths());
     }
     if (description != null) {
       triples.add(ImmutableTriple.of(this.op, BASE_PATH + DESCRIPTION_KEY, instance.textNode(description)));
@@ -98,7 +100,10 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
       triples.add(ImmutableTriple.of(this.op, BASE_PATH + EXTERNAL_URL_KEY, instance.textNode(externalUrl)));
     }
     if (tags != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + TAGS_KEY, OBJECT_MAPPER.valueToTree(tags)));
+      // Array type fields need to be mapped to object in patch to apply cleanly
+      ObjectNode tagsNode = instance.objectNode();
+      tags.forEach(tag -> tagsNode.set(instance.textNode(tag).asText(), instance.textNode(tag)));
+      triples.add(ImmutableTriple.of(this.op, BASE_PATH + TAGS_KEY, tagsNode));
     }
     return triples;
   }
@@ -111,5 +116,11 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
   @Override
   protected String getEntityType() {
     return DATASET_ENTITY_NAME;
+  }
+
+  @Override
+  public CustomPropertiesPatchBuilder<DatasetPropertiesPatchBuilder> customPropertiesPatchBuilder() {
+    customPropertiesPatchBuilder = new CustomPropertiesPatchBuilder<>(this);
+    return customPropertiesPatchBuilder;
   }
 }

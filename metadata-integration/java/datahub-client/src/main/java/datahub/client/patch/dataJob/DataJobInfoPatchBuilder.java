@@ -5,17 +5,20 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.DataFlowUrn;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
+import datahub.client.patch.common.CustomPropertiesPatchBuilder;
+import datahub.client.patch.subtypesSupport.CustomPropertiesPatchBuilderSupport;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
+import lombok.Getter;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<DataJobInfoPatchBuilder> {
+public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<DataJobInfoPatchBuilder>
+    implements CustomPropertiesPatchBuilderSupport<DataJobInfoPatchBuilder> {
 
   public static final String BASE_PATH = "/";
 
@@ -35,7 +38,8 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
   private DataFlowUrn flowUrn = null;
   private TimeStamp created = null;
   private TimeStamp lastModified = null;
-  private Map<String, String> customProperties = null;
+  @Getter
+  private CustomPropertiesPatchBuilder<DataJobInfoPatchBuilder> customPropertiesPatchBuilder;
 
   public DataJobInfoPatchBuilder name(String name) {
     this.name = name;
@@ -72,11 +76,6 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
     return Stream.of(this.targetEntityUrn, this.op);
   }
 
-  public DataJobInfoPatchBuilder customProperties(Map<String, String> customProperties) {
-    this.customProperties = customProperties;
-    return this;
-  }
-
   @Override
   protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
     List<ImmutableTriple<String, String, JsonNode>> triples = new ArrayList<>();
@@ -109,8 +108,8 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
       }
       triples.add(ImmutableTriple.of(this.op, BASE_PATH + LAST_MODIFIED_KEY, lastModifiedNode));
     }
-    if (customProperties != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + CUSTOM_PROPERTIES_KEY, OBJECT_MAPPER.valueToTree(customProperties)));
+    if (customPropertiesPatchBuilder != null) {
+      triples.addAll(customPropertiesPatchBuilder.getSubPaths());
     }
 
     return triples;
@@ -124,5 +123,11 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
   @Override
   protected String getEntityType() {
     return DATA_JOB_ENTITY_NAME;
+  }
+
+  @Override
+  public CustomPropertiesPatchBuilder<DataJobInfoPatchBuilder> customPropertiesPatchBuilder() {
+    customPropertiesPatchBuilder = new CustomPropertiesPatchBuilder<>(this);
+    return customPropertiesPatchBuilder;
   }
 }

@@ -4,17 +4,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.TimeStamp;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
+import datahub.client.patch.subtypesSupport.CustomPropertiesPatchBuilderSupport;
+import datahub.client.patch.common.CustomPropertiesPatchBuilder;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
+import lombok.Getter;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<DataFlowInfoPatchBuilder> {
+public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<DataFlowInfoPatchBuilder>
+    implements CustomPropertiesPatchBuilderSupport<DataFlowInfoPatchBuilder> {
 
   public static final String BASE_PATH = "/";
 
@@ -32,7 +35,8 @@ public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Dat
   private String project = null;
   private TimeStamp created = null;
   private TimeStamp lastModified = null;
-  private Map<String, String> customProperties = null;
+  @Getter
+  private CustomPropertiesPatchBuilder<DataFlowInfoPatchBuilder> customPropertiesPatchBuilder;
 
   public DataFlowInfoPatchBuilder name(String name) {
     this.name = name;
@@ -56,11 +60,6 @@ public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Dat
 
   public DataFlowInfoPatchBuilder lastModified(TimeStamp lastModified) {
     this.lastModified = lastModified;
-    return this;
-  }
-
-  public DataFlowInfoPatchBuilder customProperties(Map<String, String> customProperties) {
-    this.customProperties = customProperties;
     return this;
   }
 
@@ -98,8 +97,8 @@ public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Dat
       }
       triples.add(ImmutableTriple.of(this.op, BASE_PATH + LAST_MODIFIED_KEY, lastModifiedNode));
     }
-    if (customProperties != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + CUSTOM_PROPERTIES_KEY, OBJECT_MAPPER.valueToTree(customProperties)));
+    if (customPropertiesPatchBuilder != null) {
+      triples.addAll(customPropertiesPatchBuilder.getSubPaths());
     }
 
     return triples;
@@ -113,5 +112,11 @@ public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Dat
   @Override
   protected String getEntityType() {
     return DATA_FLOW_ENTITY_NAME;
+  }
+
+  @Override
+  public CustomPropertiesPatchBuilder<DataFlowInfoPatchBuilder> customPropertiesPatchBuilder() {
+    customPropertiesPatchBuilder = new CustomPropertiesPatchBuilder<>(this);
+    return customPropertiesPatchBuilder;
   }
 }
