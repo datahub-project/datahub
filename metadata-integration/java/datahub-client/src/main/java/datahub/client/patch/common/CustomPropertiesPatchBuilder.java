@@ -3,7 +3,7 @@ package datahub.client.patch.common;
 import com.fasterxml.jackson.databind.JsonNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.PatchOperationType;
-import datahub.client.patch.subtypesSupport.IntermediatePatchBuilder;
+import datahub.client.patch.subtypesupport.IntermediatePatchBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;

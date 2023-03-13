@@ -1,4 +1,4 @@
-package datahub.client.patch.subtypesSupport;
+package datahub.client.patch.subtypesupport;
 
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.common.CustomPropertiesPatchBuilder;

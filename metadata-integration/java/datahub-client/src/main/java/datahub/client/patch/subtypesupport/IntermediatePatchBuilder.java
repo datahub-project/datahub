@@ -1,4 +1,4 @@
-package datahub.client.patch.subtypesSupport;
+package datahub.client.patch.subtypesupport;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;

@@ -1,10 +1,10 @@
-package datahub.client.patch.dataFlow;
+package datahub.client.patch.dataflow;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.TimeStamp;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
-import datahub.client.patch.subtypesSupport.CustomPropertiesPatchBuilderSupport;
+import datahub.client.patch.subtypesupport.CustomPropertiesPatchBuilderSupport;
 import datahub.client.patch.common.CustomPropertiesPatchBuilder;
 import java.util.ArrayList;
 import java.util.List;

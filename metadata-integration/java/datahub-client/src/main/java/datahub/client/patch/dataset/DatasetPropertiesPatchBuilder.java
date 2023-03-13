@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
 import datahub.client.patch.common.CustomPropertiesPatchBuilder;
-import datahub.client.patch.subtypesSupport.CustomPropertiesPatchBuilderSupport;
+import datahub.client.patch.subtypesupport.CustomPropertiesPatchBuilderSupport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;

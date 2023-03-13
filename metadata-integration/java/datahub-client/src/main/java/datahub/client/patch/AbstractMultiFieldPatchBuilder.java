@@ -51,7 +51,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
    * No-op, unused for this subtype. See getPathValues
    */
   @Override
-  protected JsonNode getValue(){
+  protected JsonNode getValue() {
     return null;
   }
 

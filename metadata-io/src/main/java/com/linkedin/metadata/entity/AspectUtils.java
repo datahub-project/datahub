@@ -84,7 +84,7 @@ public class AspectUtils {
     if (ChangeType.PATCH.equals(proposal.getChangeType())) {
       proposal.setChangeType(ChangeType.UPSERT);
     }
-    
+
     if (original.getSystemMetadata() != null) {
       proposal.setSystemMetadata(original.getSystemMetadata());
     }
