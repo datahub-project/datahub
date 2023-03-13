@@ -12,7 +12,7 @@ import lkml
 import lkml.simple
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import DBConnection
+from looker_sdk.sdk.api40.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
@@ -20,7 +20,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.git import GitInfo
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -142,7 +142,7 @@ class LookerConnectionDefinition(ConfigModel):
     @validator("platform_env")
     def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
-            return EnvBasedSourceConfigBase.env_must_be_one_of(v)
+            return EnvConfigMixin.env_must_be_one_of(v)
         return v
 
     @validator("platform", "default_db", "default_schema")
@@ -174,7 +174,9 @@ class LookerConnectionDefinition(ConfigModel):
         )
 
 
-class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
+class LookMLSourceConfig(
+    LookerCommonConfig, StatefulIngestionConfigBase, DatasetSourceConfigMixin
+):
     git_info: Optional[GitInfo] = Field(
         None,
         description="Reference to your git location. If present, supplies handy links to your lookml on the dataset entity page.",
@@ -1499,8 +1501,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                         p_ref = p_checkout_dir.resolve()
                     except Exception as e:
                         logger.warning(
-                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on",
-                            e,
+                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on: {e}",
                         )
                         visited_projects.add(project)
                         continue

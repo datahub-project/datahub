@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  testpostgres:
+    container_name: "testpostgres"
+    hostname: postgres
+    image: postgres:15.2
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "example"
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./setup:/setup
+      - ./setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
