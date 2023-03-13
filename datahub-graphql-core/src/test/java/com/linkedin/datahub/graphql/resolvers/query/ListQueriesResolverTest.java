@@ -69,8 +69,7 @@ public class ListQueriesResolverTest {
         Mockito.eq(input.getStart()),
         Mockito.eq(input.getCount()),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE),
-        Mockito.eq(new SearchFlags().setFulltext(true))
+        Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true))
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -115,8 +114,7 @@ public class ListQueriesResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+        Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
   }
 
   @Test
@@ -130,8 +128,7 @@ public class ListQueriesResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE),
-        Mockito.eq(new SearchFlags().setFulltext(true)));
+        Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
     // Execute resolver

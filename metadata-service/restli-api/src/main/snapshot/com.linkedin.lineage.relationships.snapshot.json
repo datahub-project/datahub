@@ -100,6 +100,7 @@
       "name" : "filtered",
       "type" : "int",
       "doc" : "The number of results that were filtered out of the page (soft-deleted or non-existent)",
+      "default" : 0,
       "optional" : true
     }, {
       "name" : "relationships",
