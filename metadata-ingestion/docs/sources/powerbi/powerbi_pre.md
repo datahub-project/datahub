@@ -40,7 +40,7 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 4.  Microsoft SQL Server
 5.  Google BigQuery
 
-Native SQL query parsing is only supported for `Snowflake` data-source and only first table from `FROM` clause will be ingested as upstream table. Advance SQL construct like JOIN and SUB-QUERIES in `FROM` clause are not supported.
+Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift` data-sources and only first table from `FROM` clause will be ingested as upstream table. Advance SQL construct like JOIN and SUB-QUERIES in `FROM` clause are not supported.
 
 For example refer below native SQL query. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as upstream table.
 
@@ -70,6 +70,7 @@ let
 in
   #"Added Conditional Column"
 ```
+Use full-table-name in `from` clause. For example dev.public.category 
 
 ## M-Query Pattern Supported For Lineage Extraction
 Lets consider a M-Query which combine two PostgreSQL tables. Such M-Query can be written as per below patterns.

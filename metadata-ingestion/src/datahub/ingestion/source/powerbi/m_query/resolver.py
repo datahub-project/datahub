@@ -46,9 +46,15 @@ class SupportedDataPlatform(Enum):
     MS_SQL = DataPlatformPair(
         powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
     )
+
     GOOGLE_BIGQUERY = DataPlatformPair(
         powerbi_data_platform_name="GoogleBigQuery",
         datahub_data_platform_name="bigquery",
+    )
+
+    AMAZON_REDSHIFT = DataPlatformPair(
+        powerbi_data_platform_name="AmazonRedshift",
+        datahub_data_platform_name="redshift",
     )
 
 
@@ -62,6 +68,21 @@ class AbstractTableFullNameCreator(ABC):
     @abstractmethod
     def get_platform_pair(self) -> DataPlatformPair:
         pass
+
+    @staticmethod
+    def get_db_name_from_second_argument(arg_list: Tree) -> Optional[str]:
+        arguments: List[str] = tree_function.strip_char_from_list(
+            values=tree_function.remove_whitespaces_from_list(
+                tree_function.token_values(arg_list)
+            ),
+            char='"',
+        )
+
+        if len(arguments) < 2:
+            logger.debug(f"Expected minimum 2 arguments, but got {len(arguments)}")
+            return None
+
+        return arguments[1]
 
 
 class AbstractDataAccessMQueryResolver(ABC):
@@ -391,20 +412,15 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
         full_table_names: List[str] = []
 
         logger.debug(
-            f"Processing PostgreSQL data-access function detail {data_access_func_detail}"
-        )
-        arguments: List[str] = tree_function.strip_char_from_list(
-            values=tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(data_access_func_detail.arg_list)
-            ),
-            char='"',
+            f"Processing {self.get_platform_pair().powerbi_data_platform_name} function detail {data_access_func_detail}"
         )
 
-        if len(arguments) != 2:
-            logger.debug(f"Expected 2 arguments, but got {len(arguments)}")
-            return full_table_names
-
-        db_name: str = arguments[1]
+        db_name: Optional[str] = self.get_db_name_from_second_argument(
+            data_access_func_detail.arg_list
+        )
+        if db_name is None:
+            logger.debug("db_name not found in expression")
+            return full_table_names  # Return empty list
 
         schema_name: str = cast(
             IdentifierAccessor, data_access_func_detail.identifier_accessor
@@ -559,9 +575,55 @@ class GoogleBigQueryTableFullNameCreator(DefaultThreeStepDataAccessSources):
         return SupportedDataPlatform.GOOGLE_BIGQUERY.value
 
 
-class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
+class AmazonRedshiftFullNameCreator(AbstractTableFullNameCreator):
     def get_platform_pair(self) -> DataPlatformPair:
-        return SupportedDataPlatform.SNOWFLAKE.value
+        return SupportedDataPlatform.AMAZON_REDSHIFT.value
+
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
+        full_table_names: List[str] = []
+
+        logger.debug(
+            f"Processing AmazonRedshift data-access function detail {data_access_func_detail}"
+        )
+
+        db_name: Optional[str] = self.get_db_name_from_second_argument(
+            data_access_func_detail.arg_list
+        )
+        if db_name is None:
+            return full_table_names  # Return empty list
+
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Name"]
+
+        table_name: str = cast(
+            IdentifierAccessor,
+            cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
+        ).items["Name"]
+
+        full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
+
+        return full_table_names
+
+
+class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
+    SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
+        SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name: SupportedDataPlatform.SNOWFLAKE,
+        SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name: SupportedDataPlatform.AMAZON_REDSHIFT,
+    }
+    current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return self.current_data_platform.value
+
+    @staticmethod
+    def is_native_parsing_supported(data_access_function_name: str) -> bool:
+        return (
+            data_access_function_name
+            in NativeQueryTableFullNameCreator.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM
+        )
 
     def get_full_table_names(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -582,16 +644,18 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
         data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(flat_argument_list[0])
         )
-        if (
-            data_access_tokens[0]
-            != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
-        ):
+        if not self.is_native_parsing_supported(data_access_tokens[0]):
             logger.debug(
-                f"Provided native-query data-platform = {data_access_tokens[0]}"
+                f"Unsupported native-query data-platform = {data_access_tokens[0]}"
             )
-            logger.debug("Only Snowflake is supported in NativeQuery")
+            logger.debug(
+                f"NativeQuery is supported only for {self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM}"
+            )
             return full_table_names
 
+        self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
+            data_access_tokens[0]
+        ]
         # First argument is the query
         sql_query: str = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
@@ -621,6 +685,7 @@ class FunctionName(Enum):
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
+    AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
 
 
 class SupportedResolver(Enum):
@@ -648,6 +713,12 @@ class SupportedResolver(Enum):
         GoogleBigQueryTableFullNameCreator,
         FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS,
     )
+
+    AMAZON_REDSHIFT = (
+        AmazonRedshiftFullNameCreator,
+        FunctionName.AMAZON_REDSHIFT_DATA_ACCESS,
+    )
+
     NATIVE_QUERY = (
         NativeQueryTableFullNameCreator,
         FunctionName.NATIVE_QUERY,
