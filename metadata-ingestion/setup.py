@@ -138,7 +138,7 @@ path_spec_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==22.2.1",
+    "looker-sdk==23.0.0",
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
@@ -149,7 +149,6 @@ looker_common = {
 }
 
 bigquery_common = {
-    "google-api-python-client",
     # Google cloud logging library
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
@@ -186,7 +185,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify>=0.0.4",
+    "acryl-datahub-classify==0.0.6",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -251,7 +250,6 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 2.0.2",
         *rest_common,
-        *kafka_common,
     },
     "circuit-breaker": {
         "gql>=3.3.0",

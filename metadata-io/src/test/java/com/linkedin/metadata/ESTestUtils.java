@@ -68,12 +68,12 @@ public class ESTestUtils {
 
     public static SearchResult search(SearchService searchService, String query) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
-                100, new SearchFlags().setFulltext(true));
+                100, new SearchFlags().setFulltext(true).setSkipCache(true));
     }
 
     public static SearchResult searchStructured(SearchService searchService, String query) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
-                100, new SearchFlags().setFulltext(false));
+                100, new SearchFlags().setFulltext(false).setSkipCache(true));
     }
 
     public static LineageSearchResult lineage(LineageSearchService lineageSearchService, Urn root, int hops) {

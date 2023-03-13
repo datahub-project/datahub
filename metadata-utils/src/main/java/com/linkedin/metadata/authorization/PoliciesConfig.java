@@ -291,8 +291,8 @@ public class PoliciesConfig {
 
   public static final Privilege GET_ENTITY_PRIVILEGE = Privilege.of(
       "GET_ENTITY_PRIVILEGE",
-      "Get Entity API",
-      "The ability to use the GET Entity API.");
+      "Get Entity + Relationships API",
+      "The ability to use the GET Entity and Relationships API.");
 
   public static final Privilege GET_TIMESERIES_ASPECT_PRIVILEGE = Privilege.of(
       "GET_TIMESERIES_ASPECT_PRIVILEGE",

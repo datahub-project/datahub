@@ -1,4 +1,4 @@
-package com.linkedin.metadata.config;
+package com.linkedin.metadata.config.cache;
 
 import lombok.Data;
 
@@ -7,4 +7,5 @@ import lombok.Data;
 public class CacheConfiguration {
   PrimaryCacheConfiguration primary;
   HomepageCacheConfiguration homepage;
+  SearchCacheConfiguration search;
 }
