@@ -59,6 +59,7 @@ public class SettingsBuilder {
   public static final String SLASH_PATTERN_ANALYZER = "slash_pattern";
   public static final String TEXT_ANALYZER = "word_delimited";
   public static final String TEXT_SEARCH_ANALYZER = "query_word_delimited";
+  public static final String KEYWORD_ANALYZER = "keyword";
   public static final String URN_ANALYZER = "urn_component";
   public static final String URN_SEARCH_ANALYZER = "query_urn_component";
 
@@ -106,7 +107,7 @@ public class SettingsBuilder {
           "\\\"([^\\\"]*)\\\""
   );
 
-  public static final List<String> DATAHUB_STOP_WORDS_LIST = ImmutableList.of("urn", "li", "data", "table");
+  public static final List<String> DATAHUB_STOP_WORDS_LIST = ImmutableList.of("urn", "li");
 
   public static final List<String> WORD_DELIMITER_TYPE_TABLE = ImmutableList.of(
           ": => SUBWORD_DELIM",
