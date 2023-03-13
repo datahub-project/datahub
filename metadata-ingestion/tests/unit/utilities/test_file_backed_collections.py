@@ -14,8 +14,6 @@ def test_file_dict(tmp_path: pathlib.Path) -> None:
     cache = FileBackedDict[int](
         filename=tmp_path / "test.db",
         tablename="cache",
-        serializer=lambda x: x,
-        deserializer=lambda x: x,
         cache_max_size=10,
         cache_eviction_batch_size=10,
     )
@@ -75,6 +73,11 @@ def test_file_dict(tmp_path: pathlib.Path) -> None:
         del cache[f"key-{i}"]
     assert len(cache) == 1
     assert cache["a"] == 1
+
+    # Test close.
+    cache.close()
+    with pytest.raises(Exception):
+        cache["a"] = 1
 
 
 def test_custom_serde(tmp_path: pathlib.Path) -> None:
@@ -170,19 +173,10 @@ class Pair:
     x: int
     y: str
 
-    def serialize(self) -> str:
-        return json.dumps(dataclasses.asdict(self))
-
-    @classmethod
-    def deserialize(cls, d: str) -> "Pair":
-        return cls(**json.loads(d))
-
 
 def test_custom_column(tmp_path: pathlib.Path) -> None:
     cache = FileBackedDict[Pair](
         filename=tmp_path / "test.db",
-        serializer=lambda m: m.serialize(),
-        deserializer=lambda s: Pair.deserialize(s),
         extra_columns={
             "x": lambda m: m.x,
         },
@@ -213,14 +207,13 @@ def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
     cache1 = FileBackedDict[int](
         filename=filename,
         tablename="cache1",
-        serializer=lambda x: x,
-        deserializer=lambda x: x,
+        extra_columns={
+            "v": lambda v: v,
+        },
     )
     cache2 = FileBackedDict[Pair](
         filename=filename,
         tablename="cache2",
-        serializer=lambda m: m.serialize(),
-        deserializer=lambda s: Pair.deserialize(s),
         extra_columns={
             "x": lambda m: m.x,
             "y": lambda m: m.y,
@@ -245,7 +238,7 @@ def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
     assert (
         cache2.sql_query(
             f"""
-            SELECT cache2.y, sum(cache2.x * cache1.value) FROM {cache2.tablename} cache2
+            SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
             LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
             GROUP BY cache2.y
             ORDER BY cache2.y
@@ -299,16 +292,12 @@ def test_file_list(tmp_path: pathlib.Path) -> None:
 def test_file_cleanup():
     with tempfile.TemporaryDirectory() as tmpdir:
         filename = pathlib.Path(tmpdir) / "test.db"
-        cache = FileBackedDict[int](
-            filename=filename,
-            serializer=lambda x: x,
-            deserializer=lambda x: x,
-        )
+        cache = FileBackedDict[int](filename=filename)
 
         cache["a"] = 3
         cache.flush()
         assert len(cache) == 1
 
-        del cache
+        cache.close()
 
     assert not filename.exists()
