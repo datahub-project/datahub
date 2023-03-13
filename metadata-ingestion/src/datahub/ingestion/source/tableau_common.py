@@ -31,6 +31,21 @@ class TableauLineageOverrides(ConfigModel):
     )
 
 
+class TableauCustomSQLLineage(ConfigModel):
+    enabled: bool = (
+        Field(
+            default=False,
+            description="[experimental]When enabled, will extract manually lineage from unsupported custom sql queries",
+        ),
+    )
+    database_override: Optional[Dict[str, str]] = (
+        Field(
+            default=None,
+            description="A holder for database -> database mappings to generate correct dataset urns",
+        ),
+    )
+
+
 class MetadataQueryException(Exception):
     pass
 
@@ -260,6 +275,7 @@ custom_sql_graphql_query = """
       id
       name
       query
+      isUnsupportedCustomSql
       columns {
         id
         name
@@ -311,6 +327,10 @@ custom_sql_graphql_query = """
             name
             remoteType
         }
+      }
+      database{
+        name
+        connectionType
       }
 }
 """
@@ -608,9 +628,11 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
         unique_csql = {
             "id": custom_sql.get("id"),
             "name": custom_sql.get("name"),
+            "isUnsupportedCustomSql": custom_sql.get("isUnsupportedCustomSql"),
             "query": custom_sql.get("query"),
             "columns": custom_sql.get("columns"),
             "tables": custom_sql.get("tables"),
+            "database": custom_sql.get("database"),
         }
         datasource_for_csql = []
         for column in custom_sql.get("columns", []):

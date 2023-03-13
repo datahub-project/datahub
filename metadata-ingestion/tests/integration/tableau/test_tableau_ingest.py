@@ -689,3 +689,35 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         sign_out_side_effect=ConnectionError,
         pipeline_name="test_tableau_signout_timeout",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_unsupported_csql(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_unsupported_csql.json"
+    golden_file_name: str = "tableau_unsupported_csql_golden.json"
+    new_config = config_source_default.copy()
+    new_config["extract_lineage_from_unsupported_custom_sql_queries"] = {
+        "enabled": True,
+        "database_override": {"production database": "prod"},
+    }
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "customSQLTablesConnection_unsupported_csql.json"
+            ),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_name="test_tableau_unsupported_customsql",
+        pipeline_config=new_config,
+    )
