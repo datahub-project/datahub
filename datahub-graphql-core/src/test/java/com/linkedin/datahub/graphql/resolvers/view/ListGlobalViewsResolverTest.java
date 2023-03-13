@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.ListGlobalViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -66,8 +67,7 @@ public class ListGlobalViewsResolverTest {
             Mockito.eq(0),
             Mockito.eq(20),
             Mockito.any(Authentication.class),
-            Mockito.anyBoolean(),
-            Mockito.eq(null)
+            Mockito.eq(new SearchFlags().setFulltext(true))
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -114,8 +114,7 @@ public class ListGlobalViewsResolverTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.any(Authentication.class),
-            Mockito.anyBoolean(),
-            Mockito.eq(null));
+            Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
@@ -129,8 +128,7 @@ public class ListGlobalViewsResolverTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.any(Authentication.class),
-            Mockito.anyBoolean(),
-            Mockito.eq(null));
+            Mockito.eq(new SearchFlags().setFulltext(true)));
     ListMyViewsResolver resolver = new ListMyViewsResolver(mockClient);
 
     // Execute resolver

@@ -1,3 +1,9 @@
+// MODIFICATIONS:
+// - The let_expression definition has added the whitespace rule instead of the required newline.
+//   This allows the parser to be less strict about whitespace.
+// - Add inline whitespace to item_selection and optional_item_selection.
+
+
 lexical_unit:   lexical_elements?
 
 lexical_elements:   lexical_element 
@@ -361,9 +367,9 @@ field_name: generalized_identifier
 item_access_expression: item_selection
                     |   optional_item_selection
 
-item_selection: primary_expression "{" item_selector "}"
+item_selection: primary_expression whitespace? "{" item_selector "}"
 
-optional_item_selection:    primary_expression "{" item_selector "}" "?"
+optional_item_selection:    primary_expression whitespace? "{" item_selector "}" "?"
 
 item_selector:  expression
 
@@ -426,7 +432,7 @@ each_expression:    "each" WS_INLINE each_expression_body
 
 each_expression_body:   function_body
 
-let_expression: "let" NEWLINE WS_INLINE? variable_list WS_INLINE? NEWLINE? in_expression
+let_expression: "let" whitespace variable_list WS_INLINE? NEWLINE? in_expression
 
 in_expression: "in" NEWLINE? WS_INLINE? NEWLINE? expression
 

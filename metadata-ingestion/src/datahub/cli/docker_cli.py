@@ -646,7 +646,7 @@ def quickstart(
     quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(
         version
     )
-    click.echo(quickstart_execution_plan)
+    logger.info(f"Using quickstart plan: {quickstart_execution_plan}")
 
     # Run pre-flight checks.
     with get_docker_client() as client:

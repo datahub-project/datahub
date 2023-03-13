@@ -31,6 +31,8 @@ M_QUERIES = [
     'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
     'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
     'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]),\n    GSL_TEST_DB_Database = Source{[Name="GSL_TEST_DB",Kind="Database"]}[Data],\n    PUBLIC_Schema = GSL_TEST_DB_Database{[Name="PUBLIC",Kind="Schema"]}[Data],\n    SALES_FORECAST_Table = PUBLIC_Schema{[Name="SALES_FORECAST",Kind="Table"]}[Data],\n    SALES_ANALYST_Table = PUBLIC_Schema{[Name="SALES_ANALYST",Kind="Table"]}[Data],\n    RESULT = Table.Combine({SALES_FORECAST_Table, SALES_ANALYST_Table})\n\nin\n    RESULT',
+    'let\n    Source = GoogleBigQuery.Database(),\n    #"seraphic-music-344307" = Source{[Name="seraphic-music-344307"]}[Data],\n    school_dataset_Schema = #"seraphic-music-344307"{[Name="school_dataset",Kind="Schema"]}[Data],\n    first_Table = school_dataset_Schema{[Name="first",Kind="Table"]}[Data]\nin\n    first_Table',
+    'let    \nSource = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\ngcp_billing_Schema = #"gcp-project"{[Name=#"My bq project",Kind="Schema"]}[Data],\nF_GCP_COST_Table = gcp_billing_Schema{[Name="GCP_TABLE",Kind="Table"]}[Data]\nin\nF_GCP_COST_Table',
 ]
 
 
@@ -294,6 +296,56 @@ def test_snowflake_native_query():
             data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
             == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
         )
+
+
+def test_google_bigquery_1():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[17],
+        name="first",
+        full_name="seraphic-music-344307.school_dataset.first",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter, native_query_enabled=False
+    )
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+    )
+
+
+def test_google_bigquery_2():
+    # The main purpose of this test is actually to validate that we're handling parameter
+    # references correctly.
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[18],
+        name="gcp_table",
+        full_name="my-test-project.gcp_billing.GCP_TABLE",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        native_query_enabled=False,
+        parameters={
+            "Parameter - Source": "my-test-project",
+            "My bq project": "gcp_billing",
+        },
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+    )
 
 
 @pytest.mark.integration

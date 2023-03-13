@@ -1,25 +1,23 @@
+import functools
 import importlib.resources as pkg_resource
 import logging
-import sys
-from typing import List, Optional, cast
+from typing import Dict, List, Optional
 
 import lark
 from lark import Lark, Tree
 
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    TRACE_POWERBI_MQUERY_PARSER,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
 
-lark_parser: Optional[Lark] = None
 
-
-def get_lark_parser():
-    global lark_parser
-    if lark_parser is not None:
-        return lark_parser
-
+@functools.lru_cache(maxsize=1)
+def get_lark_parser() -> Lark:
     # Read lexical grammar as text
     grammar: str = pkg_resource.read_text(
         "datahub.ingestion.source.powerbi", "powerbi-lexical-grammar.rule"
@@ -31,13 +29,14 @@ def get_lark_parser():
 def _parse_expression(expression: str) -> Tree:
     lark_parser: Lark = get_lark_parser()
 
-    parse_tree: Tree = lark_parser.parse(expression)
+    # Replace U+00a0 NO-BREAK SPACE with a normal space.
+    # Sometimes PowerBI returns expressions with this character and it breaks the parser.
+    expression = expression.replace("\u00a0", " ")
 
     logger.debug(f"Parsing expression = {expression}")
+    parse_tree: Tree = lark_parser.parse(expression)
 
-    if (
-        logger.level == logging.DEBUG
-    ):  # Guard condition to avoid heavy pretty() function call
+    if TRACE_POWERBI_MQUERY_PARSER:
         logger.debug(parse_tree.pretty())
 
     return parse_tree
@@ -47,10 +46,13 @@ def get_upstream_tables(
     table: Table,
     reporter: PowerBiDashboardSourceReport,
     native_query_enabled: bool = True,
+    parameters: Optional[Dict[str, str]] = None,
 ) -> List[resolver.DataPlatformTable]:
     if table.expression is None:
         logger.debug(f"Expression is none for table {table.full_name}")
         return []
+
+    parameters = parameters or {}
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
@@ -59,25 +61,34 @@ def get_upstream_tables(
             parse_tree, native_query_enabled=native_query_enabled
         )
         if valid is False:
-            logger.debug(f"Validation failed: {cast(str, message)}")
-            reporter.report_warning(table.full_name, cast(str, message))
+            assert message is not None
+            logger.debug(f"Validation failed: {message}")
+            reporter.report_warning(table.full_name, message)
             return []
+    except BaseException as e:  # TODO: Debug why BaseException is needed here and below.
+        if isinstance(e, lark.exceptions.UnexpectedCharacters):
+            message = "Unsupported m-query expression"
+        else:
+            message = "Failed to parse m-query expression"
 
+        reporter.report_warning(table.full_name, message)
+        logger.info(f"{message} for table {table.full_name}: {str(e)}")
+        logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
+        return []
+
+    try:
         return resolver.MQueryResolver(
             table=table,
             parse_tree=parse_tree,
             reporter=reporter,
-        ).resolve_to_data_platform_table_list()  # type: ignore
+            parameters=parameters,
+        ).resolve_to_data_platform_table_list()
 
-    except:  # noqa: E722
-        # It will catch all type of exceptions, so that ingestion can continue without lineage information
-        _, e, _ = sys.exc_info()
-        logger.warning(str(e))
-        if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            reporter.report_warning(
-                table.full_name, f"UnSupported expression = {table.expression}"
-            )
-
-        logger.debug(f"Fail to parse expression {table.expression}", exc_info=e)
+    except BaseException as e:
+        reporter.report_warning(table.full_name, "Failed to process m-query expression")
+        logger.info(
+            f"Failed to process m-query expression for table {table.full_name}: {str(e)}"
+        )
+        logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
 
     return []

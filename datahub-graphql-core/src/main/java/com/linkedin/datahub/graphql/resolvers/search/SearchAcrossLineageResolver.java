@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossLineageInput;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
@@ -44,6 +45,7 @@ public class SearchAcrossLineageResolver
   @Override
   public CompletableFuture<SearchAcrossLineageResults> get(DataFetchingEnvironment environment)
       throws URISyntaxException {
+    log.debug("Entering search across lineage graphql resolver");
     final SearchAcrossLineageInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossLineageInput.class);
 
@@ -87,13 +89,16 @@ public class SearchAcrossLineageResolver
                 filters,
                 input.getOrFilters());
         SearchFlags searchFlags = null;
-        final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+        com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
         if (inputFlags != null) {
-          searchFlags = new SearchFlags()
-              .setSkipCache(inputFlags.getSkipCache())
-              .setFulltext(inputFlags.getFulltext())
-              .setMaxAggValues(inputFlags.getMaxAggValues());
+          searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+          if (inputFlags.getSkipHighlighting() == null) {
+            searchFlags.setSkipHighlighting(true);
+          }
+        } else {
+          searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
         }
+
         return UrnSearchAcrossLineageResultsMapper.map(
             _entityClient.searchAcrossLineage(
                 urn,
@@ -116,6 +121,8 @@ public class SearchAcrossLineageResolver
         throw new RuntimeException("Failed to execute search across relationships: " + String.format(
             "source urn %s, direction %s, entity types %s, query %s, filters: %s, start: %s, count: %s", urn,
             resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count), e);
+      } finally {
+        log.debug("Returning from search across lineage resolver");
       }
     });
   }

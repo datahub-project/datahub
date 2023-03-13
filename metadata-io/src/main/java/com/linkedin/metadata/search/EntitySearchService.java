@@ -3,6 +3,7 @@ package com.linkedin.metadata.search;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.List;
@@ -67,31 +68,12 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param searchFlags flags controlling search options
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  SearchResult fullTextSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-                              @Nullable SortCriterion sortCriterion, int from, int size);
-
-  /**
-   * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
-   * search hits and not the aggregation results.
-   *
-   * Used for internally generated structured search queries, typically with advanced boolean logic and exact field matches
-   *
-   * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html">Impl</a>
-   *
-   * @param entityName name of the entity
-   * @param input the search input text
-   * @param postFilters the request map with fields and values as filters to be applied to search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
-   * @param from index to start the search from
-   * @param size the number of search hits to return
-   * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
-   */
-  @Nonnull
-  SearchResult structuredSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-                                @Nullable SortCriterion sortCriterion, int from, int size);
+  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+                      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags);
 
   /**
    * Gets a list of documents after applying the input filters.
