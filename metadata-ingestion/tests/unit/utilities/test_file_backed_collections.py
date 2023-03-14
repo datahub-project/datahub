@@ -201,51 +201,61 @@ def test_custom_column() -> None:
 
 
 def test_shared_connection() -> None:
-    connection = ConnectionWrapper()
-
-    cache1 = FileBackedDict[int](
-        connection=connection,
-        tablename="cache1",
-        extra_columns={
-            "v": lambda v: v,
-        },
-    )
-    cache2 = FileBackedDict[Pair](
-        connection=connection,
-        tablename="cache2",
-        extra_columns={
-            "x": lambda m: m.x,
-            "y": lambda m: m.y,
-        },
-    )
-
-    cache1["a"] = 3
-    cache1["b"] = 5
-    cache2["ref-a-1"] = Pair(7, "a")
-    cache2["ref-a-2"] = Pair(8, "a")
-    cache2["ref-b-1"] = Pair(11, "b")
-
-    assert len(cache1) == 2
-    assert len(cache2) == 3
-
-    # Test advanced SQL queries.
-    assert cache2.sql_query(
-        f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
-    ) == [("a", 15), ("b", 11)]
-
-    # Test joining between the two tables.
-    assert (
-        cache2.sql_query(
-            f"""
-            SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
-            LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
-            GROUP BY cache2.y
-            ORDER BY cache2.y
-            """,
-            refs=[cache1],
+    with ConnectionWrapper() as connection:
+        cache1 = FileBackedDict[int](
+            connection=connection,
+            tablename="cache1",
+            extra_columns={
+                "v": lambda v: v,
+            },
         )
-        == [("a", 45), ("b", 55)]
-    )
+        cache2 = FileBackedDict[Pair](
+            connection=connection,
+            tablename="cache2",
+            extra_columns={
+                "x": lambda m: m.x,
+                "y": lambda m: m.y,
+            },
+        )
+
+        cache1["a"] = 3
+        cache1["b"] = 5
+        cache2["ref-a-1"] = Pair(7, "a")
+        cache2["ref-a-2"] = Pair(8, "a")
+        cache2["ref-b-1"] = Pair(11, "b")
+
+        assert len(cache1) == 2
+        assert len(cache2) == 3
+
+        # Test advanced SQL queries.
+        assert cache2.sql_query(
+            f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
+        ) == [("a", 15), ("b", 11)]
+
+        # Test joining between the two tables.
+        assert (
+            cache2.sql_query(
+                f"""
+                SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
+                LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
+                GROUP BY cache2.y
+                ORDER BY cache2.y
+                """,
+                refs=[cache1],
+            )
+            == [("a", 45), ("b", 55)]
+        )
+        cache2.close()
+
+        # Check can still use cache1
+        cache1["c"] = 7
+        cache1.flush()
+        assert cache1["c"] == 7
+        cache1.close()
+
+        # Check connection is still usable
+        cur = connection.conn.execute("SELECT COUNT(*) FROM cache1")
+        assert list(cur)[0][0] == 3
 
 
 def test_file_list() -> None:
