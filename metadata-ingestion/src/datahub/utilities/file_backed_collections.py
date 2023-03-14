@@ -50,9 +50,10 @@ class ConnectionWrapper:
 
     conn: sqlite3.Connection
     filename: pathlib.Path
-    _directory: Optional[tempfile.TemporaryDirectory] = None
+    _directory: Optional[tempfile.TemporaryDirectory]
 
     def __init__(self, filename: Optional[pathlib.Path] = None):
+        self._directory = None
         # Warning: If filename is provided, the file will not be automatically cleaned up
         if not filename:
             self._directory = tempfile.TemporaryDirectory()
@@ -71,13 +72,13 @@ class ConnectionWrapper:
         self.conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
 
     def execute(
-        self, sql: str, parameters: Dict[str, Any] | Sequence[Any] = ()
+        self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
         logger.debug(f"Executing <{sql}> ({parameters})")
         return self.conn.execute(sql, parameters)
 
     def executemany(
-        self, sql: str, parameters: Dict[str, Any] | Sequence[Any] = ()
+        self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
         logger.debug(f"Executing many <{sql}> ({parameters})")
         return self.conn.executemany(sql, parameters)
@@ -292,14 +293,16 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         return cursor.fetchall()
 
     def close(self) -> None:
-        # Ensure everything is written out.
-        self.flush()
+        if self._conn:
+            # Ensure everything is written out.
+            self.flush()
 
-        if not self.connection:  # Connection created inside this class
-            self._conn.close()
+            if not self.connection:  # Connection created inside this class
+                self._conn.close()
 
-        # This forces all writes to go directly to the DB so they fail immediately.
-        self.cache_max_size = 0
+            # This forces all writes to go directly to the DB so they fail immediately.
+            self.cache_max_size = 0
+            self._conn = None  # type: ignore
 
     def __del__(self) -> None:
         self.close()
