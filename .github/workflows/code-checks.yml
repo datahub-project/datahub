@@ -6,12 +6,16 @@ on:
     paths:
       - "metadata-io/**"
       - "datahub-web-react/**"
+      - "metadata-service/war/src/main/resources/boot/policies.json"
+      - ".github/workflows/code-checks.yml"
   pull_request:
     branches:
       - master
     paths:
       - "metadata-io/**"
       - "datahub-web-react/**"
+      - "metadata-service/war/src/main/resources/boot/policies.json"
+      - ".github/workflows/code-checks.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
