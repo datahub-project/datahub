@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import os.path
 import re
 from typing import Dict, Optional
 
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+LOCAL_QUICKSTART_MAPPING_FILE = os.environ.get("FORCE_LOCAL_QUICKSTART_MAPPING", "")
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
 
@@ -47,6 +49,15 @@ class QuickstartVersionMappingConfig(BaseModel):
 
     @classmethod
     def fetch_quickstart_config(cls) -> "QuickstartVersionMappingConfig":
+        if LOCAL_QUICKSTART_MAPPING_FILE:
+            logger.info(
+                "LOCAL_QUICKSTART_MAPPING_FILE is set, will try to read from local file."
+            )
+            path = os.path.expanduser(LOCAL_QUICKSTART_MAPPING_FILE)
+            with open(path, "r") as f:
+                config_raw = yaml.safe_load(f)
+            return cls.parse_obj(config_raw)
+
         config_raw = None
         try:
             response = requests.get(DEFAULT_REMOTE_CONFIG_PATH, timeout=5)
