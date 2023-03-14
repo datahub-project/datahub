@@ -1,5 +1,6 @@
+import logging
 from collections import defaultdict
-from typing import Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
@@ -13,7 +14,8 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel
 from pydantic.fields import Field
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
@@ -39,6 +41,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     MapTypeClass,
 )
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 register_custom_type(custom_types.ARRAY, ArrayTypeClass)
 register_custom_type(custom_types.JSON, BytesTypeClass)
@@ -101,13 +105,14 @@ class PostgresConfig(BasicSQLAlchemyConfig):
         default=False, description="Include table lineage for views"
     )
 
-    def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.database_alias:
-            return f"{self.database_alias}.{regular}"
-        if self.database:
-            return f"{self.database}.{regular}"
-        return regular
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for databases to filter in ingestion.",
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description="database (catalog). If set to Null, all databases will be considered for ingestion.",
+    )
 
 
 @platform_name("Postgres")
@@ -137,6 +142,28 @@ class PostgresSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = PostgresConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        # This method can be overridden in the case that you want to dynamically
+        # run on multiple databases.
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            if self.config.database and self.config.database != "":
+                inspector = inspect(conn)
+                yield inspector
+            else:
+                databases = conn.execute(
+                    "SELECT datname from pg_database where datname not in ('template0', 'template1')"
+                )
+                for db in databases:
+                    if self.config.database_pattern.allowed(db["datname"]):
+                        url = self.config.get_sql_alchemy_url(database=db["datname"])
+                        inspector = inspect(
+                            create_engine(url, **self.config.options).connect()
+                        )
+                        yield inspector
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits()
@@ -219,3 +246,14 @@ class PostgresSource(SQLAlchemySource):
                 wu = item.as_workunit()
                 self.report.report_workunit(wu)
                 yield wu
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        regular = f"{schema}.{entity}"
+        if self.config.database:
+            if self.config.database_alias:
+                return f"{self.config.database_alias}.{regular}"
+            return f"{self.config.database}.{regular}"
+        current_database = inspector.engine.url.database
+        return f"{current_database}.{regular}"
