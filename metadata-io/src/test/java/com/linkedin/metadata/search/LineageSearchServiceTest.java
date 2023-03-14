@@ -170,6 +170,9 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
     when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
         anyInt(), eq(null), eq(null))).thenReturn(
         mockResult(ImmutableList.of(new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
+    //just testing null input does not throw any exception
+    searchAcrossLineage(null, null);
+
     searchResult = searchAcrossLineage(null, TEST);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult = searchAcrossLineage(null, TEST1);
@@ -452,7 +455,7 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
   }
 
   // Convenience method to reduce spots where we're sending the same params
-  private LineageSearchResult searchAcrossLineage(@Nullable Filter filter, @Nonnull String input) {
+  private LineageSearchResult searchAcrossLineage(@Nullable Filter filter, @Nullable String input) {
     return _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), input,
         null, filter, null, 0, 10, null, null,
         new SearchFlags().setSkipCache(true));
