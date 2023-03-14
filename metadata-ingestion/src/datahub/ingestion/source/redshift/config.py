@@ -10,9 +10,9 @@ from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    LineageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
+    StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
@@ -52,7 +52,7 @@ class S3DatasetLineageProviderConfigBase(ConfigModel):
     )
 
 
-class RedshiftUsageConfig(BaseUsageConfig, UsageStatefulIngestionConfig):
+class RedshiftUsageConfig(BaseUsageConfig, StatefulUsageConfigMixin):
     email_domain: Optional[str] = Field(
         default=None,
         description="Email domain of your organisation so users can be displayed on UI appropriately.",
@@ -64,8 +64,8 @@ class RedshiftConfig(
     DatasetLineageProviderConfigBase,
     S3DatasetLineageProviderConfigBase,
     RedshiftUsageConfig,
-    LineageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     database: str = Field(default="dev", description="database")
 
