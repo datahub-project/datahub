@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.apache.http.auth.AuthenticationException;
 import org.testng.annotations.Test;
 
 import static org.mockito.Mockito.*;

@@ -24,6 +24,7 @@ import org.json.JSONObject;
 
 public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
 
+  public HttpClient client;
   HashSet<String> trustedIssuers;
 
   String publicKey;
@@ -34,6 +35,7 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
     this.trustedIssuers = list;
     this.publicKey = publicKey;
     this.algorithm = algorithm;
+    client = HttpClient.newHttpClient();
   }
 
   /**
@@ -68,7 +70,7 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
    * Get public keys from issuer and filter public key for token signature based on token keyId.
    **/
   private PublicKey loadPublicKey(String issuer, String keyId) throws Exception {
-    HttpClient client = HttpClient.newHttpClient();
+
     HttpRequest request = HttpRequest.newBuilder().uri(URI.create(issuer + "/protocol/openid-connect/certs")).build();
     HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
