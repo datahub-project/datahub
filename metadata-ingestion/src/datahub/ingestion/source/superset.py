@@ -1,4 +1,5 @@
 import json
+import logging
 from functools import lru_cache
 from typing import Dict, Iterable, Optional
 
@@ -34,6 +35,8 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.utilities import config_clean
+
+logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
 
@@ -254,12 +257,17 @@ class SupersetSource(Source):
                 f"{self.config.connect_uri}/api/v1/dashboard",
                 params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
             )
+            if dashboard_response.status_code != 200:
+                logger.warning(
+                    f"Failed to get dashboard data: {dashboard_response.text}"
+                )
+            dashboard_response.raise_for_status()
+
             payload = dashboard_response.json()
             total_dashboards = payload.get("count") or 0
 
             current_dashboard_page += 1
 
-            payload = dashboard_response.json()
             for dashboard_data in payload["result"]:
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
                     dashboard_data
@@ -355,6 +363,10 @@ class SupersetSource(Source):
                 f"{self.config.connect_uri}/api/v1/chart",
                 params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
             )
+            if chart_response.status_code != 200:
+                logger.warning(f"Failed to get chart data: {chart_response.text}")
+            chart_response.raise_for_status()
+
             current_chart_page += 1
 
             payload = chart_response.json()
