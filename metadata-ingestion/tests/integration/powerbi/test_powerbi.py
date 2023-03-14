@@ -591,7 +591,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
-def test_powerbi_instance_ingest(
+def test_powerbi_platform_instance_ingest(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     enable_logging()
