@@ -414,6 +414,7 @@ module.exports = {
             "docs/tools/tutorials/adding-tags",
             "docs/tools/tutorials/adding-terms",
             "docs/tools/tutorials/adding-ownerships",
+            "docs/tools/tutorials/creating-users-and-groups",
             {
               Reference: [
                 "docs/tools/tutorials/references/generate-access-token",
