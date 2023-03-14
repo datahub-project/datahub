@@ -19,8 +19,16 @@ concurrency:
 
 
 jobs:
-  check_event_type:
-    name: check event type is not missing
+  code_check:
+    strategy:
+      matrix:
+        fail-fast: false
+        command:
+          [
+            "check_event_type.py",
+            "check_policies.py"
+          ]
+    name: run code checks
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -30,6 +38,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - name: check events
+      - name: run check ${{ matrix.command }}
         run: |
-          python .github/scripts/check_event_type.py
+          python .github/scripts/${{ matrix.command }}
