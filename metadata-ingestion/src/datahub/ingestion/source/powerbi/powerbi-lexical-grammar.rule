@@ -333,7 +333,7 @@ parenthesized_expression:   "(" WS_INLINE? expression WS_INLINE? ")"
 
 not_implemented_expression: "..."
 
-invoke_expression:  "#"? primary_expression "(" NEWLINE? keyword? argument_list? NEWLINE? ")"
+invoke_expression:  "#"? primary_expression "(" NEWLINE? each_expression? argument_list? NEWLINE? ")"
 
 argument_list:  WS_INLINE? expression
             |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list

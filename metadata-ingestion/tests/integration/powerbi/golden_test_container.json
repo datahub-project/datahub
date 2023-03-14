@@ -218,7 +218,7 @@
         "json": {
             "customProperties": {},
             "name": "big-query-with-parameter",
-            "description": "big-query-with-parameter",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -1027,7 +1027,7 @@
         "json": {
             "customProperties": {},
             "name": "big-query-with-parameter",
-            "description": "big-query-with-parameter",
+            "description": "Library dataset description",
             "tags": []
         }
     },
