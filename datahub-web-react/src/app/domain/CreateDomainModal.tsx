@@ -106,7 +106,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                 message: 'Enter a Domain name.',
                             },
                             { whitespace: true },
-                            { min: 1, max: 50 },
+                            { min: 1, max: 150 },
                         ]}
                         hasFeedback
                     >
