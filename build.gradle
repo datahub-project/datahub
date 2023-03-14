@@ -111,6 +111,7 @@ project.ext.externalDependency = [
     'jacksonCore': "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
     'jacksonDataBind': "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
     'jacksonDataFormatYaml': "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
+    'jacksonJsr310': "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.14.2",
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
