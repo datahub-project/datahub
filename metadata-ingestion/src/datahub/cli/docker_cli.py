@@ -699,8 +699,9 @@ def quickstart(
     # Pull and possibly build the latest containers.
     try:
         if pull_images:
-            click.echo(
-                "Pulling docker images...This may take a while depending on your network bandwidth."
+            click.echo("Pulling docker images... ")
+            click.secho(
+                "This may take a while depending on your network bandwidth.", dim=True
             )
             with click_spinner.spinner():
                 subprocess.run(

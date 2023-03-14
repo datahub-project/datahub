@@ -2,11 +2,12 @@ package com.linkedin.metadata;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
-import com.linkedin.metadata.config.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
-import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
@@ -58,6 +59,9 @@ public class ESSampleDataFixture {
     @Autowired
     private RestHighLevelClient _searchClient;
 
+    @Autowired
+    private SearchConfiguration _searchConfiguration;
+
     @Bean(name = "sampleDataPrefix")
     protected String indexPrefix() {
         return "smpldat";
@@ -93,7 +97,7 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
     ) {
         ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration);
         ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);

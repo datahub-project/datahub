@@ -408,9 +408,22 @@ module.exports = {
           ],
         },
         "docs/datahub_lite",
+        {
+          "Getting Started: APIs & SDKs": [
+            "docs/tools/tutorials/advantages",
+            "docs/tools/tutorials/adding-tags",
+            "docs/tools/tutorials/adding-terms",
+            "docs/tools/tutorials/adding-ownerships",
+            {
+              Reference: [
+                "docs/tools/tutorials/references/generate-access-token",
+                "docs/tools/tutorials/references/prepare-datahub",
+              ],
+            },
+          ],
+        },
       ],
     },
-
     {
       "Developer Guides": [
         // The purpose of this section is to provide developers & technical users with
@@ -562,6 +575,7 @@ module.exports = {
 
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_3",
             "docs/managed-datahub/release-notes/v_0_2_2",
             "docs/managed-datahub/release-notes/v_0_2_1",
             "docs/managed-datahub/release-notes/v_0_2_0",

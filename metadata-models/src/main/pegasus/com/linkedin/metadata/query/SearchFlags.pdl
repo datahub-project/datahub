@@ -18,4 +18,14 @@ record SearchFlags {
    * Structured or unstructured fulltext query
    */
   fulltext:optional boolean
+
+  /**
+   * Whether to skip highlighting
+   */
+  skipHighlighting:optional boolean = false
+
+  /**
+   * Whether to skip aggregates/facets
+   */
+  skipAggregates:optional boolean = false
 }

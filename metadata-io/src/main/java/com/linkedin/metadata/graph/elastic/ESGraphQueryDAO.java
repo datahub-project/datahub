@@ -9,6 +9,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
@@ -68,9 +69,8 @@ public class ESGraphQueryDAO {
   private final LineageRegistry lineageRegistry;
   private final IndexConvention indexConvention;
 
-  private static final int MAX_ELASTIC_RESULT = 10000;
-  private static final int BATCH_SIZE = 1000;
-  private static final int TIMEOUT_SECS = 10;
+  private final GraphQueryConfiguration graphQueryConfiguration;
+
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
   static final String RELATIONSHIP_TYPE = "relationshipType";
@@ -192,7 +192,7 @@ public class ESGraphQueryDAO {
       int maxHops, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
     List<LineageRelationship> result = new ArrayList<>();
     long currentTime = System.currentTimeMillis();
-    long remainingTime = TIMEOUT_SECS * 1000;
+    long remainingTime = graphQueryConfiguration.getTimeoutSeconds() * 1000;
     long timeoutTime = currentTime + remainingTime;
 
     // Do a Level-order BFS
@@ -247,7 +247,7 @@ public class ESGraphQueryDAO {
       @Nonnull LineageDirection direction, GraphFilters graphFilters, Set<Urn> visitedEntities, int numHops,
       long remainingTime, Map<Urn, UrnArrayArray> existingPaths, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
-    List<List<Urn>> batches = Lists.partition(entityUrns, BATCH_SIZE);
+    List<List<Urn>> batches = Lists.partition(entityUrns, graphQueryConfiguration.getBatchSize());
     return ConcurrencyUtils.getAllCompleted(batches.stream()
             .map(batchUrns -> CompletableFuture.supplyAsync(
                 () -> getLineageRelationships(
@@ -285,7 +285,7 @@ public class ESGraphQueryDAO {
             graphFilters,
             startTimeMillis,
             endTimeMillis)));
-    SearchResponse response = executeSearchQuery(finalQuery, 0, MAX_ELASTIC_RESULT);
+    SearchResponse response = executeSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
     // Get all valid edges given the set of urns to hop from
     Set<Pair<String, EdgeInfo>> validEdges = edgesPerEntityType.entrySet()
