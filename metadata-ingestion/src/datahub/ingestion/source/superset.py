@@ -61,7 +61,9 @@ chart_type_from_viz_type = {
 class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
-    connect_uri: str = Field(default="localhost:8088", description="Superset host URL.")
+    connect_uri: str = Field(
+        default="http://localhost:8088", description="Superset host URL."
+    )
     display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
@@ -139,8 +141,7 @@ class SupersetSource(Source):
 
         login_response = requests.post(
             f"{self.config.connect_uri}/api/v1/security/login",
-            None,
-            {
+            json={
                 "username": self.config.username,
                 "password": self.config.password,
                 "refresh": True,
@@ -149,6 +150,7 @@ class SupersetSource(Source):
         )
 
         self.access_token = login_response.json()["access_token"]
+        logger.debug("Got access token from superset")
 
         self.session = requests.Session()
         self.session.headers.update(
@@ -160,7 +162,7 @@ class SupersetSource(Source):
         )
 
         # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/api/v1/database")
+        test_response = self.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
         if test_response.status_code == 200:
             pass
             # TODO(Gabe): how should we message about this error?
@@ -254,7 +256,7 @@ class SupersetSource(Source):
 
         while current_dashboard_page * PAGE_SIZE <= total_dashboards:
             dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dashboard",
+                f"{self.config.connect_uri}/api/v1/dashboard/",
                 params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
             )
             if dashboard_response.status_code != 200:
@@ -360,7 +362,7 @@ class SupersetSource(Source):
 
         while current_chart_page * PAGE_SIZE <= total_charts:
             chart_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/chart",
+                f"{self.config.connect_uri}/api/v1/chart/",
                 params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
             )
             if chart_response.status_code != 200:
