@@ -27,22 +27,49 @@ For more information about the differences between these endpoints, please refer
 GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
-```python
+```json
 mutation updateLineage {
-    updateLineage(
-      input:{ 
-        edgesToAdd : {
-          downstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-          upstreamUrn : "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
-        },
-        edgesToRemove :{
-         downstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
-          upstreamUrn : "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
-
+  updateLineage(
+    input: {
+      edgesToAdd: [
+        {
+          downstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
+          upstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
         }
-      })
+      ]
+      edgesToRemove: []
+    }
+  )
 }
 ```
+
+Note that you can create a list of edges. For example, if you want to assign multiple upstream entities to a downstream entity, you can do the following.
+
+
+```json
+mutation updateLineage {
+  updateLineage(
+    input: {
+      edgesToAdd: [
+        {
+          downstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
+          upstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+        }
+        {
+          downstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
+          upstreamUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+        }
+      ]
+      edgesToRemove: []
+    }
+  )
+}
+
+```
+
+For more information about the `updateLineage` mutation, please refer to [updateLineage](https://datahubproject.io/docs/graphql/mutations/#updatelineage). 
+
+
 If you see the following response, the operation was successful:
 ```python
 {
