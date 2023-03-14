@@ -247,47 +247,52 @@ fragment lineageFields on EntityWithRelationships {
     }
 }
 
+fragment lineageRelationshipFields on LineageRelationship {
+    type
+    createdOn
+    createdActor {
+        urn
+        type
+        ... on CorpUser {
+            username
+            info {
+                displayName
+            }
+            properties {
+                displayName
+            }
+            editableProperties {
+                displayName
+            }
+        }
+    }
+    updatedOn
+    updatedActor {
+        urn
+        type
+        ... on CorpUser {
+            username
+            info {
+                displayName
+            }
+            properties {
+                displayName
+            }
+            editableProperties {
+                displayName
+            }
+        }
+    }
+    isManual
+}
+
 fragment fullLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
     relationships {
-        type
-        createdOn
-        createdActor {
-            urn
-            type
-            ... on CorpUser {
-                username
-                info {
-                    displayName
-                }
-                properties {
-                    displayName
-                }
-                editableProperties {
-                    displayName
-                }
-            }
-        }
-        updatedOn
-        updatedActor {
-            urn
-            type
-            ... on CorpUser {
-                username
-                info {
-                    displayName
-                }
-                properties {
-                    displayName
-                }
-                editableProperties {
-                    displayName
-                }
-            }
-        }
-        isManual
+        ...lineageRelationshipFields
         entity {
             ...lineageFields
             ... on Dataset {
@@ -308,8 +313,9 @@ fragment leafLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
     relationships {
-        type
+        ...lineageRelationshipFields
         entity {
             urn
             type
@@ -321,6 +327,7 @@ fragment partialLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
 }
 
 query getEntityLineage(

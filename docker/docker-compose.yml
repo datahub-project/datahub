@@ -29,7 +29,7 @@ services:
       - broker:/var/lib/kafka/data/
 
   elasticsearch:
-    image: elasticsearch:7.10.1
+    image: elasticsearch:7.10.2
     env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch
@@ -58,6 +58,8 @@ services:
 
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
+    labels:
+      datahub_setup_job: true
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
@@ -108,6 +110,8 @@ services:
   # This is not required in most cases, kept here for backwards compatibility with older clients that
   # explicitly wait for this container
   kafka-setup:
+    labels:
+      datahub_setup_job: true
     build:
       dockerfile: ./docker/kafka-setup/Dockerfile
       context: ../
@@ -119,6 +123,8 @@ services:
       - broker
 
   datahub-upgrade:
+    labels:
+      datahub_setup_job: true
     build:
       context: ../
       dockerfile: docker/datahub-upgrade/Dockerfile

@@ -4,6 +4,7 @@ output
 pvenv36/
 /venv*/
 bq_credentials.json
+junit.*.xml
 /tmp
 
 # Byte-compiled / optimized / DLL files
@@ -58,6 +59,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+junit.*xml
 
 # Translations
 *.mo

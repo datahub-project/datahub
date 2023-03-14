@@ -3,14 +3,15 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
+from pydantic import Field, PositiveInt, PrivateAttr, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    LineageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
+    StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
@@ -34,9 +35,9 @@ class BigQueryUsageConfig(BaseUsageConfig):
 class BigQueryV2Config(
     BigQueryBaseConfig,
     SQLAlchemyConfig,
-    LineageStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
+    StatefulUsageConfigMixin,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -54,7 +55,12 @@ class BigQueryV2Config(
 
     capture_table_label_as_tag: bool = Field(
         default=False,
-        description="Capture BigQuery table labels as tag",
+        description="Capture BigQuery table labels as DataHub tag",
+    )
+
+    capture_dataset_label_as_tag: bool = Field(
+        default=False,
+        description="Capture BigQuery dataset labels as DataHub tag",
     )
 
     dataset_pattern: AllowDenyPattern = Field(
@@ -78,9 +84,16 @@ class BigQueryV2Config(
     )
 
     number_of_datasets_process_in_batch: int = Field(
-        default=80,
-        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+        hidden_from_docs=True,
+        default=500,
+        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care.",
     )
+
+    number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
+        default=80,
+        description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+    )
+
     column_limit: int = Field(
         default=300,
         description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",
@@ -88,15 +101,19 @@ class BigQueryV2Config(
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
         default=None,
-        description="[deprecated] Use project_id_pattern instead. You can use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account",
+        description="[deprecated] Use project_id_pattern or project_ids instead.",
+    )
+    project_ids: List[str] = Field(
+        default_factory=list,
+        description="Ingests specified project_ids. Use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account.",
     )
 
     project_on_behalf: Optional[str] = Field(
         default=None,
-        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account..",
+        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
     )
 
-    storage_project_id: None = Field(default=None, hidden_from_schema=True)
+    storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
         default=False,
@@ -164,9 +181,17 @@ class BigQueryV2Config(
     )
     _credentials_path: Optional[str] = PrivateAttr(None)
 
+    _cache_path: Optional[str] = PrivateAttr(None)
+
     upstream_lineage_in_report: bool = Field(
         default=False,
         description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
+    )
+
+    run_optimized_column_query: bool = Field(
+        hidden_from_docs=True,
+        default=False,
+        description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
     def __init__(self, **data: Any):
@@ -247,13 +272,6 @@ class BigQueryV2Config(
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
 
-    @validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"
-
-    @validator("platform_instance")
-    def bigquery_doesnt_need_platform_instance(cls, v):
-        if v is not None:
-            raise ConfigurationError(
-                "BigQuery project ids are globally unique. You do not need to specify a platform instance."
-            )
+    platform_instance_not_supported_for_bigquery = pydantic_removed_field(
+        "platform_instance"
+    )

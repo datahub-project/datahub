@@ -11,9 +11,16 @@
 //
 // -- This is a parent command --
 
+import dayjs from "dayjs";
+
 function selectorWithtestId (id) {
   return '[data-testid="' + id +'"]';
 }
+
+export function getTimestampMillisNumDaysAgo (numDays) {
+  return dayjs().subtract(numDays, 'day').valueOf();
+}
+
 
 Cypress.Commands.add('login', () => {
     cy.request({
@@ -82,6 +89,12 @@ Cypress.Commands.add("goToEntityLineageGraph", (entity_type, urn, start_time_mil
     `/${entity_type}/${urn}?is_lineage_mode=true&start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`
   );
 })
+
+Cypress.Commands.add("lineageTabClickOnUpstream", () => {
+  cy.get('[data-testid="lineage-tab-direction-select-option-downstream"] > b').click();
+  cy.get('[data-testid="lineage-tab-direction-select-option-upstream"] > b').click();
+})
+
 
 Cypress.Commands.add("goToChart", (urn) => {
   cy.visit(

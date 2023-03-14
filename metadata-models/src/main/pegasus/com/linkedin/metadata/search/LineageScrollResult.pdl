@@ -1,0 +1,34 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for the result of a lineage search query
+ */
+record LineageScrollResult {
+
+  /**
+   * A list of entities returned from the search results
+   */
+  entities: array[LineageSearchEntity]
+
+  /**
+   * Metadata specific to the browse result of the queried path
+   */
+  metadata: SearchResultMetadata
+
+  /**
+   * Scroll Identifier for subsequent requests, if not present then no further results to fetch
+   */
+  scrollId: optional string
+
+  /**
+   * Size of each page in the result
+   */
+  pageSize: int
+
+  /**
+   * The total number of entities directly under searched path
+   */
+  numEntities: int
+}

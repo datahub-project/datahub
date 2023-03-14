@@ -263,4 +263,9 @@ type EntityPrivileges {
   Whether or not a user update the embed information
   """
   canEditEmbed: Boolean
+
+  """
+  Whether or not a user can update the Queries for the entity (e.g. dataset)
+  """
+  canEditQueries: Boolean
 }

@@ -5,13 +5,33 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #7016 Add `add_database_name_to_urn` flag to Oracle source which ensure that Dataset urns have the DB name as a prefix to prevent collision (.e.g. {database}.{schema}.{table}). ONLY breaking if you set this flag to true, otherwise behavior remains the same. 
+- The Airflow plugin no longer includes the DataHub Kafka emitter by default.  Use `pip install acryl-datahub-airflow-plugin[datahub-kafka]` for Kafka support.
+- The Airflow lineage backend no longer includes the DataHub Kafka emitter by default.  Use `pip install acryl-datahub[airflow,datahub-kafka]` for Kafka support.
+
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## 0.10.0
+
+### Breaking Changes
 
 - #7103 This should only impact users who have configured explicit non-default names for DataHub's Kafka topics. The environment variables used to configure Kafka topics for DataHub used in the `kafka-setup` docker image have been updated to be in-line with other DataHub components, for more info see our docs on [Configuring Kafka in DataHub
 ](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
 
 ### Potential Downtime
 
-- #6894 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities. 
+- #6894 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities.
+
+#### Helm Notes
+
+Helm without `--atomic`: The default timeout for an upgrade command is 5 minutes. If the reindex takes longer (depending on data size) it will continue to run in the background even though helm will report a failure. Allow this job to finish and then re-run the helm upgrade command.
+
+Helm with `--atomic`: In general, it is recommended to not use the `--atomic` setting for this particular upgrade since the system update job will be terminated before completion. If `--atomic` is preferred, then increase the timeout using the `--timeout` flag to account for the reindexing time (see note above for estimating this value).
 
 ### Deprecations
 
@@ -154,6 +174,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #5478 DataHub CLI `delete` command when used with `--hard` option will delete soft-deleted entities which match the other filters given.
 - #5471 Looker now populates `userEmail` in dashboard user usage stats. This version of looker connnector will not work with older version of **datahub-gms** if you have `extract_usage_history` looker config enabled.
 - #5529 - `ANALYTICS_ENABLED` environment variable in **datahub-gms** is now deprecated. Use `DATAHUB_ANALYTICS_ENABLED` instead.
+- #5485 `--include-removed` option was removed from delete CLI
 
 ### Potential Downtime
 

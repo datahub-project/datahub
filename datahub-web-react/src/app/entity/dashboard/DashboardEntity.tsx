@@ -34,13 +34,13 @@ import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 export class DashboardEntity implements Entity<Dashboard> {
     type: EntityType = EntityType.Dashboard;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <DashboardOutlined style={{ fontSize }} />;
+            return <DashboardOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DashboardFilled style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+            return <DashboardFilled style={{ fontSize, color: color || 'rgb(144 163 236)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -53,7 +53,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             <DashboardOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );

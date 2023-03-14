@@ -15,6 +15,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.entity.Entity;
@@ -37,6 +38,7 @@ import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -417,6 +419,70 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             Mockito.any(), Mockito.any());
         verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+        verifyNoMoreInteractions(_mockProducer);
+    }
+
+    @Test
+    public void testReingestAspectsGetLatestAspects() throws Exception {
+
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
+
+        List<Pair<String, RecordTemplate>> pairToIngest = new ArrayList<>();
+
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        writeAspect1.setCustomProperties(new StringMap());
+        String aspectName1 = AspectGenerationUtils.getAspectName(writeAspect1);
+        pairToIngest.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
+
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
+
+        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+
+        final MetadataChangeLog initialChangeLog = new MetadataChangeLog();
+        initialChangeLog.setEntityType(entityUrn.getEntityType());
+        initialChangeLog.setEntityUrn(entityUrn);
+        initialChangeLog.setChangeType(ChangeType.UPSERT);
+        initialChangeLog.setAspectName(aspectName1);
+        initialChangeLog.setCreated(TEST_AUDIT_STAMP);
+
+        GenericAspect aspect = GenericRecordUtils.serializeAspect(pairToIngest.get(0).getSecond());
+
+        initialChangeLog.setAspect(aspect);
+        initialChangeLog.setSystemMetadata(metadata1);
+
+        final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
+        restateChangeLog.setEntityType(entityUrn.getEntityType());
+        restateChangeLog.setEntityUrn(entityUrn);
+        restateChangeLog.setChangeType(ChangeType.RESTATE);
+        restateChangeLog.setAspectName(aspectName1);
+        restateChangeLog.setCreated(TEST_AUDIT_STAMP);
+        restateChangeLog.setAspect(aspect);
+        restateChangeLog.setSystemMetadata(metadata1);
+        restateChangeLog.setPreviousAspectValue(aspect);
+        restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
+
+        Map<String, RecordTemplate> latestAspects = _entityService.getLatestAspectsForUrn(
+            entityUrn,
+            new HashSet<>(List.of(aspectName1))
+        );
+        assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
+
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.eq(initialChangeLog));
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+        // Mockito detects the previous invocation and throws an error in verifying the second call unless invocations are cleared
+        clearInvocations(_mockProducer);
+
+        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.eq(restateChangeLog));
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
 
         verifyNoMoreInteractions(_mockProducer);
     }
@@ -944,6 +1010,16 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
         assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
+    }
+
+    /**
+     * Equivalence for mocks fails when directly using the object as when converting from RecordTemplate from JSON it
+     * reorders the fields. This simulates pulling the historical SystemMetadata from the previous call.
+     */
+    protected <T extends RecordTemplate> T simulatePullFromDB(T aspect, Class<T> clazz) throws Exception {
+        final ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     }
 
     @Nonnull

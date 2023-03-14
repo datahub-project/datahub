@@ -13,12 +13,18 @@ import org.springframework.context.annotation.FilterType;
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class,
-        SolrHealthContributorAutoConfiguration.class})
-@ComponentScan(basePackages = {"com.linkedin.metadata.kafka", "com.linkedin.gms.factory.config",
-    "com.linkedin.gms.factory.common"},
+    SolrHealthContributorAutoConfiguration.class})
+@ComponentScan(basePackages = {
+    //"com.linkedin.gms.factory.config",
+    //"com.linkedin.gms.factory.common",
+        "com.linkedin.gms.factory.kafka",
+        "com.linkedin.metadata.boot.kafka",
+        "com.linkedin.metadata.kafka",
+        "com.linkedin.metadata.dao.producer"
+},
     excludeFilters = {@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = ScheduledAnalyticsFactory.class),
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SiblingGraphServiceFactory.class)}
-)
+@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SiblingGraphServiceFactory.class)}
+    )
 public class MaeConsumerApplication {
   public static void main(String[] args) {
     Class<?>[] primarySources = {MaeConsumerApplication.class, MclConsumerConfig.class};

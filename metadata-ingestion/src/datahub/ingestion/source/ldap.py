@@ -8,6 +8,7 @@ from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -99,7 +100,7 @@ def set_cookie(
     return bool(cookie)
 
 
-class LDAPSourceConfig(StatefulIngestionConfigBase):
+class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     """Config used by the LDAP Source."""
 
     # Server configuration.
@@ -287,7 +288,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
             cookie = set_cookie(self.lc, pctrls)
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """
         The source identifier such as the specific source host address required for stateful ingestion.
         Individual subclasses need to override this method appropriately.

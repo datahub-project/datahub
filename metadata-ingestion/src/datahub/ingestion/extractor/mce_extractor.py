@@ -13,10 +13,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
 
-try:
-    import black
-except ImportError:
-    black = None  # type: ignore
+
+def _try_reformat_with_black(code: str) -> str:
+    try:
+        import black
+
+        return black.format_str(code, mode=black.FileMode())
+    except ImportError:
+        return code
 
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
@@ -68,9 +72,7 @@ class WorkUnitRecordExtractor(
                     raise AttributeError("every mce must have at least one aspect")
             if not workunit.metadata.validate():
                 invalid_mce = str(workunit.metadata)
-
-                if black is not None:
-                    invalid_mce = black.format_str(invalid_mce, mode=black.FileMode())
+                invalid_mce = _try_reformat_with_black(invalid_mce)
 
                 raise ValueError(
                     f"source produced an invalid metadata work unit: {invalid_mce}"
@@ -85,11 +87,7 @@ class WorkUnitRecordExtractor(
         elif isinstance(workunit, UsageStatsWorkUnit):
             if not workunit.usageStats.validate():
                 invalid_usage_stats = str(workunit.usageStats)
-
-                if black is not None:
-                    invalid_usage_stats = black.format_str(
-                        invalid_usage_stats, mode=black.FileMode()
-                    )
+                invalid_usage_stats = _try_reformat_with_black(invalid_usage_stats)
 
                 raise ValueError(
                     f"source produced an invalid usage stat: {invalid_usage_stats}"

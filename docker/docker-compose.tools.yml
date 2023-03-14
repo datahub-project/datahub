@@ -28,7 +28,7 @@ services:
       - kafka-rest-proxy
 
   kibana:
-    image: kibana:7.9.3
+    image: kibana:7.10.1
     env_file: kibana/env/docker.env
     container_name: kibana
     hostname: kibana

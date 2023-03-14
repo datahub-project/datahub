@@ -7,7 +7,7 @@ from unittest import mock
 from freezegun import freeze_time
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
-from looker_sdk.sdk.api31.models import (
+from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardElement,
     LookmlModelExplore,
@@ -43,7 +43,7 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 @freeze_time(FROZEN_TIME)
 def test_looker_ingest(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
-    with mock.patch("looker_sdk.init31") as mock_sdk:
+    with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore(mocked_client)
@@ -83,7 +83,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
-    with mock.patch("looker_sdk.init31") as mock_sdk:
+    with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore_with_joins(mocked_client)
@@ -123,7 +123,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
-    with mock.patch("looker_sdk.init31") as mock_sdk:
+    with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
         mocked_client.dashboard.return_value = Dashboard(
@@ -260,7 +260,9 @@ def setup_mock_dashboard_with_usage(mocked_client):
                     dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                 ),
             ),
-            DashboardElement(id="3", type="", look=LookWithQuery(id=3, view_count=30)),
+            DashboardElement(
+                id="3", type="", look=LookWithQuery(id="3", view_count=30)
+            ),
         ],
     )
 
@@ -368,7 +370,7 @@ def setup_mock_explore(mocked_client):
 
 def setup_mock_user(mocked_client):
     def get_user(
-        id_: int,
+        id_: str,
         fields: Optional[str] = None,
         transport_options: Optional[transport.TransportOptions] = None,
     ) -> User:
@@ -481,7 +483,7 @@ def side_effect_query_inline(
 def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
 
-    with mock.patch("looker_sdk.init31") as mock_sdk:
+    with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multiple_charts(mocked_client)
         setup_mock_explore(mocked_client)
@@ -523,7 +525,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
-    with mock.patch("looker_sdk.init31") as mock_sdk:
+    with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_with_usage(mocked_client)
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
@@ -630,7 +632,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init31") as mock_sdk:
+    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multiple_charts(mocked_client)
@@ -656,7 +658,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init31") as mock_sdk:
+    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)

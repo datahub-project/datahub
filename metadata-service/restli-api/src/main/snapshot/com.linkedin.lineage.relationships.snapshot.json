@@ -97,6 +97,12 @@
       "type" : "int",
       "doc" : "Total number of results in the result set"
     }, {
+      "name" : "filtered",
+      "type" : "int",
+      "doc" : "The number of results that were filtered out of the page (soft-deleted or non-existent)",
+      "default" : 0,
+      "optional" : true
+    }, {
       "name" : "relationships",
       "type" : {
         "type" : "array",
