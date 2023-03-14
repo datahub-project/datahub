@@ -1,12 +1,6 @@
 query getMLModel($urn: String!) {
     mlModel(urn: $urn) {
         ...nonRecursiveMLModel
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
         features: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             start
             count
