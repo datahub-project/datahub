@@ -1,10 +1,5 @@
 package com.datahub.authentication.token;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationRequest;
-import com.datahub.authentication.AuthenticationException;
-import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.authentication.AuthenticatorContext;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
 import java.math.BigInteger;
@@ -36,7 +31,10 @@ public class DataHubJwtSigningKeyResolverTest {
   @Test
   public void testResolveSigningKeyWithPublicKey() throws Exception {
     String publicKey =
-        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyehkd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdgcKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbcmwIDAQAB";
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7Q"
+            + "krmBL7jTKEn5u+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyehkd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40R"
+            + "QzuVaE8AkAFmxZzow3x+VJYKdjykkJ0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdgcKWTjpBP2dPwVZ4WWC+"
+            + "9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbcmwIDAQAB";
     HashSet<String> trustedIssuers = new HashSet<>();
     trustedIssuers.add("https://example.com");
     resolver = new DataHubJwtSigningKeyResolver(trustedIssuers, publicKey, "RSA");
@@ -58,11 +56,17 @@ public class DataHubJwtSigningKeyResolverTest {
 
     Mockito.when(httpResponse.statusCode()).thenReturn(200);
     JSONObject token = new JSONObject(
-        "{\"kty\": \"RSA\", \"kid\": \"test_key\", \"n\": \"ueXyoaxgWhMTLwkowaskhiV85rbN9n_nLft8CxFUY3nbMpNybAWsWuhJ4SYLT4U-GbKdL-h-NYgBXKnGK1ieG6qSC25T3hWXTb3cNe73ZQUcZSivAV2tZouPYcb1XKSyKd-PsK8NsCpq1NHsJsrXSKq-7YCaf4MxIUaFXSZTE7ZNC0fPVqYH71jnyOU9FA_KJm0IC-x_Bs2gAk3Eq1_6pZ_0VeYpczv82LACAUzi1vuU1gbbZLNHHl4DHwWb98eI1aCbWHNMux70Ba4aREOdKOWrxZ066W_NKUVtPY_njW66NvgBujxqHD2EQUc87KPAL6rYOH0hWWPEzencGdYj2w\", \"e\": \"AQAB\"}");
+        "{\"kty\": \"RSA\", \"kid\": \"test_key\", \"n\": \"ueXyoaxgWhMTLwkowaskhiV85rbN9n_nLft8CxFUY3nbMpNybAWsWuhJ4SYLT4U-GbKdL-h-NYgBXKn"
+            + "GK1ieG6qSC25T3hWXTb3cNe73ZQUcZSivAV2tZouPYcb1XKSyKd-PsK8NsCpq1NHsJsrXSKq-7YCaf4MxIUaFXSZTE7ZNC0fPVqYH71jnyOU9FA_KJm0IC-x_Bs2g"
+            + "Ak3Eq1_6pZ_0VeYpczv82LACAUzi1vuU1gbbZLNHHl4DHwWb98eI1aCbWHNMux70Ba4aREOdKOWrxZ066W_NKUVtPY_njW66NvgBujxqHD2EQUc87KPAL6rYOH"
+            + "0hWWPEzencGdYj2w\", \"e\": \"AQAB\"}");
     PublicKey expectedKey = getPublicKey(token);
 
     String responseJson =
-        "{\"keys\": [{\"kty\": \"RSA\", \"kid\": \"test_key\", \"n\": \"ueXyoaxgWhMTLwkowaskhiV85rbN9n_nLft8CxFUY3nbMpNybAWsWuhJ4SYLT4U-GbKdL-h-NYgBXKnGK1ieG6qSC25T3hWXTb3cNe73ZQUcZSivAV2tZouPYcb1XKSyKd-PsK8NsCpq1NHsJsrXSKq-7YCaf4MxIUaFXSZTE7ZNC0fPVqYH71jnyOU9FA_KJm0IC-x_Bs2gAk3Eq1_6pZ_0VeYpczv82LACAUzi1vuU1gbbZLNHHl4DHwWb98eI1aCbWHNMux70Ba4aREOdKOWrxZ066W_NKUVtPY_njW66NvgBujxqHD2EQUc87KPAL6rYOH0hWWPEzencGdYj2w\", \"e\": \"AQAB\"}]}";
+        "{\"keys\": [{\"kty\": \"RSA\", \"kid\": \"test_key\", \"n\": \"ueXyoaxgWhMTLwkowaskhiV85rbN9n_nLft8CxFUY3nbMpNybAWsWuhJ4SYLT4U-GbKdL-h-NYgB"
+            + "XKnGK1ieG6qSC25T3hWXTb3cNe73ZQUcZSivAV2tZouPYcb1XKSyKd-PsK8NsCpq1NHsJsrXSKq-7YCaf4MxIUaFXSZTE7ZNC0fPVqYH71jny"
+            + "OU9FA_KJm0IC-x_Bs2gAk3Eq1_6pZ_0VeYpczv82LACAUzi1vuU1gbbZLNHHl4DHwWb98eI1aCbWHNMux70Ba4aREOdKOWrxZ066W_N"
+            + "KUVtPY_njW66NvgBujxqHD2EQUc87KPAL6rYOH0hWWPEzencGdYj2w\", \"e\": \"AQAB\"}]}";
     Mockito.when(httpResponse.body()).thenReturn(responseJson);
 
     Mockito.when(httpClient.send(Mockito.any(HttpRequest.class), Mockito.any(HttpResponse.BodyHandler.class)))
