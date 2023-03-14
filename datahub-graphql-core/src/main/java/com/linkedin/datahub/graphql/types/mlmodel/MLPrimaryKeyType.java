@@ -19,6 +19,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.util.HashSet;
@@ -91,7 +92,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search("mlPrimaryKey", query, facetFilters, start, count,
-                context.getAuthentication(), true, null);
+                context.getAuthentication(), new SearchFlags().setFulltext(true));
         return UrnSearchResultsMapper.map(searchResult);
     }
 

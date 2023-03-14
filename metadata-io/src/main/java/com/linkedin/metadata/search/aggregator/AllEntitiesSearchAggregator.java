@@ -3,7 +3,7 @@ package com.linkedin.metadata.search.aggregator;
 import com.codahale.metrics.Timer;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;

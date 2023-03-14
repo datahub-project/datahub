@@ -32,6 +32,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -107,7 +108,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final SearchResult searchResult = _entityClient.search("corpuser", query, Collections.emptyMap(), start, count,
-            context.getAuthentication(), true, null);
+            context.getAuthentication(), new SearchFlags().setFulltext(true));
         return UrnSearchResultsMapper.map(searchResult);
     }
 

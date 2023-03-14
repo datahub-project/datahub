@@ -1581,6 +1581,26 @@ type DatasetProperties {
     External URL associated with the Dataset
     """
     externalUrl: String
+
+    """
+    Created timestamp millis associated with the Dataset
+    """
+    created: Long
+
+    """
+    Actor associated with the Dataset's created timestamp
+    """
+    createdActor: String
+
+    """
+    Last Modified timestamp millis associated with the Dataset
+    """
+    lastModified: Long
+
+    """
+    Actor associated with the Dataset's lastModified timestamp
+    """
+    lastModifiedActor: String
 }
 
 

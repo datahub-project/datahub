@@ -36,6 +36,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -87,7 +88,7 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
     // https://datahubspace.slack.com/archives/C029A3M079U/p1646288772126639
     final Map<String, String> facetFilters = Collections.emptyMap();
     final SearchResult searchResult = _entityClient.search(NOTEBOOK_ENTITY_NAME, query, facetFilters, start, count,
-            context.getAuthentication(), true, null);
+            context.getAuthentication(), new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
 
