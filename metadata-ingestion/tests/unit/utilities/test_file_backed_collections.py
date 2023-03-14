@@ -1,18 +1,20 @@
 import dataclasses
 import json
 import pathlib
-import tempfile
 from dataclasses import dataclass
 from typing import Counter, Dict
 
 import pytest
 
-from datahub.utilities.file_backed_collections import FileBackedDict, FileBackedList
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
+    FileBackedList,
+)
 
 
-def test_file_dict(tmp_path: pathlib.Path) -> None:
+def test_file_dict() -> None:
     cache = FileBackedDict[int](
-        filename=tmp_path / "test.db",
         tablename="cache",
         cache_max_size=10,
         cache_eviction_batch_size=10,
@@ -80,7 +82,7 @@ def test_file_dict(tmp_path: pathlib.Path) -> None:
         cache["a"] = 1
 
 
-def test_custom_serde(tmp_path: pathlib.Path) -> None:
+def test_custom_serde() -> None:
     @dataclass(frozen=True)
     class Label:
         a: str
@@ -123,7 +125,6 @@ def test_custom_serde(tmp_path: pathlib.Path) -> None:
         return Main.from_dict(json.loads(s))
 
     cache = FileBackedDict[Main](
-        filename=tmp_path / "test.db",
         serializer=serialize,
         deserializer=deserialize,
         # Disable the in-memory cache to force all reads/writes to the DB.
@@ -143,19 +144,18 @@ def test_custom_serde(tmp_path: pathlib.Path) -> None:
     assert deserializer_calls == 2
 
 
-def test_file_dict_stores_counter(tmp_path: pathlib.Path) -> None:
+def test_file_dict_stores_counter() -> None:
     cache = FileBackedDict[Counter[str]](
-        filename=tmp_path / "test.db",
         serializer=json.dumps,
-        deserializer=lambda s: Counter(json.loads(s)),
+        deserializer=lambda s: Counter[str](json.loads(s)),
         cache_max_size=1,
     )
 
     n = 5
     in_memory_counters: Dict[int, Counter[str]] = {}
     for i in range(n):
-        cache[str(i)] = Counter()
-        in_memory_counters[i] = Counter()
+        cache[str(i)] = Counter[str]()
+        in_memory_counters[i] = Counter[str]()
         for j in range(n):
             if i == j:
                 cache[str(i)][str(j)] += 100
@@ -174,9 +174,8 @@ class Pair:
     y: str
 
 
-def test_custom_column(tmp_path: pathlib.Path) -> None:
+def test_custom_column() -> None:
     cache = FileBackedDict[Pair](
-        filename=tmp_path / "test.db",
         extra_columns={
             "x": lambda m: m.x,
         },
@@ -201,18 +200,18 @@ def test_custom_column(tmp_path: pathlib.Path) -> None:
     )
 
 
-def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
-    filename = tmp_path / "test.db"
+def test_shared_connection() -> None:
+    connection = ConnectionWrapper()
 
     cache1 = FileBackedDict[int](
-        filename=filename,
+        connection=connection,
         tablename="cache1",
         extra_columns={
             "v": lambda v: v,
         },
     )
     cache2 = FileBackedDict[Pair](
-        filename=filename,
+        connection=connection,
         tablename="cache2",
         extra_columns={
             "x": lambda m: m.x,
@@ -249,9 +248,8 @@ def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
     )
 
 
-def test_file_list(tmp_path: pathlib.Path) -> None:
+def test_file_list() -> None:
     my_list = FileBackedList[int](
-        filename=tmp_path / "test.db",
         serializer=lambda x: x,
         deserializer=lambda x: x,
         cache_max_size=5,
@@ -290,14 +288,13 @@ def test_file_list(tmp_path: pathlib.Path) -> None:
 
 
 def test_file_cleanup():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        filename = pathlib.Path(tmpdir) / "test.db"
-        cache = FileBackedDict[int](filename=filename)
+    cache = FileBackedDict[int]()
+    filename = pathlib.Path(cache._conn.filename)
 
-        cache["a"] = 3
-        cache.flush()
-        assert len(cache) == 1
+    cache["a"] = 3
+    cache.flush()
+    assert len(cache) == 1
 
-        cache.close()
-
+    assert filename.exists()
+    cache.close()
     assert not filename.exists()
