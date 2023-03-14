@@ -56,6 +56,9 @@ const QueryContainer = styled.div`
 const NestedSyntax = styled(SyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
+    height: 100% !important;
+    margin: 0px !important;
+    padding: 12px !important;
 `;
 
 type Props = {

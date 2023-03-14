@@ -10,6 +10,7 @@ from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -371,7 +372,6 @@ class RedshiftUsageExtractor:
                 AggregatedDataset(
                     bucket_start_time=floored_ts,
                     resource=resource,
-                    user_email_pattern=self.config.user_email_pattern,
                 ),
             )
             # current limitation in user stats UI, we need to provide email to show users
@@ -382,6 +382,7 @@ class RedshiftUsageExtractor:
                 user_email,
                 event.text,
                 [],  # TODO: not currently supported by redshift; find column level changes
+                user_email_pattern=self.config.user_email_pattern,
             )
         return datasets
 
