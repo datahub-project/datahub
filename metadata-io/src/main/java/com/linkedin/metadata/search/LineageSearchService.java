@@ -102,6 +102,12 @@ public class LineageSearchService {
 
     long startTime = System.nanoTime();
     log.debug("Cache enabled {}, Input :{}:", cacheEnabled, input);
+    if ((input == null) || (input.isEmpty())) {
+      input = "*";
+    }
+    if (maxHops == null) {
+      maxHops = 1000;
+    }
 
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
@@ -118,13 +124,16 @@ public class LineageSearchService {
     EntityLineageResult lineageResult;
     FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
     if (cachedLineageResult == null || finalFlags.isSkipCache()) {
-      maxHops = maxHops != null ? maxHops : 1000;
       lineageResult =
           _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops, startTimeMillis,
               endTimeMillis);
       if (cacheEnabled) {
-        cache.put(cacheKey,
-            new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+        try {
+          cache.put(cacheKey,
+              new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+        } catch (Exception e) {
+          log.warn("Failed to add cacheKey {}", cacheKey, e);
+        }
       }
     } else {
       lineageResult = cachedLineageResult.getEntityLineageResult();
@@ -139,12 +148,7 @@ public class LineageSearchService {
         this.cacheRefillExecutor.submit(() -> {
           log.debug("Cache refill started.");
           CachedEntityLineageResult reFetchLineageResult = cache.get(cacheKey, CachedEntityLineageResult.class);
-          if ((reFetchLineageResult == null)
-                  ||
-                  ((reFetchLineageResult != null)
-                          &&
-                          ((System.currentTimeMillis() - reFetchLineageResult.getTimestamp()) > cacheConfiguration.getTTLMillis())
-                  )
+          if (reFetchLineageResult == null || System.currentTimeMillis() - reFetchLineageResult.getTimestamp() > cacheConfiguration.getTTLMillis()
           ) {
             // we have to refetch
             EntityLineageResult result = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, finalMaxHops, startTimeMillis, endTimeMillis);
@@ -171,11 +175,11 @@ public class LineageSearchService {
     long numEntities = 0;
     String codePath = null;
     try {
-      if ((lineageRelationships.size() > cacheConfiguration.getLightningThreshold()) && ((input == null) || (input.isEmpty()) || (input.equals("*")))) {
+      if ((lineageRelationships.size() > cacheConfiguration.getLightningThreshold()) && input.equals("*")) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
-        LineageSearchResult lineageSearchResult = getLightningSearchResult(lineageRelationships, input != null
-                ? input : "*", inputFilters, sortCriterion, from, size, finalFlags);
+        LineageSearchResult lineageSearchResult = getLightningSearchResult(lineageRelationships, input,
+                inputFilters, sortCriterion, from, size, finalFlags);
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug("Lightning Lineage entity result: {}", lineageSearchResult.getEntities().get(0).toString());
         }
@@ -183,10 +187,7 @@ public class LineageSearchService {
         return lineageSearchResult;
       } else {
         codePath = "tortoise";
-        if (input.isEmpty()) {
-          input = "*";
-        }
-        LineageSearchResult lineageSearchResult = getSearchResultInBatches(lineageRelationships, input != null ? input : "*",
+        LineageSearchResult lineageSearchResult = getSearchResultInBatches(lineageRelationships, input,
                 inputFilters, sortCriterion, from, size, finalFlags);
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug("Lineage entity result: {}", lineageSearchResult.getEntities().get(0).toString());
