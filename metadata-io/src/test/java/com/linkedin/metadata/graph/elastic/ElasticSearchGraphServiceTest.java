@@ -6,6 +6,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ESTestConfiguration;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
@@ -69,7 +70,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   @Nonnull
   private ElasticSearchGraphService buildService() {
     LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
-    ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, lineageRegistry, _indexConvention);
+    ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, lineageRegistry, _indexConvention, GraphQueryConfiguration.testDefaults);
     ESGraphWriteDAO writeDAO = new ESGraphWriteDAO(_indexConvention, _bulkProcessor, 1);
     return new ElasticSearchGraphService(lineageRegistry, _bulkProcessor, _indexConvention, writeDAO, readDAO,
         _esIndexBuilder);

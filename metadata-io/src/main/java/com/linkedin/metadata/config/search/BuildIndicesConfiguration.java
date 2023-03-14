@@ -1,4 +1,4 @@
-package com.linkedin.metadata.config;
+package com.linkedin.metadata.config.search;
 
 import lombok.Data;
 
