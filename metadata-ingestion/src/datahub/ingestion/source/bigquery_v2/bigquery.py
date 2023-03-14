@@ -433,13 +433,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             return None
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        """
-        The source identifier such as the specific source host address required for stateful ingestion.
-        Individual subclasses need to override this method appropriately.
-        """
-        return f"{self.platform}"
-
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
             project_id=db_name,
