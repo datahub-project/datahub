@@ -521,5 +521,29 @@
         "lastObserved": 1646575200000,
         "runId": "postgres-test"
     }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
 }
 ]

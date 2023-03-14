@@ -6,6 +6,7 @@ source:
     host_port: 'localhost:5432'
     username: 'postgres'
     password: 'example'
+    include_view_lineage: True
     profiling:
       enabled: true
       profile_table_level_only: true

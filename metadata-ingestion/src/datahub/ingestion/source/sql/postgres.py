@@ -168,15 +168,16 @@ class PostgresSource(SQLAlchemySource):
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits()
 
-        if self.config.include_view_lineage:
-            yield from self._get_view_lineage_workunits()
+        for inspector in self.get_inspectors():
+            if self.config.include_view_lineage:
+                yield from self._get_view_lineage_workunits(inspector)
 
-    def _get_view_lineage_elements(self) -> Dict[Tuple[str, str], List[str]]:
-        url = self.config.get_sql_alchemy_url()
-        engine = create_engine(url, **self.config.options)
+    def _get_view_lineage_elements(
+        self, inspector: Inspector
+    ) -> Dict[Tuple[str, str], List[str]]:
 
         data: List[ViewLineageEntry] = []
-        with engine.connect() as conn:
+        with inspector.engine.connect() as conn:
             results = conn.execute(VIEW_LINEAGE_QUERY)
             if results.returns_rows is False:
                 return {}
@@ -204,9 +205,10 @@ class PostgresSource(SQLAlchemySource):
             lineage_elements[key].append(
                 mce_builder.make_dataset_urn(
                     self.platform,
-                    self.config.get_identifier(
-                        lineage.source_schema,
-                        lineage.source_table,
+                    self.get_identifier(
+                        schema=lineage.source_schema,
+                        entity=lineage.source_table,
+                        inspector=inspector,
                     ),
                     self.config.env,
                 )
@@ -214,8 +216,10 @@ class PostgresSource(SQLAlchemySource):
 
         return lineage_elements
 
-    def _get_view_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
-        lineage_elements = self._get_view_lineage_elements()
+    def _get_view_lineage_workunits(
+        self, inspector: Inspector
+    ) -> Iterable[MetadataWorkUnit]:
+        lineage_elements = self._get_view_lineage_elements(inspector)
 
         if not lineage_elements:
             return None
@@ -228,9 +232,8 @@ class PostgresSource(SQLAlchemySource):
             # Construct a lineage object.
             urn = mce_builder.make_dataset_urn(
                 self.platform,
-                self.config.get_identifier(
-                    dependent_schema,
-                    dependent_view,
+                self.get_identifier(
+                    schema=dependent_schema, entity=dependent_view, inspector=inspector
                 ),
                 self.config.env,
             )
