@@ -394,7 +394,7 @@ def test_for_each_expression_2():
         reporter,
         native_query_enabled=False,
         parameters={
-            "dwh-prod": "my-test-project",
+            "dwh-prod": "originally-not-a-variable-ref-and-not-resolved",
         },
     )
 
