@@ -50,6 +50,17 @@ task installDev(type: Exec, dependsOn: [install]) {
     "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
+task installAll(type: Exec, dependsOn: [install]) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${venv_name}/.build_install_all_sentinel")
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${venv_name}/bin/pip install -e .[all] ${extra_pip_requirements} && " +
+    "./scripts/install-sqlalchemy-stubs.sh && " +
+    "touch ${venv_name}/.build_install_all_sentinel"
+}
+
 
 task modelDocGen(type: Exec, dependsOn: [codegen]) {
   inputs.files(
