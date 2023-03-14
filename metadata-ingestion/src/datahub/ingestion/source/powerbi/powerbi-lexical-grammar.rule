@@ -333,7 +333,7 @@ parenthesized_expression:   "(" WS_INLINE? expression WS_INLINE? ")"
 
 not_implemented_expression: "..."
 
-invoke_expression:  "#"? primary_expression "(" NEWLINE? keyword? argument_list? NEWLINE? ")"
+invoke_expression:  "#"? primary_expression "(" NEWLINE? each_expression? argument_list? NEWLINE? ")"
 
 argument_list:  WS_INLINE? expression
             |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
@@ -432,6 +432,7 @@ optional_parameter: "optional" WS_INLINE parameter
 
 each_expression:    "each" WS_INLINE each_expression_body
 
+// relational_expression rule is different then relational expression used in below grammar to resolve "each" construct
 each_expression_body:   function_body
                     |   each_expression_body
                     |   invoke_expression NEWLINE? WS_INLINE? "+" NEWLINE? WS_INLINE? invoke_expression
