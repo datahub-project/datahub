@@ -61,6 +61,4 @@ jobs:
           context: .
           file: ./docker/postgres-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-          build-args: |
-            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
 
