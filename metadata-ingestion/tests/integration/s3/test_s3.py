@@ -15,8 +15,8 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @pytest.fixture(scope="module", autouse=True)
-def bucket_name():
-    return "my-test-bucket"
+def bucket_names():
+    return ["my-test-bucket", "my-test-bucket-2"]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -45,24 +45,25 @@ def s3_client(s3):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def s3_populate(pytestconfig, s3_resource, s3_client, bucket_name):
-    logging.info("Populating s3 bucket")
-    s3_resource.create_bucket(Bucket=bucket_name)
-    bkt = s3_resource.Bucket(bucket_name)
-    bkt.Tagging().put(Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]})
-    test_resources_dir = (
-        pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
-    )
-    for root, dirs, files in os.walk(test_resources_dir):
-        for file in files:
-            full_path = os.path.join(root, file)
-            rel_path = os.path.relpath(full_path, test_resources_dir)
-            bkt.upload_file(full_path, rel_path)
-            s3_client.put_object_tagging(
-                Bucket=bucket_name,
-                Key=rel_path,
-                Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
-            )
+def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
+    for bucket_name in bucket_names:
+        logging.info(f"Populating s3 bucket: {bucket_name}")
+        s3_resource.create_bucket(Bucket=bucket_name)
+        bkt = s3_resource.Bucket(bucket_name)
+        bkt.Tagging().put(Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]})
+        test_resources_dir = (
+            pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
+        )
+        for root, dirs, files in os.walk(test_resources_dir):
+            for file in files:
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, test_resources_dir)
+                bkt.upload_file(full_path, rel_path)
+                s3_client.put_object_tagging(
+                    Bucket=bucket_name,
+                    Key=rel_path,
+                    Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
+                )
     yield
 
 
@@ -113,8 +114,14 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
 
     config_dict = {}
     for path_spec in source["config"]["path_specs"]:
-        path_spec["include"] = path_spec["include"].replace(
-            "s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/"
+        path_spec["include"] = (
+            path_spec["include"]
+            .replace(
+                "s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/"
+            )
+            .replace(
+                "s3://my-test-bucket-2/", "tests/integration/s3/test_data/local_system/"
+            )
         )
 
     source["config"]["profiling"]["enabled"] = True
