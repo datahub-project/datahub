@@ -30,9 +30,17 @@ jobs:
             "./gradlew :datahub-frontend:build :datahub-web-react:build --parallel",
             "./gradlew :metadata-ingestion-modules:airflow-plugin:build --parallel"
           ]
+        timezone:
+          [
+            "UTC",
+            "America/New_York",
+          ]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - uses: szenius/set-timezone@v1.0
+        with:
+          timezoneLinux: ${{ matrix.timezone }}
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
