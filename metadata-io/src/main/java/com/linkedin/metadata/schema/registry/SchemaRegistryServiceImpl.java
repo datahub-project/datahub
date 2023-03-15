@@ -3,6 +3,7 @@ package com.linkedin.metadata.schema.registry;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.linkedin.mxe.TopicConvention;
+import com.linkedin.pegasus2avro.dataset.DatasetLineageType;
 import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent;
 import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal;
 import com.linkedin.pegasus2avro.mxe.MetadataAuditEvent;
@@ -29,7 +30,8 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     PE_TOPIC(PlatformEvent.getClassSchema()),
     MCE_TOPIC(MetadataChangeEvent.getClassSchema()),
     FMCE_TOPIC(FailedMetadataChangeEvent.getClassSchema()),
-    MAE_TOPIC(MetadataAuditEvent.getClassSchema());
+    MAE_TOPIC(MetadataAuditEvent.getClassSchema()),
+    DUHE_TOPIC(DatasetLineageType.getClassSchema());
 
     @Getter
     private final Schema schema;
@@ -54,6 +56,8 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     this._subjectToIdMap.put(convention.getFailedMetadataChangeProposalTopicName(), TopicOrdinal.FMCP_TOPIC.ordinal());
     this._schemaMap.put(convention.getPlatformEventTopicName(), TopicOrdinal.PE_TOPIC.getSchema());
     this._subjectToIdMap.put(convention.getPlatformEventTopicName(), TopicOrdinal.PE_TOPIC.ordinal());
+    this._schemaMap.put(convention.getDataHubUpgradeHistoryTopicName(), TopicOrdinal.DUHE_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getDataHubUpgradeHistoryTopicName(), TopicOrdinal.DUHE_TOPIC.ordinal());
 
     // Adding legacy topics as they are still produced in the EntityService IngestAspect code path.
     this._schemaMap.put(convention.getMetadataChangeEventTopicName(), TopicOrdinal.MCE_TOPIC.getSchema());
