@@ -62,7 +62,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish == "true" }}
+          publish: ${{ needs.setup.outputs.publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion/smoke.Dockerfile
           platforms: linux/amd64,linux/arm64

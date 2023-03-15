@@ -65,7 +65,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish == "true" }}
+          publish: ${{ needs.setup.outputs.publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64
