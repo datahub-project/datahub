@@ -100,8 +100,6 @@ combine_result
 
 `Pattern-1` is supported as it first assign the table from schema to variable and then variable is used in M-Query Table function i.e. Table.Combine
 
-Note: If you are using (PowerBI Parameters)[https://learn.microsoft.com/en-us/power-query/power-query-query-parameters]. then avoid using same name for variable in M-Query
-
 ## Extract endorsements to tags
 
 By default, extracting endorsement information to tags is disabled. The feature may be useful if organization uses [endorsements](https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-endorse-content) to identify content quality.
