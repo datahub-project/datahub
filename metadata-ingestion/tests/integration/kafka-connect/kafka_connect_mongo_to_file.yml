@@ -7,7 +7,7 @@ source:
   config:
     connect_uri: "http://localhost:58083"    
     connector_patterns:
-      deny:
+      allow:
         - source_mongodb_connector
     provided_configs:
       - provider: env
