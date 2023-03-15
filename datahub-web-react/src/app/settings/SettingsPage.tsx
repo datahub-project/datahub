@@ -84,8 +84,8 @@ export const SettingsPage = () => {
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
     const isViewsEnabled = config?.viewsConfig.enabled;
 
-    const showPolicies = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
-    const showUsersGroups = (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
+    const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
+    const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
     const showViews = isViewsEnabled || false;
 
     return (
