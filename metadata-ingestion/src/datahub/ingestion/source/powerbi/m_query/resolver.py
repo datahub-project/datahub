@@ -13,6 +13,7 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    TRACE_POWERBI_MQUERY_PARSER,
     DataAccessFunctionDetail,
     IdentifierAccessor,
 )
@@ -166,7 +167,10 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             first_argument
         )
 
-        logger.debug(f"Extracting token from tree {first_argument.pretty()}")
+        if TRACE_POWERBI_MQUERY_PARSER:
+            logger.debug(f"Extracting token from tree {first_argument.pretty()}")
+        else:
+            logger.debug(f"Extracting token from tree {first_argument}")
         if expression is None:
             expression = tree_function.first_type_expression_func(first_argument)
             if expression is None:
