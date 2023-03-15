@@ -142,6 +142,7 @@ export const SearchPage = () => {
     return (
         <>
             {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
+<<<<<<< HEAD
             {showSearchFiltersV2 && (
                 <SearchFilters
                     availableFilters={data?.searchAcrossEntities?.facets || []}
@@ -151,6 +152,9 @@ export const SearchPage = () => {
                     onChangeUnionType={onChangeUnionType}
                 />
             )}
+=======
+            <SearchFilters availableFilters={data?.searchAcrossEntities?.facets || null} activeFilters={filters} />
+>>>>>>> 1e4582cd86 (WIP first commit on search filters with SearchFilters component)
             <SearchResults
                 unionType={unionType}
                 downloadSearchResults={downloadSearchResults}
