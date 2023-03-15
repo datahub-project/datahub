@@ -12,7 +12,6 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.path_spec import PathSpec
-from datahub.ingestion.source.aws.s3_util import get_bucket_name
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
 
 # hide annoying debug errors from py4j
@@ -91,16 +90,6 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
                 f"Cannot have multiple platforms in path_specs: {guessed_platforms}"
             )
         guessed_platform = guessed_platforms.pop()
-
-        # If platform is s3, check that they're all the same bucket.
-        if guessed_platform == "s3":
-            bucket_names = set(
-                get_bucket_name(path_spec.include) for path_spec in path_specs
-            )
-            if len(bucket_names) > 1:
-                raise ValueError(
-                    f"All path_specs should reference the same s3 bucket. Got {bucket_names}"
-                )
 
         # Ensure s3 configs aren't used for file sources.
         if guessed_platform != "s3" and (
