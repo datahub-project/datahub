@@ -29,8 +29,14 @@ env:
   DATAHUB_MCE_CONSUMER_IMAGE: "acryldata/datahub-mce-consumer"
   DATAHUB_KAFKA_SETUP_IMAGE: "acryldata/datahub-kafka-setup"
   DATAHUB_ELASTIC_SETUP_IMAGE: "acryldata/datahub-elasticsearch-setup"
-  DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/datahub-mysql-setup"
-  DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"  
+  #### IMPORTANT ####
+  #### THIS IS A CHANGE TO PREVENT OSS QUICKSTART INSTABILITY, DO NOT OVERWRITE THIS CHANGE IN MERGES ####
+  #### IMPORTANT ####
+  DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/acryl-datahub-mysql-setup"
+  DATAHUB_UPGRADE_IMAGE: "acryldata/acryl-datahub-upgrade"
+  #### IMPORTANT ####
+  #### END CHANGES ####
+  #### IMPORTANT ####
 
 jobs:
   setup:
