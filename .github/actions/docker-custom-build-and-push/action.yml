@@ -40,8 +40,6 @@ runs:
   using: "composite"
 
   steps:
-    - id: print args
-      run: echo ${{ inputs.build-args }}
     - name: Docker meta
       id: docker_meta
       uses: crazy-max/ghaction-docker-meta@v1

@@ -37,7 +37,7 @@ jobs:
         id: python_release_version
         run: |
           source .github/scripts/docker_helpers.sh
-          echo "release_version=$(get_python_release_v)" >> $GITHUB_OUTPUT
+          echo "release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:

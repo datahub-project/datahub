@@ -15,7 +15,7 @@ function get_tag {
     echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${MAIN_BRANCH_TAG}\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
 }
 
-function get_python_release_v {
+function get_python_docker_release_v {
     echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.*\),\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,0.0.0+docker.pr\1,g')
 }
 
