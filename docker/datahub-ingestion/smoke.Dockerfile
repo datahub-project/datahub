@@ -18,5 +18,9 @@ RUN apt-get update && apt-get install -y \
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y  openjdk-11-jdk
 
 COPY . /datahub-src
-RUN cd /datahub-src && \
+ARG RELEASE_VERSION
+RUN cd /datahub-src/metadata-ingestion && \
+    sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
+    cat src/datahub/__init__.py && \
+    cd ../ && \
     ./gradlew :metadata-ingestion:installAll
