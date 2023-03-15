@@ -117,4 +117,3 @@ fi
 
 
 printf "\n\e[38;2;0;255;0m✅ Preflight was successful\e[38;2;255;255;255m\n"
-
