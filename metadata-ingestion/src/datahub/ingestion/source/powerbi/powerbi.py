@@ -892,7 +892,6 @@ class Mapper:
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
