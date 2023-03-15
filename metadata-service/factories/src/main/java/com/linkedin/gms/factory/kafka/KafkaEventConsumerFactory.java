@@ -27,18 +27,18 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class, InternalSchemaRegistryFactory.class})
 public class KafkaEventConsumerFactory {
 
-  @Bean(name = "kafkaEventConsumerConcurrency")
-  protected int kafkaEventConsumerConcurrency(@Qualifier("configurationProvider") ConfigurationProvider provider) {
-    return provider.getKafka().getListener().getConcurrency();
-  }
 
-  @Bean(name = "kafkaEventConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(@Qualifier("configurationProvider") ConfigurationProvider
-      provider, SchemaRegistryConfig schemaRegistryConfig, KafkaProperties properties,
-      @Qualifier("kafkaEventConsumerConcurrency") int concurrency) {
+  private int kafkaEventConsumerConcurrency;
+
+  @Bean(name = "kafkaConsumerFactory")
+  protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      KafkaProperties baseKafkaProperties, SchemaRegistryConfig schemaRegistryConfig) {
+    kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
 
-    KafkaProperties.Consumer consumerProps = properties.getConsumer();
+    KafkaProperties.Consumer consumerProps = baseKafkaProperties.getConsumer();
 
     // Specify (de)serializers for record keys and for record values.
     consumerProps.setKeyDeserializer(StringDeserializer.class);
@@ -51,24 +51,30 @@ public class KafkaEventConsumerFactory {
       consumerProps.setBootstrapServers(Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> props = properties.buildConsumerProperties();
-
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getDeserializer());
+    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
+    customizedProperties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getDeserializer());
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()
         .stream()
         .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
-        .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
+        .forEach(entry -> customizedProperties.put(entry.getKey(), entry.getValue()));
+
+    return new DefaultKafkaConsumerFactory<>(customizedProperties);
+  }
+
+  @Bean(name = "kafkaEventConsumer")
+  protected KafkaListenerContainerFactory<?> createInstance(
+      @Qualifier("kafkaConsumerFactory") DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory) {
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
+    factory.setConsumerFactory(kafkaConsumerFactory);
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
-    factory.setConcurrency(concurrency);
+    factory.setConcurrency(kafkaEventConsumerConcurrency);
 
-    log.info(String.format("Event-based KafkaListenerContainerFactory built successfully. Consumers = %s",
-        concurrency));
+    log.info(String.format("Event-based KafkaListenerContainerFactory built successfully. Consumer concurrency = %s",
+        kafkaEventConsumerConcurrency));
 
     return factory;
   }
