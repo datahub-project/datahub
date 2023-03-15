@@ -19,8 +19,8 @@ export function useInitialRedirect(state, localState, setState, setLocalState) {
                 ...state,
                 loadedInitialPath: true,
             });
-            if (localState.selectedPath) {
-                history.push({
+            if (localState.selectedPath && !localState.selectedPath.includes(PageRoutes.EMBED)) {
+                history.replace({
                     pathname: localState.selectedPath,
                     search: localState.selectedSearch || '',
                 });
