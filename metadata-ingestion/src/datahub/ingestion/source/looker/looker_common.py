@@ -22,7 +22,7 @@ from typing import (
 
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import User, WriteQuery
+from looker_sdk.sdk.api40.models import User, WriteQuery
 from pydantic import Field
 from pydantic.class_validators import validator
 
@@ -1049,7 +1049,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
 @dataclass
 class LookerUser:
-    id: int
+    id: str
     email: Optional[str]
     display_name: Optional[str]
     first_name: Optional[str]
@@ -1167,11 +1167,11 @@ class LookerUserRegistry:
     def __init__(self, looker_api: LookerAPI):
         self.looker_api_wrapper = looker_api
 
-    def get_by_id(self, id_: int) -> Optional[LookerUser]:
+    def get_by_id(self, id_: str) -> Optional[LookerUser]:
         logger.debug(f"Will get user {id_}")
 
         raw_user: Optional[User] = self.looker_api_wrapper.get_user(
-            id_, user_fields=self.fields
+            str(id_), user_fields=self.fields
         )
         if raw_user is None:
             return None

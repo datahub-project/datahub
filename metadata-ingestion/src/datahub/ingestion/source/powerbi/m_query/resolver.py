@@ -9,6 +9,7 @@ from lark import Tree
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    TRACE_POWERBI_MQUERY_PARSER,
     DataAccessFunctionDetail,
     IdentifierAccessor,
 )
@@ -67,6 +68,7 @@ class AbstractTableFullNameCreator(ABC):
 class AbstractDataAccessMQueryResolver(ABC):
     table: Table
     parse_tree: Tree
+    parameters: Dict[str, str]
     reporter: PowerBiDashboardSourceReport
     data_access_functions: List[str]
 
@@ -75,10 +77,12 @@ class AbstractDataAccessMQueryResolver(ABC):
         table: Table,
         parse_tree: Tree,
         reporter: PowerBiDashboardSourceReport,
+        parameters: Dict[str, str],
     ):
         self.table = table
         self.parse_tree = parse_tree
         self.reporter = reporter
+        self.parameters = parameters
         self.data_access_functions = SupportedResolver.get_function_names()
 
     @abstractmethod
@@ -87,8 +91,8 @@ class AbstractDataAccessMQueryResolver(ABC):
 
 
 class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
-    @staticmethod
     def get_item_selector_tokens(
+        self,
         expression_tree: Tree,
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
 
@@ -111,7 +115,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # remove whitespaces and quotes from token
         tokens: List[str] = tree_function.strip_char_from_list(
             tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(cast(Tree, item_selector))
+                tree_function.token_values(
+                    cast(Tree, item_selector), parameters=self.parameters
+                )
             ),
             '"',
         )
@@ -185,7 +191,10 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             first_argument
         )
 
-        logger.debug(f"Extracting token from tree {first_argument.pretty()}")
+        if TRACE_POWERBI_MQUERY_PARSER:
+            logger.debug(f"Extracting token from tree {first_argument.pretty()}")
+        else:
+            logger.debug(f"Extracting token from tree {first_argument}")
         if expression is None:
             expression = tree_function.first_type_expression_func(first_argument)
             if expression is None:
@@ -287,9 +296,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 if result is None:
                     return None  # No need to process some un-expected grammar found while processing invoke_expression
                 if isinstance(result, DataAccessFunctionDetail):
-                    cast(
-                        DataAccessFunctionDetail, result
-                    ).identifier_accessor = identifier_accessor
+                    result.identifier_accessor = identifier_accessor
                     table_links.append(result)  # Link of a table is completed
                     identifier_accessor = (
                         None  # reset the identifier_accessor for other table

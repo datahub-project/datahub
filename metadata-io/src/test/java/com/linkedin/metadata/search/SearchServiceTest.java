@@ -8,7 +8,8 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
-import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -58,6 +59,8 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
   private ESBulkProcessor _bulkProcessor;
   @Autowired
   private ESIndexBuilder _esIndexBuilder;
+  @Autowired
+  private SearchConfiguration _searchConfiguration;
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
   private SettingsBuilder _settingsBuilder;
@@ -114,7 +117,7 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
         new EntityIndexBuilders(_esIndexBuilder, _entityRegistry,
             _indexConvention, _settingsBuilder);
     ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention, false,
-        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
     ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention,
         _bulkProcessor, 1);
