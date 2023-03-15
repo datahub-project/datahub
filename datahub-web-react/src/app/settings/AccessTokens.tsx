@@ -10,11 +10,11 @@ import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import CreateTokenModal from './CreateTokenModal';
-import { useAppConfigQuery } from '../../graphql/app.generated';
 import { getLocaleTimezone } from '../shared/time/timeUtils';
 import { scrollToTop } from '../shared/searchUtils';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
+import { useAppConfig } from '../useAppConfig';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -81,7 +81,7 @@ export const AccessTokens = () => {
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
 
-    const isTokenAuthEnabled = useAppConfigQuery().data?.appConfig?.authConfig?.tokenAuthEnabled;
+    const isTokenAuthEnabled = useAppConfig().config?.authConfig?.tokenAuthEnabled;
     const canGeneratePersonalAccessTokens =
         isTokenAuthEnabled && authenticatedUser?.platformPrivileges?.generatePersonalAccessTokens;
 

@@ -145,16 +145,16 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                 },
             },
         })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
+            .then(() => {
                 message.success({
                     content: `Changes saved.`,
                     duration: 3,
                 });
                 refetch();
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
             });
     };
     return (
