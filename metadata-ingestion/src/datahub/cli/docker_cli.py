@@ -699,13 +699,13 @@ def quickstart(
     # Pull and possibly build the latest containers.
     try:
         if pull_images:
-            click.echo("Pulling docker images... ")
+            click.echo("\nPulling docker images... ")
             click.secho(
                 "This may take a while depending on your network bandwidth.", dim=True
             )
             with click_spinner.spinner():
                 subprocess.run(
-                    [*base_command, "pull", "-q"],
+                    [*base_command, "pull"],
                     check=True,
                     env=_docker_subprocess_env(),
                 )
@@ -732,6 +732,7 @@ def quickstart(
         logger.info("Finished building docker images!")
 
     # Start it up! (with retries)
+    click.echo("\nStarting up DataHub...")
     max_wait_time = datetime.timedelta(minutes=8)
     start_time = datetime.datetime.now()
     sleep_interval = datetime.timedelta(seconds=2)
@@ -740,7 +741,8 @@ def quickstart(
     while (datetime.datetime.now() - start_time) < max_wait_time:
         # Attempt to run docker compose up every `up_interval`.
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
-            click.echo()
+            if up_attempts > 0:
+                click.echo()
             subprocess.run(
                 base_command + ["up", "-d", "--remove-orphans"],
                 env=_docker_subprocess_env(),
@@ -841,7 +843,7 @@ def download_compose_files(
     ) as tmp_file:
         path = pathlib.Path(tmp_file.name)
         quickstart_compose_file_list.append(path)
-        click.echo(f"Fetching docker-compose file {github_file} from GitHub")
+        logger.info(f"Fetching docker-compose file {github_file} from GitHub")
         # Download the quickstart docker-compose file from GitHub.
         quickstart_download_response = request_session.get(github_file)
         quickstart_download_response.raise_for_status()
