@@ -28,6 +28,7 @@ const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
     margin: 0 8px 6px 0;
+    flex-wrap: nowrap;
     flex: 1;
 `;
 
