@@ -208,6 +208,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     component: SidebarDomainSection,
                 },
+                // TODO: Add back once entity-level recommendations are complete.
                 // {
                 //    component: SidebarRecommendationsSection,
                 // },
