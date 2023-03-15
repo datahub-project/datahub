@@ -1,8 +1,11 @@
 import collections
+import logging
 import pathlib
 import pickle
 import sqlite3
+import tempfile
 from dataclasses import dataclass, field
+from types import TracebackType
 from typing import (
     Any,
     Callable,
@@ -15,10 +18,14 @@ from typing import (
     OrderedDict,
     Sequence,
     Tuple,
+    Type,
     TypeVar,
     Union,
 )
 
+logger: logging.Logger = logging.getLogger(__name__)
+
+_DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
 _DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
 _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
@@ -29,56 +36,71 @@ SqliteValue = Union[int, float, str, bytes, None]
 _VT = TypeVar("_VT")
 
 
-@dataclass
-class _SqliteConnectionCache:
+class ConnectionWrapper:
     """
-    If you pass the same filename to multiple FileBacked* objects, they will
-    share the same underlying database connection. This also does ref counting
-    to drop the connection when appropriate.
+    Wraps a SQlite connection, allowing connection reuse across multiple FileBacked* objects.
 
-    It's necessary to use the same underlying connection because we're using
-    exclusive locking mode. It's useful to keep data from multiple FileBacked*
-    objects in the same SQLite database because it allows us to perform queries
-    across multiple tables.
+    This is necessary because we're using exclusive locking mode.
+    It's useful to keep data from multiple FileBacked* objects in the same
+    SQLite database because it allows us to perform queries across multiple tables.
 
-    This is used as a singleton class.
+    Also provides file cleanup using TemporaryDirectory, query debug logging, and
+    a context manager interface.
     """
 
-    _ref_count: Dict[pathlib.Path, int] = field(default_factory=dict)
-    _sqlite_connection_cache: Dict[pathlib.Path, sqlite3.Connection] = field(
-        default_factory=dict
-    )
+    conn: sqlite3.Connection
+    filename: pathlib.Path
+    _directory: Optional[tempfile.TemporaryDirectory]
 
-    def get_connection(self, filename: pathlib.Path) -> sqlite3.Connection:
-        if filename not in self._ref_count:
-            conn = sqlite3.connect(filename, isolation_level=None)
+    def __init__(self, filename: Optional[pathlib.Path] = None):
+        self._directory = None
+        # Warning: If filename is provided, the file will not be automatically cleaned up
+        if not filename:
+            self._directory = tempfile.TemporaryDirectory()
+            filename = pathlib.Path(self._directory.name) / _DEFAULT_FILE_NAME
 
-            # These settings are optimized for performance.
-            # See https://www.sqlite.org/pragma.html for more information.
-            # Because we're only using these dbs to offload data from memory, we don't need
-            # to worry about data integrity too much.
-            conn.execute('PRAGMA locking_mode = "EXCLUSIVE"')
-            conn.execute('PRAGMA synchronous = "OFF"')
-            conn.execute('PRAGMA journal_mode = "MEMORY"')
-            conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
+        self.conn = sqlite3.connect(filename, isolation_level=None)
+        self.filename = filename
 
-            self._ref_count[filename] = 0
-            self._sqlite_connection_cache[filename] = conn
+        # These settings are optimized for performance.
+        # See https://www.sqlite.org/pragma.html for more information.
+        # Because we're only using these dbs to offload data from memory, we don't need
+        # to worry about data integrity too much.
+        self.conn.execute('PRAGMA locking_mode = "EXCLUSIVE"')
+        self.conn.execute('PRAGMA synchronous = "OFF"')
+        self.conn.execute('PRAGMA journal_mode = "MEMORY"')
+        self.conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
 
-        self._ref_count[filename] += 1
-        return self._sqlite_connection_cache[filename]
+    def execute(
+        self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
+    ) -> sqlite3.Cursor:
+        logger.debug(f"Executing <{sql}> ({parameters})")
+        return self.conn.execute(sql, parameters)
 
-    def drop_connection(self, filename: pathlib.Path) -> None:
-        self._ref_count[filename] -= 1
+    def executemany(
+        self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
+    ) -> sqlite3.Cursor:
+        logger.debug(f"Executing many <{sql}> ({parameters})")
+        return self.conn.executemany(sql, parameters)
 
-        if self._ref_count[filename] == 0:
-            # Cleanup the connection object.
-            self._sqlite_connection_cache[filename].close()
-            del self._sqlite_connection_cache[filename]
-            del self._ref_count[filename]
+    def close(self) -> None:
+        self.conn.close()
+        if self._directory:
+            self._directory.cleanup()
 
+    def __enter__(self) -> "ConnectionWrapper":
+        return self
 
-_sqlite_connection_cache = _SqliteConnectionCache()
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        self.close()
 
 
 # DESIGN: Why is pickle the default serializer/deserializer?
@@ -99,8 +121,6 @@ _sqlite_connection_cache = _SqliteConnectionCache()
 # (2) For simple types like ints, it has slightly worse performance.
 #
 # Overall, pickle seems like the right default choice.
-
-
 def _default_serializer(value: Any) -> SqliteValue:
     return pickle.dumps(value)
 
@@ -118,19 +138,18 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     This class is not thread-safe.
     """
 
-    filename: pathlib.Path
-    tablename: str = field(default=_DEFAULT_TABLE_NAME)
+    # Use a predefined connection, able to be shared across multiple FileBacked* objects
+    connection: Optional[ConnectionWrapper] = None
+    tablename: str = _DEFAULT_TABLE_NAME
 
-    serializer: Callable[[_VT], SqliteValue] = field(default=_default_serializer)
-    deserializer: Callable[[Any], _VT] = field(default=_default_deserializer)
+    serializer: Callable[[_VT], SqliteValue] = _default_serializer
+    deserializer: Callable[[Any], _VT] = _default_deserializer
     extra_columns: Dict[str, Callable[[_VT], SqliteValue]] = field(default_factory=dict)
 
-    cache_max_size: int = field(default=_DEFAULT_MEMORY_CACHE_MAX_SIZE)
-    cache_eviction_batch_size: int = field(
-        default=_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE
-    )
+    cache_max_size: int = _DEFAULT_MEMORY_CACHE_MAX_SIZE
+    cache_eviction_batch_size: int = _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE
 
-    _conn: sqlite3.Connection = field(init=False, repr=False)
+    _conn: ConnectionWrapper = field(init=False, repr=False)
 
     # To improve performance, we maintain an in-memory LRU cache using an OrderedDict.
     _active_object_cache: OrderedDict[str, _VT] = field(init=False, repr=False)
@@ -143,7 +162,10 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         assert "key" not in self.extra_columns, '"key" is a reserved column name'
         assert "value" not in self.extra_columns, '"value" is a reserved column name'
 
-        self._conn = _sqlite_connection_cache.get_connection(self.filename)
+        if self.connection:
+            self._conn = self.connection
+        else:
+            self._conn = ConnectionWrapper()
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
         # data from the database too often. We use an OrderedDict to build
@@ -187,15 +209,16 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
                 values.append(column_serializer(value))
             items_to_write.append(tuple(values))
 
-        self._conn.executemany(
-            f"""INSERT OR REPLACE INTO {self.tablename} (
-                key,
-                value
-                {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+        if items_to_write:
+            self._conn.executemany(
+                f"""INSERT OR REPLACE INTO {self.tablename} (
+                    key,
+                    value
+                    {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                )
+                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                items_to_write,
             )
-            VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
-            items_to_write,
-        )
 
     def flush(self) -> None:
         self._prune_cache(len(self._active_object_cache))
@@ -274,13 +297,12 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             # Ensure everything is written out.
             self.flush()
 
-            # Make sure that we don't try to use the connection anymore
-            # and that we don't drop the connection twice.
-            _sqlite_connection_cache.drop_connection(self.filename)
-            self._conn = None  # type: ignore
+            if not self.connection:  # Connection created inside this class
+                self._conn.close()
 
             # This forces all writes to go directly to the DB so they fail immediately.
             self.cache_max_size = 0
+            self._conn = None  # type: ignore
 
     def __del__(self) -> None:
         self.close()
@@ -298,7 +320,7 @@ class FileBackedList(Generic[_VT]):
 
     def __init__(
         self,
-        filename: pathlib.Path,
+        connection: Optional[ConnectionWrapper] = None,
         tablename: str = _DEFAULT_TABLE_NAME,
         serializer: Callable[[_VT], SqliteValue] = _default_serializer,
         deserializer: Callable[[Any], _VT] = _default_deserializer,
@@ -308,7 +330,7 @@ class FileBackedList(Generic[_VT]):
     ) -> None:
         self._len = 0
         self._dict = FileBackedDict(
-            filename=filename,
+            connection=connection,
             serializer=serializer,
             deserializer=deserializer,
             tablename=tablename,
