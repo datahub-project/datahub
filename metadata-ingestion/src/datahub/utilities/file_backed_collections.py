@@ -294,10 +294,9 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
     def close(self) -> None:
         if self._conn:
-            # Ensure everything is written out.
-            self.flush()
-
             if not self.connection:  # Connection created inside this class
+                # Ensure everything is written out, only required if connection is reused.
+                self.flush()
                 self._conn.close()
 
             # This forces all writes to go directly to the DB so they fail immediately.
@@ -305,6 +304,17 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             self._conn = None  # type: ignore
 
     def __del__(self) -> None:
+        self.close()
+
+    def __enter__(self) -> "FileBackedDict":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         self.close()
 
 

@@ -1,11 +1,10 @@
-import collections
 import logging
 import textwrap
 import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, Set
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -53,6 +52,7 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
+AggregatedInfo = MutableMapping[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
 
 
 @dataclass(frozen=True, order=True)
@@ -168,57 +168,18 @@ class BigQueryUsageExtractor:
             and self.config.table_pattern.allowed(table_ref.table_identifier.table)
         )
 
-    def generate_usage_for_project(
-        self, project_id: str, tables: Dict[str, List[str]]
-    ) -> Iterable[MetadataWorkUnit]:
-        aggregated_info: Dict[
-            datetime, Dict[BigQueryTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
-
-        parsed_events: Iterable[Union[ReadEvent, QueryEvent]]
+    def get_usage_event_generator(
+        self, project_id: str
+    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
         with PerfTimer() as timer:
             try:
                 bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
                 if self.config.use_exported_bigquery_audit_metadata:
-                    parsed_events = self._parse_exported_bigquery_audit_metadata(
+                    yield from self._parse_exported_bigquery_audit_metadata(
                         bigquery_log_entries
                     )
                 else:
-                    parsed_events = self._parse_bigquery_log_entries(
-                        bigquery_log_entries
-                    )
-
-                hydrated_read_events = self._join_events_by_job_id(parsed_events)
-                # storing it all in one big object.
-
-                # TODO: handle partitioned tables
-
-                # TODO: perhaps we need to continuously prune this, rather than
-                num_aggregated: int = 0
-                self.report.num_operational_stats_workunits_emitted = 0
-                for event in hydrated_read_events:
-                    if self.config.usage.include_operational_stats:
-                        operational_wu = self._create_operation_aspect_work_unit(event)
-                        if operational_wu:
-                            yield operational_wu
-                            self.report.num_operational_stats_workunits_emitted += 1
-                    if event.read_event:
-                        self._aggregate_enriched_read_events(
-                            aggregated_info, event, tables
-                        )
-                        num_aggregated += 1
-                logger.info(f"Total number of events aggregated = {num_aggregated}.")
-                bucket_level_stats: str = "\n\t" + "\n\t".join(
-                    [
-                        f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
-                        for db, ads in aggregated_info.items()
-                    ]
-                )
-                logger.debug(
-                    f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
-                )
-
-                yield from self.get_workunits(aggregated_info)
+                    yield from self._parse_bigquery_log_entries(bigquery_log_entries)
             except Exception as e:
                 self.report.usage_failed_extraction.append(project_id)
                 trace = traceback.format_exc()
@@ -229,6 +190,48 @@ class BigQueryUsageExtractor:
             self.report.usage_extraction_sec[project_id] = round(
                 timer.elapsed_seconds(), 2
             )
+
+    def generate_usage(
+        self,
+        parsed_events: Iterable[Union[ReadEvent, QueryEvent]],
+        table_refs: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        aggregated_info = {}
+        try:
+            hydrated_read_events = self._join_events_by_job_id(parsed_events)
+            # storing it all in one big object.
+
+            # TODO: handle partitioned tables
+
+            # TODO: perhaps we need to continuously prune this, rather than
+            num_aggregated: int = 0
+            self.report.num_operational_stats_workunits_emitted = 0
+            for event in hydrated_read_events:
+                if self.config.usage.include_operational_stats:
+                    operational_wu = self._create_operation_aspect_work_unit(event)
+                    if operational_wu:
+                        yield operational_wu
+                        self.report.num_operational_stats_workunits_emitted += 1
+                if event.read_event:
+                    self._aggregate_enriched_read_events(
+                        aggregated_info, event, table_refs
+                    )
+                    num_aggregated += 1
+            logger.info(f"Total number of events aggregated = {num_aggregated}.")
+            bucket_level_stats: str = "\n\t" + "\n\t".join(
+                [
+                    f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
+                    for db, ads in aggregated_info.items()
+                ]
+            )
+            logger.debug(
+                f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
+            )
+
+            yield from self.get_workunits(aggregated_info)
+        except Exception as e:
+            trace = traceback.format_exc()
+            logger.error(f"Error processing usage due to error {e}, trace: {trace}")
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, client: BigQueryClient
@@ -730,9 +733,9 @@ class BigQueryUsageExtractor:
 
     def _aggregate_enriched_read_events(
         self,
-        datasets: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]],
+        datasets: AggregatedInfo,
         event: AuditEvent,
-        tables: Dict[str, List[str]],
+        table_refs: Set[str],
     ) -> None:
         if not event.read_event:
             return
@@ -743,13 +746,11 @@ class BigQueryUsageExtractor:
         resource: Optional[BigQueryTableRef] = None
         try:
             resource = event.read_event.resource.get_sanitized_table_ref()
-            if (
-                resource.table_identifier.dataset not in tables
-                or resource.table_identifier.get_table_name()
-                not in tables[resource.table_identifier.dataset]
-            ):
+            if str(resource) not in table_refs:
                 logger.debug(f"Skipping non existing {resource} from usage")
                 return
+            else:
+                logger.debug(event)
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
@@ -764,6 +765,7 @@ class BigQueryUsageExtractor:
             self.report.report_dropped(str(resource))
             return
 
+        datasets.setdefault(floored_ts, {})
         agg_bucket = datasets[floored_ts].setdefault(
             resource,
             AggregatedDataset(
@@ -780,7 +782,8 @@ class BigQueryUsageExtractor:
         )
 
     def get_workunits(
-        self, aggregated_info: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
+        self,
+        aggregated_info: AggregatedInfo,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_info.values():

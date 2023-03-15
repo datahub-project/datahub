@@ -1,4 +1,5 @@
 import atexit
+import itertools
 import logging
 import os
 import re
@@ -59,7 +60,11 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
-from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.bigquery_v2.usage import (
+    BigQueryUsageExtractor,
+    AggregatedDataset,
+    AggregatedInfo,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -114,6 +119,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -265,6 +271,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[str] = set()
         # Maps project -> view_ref -> [upstream_table_ref], for view lineage
         self.view_upstream_tables: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
+        # Stores global usage counts, per time bucket, per table
+        # Cannot define FileBackedDict in __init__ because it's instantiated
+        # in a different thread than the `get_workunits` call
+        self.aggregated_info: AggregatedInfo = {}
 
         atexit.register(cleanup, config)
 
@@ -330,7 +340,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Lineage capability test for project {project_id}"))
+                logger.info(f"Lineage capability test for project {project_id}")
                 lineage_extractor.test_capability(project_id)
             except Exception as e:
                 return CapabilityReport(
@@ -349,7 +359,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         usage_extractor = BigQueryUsageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Usage capability test for project {project_id}"))
+                logger.info(f"Usage capability test for project {project_id}")
                 failures_before_test = len(report.failures)
                 usage_extractor.test_capability(project_id)
                 if failures_before_test != len(report.failures):
@@ -525,6 +535,33 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
+        if self.config.include_usage_statistics:
+            if self.config.store_last_usage_extraction_timestamp:
+                if self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                ):
+                    self.report.report_warning(
+                        "usage-extraction",
+                        f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                    )
+                    return
+                else:
+                    # Update the checkpoint state for this run.
+                    self.redundant_run_skip_handler.update_state(
+                        start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                        end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                    )
+
+            iterables = []
+            for project in projects:
+                self.report.set_project_state(project.id, "Usage Extraction")
+                iterables.append(
+                    self.usage_extractor.get_usage_event_generator(project.id)
+                )
+            yield from self.usage_extractor.generate_usage(
+                itertools.chain(*iterables), self.table_refs
+            )
+
         if self.config.include_table_lineage:
             if (
                 self.config.store_last_lineage_extraction_timestamp
@@ -645,31 +682,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.include_usage_statistics:
-            if (
-                self.config.store_last_usage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_usage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
-            self.report.set_project_state(project_id, "Usage Extraction")
-            yield from self.generate_usage_statistics(
-                project_id, db_tables=db_tables, db_views=db_views
-            )
-
         if self.config.profiling.enabled:
             logger.info(f"Starting profiling project {project_id}")
             self.report.set_project_state(project_id, "Profiling")
@@ -713,32 +725,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             if lineage_info:
                 yield from self.gen_lineage(dataset_urn, lineage_info)
-
-    def generate_usage_statistics(
-        self,
-        project_id: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate usage for {project_id}")
-        tables: Dict[str, List[str]] = defaultdict()
-        for dataset in db_tables.keys():
-            tables[dataset] = [
-                BigqueryTableIdentifier(
-                    project_id, dataset, table.name
-                ).get_table_name()
-                for table in db_tables[dataset]
-            ]
-        for dataset in db_views.keys():
-            tables[dataset].extend(
-                [
-                    BigqueryTableIdentifier(
-                        project_id, dataset, view.name
-                    ).get_table_name()
-                    for view in db_views[dataset]
-                ]
-            )
-        yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
 
     def _process_schema(
         self,
