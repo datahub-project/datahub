@@ -98,6 +98,7 @@ export class ContainerEntity implements Entity<Container> {
                 {
                     component: SidebarDomainSection,
                 },
+                // TODO: Add back once entity-level recommendations are complete.
                 // {
                 //    component: SidebarRecommendationsSection,
                 // },
