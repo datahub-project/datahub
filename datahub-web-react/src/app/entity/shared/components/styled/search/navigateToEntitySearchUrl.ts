@@ -39,7 +39,7 @@ export const navigateToEntitySearchUrl = ({
         { arrayFormat: 'comma' },
     );
 
-    history.push({
+    history.replace({
         pathname: `${baseUrl}`,
         search,
     });
