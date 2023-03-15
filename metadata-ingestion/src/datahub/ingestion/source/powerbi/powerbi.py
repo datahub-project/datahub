@@ -242,7 +242,8 @@ class Mapper:
             logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(
-                name=table.name, description=table.name
+                name=table.name,
+                description=dataset.description,
             )
 
             info_mcp = self.new_mcp(
@@ -415,7 +416,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=dashboard.displayName or "",
+            description=dashboard.description,
             title=dashboard.displayName or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
@@ -748,7 +749,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=report.description or "",
+            description=report.description,
             title=report.name or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),

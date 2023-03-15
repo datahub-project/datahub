@@ -167,6 +167,7 @@ def run(
                 logger.debug(
                     f"timed out with {e} waiting for version stats to be computed... skipping ahead."
                 )
+        sys.exit(ret)
 
     # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
