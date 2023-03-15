@@ -22,7 +22,7 @@ from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
-
+from datahub.metadata.schema_classes import SchemaFieldClass
 @dataclass
 class FieldRow:
     path: str
@@ -32,6 +32,20 @@ class FieldRow:
     default: str
     description: str
     inner_fields: List["FieldRow"] = Field(default_factory=list)
+
+    @staticmethod
+    def field_path_to_components(field_path: str) -> List[str]:
+        return re.sub(r"\[[\w.]*[=]*[\w.]*\][\.]*","",field_path).split(".")
+
+    @classmethod
+    def from_schema_field(cls, schema_field: SchemaFieldClass) -> "FieldRow":
+        path_components = FieldRow.field_path_to_components(schema_field.fieldPath)
+        parent = path_components[-2] if len(path_components) == 2 else None
+        json_props = json.loads(schema_field.jsonProps) if schema_field.jsonProps else {}
+        default_value = str(json_props.get("default")) or ""
+        if not isinstance(default_value, str):
+            breakpoint()
+        return FieldRow(path=".".join(path_components), parent=parent, type_name=str(schema_field.nativeDataType), required=not schema_field.nullable, default=default_value, description=schema_field.description, inner_fields=[])
 
     def get_checkbox(self) -> str:
         if self.required:
@@ -88,6 +102,19 @@ def get_prefixed_name(field_prefix: Optional[str], field_name: Optional[str]) ->
         if not field_prefix
         else field_prefix
     )
+
+def new_gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
+    from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
+    schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
+    result: List[str] = [FieldHeader().to_md_line()]
+    for field in schema_fields:
+        row: FieldRow = FieldRow.from_schema_field(field)
+        result.append(row.to_md_line())
+
+    return result
+
+
+
 
 
 def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
@@ -653,7 +680,7 @@ def generate(
                     source_config_class.schema_json(indent=2) or "",
                 )
 
-                table_md = gen_md_table_from_struct(source_config_class.schema())
+                table_md = new_gen_md_table_from_struct(source_config_class.schema())
                 create_or_update(
                     source_documentation,
                     [platform_id, "plugins", plugin_name, "source_doc"],
