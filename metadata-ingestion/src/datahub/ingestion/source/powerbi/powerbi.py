@@ -950,6 +950,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             if key not in powerbi_data_platforms:
                 raise ValueError(f"PowerBI DataPlatform {key} is not supported")
 
+        logger.debug(
+            f"Dataset lineage would get ingested for data-platform = {self.source_config.dataset_type_mapping}"
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method

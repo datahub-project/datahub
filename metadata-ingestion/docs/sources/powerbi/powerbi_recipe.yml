@@ -23,10 +23,18 @@ source:
     extract_endorsements_to_tags: false
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
-        PostgreSql: postgres
-        Oracle: oracle
-        Sql: mssql
-        GoogleBigQuery: bigquery
+        PostgreSql:
+          platform_instance: operational_instance
+          env: DEV
+        Oracle:
+          platform_instance: high_performance_production_unit
+          env: PROD
+        Sql:
+          platform_instance: reporting-db
+          env: QA
+        GoogleBigQuery:
+          platform_instance: sn-2
+          env: STAGE
 
 sink:
   # sink configs

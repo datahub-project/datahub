@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
+from enum import Enum
 from typing import Dict, List, Optional, Union
 
 import pydantic
@@ -7,7 +8,7 @@ from pydantic import validator
 from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -106,6 +107,41 @@ class Constant:
 
 
 @dataclass
+class DataPlatformPair:
+    datahub_data_platform_name: str
+    powerbi_data_platform_name: str
+
+
+@dataclass
+class DataPlatformTable:
+    name: str
+    full_name: str
+    data_platform_pair: DataPlatformPair
+
+
+class SupportedDataPlatform(Enum):
+    POSTGRES_SQL = DataPlatformPair(
+        powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
+    )
+
+    ORACLE = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    SNOWFLAKE = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake", datahub_data_platform_name="snowflake"
+    )
+
+    MS_SQL = DataPlatformPair(
+        powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
+    )
+    GOOGLE_BIGQUERY = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+
+@dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned: int = 0
     charts_scanned: int = 0
@@ -129,11 +165,21 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.number_of_workspaces = number_of_workspaces
 
 
-@dataclass
-class PlatformDetail:
+def default_for_dataset_type_mapping() -> Dict[str, str]:
+    dict_: dict = {}
+    for item in SupportedDataPlatform:
+        dict_[
+            item.value.powerbi_data_platform_name
+        ] = item.value.datahub_data_platform_name
+
+    return dict_
+
+
+class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
-        description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source of particular platform",
+        description="DataHub platform instance name. It should be same as you have used in ingestion recipe of "
+        "DataHub platform ingestion source of particular platform",
     )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
@@ -171,7 +217,10 @@ class PowerBiDashboardSourceConfig(
     dataset_type_mapping: Union[
         Dict[str, str], Dict[str, PlatformDetail]
     ] = pydantic.Field(
-        description="Mapping of PowerBI datasource type to DataHub supported data-sources. See Quickstart Recipe for mapping"
+        default_factory=default_for_dataset_type_mapping,
+        description="Mapping of PowerBI datasource type to DataHub supported data-sources. "
+        "You can configured platform instance for dataset lineage. "
+        "See Quickstart Recipe for mapping",
     )
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")

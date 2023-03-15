@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 
 from lark import Tree
 
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
+from datahub.ingestion.source.powerbi.config import (
+    DataPlatformPair,
+    PowerBiDashboardSourceReport,
+    SupportedDataPlatform,
+)
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
@@ -18,38 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class DataPlatformPair:
-    datahub_data_platform_name: str
-    powerbi_data_platform_name: str
-
-
-@dataclass
 class DataPlatformTable:
     name: str
     full_name: str
     data_platform_pair: DataPlatformPair
-
-
-class SupportedDataPlatform(Enum):
-    POSTGRES_SQL = DataPlatformPair(
-        powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
-    )
-
-    ORACLE = DataPlatformPair(
-        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
-    )
-
-    SNOWFLAKE = DataPlatformPair(
-        powerbi_data_platform_name="Snowflake", datahub_data_platform_name="snowflake"
-    )
-
-    MS_SQL = DataPlatformPair(
-        powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
-    )
-    GOOGLE_BIGQUERY = DataPlatformPair(
-        powerbi_data_platform_name="GoogleBigQuery",
-        datahub_data_platform_name="bigquery",
-    )
 
 
 class AbstractTableFullNameCreator(ABC):

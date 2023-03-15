@@ -1,12 +1,17 @@
 import logging
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    SupportedDataPlatform,
+)
+from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -618,7 +623,7 @@ def test_powerbi_ingest_urn_lower_case(
             },
         }
     )
-
+    pipeline.config
     pipeline.run()
     pipeline.raise_from_status()
     golden_file = "golden_test_lower_case_urn_ingest.json"
@@ -945,3 +950,50 @@ def test_workspace_container(
         output_path=tmp_path / "powerbi_container_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_dataset_type_mapping_should_set_to_all(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Here we don't need to run the pipeline. We need to verify dataset_type_mapping is set to default dataplatform
+    """
+    register_mock_api(request_mock=requests_mock)
+
+    new_config: dict = {**default_source_config()}
+
+    del new_config["dataset_type_mapping"]
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **new_config,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
+                },
+            },
+        }
+    )
+    source_config: PowerBiDashboardSourceConfig = cast(
+        PowerBiDashboardSource, pipeline.source
+    ).source_config
+    assert source_config.dataset_type_mapping is not None
+
+    # Generate default dataset_type_mapping and compare it with source_config.dataset_type_mapping
+    default_dataset_type_mapping: dict = {}
+    for item in SupportedDataPlatform:
+        default_dataset_type_mapping[
+            item.value.powerbi_data_platform_name
+        ] = item.value.datahub_data_platform_name
+
+    assert default_dataset_type_mapping == source_config.dataset_type_mapping
