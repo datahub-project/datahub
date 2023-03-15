@@ -703,9 +703,14 @@ def quickstart(
             click.secho(
                 "This may take a while depending on your network bandwidth.", dim=True
             )
-            with click_spinner.spinner():
+
+            # docker compose v2 seems to spam the stderr when used in a non-interactive environment.
+            # As such, we'll only use the quiet flag if we're in an interactive environment.
+            # If we're in quiet mode, then we'll show a spinner instead.
+            quiet = not sys.stderr.isatty()
+            with click_spinner.spinner(disable=not quiet):
                 subprocess.run(
-                    [*base_command, "pull"],
+                    [*base_command, "pull", *(("-q",) if quiet else ())],
                     check=True,
                     env=_docker_subprocess_env(),
                 )
