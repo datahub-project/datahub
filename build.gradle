@@ -191,6 +191,7 @@ project.ext.externalDependency = [
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
+    'springCloudAwsParameter': "org.springframework.cloud:spring-cloud-starter-aws-parameter-store-config:2.2.6.RELEASE",
     'springKafka': 'org.springframework.kafka:spring-kafka:2.7.12',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
