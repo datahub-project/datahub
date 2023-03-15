@@ -36,6 +36,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
@@ -73,7 +77,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
-from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -128,6 +131,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -564,7 +568,10 @@ class SnowflakeV2Source(
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report,
+                auto_status_aspect(self.get_workunits_internal()),
+            ),
         )
 
     def report_warehouse_failure(self):
@@ -1002,7 +1009,6 @@ class SnowflakeV2Source(
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(
             dataset_urn=dataset_urn,
@@ -1013,7 +1019,9 @@ class SnowflakeV2Source(
             yield dpi_aspect
 
         subTypes = SubTypes(
-            typeNames=["view"] if isinstance(table, SnowflakeView) else ["table"]
+            typeNames=[DatasetSubTypes.VIEW]
+            if isinstance(table, SnowflakeView)
+            else [DatasetSubTypes.TABLE]
         )
 
         yield MetadataChangeProposalWrapper(
@@ -1026,7 +1034,6 @@ class SnowflakeV2Source(
                 entity_urn=dataset_urn,
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
         if table.tags:
@@ -1222,10 +1229,9 @@ class SnowflakeV2Source(
             name=database.name,
             database=self.snowflake_identifier(database.name),
             database_container_key=database_container_key,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             external_url=self.get_external_url_for_database(database.name)
             if self.config.include_external_url
             else None,
@@ -1269,8 +1275,7 @@ class SnowflakeV2Source(
             database_container_key=database_container_key,
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
-            sub_types=[SqlContainerSubTypes.SCHEMA],
-            report=self.report,
+            sub_types=[DatasetContainerSubTypes.SCHEMA],
             domain_registry=self.domain_registry,
             description=schema.comment,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
@@ -1539,7 +1544,7 @@ class SnowflakeV2Source(
 
     def close(self) -> None:
         super().close()
-        super(StatefulIngestionSourceBase, self).close()
+        StatefulIngestionSourceBase.close(self)
         if hasattr(self, "lineage_extractor"):
             self.lineage_extractor.close()
         if hasattr(self, "usage_extractor"):

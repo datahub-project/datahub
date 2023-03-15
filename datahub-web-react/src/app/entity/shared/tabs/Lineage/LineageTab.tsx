@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Button, Select, Typography } from 'antd';
+import { Button, Select, Tooltip, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
 import {
@@ -8,6 +8,7 @@ import {
     CaretDownFilled,
     CaretDownOutlined,
     PartitionOutlined,
+    ReloadOutlined,
     SubnodeOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -61,6 +62,10 @@ const StyledSelect = styled(Select)`
     }
 `;
 
+const RefreshCacheButton = styled(Button)`
+    margin-left: 8px;
+`;
+
 export const LineageTab = ({
     properties = { defaultDirection: LineageDirection.Downstream },
 }: {
@@ -75,6 +80,7 @@ export const LineageTab = ({
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
     const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!params?.column);
     const [shouldRefetch, setShouldRefetch] = useState(false);
+    const [skipCache, setSkipCache] = useState(false);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     function resetShouldRefetch() {
@@ -98,19 +104,19 @@ export const LineageTab = ({
     const directionOptions = [
         {
             label: (
-                <>
+                <span data-testid="lineage-tab-direction-select-option-downstream">
                     <ArrowDownOutlined style={{ marginRight: 4 }} />
                     <b>Downstream</b>
-                </>
+                </span>
             ),
             value: LineageDirection.Downstream,
         },
         {
             label: (
-                <>
+                <span data-testid="lineage-tab-direction-select-option-upstream">
                     <ArrowUpOutlined style={{ marginRight: 4 }} />
                     <b>Upstream</b>
-                </>
+                </span>
             ),
             value: LineageDirection.Upstream,
         },
@@ -153,6 +159,7 @@ export const LineageTab = ({
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
                         suffixIcon={<CaretDownOutlined style={{ color: 'black' }} />}
+                        data-testid="lineage-tab-direction-select"
                     />
                     <ColumnsLineageSelect
                         selectedColumn={selectedColumn}
@@ -161,6 +168,14 @@ export const LineageTab = ({
                         setIsColumnLevelLineage={setIsColumnLevelLineage}
                     />
                     <LineageTabTimeSelector />
+                    <Tooltip title="Click to refresh data">
+                        <RefreshCacheButton type="text" onClick={() => setSkipCache(true)}>
+                            <ReloadOutlined />
+                            <Typography.Text>
+                                <b>Refresh</b>
+                            </Typography.Text>
+                        </RefreshCacheButton>
+                    </Tooltip>
                 </RightButtonsWrapper>
             </StyledTabToolbar>
             <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>
@@ -169,6 +184,8 @@ export const LineageTab = ({
                     direction={lineageDirection as LineageDirection}
                     startTimeMillis={startTimeMillis}
                     endTimeMillis={endTimeMillis}
+                    skipCache={skipCache}
+                    setSkipCache={setSkipCache}
                     shouldRefetch={shouldRefetch}
                     resetShouldRefetch={resetShouldRefetch}
                 />

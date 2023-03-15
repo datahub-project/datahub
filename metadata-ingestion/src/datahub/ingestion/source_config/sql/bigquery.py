@@ -106,7 +106,3 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
                 "bigquery_audit_metadata_datasets must be specified if using exported audit metadata. Otherwise set use_v2_audit_metadata to True."
             )
         return values
-
-    @pydantic.validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"

@@ -1,6 +1,7 @@
 import { Entity as EntityInterface, EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
+import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import { GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, urlEncodeUrn } from './shared/utils';
 
@@ -36,6 +37,14 @@ export default class EntityRegistry {
 
     getEntities(): Array<Entity<any>> {
         return this.entities;
+    }
+
+    getNonGlossaryEntities(): Array<Entity<any>> {
+        return this.entities.filter((entity) => !GLOSSARY_ENTITY_TYPES.includes(entity.type));
+    }
+
+    getGlossaryEntities(): Array<Entity<any>> {
+        return this.entities.filter((entity) => GLOSSARY_ENTITY_TYPES.includes(entity.type));
     }
 
     getSearchEntityTypes(): Array<EntityType> {

@@ -19,11 +19,12 @@ from typing import (
 )
 
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, FolderBase, Query
+from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase, Query
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
@@ -102,7 +103,10 @@ logger = logging.getLogger(__name__)
 
 
 class LookerDashboardSourceConfig(
-    LookerAPIConfig, LookerCommonConfig, StatefulIngestionConfigBase
+    LookerAPIConfig,
+    LookerCommonConfig,
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
 ):
     _removed_github_info = pydantic_removed_field("github_info")
 
@@ -586,7 +590,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                                 )
                             )
 
-            explores = list(set(explores))  # dedup the list of views
+            explores = sorted(list(set(explores)))  # dedup the list of views
 
             return LookerDashboardElement(
                 id=element.id,
@@ -962,7 +966,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         return looker_dashboard
 
-    def _get_looker_user(self, user_id: Optional[int]) -> Optional[LookerUser]:
+    def _get_looker_user(self, user_id: Optional[str]) -> Optional[LookerUser]:
         user = (
             self.user_registry.get_by_id(
                 user_id,
