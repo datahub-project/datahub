@@ -154,6 +154,8 @@ class PostgresSource(SQLAlchemySource):
                 inspector = inspect(conn)
                 yield inspector
             else:
+                # pg_database catalog -  https://www.postgresql.org/docs/current/catalog-pg-database.html
+                # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
                 databases = conn.execute(
                     "SELECT datname from pg_database where datname not in ('template0', 'template1')"
                 )
