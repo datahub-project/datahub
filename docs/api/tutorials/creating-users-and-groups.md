@@ -22,7 +22,7 @@ You can ingest users and groups with `yaml` using Python CLI.
 
 ### Upsert User
 
-Save this `user.yaml` to your local. 
+Save this `user.yaml` as a local file.
 
 ```yaml
 - id: bar@acryl.io
@@ -54,8 +54,8 @@ Update succeeded for urn urn:li:corpuser:datahub.
 
 ### Upsert Group
 
-Save this `group.yaml` to your local. Note that you can refer to a user either by by id or by urn. 
-Additionally, you can declare an inline specification of a user. 
+Save this `group.yaml` as a local file. Note that the group includes a list of users who are admins (these will be marked as owners) and members.
+Within these lists, you can refer to the users by their ids or their urns, and can additionally specify their metadata inline within the group description itself. See the example below to understand how this works and feel free to make modifications to this file locally to see the effects of your changes in your local DataHub instance.
 
 ```yaml
 id: foogroup@acryl.io
@@ -69,7 +69,7 @@ members:
     display_name: "Joe's Hub"
 ```
 
-Execute the following CLI command to ingest group data. 
+Execute the following CLI command to ingest this group's information. 
 
 ```
 datahub group upsert -f group.yaml
