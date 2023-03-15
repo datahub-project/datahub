@@ -126,8 +126,8 @@ class DataHubGraph(DatahubRestEmitter):
         """
         Get an aspect for an entity.
 
-        :param str entity_urn: The urn of the entity
-        :param Type[Aspect] aspect_type: The type class of the aspect being requested (e.g. datahub.metadata.schema_classes.DatasetProperties)
+        :param entity_urn: The urn of the entity
+        :param aspect_type: The type class of the aspect being requested (e.g. datahub.metadata.schema_classes.DatasetProperties)
         :param version: The version of the aspect to retrieve. The default of 0 means latest. Versions > 0 go from oldest to newest, so 1 is the oldest.
         :return: the Aspect as a dictionary if present, None if no aspect was found (HTTP status 404)
 
@@ -317,7 +317,6 @@ class DataHubGraph(DatahubRestEmitter):
         :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
         :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
-        :rtype: Optional[Dict[str, Optional[Aspect]]]
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
         assert len(aspects) == len(
