@@ -81,6 +81,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -1139,6 +1140,11 @@ public class EntityService {
       result.sendMessageMs += System.currentTimeMillis() - startTime;
 
       rowsMigrated++;
+    }
+    try {
+      TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
+    } catch (InterruptedException e) {
+      throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
     }
     result.ignored = ignored;
     result.rowsMigrated = rowsMigrated;

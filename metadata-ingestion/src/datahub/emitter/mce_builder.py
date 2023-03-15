@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
     _Aspect as AspectAbstract,
 )
 from datahub.utilities.urn_encoder import UrnEncoder
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -183,9 +184,19 @@ def make_term_urn(term: str) -> str:
 
 
 def make_data_flow_urn(
-    orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str,
+    flow_id: str,
+    cluster: str = DEFAULT_FLOW_CLUSTER,
+    platform_instance: Optional[str] = None,
 ) -> str:
-    return f"urn:li:dataFlow:({orchestrator},{flow_id},{cluster})"
+    return str(
+        DataFlowUrn.create_from_ids(
+            orchestrator=orchestrator,
+            flow_id=flow_id,
+            env=cluster,
+            platform_instance=platform_instance,
+        )
+    )
 
 
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
@@ -197,10 +208,14 @@ def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
 
 
 def make_data_job_urn(
-    orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str,
+    flow_id: str,
+    job_id: str,
+    cluster: str = DEFAULT_FLOW_CLUSTER,
+    platform_instance: Optional[str] = None,
 ) -> str:
     return make_data_job_urn_with_flow(
-        make_data_flow_urn(orchestrator, flow_id, cluster), job_id
+        make_data_flow_urn(orchestrator, flow_id, cluster, platform_instance), job_id
     )
 
 
