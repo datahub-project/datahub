@@ -82,6 +82,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
                         "isReadOnly": True,
                         "displayName": "test_dashboard",
+                        "description": "Description of test dashboard",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
                     }
@@ -206,6 +207,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
             "json": {
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
+                "description": "Library dataset description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             },
         },
@@ -215,6 +217,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
             "json": {
                 "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
                 "name": "library-dataset",
+                "description": "Library dataset description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445",
             },
         },
@@ -224,6 +227,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
             "json": {
                 "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                 "name": "hr_pbi_test",
+                "description": "hr pbi test description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
             },
         },
@@ -319,6 +323,19 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Value.NativeQuery(Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","operations_analytics_warehouse_prod",[Role="OPERATIONS_ANALYTICS_MEMBER"]){[Name="OPERATIONS_ANALYTICS"]}[Data], "SELECT#(lf)concat((UPPER(REPLACE(SELLER,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTHID) as CD_AGENT_KEY,#(lf) *#(lf)FROM#(lf)OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4", null, [EnableFolding=true]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "SME Units ENT", each if [DEAL_TYPE] = "SME Unit" then [UNIT] else 0),\n    #"Added Conditional Column1" = Table.AddColumn(#"Added Conditional Column", "Banklink Units", each if [DEAL_TYPE] = "Banklink" then [UNIT] else 0),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Conditional Column1",{"Banklink Units"}),\n    #"Added Custom" = Table.AddColumn(#"Removed Columns", "Banklink Units", each if [DEAL_TYPE] = "Banklink" and [SALES_TYPE] = "3 - Upsell"\nthen [UNIT]\n\nelse if [SALES_TYPE] = "Adjusted BL Migration"\nthen [UNIT]\n\nelse 0),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "SME Units in $ (*$361)", each if [DEAL_TYPE] = "SME Unit" \nand [SALES_TYPE] <> "4 - Renewal"\n    then [UNIT] * 361\nelse 0),\n    #"Added Custom2" = Table.AddColumn(#"Added Custom1", "Banklink in $ (*$148)", each [Banklink Units] * 148)\nin\n    #"Added Custom2"',
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        "name": "big-query-with-parameter",
+                                        "source": [
+                                            {
+                                                "expression": 'let\n Source = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\nuniversal_Schema = #"gcp-project"{[Name="universal",Kind="Schema"]}[Data],\nD_WH_DATE_Table = universal_Schema{[Name="D_WH_DATE",Kind="Table"]}[Data],\n#"Filtered Rows" = Table.SelectRows(D_WH_DATE_Table, each [D_DATE] > #datetime(2019, 9, 10, 0, 0, 0)),\n#"Filtered Rows1" = Table.SelectRows(#"Filtered Rows", each DateTime.IsInPreviousNHours([D_DATE], 87600))\n in \n#"Filtered Rows1"',
                                             }
                                         ],
                                         "datasourceUsages": [
@@ -508,6 +525,26 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "displayName": "Geographic Analysis",
                         "name": "ReportSection1",
                         "order": "1",
+                    },
+                ]
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/parameters": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "name": "Parameter - Source",
+                        "type": "Text",
+                        "isRequired": True,
+                        "currentValue": "my-test-project",
+                    },
+                    {
+                        "name": "My bq project",
+                        "type": "Text",
+                        "isRequired": True,
+                        "currentValue": "gcp_billing",
                     },
                 ]
             },
