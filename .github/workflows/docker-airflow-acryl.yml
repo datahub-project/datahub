@@ -22,23 +22,21 @@ jobs:
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
           TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/,,g')
-          echo "tag=$TAG"
-          echo "::set-output name=tag::$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
           ENABLE_PUBLISH: ${{ secrets.ORG_DOCKER_PASSWORD }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+          echo "${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
       - name: Compute Python Release Version
         id: python_release_version
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
           RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g')
-          echo "release_version=$RELEASE_VERSION"
-          echo "::set-output name=release_version::$RELEASE_VERSION"
+          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
   push_to_registries:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
