@@ -5,7 +5,7 @@ import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { GenericEntityProperties } from '../shared/types';
-import { GetMlPrimaryKeyQuery, useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
+import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -80,15 +80,6 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, result: GetMlPrimaryKeyQuery) => {
-                            return (
-                                (result?.mlPrimaryKey?.upstream?.total || 0) > 0 ||
-                                (result?.mlPrimaryKey?.downstream?.total || 0) > 0
-                            );
-                        },
-                    },
                 },
             ]}
             sidebarSections={[
