@@ -90,10 +90,11 @@ class DBTCoreConfig(DBTCommonConfig):
 
 
 def get_columns(
-    catalog_node: dict, 
-    manifest_node: dict, 
+    catalog_node: dict,
+    manifest_node: dict,
     tag_prefix: str,
-    convert_urns_to_lowercase: bool,
+    convert_column_urns_to_lowercase: bool,
+    target_platform: str,
 ) -> List[DBTColumn]:
     columns = []
 
@@ -112,7 +113,7 @@ def get_columns(
         tags = manifest_column.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
-        if convert_urns_to_lowercase:
+        if convert_column_urns_to_lowercase or target_platform.lower() == "snowflake":
             catalog_column["name"] = catalog_column["name"].lower()
 
         dbtCol = DBTColumn(
@@ -135,7 +136,8 @@ def extract_dbt_entities(
     manifest_adapter: str,
     use_identifiers: bool,
     tag_prefix: str,
-    convert_urns_to_lowercase: bool,
+    convert_column_urns_to_lowercase: bool,
+    target_platform: str,
     report: DBTSourceReport,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -224,11 +226,6 @@ def extract_dbt_entities(
                 kw_args=kw_args,
             )
 
-        if convert_urns_to_lowercase:
-            name = name.lower()
-            manifest_node["database"] = manifest_node["database"].lower()
-            manifest_node["schema"] = manifest_node["schema"].lower()
-
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
@@ -268,7 +265,13 @@ def extract_dbt_entities(
             logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
             if catalog_node is not None:
                 # We already have done the reporting for catalog_node being None above.
-                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix, convert_urns_to_lowercase)
+                dbtNode.columns = get_columns(
+                    catalog_node,
+                    manifest_node,
+                    tag_prefix,
+                    convert_column_urns_to_lowercase,
+                    target_platform,
+                )
 
         else:
             dbtNode.columns = []
@@ -450,7 +453,8 @@ class DBTCoreSource(DBTSourceBase):
             manifest_adapter,
             self.config.use_identifiers,
             self.config.tag_prefix,
-            self.config.convert_urns_to_lowercase,
+            self.config.convert_column_urns_to_lowercase,
+            self.config.target_platform,
             self.report,
         )
 

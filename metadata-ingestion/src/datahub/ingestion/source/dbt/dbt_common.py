@@ -279,9 +279,10 @@ class DBTCommonConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
     )
-    convert_urns_to_lowercase: bool = Field(
+    convert_column_urns_to_lowercase: bool = Field(
         default=False,
-        description="When enabled, converts all URNs to lowercase to ensure cross-platform compatibility."
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. Columns are automatically "
+        "converted to lowercase if target platform is Snowflake.",
     )
 
     @validator("target_platform")
@@ -396,10 +397,9 @@ class DBTNode:
         target_platform: str,
         env: str,
         data_platform_instance: Optional[str],
-        convert_urns_to_lowercase: bool,
     ) -> str:
         db_fqn = self.get_db_fqn()
-        if (target_platform != DBT_PLATFORM) and convert_urns_to_lowercase:
+        if target_platform != DBT_PLATFORM:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
             platform=target_platform,
@@ -441,7 +441,6 @@ def get_upstreams(
     target_platform_instance: Optional[str],
     environment: str,
     platform_instance: Optional[str],
-    convert_urns_to_lowercase: bool,
 ) -> List[str]:
     upstream_urns = []
 
@@ -470,7 +469,6 @@ def get_upstreams(
                 platform_value,
                 environment,
                 platform_instance_value,
-                convert_urns_to_lowercase,
             )
         )
     return upstream_urns
@@ -736,7 +734,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
                 platform_instance=None,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             )
 
             for upstream_urn in sorted(upstream_urns):
@@ -979,7 +976,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce_platform,
                 self.config.env,
                 mce_platform_instance,
-                self.config.convert_urns_to_lowercase,
             )
             if not self.config.entities_enabled.can_emit_node_type(node.node_type):
                 logger.debug(
@@ -1038,7 +1034,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         DBT_PLATFORM,
                         self.config.env,
                         self.config.platform_instance,
-                        self.config.convert_urns_to_lowercase,
                     )
                     upstreams_lineage_class = get_upstream_lineage([upstream_dbt_urn])
                     if self.config.incremental_lineage:
@@ -1373,7 +1368,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.target_platform_instance,
             self.config.env,
             self.config.platform_instance,
-            self.config.convert_urns_to_lowercase,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1384,7 +1378,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.target_platform,
                     self.config.env,
                     self.config.target_platform_instance,
-                    self.config.convert_urns_to_lowercase,
                 )
             )
         if upstream_urns:
