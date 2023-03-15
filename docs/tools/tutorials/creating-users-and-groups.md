@@ -126,7 +126,7 @@ event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
 # Create rest emitter
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 rest_emitter.emit(event)
-log.info(f"Created user {group_urn}")
+log.info(f"Created group {group_urn}")
 ```
 
 This will create a group called `Engineering` with group `urn:li:corpgroup:engineering`.
