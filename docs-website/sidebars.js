@@ -414,6 +414,9 @@ module.exports = {
             "docs/tools/tutorials/adding-tags",
             "docs/tools/tutorials/adding-terms",
             "docs/tools/tutorials/adding-ownerships",
+            "docs/tools/tutorials/adding-dataset-description",
+            "docs/tools/tutorials/adding-column-description",
+            "docs/tools/tutorials/adding-lineage",
             {
               Reference: [
                 "docs/tools/tutorials/references/generate-access-token",
@@ -461,6 +464,7 @@ module.exports = {
           ],
         },
         "docs/debugging",
+        "docs/faq-using-datahub",
         "docs/plugins",
 
         {
