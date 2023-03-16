@@ -11,7 +11,7 @@
     "serve": "docusaurus serve",
     "clear": "docusaurus clear && rm -rf genDocs/*",
     "_generate-graphql": "docusaurus docs:generate:graphql",
-    "_generate-python-sdk": "cd sphinx && venv/bin/python3 convert_sphinx_to_docusaurus.py",
+    "_generate-python-sdk": "cd sphinx && make md",
     "_generate-docs": "rm -rf docs && mkdir docs && yarn _generate-graphql && yarn _generate-python-sdk && ts-node -O '{ \"lib\": [\"es2020\"], \"target\": \"es6\" }' generateDocsDir.ts",
     "generate": "rm -rf genDocs && mkdir genDocs && yarn _generate-docs && mv docs/* genDocs/ && rmdir docs",
     "generate-rsync": "mkdir -p genDocs && yarn _generate-docs && rsync -v --checksum -r -h -i --delete docs/ genDocs && rm -rf docs",

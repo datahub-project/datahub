@@ -3,22 +3,35 @@
 
 # You can set these variables from the command line, and also
 # from the environment for the first two.
+VENV_DIR	  ?= venv
 SPHINXOPTS    ?=
-SPHINXBUILD   ?= sphinx-build
+SPHINXBUILD   ?= $(VENV_DIR)/bin/sphinx-build
 SOURCEDIR     = .
 BUILDDIR      = _build
+VENV_SENTINEL = $(VENV_DIR)/.sentinel
 
 # Put it first so that "make" without argument is like "make help".
-help:
+help: venv
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-venv:
-	python3 -m venv venv
-	venv/bin/pip install -e ../../metadata-ingestion/
+venv: $(VENV_SENTINEL)
 
-.PHONY: help venv Makefile
+$(VENV_SENTINEL): requirements.txt
+	python3 -m venv $(VENV_DIR)
+	$(VENV_DIR)/bin/pip install --upgrade pip wheel setuptools
+	$(VENV_DIR)/bin/pip install -r requirements.txt
+	touch $(VENV_SENTINEL)
 
-# Catch-all target: route all unknown targets to Sphinx using the new
+.PHONY: help html doctest linkcheck clean serve md
+
+# Not using Python's http.server because it enables caching headers.
+serve:
+	serve -p 3001 _build/html/
+
+md: html
+	$(VENV_DIR)/bin/python3 convert_sphinx_to_docusaurus.py
+
+# Route other targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
+html doctest linkcheck clean: venv Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
