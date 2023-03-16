@@ -24,16 +24,16 @@ Here's an overview of what each API can do.
 
 > Last Updated : Mar 15 2023
 
-| Feature                                           | GraphQL | SDK | OpenAPI |
-|---------------------------------------------------|--------|-----|---------|
-| Add Tags/Terms/Ownership to a column of a dataset | ✅      | ✅   | ✅       |
-| Add Tags/Terms/Ownership to a dataset             | ✅      | ✅   | ✅       |
-| Create a Dataset                                  |        | ✅   | ✅       |
-| Delete a Dataset                                  |        | ✅   | ✅       |
-| Search a Dataset                                  | ✅      | ✅   | ✅       |
-| Add Lineage                                       | ✅      | ✅   | ✅       |
-| Add Column Level (Fine Grained) Lineage           |        | ✅       | ✅   |
-| Add Documentation(Description) on Column          |✅       | ✅       | ✅   |
-| Add Documentation(Description) on Dataset         |        | ✅       | ✅   |
-| Create a Tag                                      |✅        | ✅       | ✅   |
-| Create a Term                                     |✅        | ✅       | ✅   |
+| Feature                                                | GraphQL | SDK | OpenAPI |
+|--------------------------------------------------------|--------|-----|---------|
+| Add Tags/Terms/Ownership to a column of a dataset      | ✅      | ✅   | ✅       |
+| Add Tags/Terms/Ownership to a dataset                  | ✅      | ✅   | ✅       |
+| Create a dataset                                       |        | ✅   | ✅       |
+| Delete a dataset                                       |        | ✅   | ✅       |
+| Search a dataset                                       | ✅      | ✅   | ✅       |
+| Add lineage                                            | ✅      | ✅   | ✅       |
+| Add column level(Fine Grained) lineage                 |        | ✅       | ✅   |
+| Add documentation(Description) to a column of a dataset |✅       | ✅       | ✅   |
+| Add documentation(Description) to a dataset            |        | ✅       | ✅   |
+| Create a tag                                           |✅        | ✅       | ✅   |
+| Create a glossary term                                 |✅        | ✅       | ✅   |
