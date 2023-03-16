@@ -1,9 +1,14 @@
-# Adding Terms
+# Adding Terms On Datasets/Columns
 
 ## Why Would You Add Terms? 
 The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary within the orgarnization, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
 
 Fore more information about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
+
+### Goal Of This Guide
+This guide will show you how to add a `CustomerAccount` term to `user_name` column of a dataset named `fct_users_created`.
+Also, we will cover how to add a term to a dataset itself. 
+
 
 ## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
@@ -13,6 +18,7 @@ For detailed information, please refer to [Prepare Local DataHub Environment](/d
 Before adding terms, you need to ensure the targeted dataset and the term are already present in your datahub. 
 If you attempt to manipulate entities that do not exist, your operation will fail. 
 In this guide, we will be using data from a sample ingestion.
+If you want to know how to create entities using APIs & SDKs, please refer to [Creating Terms](/docs/tools/tutorials/creating-terms.md) and [Creating Datasets](/docs/tools/tutorials/creating-datasets.md).
 :::
 
 
@@ -37,6 +43,19 @@ mutation addTerms {
         subResource:"user_name"})
 }
 ```
+
+Note that you can also add a term on a dataset if you don't specify `subResourceType` and `subResource`. 
+```json
+mutation addTerms {
+    addTerms(
+      input: { 
+        termUrns: ["urn:li:glossaryTerm:CustomerAccount"], 
+        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+      }
+  )
+}
+```
+
 If you see the following response, the operation was successful:
 ```python
 {
@@ -186,5 +205,5 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 ## Expected Outcomes
 You can now see the term `CustomerAccount` has been added to `user_name` column. 
-![term-added](../../imgs/tutorials/term-added.png)
+![term-added](../../imgs/tutorials/term-created.png)
 
