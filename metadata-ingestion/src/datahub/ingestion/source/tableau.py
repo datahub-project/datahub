@@ -332,7 +332,7 @@ class TableauConfig(
         TableauCustomSQLLineage
     ] = Field(
         default=None,
-        description="[experimental]When enabled, will extract manually lineage from unsupported custom sql queries",
+        description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -1157,7 +1157,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
                 # custom sql tables may contain unsupported sql, causing incomplete lineage
                 # we extract the lineage from the raw queries
-                database = csql.get(tableau_constant.DATABASE, {})
+                database = csql.get(tableau_constant.DATABASE) or {}
                 if (
                     csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
                     and len(tables) == 0
