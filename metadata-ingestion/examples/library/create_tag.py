@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 tag_urn = make_tag_urn("deprecated")
 tag_properties_aspect = TagPropertiesClass(
     name="Deprecated",
-    description="Having this tag means this column or table is deprecated."
+    description="Having this tag means this column or table is deprecated.",
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(

@@ -80,7 +80,7 @@ term_urn = make_term_urn("rateofreturn")
 term_properties_aspect = GlossaryTermInfoClass(
     definition="A rate of return (RoR) is the net gain or loss of an investment over a specified time period.",
     name="Rate of Return",
-    termSource=""
+    termSource="",
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
