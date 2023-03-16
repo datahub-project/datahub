@@ -62,7 +62,7 @@ Expected Response:
 ## Create Tags With Python SDK
 
 The following code creates a tag named `Deprecated`.
-You can refer to the full code in [dataset_add_column_tag.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_tag.py).
+You can refer to the full code in [create_tag.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/create_tag.py).
 ```python
 import logging
 
@@ -76,10 +76,10 @@ from datahub.metadata.schema_classes import TagPropertiesClass
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-tag_urn = make_tag_urn("customeraccount")
+tag_urn = make_tag_urn("deprecated")
 tag_properties_aspect = TagPropertiesClass(
-    name="CustomerAccount",
-    description="This is a test tag."
+    name="Deprecated",
+    description="Having this tag means this column or table is deprecated."
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(

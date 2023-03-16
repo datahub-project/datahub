@@ -62,7 +62,7 @@ Expected Response:
 ## Create Terms With Python SDK
 
 The following code creates a term named `Rate of Return`.
-You can refer to the full code in [dataset_add_column_term.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_term.py).
+You can refer to the full code in [create_term.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/create_term.py).
 ```python
 import logging
 
