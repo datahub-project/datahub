@@ -167,6 +167,7 @@ class DataResolverBase(ABC):
                 id=instance.get(Constant.ID),
                 isReadOnly=instance.get(Constant.IS_READ_ONLY),
                 displayName=instance.get(Constant.DISPLAY_NAME),
+                description=instance.get(Constant.DESCRIPTION, str()),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
@@ -249,7 +250,7 @@ class DataResolverBase(ABC):
                 name=raw_instance.get(Constant.NAME),
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION),
+                description=raw_instance.get(Constant.DESCRIPTION, str()),
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),
