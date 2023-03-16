@@ -34,17 +34,13 @@ jobs:
       - name: Compute Tag
         id: tag
         run: |
-          echo "GITHUB_REF: $GITHUB_REF"
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          source .github/scripts/docker_helpers.sh
+          echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
       - name: Compute Python Release Version
         id: python_release_version
         run: |
-          echo "GITHUB_REF: $GITHUB_REF"
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.*\),\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,0.0.0+docker.pr\1,g')
-          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          source .github/scripts/docker_helpers.sh
+          echo "release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -61,33 +57,17 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             acryldata/datahub-ingestion
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: docker/login-action@v2
-        with:
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.ORG_DOCKER_PASSWORD }}
-      - name: Build and Push image
-        uses: docker/build-push-action@v3
-        with:
+          publish: ${{ needs.setup.outputs.publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
