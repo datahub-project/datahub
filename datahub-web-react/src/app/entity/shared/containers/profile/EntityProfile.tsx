@@ -280,10 +280,6 @@ export const EntityProfile = <T, U>({
     const isLineageEnabled = entityRegistry.getLineageEntityTypes().includes(entityType);
     const showBrowseBar = (isBrowsable || isLineageEnabled) && !hideBrowseBar;
 
-    if (error) {
-        console.log(`Received an error! ${error}`);
-    }
-
     return (
         <EntityContext.Provider
             value={{
