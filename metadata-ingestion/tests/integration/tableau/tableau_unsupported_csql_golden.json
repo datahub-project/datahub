@@ -32389,6 +32389,409 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "amount",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "last_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "rental_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I4",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "first_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "payment_date",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DBTIMESTAMP",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I4",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default/Customer Payment Query"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "Custom SQL Query",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": false,
+                        "viewLogic": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nwhere customer.customer_id = <[Parameters].[Parameter 1]>\nORDER BY payment_date",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Custom SQL"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.staff,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I4",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "staff_first_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "amount",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_first_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "payment_date",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DBTIMESTAMP",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "staff_last_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_last_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default/test publish datasource"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "Custom SQL Query",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": false,
+                        "viewLogic": "SELECT\n\tc.customer_id,\n\tc.first_name customer_first_name,\n\tc.last_name customer_last_name,\n\ts.first_name staff_first_name,\n\ts.last_name staff_last_name,\n\tamount,\n\tpayment_date\nFROM\n\tcustomer c\nINNER JOIN payment p \n    ON p.customer_id = c.customer_id\nINNER JOIN staff s \n    ON p.staff_id = s.staff_id\nORDER BY payment_date",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Custom SQL"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -41155,6 +41558,66 @@
     }
 },
 {
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default/test publish datasource"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default/test publish datasource"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.staff,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default/test publish datasource"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(tableau,130496dc-29ca-8a89-e32b-d73c4d8b65ff)",
     "changeType": "UPSERT",
@@ -41651,6 +42114,51 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.staff,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,00cce29f-b561-bb41-3557-8e19660bb5dd,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -41696,6 +42204,21 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,3ade7817-ae27-259e-8e48-1570e7f932f6,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -41712,6 +42235,21 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4644ccb1-2adc-cf26-c654-04ed1dcc7090,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

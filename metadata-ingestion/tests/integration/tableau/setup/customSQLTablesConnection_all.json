@@ -754,13 +754,106 @@
                             "connectionType": "postgres"
                         }
                     ]
+                },
+                {
+                    "id": "09988088-05ad-173c-a2f1-f33ba3a13d1a",
+                    "name": "BigQuery Source",
+                    "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+                    "isUnsupportedCustomSql": true,
+                    "columns": [
+                        {
+                            "id": "5a8e9b52-542d-7c8b-e664-47bbccba923c",
+                            "name": "source",
+                            "remoteType": "WSTR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "b635f6e4-302a-0ad6-9806-da2e57ed8f07",
+                                        "name": "User",
+                                        "upstreamTables": [
+                                            {
+                                                "id": "120eddf4-6cbb-7986-abe7-82f4aabd9b0a",
+                                                "name": "datawarehouse.client",
+                                                "isEmbedded": false,
+                                                "database": {
+                                                    "name": "dwh"
+                                                },
+                                                "schema": "datawarehouse",
+                                                "fullName": "datawarehouse.client",
+                                                "connectionType": "redshift"
+                                            },
+                                            {
+                                                "id": "51d5921d-3c2e-3c21-8e65-1386b4766639",
+                                                "name": "datawarehouse.user",
+                                                "isEmbedded": false,
+                                                "database": {
+                                                    "name": "dwh"
+                                                },
+                                                "schema": "datawarehouse",
+                                                "fullName": "datawarehouse.user",
+                                                "connectionType": "redshift"
+                                            }
+                                        ],
+                                        "projectName": "PROJECT NAME"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "7bc284d1-002c-2c5b-81d9-3514c4ebbaf0",
+                            "name": "user_id",
+                            "remoteType": "WSTR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "b635f6e4-302a-0ad6-9806-da2e57ed8f07",
+                                        "name": "User",
+                                        "upstreamTables": [
+                                            {
+                                                "id": "120eddf4-6cbb-7986-abe7-82f4aabd9b0a",
+                                                "name": "datawarehouse.client",
+                                                "isEmbedded": false,
+                                                "database": {
+                                                    "name": "dwh"
+                                                },
+                                                "schema": "datawarehouse",
+                                                "fullName": "datawarehouse.client",
+                                                "connectionType": "redshift"
+                                            },
+                                            {
+                                                "id": "51d5921d-3c2e-3c21-8e65-1386b4766639",
+                                                "name": "datawarehouse.user",
+                                                "isEmbedded": false,
+                                                "database": {
+                                                    "name": "dwh"
+                                                },
+                                                "schema": "datawarehouse",
+                                                "fullName": "datawarehouse.user",
+                                                "connectionType": "redshift"
+                                            }
+                                        ],
+                                        "projectName": "PROJECT NAME"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "tables": [],
+                    "database": {
+                        "name": "production database",
+                        "connectionType": "bigquery"
+                    }
                 }
             ],
             "pageInfo": {
                 "hasNextPage": false,
                 "endCursor": null
             },
-            "totalCount": 2
+            "totalCount": 3
         }
     }
 }
