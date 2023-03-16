@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 
 
 SPHINX_ROOT_DIR = pathlib.Path(".")
-SPHINX_BUILD_DIR = SPHINX_ROOT_DIR / pathlib.Path("_build/html/_apidocs")
+SPHINX_BUILD_DIR = SPHINX_ROOT_DIR / pathlib.Path("_build/html/apidocs")
 DOCS_OUTPUT_DIR = pathlib.Path("../docs/python-sdk")
 
 

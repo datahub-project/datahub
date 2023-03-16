@@ -18,9 +18,10 @@ extensions = [
     "sphinx.ext.autodoc",
     # TODO: set up 'sphinx.ext.viewcode'
     # Via https://stackoverflow.com/a/51312475/5004662.
-    # TODO: set up sphinx-click
     "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
+    # This enables us to autogenerate docs for our CLI.
+    "sphinx_click",
 ]
 
 napoleon_use_param = True

@@ -9,9 +9,11 @@ Welcome to DataHub Python SDK's documentation!
 .. toctree::
    :titlesonly:
 
-   _apidocs/builder
-   _apidocs/clients
-   _apidocs/models
+   cli
+
+   apidocs/builder
+   apidocs/clients
+   apidocs/models
 
 
 Indices and tables
