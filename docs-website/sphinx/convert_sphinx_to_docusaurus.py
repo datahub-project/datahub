@@ -37,6 +37,18 @@ def convert_html_to_md(html_file: pathlib.Path) -> str:
     for link in article.find_all("a", {"class": "headerlink"}):
         link.decompose()
 
+    # Remove the trailing " – " from arguments that are missing
+    # a description.
+    for item in article.select("dl.field-list dd p"):
+        # Note - that's U+2013, not a normal hyphen.
+        if str(item).endswith(" – </p>"):
+            parent = item.parent
+            # print("orig item", item)
+            new_item = BeautifulSoup(str(item)[:-7] + "</p>", "html.parser")
+            # print("new-item", str(new_item))
+            parent.p.replace_with(new_item)
+            # print("item post replace", parent)
+
     # Extract title from the h1.
     title_element = article.find("h1")
     title = title_element.text
