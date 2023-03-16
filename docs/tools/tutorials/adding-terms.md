@@ -205,5 +205,5 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 ## Expected Outcomes
 You can now see the term `CustomerAccount` has been added to `user_name` column. 
-![term-added](../../imgs/tutorials/term-added.png)
+![term-added](../../imgs/tutorials/term-created.png)
 
