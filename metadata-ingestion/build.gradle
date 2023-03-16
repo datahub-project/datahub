@@ -12,7 +12,8 @@ if (!project.hasProperty("extra_pip_requirements")) {
 }
 
 task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
+  commandLine python_executable, '-c',
+    'import sys; assert (3, 10) >= sys.version_info >= (3, 7), f"Python version {sys.version_info[:2]} not allowed"'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
