@@ -1150,27 +1150,17 @@ class TableauSource(StatefulIngestionSourceBase):
                         yield wu
                 project = self._get_project_browse_path_name(datasource)
 
-                # lineage from custom sql -> datasets/tables #
                 tables = csql.get(tableau_constant.TABLES, [])
-                yield from self._create_lineage_to_upstream_tables(
-                    csql_urn, tables, datasource
-                )
-                # custom sql tables may contain unsupported sql, causing incomplete lineage
-                # we extract the lineage from the raw queries
-                database = csql.get(tableau_constant.DATABASE) or {}
-                if (
-                    csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
-                    and len(tables) == 0
-                    and self.config.extract_lineage_from_unsupported_custom_sql_queries
-                    and tableau_constant.NAME in database
-                    and tableau_constant.CONNECTION_TYPE in database
-                ):
-                    yield from self._create_lineage_from_unsupported_csql(
-                        csql_urn,
-                        csql.get(tableau_constant.QUERY),
-                        database.get(tableau_constant.NAME),
-                        database.get(tableau_constant.CONNECTION_TYPE),
+
+                if tables:
+                    # lineage from custom sql -> datasets/tables #
+                    yield from self._create_lineage_to_upstream_tables(
+                        csql_urn, tables, datasource
                     )
+                elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
+                    # custom sql tables may contain unsupported sql, causing incomplete lineage
+                    # we extract the lineage from the raw queries
+                    yield from self._create_lineage_from_unsupported_csql(csql_urn, csql)
 
             #  Schema Metadata
             columns = csql.get(tableau_constant.COLUMNS, [])
@@ -1347,35 +1337,42 @@ class TableauSource(StatefulIngestionSourceBase):
             )
 
     def _create_lineage_from_unsupported_csql(
-        self, csql_urn: str, query: str, db_name: str, db_connection_type: str
+        self, csql_urn: str, csql: dict
     ):
-        upstream_tables = []
-        parser = LineageRunner(query)
-        overriden_db_name = self.config.extract_lineage_from_unsupported_custom_sql_queries.database_override.get(
-            db_name, db_name
-        )
+        database = csql.get(tableau_constant.DATABASE) or {}
+        if (
+                csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
+                and tableau_constant.NAME in database
+                and tableau_constant.CONNECTION_TYPE in database
+        ):
+            db_name = database.get(tableau_constant.NAME)
+            upstream_tables = []
+            parser = LineageRunner(csql.get(tableau_constant.QUERY))
+            overriden_db_name = self.config.extract_lineage_from_unsupported_custom_sql_queries.database_override.get(
+                db_name, db_name
+            )
 
-        for table in parser.source_tables:
-            split_table = str(table).split(".")
-            if len(split_table) == 2:
-                datset = make_table_urn(
-                    env=self.config.env,
-                    upstream_db=overriden_db_name,
-                    connection_type=db_connection_type,
-                    schema=split_table[0],
-                    full_name=split_table[1],
-                    platform_instance_map=self.config.platform_instance_map,
-                    lineage_overrides=self.config.lineage_overrides,
-                )
-                upstream_tables.append(
-                    UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=datset)
-                )
-        upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
-        yield self.get_metadata_change_proposal(
-            csql_urn,
-            aspect_name=tableau_constant.UPSTREAM_LINEAGE,
-            aspect=upstream_lineage,
-        )
+            for table in parser.source_tables:
+                split_table = str(table).split(".")
+                if len(split_table) == 2:
+                    datset = make_table_urn(
+                        env=self.config.env,
+                        upstream_db=overriden_db_name,
+                        connection_type=database.get(tableau_constant.CONNECTION_TYPE),
+                        schema=split_table[0],
+                        full_name=split_table[1],
+                        platform_instance_map=self.config.platform_instance_map,
+                        lineage_overrides=self.config.lineage_overrides,
+                    )
+                    upstream_tables.append(
+                        UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=datset)
+                    )
+            upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+            yield self.get_metadata_change_proposal(
+                csql_urn,
+                aspect_name=tableau_constant.UPSTREAM_LINEAGE,
+                aspect=upstream_lineage,
+            )
 
     def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
