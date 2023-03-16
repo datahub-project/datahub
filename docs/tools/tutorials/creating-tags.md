@@ -55,7 +55,7 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 ```
 Expected Response:
 ```json
-{"data":{"createTag":"<tag_urn>"},"extensions":{}}%
+{"data":{"createTag":"<tag_urn>"},"extensions":{}}
 ```
 
 

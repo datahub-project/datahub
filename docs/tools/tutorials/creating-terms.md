@@ -55,7 +55,7 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 ```
 Expected Response:
 ```json
-{"data":{"createGlossaryTerm":"<term_urn>"},"extensions":{}}%
+{"data":{"createGlossaryTerm":"<term_urn>"},"extensions":{}}
 ```
 
 
