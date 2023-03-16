@@ -411,6 +411,9 @@ module.exports = {
         {
           "Getting Started: APIs & SDKs": [
             "docs/tools/tutorials/advantages",
+            "docs/tools/tutorials/creating-datasets",
+            "docs/tools/tutorials/creating-tags",
+            "docs/tools/tutorials/creating-terms",
             "docs/tools/tutorials/adding-tags",
             "docs/tools/tutorials/adding-terms",
             "docs/tools/tutorials/adding-ownerships",
