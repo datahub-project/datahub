@@ -10,6 +10,15 @@ _Path = List[Union[str, int]]
 
 
 def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
+    """List urns in the given model with their paths.
+
+    Args:
+        model: The model to list urns from.
+
+    Returns:
+        A list of tuples of the form (urn, path), where path is a list of keys.
+    """
+
     schema: RecordSchema = model.RECORD_SCHEMA
 
     urns: List[Tuple[str, _Path]] = []

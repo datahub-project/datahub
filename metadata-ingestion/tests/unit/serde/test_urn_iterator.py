@@ -73,7 +73,7 @@ def test_upstream_lineage_urn_iterator():
     )
 
     urns = list_urns_with_path(upstream_lineage)
-    assert urns != [
+    assert urns == [
         (
             "urn:li:corpuser:unknown",
             ["upstreams", 0, "auditStamp", "actor"],
@@ -86,6 +86,30 @@ def test_upstream_lineage_urn_iterator():
         (
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD)",
             ["upstreams", 1, "dataset"],
+        ),
+        (
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)",
+            ["fineGrainedLineages", 0, "upstreams", 0],
+        ),
+        (
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)",
+            ["fineGrainedLineages", 0, "upstreams", 1],
+        ),
+        (
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream_table,PROD),c3)",
+            ["fineGrainedLineages", 0, "downstreams", 0],
+        ),
+        (
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream_table,PROD),c4)",
+            ["fineGrainedLineages", 0, "downstreams", 1],
+        ),
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD)",
+            ["fineGrainedLineages", 1, "upstreams", 0],
+        ),
+        (
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream_table,PROD),c5)",
+            ["fineGrainedLineages", 1, "downstreams", 0],
         ),
     ]
 
