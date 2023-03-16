@@ -18,6 +18,14 @@ def html_to_mdx(html: str) -> str:
 """
 
 
+def bs4_to_mdx(soup: BeautifulSoup) -> str:
+    # TODO: Eventually we should do something smarter here to
+    # generate something that's closer to real Markdown. This would
+    # be helpful, for example, for enabling Docusaurus to generate
+    # a table of contents for the page.
+    return html_to_mdx(str(soup))
+
+
 def convert_html_to_md(html_file: pathlib.Path) -> str:
     html = html_file.read_text()
     soup = BeautifulSoup(html, "html.parser")
@@ -40,12 +48,11 @@ title: {title}
 ---\n\n"""
 
     styles = """
-import { useMemo } from 'react';
 import './basic.css';
 
 \n"""
 
-    return md_meta + styles + html_to_mdx(str(article))
+    return md_meta + styles + bs4_to_mdx(article)
 
 
 def main():
@@ -59,16 +66,6 @@ def main():
         outfile.write_text(md)
 
         print(f"Generated {outfile}")
-
-    # css_files = [
-    #     (SPHINX_BUILD_DIR.parent / "_static/basic.css"),
-    #     (SPHINX_BUILD_DIR.parent / "_static/file.png"),
-    #     (SPHINX_BUILD_DIR.parent / "_static/styles/pydata-sphinx-theme.css"),
-    # ]
-    # for css in css_files:
-    #     outfile = DOCS_OUTPUT_DIR.joinpath(css.name)
-    #     outfile.write_bytes(css.read_bytes())
-    #     print(f"Copied {css} to {outfile}")
 
     css = SPHINX_ROOT_DIR / "basic.css"
     outfile = DOCS_OUTPUT_DIR.joinpath(css.name)
