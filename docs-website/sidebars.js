@@ -462,6 +462,7 @@ module.exports = {
           ],
         },
         "docs/debugging",
+        "docs/faq-using-datahub",
         "docs/plugins",
 
         {
