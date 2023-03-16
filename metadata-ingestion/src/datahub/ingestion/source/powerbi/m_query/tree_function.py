@@ -70,33 +70,24 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     return expression_tree
 
 
-def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> List[str]:
+def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
     """
-
     :param tree: Tree to traverse
-    :param parameters: If parameters is not None, it will try to resolve identifier variable references
+    :param parameters: If parameters is not an empty dict, it will try to resolve identifier variable references
                        using the values in 'parameters'.
     :return: List of leaf token data
     """
     values: List[str] = []
 
     def internal(node: Union[Tree, Token]) -> None:
-        if (
-            parameters is not None
-            and isinstance(node, Tree)
-            and node.data == "identifier"
-            and node.children[0].data == "quoted_identifier"
-        ):
+        if parameters and isinstance(node, Tree) and node.data == "identifier":
             # This is the case where they reference a variable using
-            # the `#"Name of variable"` syntax.
+            # the `#"Name of variable"` or `Variable` syntax. It can be
+            # a quoted_identifier or a regular_identifier.
 
-            identifier = node.children[0].children[0]
-            assert isinstance(identifier, Token)
+            ref = make_function_name(node)
 
             # For quoted_identifier, ref will have quotes around it.
-            # However, we'll probably need to expand this to all identifier types,
-            # which are not required to have quotes (using make_function_name).
-            ref = identifier.value
             if ref.startswith('"') and ref[1:-1] in parameters:
                 resolved = parameters[ref[1:-1]]
                 values.append(resolved)
@@ -155,7 +146,7 @@ def get_all_function_name(tree: Tree) -> List[str]:
 
     for node in _filter:
         if TRACE_POWERBI_MQUERY_PARSER:
-            logger.debug(f"Tree = {node.pretty}")
+            logger.debug(f"Tree = {node.pretty()}")
         primary_expression_node: Optional[Tree] = first_primary_expression_func(node)
         if primary_expression_node is None:
             continue

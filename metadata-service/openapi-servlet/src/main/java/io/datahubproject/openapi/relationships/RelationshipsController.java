@@ -143,7 +143,7 @@ public class RelationshipsController {
       exceptionally = e;
       throw new RuntimeException(
           String.format("Failed to batch get relationships with urn: %s, relationshipTypes: %s", urn,
-              relationshipTypes), e);
+                  Arrays.toString(relationshipTypes)), e);
     } finally {
       if (exceptionally != null) {
         MetricUtils.counter(MetricRegistry.name("getRelationships", "failed")).inc();
