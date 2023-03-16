@@ -420,6 +420,7 @@ module.exports = {
             "docs/tools/tutorials/adding-dataset-description",
             "docs/tools/tutorials/adding-column-description",
             "docs/tools/tutorials/adding-lineage",
+            "docs/tools/tutorials/creating-users-and-groups",
             {
               Reference: [
                 "docs/tools/tutorials/references/generate-access-token",
