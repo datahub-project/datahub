@@ -47,10 +47,10 @@ describe('auto-complete', () => {
     it('should filter search results when when searching with a quick filter selected', () => {
         cy.login();
         cy.visit("/");
-        cy.get("input[data-testid=search-input]").type("baz");
-        cy.contains("Baz Chart 2")
-        cy.get('[data-testid="quick-filter-urn:li:dataPlatform:looker"]').click();
+        cy.get("input[data-testid=search-input]").type("raw_pay");
+        cy.contains("raw_payments")
+        cy.get('[data-testid="quick-filter-urn:li:dataPlatform:bigquery"]').click();
         cy.focused().type("{enter}");
-        cy.url().should('include', '?filter_platform___false___EQUAL___0=urn%3Ali%3AdataPlatform%3Alooker');
+        cy.url().should('include', '?filter_platform___false___EQUAL___0=urn%3Ali%3AdataPlatform%3Abigquery');
     });
 })
