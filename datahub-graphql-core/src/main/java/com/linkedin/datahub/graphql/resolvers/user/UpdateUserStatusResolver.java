@@ -43,7 +43,7 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
           proposal.setEntityUrn(Urn.createFromString(userUrn));
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to update user status for urn", userUrn), e);
+          throw new RuntimeException(String.format("Failed to update user status for urn %s", userUrn), e);
         }
       });
     }

@@ -302,7 +302,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     final List<SystemMetadata> finalSystemMetadataList = Arrays.stream(systemMetadataList)
-        .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
+        .map(this::populateDefaultFieldsIfEmpty)
         .collect(Collectors.toList());
 
     return RestliUtil.toTask(() -> {
@@ -559,7 +559,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       response.setAspectRowSummaries(
           new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size()))));
       if ((dryRun == null) || (!dryRun)) {
-        Map<String, String> conditions = new HashMap();
+        Map<String, String> conditions = new HashMap<>();
         conditions.put("registryName", finalRegistryName1);
         conditions.put("registryVersion", finalRegistryVersion1.toString());
         _entityService.rollbackWithConditions(aspectRowsToDelete, conditions, false);
@@ -598,7 +598,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               EntitySpecUtils.getEntityTimeseriesAspectNames(_entityService.getEntityRegistry(), urn.getEntityType());
       if (aspectName != null && !timeseriesAspectNames.contains(aspectName)) {
         throw new UnsupportedOperationException(
-                String.format("Not supported for non-timeseries aspect '{}'.", aspectName));
+                String.format("Not supported for non-timeseries aspect '%s'.", aspectName));
       }
       List<String> timeseriesAspectsToDelete =
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);

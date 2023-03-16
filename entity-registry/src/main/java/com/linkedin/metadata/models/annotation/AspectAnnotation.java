@@ -56,6 +56,6 @@ public class AspectAnnotation {
     Optional<Boolean> autoRender = AnnotationUtils.getField(map, AUTO_RENDER_FIELD, Boolean.class);
     Optional<DataMap> renderSpec = AnnotationUtils.getField(map, RENDER_SPEC_FIELD, DataMap.class);
 
-    return new AspectAnnotation(name.get(), isTimeseries, autoRender.orElseGet(() -> false), renderSpec.orElseGet(() -> null));
+    return new AspectAnnotation(name.get(), isTimeseries, autoRender.orElse(false), renderSpec.orElse(null));
   }
 }

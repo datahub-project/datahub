@@ -107,7 +107,7 @@ public class CassandraRetentionService extends RetentionService {
 
       i += 1;
       if (i % _batchSize == 0) {
-        log.info(String.format("Retention applied to {} aspect so far.", i));
+        log.info("Retention applied to {} aspect so far.", i);
       }
     }
 

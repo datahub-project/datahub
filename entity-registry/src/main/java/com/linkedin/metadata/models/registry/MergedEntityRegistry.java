@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
@@ -43,7 +42,7 @@ public class MergedEntityRegistry implements EntityRegistry {
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
     if (entitySpec.getKeyAspectSpec() == null) {
       validationResult.setValid(false);
-      validationResult.getValidationFailures().add(String.format("Key aspect is missing in entity {}", entitySpec.getName()));
+      validationResult.getValidationFailures().add(String.format("Key aspect is missing in entity %s", entitySpec.getName()));
     }
   }
 
@@ -51,8 +50,8 @@ public class MergedEntityRegistry implements EntityRegistry {
 
     ValidationResult validationResult = validatePatch(patchEntityRegistry);
     if (!validationResult.isValid()) {
-      throw new EntityRegistryException(String.format("Failed to validate new registry with %s", validationResult.validationFailures.stream().collect(
-          Collectors.joining("\n"))));
+      throw new EntityRegistryException(String.format("Failed to validate new registry with %s",
+              String.join("\n", validationResult.validationFailures)));
     }
 
     // Merge Entity Specs
@@ -84,18 +83,18 @@ public class MergedEntityRegistry implements EntityRegistry {
 
   private void checkMergeable(EntitySpec existingEntitySpec, EntitySpec newEntitySpec, final ValidationResult validationResult) {
     if (existingEntitySpec != null) {
-      existingEntitySpec.getAspectSpecMap().entrySet().forEach(aspectSpecEntry -> {
-        if (newEntitySpec.hasAspect(aspectSpecEntry.getKey())) {
-          CompatibilityResult result = CompatibilityChecker.checkCompatibility(aspectSpecEntry.getValue().getPegasusSchema(), newEntitySpec.getAspectSpec(
-              aspectSpecEntry.getKey()).getPegasusSchema(), new CompatibilityOptions());
+      existingEntitySpec.getAspectSpecMap().forEach((key, value) -> {
+        if (newEntitySpec.hasAspect(key)) {
+          CompatibilityResult result = CompatibilityChecker.checkCompatibility(value.getPegasusSchema(), newEntitySpec.getAspectSpec(
+                  key).getPegasusSchema(), new CompatibilityOptions());
           if (result.isError()) {
-            log.error("{} schema is not compatible with previous schema due to {}", aspectSpecEntry.getKey(), result.getMessages());
+            log.error("{} schema is not compatible with previous schema due to {}", key, result.getMessages());
             // we want to continue processing all aspects to collect all failures
             validationResult.setValid(false);
             validationResult.getValidationFailures().add(
-                String.format("%s schema is not compatible with previous schema due to %s", aspectSpecEntry.getKey(), result.getMessages()));
+                    String.format("%s schema is not compatible with previous schema due to %s", key, result.getMessages()));
           } else {
-            log.info("{} schema is compatible with previous schema due to {}", aspectSpecEntry.getKey(), result.getMessages());
+            log.info("{} schema is compatible with previous schema due to {}", key, result.getMessages());
           }
         }
       });

@@ -55,18 +55,14 @@ public class PatchEntityRegistry implements EntityRegistry {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder("PatchEntityRegistry[" + "identifier=" + identifier + ';');
-    entityNameToSpec.entrySet()
-        .stream()
-        .forEach(entry -> sb.append("[entityName=")
-            .append(entry.getKey())
+    entityNameToSpec.forEach((key, value) -> sb.append("[entityName=")
+            .append(key)
             .append(";aspects=[")
             .append(
-                entry.getValue().getAspectSpecs().stream().map(spec -> spec.getName()).collect(Collectors.joining(",")))
+                    value.getAspectSpecs().stream().map(AspectSpec::getName).collect(Collectors.joining(",")))
             .append("]]"));
-    eventNameToSpec.entrySet()
-        .stream()
-        .forEach(entry -> sb.append("[eventName=")
-            .append(entry.getKey())
+    eventNameToSpec.forEach((key, value) -> sb.append("[eventName=")
+            .append(key)
             .append("]"));
     return sb.toString();
   }
@@ -139,7 +135,7 @@ public class PatchEntityRegistry implements EntityRegistry {
     EntitySpecBuilder entitySpecBuilder = new EntitySpecBuilder();
     for (Entity entity : entities.getEntities()) {
       log.info("Discovered entity {} with aspects {}", entity.getName(),
-          entity.getAspects().stream().collect(Collectors.joining()));
+              String.join("", entity.getAspects()));
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       if (entity.getKeyAspect() != null) {
         AspectSpec keyAspectSpec = buildAspectSpec(entity.getKeyAspect(), entitySpecBuilder);

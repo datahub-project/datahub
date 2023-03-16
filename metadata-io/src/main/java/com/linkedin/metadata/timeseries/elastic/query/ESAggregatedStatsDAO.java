@@ -233,15 +233,13 @@ public class ESAggregatedStatsDAO {
   }
 
   private static List<String> genColumnNames(GroupingBucket[] groupingBuckets, AggregationSpec[] aggregationSpecs) {
-    List<String> groupingBucketNames = Arrays.stream(groupingBuckets).map(t -> t.getKey()).collect(Collectors.toList());
+    List<String> groupingBucketNames = Arrays.stream(groupingBuckets).map(GroupingBucket::getKey).collect(Collectors.toList());
 
     List<String> aggregationNames = Arrays.stream(aggregationSpecs)
         .map(ESAggregatedStatsDAO::getAggregationSpecAggDisplayName)
         .collect(Collectors.toList());
 
-    List<String> columnNames =
-        Stream.concat(groupingBucketNames.stream(), aggregationNames.stream()).collect(Collectors.toList());
-    return columnNames;
+    return Stream.concat(groupingBucketNames.stream(), aggregationNames.stream()).collect(Collectors.toList());
   }
 
   private static List<String> genColumnTypes(AspectSpec aspectSpec, GroupingBucket[] groupingBuckets,
@@ -324,10 +322,10 @@ public class ESAggregatedStatsDAO {
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     if (aspectSpec == null) {
-      new IllegalArgumentException(String.format("Unrecognized aspect name {} for entity {}", aspectName, entityName));
+      throw new IllegalArgumentException(String.format("Unrecognized aspect name %s for entity %s", aspectName, entityName));
     } else if (!aspectSpec.isTimeseries()) {
-      new IllegalArgumentException(
-          String.format("aspect name {} for entity {} is not a timeseries aspect", aspectName, entityName));
+      throw new IllegalArgumentException(
+          String.format("aspect name %s for entity %s is not a timeseries aspect", aspectName, entityName));
     }
 
     return aspectSpec;
@@ -379,14 +377,13 @@ public class ESAggregatedStatsDAO {
   private void addAggregationBuildersFromAggregationSpec(AspectSpec aspectSpec, AggregationBuilder baseAggregation,
       AggregationSpec aggregationSpec) {
     String fieldPath = aggregationSpec.getFieldPath();
-    String esFieldName = fieldPath;
 
     switch (aggregationSpec.getAggregationType()) {
       case LATEST:
         // Construct the terms aggregation with a max timestamp sub-aggregation.
         String termsAggName = toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldPath);
         AggregationBuilder termsAgg = AggregationBuilders.terms(termsAggName)
-            .field(esFieldName)
+            .field(fieldPath)
             .size(MAX_TERM_BUCKETS)
             .subAggregation(AggregationBuilders.max(ES_AGG_MAX_TIMESTAMP).field(ES_FIELD_TIMESTAMP));
         baseAggregation.subAggregation(termsAgg);
@@ -398,12 +395,12 @@ public class ESAggregatedStatsDAO {
         break;
       case SUM:
         AggregationBuilder sumAgg =
-            AggregationBuilders.sum(getAggregationSpecAggESName(aggregationSpec)).field(esFieldName);
+            AggregationBuilders.sum(getAggregationSpecAggESName(aggregationSpec)).field(fieldPath);
         baseAggregation.subAggregation(sumAgg);
         break;
       case CARDINALITY:
         AggregationBuilder cardinalityAgg =
-            AggregationBuilders.cardinality(getAggregationSpecAggESName(aggregationSpec)).field(esFieldName);
+            AggregationBuilders.cardinality(getAggregationSpecAggESName(aggregationSpec)).field(fieldPath);
         baseAggregation.subAggregation(cardinalityAgg);
         break;
       default:

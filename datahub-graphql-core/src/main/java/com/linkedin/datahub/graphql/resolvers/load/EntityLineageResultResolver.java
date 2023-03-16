@@ -68,7 +68,7 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
                 endTimeMillis));
       } catch (URISyntaxException e) {
         log.error("Failed to fetch lineage for {}", urn);
-        throw new RuntimeException(String.format("Failed to fetch lineage for {}", urn), e);
+        throw new RuntimeException(String.format("Failed to fetch lineage for %s", urn), e);
       }
     });
   }

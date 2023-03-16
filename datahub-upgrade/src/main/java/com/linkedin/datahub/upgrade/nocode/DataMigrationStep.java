@@ -95,7 +95,7 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             urn = Urn.createFromString(oldAspect.getKey().getUrn());
           } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to bind Urn with value %s into Urn object: %s", oldAspect.getKey().getUrn(), e));
+            throw new RuntimeException(String.format("Failed to bind Urn with value %s into Urn object", oldAspect.getKey().getUrn()), e);
           }
 
           // 3. Verify that the entity associated with the aspect is found in the registry.

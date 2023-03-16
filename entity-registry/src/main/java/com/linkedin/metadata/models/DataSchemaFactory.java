@@ -98,7 +98,7 @@ public class DataSchemaFactory {
     entitySchemas = new HashMap<>();
     aspectSchemas = new HashMap<>();
     eventSchemas = new HashMap<>();
-    aspectClasses = new HashMap();
+    aspectClasses = new HashMap<>();
 
     ClassLoader standardClassLoader = null;
     if (customClassLoader == null) {

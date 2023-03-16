@@ -292,8 +292,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         relationshipTypes,
         incomingFilter
     );
-
-    return;
   }
 
   public void removeEdgesFromNode(
