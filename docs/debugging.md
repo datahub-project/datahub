@@ -1,5 +1,11 @@
 # Debugging Guide
 
+## Logo for my platform is not appearing on the Home Page or search results
+
+Please see if either of these guides help you
+- [Adding a custom Dataset Data Platform](./how/add-custom-data-platform.md)
+- [DataHub CLI put platform command](./cli.md#put-platform)
+
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
 
 If you set up the `datahub` CLI tool (see [here](../metadata-ingestion/README.md)), you can use the built-in check utility:
@@ -146,7 +152,7 @@ docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mys
 ## I've messed up my docker setup. How do I start from scratch?
 Run the following script to remove all the containers and volumes created during the quickstart tutorial. Note that you'll also lose all the data as a result.
 ```
-./docker/nuke.sh
+datahub docker nuke
 ```
 ## I'm seeing exceptions in DataHub GMS container like "Caused by: java.lang.IllegalStateException: Duplicate key com.linkedin.metadata.entity.ebean.EbeanAspectV2@dd26e011". What do I do?
 
