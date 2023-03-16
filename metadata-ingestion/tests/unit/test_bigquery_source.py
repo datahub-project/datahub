@@ -405,3 +405,57 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
     ]  # alternatively
     for table in tables.keys():
         assert tables[table].table_id in ["test-table", "20220103"]
+
+
+def test_get_table_and_shard():
+    assert BigqueryTableIdentifier.get_table_and_shard("project.dataset.table") == (
+        "project.dataset.table",
+        None,
+    )
+    assert BigqueryTableIdentifier.get_table_and_shard("table") == ("table", None)
+    assert BigqueryTableIdentifier.get_table_and_shard(
+        "project.dataset.table_20231215"
+    ) == ("project.dataset.table", "20231215")
+    assert BigqueryTableIdentifier.get_table_and_shard("table_20231215") == (
+        "table",
+        "20231215",
+    )
+
+    # Special case where dataset itself is a sharded table
+    assert BigqueryTableIdentifier.get_table_and_shard("20231215") == (None, "20231215")
+
+
+def test_get_table_name():
+    BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
+    assert (
+        BigqueryTableIdentifier("project", "dataset", "table").get_table_name()
+        == "project.dataset.table"
+    )
+    assert (
+        BigqueryTableIdentifier("project", "dataset", "table_20231215").get_table_name()
+        == "project.dataset.table"
+    )
+    assert (
+        BigqueryTableIdentifier(
+            "project", "dataset", "table@1624046611000"
+        ).get_table_name()
+        == "project.dataset.table"
+    )
+    assert (
+        BigqueryTableIdentifier("project", "dataset", "table_*").get_table_name()
+        == "project.dataset.table"
+    )
+    assert (
+        BigqueryTableIdentifier("project", "dataset", "table_2023*").get_table_name()
+        == "project.dataset.table"
+    )
+    assert (
+        BigqueryTableIdentifier("project", "dataset", "table_202312*").get_table_name()
+        == "project.dataset.table"
+    )
+
+    # Special case where dataset itself is a sharded table
+    assert (
+        BigqueryTableIdentifier("project", "dataset", "20231215").get_table_name()
+        == "project.dataset.dataset"
+    )
