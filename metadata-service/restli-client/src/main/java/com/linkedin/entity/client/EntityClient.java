@@ -359,7 +359,7 @@ public interface EntityClient {
 
   public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
       @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull Authentication authentication)
+      @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   @Deprecated
