@@ -1,4 +1,6 @@
-# Debugging Guide
+# Quickstart Debugging Guide
+
+For when [Quickstart](./quickstart.md) did not work out smoothly.
 
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
 
@@ -146,7 +148,7 @@ docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mys
 ## I've messed up my docker setup. How do I start from scratch?
 Run the following script to remove all the containers and volumes created during the quickstart tutorial. Note that you'll also lose all the data as a result.
 ```
-./docker/nuke.sh
+datahub docker nuke
 ```
 ## I'm seeing exceptions in DataHub GMS container like "Caused by: java.lang.IllegalStateException: Duplicate key com.linkedin.metadata.entity.ebean.EbeanAspectV2@dd26e011". What do I do?
 
