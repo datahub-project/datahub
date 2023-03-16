@@ -131,6 +131,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -567,7 +568,10 @@ class SnowflakeV2Source(
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report,
+                auto_status_aspect(self.get_workunits_internal()),
+            ),
         )
 
     def report_warehouse_failure(self):
@@ -1005,7 +1009,6 @@ class SnowflakeV2Source(
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(
             dataset_urn=dataset_urn,
@@ -1031,7 +1034,6 @@ class SnowflakeV2Source(
                 entity_urn=dataset_urn,
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
         if table.tags:
@@ -1230,7 +1232,6 @@ class SnowflakeV2Source(
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             external_url=self.get_external_url_for_database(database.name)
             if self.config.include_external_url
             else None,
@@ -1275,7 +1276,6 @@ class SnowflakeV2Source(
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
             sub_types=[DatasetContainerSubTypes.SCHEMA],
-            report=self.report,
             domain_registry=self.domain_registry,
             description=schema.comment,
             external_url=self.get_external_url_for_schema(schema.name, db_name)

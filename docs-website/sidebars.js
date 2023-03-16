@@ -414,6 +414,9 @@ module.exports = {
             "docs/tools/tutorials/adding-tags",
             "docs/tools/tutorials/adding-terms",
             "docs/tools/tutorials/adding-ownerships",
+            "docs/tools/tutorials/adding-dataset-description",
+            "docs/tools/tutorials/adding-column-description",
+            "docs/tools/tutorials/adding-lineage",
             {
               Reference: [
                 "docs/tools/tutorials/references/generate-access-token",
@@ -461,6 +464,7 @@ module.exports = {
           ],
         },
         "docs/debugging",
+        "docs/faq-using-datahub",
         "docs/plugins",
 
         {
@@ -575,6 +579,7 @@ module.exports = {
 
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_3",
             "docs/managed-datahub/release-notes/v_0_2_2",
             "docs/managed-datahub/release-notes/v_0_2_1",
             "docs/managed-datahub/release-notes/v_0_2_0",

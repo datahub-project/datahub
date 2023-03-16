@@ -151,7 +151,7 @@ class Mapper:
         mcps: List[MetadataChangeProposalWrapper] = []
 
         # table.dataset should always be set, but we check it just in case.
-        parameters = table.dataset.parameters if table.dataset else None
+        parameters = table.dataset.parameters if table.dataset else {}
 
         upstreams: List[UpstreamClass] = []
         upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
