@@ -66,8 +66,9 @@ class SnowflakeColumnReference(PermissiveModel):
 class SnowflakeObjectAccessEntry(PermissiveModel):
     columns: Optional[List[SnowflakeColumnReference]]
     objectDomain: str
-    objectId: int
     objectName: str
+    # Seems like it should never be null, but in practice have seen null objectIds
+    objectId: Optional[int]
     stageKind: Optional[str]
 
 
