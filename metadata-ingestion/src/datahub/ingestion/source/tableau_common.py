@@ -29,20 +29,9 @@ class TableauLineageOverrides(ConfigModel):
         default=None,
         description="A holder for platform -> platform mappings to generate correct dataset urns",
     )
-
-
-class TableauCustomSQLLineage(ConfigModel):
-    enabled: bool = (
-        Field(
-            default=False,
-            description="[experimental]When enabled, will extract manually lineage from unsupported custom sql queries",
-        ),
-    )
-    database_override: Optional[Dict[str, str]] = (
-        Field(
-            default=None,
-            description="A holder for database -> database mappings to generate correct dataset urns",
-        ),
+    database_override_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="A holder for database -> database mappings to generate correct dataset urns",
     )
 
 
@@ -600,6 +589,14 @@ def make_table_urn(
         and original_platform in lineage_overrides.platform_override_map.keys()
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
+
+    if (
+        lineage_overrides is not None
+        and lineage_overrides.database_override_map is not None
+        and upstream_db is not None
+        and upstream_db in lineage_overrides.database_override_map.keys()
+    ):
+        upstream_db = lineage_overrides.database_override_map[upstream_db]
 
     table_name = get_fully_qualified_table_name(
         original_platform, upstream_db, schema, full_name

@@ -66,7 +66,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
-    TableauCustomSQLLineage,
     TableauLineageOverrides,
     clean_query,
     custom_sql_graphql_query,
@@ -328,10 +327,8 @@ class TableauConfig(
         description="Whether to extract entire project hierarchy for nested projects.",
     )
 
-    extract_lineage_from_unsupported_custom_sql_queries: Optional[
-        TableauCustomSQLLineage
-    ] = Field(
-        default=None,
+    extract_lineage_from_unsupported_custom_sql_queries: bool = Field(
+        default=False,
         description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
@@ -1345,19 +1342,15 @@ class TableauSource(StatefulIngestionSourceBase):
                 and tableau_constant.NAME in database
                 and tableau_constant.CONNECTION_TYPE in database
         ):
-            db_name = database.get(tableau_constant.NAME)
             upstream_tables = []
             parser = LineageRunner(csql.get(tableau_constant.QUERY))
-            overriden_db_name = self.config.extract_lineage_from_unsupported_custom_sql_queries.database_override.get(
-                db_name, db_name
-            )
 
             for table in parser.source_tables:
                 split_table = str(table).split(".")
                 if len(split_table) == 2:
                     datset = make_table_urn(
                         env=self.config.env,
-                        upstream_db=overriden_db_name,
+                        upstream_db=database.get(tableau_constant.NAME),
                         connection_type=database.get(tableau_constant.CONNECTION_TYPE),
                         schema=split_table[0],
                         full_name=split_table[1],
