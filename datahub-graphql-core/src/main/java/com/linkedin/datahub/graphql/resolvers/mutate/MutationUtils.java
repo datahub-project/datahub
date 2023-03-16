@@ -13,8 +13,12 @@ import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
+
+import java.util.Arrays;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
 
 
 @Slf4j
@@ -43,6 +47,7 @@ public class MutationUtils {
     return proposal;
   }
 
+  @Nullable
   public static RecordTemplate getAspectFromEntity(String entityUrn, String aspectName, EntityService entityService, RecordTemplate defaultValue) {
     try {
       RecordTemplate aspect = entityService.getAspect(
@@ -61,9 +66,8 @@ public class MutationUtils {
           "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
           entityUrn,
           aspectName,
-          e.toString()
+          e
       );
-      e.printStackTrace();
       return null;
     }
   }
@@ -128,7 +132,7 @@ public class MutationUtils {
 
     throw new IllegalArgumentException(String.format(
         "Failed to update %s. SubResourceType (%s) is not valid. Types supported: %s.",
-        targetUrn, subResource, SubResourceType.values()
+        targetUrn, subResource, Arrays.toString(SubResourceType.values())
     ));
   }
 
