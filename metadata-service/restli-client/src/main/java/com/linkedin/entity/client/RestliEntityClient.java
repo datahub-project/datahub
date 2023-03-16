@@ -714,7 +714,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
       @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+      @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
 
     AspectsDoGetTimeseriesAspectValuesRequestBuilder requestBuilder =
