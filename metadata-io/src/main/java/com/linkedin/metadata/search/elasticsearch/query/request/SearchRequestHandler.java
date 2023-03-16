@@ -409,7 +409,7 @@ public class SearchRequestHandler {
     for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
       // Get the field name from source e.g. name.delimited -> name
       Optional<String> fieldName = getFieldName(entry.getKey());
-      if (!fieldName.isPresent()) {
+      if (fieldName.isEmpty()) {
         continue;
       }
       if (!highlightedFieldNamesAndValues.containsKey(fieldName.get())) {
@@ -611,7 +611,7 @@ public class SearchRequestHandler {
        */
       AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(finalFacetField);
       if (criterion.hasValues()) {
-        criterion.getValues().stream().forEach(value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
+        criterion.getValues().forEach(value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
       } else {
         addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
       }

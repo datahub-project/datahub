@@ -86,7 +86,7 @@ public class RestoreStorageStep implements UpgradeStep {
       Optional<String> backupReaderName = context.parsedArgs().get("BACKUP_READER");
       context.report().addLine("Inputs!: " + context.parsedArgs());
       context.report().addLine("BACKUP_READER: " + backupReaderName.toString());
-      if (!backupReaderName.isPresent() || !_backupReaders.containsKey(backupReaderName.get())) {
+      if (backupReaderName.isEmpty() || !_backupReaders.containsKey(backupReaderName.get())) {
         context.report().addLine("BACKUP_READER is not set or is not valid");
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }

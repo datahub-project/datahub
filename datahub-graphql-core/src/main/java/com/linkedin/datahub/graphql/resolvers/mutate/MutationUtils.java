@@ -121,7 +121,7 @@ public class MutationUtils {
       Optional<SchemaField> fieldMatch =
           schemaMetadata.getFields().stream().filter(field -> field.getFieldPath().equals(subResource)).findFirst();
 
-      if (!fieldMatch.isPresent()) {
+      if (fieldMatch.isEmpty()) {
         throw new IllegalArgumentException(String.format(
             "Failed to update %s & field %s. Field %s does not exist in the datasets schema.",
             targetUrn, subResource, subResource));

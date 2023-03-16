@@ -118,7 +118,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
       EntitySpec entitySpec;
       Optional<DataSchema> entitySchema = dataSchemaFactory.getEntitySchema(entity.getName());
-      if (!entitySchema.isPresent()) {
+      if (entitySchema.isEmpty()) {
         entitySpec = entitySpecBuilder.buildConfigEntitySpec(entity.getName(), entity.getKeyAspect(), aspectSpecs);
       } else {
         entitySpec = entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs);
@@ -146,7 +146,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   private AspectSpec buildAspectSpec(String aspectName, EntitySpecBuilder entitySpecBuilder) {
     Optional<DataSchema> aspectSchema = dataSchemaFactory.getAspectSchema(aspectName);
     Optional<Class> aspectClass = dataSchemaFactory.getAspectClass(aspectName);
-    if (!aspectSchema.isPresent()) {
+    if (aspectSchema.isEmpty()) {
       throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
     }
     return entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
@@ -154,7 +154,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
   private EventSpec buildEventSpec(String eventName) {
     Optional<DataSchema> eventSchema = dataSchemaFactory.getEventSchema(eventName);
-    if (!eventSchema.isPresent()) {
+    if (eventSchema.isEmpty()) {
       throw new IllegalArgumentException(String.format("Event %s does not exist", eventName));
     }
     return new EventSpecBuilder().buildEventSpec(eventName, eventSchema.get());

@@ -64,7 +64,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
       for (String urnStr : urns) {
         Urn urn = Urn.createFromString(urnStr);
         Optional<DataPlatformInstance> dataPlatformInstance = getDataPlatformInstance(urn);
-        if (!dataPlatformInstance.isPresent()) {
+        if (dataPlatformInstance.isEmpty()) {
           continue;
         }
 

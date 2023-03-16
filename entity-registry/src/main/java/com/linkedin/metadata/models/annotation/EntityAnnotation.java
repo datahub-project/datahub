@@ -38,7 +38,7 @@ public class EntityAnnotation {
     final Optional<String> name = AnnotationUtils.getField(map, NAME_FIELD, String.class);
     final Optional<String> keyAspect = AnnotationUtils.getField(map, KEY_ASPECT_FIELD, String.class);
 
-    if (!name.isPresent()) {
+    if (name.isEmpty()) {
       throw new ModelValidationException(
           String.format(
               "Failed to validate @%s annotation declared at %s: Invalid field '%s'. Expected type String",
@@ -47,7 +47,7 @@ public class EntityAnnotation {
               NAME_FIELD
           ));
     }
-    if (!keyAspect.isPresent()) {
+    if (keyAspect.isEmpty()) {
       throw new ModelValidationException(
           String.format(
               "Failed to validate @%s annotation declared at %s: Invalid field '%s'. Expected type String",

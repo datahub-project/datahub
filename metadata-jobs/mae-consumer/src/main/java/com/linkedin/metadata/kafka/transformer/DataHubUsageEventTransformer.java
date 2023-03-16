@@ -119,7 +119,7 @@ public class DataHubUsageEventTransformer {
   private void setFieldsForEntity(EntityType entityType, String urn, ObjectNode searchObject) {
     String entityTypeName = ENTITY_TYPE_MAP.get(entityType);
     Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(entityTypeName, urn);
-    if (!entityObject.isPresent()) {
+    if (entityObject.isEmpty()) {
       log.info("No matches for urn {}", urn);
       return;
     }

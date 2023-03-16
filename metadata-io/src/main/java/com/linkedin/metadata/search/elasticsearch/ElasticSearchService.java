@@ -79,7 +79,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId) {
     final Optional<String> maybeDocId = SearchUtils.getDocId(urn);
-    if (!maybeDocId.isPresent()) {
+    if (maybeDocId.isEmpty()) {
       log.warn(String.format("Failed to append run id, could not generate a doc id for urn %s", urn));
       return;
     }

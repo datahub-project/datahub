@@ -45,7 +45,7 @@ public class LocalParquetReader implements BackupReader<ParquetReaderWrapper> {
   @Override
   public EbeanAspectBackupIterator<ParquetReaderWrapper> getBackupIterator(UpgradeContext context) {
     Optional<String> path = context.parsedArgs().get("BACKUP_FILE_PATH");
-    if (!path.isPresent()) {
+    if (path.isEmpty()) {
       context.report().addLine("BACKUP_FILE_PATH must be set to run RestoreBackup through local parquet file");
       throw new IllegalArgumentException(
           "BACKUP_FILE_PATH must be set to run RestoreBackup through local parquet file");

@@ -196,7 +196,7 @@ public class TimeseriesAspectTransformer {
     RecordTemplate collectionComponent = (RecordTemplate) value;
     ObjectNode componentDocument = JsonNodeFactory.instance.objectNode();
     Optional<Object> key = RecordUtils.getFieldValue(collectionComponent, fieldSpec.getKeyPath());
-    if (!key.isPresent()) {
+    if (key.isEmpty()) {
       throw new IllegalArgumentException(
           String.format("Key %s for timeseries collection field %s is missing", fieldSpec.getKeyPath(),
               fieldSpec.getName()));

@@ -1429,7 +1429,7 @@ public class EntityService {
 
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
     aspectRecordsToIngest.addAll(generateDefaultAspectsIfMissing(urn,
-        aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(Collectors.toSet())));
+        aspectRecordsToIngest.stream().map(Pair::getFirst).collect(Collectors.toSet())));
 
     ingestAspects(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
   }
@@ -1565,7 +1565,7 @@ public class EntityService {
           conditions, hardDelete);
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
-        if (!aspectSpec.isPresent()) {
+        if (aspectSpec.isEmpty()) {
           log.error("Issue while rolling back: unknown aspect {} for entity {}", result.entityName, result.aspectName);
           return;
         }
@@ -1685,7 +1685,7 @@ public class EntityService {
       String latestMetadata = latest.getMetadata();
 
       // 3. Check if this is a key aspect
-      boolean isKeyAspect = false;
+      Boolean isKeyAspect = false;
       try {
         isKeyAspect = getKeyAspectName(Urn.createFromString(urn)).equals(aspectName);
       } catch (URISyntaxException e) {
