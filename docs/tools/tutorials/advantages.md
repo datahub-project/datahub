@@ -22,7 +22,7 @@ Here our some examples of slightly more complex usage:
 DataHub supports three APIs : GraphQL, SDKs and OpenAPI. Each method has different usage and format. 
 Here's an overview of what each API can do. 
 
-> Last Updated : Mar 15 2023
+> Last Updated : Mar 10 2023
 
 | Feature                                           | GraphQL | SDK | OpenAPI |
 |---------------------------------------------------|--------|-----|---------|
