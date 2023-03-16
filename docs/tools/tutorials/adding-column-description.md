@@ -1,7 +1,11 @@
 # Adding Description on Columns
 
 ## Why Would You Add Description on Columns? 
-Adding column descriptions to a dataset can provide crucial context for understanding the data and its variables. This can aid in data exploration, cleaning, and analysis, as well as ensure that others can understand the data if it is shared or used in collaboration. Additionally, column descriptions can help prevent errors and misunderstandings by clearly defining the meaning and units of measurement for each variable.
+Adding column descriptions(documentation) to a dataset can provide crucial context for understanding the data and its variables. This can aid in data exploration, cleaning, and analysis, as well as ensure that others can understand the data if it is shared or used in collaboration. Additionally, column descriptions can help prevent errors and misunderstandings by clearly defining the meaning and units of measurement for each variable.
+
+### Goal Of This Guide
+This guide will show you how to add a description to `user_name `column of a dataset `fct_users_deleted`.
+
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 

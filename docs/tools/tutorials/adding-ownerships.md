@@ -1,8 +1,12 @@
-# Adding Owners
+# Adding Owners On Datasets/Columns
 
 ## Why Would You Add Owners? 
 Assigning an owner to an entity helps to establish accountability for the metadata and collaborating as a team. 
 If there are any issues or questions about the data, the designated owner can serve as a reliable point of contact.
+
+### Goal Of This Guide
+This guide will show you how to add user group `bfoo` as an owner to the `fct_users_created` datatset.
+
 
 ## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
