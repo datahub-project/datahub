@@ -6,6 +6,10 @@ on:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   qodana:
     runs-on: ubuntu-latest
@@ -13,6 +17,8 @@ jobs:
       - uses: actions/checkout@v3
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2022.3.4
+        with:
+          cache-default-branch-only: true
       - uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: ${{ runner.temp }}/qodana/results/qodana.sarif.json
