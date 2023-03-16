@@ -36,12 +36,12 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
 
 
     private boolean isOnlySelectingIdentityFields(DataFetchingEnvironment environment) {
-        return environment.getField().getSelectionSet().getSelections().stream().filter(selection -> {
+        return environment.getField().getSelectionSet().getSelections().stream().noneMatch(selection -> {
             if (!(selection instanceof graphql.language.Field)) {
                 return true;
             }
             return !IDENTITY_FIELDS.contains(((graphql.language.Field) selection).getName());
-        }).count() == 0;
+        });
     }
 
     @Override
@@ -60,7 +60,7 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
         final com.linkedin.datahub.graphql.types.EntityType filteredEntity = Iterables.getOnlyElement(_entityTypes.stream()
                 .filter(entity -> javaObject.getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));
-        final DataLoader loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
+        final DataLoader<Object, Object> loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
         final Object key = filteredEntity.getKeyProvider().apply(resolvedEntity);
 
         return loader.load(key);

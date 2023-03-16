@@ -34,7 +34,6 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 @RequiredArgsConstructor
 public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFuture<ScrollResults>> {
 
-  private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
   private final EntityClient _entityClient;

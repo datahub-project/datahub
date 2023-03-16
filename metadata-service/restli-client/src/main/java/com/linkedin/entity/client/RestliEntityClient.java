@@ -135,7 +135,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
 
-    final Integer batchSize = 25;
+    final int batchSize = 25;
     final AtomicInteger index = new AtomicInteger(0);
 
     final Collection<List<Urn>> entityUrnBatches =

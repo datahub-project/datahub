@@ -1636,8 +1636,8 @@ public class EntityService {
         .map(aspectName -> new EntityAspectIdentifier(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
         .collect(Collectors.toList());
 
-    Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
-    return aspects.values().stream().anyMatch(aspect -> aspect != null);
+    Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(new HashSet<>(dbKeys));
+    return aspects.values().stream().anyMatch(Objects::nonNull);
   }
 
   /**
@@ -1666,8 +1666,8 @@ public class EntityService {
       throw new RuntimeException(String.format("Failed to extract urn from %s", urn));
     }
 
-    final RollbackResult result = _aspectDao.runInTransactionWithRetry(() -> {
-      Integer additionalRowsDeleted = 0;
+    return _aspectDao.runInTransactionWithRetry(() -> {
+      int additionalRowsDeleted = 0;
 
       // 1. Fetch the latest existing version of the aspect.
       final EntityAspect latest = _aspectDao.getLatestAspect(urn, aspectName);
@@ -1685,7 +1685,7 @@ public class EntityService {
       String latestMetadata = latest.getMetadata();
 
       // 3. Check if this is a key aspect
-      Boolean isKeyAspect = false;
+      boolean isKeyAspect = false;
       try {
         isKeyAspect = getKeyAspectName(Urn.createFromString(urn)).equals(aspectName);
       } catch (URISyntaxException e) {
@@ -1713,7 +1713,7 @@ public class EntityService {
 
       // 5. Apply deletes and fix up latest row
 
-      aspectsToDelete.forEach(aspect -> _aspectDao.deleteAspect(aspect));
+      aspectsToDelete.forEach(_aspectDao::deleteAspect);
 
       if (survivingAspect != null) {
         // if there was a surviving aspect, copy its information into the latest row
@@ -1778,8 +1778,6 @@ public class EntityService {
         return null;
       }
     }, DEFAULT_MAX_TRANSACTION_RETRY);
-
-    return result;
   }
 
   protected boolean filterMatch(SystemMetadata systemMetadata, Map<String, String> conditions) {
@@ -1797,9 +1795,7 @@ public class EntityService {
     }
     String registryVersionCondition = conditions.getOrDefault("registryVersion", null);
     if (registryVersionCondition != null) {
-      if (!registryVersionCondition.equals(systemMetadata.getRegistryVersion())) {
-        return false;
-      }
+      return registryVersionCondition.equals(systemMetadata.getRegistryVersion());
     }
     return true;
   }
