@@ -10,7 +10,7 @@ Welcome to DataHub Python SDK's documentation!
    :titlesonly:
 
    _apidocs/builder
-   _apidocs/graph
+   _apidocs/clients
    _apidocs/models
 
 

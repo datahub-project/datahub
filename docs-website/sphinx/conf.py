@@ -16,7 +16,6 @@ author = "Acryl Data"
 
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.intersphinx",
     # TODO: set up 'sphinx.ext.viewcode'
     # Via https://stackoverflow.com/a/51312475/5004662.
     # TODO: set up sphinx-click
@@ -24,14 +23,7 @@ extensions = [
     "sphinx_autodoc_typehints",
 ]
 
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-    "requests": ("https://docs.python-requests.org/en/latest/", None),
-    "urllib3": ("https://urllib3.readthedocs.io/en/latest/", None),
-}
-
 napoleon_use_param = True
-
 
 # Move type hint info to function description instead of signature
 # Via: https://chromium.googlesource.com/external/github.com/reclosedev/requests-cache/+/refs/heads/master/docs/conf.py#104.
@@ -48,6 +40,10 @@ autodoc_default_options = {
     "undoc-members": True,
     "show-inheritance": True,
 }
+
+autodoc_mock_imports = [
+    "confluent_kafka",
+]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

@@ -284,7 +284,5 @@ class DataHubRestEmitter(Closeable):
         self._session.close()
 
 
-class DatahubRestEmitter(DataHubRestEmitter):
-    """This class exists as a pass-through for backwards compatibility"""
-
-    pass
+"""This class exists as a pass-through for backwards compatibility"""
+DatahubRestEmitter = DataHubRestEmitter
