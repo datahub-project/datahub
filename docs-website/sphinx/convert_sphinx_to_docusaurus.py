@@ -3,8 +3,19 @@ import json
 from bs4 import BeautifulSoup
 
 
-SPHINX_BUILD_DIR = pathlib.Path("_build/html/_apidocs")
+SPHINX_ROOT_DIR = pathlib.Path(".")
+SPHINX_BUILD_DIR = SPHINX_ROOT_DIR / pathlib.Path("_build/html/_apidocs")
 DOCS_OUTPUT_DIR = pathlib.Path("../docs/python-sdk")
+
+
+def html_to_mdx(html: str) -> str:
+    # Because the HTML uses `class` and has `{}` in it, it isn't valid
+    # MDX. As such, we use React's dangerouslySetInnerHTML.
+    return f"""
+
+<div dangerouslySetInnerHTML={{{{__html: {json.dumps(html)}}}}}></div>
+
+"""
 
 
 def convert_html_to_md(html_file: pathlib.Path) -> str:
@@ -28,18 +39,13 @@ def convert_html_to_md(html_file: pathlib.Path) -> str:
 title: {title}
 ---\n\n"""
 
-    # Because the HTML uses `class` and has `{}` in it, it isn't valid
-    # MDX. As such, we use React's dangerouslySetInnerHTML.
-    mdx_wrapped = (
-        """
+    styles = """
 import { useMemo } from 'react';
-\n"""
-        + f"""
-<div dangerouslySetInnerHTML={{{{__html: {json.dumps(str(article))}}}}}></div>
-"""
-    )
+import './basic.css';
 
-    return md_meta + mdx_wrapped
+\n"""
+
+    return md_meta + styles + html_to_mdx(str(article))
 
 
 def main():
@@ -53,6 +59,21 @@ def main():
         outfile.write_text(md)
 
         print(f"Generated {outfile}")
+
+    # css_files = [
+    #     (SPHINX_BUILD_DIR.parent / "_static/basic.css"),
+    #     (SPHINX_BUILD_DIR.parent / "_static/file.png"),
+    #     (SPHINX_BUILD_DIR.parent / "_static/styles/pydata-sphinx-theme.css"),
+    # ]
+    # for css in css_files:
+    #     outfile = DOCS_OUTPUT_DIR.joinpath(css.name)
+    #     outfile.write_bytes(css.read_bytes())
+    #     print(f"Copied {css} to {outfile}")
+
+    css = SPHINX_ROOT_DIR / "basic.css"
+    outfile = DOCS_OUTPUT_DIR.joinpath(css.name)
+    outfile.write_bytes(css.read_bytes())
+    print(f"Copied {css} to {outfile}")
 
 
 if __name__ == "__main__":
