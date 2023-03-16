@@ -1,10 +1,6 @@
-# Debugging Guide
+# Quickstart Debugging Guide
 
-## Logo for my platform is not appearing on the Home Page or search results
-
-Please see if either of these guides help you
-- [Adding a custom Dataset Data Platform](./how/add-custom-data-platform.md)
-- [DataHub CLI put platform command](./cli.md#put-platform)
+For when [Quickstart](./quickstart.md) did not work out smoothly.
 
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
 
