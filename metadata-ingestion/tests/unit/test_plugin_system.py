@@ -25,7 +25,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
     "registry,expected",
     [
         (source_registry, ["file"]),
-        (sink_registry, ["console", "file"]),
+        (sink_registry, ["console", "file", "blackhole"]),
         (extractor_registry, ["generic"]),
         (
             transform_registry,
