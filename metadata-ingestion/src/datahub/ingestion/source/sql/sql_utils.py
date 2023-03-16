@@ -183,7 +183,7 @@ def get_domain_wu(
     entity_urn: str,
     domain_config: Dict[str, AllowDenyPattern],
     domain_registry: DomainRegistry,
-    report: SourceReport,
+    report: Optional[SourceReport] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn = gen_domain_urn(dataset_name, domain_config, domain_registry)
     if domain_urn:
@@ -192,7 +192,8 @@ def get_domain_wu(
             domain_urn=domain_urn,
         )
         for wu in wus:
-            report.report_workunit(wu)
+            if report:
+                report.report_workunit(wu)
             yield wu
 
 
