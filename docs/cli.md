@@ -86,7 +86,7 @@ Running `datahub init` will allow you to customize the datahub instance you are 
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 
-#### Environment variables supported
+### Environment variables supported
 
 The environment variables listed below take precedence over the DataHub CLI config created through the `init` command.
 
