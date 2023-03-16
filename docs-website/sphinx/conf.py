@@ -19,6 +19,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     # TODO: set up 'sphinx.ext.viewcode'
     # Via https://stackoverflow.com/a/51312475/5004662.
+    # TODO: set up sphinx-click
     "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
 ]
