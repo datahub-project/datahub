@@ -119,7 +119,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -555,9 +555,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             iterables = []
             for project in projects:
                 self.report.set_project_state(project.id, "Usage Extraction")
-                iterables.append(
-                    self.usage_extractor.get_usage_event_generator(project.id)
-                )
+                iterables.append(self.usage_extractor.get_usage_events(project.id))
             yield from self.usage_extractor.generate_usage(
                 itertools.chain(*iterables), self.table_refs
             )
@@ -803,7 +801,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
             self.table_refs.add(str(BigQueryTableRef(table_identifier)))
         table.column_count = len(columns)
 
