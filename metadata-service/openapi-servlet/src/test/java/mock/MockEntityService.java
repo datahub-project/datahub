@@ -169,7 +169,7 @@ public class MockEntityService extends EntityService {
   @Nullable
   @Override
   public RecordTemplate ingestAspectIfNotPresent(@NotNull Urn urn, @NotNull String aspectName,
-      @NotNull RecordTemplate newValue, @NotNull AuditStamp auditStamp, SystemMetadata systemMetadata) {
+      @NotNull RecordTemplate newValue, @NotNull AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
     return null;
   }
 

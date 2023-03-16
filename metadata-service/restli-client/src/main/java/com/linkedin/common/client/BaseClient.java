@@ -8,6 +8,7 @@ import com.linkedin.r2.RemoteInvocationException;
 
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import com.linkedin.restli.client.AbstractRequestBuilder;
 import com.linkedin.restli.client.Client;
@@ -41,8 +42,10 @@ public abstract class BaseClient implements AutoCloseable {
   @SneakyThrows
   protected <T> Response<T> sendClientRequest(
       final AbstractRequestBuilder<?, ?, ? extends Request<T>> requestBuilder,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
-    requestBuilder.addHeader(HttpHeaders.AUTHORIZATION, authentication.getCredentials());
+      @Nullable final Authentication authentication) throws RemoteInvocationException {
+    if (authentication != null) {
+      requestBuilder.addHeader(HttpHeaders.AUTHORIZATION, authentication.getCredentials());
+    }
 
     int attemptCount = 0;
 
@@ -66,8 +69,6 @@ public abstract class BaseClient implements AutoCloseable {
 
   @Override
   public void close() {
-    if (_client != null) {
-      _client.shutdown(new FutureCallback<>());
-    }
+    _client.shutdown(new FutureCallback<>());
   }
 }
