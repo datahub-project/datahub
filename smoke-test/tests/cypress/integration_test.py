@@ -160,11 +160,11 @@ def _get_spec_map(items: Set[str]) -> str:
 
 def test_run_cypress(frontend_session, wait_for_healthchecks):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
-    record_key = "cbb7a56a-d143-4a4b-833c-175f8cadd329"
+    record_key = os.getenv("CYPRESS_RECORD_KEY")
     tag_arg = ""
     test_strategy = os.getenv("TEST_STRATEGY", None)
     if record_key:
-        record_arg = " --record --key cbb7a56a-d143-4a4b-833c-175f8cadd329 "
+        record_arg = " --record "
         tag_arg = f" --tag {test_strategy} "
     else:
         record_arg = " "
