@@ -1157,7 +1157,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
                     # custom sql tables may contain unsupported sql, causing incomplete lineage
                     # we extract the lineage from the raw queries
-                    yield from self._create_lineage_from_unsupported_csql(csql_urn, csql)
+                    yield from self._create_lineage_from_unsupported_csql(
+                        csql_urn, csql
+                    )
 
             #  Schema Metadata
             columns = csql.get(tableau_constant.COLUMNS, [])
@@ -1335,12 +1337,12 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def _create_lineage_from_unsupported_csql(
         self, csql_urn: str, csql: dict
-    ):
+    ) -> Iterable[MetadataWorkUnit]:
         database = csql.get(tableau_constant.DATABASE) or {}
         if (
-                csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
-                and tableau_constant.NAME in database
-                and tableau_constant.CONNECTION_TYPE in database
+            csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
+            and tableau_constant.NAME in database
+            and tableau_constant.CONNECTION_TYPE in database
         ):
             upstream_tables = []
             parser = LineageRunner(csql.get(tableau_constant.QUERY))
@@ -1351,14 +1353,18 @@ class TableauSource(StatefulIngestionSourceBase):
                     datset = make_table_urn(
                         env=self.config.env,
                         upstream_db=database.get(tableau_constant.NAME),
-                        connection_type=database.get(tableau_constant.CONNECTION_TYPE),
+                        connection_type=database.get(
+                            tableau_constant.CONNECTION_TYPE, ""
+                        ),
                         schema=split_table[0],
                         full_name=split_table[1],
                         platform_instance_map=self.config.platform_instance_map,
                         lineage_overrides=self.config.lineage_overrides,
                     )
                     upstream_tables.append(
-                        UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=datset)
+                        UpstreamClass(
+                            type=DatasetLineageType.TRANSFORMED, dataset=datset
+                        )
                     )
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
             yield self.get_metadata_change_proposal(
