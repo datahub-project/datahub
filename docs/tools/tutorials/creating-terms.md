@@ -62,7 +62,7 @@ Expected Response:
 ## Create Terms With Python SDK
 
 The following code creates a term named `Rate of Return`.
-You can refer to the full code in [dataset_add_column_term.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_term.py).
+You can refer to the full code in [create_term.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/create_term.py).
 ```python
 import logging
 
@@ -80,7 +80,7 @@ term_urn = make_term_urn("rateofreturn")
 term_properties_aspect = GlossaryTermInfoClass(
     definition="A rate of return (RoR) is the net gain or loss of an investment over a specified time period.",
     name="Rate of Return",
-    termSource=""
+    termSource="",
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
