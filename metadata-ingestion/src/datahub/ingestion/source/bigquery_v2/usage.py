@@ -182,7 +182,10 @@ class BigQueryUsageState:
         self.query_events = FileBackedDict[QueryEvent](
             connection=self.conn,
             tablename="query_events",
-            extra_columns={"query": lambda e: e.query},
+            extra_columns={
+                "query": lambda e: e.query,
+                "is_read": lambda e: int(e.statementType in READ_STATEMENT_TYPES),
+            },
         )
         # Created just to store column accesses in sqlite for JOIN
         self.column_accesses = FileBackedDict[Tuple[str, str]](
@@ -205,6 +208,17 @@ class BigQueryUsageState:
         self.column_accesses.close()
         self.conn.close()
 
+    def standalone_events(self) -> Iterable[AuditEvent]:
+        for read_event in self.read_events.values():
+            query_event = (
+                self.query_events.get(read_event.jobName)
+                if read_event.jobName
+                else None
+            )
+            yield AuditEvent(read_event=read_event, query_event=query_event)
+        for _, query_event in self.query_events.filtered_items("NOT is_read"):
+            yield AuditEvent(query_event=query_event)
+
     def statistics_buckets(self) -> Iterable[Tuple[str, str]]:
         query = f"""
         SELECT DISTINCT
@@ -226,7 +240,7 @@ class BigQueryUsageState:
         return self.read_events.sql_query(query)[0][0]
 
     def query_freq(
-        self, timestamp: datetime, resource: str, top_n: int
+        self, timestamp: str, resource: str, top_n: int
     ) -> List[Tuple[str, int]]:
         query = f"""
         SELECT
@@ -244,9 +258,7 @@ class BigQueryUsageState:
             query, params=(timestamp, resource), refs=[self.query_events]
         )
 
-    def user_frequencies(
-        self, timestamp: datetime, resource: str
-    ) -> List[Tuple[str, int]]:
+    def user_frequencies(self, timestamp: str, resource: str) -> List[Tuple[str, int]]:
         query = f"""
         SELECT
           r.user,
@@ -259,7 +271,7 @@ class BigQueryUsageState:
         return self.read_events.sql_query(query, params=(timestamp, resource))  # type: ignore
 
     def column_frequencies(
-        self, timestamp: datetime, resource: str
+        self, timestamp: str, resource: str
     ) -> List[Tuple[str, int]]:
         query = f"""
         SELECT
@@ -313,14 +325,14 @@ class BigQueryUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         num_aggregated = 0
         for project in projects:
-            for event in self.get_usage_events(project):
+            for audit_event in self.get_usage_events(project):
                 try:
                     num_aggregated += self.store_usage_event(
-                        event, usage_state, table_refs
+                        audit_event, usage_state, table_refs
                     )
                 except Exception:
                     logger.warning(
-                        f"Unable to store usage event {event}", exc_info=True
+                        f"Unable to store usage event {audit_event}", exc_info=True
                     )
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
@@ -335,7 +347,7 @@ class BigQueryUsageExtractor:
                     else None
                 )
                 yield make_usage_workunit(
-                    bucket_start_time=timestamp,
+                    bucket_start_time=datetime.fromisoformat(timestamp),
                     resource=resource_ref,
                     query_count=usage_state.query_count(),
                     query_freq=query_freq,
@@ -354,23 +366,15 @@ class BigQueryUsageExtractor:
                 )
 
         if self.config.usage.include_operational_stats:
-            read_event: ReadEvent
-            for read_event in usage_state.read_events.values():
+            for audit_event in usage_state.standalone_events():
                 try:
-                    query_event = (
-                        usage_state.query_events.get(read_event.jobName)
-                        if read_event.jobName
-                        else None
-                    )
-                    operational_wu = self._create_operation_workunit(
-                        AuditEvent(read_event=read_event, query_event=query_event)
-                    )
+                    operational_wu = self._create_operation_workunit(audit_event)
                     if operational_wu:
                         yield operational_wu
                         self.report.num_operational_stats_workunits_emitted += 1
                 except Exception:
                     logger.warning(
-                        f"Unable to generate operation workunit for event {read_event}",
+                        f"Unable to generate operation workunit for event {audit_event}",
                         exc_info=True,
                     )
 
@@ -799,6 +803,7 @@ class BigQueryUsageExtractor:
             event = QueryEvent.from_exported_bigquery_audit_metadata(
                 audit_metadata, self.config.debug_include_full_payloads
             )
+            self.report.num_query_events += 1
 
         if event is None:
             reason = f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event)} ReadEvent keys: {str(missing_read_event)} for {audit_metadata}"

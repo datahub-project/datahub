@@ -257,8 +257,8 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         if not in_cache and not n_deleted:
             raise KeyError(key)
 
-    def __iter__(self) -> Iterator[str]:
-        cursor = self._conn.execute(f"SELECT key FROM {self.tablename}")
+    def _iter_db(self, select_stmt: str) -> Iterator[str]:
+        cursor = self._conn.execute(select_stmt)
         for row in cursor:
             if row[0] in self._active_object_cache:
                 # If the key is in the active object cache, then SQL isn't the source of truth.
@@ -266,8 +266,26 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
             yield row[0]
 
-        for key in self._active_object_cache:
+    def __iter__(self) -> Iterator[str]:
+        yield from self._iter_db(f"SELECT key FROM {self.tablename}")
+
+        # Cache should be small, so safe list cast to avoid mutation during iteration
+        for key in list(self._active_object_cache):
             yield key
+
+    def filtered_items(self, cond_expr: str) -> Iterator[Tuple[str, _VT]]:
+        """
+        Flush the cache and iterate through a filtered list of the dictionary's items.
+
+        Args:
+            cond_expr: Conditional expression for WHERE statement, e.g. `x = 0 AND y = "value"`
+
+        Returns:
+            Iterator of filtered (key, value) pairs.
+        """
+        self.flush()
+        for key in self._iter_db(f"SELECT key FROM {self.tablename} WHERE {cond_expr}"):
+            yield key, self[key]
 
     def __len__(self) -> int:
         cursor = self._conn.execute(
