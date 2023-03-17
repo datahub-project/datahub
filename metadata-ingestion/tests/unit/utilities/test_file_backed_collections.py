@@ -227,10 +227,16 @@ def test_shared_connection() -> None:
         assert len(cache1) == 2
         assert len(cache2) == 3
 
-        # Test advanced SQL queries.
-        assert cache2.sql_query(
-            f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
-        ) == [("a", 15), ("b", 11)]
+        # Test advanced SQL queries and sql_query_iterator.
+        for i, x in enumerate(
+            cache2.sql_query_iterator(
+                f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
+            )
+        ):
+            if i == 0:
+                assert x == ("a", 15)
+            elif i == 1:
+                assert x == ("b", 11)
 
         # Test joining between the two tables.
         assert (

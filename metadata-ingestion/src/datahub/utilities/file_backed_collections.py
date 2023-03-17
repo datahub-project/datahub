@@ -5,12 +5,14 @@ import pickle
 import sqlite3
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime
 from types import TracebackType
 from typing import (
     Any,
     Callable,
     Dict,
     Generic,
+    Iterable,
     Iterator,
     List,
     MutableMapping,
@@ -31,7 +33,8 @@ _DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
 _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
 
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
-SqliteValue = Union[int, float, str, bytes, None]
+# Datetimes get converted to strings
+SqliteValue = Union[int, float, str, bytes, datetime, None]
 
 _VT = TypeVar("_VT")
 
@@ -276,12 +279,12 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
         return row[0] + len(self._active_object_cache)
 
-    def sql_query(
+    def _sql_query(
         self,
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> sqlite3.Cursor:
         # We need to flush object and any objects the query references to ensure
         # that we don't miss objects that have been modified but not yet flushed.
         self.flush()
@@ -289,8 +292,23 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             for referenced_table in refs:
                 referenced_table.flush()
 
-        cursor = self._conn.execute(query, params)
-        return cursor.fetchall()
+        return self._conn.execute(query, params)
+
+    def sql_query(
+        self,
+        query: str,
+        params: Tuple[Any, ...] = (),
+        refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
+    ) -> List[Tuple[Any, ...]]:
+        return self._sql_query(query, params, refs).fetchall()
+
+    def sql_query_iterator(
+        self,
+        query: str,
+        params: Tuple[Any, ...] = (),
+        refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
+    ) -> Iterable[Tuple[Any, ...]]:
+        return self._sql_query(query, params, refs)
 
     def close(self) -> None:
         if self._conn:

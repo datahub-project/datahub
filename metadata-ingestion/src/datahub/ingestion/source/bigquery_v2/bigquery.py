@@ -1,5 +1,4 @@
 import atexit
-import itertools
 import logging
 import os
 import re
@@ -60,11 +59,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
-from datahub.ingestion.source.bigquery_v2.usage import (
-    BigQueryUsageExtractor,
-    AggregatedDataset,
-    AggregatedInfo,
-)
+from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -119,7 +114,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -271,10 +265,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[str] = set()
         # Maps project -> view_ref -> [upstream_table_ref], for view lineage
         self.view_upstream_tables: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
-        # Stores global usage counts, per time bucket, per table
-        # Cannot define FileBackedDict in __init__ because it's instantiated
-        # in a different thread than the `get_workunits` call
-        self.aggregated_info: AggregatedInfo = {}
 
         atexit.register(cleanup, config)
 
@@ -552,12 +542,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         end_time_millis=datetime_to_ts_millis(self.config.end_time),
                     )
 
-            iterables = []
-            for project in projects:
-                self.report.set_project_state(project.id, "Usage Extraction")
-                iterables.append(self.usage_extractor.get_usage_events(project.id))
-            yield from self.usage_extractor.generate_usage(
-                itertools.chain(*iterables), self.table_refs
+            yield from self.usage_extractor.run(
+                [p.id for p in projects], self.table_refs
             )
 
         if self.config.include_table_lineage:
