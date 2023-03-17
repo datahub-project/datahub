@@ -4,6 +4,9 @@
 Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
 Fore more information about lineage, refer to [About DataHub Lineage](/docs/lineage/lineage-feature-guide.md).
 
+### Goal Of This Guide
+This guide will show you how to add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
+
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
 For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
@@ -13,8 +16,6 @@ Before adding lineage, you need to ensure the targeted dataset is already presen
 If you attempt to manipulate entities that do not exist, your operation will fail. 
 In this guide, we will be using data from sample ingestion.
 :::
-
-In this example, we will add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
 
 ## Add Lineage With GraphQL
 
