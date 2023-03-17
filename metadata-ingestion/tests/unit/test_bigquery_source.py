@@ -2,9 +2,10 @@ import json
 import os
 from datetime import datetime
 from types import SimpleNamespace
-from typing import Dict
+from typing import Dict, Optional
 from unittest.mock import patch
 
+import pytest
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.ingestion.api.common import PipelineContext
@@ -407,55 +408,86 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
         assert tables[table].table_id in ["test-table", "20220103"]
 
 
-def test_get_table_and_shard():
-    assert BigqueryTableIdentifier.get_table_and_shard("project.dataset.table") == (
-        "project.dataset.table",
-        None,
+@pytest.mark.parametrize(
+    "table_name, expected_table_prefix, expected_shard",
+    [
+        ("project.dataset.table", "project.dataset.table", None),
+        ("table", "table", None),
+        ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
+        ("table_20231215", "table", "20231215"),
+        ("table_1624046611000_name", "table_1624046611000_name", None),
+        ("table_1624046611000", "table_1624046611000", None),
+        # Special case where dataset itself is a sharded table
+        ("20231215", None, "20231215"),
+        #
+        ("project.dataset.table_2023", "project.dataset.table_2023", None),
+        ("table_2023", "table_2023", None),
+        ("table_1624046611", "table_1624046611", None),
+        ("2023", "2023", None),
+    ],
+)
+def test_get_table_and_shard_default(
+    table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
+) -> None:
+    BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+        "((.+)[_$])?(\\d{8})$"
     )
-    assert BigqueryTableIdentifier.get_table_and_shard("table") == ("table", None)
-    assert BigqueryTableIdentifier.get_table_and_shard(
-        "project.dataset.table_20231215"
-    ) == ("project.dataset.table", "20231215")
-    assert BigqueryTableIdentifier.get_table_and_shard("table_20231215") == (
-        "table",
-        "20231215",
+    assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+        expected_table_prefix,
+        expected_shard,
     )
 
-    # Special case where dataset itself is a sharded table
-    assert BigqueryTableIdentifier.get_table_and_shard("20231215") == (None, "20231215")
+
+@pytest.mark.parametrize(
+    "table_name, expected_table_prefix, expected_shard",
+    [
+        ("project.dataset.table", "project.dataset.table", None),
+        ("table", "table", None),
+        ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
+        ("project.dataset.table_2023", "project.dataset.table", "2023"),
+        ("table_20231215", "table", "20231215"),
+        ("table_2023", "table", "2023"),
+        ("table_1624046611000_name", "table_1624046611000_name", None),
+        ("table_1624046611000", "table_1624046611000", None),
+        ("table_1624046611", "table", "1624046611"),
+        # Special case where dataset itself is a sharded table
+        ("20231215", None, "20231215"),
+        ("2023", None, "2023"),
+    ],
+)
+def test_get_table_and_shard_custom_shard_pattern(
+    table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
+) -> None:
+    BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+        "((.+)[_$])?(\\d{4,10})$"
+    )
+    assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+        expected_table_prefix,
+        expected_shard,
+    )
 
 
-def test_get_table_name():
+@pytest.mark.parametrize(
+    "full_table_name, datahub_full_table_name",
+    [
+        ("project.dataset.table", "project.dataset.table"),
+        ("project.dataset.table_20231215", "project.dataset.table"),
+        ("project.dataset.table@1624046611000", "project.dataset.table"),
+        (
+            "project.dataset.table_1624046611000_name",
+            "project.dataset.table_1624046611000_name",
+        ),
+        ("project.dataset.table_1624046611000", "project.dataset.table_1624046611000"),
+        ("project.dataset.table_*", "project.dataset.table"),
+        ("project.dataset.table_2023*", "project.dataset.table"),
+        ("project.dataset.table_202301*", "project.dataset.table"),
+        # Special case where dataset itself is a sharded table
+        ("project.dataset.20230112", "project.dataset.dataset"),
+    ],
+)
+def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> None:
     BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
     assert (
-        BigqueryTableIdentifier("project", "dataset", "table").get_table_name()
-        == "project.dataset.table"
-    )
-    assert (
-        BigqueryTableIdentifier("project", "dataset", "table_20231215").get_table_name()
-        == "project.dataset.table"
-    )
-    assert (
-        BigqueryTableIdentifier(
-            "project", "dataset", "table@1624046611000"
-        ).get_table_name()
-        == "project.dataset.table"
-    )
-    assert (
-        BigqueryTableIdentifier("project", "dataset", "table_*").get_table_name()
-        == "project.dataset.table"
-    )
-    assert (
-        BigqueryTableIdentifier("project", "dataset", "table_2023*").get_table_name()
-        == "project.dataset.table"
-    )
-    assert (
-        BigqueryTableIdentifier("project", "dataset", "table_202312*").get_table_name()
-        == "project.dataset.table"
-    )
-
-    # Special case where dataset itself is a sharded table
-    assert (
-        BigqueryTableIdentifier("project", "dataset", "20231215").get_table_name()
-        == "project.dataset.dataset"
+        BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
+        == datahub_full_table_name
     )
