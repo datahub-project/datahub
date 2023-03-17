@@ -122,8 +122,6 @@ class FieldPath:
                 return f"array({','.join(type_override.type.nestedType or [])})"
             elif isinstance(type_override.type, MapTypeClass):
                 return f"map(str,{type_override.type.valueType})"
-            # elif isinstance(type_override.type, UnionTypeClass):
-            #     return f"union({','.join(type_override.type.nestedTypes)})"
         return None
 
     def get_recursive(self, schema: Dict) -> Optional[str]:
