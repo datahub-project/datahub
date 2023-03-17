@@ -322,11 +322,7 @@ class DBTCloudSource(DBTSourceBase):
         if "columns" in node:
             # columns will be empty for ephemeral models
             columns = [
-                self._parse_into_dbt_column(
-                    column,
-                    self.config.convert_column_urns_to_lowercase,
-                    self.config.target_platform,
-                )
+                self._parse_into_dbt_column(column)
                 for column in sorted(node["columns"], key=lambda c: c["index"])
             ]
 
@@ -408,12 +404,7 @@ class DBTCloudSource(DBTSourceBase):
     def _parse_into_dbt_column(
         self,
         column: Dict,
-        convert_column_urns_to_lowercase: str,
-        target_platform: str,
     ) -> DBTColumn:
-        if convert_column_urns_to_lowercase or target_platform.lower() == "snowflake":
-            column["name"] = column["name"].lower()
-
         return DBTColumn(
             name=column["name"],
             comment=column.get("comment", ""),

@@ -281,8 +281,8 @@ class DBTCommonConfig(
     )
     convert_column_urns_to_lowercase: bool = Field(
         default=False,
-        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. Columns are automatically "
-        "converted to lowercase if target platform is Snowflake.",
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
+        "If `target_platform` is Snowflake, the default is True.",
     )
 
     @validator("target_platform")
@@ -293,6 +293,12 @@ class DBTCommonConfig(
                 "postgres."
             )
         return target_platform
+
+    @root_validator(pre=True)
+    def set_convert_column_urns_to_lowercase_default_for_snowflake(cls, values: dict) -> dict:
+        if values.get("target_platform", "").lower() == "snowflake":
+            values.setdefault("convert_column_urns_to_lowercase", True)
+        return values
 
     @validator("write_semantics")
     def validate_write_semantics(cls, write_semantics: str) -> str:
@@ -1258,8 +1264,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if meta_aspects.get(Constants.ADD_TERM_OPERATION):
                 glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
 
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+
             field = SchemaField(
-                fieldPath=column.name,
+                fieldPath=field_name,
                 nativeDataType=column.data_type,
                 type=get_column_type(
                     report, node.dbt_name, column.data_type, node.dbt_adapter

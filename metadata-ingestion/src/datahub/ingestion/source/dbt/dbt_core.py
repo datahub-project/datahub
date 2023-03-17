@@ -93,8 +93,6 @@ def get_columns(
     catalog_node: dict,
     manifest_node: dict,
     tag_prefix: str,
-    convert_column_urns_to_lowercase: bool,
-    target_platform: str,
 ) -> List[DBTColumn]:
     columns = []
 
@@ -112,9 +110,6 @@ def get_columns(
 
         tags = manifest_column.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
-
-        if convert_column_urns_to_lowercase or target_platform.lower() == "snowflake":
-            catalog_column["name"] = catalog_column["name"].lower()
 
         dbtCol = DBTColumn(
             name=catalog_column["name"],
@@ -136,8 +131,6 @@ def extract_dbt_entities(
     manifest_adapter: str,
     use_identifiers: bool,
     tag_prefix: str,
-    convert_column_urns_to_lowercase: bool,
-    target_platform: str,
     report: DBTSourceReport,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -269,8 +262,6 @@ def extract_dbt_entities(
                     catalog_node,
                     manifest_node,
                     tag_prefix,
-                    convert_column_urns_to_lowercase,
-                    target_platform,
                 )
 
         else:
@@ -453,8 +444,6 @@ class DBTCoreSource(DBTSourceBase):
             manifest_adapter,
             self.config.use_identifiers,
             self.config.tag_prefix,
-            self.config.convert_column_urns_to_lowercase,
-            self.config.target_platform,
             self.report,
         )
 
