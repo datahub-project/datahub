@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button, Input, Modal } from 'antd';
 import { useLocation } from 'react-router';
 
-import { EntityType, AndFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { EntityType, AndFilterInput, ScrollAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
@@ -12,7 +12,7 @@ import analytics, { EventType } from '../../../../../analytics';
 
 type Props = {
     callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
+        input: ScrollAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
     filters: AndFilterInput[];
@@ -59,8 +59,10 @@ export default function DownloadAsCsvModal({
             console.log('fetch page number ', downloadPage);
             callSearchOnVariables({
                 input: {
+                    scrollId: ,
                     types: entityFilters,
                     query,
+                    keepAlive: '10m',
                     start: SEARCH_PAGE_SIZE_FOR_DOWNLOAD * downloadPage,
                     count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
                     orFilters: filters,

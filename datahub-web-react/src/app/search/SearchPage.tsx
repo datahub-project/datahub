@@ -20,6 +20,9 @@ import {
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
+import { useGetScrollResultsForMultipleQuery } from '../../graphql/scroll.generated';
+
+const KEEP_ALIVE_TIME = '10m'; // TODO: Determine if this is sufficient.
 
 type SearchPageParams = {
     type?: string;
@@ -81,14 +84,14 @@ export const SearchPage = () => {
 
     // we need to extract refetch on its own so paging thru results for csv download
     // doesnt also update search results
-    const { refetch } = useGetSearchResultsForMultipleQuery({
+    const { refetch } = useGetScrollResultsForMultipleQuery({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
                 filters: [],
+                keepAlive: KEEP_ALIVE_TIME,
                 orFilters: generateOrFilters(unionType, filtersWithoutEntities),
                 viewUrn,
             },
@@ -96,7 +99,7 @@ export const SearchPage = () => {
     });
 
     const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetch(variables).then((res) => res.data.searchAcrossEntities);
+        return refetch(variables).then((res) => res.data.scrollAcrossEntities);
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {

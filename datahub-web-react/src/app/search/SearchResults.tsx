@@ -9,6 +9,7 @@ import {
     FacetMetadata,
     MatchedField,
     SearchAcrossEntitiesInput,
+    ScrollAcrossEntitiesInput,
 } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
@@ -88,7 +89,7 @@ interface Props {
     onChangeUnionType: (unionType: UnionType) => void;
     onChangePage: (page: number) => void;
     callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
+        input: ScrollAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
