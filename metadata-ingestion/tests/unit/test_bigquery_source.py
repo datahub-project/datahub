@@ -429,13 +429,14 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
 def test_get_table_and_shard_default(
     table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
 ) -> None:
-    BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
-        "((.+)[_$])?(\\d{8})$"
-    )
-    assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-        expected_table_prefix,
-        expected_shard,
-    )
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
+        "((.+)[_$])?(\\d{8})$",
+    ):
+        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+            expected_table_prefix,
+            expected_shard,
+        )
 
 
 @pytest.mark.parametrize(
@@ -458,13 +459,14 @@ def test_get_table_and_shard_default(
 def test_get_table_and_shard_custom_shard_pattern(
     table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
 ) -> None:
-    BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
-        "((.+)[_$])?(\\d{4,10})$"
-    )
-    assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-        expected_table_prefix,
-        expected_shard,
-    )
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
+        "((.+)[_$])?(\\d{4,10})$",
+    ):
+        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+            expected_table_prefix,
+            expected_shard,
+        )
 
 
 @pytest.mark.parametrize(
@@ -486,8 +488,11 @@ def test_get_table_and_shard_custom_shard_pattern(
     ],
 )
 def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> None:
-    BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
-    assert (
-        BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
-        == datahub_full_table_name
-    )
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX",
+        "",
+    ):
+        assert (
+            BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
+            == datahub_full_table_name
+        )
