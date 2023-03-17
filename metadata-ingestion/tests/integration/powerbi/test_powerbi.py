@@ -656,7 +656,7 @@ def test_powerbi_ingest_urn_lower_case(
             },
         }
     )
-    pipeline.config
+
     pipeline.run()
     pipeline.raise_from_status()
     golden_file = "golden_test_lower_case_urn_ingest.json"
