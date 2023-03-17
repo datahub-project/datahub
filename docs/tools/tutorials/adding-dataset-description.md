@@ -2,6 +2,11 @@
 
 ## Why Would You Add Description on Dataset? 
 Adding a description and related link to a dataset can provide important information about the data, such as its source, collection methods, and potential uses. This can help others understand the context of the data and how it may be relevant to their own work or research. Including a related link can also provide access to additional resources or related datasets, further enriching the information available to users.
+
+### Goal Of This Guide
+This guide will show you how to add a description and a link to dataset `fct_users_deleted`.
+
+
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
 For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).

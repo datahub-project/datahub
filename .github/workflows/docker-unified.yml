@@ -490,20 +490,6 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Calculate pip install plan
-        id: "packages_checksum"
-        run: |
-          pip install pip -U # only 22.2 and above contains the --dry-run flag
-
-          # only the last line of the output is the packages that will be installed
-          pip install --dry-run -r ./smoke-test/requirements.txt  | tail -n 1 > /tmp/would_be_installed.txt
-          CHECKSUM=$(shasum /tmp/would_be_installed.txt | awk '{print $1}')
-          echo "packages_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
-        id: cache-venv
-        with:
-          path: ./smoke-test/venv/
-          key: smoke-venv-${{ runner.os }}-${{ steps.packages_checksum.outputs.packages_checksum }}
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
