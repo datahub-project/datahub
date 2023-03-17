@@ -14,6 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
     MapTypeClass,
     RecordTypeClass,
     UnionTypeClass,
@@ -149,7 +150,7 @@ def test_json_schema_with_recursion():
         },
         {
             "path": "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
-            "type": RecordTypeClass,
+            "type": ArrayTypeClass,
         },
     ]
     assert_field_paths_match(fields, expected_field_paths)
@@ -363,6 +364,7 @@ def test_nested_arrays():
         "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=integer].a",
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[0].type.type, ArrayTypeClass)
 
 
 def test_map_of_union_of_int_and_record_of_union():
@@ -637,3 +639,19 @@ def test_array_handling():
         "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text",
     ]
     assert_field_paths_match(fields, expected_field_paths)
+
+
+def test_simple_array():
+    schema = {
+        "type": "object",
+        "title": "ObjectWithArray",
+        "namespace": "com.linkedin",
+        "properties": {"ar": {"type": "array", "items": {"type": "string"}}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=ObjectWithArray].[type=array].[type=string].ar",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[0].type.type, ArrayTypeClass)

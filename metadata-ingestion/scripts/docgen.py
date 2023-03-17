@@ -6,7 +6,7 @@ import re
 import sys
 import textwrap
 from importlib.metadata import metadata, requires
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import click
 from pydantic import BaseModel, Field
@@ -33,18 +33,71 @@ class FieldRow(BaseModel):
     inner_fields: List["FieldRow"] = Field(default_factory=list)
     discriminated_type: Optional[str] = None
 
+    class Component(BaseModel):
+        type: str
+        field_name: Optional[str]
+
+    @staticmethod
+    def map_field_path_to_components(field_path: str) -> List[Component]:
+        
+        m = re.match(r"^[\.]*\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*", field_path)
+        v = re.match(r"^\w+", field_path)
+        components: List[FieldRow.Component] = []
+        while m or v:
+            token = m.group() if m else v.group() # type: ignore
+            if v:
+                if components:
+                    if components[-1].field_name is None:
+                        components[-1].field_name = token
+                    else:
+                        components.append(FieldRow.Component(type="non_map_type", field_name=token))
+                else:
+                    components.append(FieldRow.Component(type="non_map_type", field_name=token))
+            
+            if m:
+                if token.startswith("[version="):
+                    pass
+                elif "[type=" in token:
+                    type_match = re.match(r"[\.]*\[type=(.*)\]", token)
+                    if type_match:
+                        type_string = type_match.group(1)
+                        if components and components[-1].type == "map":
+                            if components[-1].field_name is None:
+                                pass
+                            else:
+                                new_component = FieldRow.Component(type="map_key", field_name="`key`")
+                                components.append(new_component)
+                                new_component = FieldRow.Component(type=type_string, field_name=None)
+                                components.append(new_component)
+                        if type_string == "map":
+                            new_component = FieldRow.Component(type=type_string, field_name=None)
+                            components.append(new_component)
+
+            field_path = field_path[m.span()[1]:] if m else field_path[v.span()[1]:] # type: ignore
+            m = re.match(r"^[\.]*\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*", field_path)
+            v = re.match(r"^\w+", field_path)
+
+        return components
+
     @staticmethod
     def field_path_to_components(field_path: str) -> List[str]:
         '''
         Inverts the field_path v2 format to get the canonical field path
         [version=2.0].[type=x].foo.[type=string(format=uri)].bar => ["foo","bar"]
         '''
-        return re.sub(r"\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*","",field_path).split(".")
+        if "type=map" not in field_path:
+            return re.sub(r"\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*","",field_path).split(".")
+        else:
+            return [c.field_name for c in FieldRow.map_field_path_to_components(field_path) if c.field_name]
 
     @classmethod
     def from_schema_field(cls, schema_field: SchemaFieldClass) -> "FieldRow":
         path_components = FieldRow.field_path_to_components(schema_field.fieldPath)
-        parent = path_components[-2] if len(path_components) == 2 else None
+
+        parent = path_components[-2] if len(path_components) >= 2 else None
+        if parent == "`key`":
+            # the real parent node is one index above
+            parent = path_components[-3]
         json_props = json.loads(schema_field.jsonProps) if schema_field.jsonProps else {}
         default_value = str(json_props.get("default")) or ""
         return FieldRow(path=".".join(path_components), parent=parent, type_name=str(schema_field.nativeDataType), required=not schema_field.nullable, default=default_value, description=schema_field.description, inner_fields=[]
@@ -107,9 +160,7 @@ def get_prefixed_name(field_prefix: Optional[str], field_name: Optional[str]) ->
         else field_prefix
     )
 
-
-def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
-    def custom_comparator(path: str) -> int:
+def custom_comparator(path: str) -> str:
         '''
         Projects a string onto a separate space
         Low_prio string will start with Z else start with A
@@ -122,67 +173,81 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
         projection = f"{projection}{opt1}"
         return projection
 
-    class FieldTree:
-        '''
-        A helper class that re-constructs the tree hierarchy of schema fields
-        to help sort fields by importance while keeping nesting intact
-        '''
-        def __init__(self):
-            self.field: FieldRow = None
-            self.fields: Dict[str, "FieldTree"] = {}
+class FieldTree:
+    '''
+    A helper class that re-constructs the tree hierarchy of schema fields
+    to help sort fields by importance while keeping nesting intact
+    '''
 
-        def __init__(self, field: FieldRow):
-            self.field = field
-            self.fields = {}
+    def __init__(self, field: Optional[FieldRow] = None):
+        self.field = field
+        self.fields: Dict[str, "FieldTree"] = {}
 
-        def add_field(self, row: FieldRow, path: Optional[str] = None):
-            if self.field and self.field.path == row.path:
-                # we have an incoming field with the same path as us, this is probably a union variant
-                # attach to existing field
-                self.field.inner_fields.append(row)
+    def add_field(self, row: FieldRow, path: Optional[str] = None) -> "FieldTree":
+        # logger.warn(f"Add field: path:{path}, row:{row}")
+        #breakpoint()
+        if self.field and self.field.path == row.path:
+            #breakpoint()
+            # we have an incoming field with the same path as us, this is probably a union variant
+            # attach to existing field
+            self.field.inner_fields.append(row)
+        else:
+            path = path if path is not None else row.path
+            top_level_field = path.split(".")[0]
+            if top_level_field == "":
+                breakpoint()
+            if top_level_field in self.fields:
+                self.fields[top_level_field].add_field(row, ".".join(path.split(".")[1:]))
             else:
-                path = path if path is not None else row.path
-                top_level_field = path.split(".")[0]
-                if top_level_field in self.fields:
-                    self.fields[top_level_field].add_field(row, ".".join(path.split(".")[1:]))
-                else:
-                    self.fields[top_level_field] = FieldTree(field=row)
+                self.fields[top_level_field] = FieldTree(field=row)
+        # logger.warn(f"{self}")
+        return self
 
-        def sort(self):
-            # Required fields before optionals
-            required_fields = {k: v for k, v in self.fields.items() if v.field.required}
-            optional_fields = {k: v for k, v in self.fields.items() if not v.field.required}
+    def sort(self):
+        # Required fields before optionals
+        required_fields = {k: v for k, v in self.fields.items() if v.field and v.field.required}
+        optional_fields = {k: v for k, v in self.fields.items() if v.field and not v.field.required}
 
-            self.sorted_fields = []
-            for field_map in [required_fields, optional_fields]:
-                # Top-level fields before fields with nesting
-                self.sorted_fields.extend(sorted([f for f,val in field_map.items() if val.fields == {}], key=custom_comparator))
-                self.sorted_fields.extend(sorted([f for f,val in field_map.items() if val.fields != {}], key=custom_comparator))
-                
-            for field_tree in self.fields.values():
-                field_tree.sort()
+        self.sorted_fields = []
+        for field_map in [required_fields, optional_fields]:
+            # Top-level fields before fields with nesting
+            self.sorted_fields.extend(sorted([f for f,val in field_map.items() if val.fields == {}], key=custom_comparator))
+            self.sorted_fields.extend(sorted([f for f,val in field_map.items() if val.fields != {}], key=custom_comparator))
+            
+        for field_tree in self.fields.values():
+            field_tree.sort()
 
-        def get_fields(self) -> Iterable[FieldRow]:
-            if self.field:
-                yield self.field
-            for key in self.sorted_fields:
-                yield from self.fields[key].get_fields()
+    def get_fields(self) -> Iterable[FieldRow]:
+        if self.field:
+            yield self.field
+        for key in self.sorted_fields:
+            yield from self.fields[key].get_fields()
+        
+    def __repr__(self) -> str:
+        result = {}
+        if self.field:
+            result["_self"] = json.loads(json.dumps(self.field.dict()))
+        for f in self.fields:
+            result[f] = json.loads(str(self.fields[f]))
+        return json.dumps(result, indent=2)
 
+def priority_value(path: str) -> str:
+    # A map of low value tokens to their relative importance
+    low_value_token_map = {
+        "env": "X",
+        "profiling": "Y",
+        "stateful_ingestion": "Z"
+    }
+    tokens = path.split(".")
+    for low_value_token in low_value_token_map:
+        if low_value_token in tokens:
+            return low_value_token_map[low_value_token]
 
-    def priority_value(path: str) -> Tuple[bool, str]:
-        # A map of low value tokens to their relative importance
-        low_value_token_map = {
-            "env": "X",
-            "profiling": "Y",
-            "stateful_ingestion": "Z"
-        }
-        tokens = path.split(".")
-        for low_value_token in low_value_token_map:
-            if low_value_token in tokens:
-                return low_value_token_map[low_value_token]
+    # everything else high-prio
+    return "A"
+    
 
-        # everything else high-prio
-        return "A"
+def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
     
 
     from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
@@ -190,23 +255,13 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
     JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = False
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
     result: List[str] = [FieldHeader().to_md_line()]    
-    # field_stack: List[FieldRow] = []
-    # for field in schema_fields:
-    #     row: FieldRow = FieldRow.from_schema_field(field)
-    #     if field_stack and field_stack[-1].path == row.path:
-    #         # if the simple paths look the same, these are union variants, combine into one row
-    #         field_stack[-1].inner_fields.append(row)
-    #     else:
-    #         field_stack.append(row)
 
     field_tree = FieldTree(field=None)
     for field in schema_fields:
         row: FieldRow = FieldRow.from_schema_field(field)
         field_tree.add_field(row)
 
-    # breakpoint()
     field_tree.sort()
-    # breakpoint()
 
     for row in field_tree.get_fields():
         result.append(row.to_md_line())
@@ -420,7 +475,7 @@ def generate(
         if source and source != plugin_name:
             continue
 
-        metrics["plugins"]["discovered"] = metrics["plugins"]["discovered"] + 1
+        metrics["plugins"]["discovered"] = metrics["plugins"]["discovered"] + 1 # type: ignore
         # We want to attempt to load all plugins before printing a summary.
         source_type = None
         try:
@@ -441,7 +496,7 @@ def generate(
             logger.warning(
                 f"Failed to process {plugin_name} due to exception {e}", exc_info=e
             )
-            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1
+            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1 #type: ignore
 
         if source_type and hasattr(source_type, "get_config_class"):
             try:
@@ -560,14 +615,14 @@ def generate(
         if source and platform_id != source:
             continue
         metrics["source_platforms"]["discovered"] = (
-            metrics["source_platforms"]["discovered"] + 1
+            metrics["source_platforms"]["discovered"] + 1 # type: ignore
         )
         platform_doc_file = f"{sources_dir}/{platform_id}.md"
         if "name" not in platform_docs:
             # We seem to have discovered written docs that corresponds to a platform, but haven't found linkage to it from the source classes
             warning_msg = f"Failed to find source classes for platform {platform_id}. Did you remember to annotate your source class with @platform_name({platform_id})?"
             logger.error(warning_msg)
-            metrics["source_platforms"]["warnings"].append(warning_msg)
+            metrics["source_platforms"]["warnings"].append(warning_msg) # type: ignore
             continue
 
         with open(platform_doc_file, "w") as f:
@@ -696,20 +751,20 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                         f.write(
                             f"- Browse on [GitHub](../../../../metadata-ingestion/{plugin_docs['filename']})\n\n"
                         )
-                metrics["plugins"]["generated"] = metrics["plugins"]["generated"] + 1
+                metrics["plugins"]["generated"] = metrics["plugins"]["generated"] + 1  #type: ignore
 
             f.write("\n## Questions\n")
             f.write(
                 f"If you've got any questions on configuring ingestion for {platform_docs.get('name',platform_id)}, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"
             )
             metrics["source_platforms"]["generated"] = (
-                metrics["source_platforms"]["generated"] + 1
+                metrics["source_platforms"]["generated"] + 1 # type: ignore
             )
     print("Ingestion Documentation Generation Complete")
     print("############################################")
     print(json.dumps(metrics, indent=2))
     print("############################################")
-    if metrics["plugins"].get("failed", 0) > 0:
+    if metrics["plugins"].get("failed", 0) > 0: #type: ignore
         sys.exit(1)
 
 
