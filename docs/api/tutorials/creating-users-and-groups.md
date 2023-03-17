@@ -7,7 +7,7 @@ This helps to avoid confusion or conflicts over who is responsible for specific 
 
 ## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed information, please refer to [Preparing Your Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed information, please refer to [Preparing Your Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 :::note
 In this guide, ingesting sample data is optional.
@@ -138,8 +138,8 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 ### User
 You can see user `Jane Doe` has beend created under `Settings > Access > Users & Groups`
-![user-added](../../imgs/tutorials/user-added.png)
+![user-added](../../imgs/apis/tutorials/user-added.png)
 
 ### Group
 You can see group `Engineering` has beend created under `Settings > Access > Users & Groups`
-![group-added](../../imgs/tutorials/group-added.png)
+![group-added](../../imgs/apis/tutorials/group-added.png)
