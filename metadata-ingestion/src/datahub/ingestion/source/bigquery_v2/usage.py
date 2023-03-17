@@ -160,7 +160,7 @@ class BigQueryUsageState:
     def __init__(self, config: BigQueryV2Config):
         self.conn = ConnectionWrapper()
         self.read_events = FileBackedDict[ReadEvent](
-            connection=self.conn,
+            external_connection=self.conn,
             tablename="read_events",
             extra_columns={
                 "resource": lambda e: str(e.resource),
@@ -173,7 +173,7 @@ class BigQueryUsageState:
         )
         # Keyed by job_name
         self.query_events = FileBackedDict[QueryEvent](
-            connection=self.conn,
+            external_connection=self.conn,
             tablename="query_events",
             extra_columns={
                 "query": lambda e: e.query,
@@ -182,7 +182,7 @@ class BigQueryUsageState:
         )
         # Created just to store column accesses in sqlite for JOIN
         self.column_accesses = FileBackedDict[Tuple[str, str]](
-            connection=self.conn,
+            external_connection=self.conn,
             tablename="column_accesses",
             extra_columns={"read_event": lambda p: p[0], "field": lambda p: p[1]},
         )

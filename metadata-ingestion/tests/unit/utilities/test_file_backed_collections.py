@@ -203,14 +203,14 @@ def test_custom_column() -> None:
 def test_shared_connection() -> None:
     with ConnectionWrapper() as connection:
         cache1 = FileBackedDict[int](
-            connection=connection,
+            external_connection=connection,
             tablename="cache1",
             extra_columns={
                 "v": lambda v: v,
             },
         )
         cache2 = FileBackedDict[Pair](
-            connection=connection,
+            external_connection=connection,
             tablename="cache2",
             extra_columns={
                 "x": lambda m: m.x,
@@ -251,6 +251,12 @@ def test_shared_connection() -> None:
             )
             == [("a", 45), ("b", 55)]
         )
+
+        assert list(cache2.filtered_items('y = "a"')) == [
+            ("ref-a-1", Pair(7, "a")),
+            ("ref-a-2", Pair(8, "a")),
+        ]
+
         cache2.close()
 
         # Check can still use cache1

@@ -142,7 +142,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """
 
     # Use a predefined connection, able to be shared across multiple FileBacked* objects
-    connection: Optional[ConnectionWrapper] = None
+    external_connection: Optional[ConnectionWrapper] = None
     tablename: str = _DEFAULT_TABLE_NAME
 
     serializer: Callable[[_VT], SqliteValue] = _default_serializer
@@ -165,8 +165,8 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         assert "key" not in self.extra_columns, '"key" is a reserved column name'
         assert "value" not in self.extra_columns, '"value" is a reserved column name'
 
-        if self.connection:
-            self._conn = self.connection
+        if self.external_connection:
+            self._conn = self.external_connection
         else:
             self._conn = ConnectionWrapper()
 
@@ -273,18 +273,18 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
         yield from self._iter_db(f"SELECT key FROM {self.tablename}")
 
-    def filtered_items(self, cond_expr: str) -> Iterator[Tuple[str, _VT]]:
+    def filtered_items(self, cond_sql: str) -> Iterator[Tuple[str, _VT]]:
         """
         Flush the cache and iterate through a filtered list of the dictionary's items.
 
         Args:
-            cond_expr: Conditional expression for WHERE statement, e.g. `x = 0 AND y = "value"`
+            cond_sql: Conditional expression for WHERE statement, e.g. `x = 0 AND y = "value"`
 
         Returns:
             Iterator of filtered (key, value) pairs.
         """
         self.flush()
-        for key in self._iter_db(f"SELECT key FROM {self.tablename} WHERE {cond_expr}"):
+        for key in self._iter_db(f"SELECT key FROM {self.tablename} WHERE {cond_sql}"):
             yield key, self[key]
 
     def __len__(self) -> int:
@@ -330,9 +330,9 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
     def close(self) -> None:
         if self._conn:
-            if not self.connection:  # Connection created inside this class
-                # Ensure everything is written out, only required if connection is reused.
-                self.flush()
+            if self.external_connection:  # Connection created inside this class
+                self.flush()  # Ensure everything is written out
+            else:
                 self._conn.close()
 
             # This forces all writes to go directly to the DB so they fail immediately.
@@ -376,7 +376,7 @@ class FileBackedList(Generic[_VT]):
     ) -> None:
         self._len = 0
         self._dict = FileBackedDict(
-            connection=connection,
+            external_connection=connection,
             serializer=serializer,
             deserializer=deserializer,
             tablename=tablename,
