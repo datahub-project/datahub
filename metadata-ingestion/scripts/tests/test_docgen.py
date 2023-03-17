@@ -1,5 +1,5 @@
 import sys
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pydantic
  
@@ -17,6 +17,11 @@ class Platform(Enum):
 class Connection(ConfigModel):
     path: Union[pydantic.FilePath, pydantic.DirectoryPath]
     headers: Dict[str, str]
+    connect_args: Optional[Dict[str, Any]] = pydantic.Field(
+        default=None,
+        description="Connect args to pass to underlying driver",
+        exclude=True,
+    )
 
 class BaseConfig(ConfigModel):
     '''
@@ -39,9 +44,11 @@ def test_nested_config():
         '| connection [✅] | Connection |  | None |   |\n',
         '| connection.headers [❓ (required if connection is set)] | map(str,string) |  | None |   |\n',
         '| connection.path [❓ (required if connection is set)] | UnionType (See notes for variants) |  | None | One of string(file-path),string(directory-path) |\n',
+        '| connection.connect_args  | Connect Args | Connect args to pass to underlying driver | None |   |\n',
         '| connection_map [✅] | map(str,Connection) |  | None |   |\n',
         '| connection_map.`key`.path [❓ (required if connection_map is set)] | UnionType (See notes for variants) |  | None | One of string(file-path),string(directory-path) |\n',
         '| connection_map.`key`.headers [❓ (required if connection_map is set)] | map(str,string) |  | None |   |\n',
+        '| connection_map.`key`.connect_args  | Connect Args | Connect args to pass to underlying driver | None |   |\n',
         '| field_array  | array(string) |  | None |   |\n',
         '| platform  | Enum |  | DBT |   |\n'
     ]
@@ -127,4 +134,3 @@ def test_field_row():
         'path'
     ]
 
-    
