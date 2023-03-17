@@ -247,6 +247,8 @@ siblings:
 bootstrap:
   upgradeDefaultBrowsePaths:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
+  ingestDefaultOwnershipTypes:
+    enabled: ${INGEST_DEFAULT_OWNERSHIP_TYPES:true} # enable to ingest default ownership types during datahub bootstrap stage.
 
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}

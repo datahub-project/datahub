@@ -297,4 +297,11 @@ entities:
       - queryProperties
       - querySubjects
       - status
+  - name: ownershipType
+    doc: Ownership Type represents a created-runtime concept ownership for a person or group who is responsible for technical aspects of the asset.
+    category: core
+    keyAspect: ownershipTypeKey
+    aspects:
+      - ownershipTypeInfo
+      - status
 events:

@@ -29,7 +29,7 @@ def _is_it_a_version(version: str) -> bool:
     :param version: The string to check.
     :return: True if the string is a valid version, False otherwise.
     """
-    return re.match(r"v?\d+\.\d+(\.\d+)?", version) is not None
+    return re.match(r"^v?\d+\.\d+(\.\d+)?$", version) is not None
 
 
 class QuickstartVersionMappingConfig(BaseModel):
@@ -122,7 +122,7 @@ class QuickstartVersionMappingConfig(BaseModel):
         )
         # new CLI version is downloading the composefile corresponding to the requested version
         # if the version is older than v0.10.1, it doesn't contain the setup job labels and the
-        # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
+        # checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
         # the setup job labels
         if _is_it_a_version(result.composefile_git_ref):
             if parse("v0.10.1") > parse(result.composefile_git_ref):

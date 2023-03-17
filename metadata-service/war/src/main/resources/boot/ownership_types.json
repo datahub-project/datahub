@@ -1,0 +1,30 @@
+[
+  {
+    "urn": "urn:li:ownershipType:TechnicalOwner",
+    "info": {
+      "name":"Technical Owner",
+      "description":"Involved in the production, maintenance, or distribution of the asset(s)."
+    }
+  },
+  {
+    "urn": "urn:li:ownershipType:BusinessOwner",
+    "info": {
+      "name":"Business Owner",
+      "description":"Principle stakeholders or domain experts associated with the asset(s)."
+    }
+  },
+  {
+    "urn": "urn:li:ownershipType:DataSteward",
+    "info": {
+      "name":"Data Steward",
+      "description":"Involved in governance of the asset(s)."
+    }
+  },
+  {
+    "urn": "urn:li:ownershipType:None",
+    "info": {
+      "name":"None",
+      "description":"No ownership type specified."
+    }
+  }
+]

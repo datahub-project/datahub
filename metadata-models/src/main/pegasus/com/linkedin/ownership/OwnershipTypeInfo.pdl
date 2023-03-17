@@ -1,0 +1,39 @@
+namespace com.linkedin.ownership
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about an ownership type
+ */
+@Aspect = {
+  "name": "ownershipTypeInfo"
+}
+record OwnershipTypeInfo {
+
+  /**
+   * Display name of the Ownership Type
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Description of the Ownership Type
+   */
+  description: optional string
+
+  /**
+   * Created Audit stamp
+   */
+   @Searchable = {
+     "/time": {
+      "fieldName": "createdTime",
+      "fieldType": "DATETIME"
+     }
+   }
+   createdAt: optional AuditStamp
+
+}

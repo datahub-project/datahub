@@ -13,6 +13,7 @@ import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
+import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRolesStep;
@@ -70,6 +71,10 @@ public class BootstrapManagerFactory {
   private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
 
   @Autowired
+  @Qualifier("ingestMetadataTestsStep")
+  private IngestOwnershipTypesStep _ingestOwnershipTypesStep;
+
+  @Autowired
   @Qualifier("dataHubUpgradeKafkaListener")
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
@@ -110,6 +115,7 @@ public class BootstrapManagerFactory {
             ingestDataPlatformsStep,
             ingestDataPlatformInstancesStep,
             _ingestRetentionPoliciesStep,
+            _ingestOwnershipTypesStep,
             ingestSettingsStep,
             restoreGlossaryIndicesStep,
             removeClientIdAspectStep,
