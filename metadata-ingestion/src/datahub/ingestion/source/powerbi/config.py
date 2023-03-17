@@ -9,6 +9,7 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -112,13 +113,6 @@ class DataPlatformPair:
     powerbi_data_platform_name: str
 
 
-@dataclass
-class DataPlatformTable:
-    name: str
-    full_name: str
-    data_platform_pair: DataPlatformPair
-
-
 class SupportedDataPlatform(Enum):
     POSTGRES_SQL = DataPlatformPair(
         powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
@@ -178,12 +172,13 @@ def default_for_dataset_type_mapping() -> Dict[str, str]:
 class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
-        description="DataHub platform instance name. It should be same as you have used in ingestion recipe of "
-        "DataHub platform ingestion source of particular platform",
+        description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
+                    "with platform instance name used in ingestion"
+                    "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
-        description="The environment that all assets produced by DataHub platform ingestion source belong to",
+        description="The environment that the platform is located in. It is default to PROD",
     )
 
 
@@ -218,9 +213,17 @@ class PowerBiDashboardSourceConfig(
         Dict[str, str], Dict[str, PlatformDetail]
     ] = pydantic.Field(
         default_factory=default_for_dataset_type_mapping,
-        description="Mapping of PowerBI datasource type to DataHub supported data-sources. "
-        "You can configured platform instance for dataset lineage. "
-        "See Quickstart Recipe for mapping",
+        description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
+                    "DataHub supported datasources."
+                    "You can configured platform instance for dataset lineage. "
+                    "See Quickstart Recipe for mapping",
+    )
+    _dataset_type_mapping = pydantic_field_deprecated("dataset_type_mapping")
+    # PowerBI datasource's server to platform instance mapping
+    server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+        default={},
+        description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
+                    ":port is optional and only needed if your datasource server is running on non-standard port",
     )
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")

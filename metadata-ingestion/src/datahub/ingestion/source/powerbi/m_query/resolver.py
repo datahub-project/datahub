@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 class DataPlatformTable:
     name: str
     full_name: str
+    #datasource_server_host: str
     data_platform_pair: DataPlatformPair
 
 
