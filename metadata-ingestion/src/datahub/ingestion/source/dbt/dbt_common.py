@@ -108,6 +108,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.source_helpers import (
+    auto_materialize_referenced_tags,
     auto_stale_entity_removal,
     auto_status_aspect,
 )
@@ -875,9 +876,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         raise NotImplementedError()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_status_aspect(self.get_workunits_internal()),
+            )
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
