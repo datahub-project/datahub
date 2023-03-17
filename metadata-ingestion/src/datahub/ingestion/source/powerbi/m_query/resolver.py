@@ -26,15 +26,15 @@ logger = logging.getLogger(__name__)
 class DataPlatformTable:
     name: str
     full_name: str
-    #datasource_server_host: str
+    datasource_server: str
     data_platform_pair: DataPlatformPair
 
 
-class AbstractTableFullNameCreator(ABC):
+class AbstractDataPlatformTableCreator(ABC):
     @abstractmethod
-    def get_full_table_names(
+    def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[str]:
+    ) -> List[DataPlatformTable]:
         pass
 
     @abstractmethod
@@ -338,25 +338,18 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 )
                 continue
 
-            table_full_name_creator: AbstractTableFullNameCreator = (
+            table_full_name_creator: AbstractDataPlatformTableCreator = (
                 supported_resolver.get_table_full_name_creator()()
             )
 
-            for table_full_name in table_full_name_creator.get_full_table_names(
-                f_detail
-            ):
-                data_platform_tables.append(
-                    DataPlatformTable(
-                        name=table_full_name.split(".")[-1],
-                        full_name=table_full_name,
-                        data_platform_pair=table_full_name_creator.get_platform_pair(),
-                    )
-                )
+            data_platform_tables.extend(
+                table_full_name_creator.create_dataplatform_tables(f_detail)
+            )
 
         return data_platform_tables
 
 
-class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
+class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
     """
     These are the DataSource for which PowerBI Desktop generates default M-Query of following pattern
         let
@@ -368,8 +361,7 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
 
     def two_level_access_pattern(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[str]:
-        full_table_names: List[str] = []
+    ) -> List[DataPlatformTable]:
 
         logger.debug(
             f"Processing PostgreSQL data-access function detail {data_access_func_detail}"
@@ -383,7 +375,7 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
 
         if len(arguments) != 2:
             logger.debug(f"Expected 2 arguments, but got {len(arguments)}")
-            return full_table_names
+            return []
 
         db_name: str = arguments[1]
 
@@ -395,19 +387,26 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
             IdentifierAccessor, data_access_func_detail.identifier_accessor
         ).items["Item"]
 
-        full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
+        full_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
         logger.debug(
-            f"Platform({self.get_platform_pair().datahub_data_platform_name}) full-table-names = {full_table_names}"
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) full_table_name= {full_table_name}"
         )
 
-        return full_table_names
+        return [
+            DataPlatformTable(
+                name=table_name,
+                full_name=full_table_name,
+                datasource_server="dummy",
+                data_platform_pair=self.get_platform_pair(),
+            )
+        ]
 
 
 class PostgresTableFullNameCreator(DefaultTwoStepDataAccessSources):
-    def get_full_table_names(
+    def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[str]:
+    ) -> List[DataPlatformTable]:
         return self.two_level_access_pattern(data_access_func_detail)
 
     def get_platform_pair(self) -> DataPlatformPair:
@@ -418,10 +417,10 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.MS_SQL.value
 
-    def get_full_table_names(
+    def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[str]:
-        full_table_names: List[str] = []
+    ) -> List[DataPlatformTable]:
+        dataplatform_tables: List[DataPlatformTable] = []
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(data_access_func_detail.arg_list)
@@ -436,7 +435,7 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
 
         if len(arguments) >= 4 and arguments[2] != "Query":
             logger.debug("Unsupported case is found. Second index is not the Query")
-            return full_table_names
+            return dataplatform_tables
 
         db_name: str = arguments[1]
         tables: List[str] = native_sql_parser.get_tables(arguments[3])
@@ -447,16 +446,21 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
                 # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
                 schema_and_table.insert(0, "dbo")
 
-            full_table_names.append(
-                f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
+            dataplatform_tables.append(
+                DataPlatformTable(
+                    name=schema_and_table[0],
+                    full_name=f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}",
+                    datasource_server="dummy",
+                    data_platform_pair=self.get_platform_pair(),
+                )
             )
 
-        logger.debug("MS-SQL full-table-names %s", full_table_names)
+        logger.debug("MS-SQL full-table-names %s", dataplatform_tables)
 
-        return full_table_names
+        return dataplatform_tables
 
 
-class OracleTableFullNameCreator(AbstractTableFullNameCreator):
+class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.ORACLE.value
 
@@ -471,10 +475,9 @@ class OracleTableFullNameCreator(AbstractTableFullNameCreator):
 
         return db_name
 
-    def get_full_table_names(
+    def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[str]:
-        full_table_names: List[str] = []
+    ) -> List[DataPlatformTable]:
 
         logger.debug(
             f"Processing Oracle data-access function detail {data_access_func_detail}"
@@ -486,7 +489,7 @@ class OracleTableFullNameCreator(AbstractTableFullNameCreator):
 
         db_name: Optional[str] = self._get_db_name(arguments[0])
         if db_name is None:
-            return full_table_names
+            return []
 
         schema_name: str = cast(
             IdentifierAccessor, data_access_func_detail.identifier_accessor
@@ -497,16 +500,20 @@ class OracleTableFullNameCreator(AbstractTableFullNameCreator):
             cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
         ).items["Name"]
 
-        full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
+        return [
+            DataPlatformTable(
+                name=table_name,
+                full_name=f"{db_name}.{schema_name}.{table_name}",
+                datasource_server="dummy",
+                data_platform_pair=self.get_platform_pair(),
+            )
+        ]
 
-        return full_table_names
 
-
-class DefaultThreeStepDataAccessSources(AbstractTableFullNameCreator, ABC):
-    def get_full_table_names(
+class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
+    def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[str]:
-
+    ) -> List[DataPlatformTable]:
         logger.debug(
             f"Processing {self.get_platform_pair().datahub_data_platform_name} function detail {data_access_func_detail}"
         )
@@ -527,7 +534,14 @@ class DefaultThreeStepDataAccessSources(AbstractTableFullNameCreator, ABC):
             f"{self.get_platform_pair().datahub_data_platform_name} full-table-name {full_table_name}"
         )
 
-        return [full_table_name]
+        return [
+            DataPlatformTable(
+                name=table_name,
+                full_name=full_table_name,
+                datasource_server="dummy",
+                data_platform_pair=self.get_platform_pair(),
+            )
+        ]
 
 
 class SnowflakeTableFullNameCreator(DefaultThreeStepDataAccessSources):
@@ -540,14 +554,14 @@ class GoogleBigQueryTableFullNameCreator(DefaultThreeStepDataAccessSources):
         return SupportedDataPlatform.GOOGLE_BIGQUERY.value
 
 
-class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
+class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.SNOWFLAKE.value
 
-    def get_full_table_names(
+    def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[str]:
-        full_table_names: List[str] = []
+    ) -> List[DataPlatformTable]:
+        dataplatform_tables: List[DataPlatformTable] = []
         t1: Tree = cast(
             Tree, tree_function.first_arg_list_func(data_access_func_detail.arg_list)
         )
@@ -558,7 +572,7 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
                 f"Expecting 2 argument, actual argument count is {len(flat_argument_list)}"
             )
             logger.debug(f"Flat argument list = {flat_argument_list}")
-            return full_table_names
+            return dataplatform_tables
 
         data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(flat_argument_list[0])
@@ -571,7 +585,7 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
                 f"Provided native-query data-platform = {data_access_tokens[0]}"
             )
             logger.debug("Only Snowflake is supported in NativeQuery")
-            return full_table_names
+            return dataplatform_tables
 
         # First argument is the query
         sql_query: str = tree_function.strip_char_from_list(
@@ -590,9 +604,16 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
                 )
                 continue
 
-            full_table_names.append(table)
+            dataplatform_tables.append(
+                DataPlatformTable(
+                    name=table.split(".")[2],
+                    full_name=table,
+                    datasource_server="Dummy",
+                    data_platform_pair=self.get_platform_pair(),
+                )
+            )
 
-        return full_table_names
+        return dataplatform_tables
 
 
 class FunctionName(Enum):
@@ -611,7 +632,7 @@ class SupportedResolver(Enum):
     )
 
     ORACLE = (
-        OracleTableFullNameCreator,
+        OracleDataPlatformTableCreator,
         FunctionName.ORACLE_DATA_ACCESS,
     )
 
@@ -630,11 +651,11 @@ class SupportedResolver(Enum):
         FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS,
     )
     NATIVE_QUERY = (
-        NativeQueryTableFullNameCreator,
+        NativeQueryDataPlatformTableCreator,
         FunctionName.NATIVE_QUERY,
     )
 
-    def get_table_full_name_creator(self) -> Type[AbstractTableFullNameCreator]:
+    def get_table_full_name_creator(self) -> Type[AbstractDataPlatformTableCreator]:
         return self.value[0]
 
     def get_function_name(self) -> str:

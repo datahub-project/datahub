@@ -173,8 +173,8 @@ class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
-                    "with platform instance name used in ingestion"
-                    "recipe of other datahub sources.",
+        "with platform instance name used in ingestion"
+        "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
@@ -214,16 +214,19 @@ class PowerBiDashboardSourceConfig(
     ] = pydantic.Field(
         default_factory=default_for_dataset_type_mapping,
         description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
-                    "DataHub supported datasources."
-                    "You can configured platform instance for dataset lineage. "
-                    "See Quickstart Recipe for mapping",
+        "DataHub supported datasources."
+        "You can configured platform instance for dataset lineage. "
+        "See Quickstart Recipe for mapping",
     )
-    _dataset_type_mapping = pydantic_field_deprecated("dataset_type_mapping")
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-                    ":port is optional and only needed if your datasource server is running on non-standard port",
+        ":port is optional and only needed if your datasource server is running on non-standard port",
+    )
+    # deprecated warning
+    _dataset_type_mapping = pydantic_field_deprecated(
+        "dataset_type_mapping", "server_to_platform_instance"
     )
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
@@ -306,14 +309,28 @@ class PowerBiDashboardSourceConfig(
 
         if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
             logger.warning(
-                "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
+                "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as "
+                "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
             )
             values["workspace_id_pattern"] = AllowDenyPattern(
                 allow=[f"^{workspace_id}$"]
             )
         elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
             logger.warning(
-                "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern only."
+                "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, "
+                "please use workspace_id_pattern only."
             )
             values.pop("workspace_id")
+        return values
+
+    @root_validator(pre=True)
+    def raise_error_for_dataset_type_mapping(cls, values: Dict) -> Dict:
+        if (
+            values.get("dataset_type_mapping") is not None
+            and values.get("server_to_platform_instance") is not None
+        ):
+            raise ValueError(
+                "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
+            )
+
         return values

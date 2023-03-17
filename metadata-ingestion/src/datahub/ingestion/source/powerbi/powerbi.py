@@ -5,11 +5,10 @@
 #########################################################
 
 import logging
-from typing import Iterable, List, Optional, Tuple, Union, cast
+from typing import Iterable, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
-from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -30,8 +29,10 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
-from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import AbstractDataPlatformInstanceResolver, \
-    create_dataplatform_instance_resolver
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+    create_dataplatform_instance_resolver,
+)
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.sql_common_state import (
@@ -97,7 +98,7 @@ class Mapper:
         self,
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
-        dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver
+        dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ):
         self.__config = config
         self.__reporter = reporter
@@ -172,7 +173,11 @@ class Mapper:
                 )
                 continue
 
-            platform_detail: PlatformDetail = self.__dataplatform_instance_resolver.get_platform_instance(upstream_table)
+            platform_detail: PlatformDetail = (
+                self.__dataplatform_instance_resolver.get_platform_instance(
+                    upstream_table
+                )
+            )
             upstream_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=upstream_table.data_platform_pair.datahub_data_platform_name,
                 platform_instance=platform_detail.platform_instance,
@@ -887,7 +892,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         super(PowerBiDashboardSource, self).__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
-        self.dataplatform_instance_resolver = create_dataplatform_instance_resolver(self.source_config)
+        self.dataplatform_instance_resolver = create_dataplatform_instance_resolver(
+            self.source_config
+        )
         try:
             self.powerbi_client = PowerBiAPI(self.source_config)
         except Exception as e:

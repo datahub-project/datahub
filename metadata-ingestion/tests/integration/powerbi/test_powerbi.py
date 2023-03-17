@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 
+import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -1030,3 +1031,45 @@ def test_dataset_type_mapping_should_set_to_all(
         ] = item.value.datahub_data_platform_name
 
     assert default_dataset_type_mapping == source_config.dataset_type_mapping
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_dataset_type_mapping_error(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Here we don't need to run the pipeline. We need to verify if both dataset_type_mapping and server_to_platform_instance
+    are set then value error should get raised
+    """
+    register_mock_api(request_mock=requests_mock)
+
+    try:
+        Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_source_config(),
+                        "server_to_platform_instance": {
+                            "localhost": {
+                                "platform_instance": "test",
+                            }
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
+                    },
+                },
+            }
+        )
+    except Exception as e:
+        assert (
+            "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
+            in str(e)
+        )
