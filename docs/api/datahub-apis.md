@@ -53,3 +53,28 @@ The Rest.li API represents the underlying persistence layer, and exposes the raw
     href="/docs/api/restli/restli-overview">
 Get started with our Rest.li API
 </a>
+
+## Datahub API Comparison
+DataHub supports three APIs : GraphQL, SDKs and OpenAPI. Each method has different usage and format. 
+Here's an overview of what each API can do. 
+
+
+> Last Updated : Mar 15 2023
+
+| Feature                            | GraphQL                                                      | SDK                                                          | OpenAPI |
+|------------------------------------|--------------------------------------------------------------|--------------------------------------------------------------|---------|
+| Create a dataset                                       | 🚫                                                             | ✅[[Guide]](/docs/api/tutorials/creating-datasets.md)         | ✅       |
+| Create a tag                                           | ✅[[Guide]](/docs/api/tutorials/creating-tags.md)             | ✅ [[Guide]](/docs/api/tutorials/creating-tags.md)            | ✅   |
+| Create a glossary term                                 | ✅ [[Guide]](/docs/api/tutorials/creating-terms.md)           | ✅ [[Guide]](/docs/api/tutorials/creating-terms.md)           | ✅   |
+| Add Tags to a column of a dataset  | ✅  [[Guide]](/docs/api/tutorials/adding-tags.md)             | ✅ [[Guide]](/docs/api/tutorials/adding-tags.md)              | ✅       |
+| Add Terms to a column of a dataset | ✅  [[Guide]](/docs/api/tutorials/adding-terms.md)            | ✅ [[Guide]](/docs/api/tutorials/adding-terms.md)             | ✅       |
+| Add Terms to a column of a dataset | ✅  [[Guide]](/docs/api/tutorials/adding-ownerships.md)       | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)        | ✅       |
+| Add Tags to a dataset              | ✅  [[Guide]](/docs/api/tutorials/adding-tags.md)             | ✅                                                            | ✅       |
+| Add Terms to a dataset             | ✅  [[Guide]](/docs/api/tutorials/adding-terms.md)            | ✅                                                            | ✅       |
+| Add Owner to a dataset             | ✅  [[Guide]](/docs/api/tutorials/adding-ownerships.md)       | ✅                                                            | ✅       |
+| Add lineage                                            | ✅[[Guide]](/docs/api/tutorials/adding-lineage.md)            | ✅[[Guide]]([[Guide]](/docs/api/tutorials/adding-lineage.md)) | ✅       |
+| Add column level(Fine Grained) lineage                 | 🚫                                                             | ✅                                                            | ✅   |
+| Add documentation(Description) to a column of a dataset | ✅[[Guide]](/docs/api/tutorials/adding-column-description.md) | ✅[[Guide]](/docs/api/tutorials/adding-column-description.md) | ✅   |
+| Add documentation(Description) to a dataset            | 🚫                                                             | ✅[[Guide]](/docs/api/tutorials/adding-dataset-description.md) | ✅   |
+| Delete a dataset                                       | 🚫                                                             | ✅                                                            | ✅       |
+| Search a dataset                                       | ✅                                                            | ✅                                                            | ✅       |
