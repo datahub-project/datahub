@@ -61,14 +61,13 @@ class BigQueryV2Report(ProfilingSqlReport):
     invalid_partition_ids: Dict[str, str] = field(default_factory=TopKDict)
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
-    num_usage_workunits_emitted: Optional[int] = None
-    query_log_delay: Optional[int] = None
-    total_query_log_entries: Optional[int] = None
-    num_read_events: Optional[int] = None
-    num_query_events: Optional[int] = None
-    num_filtered_read_events: Optional[int] = None
-    num_filtered_query_events: Optional[int] = None
-    num_operational_stats_workunits_emitted: Optional[int] = None
+    num_usage_workunits_emitted: int = 0
+    total_query_log_entries: int = 0
+    num_read_events: int = 0
+    num_query_events: int = 0
+    num_filtered_read_events: int = 0
+    num_filtered_query_events: int = 0
+    num_operational_stats_workunits_emitted: int = 0
     read_reasons_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )

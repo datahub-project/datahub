@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    query_log_delay: Optional[PositiveInt] = Field(
-        default=None,
-        description="To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least query_log_delay additional events to be processed before attempting to resolve BigQuery job information from the logs. If query_log_delay is None, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage.",
-    )
-
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
