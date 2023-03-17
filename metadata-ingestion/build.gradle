@@ -12,7 +12,8 @@ if (!project.hasProperty("extra_pip_requirements")) {
 }
 
 task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
+  commandLine python_executable, '-c',
+    'import sys; assert (3, 11) > sys.version_info >= (3, 7), f"Python version {sys.version_info[:2]} not allowed"'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
@@ -22,10 +23,22 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
 }
 
 task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
+  def sentinel_file = ".preflight_sentinel"
+  outputs.file(sentinel_file)
   commandLine "scripts/datahub_preflight.sh"
+  commandLine 'bash', '-c', "touch ${sentinel_file}"
 }
 
-task installPackage(type: Exec, dependsOn: runPreFlightScript) {
+task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
+  def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e ."
+  commandLine 'bash', '-c', "touch ${sentinel_file}"
+}
+
+task installPackage(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e . ${extra_pip_requirements}"
@@ -40,25 +53,27 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
 task install(dependsOn: [installPackage, codegen])
 
 task installDev(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_dev_sentinel")
+  outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
     "./scripts/install-sqlalchemy-stubs.sh && " +
-    "touch ${venv_name}/.build_install_dev_sentinel"
+    "touch ${sentinel_file}"
 }
 
 task installAll(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_all_sentinel"
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_all_sentinel")
+  outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[all] ${extra_pip_requirements} && " +
     "./scripts/install-sqlalchemy-stubs.sh && " +
-    "touch ${venv_name}/.build_install_all_sentinel"
+    "touch ${sentinel_file}"
 }
 
 
@@ -111,11 +126,12 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
 }
 
 task installDevTest(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_dev_test_sentinel")
+  outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "${venv_name}/bin/pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${venv_name}/.build_install_dev_test_sentinel"
+    "${venv_name}/bin/pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${sentinel_file}"
 }
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'
@@ -176,6 +192,7 @@ clean {
   delete 'generated'
   delete '.mypy_cache'
   delete '.pytest_cache'
+  delete '.preflight_sentinel'
 }
 clean.dependsOn cleanPythonCache
 

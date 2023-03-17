@@ -11,6 +11,9 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeCloudProvider,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
+    SnowflakeObjectAccessEntry,
+)
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
 
@@ -546,3 +549,16 @@ def test_unknown_cloud_region_from_snowflake_region_id():
             "somecloud_someregion"
         )
     assert "Unknown snowflake region" in str(e)
+
+
+def test_snowflake_object_access_entry_missing_object_id():
+    SnowflakeObjectAccessEntry(
+        **{
+            "columns": [
+                {"columnName": "A"},
+                {"columnName": "B"},
+            ],
+            "objectDomain": "View",
+            "objectName": "SOME.OBJECT.NAME",
+        }
+    )
