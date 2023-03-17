@@ -313,21 +313,27 @@ class BigQueryUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         try:
             with BigQueryUsageState(self.config) as usage_state:
-                yield from self._run(projects, table_refs, usage_state)
+                self._ingest_events(projects, table_refs, usage_state)
+
+                if self.config.usage.include_operational_stats:
+                    yield from self._generate_operational_workunits(usage_state)
+
+                yield from self._generate_usage_workunits(usage_state)
         except Exception:
             logger.error(f"Error processing usage", exc_info=True)
 
-    def _run(
+    def _ingest_events(
         self,
         projects: Iterable[str],
         table_refs: Set[str],
         usage_state: BigQueryUsageState,
-    ) -> Iterable[MetadataWorkUnit]:
+    ):
+        """Read log and store events in usage_state."""
         num_aggregated = 0
         for project in projects:
-            for audit_event in self.get_usage_events(project):
+            for audit_event in self._get_usage_events(project):
                 try:
-                    num_aggregated += self.store_usage_event(
+                    num_aggregated += self._store_usage_event(
                         audit_event, usage_state, table_refs
                     )
                 except Exception:
@@ -336,6 +342,20 @@ class BigQueryUsageExtractor:
                     )
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
+    def _generate_operational_workunits(self, usage_state: BigQueryUsageState):
+        for audit_event in usage_state.standalone_events():
+            try:
+                operational_wu = self._create_operation_workunit(audit_event)
+                if operational_wu:
+                    yield operational_wu
+                    self.report.num_operational_stats_workunits_emitted += 1
+            except Exception:
+                logger.warning(
+                    f"Unable to generate operation workunit for event {audit_event}",
+                    exc_info=True,
+                )
+
+    def _generate_usage_workunits(self, usage_state: BigQueryUsageState):
         for timestamp, resource in usage_state.statistics_buckets():
             try:
                 resource_ref = BigQueryTableRef.from_string_name(resource)
@@ -365,20 +385,7 @@ class BigQueryUsageExtractor:
                     exc_info=True,
                 )
 
-        if self.config.usage.include_operational_stats:
-            for audit_event in usage_state.standalone_events():
-                try:
-                    operational_wu = self._create_operation_workunit(audit_event)
-                    if operational_wu:
-                        yield operational_wu
-                        self.report.num_operational_stats_workunits_emitted += 1
-                except Exception:
-                    logger.warning(
-                        f"Unable to generate operation workunit for event {audit_event}",
-                        exc_info=True,
-                    )
-
-    def get_usage_events(self, project_id: str) -> Iterable[AuditEvent]:
+    def _get_usage_events(self, project_id: str) -> Iterable[AuditEvent]:
         with PerfTimer() as timer:
             try:
                 yield from self._get_parsed_bigquery_log_events(project_id)
@@ -394,7 +401,7 @@ class BigQueryUsageExtractor:
                 timer.elapsed_seconds(), 2
             )
 
-    def store_usage_event(
+    def _store_usage_event(
         self,
         event: AuditEvent,
         usage_state: BigQueryUsageState,
