@@ -141,4 +141,4 @@ def save_quickstart_config(
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         yaml.dump(config.dict(), f)
-    click.echo(f"Saved quickstart config to {path}.")
+    logger.info(f"Saved quickstart config to {path}.")
