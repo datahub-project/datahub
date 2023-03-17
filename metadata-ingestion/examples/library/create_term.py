@@ -1,4 +1,4 @@
-ng
+import logging
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
