@@ -1,13 +1,13 @@
-# Adding Tags
+# Adding Tags On Datasets/Columns
 
 ## Why Would You Add Tags? 
 Tags are informal, loosely controlled labels that help in search & discovery. They can be added to datasets, dataset schemas, or containers, for an easy way to label or categorize entities – without having to associate them to a broader business glossary or vocabulary.
 
-Tags can help you in:
-- Querying: Tagging a dataset with a phrase that users can use to query the same dataset
-- Mapping assets to a category or group of your choice
-
 Fore more information about tags, refer to [About DataHub Tags](/docs/tags.md).
+
+### Goal Of This Guide
+This guide will show you how to add a `CustomerAccount` tag to the `user_name` column of a dataset called `fct_users_created`.
+Additionally, we will cover how to add a tag to the dataset itself.
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
@@ -16,7 +16,9 @@ For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/to
 :::note
 Before adding tags, you need to ensure the targeted dataset and the tag are already present in your datahub. 
 If you attempt to manipulate entities that do not exist, your operation will fail. 
-In this guide, we will be using data from a sample ingestion.
+In this guide, we will be using data from a sample ingestion. 
+If you want to know how to create tags using APIs & SDKs, please refer to [Creating Tags](/docs/tools/tutorials/creating-tags.md) and [Creating Datasets](/docs/tools/tutorials/creating-datasets.md).
+.
 :::
 
 
@@ -30,7 +32,7 @@ For more information about the differences between these endpoints, please refer
 GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
-```python
+```json
 mutation addTags {
     addTags(
       input: { 
@@ -40,6 +42,20 @@ mutation addTags {
         subResource:"user_name"})
 }
 ```
+
+Note that you can also add a tag on a dataset if you don't specify `subResourceType` and `subResource`. 
+```json
+mutation addTags {
+    addTags(
+      input: { 
+        tagUrns: ["urn:li:tag:Legacy"], 
+        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+      }
+    )
+}
+```
+
+
 If you see the following response, the operation was successful:
 ```python
 {
@@ -49,6 +65,7 @@ If you see the following response, the operation was successful:
   "extensions": {}
 }
 ```
+
 
 ### CURL
 
