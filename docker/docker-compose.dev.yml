@@ -79,3 +79,4 @@ services:
     volumes:
       - ../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
       - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
