@@ -1,0 +1,27 @@
+fragment scrollResults on ScrollResults {
+    nextScrollId
+    count
+    total
+    searchResults {
+        entity {
+            ...searchResultFields
+        }
+        matchedFields {
+            name
+            value
+        }
+        insights {
+            text
+            icon
+        }
+    }
+    facets {
+        ...facetFields
+    }
+}
+
+query getScrollResultsForMultiple($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        ...scrollResults
+    }
+}
