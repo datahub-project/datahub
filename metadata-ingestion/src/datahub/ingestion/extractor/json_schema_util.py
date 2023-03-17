@@ -174,6 +174,8 @@ class FieldPath:
 
 
 class JsonSchemaTranslator:
+    _INJECT_DEFAULTS_INTO_DESCRIPTION = True
+
     field_type_mapping: Dict[str, Type] = {
         "null": NullTypeClass,
         "bool": BooleanTypeClass,
@@ -204,7 +206,15 @@ class JsonSchemaTranslator:
         specific_type: Optional[str] = None,
     ) -> Iterable[SchemaField]:
         type_override = field_path._get_type_override()
-        if datahub_field_type in [BooleanTypeClass, NumberTypeClass, StringTypeClass]:
+        native_type = schema.get("type") or ""
+        if "format" in schema:
+            native_type = f"{native_type}({schema['format']})"
+        if datahub_field_type in [
+            BooleanTypeClass,
+            NumberTypeClass,
+            StringTypeClass,
+            NullTypeClass,
+        ]:
             discriminated_type = (
                 specific_type
                 or JsonSchemaTranslator._get_discriminated_type_from_schema(schema)
@@ -217,7 +227,7 @@ class JsonSchemaTranslator:
                 description=JsonSchemaTranslator._get_description_from_any_schema(
                     schema
                 ),
-                nativeDataType=schema.get("type") or "",
+                nativeDataType=native_type,
                 nullable=not required,
                 jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(schema),
                 isPartOfKey=field_path.is_key_schema,
@@ -246,7 +256,17 @@ class JsonSchemaTranslator:
         elif "enum" in schema:
             return "enum"
         elif "type" in schema:
-            if schema["type"] != "object":
+            if isinstance(schema["type"], list):
+                # we have an array of types
+                # if only one type, short-circuit
+                if len(schema["type"]) == 1:
+                    return schema["type"][0]
+                # if this is a union with null, short-circuit
+                elif len(schema["type"]) == 2 and "null" in schema["type"]:
+                    return [t for t in schema["type"] if t != "null"][0]
+                else:
+                    return "union"
+            elif schema["type"] != "object":
                 return schema["type"]
             elif "additionalProperties" in schema and isinstance(
                 schema["additionalProperties"], dict
@@ -263,6 +283,8 @@ class JsonSchemaTranslator:
             return schema["javaType"].split(".")[-1]
         if generic_type == "object" and "title" in schema:
             return schema["title"]
+        if "format" in schema:
+            return f"{generic_type}({schema['format']})"
 
         return generic_type
 
@@ -272,9 +294,10 @@ class JsonSchemaTranslator:
         description = (
             (schema.get("description") or "") if "description" in schema else ""
         )
-        default = schema.get("default")
-        if default is not None:
-            description = f"{description}\nField default value: {default}"
+        if JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION:
+            default = schema.get("default")
+            if default is not None:
+                description = f"{description}\nField default value: {default}"
         return description
 
     @staticmethod
@@ -396,6 +419,9 @@ class JsonSchemaTranslator:
                 "anyOf": schema.get("anyOf"),
                 "allOf": schema.get("allOf"),
             }
+            # unions can also exist if the "type" field is of type array
+            if "type" in schema and isinstance(schema["type"], list):
+                union_category_map["anyOf"] = [{"type": t} for t in schema["type"]]
             (union_category, union_category_schema) = [
                 (k, v) for k, v in union_category_map.items() if v
             ][0]
@@ -453,6 +479,7 @@ class JsonSchemaTranslator:
         BytesTypeClass: _field_from_primitive,
         NumberTypeClass: _field_from_primitive,
         MapTypeClass: _field_from_complex_type,
+        NullTypeClass: _field_from_primitive,
     }
 
     @classmethod

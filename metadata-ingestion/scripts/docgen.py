@@ -6,10 +6,10 @@ import re
 import sys
 import textwrap
 from importlib.metadata import metadata, requires
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import click
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 
 from datahub.configuration.common import ConfigModel
@@ -19,12 +19,11 @@ from datahub.ingestion.api.decorators import (
     SupportStatus,
 )
 from datahub.ingestion.source.source_registry import source_registry
+from datahub.metadata.schema_classes import SchemaFieldClass
 
 logger = logging.getLogger(__name__)
 
-from datahub.metadata.schema_classes import SchemaFieldClass
-@dataclass
-class FieldRow:
+class FieldRow(BaseModel):
     path: str
     parent: Optional[str]
     type_name: str
@@ -32,10 +31,15 @@ class FieldRow:
     default: str
     description: str
     inner_fields: List["FieldRow"] = Field(default_factory=list)
+    discriminated_type: Optional[str] = None
 
     @staticmethod
     def field_path_to_components(field_path: str) -> List[str]:
-        return re.sub(r"\[[\w.]*[=]*[\w.]*\][\.]*","",field_path).split(".")
+        '''
+        Inverts the field_path v2 format to get the canonical field path
+        [version=2.0].[type=x].foo.[type=string(format=uri)].bar => ["foo","bar"]
+        '''
+        return re.sub(r"\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*","",field_path).split(".")
 
     @classmethod
     def from_schema_field(cls, schema_field: SchemaFieldClass) -> "FieldRow":
@@ -43,52 +47,52 @@ class FieldRow:
         parent = path_components[-2] if len(path_components) == 2 else None
         json_props = json.loads(schema_field.jsonProps) if schema_field.jsonProps else {}
         default_value = str(json_props.get("default")) or ""
-        if not isinstance(default_value, str):
-            breakpoint()
-        return FieldRow(path=".".join(path_components), parent=parent, type_name=str(schema_field.nativeDataType), required=not schema_field.nullable, default=default_value, description=schema_field.description, inner_fields=[])
+        return FieldRow(path=".".join(path_components), parent=parent, type_name=str(schema_field.nativeDataType), required=not schema_field.nullable, default=default_value, description=schema_field.description, inner_fields=[]
+                        ,discriminated_type=schema_field.nativeDataType)
 
     def get_checkbox(self) -> str:
         if self.required:
             if not self.parent:  # None and empty string both count
-                return "✅"
+                return "[✅]"
             else:
-                return f"❓ (required if {self.parent} is set)"
+                return f"[❓ (required if {self.parent} is set)]"
         else:
             return ""
 
     def to_md_line(self) -> str:
-        return (
-            f"| {self.path} | {self.get_checkbox()} | {self.type_name} | {self.description} | {self.default} |\n"
-            + "".join([inner_field.to_md_line() for inner_field in self.inner_fields])
-        )
+        if self.inner_fields:
+            if len(self.inner_fields) ==1:
+                type_name = self.inner_fields[0].type_name or self.type_name
+            else:
+                type_name = "UnionType (See notes for variants)"
+        else:
+            type_name = self.type_name
+
+        description = self.description.replace("\n", " ") # descriptions with newlines in them break markdown rendering
+
+        if self.inner_fields and len(self.inner_fields) > 1:
+            # to deal with unions that have essentially the same simple field path, we include the supported types in the Notes section
+            # Once we move to a better layout, we can expand this section out
+            notes = "One of " + ",".join([x.type_name for x in self.inner_fields if x.discriminated_type])
+        else:
+            notes = " "
+
+        md_line = f"| {self.path} {self.get_checkbox()} | {type_name} | {description} | {self.default} | {notes} |\n"
+        return md_line
 
 
 class FieldHeader(FieldRow):
     def to_md_line(self) -> str:
         return "\n".join(
             [
-                "| Field | Required | Type | Description | Default |",
-                "| ---   | ---      | ---  | --- | -- |",
+                "| Field [Required] | Type | Description | Default | Notes |",
+                "| ---   | ---  | --- | -- | -- |",
                 "",
             ]
         )
 
     def __init__(self):
         pass
-
-
-def get_definition_dict_from_definition(
-    definitions_dict: Dict[str, Any], definition_name: str
-) -> Dict[str, Any]:
-    import re
-
-    m = re.search("#/definitions/(.*)$", definition_name)
-    if m:
-        definition_term: str = m.group(1)
-        definition_dict = definitions_dict[definition_term]
-        return definition_dict
-
-    raise Exception("Failed to find a definition for " + definition_name)
 
 
 def get_prefixed_name(field_prefix: Optional[str], field_name: Optional[str]) -> str:
@@ -103,267 +107,110 @@ def get_prefixed_name(field_prefix: Optional[str], field_name: Optional[str]) ->
         else field_prefix
     )
 
-def new_gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
-    from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-    schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
-    result: List[str] = [FieldHeader().to_md_line()]
-    for field in schema_fields:
-        row: FieldRow = FieldRow.from_schema_field(field)
-        result.append(row.to_md_line())
-
-    return result
-
-
-
-
 
 def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
-    table_md_str: List[FieldRow] = []
-    # table_md_str = [
-    #    "<table>\n<tr>\n<td>\nField\n</td>Type<td>Default</td><td>Description</td></tr>\n"
-    # ]
-    gen_md_table(schema_dict, schema_dict.get("definitions", {}), md_str=table_md_str)
-    # table_md_str.append("\n</table>\n")
+    def custom_comparator(path: str) -> int:
+        '''
+        Projects a string onto a separate space
+        Low_prio string will start with Z else start with A
+        Number of field paths will add the second set of letters: 00 - 99
+        
+        '''
+        opt1 = path
+        prio_value = priority_value(opt1)
+        projection = f"{prio_value}"
+        projection = f"{projection}{opt1}"
+        return projection
 
-    table_md_str = [field for field in table_md_str if len(field.inner_fields) == 0] + [
-        field for field in table_md_str if len(field.inner_fields) > 0
-    ]
+    class FieldTree:
+        '''
+        A helper class that re-constructs the tree hierarchy of schema fields
+        to help sort fields by importance while keeping nesting intact
+        '''
+        def __init__(self):
+            self.field: FieldRow = None
+            self.fields: Dict[str, "FieldTree"] = {}
 
-    # table_md_str.sort(key=lambda x: "z" if len(x.inner_fields) else "" + x.path)
-    return (
-        [FieldHeader().to_md_line()]
-        + [row.to_md_line() for row in table_md_str]
-        + ["\n"]
-    )
+        def __init__(self, field: FieldRow):
+            self.field = field
+            self.fields = {}
 
-
-def get_enum_description(
-    authored_description: Optional[str], enum_symbols: List[str]
-) -> str:
-    description = authored_description or ""
-    missed_symbols = [symbol for symbol in enum_symbols if symbol not in description]
-    if missed_symbols:
-        description = (
-            (description + "." if description else "")
-            + " Allowed symbols are "
-            + ", ".join(enum_symbols)
-        )
-
-    return description
-
-
-def gen_md_table(
-    field_dict: Dict[str, Any],
-    definitions_dict: Dict[str, Any],
-    md_str: List[FieldRow],
-    field_prefix: str = None,
-) -> None:
-    if "enum" in field_dict:
-        md_str.append(
-            FieldRow(
-                path=get_prefixed_name(field_prefix, None),
-                parent=field_prefix,
-                type_name="Enum",
-                required=field_dict.get("required") or False,
-                description=f"one of {','.join(field_dict['enum'])}",
-                default=str(field_dict.get("default", "None")),
-            )
-        )
-
-    elif "properties" in field_dict:
-        for field_name, value in field_dict["properties"].items():
-            required_field: bool = field_name in field_dict.get("required", [])
-
-            if "allOf" in value:
-                for sub_schema in value["allOf"]:
-                    reference = sub_schema["$ref"]
-                    def_dict = get_definition_dict_from_definition(
-                        definitions_dict, reference
-                    )
-                    # special case for enum reference, we don't split up the rows
-                    if "enum" in def_dict:
-                        row = FieldRow(
-                            path=get_prefixed_name(field_prefix, field_name),
-                            parent=field_prefix,
-                            type_name=f"enum({reference.split('/')[-1]})",
-                            description=get_enum_description(
-                                value.get("description"), def_dict["enum"]
-                            ),
-                            default=str(value.get("default", "")),
-                            required=required_field,
-                        )
-                        md_str.append(row)
-                    else:
-                        # object reference
-                        row = FieldRow(
-                            path=get_prefixed_name(field_prefix, field_name),
-                            parent=field_prefix,
-                            type_name=f"{reference.split('/')[-1]} (see below for fields)",
-                            description=value.get("description") or "",
-                            default=str(value.get("default", "")),
-                            required=required_field,
-                        )
-                        md_str.append(row)
-                        # md_str.append(
-                        #    f"| {get_prefixed_name(field_prefix, field_name)} | {reference.split('/')[-1]} (see below for fields) | {value.get('description') or ''} | {value.get('default') or ''} | \n"
-                        # )
-                        gen_md_table(
-                            def_dict,
-                            definitions_dict,
-                            field_prefix=get_prefixed_name(field_prefix, field_name),
-                            md_str=row.inner_fields,
-                        )
-            elif "type" in value and value["type"] == "enum":
-                # enum
-                enum_definition = value["allOf"][0]["$ref"]
-                def_dict = get_definition_dict_from_definition(
-                    definitions_dict, enum_definition
-                )
-                print(value)
-                print(def_dict)
-                md_str.append(
-                    FieldRow(
-                        path=get_prefixed_name(field_prefix, field_name),
-                        parent=field_prefix,
-                        type_name="Enum",
-                        description=f"one of {','.join(def_dict['enum'])}",
-                        required=required_field,
-                        default=str(value.get("default", "None")),
-                    )
-                    #                    f"| {get_prefixed_name(field_prefix, field_name)} | Enum | one of {','.join(def_dict['enum'])} | {def_dict['type']} | \n"
-                )
-
-            elif "type" in value and value["type"] == "object":
-                # struct
-                if "$ref" not in value:
-                    if (
-                        "additionalProperties" in value
-                        and "$ref" in value["additionalProperties"]
-                    ):
-                        value_ref = value["additionalProperties"]["$ref"]
-                        def_dict = get_definition_dict_from_definition(
-                            definitions_dict, value_ref
-                        )
-
-                        row = FieldRow(
-                            path=get_prefixed_name(field_prefix, field_name),
-                            parent=field_prefix,
-                            type_name=f"Dict[str, {value_ref.split('/')[-1]}]",
-                            description=value.get("description") or "",
-                            default=str(value.get("default", "")),
-                            required=required_field,
-                        )
-                        md_str.append(row)
-                        gen_md_table(
-                            def_dict,
-                            definitions_dict,
-                            field_prefix=get_prefixed_name(
-                                field_prefix, f"{field_name}.`key`"
-                            ),
-                            md_str=row.inner_fields,
-                        )
-                    else:
-                        value_type = value.get("additionalProperties", {}).get("type")
-                        md_str.append(
-                            FieldRow(
-                                path=get_prefixed_name(field_prefix, field_name),
-                                parent=field_prefix,
-                                type_name=f"Dict[str,{value_type}]"
-                                if value_type
-                                else "Dict",
-                                description=value.get("description") or "",
-                                default=str(value.get("default", "")),
-                                required=required_field,
-                            )
-                        )
-                else:
-                    object_definition = value["$ref"]
-                    row = FieldRow(
-                        path=get_prefixed_name(field_prefix, field_name),
-                        parent=field_prefix,
-                        type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
-                        description=value.get("description") or "",
-                        default=str(value.get("default", "")),
-                        required=required_field,
-                    )
-
-                    md_str.append(
-                        row
-                        # f"| {get_prefixed_name(field_prefix, field_name)} | {object_definition.split('/')[-1]} (see below for fields) | {value.get('description') or ''} | {value.get('default') or ''} | \n"
-                    )
-                    def_dict = get_definition_dict_from_definition(
-                        definitions_dict, object_definition
-                    )
-                    gen_md_table(
-                        def_dict,
-                        definitions_dict,
-                        field_prefix=get_prefixed_name(field_prefix, field_name),
-                        md_str=row.inner_fields,
-                    )
-            elif "type" in value and value["type"] == "array":
-                # array
-                items_type = value["items"].get("type", "object")
-                md_str.append(
-                    FieldRow(
-                        path=get_prefixed_name(field_prefix, field_name),
-                        parent=field_prefix,
-                        type_name=f"Array of {items_type}",
-                        description=value.get("description") or "",
-                        default=str(value.get("default", "None")),
-                        required=required_field,
-                    )
-                    #                    f"| {get_prefixed_name(field_prefix, field_name)} | Array of {items_type} | {value.get('description') or ''} | {value.get('default')} |  \n"
-                )
-                # TODO: Array of structs
-            elif "type" in value:
-                md_str.append(
-                    FieldRow(
-                        path=get_prefixed_name(field_prefix, field_name),
-                        parent=field_prefix,
-                        type_name=value["type"],
-                        description=value.get("description") or "",
-                        default=str(value.get("default", "None")),
-                        required=required_field,
-                    )
-                    # f"| {get_prefixed_name(field_prefix, field_name)} | {value['type']} | {value.get('description') or ''} | {value.get('default')} | \n"
-                )
-            elif "$ref" in value:
-                object_definition = value["$ref"]
-                def_dict = get_definition_dict_from_definition(
-                    definitions_dict, object_definition
-                )
-                row = FieldRow(
-                    path=get_prefixed_name(field_prefix, field_name),
-                    parent=field_prefix,
-                    type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
-                    description=value.get("description") or "",
-                    default=str(value.get("default", "")),
-                    required=required_field,
-                )
-
-                md_str.append(
-                    row
-                    #    f"| {get_prefixed_name(field_prefix, field_name)} | {object_definition.split('/')[-1]} (see below for fields) | {value.get('description') or ''} | {value.get('default') or ''} | \n"
-                )
-                gen_md_table(
-                    def_dict,
-                    definitions_dict,
-                    field_prefix=get_prefixed_name(field_prefix, field_name),
-                    md_str=row.inner_fields,
-                )
+        def add_field(self, row: FieldRow, path: Optional[str] = None):
+            if self.field and self.field.path == row.path:
+                # we have an incoming field with the same path as us, this is probably a union variant
+                # attach to existing field
+                self.field.inner_fields.append(row)
             else:
-                # print(md_str, field_prefix, field_name, value)
-                md_str.append(
-                    FieldRow(
-                        path=get_prefixed_name(field_prefix, field_name),
-                        parent=field_prefix,
-                        type_name="Generic dict",
-                        description=value.get("description", ""),
-                        default=str(value.get("default", "None")),
-                        required=required_field,
-                    )
-                    # f"| {get_prefixed_name(field_prefix, field_name)} | Any dict | {value.get('description') or ''} | {value.get('default')} |\n"
-                )
+                path = path if path is not None else row.path
+                top_level_field = path.split(".")[0]
+                if top_level_field in self.fields:
+                    self.fields[top_level_field].add_field(row, ".".join(path.split(".")[1:]))
+                else:
+                    self.fields[top_level_field] = FieldTree(field=row)
+
+        def sort(self):
+            # Required fields before optionals
+            required_fields = {k: v for k, v in self.fields.items() if v.field.required}
+            optional_fields = {k: v for k, v in self.fields.items() if not v.field.required}
+
+            self.sorted_fields = []
+            for field_map in [required_fields, optional_fields]:
+                # Top-level fields before fields with nesting
+                self.sorted_fields.extend(sorted([f for f,val in field_map.items() if val.fields == {}], key=custom_comparator))
+                self.sorted_fields.extend(sorted([f for f,val in field_map.items() if val.fields != {}], key=custom_comparator))
+                
+            for field_tree in self.fields.values():
+                field_tree.sort()
+
+        def get_fields(self) -> Iterable[FieldRow]:
+            if self.field:
+                yield self.field
+            for key in self.sorted_fields:
+                yield from self.fields[key].get_fields()
+
+
+    def priority_value(path: str) -> Tuple[bool, str]:
+        # A map of low value tokens to their relative importance
+        low_value_token_map = {
+            "env": "X",
+            "profiling": "Y",
+            "stateful_ingestion": "Z"
+        }
+        tokens = path.split(".")
+        for low_value_token in low_value_token_map:
+            if low_value_token in tokens:
+                return low_value_token_map[low_value_token]
+
+        # everything else high-prio
+        return "A"
+    
+
+    from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
+    # we don't want default field values to be injected into the description of the field
+    JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = False
+    schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
+    result: List[str] = [FieldHeader().to_md_line()]    
+    # field_stack: List[FieldRow] = []
+    # for field in schema_fields:
+    #     row: FieldRow = FieldRow.from_schema_field(field)
+    #     if field_stack and field_stack[-1].path == row.path:
+    #         # if the simple paths look the same, these are union variants, combine into one row
+    #         field_stack[-1].inner_fields.append(row)
+    #     else:
+    #         field_stack.append(row)
+
+    field_tree = FieldTree(field=None)
+    for field in schema_fields:
+        row: FieldRow = FieldRow.from_schema_field(field)
+        field_tree.add_field(row)
+
+    # breakpoint()
+    field_tree.sort()
+    # breakpoint()
+
+    for row in field_tree.get_fields():
+        result.append(row.to_md_line())
+    return result
 
 
 def get_snippet(long_string: str, max_length: int = 100) -> str:
@@ -680,7 +527,7 @@ def generate(
                     source_config_class.schema_json(indent=2) or "",
                 )
 
-                table_md = new_gen_md_table_from_struct(source_config_class.schema())
+                table_md = gen_md_table_from_struct(source_config_class.schema())
                 create_or_update(
                     source_documentation,
                     [platform_id, "plugins", plugin_name, "source_doc"],

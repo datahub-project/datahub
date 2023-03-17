@@ -583,3 +583,57 @@ def test_ignore_exceptions():
         JsonSchemaTranslator.get_fields_from_schema(malformed_schema)
     )
     assert not fields
+
+
+SCHEMA_WITH_ARRAY_TYPE = {
+    "title": "Administrative-Unit",
+    "type": "object",
+    "properties": {
+        "Identifier": {"type": ["integer"]},
+        "ValidFrom": {"format": "date", "type": ["string"]},
+        "ValidTo": {"format": "date", "type": ["string", "null"]},
+        "Level": {"minimum": 1, "maximum": 3, "type": ["integer"]},
+        "Parent": {"type": ["integer", "null"]},
+        "Name_en": {"type": ["string", "null"]},
+        "Name_fr": {"type": ["string", "null"]},
+        "Name_de": {"type": ["string", "null"]},
+        "Name_it": {"type": ["string", "null"]},
+        "ABBREV_1_Text_en": {"type": ["string", "null"]},
+        "ABBREV_1_Text_fr": {"type": ["string", "null"]},
+        "ABBREV_1_Text_de": {"type": ["string", "null"]},
+        "ABBREV_1_Text_it": {"type": ["string", "null"]},
+        "ABBREV_1_Text": {"type": ["string", "null"]},
+        "CODE_OFS_1_Text_en": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text_fr": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text_de": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text_it": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text": {"type": ["integer", "null"]},
+    },
+}
+
+
+def test_array_handling():
+    schema = SCHEMA_WITH_ARRAY_TYPE
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=Administrative-Unit].[type=integer].Identifier",
+        "[version=2.0].[type=Administrative-Unit].[type=string(date)].ValidFrom",
+        "[version=2.0].[type=Administrative-Unit].[type=string(date)].ValidTo",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].Level",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].Parent",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_en",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_fr",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_de",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_it",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_en",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_fr",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_de",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_it",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_en",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_fr",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_de",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_it",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
