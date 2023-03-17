@@ -314,13 +314,15 @@ class QueryEvent:
         raw_ref_tables = job_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
-                BigQueryTableRef.from_spec_obj(spec) for spec in raw_ref_tables
+                BigQueryTableRef.from_spec_obj(spec).get_sanitized_table_ref()
+                for spec in raw_ref_tables
             ]
         # referencedViews
         raw_ref_views = job_stats.get("referencedViews")
         if raw_ref_views:
             query_event.referencedViews = [
-                BigQueryTableRef.from_spec_obj(spec) for spec in raw_ref_views
+                BigQueryTableRef.from_spec_obj(spec).get_sanitized_table_ref()
+                for spec in raw_ref_views
             ]
         # payload
         query_event.payload = entry.payload if debug_include_full_payloads else None

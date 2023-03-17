@@ -12,7 +12,6 @@ from typing import (
     Dict,
     Iterable,
     List,
-    MutableMapping,
     Optional,
     Set,
     Tuple,
@@ -44,17 +43,12 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,
 )
-from datahub.ingestion.source.usage.usage_common import (
-    GenericAggregatedDataset,
-    make_usage_workunit,
-)
+from datahub.ingestion.source.usage.usage_common import make_usage_workunit
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-AggregatedDataset = GenericAggregatedDataset[BigQueryTableRef]
 
 OPERATION_STATEMENT_TYPES = {
     "INSERT": OperationTypeClass.INSERT,
@@ -68,7 +62,6 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
-AggregatedInfo = MutableMapping[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
 
 
 @dataclass(frozen=True, order=True)
@@ -327,14 +320,14 @@ class BigQueryUsageExtractor:
 
                 yield from self._generate_usage_workunits(usage_state)
         except Exception:
-            logger.error(f"Error processing usage", exc_info=True)
+            logger.error("Error processing usage", exc_info=True)
 
     def _ingest_events(
         self,
         projects: Iterable[str],
         table_refs: Set[str],
         usage_state: BigQueryUsageState,
-    ):
+    ) -> None:
         """Read log and store events in usage_state."""
         num_aggregated = 0
         for project in projects:
@@ -349,7 +342,9 @@ class BigQueryUsageExtractor:
                     )
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
-    def _generate_operational_workunits(self, usage_state: BigQueryUsageState):
+    def _generate_operational_workunits(
+        self, usage_state: BigQueryUsageState
+    ) -> Iterable[MetadataWorkUnit]:
         for audit_event in usage_state.standalone_events():
             try:
                 operational_wu = self._create_operation_workunit(audit_event)
@@ -362,7 +357,9 @@ class BigQueryUsageExtractor:
                     exc_info=True,
                 )
 
-    def _generate_usage_workunits(self, usage_state: BigQueryUsageState):
+    def _generate_usage_workunits(
+        self, usage_state: BigQueryUsageState
+    ) -> Iterable[MetadataWorkUnit]:
         for timestamp, resource in usage_state.statistics_buckets():
             try:
                 resource_ref = BigQueryTableRef.from_string_name(resource)
@@ -597,9 +594,9 @@ class BigQueryUsageExtractor:
             and event.query_event
             and event.query_event.destinationTable
         ):
-            return event.query_event.destinationTable.get_sanitized_table_ref()
+            return event.query_event.destinationTable
         elif event.read_event:
-            return event.read_event.resource.get_sanitized_table_ref()
+            return event.read_event.resource
         else:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
@@ -679,9 +676,7 @@ class BigQueryUsageExtractor:
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
                 try:
-                    affected_datasets.append(
-                        table.get_sanitized_table_ref().to_urn(self.config.env)
-                    )
+                    affected_datasets.append(table.to_urn(self.config.env))
                 except Exception as e:
                     self.report.report_warning(
                         str(table),
