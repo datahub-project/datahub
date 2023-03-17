@@ -54,26 +54,10 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Calculate pip install plan
-        id: "packages_checksum"
-        run: |
-          cd metadata-ingestion
-          pip install pip -U # only 22.2 and above contains the --dry-run flag
-
-          # only the last line of the output is the packages that will be installed
-          pip install --dry-run -e .[dev]  ${{ matrix.extraPythonRequirement }} | tail -n 1 > /tmp/would_be_installed.txt
-          CHECKSUM=$(shasum /tmp/would_be_installed.txt | awk '{print $1}')
-          echo "packages_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
-      - name: print dependencies
-        id: print-dependency
-        run: cat /tmp/would_be_installed.txt
-      - uses: actions/cache@v3
-        id: cache-venv
-        with:
-          path: ./metadata-ingestion/venv/
-          key: ${{ runner.os }}-venv-${{ steps.packages_checksum.outputs.packages_checksum }}-${{ matrix.python-version }}
+      - name: Install package
+        run: ./gradlew :metadata-ingestion:installPackageOnly
       - name: Run metadata-ingestion tests (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }}
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }} -x :metadata-ingestion:installPackageOnly
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion/venv/bin/activate && pip freeze
