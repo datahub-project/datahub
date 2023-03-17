@@ -267,11 +267,11 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             yield row[0]
 
     def __iter__(self) -> Iterator[str]:
-        yield from self._iter_db(f"SELECT key FROM {self.tablename}")
-
         # Cache should be small, so safe list cast to avoid mutation during iteration
         for key in list(self._active_object_cache):
             yield key
+
+        yield from self._iter_db(f"SELECT key FROM {self.tablename}")
 
     def filtered_items(self, cond_expr: str) -> Iterator[Tuple[str, _VT]]:
         """
