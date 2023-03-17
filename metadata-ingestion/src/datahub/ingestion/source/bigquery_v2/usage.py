@@ -229,15 +229,18 @@ class BigQueryUsageState:
         """
         return self.read_events.sql_query_iterator(query)  # type: ignore
 
-    def query_count(self) -> int:
+    def query_count(self, timestamp: str, resource: str) -> int:
         query = f"""
         SELECT
           COUNT(q.query) count
         FROM
           {self.read_events.tablename} r
           LEFT JOIN {self.query_events.tablename} q ON r.name = q.key
+        WHERE r.timestamp = ? AND r.resource = ?
         """
-        return self.read_events.sql_query(query)[0][0]
+        return self.read_events.sql_query(
+            query, params=(timestamp, resource), refs=[self.query_events]
+        )[0][0]
 
     def query_freq(
         self, timestamp: str, resource: str, top_n: int
@@ -251,7 +254,7 @@ class BigQueryUsageState:
           LEFT JOIN {self.query_events.tablename} q ON r.name = q.key
         WHERE r.timestamp = ? AND r.resource = ?
         GROUP BY q.query
-        ORDER BY count DESC
+        ORDER BY count DESC, q.query
         LIMIT {top_n}
         """
         return self.read_events.sql_query(  # type: ignore
@@ -267,6 +270,7 @@ class BigQueryUsageState:
           {self.read_events.tablename} r
         WHERE r.timestamp = ? AND r.resource = ?
         GROUP BY r.user
+        ORDER BY count DESC, r.user
         """
         return self.read_events.sql_query(query, params=(timestamp, resource))  # type: ignore
 
@@ -279,11 +283,14 @@ class BigQueryUsageState:
           COUNT(r.key) count
         FROM
           {self.read_events.tablename} r
-          RIGHT JOIN {self.column_accesses.tablename} c ON r.key = c.read_event
+          INNER JOIN {self.column_accesses.tablename} c ON r.key = c.read_event
         WHERE r.timestamp = ? AND r.resource = ?
         GROUP BY c.field
+        ORDER BY count DESC, c.field
         """
-        return self.read_events.sql_query(query, params=(timestamp, resource))  # type: ignore
+        return self.read_events.sql_query(  # type: ignore
+            query, params=(timestamp, resource), refs=[self.column_accesses]
+        )
 
 
 class BigQueryUsageExtractor:
@@ -369,7 +376,7 @@ class BigQueryUsageExtractor:
                 yield make_usage_workunit(
                     bucket_start_time=datetime.fromisoformat(timestamp),
                     resource=resource_ref,
-                    query_count=usage_state.query_count(),
+                    query_count=usage_state.query_count(timestamp, resource),
                     query_freq=query_freq,
                     user_freq=usage_state.user_frequencies(timestamp, resource),
                     column_freq=usage_state.column_frequencies(timestamp, resource),
@@ -424,10 +431,7 @@ class BigQueryUsageExtractor:
             key = str(uuid.uuid4())
             usage_state.read_events[key] = event.read_event
             for field in event.read_event.fieldsRead:
-                usage_state.column_accesses[str(uuid.uuid4())] = (
-                    key,
-                    field,
-                )
+                usage_state.column_accesses[str(uuid.uuid4())] = key, field
             return True
         elif event.query_event and event.query_event.job_name:
             usage_state.query_events[event.query_event.job_name] = event.query_event
