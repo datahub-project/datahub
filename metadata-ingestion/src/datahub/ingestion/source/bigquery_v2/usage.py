@@ -675,13 +675,7 @@ class BigQueryUsageExtractor:
         affected_datasets = []
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
-                try:
-                    affected_datasets.append(table.to_urn(self.config.env))
-                except Exception as e:
-                    self.report.report_warning(
-                        str(table),
-                        f"Failed to clean up table, {e}",
-                    )
+                affected_datasets.append(table.to_urn(self.config.env))
 
         operation_aspect = OperationClass(
             timestampMillis=reported_time,
