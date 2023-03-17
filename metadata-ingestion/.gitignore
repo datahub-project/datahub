@@ -140,3 +140,4 @@ dmypy.json
 
 # Generated classes
 src/datahub/metadata/
+.preflight_sentinel
