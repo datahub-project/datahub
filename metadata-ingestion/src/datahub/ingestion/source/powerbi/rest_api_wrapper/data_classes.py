@@ -2,7 +2,27 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from avrogen.dict_wrapper import DictWrapper
+
 from datahub.emitter.mcp_builder import PlatformKey
+from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
+    DateTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    StringTypeClass,
+)
+
+FIELD_TYPE_MAPPING = {
+    "Int64": NumberTypeClass(),
+    "Double": NumberTypeClass(),
+    "Boolean": BooleanTypeClass(),
+    "Datetime": DateTypeClass(),
+    "DateTime": DateTypeClass(),
+    "String": StringTypeClass(),
+    "Decimal": NumberTypeClass(),
+    "Null": NullTypeClass(),
+}
 
 
 class WorkspaceKey(PlatformKey):
@@ -62,6 +82,7 @@ class Column:
     name: str
     dataType: str
     isHidden: bool
+    datahubDataType: DictWrapper
     columnType: Optional[str] = None
     expression: Optional[str] = None
     description: Optional[str] = None
@@ -72,6 +93,8 @@ class Measure:
     name: str
     expression: str
     isHidden: bool
+    dataType: str = "measure"
+    datahubDataType: DictWrapper = NullTypeClass()
     description: Optional[str] = None
 
 

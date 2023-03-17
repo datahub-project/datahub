@@ -193,6 +193,9 @@ class StaleEntityRemovalHandler(
 
         # Default name for everything else
         job_name_suffix = "stale_entity_removal"
+        # Used with set_job_id when creating multiple checkpoints in one recipe source
+        # Because job_id is used as dictionary key when committing checkpoint, we have to set a new job_id
+        # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
         unique_suffix = f"_{unique_id}" if unique_id else ""
         return JobId(
             f"{platform}_{job_name_suffix}{unique_suffix}"

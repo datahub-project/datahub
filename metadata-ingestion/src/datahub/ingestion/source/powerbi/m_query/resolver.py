@@ -13,8 +13,8 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    AbstractIdentifierAccessor,
     TRACE_POWERBI_MQUERY_PARSER,
+    AbstractIdentifierAccessor,
     DataAccessFunctionDetail,
     IdentifierAccessor,
 )
@@ -467,8 +467,13 @@ class DatabrickTableFullNameCreator(AbstractTableFullNameCreator):
                 value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
                 if temp_accessor.next is not None:
                     temp_accessor = temp_accessor.next
+                else:
+                    break
             else:
-                break
+                logger.debug(
+                    "expecting instance to be IdentifierAccessor, please check if parsing is done properly"
+                )
+                return []
 
         db_name: str = value_dict["Database"]
         schema_name: str = value_dict["Schema"]

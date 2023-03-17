@@ -12,6 +12,7 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FIELD_TYPE_MAPPING,
     Column,
     Dashboard,
     Measure,
@@ -185,6 +186,11 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
+        if self.__config.modified_since:
+            workspaces = self.get_modified_workspaces()
+            if workspaces:
+                return workspaces
+
         groups: List[dict] = []
         try:
             groups = self._get_resolver().get_groups()
@@ -341,7 +347,13 @@ class PowerBiAPI:
                         ),
                         expression=expression,
                         columns=[
-                            Column(**column) for column in table.get("columns", [])
+                            Column(
+                                **column,
+                                datahubDataType=FIELD_TYPE_MAPPING.get(
+                                    column["dataType"], FIELD_TYPE_MAPPING["Null"]
+                                ),
+                            )
+                            for column in table.get("columns", [])
                         ],
                         measures=[
                             Measure(**measure) for measure in table.get("measures", [])

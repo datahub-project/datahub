@@ -588,7 +588,7 @@ def test_most_config_and_modified_since(
                         ],
                     },
                     "extract_datasets_to_containers": True,
-                    "extract_only_matched_endorsed_dataset": ["Certified"],
+                    "extract_only_matched_endorsed_dataset": {"allow": ["Certified"]},
                 },
             },
             "sink": {

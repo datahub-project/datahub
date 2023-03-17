@@ -32,11 +32,11 @@ M_QUERIES = [
     'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
     'let\n    Source = Snowflake.Databases("ghh48144.snowflakefakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]),\n    GSL_TEST_DB_Database = Source{[Name="GSL_TEST_DB",Kind="Database"]}[Data],\n    PUBLIC_Schema = GSL_TEST_DB_Database{[Name="PUBLIC",Kind="Schema"]}[Data],\n    SALES_FORECAST_Table = PUBLIC_Schema{[Name="SALES_FORECAST",Kind="Table"]}[Data],\n    SALES_ANALYST_Table = PUBLIC_Schema{[Name="SALES_ANALYST",Kind="Table"]}[Data],\n    RESULT = Table.Combine({SALES_FORECAST_Table, SALES_ANALYST_Table})\n\nin\n    RESULT',
     'let\n    Source = GoogleBigQuery.Database(),\n    #"seraphic-music-344307" = Source{[Name="seraphic-music-344307"]}[Data],\n    school_dataset_Schema = #"seraphic-music-344307"{[Name="school_dataset",Kind="Schema"]}[Data],\n    first_Table = school_dataset_Schema{[Name="first",Kind="Table"]}[Data]\nin\n    first_Table',
-    'let\n    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", [Catalog=null, Database=null]),\n    hive_metastore_Database = Source{[Name="hive_metastore",Kind="Database"]}[Data],\n    sandbox_revenue_Schema = hive_metastore_Database{[Name="sandbox_revenue",Kind="Schema"]}[Data],\n    public_consumer_price_index_Table = sandbox_revenue_Schema{[Name="public_consumer_price_index",Kind="Table"]}[Data],\n    #"Renamed Columns" = Table.RenameColumns(public_consumer_price_index_Table,{{"Country", "country"}, {"Metric", "metric"}}),\n #"Inserted Year" = Table.AddColumn(#"Renamed Columns", "ID", each Date.Year([date_id]) + Date.Month([date_id]), Text.Type),\n #"Added Custom" = Table.AddColumn(#"Inserted Year", "Custom", each Text.Combine({Number.ToText(Date.Year([date_id])), Number.ToText(Date.Month([date_id])), [country]})),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Custom",{"ID"}),\n    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns",{{"Custom", "ID"}}),\n #"Filtered Rows" = Table.SelectRows(#"Renamed Columns1", each ([metric] = "Consumer Price Index") and (not Number.IsNaN([value])))\nin\n    #"Filtered Rows"',
     'let\n    Source = GoogleBigQuery.Database(),\n    #"seraphic-music-344307" = Source{[Name="seraphic-music-344307"]}[Data],\n    school_dataset_Schema = #"seraphic-music-344307"{[Name="school_dataset",Kind="Schema"]}[Data],\n    first_Table = school_dataset_Schema{[Name="first",Kind="Table"]}[Data]\nin\n    first_Table',
     'let    \nSource = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\ngcp_billing_Schema = #"gcp-project"{[Name=#"My bq project",Kind="Schema"]}[Data],\nF_GCP_COST_Table = gcp_billing_Schema{[Name="GCP_TABLE",Kind="Table"]}[Data]\nin\nF_GCP_COST_Table',
     'let\n Source = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\nuniversal_Schema = #"gcp-project"{[Name="universal",Kind="Schema"]}[Data],\nD_WH_DATE_Table = universal_Schema{[Name="D_WH_DATE",Kind="Table"]}[Data],\n#"Filtered Rows" = Table.SelectRows(D_WH_DATE_Table, each [D_DATE] > #datetime(2019, 9, 10, 0, 0, 0)),\n#"Filtered Rows1" = Table.SelectRows(#"Filtered Rows", each DateTime.IsInPreviousNHours([D_DATE], 87600))\n in \n#"Filtered Rows1"',
     'let\n Source = GoogleBigQuery.Database([BillingProject="dwh-prod"]),\ngcp_project = Source{[Name="dwh-prod"]}[Data],\ngcp_billing_Schema = gcp_project {[Name="gcp_billing",Kind="Schema"]}[Data],\nD_GCP_CUSTOM_LABEL_Table = gcp_billing_Schema{[Name="D_GCP_CUSTOM_LABEL",Kind="Table"]}[Data] \n in \n D_GCP_CUSTOM_LABEL_Table',
+    'let\n    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", [Catalog=null, Database=null]),\n    hive_metastore_Database = Source{[Name="hive_metastore",Kind="Database"]}[Data],\n    sandbox_revenue_Schema = hive_metastore_Database{[Name="sandbox_revenue",Kind="Schema"]}[Data],\n    public_consumer_price_index_Table = sandbox_revenue_Schema{[Name="public_consumer_price_index",Kind="Table"]}[Data],\n    #"Renamed Columns" = Table.RenameColumns(public_consumer_price_index_Table,{{"Country", "country"}, {"Metric", "metric"}}),\n #"Inserted Year" = Table.AddColumn(#"Renamed Columns", "ID", each Date.Year([date_id]) + Date.Month([date_id]), Text.Type),\n #"Added Custom" = Table.AddColumn(#"Inserted Year", "Custom", each Text.Combine({Number.ToText(Date.Year([date_id])), Number.ToText(Date.Month([date_id])), [country]})),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Custom",{"ID"}),\n    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns",{{"Custom", "ID"}}),\n #"Filtered Rows" = Table.SelectRows(#"Renamed Columns1", each ([metric] = "Consumer Price Index") and (not Number.IsNaN([value])))\nin\n    #"Filtered Rows"',
     'let\n    Source = AmazonRedshift.Database("redshift-url","dev"),\n    public = Source{[Name="public"]}[Data],\n    category1 = public{[Name="category"]}[Data]\nin\n    category1',
     'let\n Source = Value.NativeQuery(AmazonRedshift.Database("redshift-url","dev"), "select * from dev.public.category", null, [EnableFolding=true]) \n in Source',
 ]
@@ -191,13 +191,13 @@ def test_postgres_regular_case():
 
 @pytest.mark.integration
 def test_databricks_regular_case():
-    q: str = M_QUERIES[18]
+    q: str = M_QUERIES[22]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
         expression=q,
-        name="some_revenue_table",
-        full_name="RevenueDataSet.some_revenue_table",
+        name="public_consumer_price_index",
+        full_name="hive_metastore.sandbox_revenue.public_consumer_price_index",
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -382,7 +382,7 @@ def test_google_bigquery_2():
     # references correctly.
 
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[18],
+        expression=M_QUERIES[19],
         name="gcp_table",
         full_name="my-test-project.gcp_billing.GCP_TABLE",
     )
@@ -410,7 +410,7 @@ def test_google_bigquery_2():
 
 def test_for_each_expression_1():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[19],
+        expression=M_QUERIES[20],
         name="D_WH_DATE",
         full_name="my-test-project.universal.D_WH_DATE",
     )
@@ -439,7 +439,7 @@ def test_for_each_expression_1():
 
 def test_for_each_expression_2():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[20],
+        expression=M_QUERIES[21],
         name="D_GCP_CUSTOM_LABEL",
         full_name="dwh-prod.gcp_billing.D_GCP_CUSTOM_LABEL",
     )

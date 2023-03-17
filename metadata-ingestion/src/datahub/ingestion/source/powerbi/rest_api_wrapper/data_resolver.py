@@ -2,7 +2,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import Any, Dict, List, Optional, Dict
+from typing import Any, Dict, List, Optional
 
 import msal
 import requests

@@ -55,7 +55,10 @@ source:
     # wrap powerbi tables (datahub dataset) under 1 powerbi dataset (datahub container)
     extract_datasets_to_containers: true
     # only ingest dataset that are endorsed, like "Certified"
-    extract_only_matched_endorsed_dataset: ["Certified"]
+    extract_only_matched_endorsed_dataset: 
+      allow:
+        - Certified
+      
     # extract powerbi dashboards and tiles
     extract_dashboards: false
     # extract powerbi dataset table schema

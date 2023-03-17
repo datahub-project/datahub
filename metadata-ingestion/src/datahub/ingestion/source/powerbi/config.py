@@ -292,7 +292,7 @@ class PowerBiDashboardSourceConfig(
         description="Configure how is ownership ingested",
     )
     modified_since: Optional[str] = pydantic.Field(
-        description="Get only recently modified workspaces based on modified_since datetime, excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
+        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
     )
     extract_dashboards: bool = pydantic.Field(
         default=True,
@@ -315,8 +315,8 @@ class PowerBiDashboardSourceConfig(
         description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
         "access is required is this setting is enabled",
     )
-    extract_only_matched_endorsed_dataset: Optional[List[str]] = pydantic.Field(
-        default=None,
+    extract_only_matched_endorsed_dataset: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
         description="Only ingest dataset when endorsement is matched, for example ['Certified']",
     )
     # Enable/Disable extracting workspace information to DataHub containers

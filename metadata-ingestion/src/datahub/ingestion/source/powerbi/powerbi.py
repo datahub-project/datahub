@@ -48,7 +48,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
@@ -59,10 +58,7 @@ from datahub.metadata.schema_classes import (
     DashboardKeyClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
-    DateTypeClass,
     GlobalTagsClass,
-    NullTypeClass,
-    NumberTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -71,7 +67,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StatusClass,
-    StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -86,16 +81,6 @@ from datahub.utilities.source_helpers import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
-
-FIELD_TYPE_MAPPING = {
-    "Int64": NumberTypeClass(),
-    "Double": NumberTypeClass(),
-    "Boolean": BooleanTypeClass(),
-    "Datetime": DateTypeClass(),
-    "DateTime": DateTypeClass(),
-    "String": StringTypeClass(),
-    "Decimal": NumberTypeClass(),
-}
 
 
 class Mapper:
@@ -235,41 +220,25 @@ class Mapper:
         """
         if self.__config.ownership.remove_email_suffix:
             return builder.make_user_urn(user.split("@")[0])
-        elif self.__config.ownership.remove_email_suffix is False:
-            return builder.make_user_urn(user)
-        else:
-            return builder.make_user_urn(f"users.{user}")
+        return builder.make_user_urn(f"users.{user}")
 
     def get_dataset_table_schema(
         self,
         field: Union[powerbi_data_classes.Column, powerbi_data_classes.Measure],
     ) -> SchemaFieldClass:
-        if isinstance(field, powerbi_data_classes.Column):
-            data_type = field.dataType
-            type_class = FIELD_TYPE_MAPPING.get(data_type)
-            description = field.description
-            if type_class is None:
-                logger.warning(
-                    field,
-                    f"Unable to map type {field.dataType} to metadata schema, please check if type class is valid",
-                )
-                type_class = NullTypeClass()
-
-        elif isinstance(field, powerbi_data_classes.Measure):
-            # hardcoded measure to nulltype class, unsure what is the best
-            data_type = "measure"
-            type_class = NullTypeClass()
+        data_type = field.dataType
+        if getattr(field, "expression", None):
+            description = (
+                f"{field.expression} {field.description}"
+                if field.description
+                else field.expression
+            )
+        else:
             description = field.description if field.description else None
-            if getattr(field, "expression", None):
-                description = (
-                    (field.expression + " " + field.description)
-                    if field.description
-                    else field.expression
-                )
 
         schema_field = SchemaFieldClass(
             fieldPath=f"{field.name}",
-            type=SchemaFieldDataTypeClass(type=type_class),  # type:ignore
+            type=SchemaFieldDataTypeClass(type=field.datahubDataType),  # type:ignore
             nativeDataType=data_type,
             description=description,
         )
@@ -288,13 +257,11 @@ class Mapper:
         dataset_mcps: List[MetadataChangeProposalWrapper] = []
         if dataset is None:
             return dataset_mcps
-        if (
-            self.__config.extract_only_matched_endorsed_dataset is not None
-            and len(
-                set(dataset.tags)
-                & set(self.__config.extract_only_matched_endorsed_dataset)
-            )
-            == 0
+        if not any(
+            [
+                self.__config.extract_only_matched_endorsed_dataset.allowed(tag)
+                for tag in (dataset.tags or [""])
+            ]
         ):
             return dataset_mcps
 
@@ -732,7 +699,7 @@ class Mapper:
             remove_email_suffix=self.__config.ownership.remove_email_suffix,
         )
         user_urn = builder.make_user_urn(user_id)
-        user_key = CorpUserKeyClass(username=user_urn)
+        user_key = CorpUserKeyClass(username=user.id)
 
         user_key_mcp = self.new_mcp(
             entity_type=Constant.CORP_USER,
@@ -1121,10 +1088,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:
-        if self.source_config.admin_apis_only and self.source_config.modified_since:
-            all_workspaces = self.powerbi_client.get_modified_workspaces()
-        else:
-            all_workspaces = self.powerbi_client.get_workspaces()
+        all_workspaces = self.powerbi_client.get_workspaces()
 
         allowed_wrk = [
             workspace
