@@ -295,7 +295,9 @@ class DBTCommonConfig(
         return target_platform
 
     @root_validator(pre=True)
-    def set_convert_column_urns_to_lowercase_default_for_snowflake(cls, values: dict) -> dict:
+    def set_convert_column_urns_to_lowercase_default_for_snowflake(
+        cls, values: dict
+    ) -> dict:
         if values.get("target_platform", "").lower() == "snowflake":
             values.setdefault("convert_column_urns_to_lowercase", True)
         return values
