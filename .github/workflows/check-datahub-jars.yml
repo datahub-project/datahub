@@ -24,6 +24,15 @@ concurrency:
 
 jobs:
   check_jars:
+    strategy:
+      fail-fast: false
+      matrix:
+        command:
+          [
+            "datahub-client",
+            "datahub-protobuf",
+            "spark-lineage"
+          ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -37,15 +46,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
-      - name: check datahub-client jar
+      - name: check ${{ matrix.command }} jar
         run: |
-          ./gradlew :metadata-integration:java:datahub-client:build
-          ./gradlew :metadata-integration:java:datahub-client:javadoc
-      - name: check spark-lineage jar
-        run: |
-          ./gradlew :metadata-integration:java:spark-lineage:build
-          ./gradlew :metadata-integration:java:spark-lineage:javadoc
-      - name: check datahub-protobuf jar
-        run: |
-          ./gradlew :metadata-integration:java:datahub-protobuf:build
-          ./gradlew :metadata-integration:java:datahub-protobuf:javadoc
+          ./gradlew :metadata-integration:java:${{ matrix.command }}:build --info
+          ./gradlew :metadata-integration:java:${{ matrix.command }}:javadoc
