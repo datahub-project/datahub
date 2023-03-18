@@ -2,9 +2,9 @@ package com.linkedin.metadata.utils.elasticsearch;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.EntitySpec;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -12,7 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 
 // Default implementation of search index naming convention
 public class IndexConventionImpl implements IndexConvention {
-  private final Map<String, String> indexNameMapping = new HashMap<>();
+  private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
   private final Optional<String> _prefix;
   private final String _getAllEntityIndicesPattern;
   private final String _getAllTimeseriesIndicesPattern;
