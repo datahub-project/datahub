@@ -1,4 +1,4 @@
-from typing import Iterable, List, cast, Optional, Any
+from typing import Any, Iterable, List, Optional, cast
 from unittest.mock import patch
 
 import pytest

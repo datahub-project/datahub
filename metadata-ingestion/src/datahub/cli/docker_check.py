@@ -22,7 +22,7 @@ DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS = [
     {"name": "datahub_zkdata"},
     {"name": "datahub_esdata"},
     {"name": "datahub_cassandradata"},
-    {"name": "datahub_broker"}
+    {"name": "datahub_broker"},
 ]
 
 
