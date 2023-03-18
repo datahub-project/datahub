@@ -33,7 +33,7 @@ class DataPlatformTable:
 class AbstractDataPlatformTableCreator(ABC):
     @abstractmethod
     def create_dataplatform_tables(
-        self, data_access_func_detail: DataAccessFunctionDetail
+            self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         pass
 
@@ -50,11 +50,11 @@ class AbstractDataAccessMQueryResolver(ABC):
     data_access_functions: List[str]
 
     def __init__(
-        self,
-        table: Table,
-        parse_tree: Tree,
-        reporter: PowerBiDashboardSourceReport,
-        parameters: Dict[str, str],
+            self,
+            table: Table,
+            parse_tree: Tree,
+            reporter: PowerBiDashboardSourceReport,
+            parameters: Dict[str, str],
     ):
         self.table = table
         self.parse_tree = parse_tree
@@ -69,8 +69,8 @@ class AbstractDataAccessMQueryResolver(ABC):
 
 class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     def get_item_selector_tokens(
-        self,
-        expression_tree: Tree,
+            self,
+            expression_tree: Tree,
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
 
         item_selector: Optional[Tree] = tree_function.first_item_selector_func(
@@ -119,7 +119,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return argument_list
 
     def _process_invoke_expression(
-        self, invoke_expression: Tree
+            self, invoke_expression: Tree
     ) -> Union[DataAccessFunctionDetail, List[str], None]:
 
         letter_tree: Tree = invoke_expression.children[0]
@@ -192,7 +192,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return tokens
 
     def _process_item_selector_expression(
-        self, rh_tree: Tree
+            self, rh_tree: Tree
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
         new_identifier, key_vs_value = self.get_item_selector_tokens(  # type: ignore
             cast(Tree, tree_function.first_expression_func(rh_tree))
@@ -202,9 +202,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
     @staticmethod
     def _create_or_update_identifier_accessor(
-        identifier_accessor: Optional[IdentifierAccessor],
-        new_identifier: str,
-        key_vs_value: Dict[str, Any],
+            identifier_accessor: Optional[IdentifierAccessor],
+            new_identifier: str,
+            key_vs_value: Dict[str, Any],
     ) -> IdentifierAccessor:
 
         # It is first identifier_accessor
@@ -220,13 +220,13 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return new_identifier_accessor
 
     def create_data_access_functional_detail(
-        self, identifier: str
+            self, identifier: str
     ) -> List[DataAccessFunctionDetail]:
         table_links: List[DataAccessFunctionDetail] = []
 
         def internal(
-            current_identifier: str,
-            identifier_accessor: Optional[IdentifierAccessor],
+                current_identifier: str,
+                identifier_accessor: Optional[IdentifierAccessor],
         ) -> None:
             """
             1) Find statement where identifier appear in the left-hand side i.e. identifier  = expression
@@ -360,9 +360,8 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
     """
 
     def two_level_access_pattern(
-        self, data_access_func_detail: DataAccessFunctionDetail
+            self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
-
         logger.debug(
             f"Processing PostgreSQL data-access function detail {data_access_func_detail}"
         )
@@ -397,7 +396,7 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             DataPlatformTable(
                 name=table_name,
                 full_name=full_table_name,
-                datasource_server="dummy",
+                datasource_server=arguments[0],
                 data_platform_pair=self.get_platform_pair(),
             )
         ]
@@ -405,7 +404,7 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
 
 class PostgresTableFullNameCreator(DefaultTwoStepDataAccessSources):
     def create_dataplatform_tables(
-        self, data_access_func_detail: DataAccessFunctionDetail
+            self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         return self.two_level_access_pattern(data_access_func_detail)
 
@@ -418,7 +417,7 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
         return SupportedDataPlatform.MS_SQL.value
 
     def create_dataplatform_tables(
-        self, data_access_func_detail: DataAccessFunctionDetail
+            self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
         arguments: List[str] = tree_function.strip_char_from_list(
@@ -438,6 +437,7 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
             return dataplatform_tables
 
         db_name: str = arguments[1]
+
         tables: List[str] = native_sql_parser.get_tables(arguments[3])
         for table in tables:
             schema_and_table: List[str] = table.split(".")
@@ -450,7 +450,7 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
                 DataPlatformTable(
                     name=schema_and_table[0],
                     full_name=f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}",
-                    datasource_server="dummy",
+                    datasource_server=arguments[0],
                     data_platform_pair=self.get_platform_pair(),
                 )
             )
@@ -461,22 +461,24 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
 
 
 class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
+
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.ORACLE.value
 
-    def _get_db_name(self, value: str) -> Optional[str]:
+    @staticmethod
+    def _get_server_and_db_name(value: str) -> Optional[str]:
         error_message: str = f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>[.<domain>]"
         splitter_result: List[str] = value.split("/")
         if len(splitter_result) != 2:
             logger.debug(error_message)
-            return None
+            return None, None
 
         db_name = splitter_result[1].split(".")[0]
 
-        return db_name
+        return splitter_result[0], db_name
 
     def create_dataplatform_tables(
-        self, data_access_func_detail: DataAccessFunctionDetail
+            self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
 
         logger.debug(
@@ -487,8 +489,9 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             tree_function.token_values(data_access_func_detail.arg_list)
         )
 
-        db_name: Optional[str] = self._get_db_name(arguments[0])
-        if db_name is None:
+        server, db_name = self._get_server_and_db_name(arguments[0])
+
+        if db_name is None or server is None:
             return []
 
         schema_name: str = cast(
@@ -504,7 +507,7 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             DataPlatformTable(
                 name=table_name,
                 full_name=f"{db_name}.{schema_name}.{table_name}",
-                datasource_server="dummy",
+                datasource_server=server,
                 data_platform_pair=self.get_platform_pair(),
             )
         ]
@@ -512,11 +515,16 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
 class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
     def create_dataplatform_tables(
-        self, data_access_func_detail: DataAccessFunctionDetail
+            self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         logger.debug(
             f"Processing {self.get_platform_pair().datahub_data_platform_name} function detail {data_access_func_detail}"
         )
+
+        arguments: List[str] = tree_function.remove_whitespaces_from_list(
+            tree_function.token_values(data_access_func_detail.arg_list)
+        )
+        print("Three Steps Mohd ", arguments[0])
         # First is database name
         db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
         # Second is schema name
@@ -538,7 +546,7 @@ class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             DataPlatformTable(
                 name=table_name,
                 full_name=full_table_name,
-                datasource_server="dummy",
+                datasource_server=arguments[0],
                 data_platform_pair=self.get_platform_pair(),
             )
         ]
@@ -559,7 +567,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         return SupportedDataPlatform.SNOWFLAKE.value
 
     def create_dataplatform_tables(
-        self, data_access_func_detail: DataAccessFunctionDetail
+            self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
         t1: Tree = cast(
@@ -573,13 +581,14 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             )
             logger.debug(f"Flat argument list = {flat_argument_list}")
             return dataplatform_tables
-
         data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(flat_argument_list[0])
         )
+        print("Mohd ", data_access_tokens)
+
         if (
-            data_access_tokens[0]
-            != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+                data_access_tokens[0]
+                != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
         ):
             logger.debug(
                 f"Provided native-query data-platform = {data_access_tokens[0]}"
