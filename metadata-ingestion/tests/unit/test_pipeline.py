@@ -68,6 +68,10 @@ class TestPipeline(object):
             "server": "http://localhost:8080",
             "token": Optional[Any],
             # value is read from ~/datahubenv which may be None or not
+        } or pipeline.config.sink.config == {
+            "server": "http://localhost:8080",
+            "token": None,
+            # value is read from ~/datahubenv which may be None or not
         }
 
     @freeze_time(FROZEN_TIME)
