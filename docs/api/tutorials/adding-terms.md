@@ -12,13 +12,13 @@ Also, we will cover how to add a term to a dataset itself.
 
 ## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed information, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed information, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding terms, you need to ensure the targeted dataset and the term are already present in your datahub. 
 If you attempt to manipulate entities that do not exist, your operation will fail. 
 In this guide, we will be using data from a sample ingestion.
-If you want to know how to create entities using APIs & SDKs, please refer to [Creating Terms](/docs/tools/tutorials/creating-terms.md) and [Creating Datasets](/docs/tools/tutorials/creating-datasets.md).
+If you want to know how to create entities using APIs & SDKs, please refer to [Creating Terms](/docs/api/tutorials/creating-terms.md) and [Creating Datasets](/docs/api/tutorials/creating-datasets.md).
 :::
 
 
@@ -68,7 +68,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -205,5 +205,5 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 ## Expected Outcomes
 You can now see the term `CustomerAccount` has been added to `user_name` column. 
-![term-added](../../imgs/tutorials/term-created.png)
+![term-added](../../imgs/apis/tutorials/term-created.png)
 
