@@ -9,7 +9,7 @@ import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
-import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
+import { ENTITY_FILTER_NAME, SCROLL_KEEP_ALIVE_TIME, UnionType } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
@@ -20,9 +20,7 @@ import {
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
-import { useGetScrollResultsForMultipleQuery } from '../../graphql/scroll.generated';
-
-const KEEP_ALIVE_TIME = '10m'; // TODO: Determine if this is sufficient.
+import { useGetDownloadScrollResultsQuery } from '../../graphql/scroll.generated';
 
 type SearchPageParams = {
     type?: string;
@@ -84,18 +82,18 @@ export const SearchPage = () => {
 
     // we need to extract refetch on its own so paging thru results for csv download
     // doesnt also update search results
-    const { refetch } = useGetScrollResultsForMultipleQuery({
+    const { refetch } = useGetDownloadScrollResultsQuery({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                count: SearchCfg.RESULTS_PER_PAGE,
-                filters: [],
-                keepAlive: KEEP_ALIVE_TIME,
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
                 viewUrn,
+                count: SearchCfg.RESULTS_PER_PAGE,
+                keepAlive: SCROLL_KEEP_ALIVE_TIME,
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
+        skip: true,
     });
 
     const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
@@ -168,6 +166,7 @@ export const SearchPage = () => {
                 callSearchOnVariables={callSearchOnVariables}
                 page={page}
                 query={query}
+                viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
                 filters={data?.searchAcrossEntities?.facets}

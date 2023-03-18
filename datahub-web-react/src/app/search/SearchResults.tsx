@@ -8,13 +8,12 @@ import {
     FacetFilterInput,
     FacetMetadata,
     MatchedField,
-    SearchAcrossEntitiesInput,
+    ScrollResults,
     ScrollAcrossEntitiesInput,
 } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
 import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
@@ -71,6 +70,7 @@ const SearchMenuContainer = styled.div``;
 interface Props {
     unionType?: UnionType;
     query: string;
+    viewUrn?: string;
     page: number;
     searchResponse?: {
         start: number;
@@ -90,7 +90,7 @@ interface Props {
     onChangePage: (page: number) => void;
     callSearchOnVariables: (variables: {
         input: ScrollAcrossEntitiesInput;
-    }) => Promise<SearchResultsInterface | null | undefined>;
+    }) => Promise<ScrollResults | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
     numResultsPerPage: number;
@@ -106,6 +106,7 @@ interface Props {
 export const SearchResults = ({
     unionType = UnionType.AND,
     query,
+    viewUrn,
     page,
     searchResponse,
     filters,
@@ -168,6 +169,7 @@ export const SearchResults = ({
                                         entityFilters={entityFilters}
                                         filters={generateOrFilters(unionType, filtersWithoutEntities)}
                                         query={query}
+                                        viewUrn={viewUrn}
                                         setShowSelectMode={setIsSelectMode}
                                     />
                                 </SearchMenuContainer>

@@ -27,7 +27,7 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 1000;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 500;
 
 export default function DownloadAsCsvModal({
     callSearchOnVariables,
@@ -53,6 +53,7 @@ export default function DownloadAsCsvModal({
 
         let nextScrollId: string | null = null;
         let downloadPage = 0;
+        // let total = 0;
         let accumulatedResults: string[][] = [];
 
         analytics.event({
@@ -82,6 +83,7 @@ export default function DownloadAsCsvModal({
                 ];
                 if (refetchData?.nextScrollId) {
                     downloadPage += 1;
+                    // total = refetchData?.total;
                     nextScrollId = refetchData?.nextScrollId;
                     fetchNextPage();
                 } else {
@@ -94,7 +96,6 @@ export default function DownloadAsCsvModal({
                 }
             });
         }
-
         fetchNextPage();
     };
 
