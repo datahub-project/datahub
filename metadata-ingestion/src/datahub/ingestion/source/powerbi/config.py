@@ -222,7 +222,8 @@ class PowerBiDashboardSourceConfig(
     server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        ":port is optional and only needed if your datasource server is running on non-standard port",
+        " :port is optional and only needed if your datasource server is running on non-standard port."
+        "For Google BigQuery the datasource's server is google bigquery project name",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(

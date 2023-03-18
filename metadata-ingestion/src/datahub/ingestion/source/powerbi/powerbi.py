@@ -162,7 +162,9 @@ class Mapper:
         upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
             table, self.__reporter, parameters=parameters
         )
-        logger.debug(f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}")
+        logger.debug(
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}"
+        )
         for upstream_table in upstream_tables:
             if (
                 upstream_table.data_platform_pair.powerbi_data_platform_name
@@ -193,9 +195,7 @@ class Mapper:
 
         if len(upstreams) > 0:
             upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
-            logger.debug(
-                f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}"
-            )
+            logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
             mcp = MetadataChangeProposalWrapper(
                 entityType=Constant.DATASET,
                 changeType=ChangeTypeClass.UPSERT,

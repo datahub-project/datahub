@@ -147,7 +147,10 @@ def test_snowflake_regular_case():
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].name == "TESTTABLE"
     assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
-    assert data_platform_tables[0].datasource_server == "bu10758.ap-unknown-2.fakecomputing.com"
+    assert (
+        data_platform_tables[0].datasource_server
+        == "bu10758.ap-unknown-2.fakecomputing.com"
+    )
     assert (
         data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
         == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
@@ -299,7 +302,10 @@ def test_snowflake_native_query():
         assert len(data_platform_tables) == 1
         assert data_platform_tables[0].name == expected_tables[index].split(".")[2]
         assert data_platform_tables[0].full_name == expected_tables[index]
-        assert data_platform_tables[0].datasource_server == "bu10758.ap-unknown-2.fakecomputing.com"
+        assert (
+            data_platform_tables[0].datasource_server
+            == "bu10758.ap-unknown-2.fakecomputing.com"
+        )
         assert (
             data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
             == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
@@ -454,7 +460,10 @@ def test_multi_source_table():
     )
 
     assert data_platform_tables[1].full_name == "GSL_TEST_DB.PUBLIC.SALES_ANALYST_VIEW"
-    assert data_platform_tables[1].datasource_server == "ghh48144.snowflakefakecomputing.com"
+    assert (
+        data_platform_tables[1].datasource_server
+        == "ghh48144.snowflakefakecomputing.com"
+    )
     assert (
         data_platform_tables[1].data_platform_pair.powerbi_data_platform_name
         == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
@@ -477,14 +486,20 @@ def test_table_combine():
 
     assert len(data_platform_tables) == 2
     assert data_platform_tables[0].full_name == "GSL_TEST_DB.PUBLIC.SALES_FORECAST"
-    assert data_platform_tables[0].datasource_server == "ghh48144.snowflakefakecomputing.com"
+    assert (
+        data_platform_tables[0].datasource_server
+        == "ghh48144.snowflakefakecomputing.com"
+    )
     assert (
         data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
         == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
     )
 
     assert data_platform_tables[1].full_name == "GSL_TEST_DB.PUBLIC.SALES_ANALYST"
-    assert data_platform_tables[1].datasource_server == "ghh48144.snowflakefakecomputing.com"
+    assert (
+        data_platform_tables[1].datasource_server
+        == "ghh48144.snowflakefakecomputing.com"
+    )
     assert (
         data_platform_tables[1].data_platform_pair.powerbi_data_platform_name
         == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name

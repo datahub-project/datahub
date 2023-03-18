@@ -33,7 +33,7 @@ class DataPlatformTable:
 class AbstractDataPlatformTableCreator(ABC):
     @abstractmethod
     def create_dataplatform_tables(
-            self, data_access_func_detail: DataAccessFunctionDetail
+        self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         pass
 
@@ -50,11 +50,11 @@ class AbstractDataAccessMQueryResolver(ABC):
     data_access_functions: List[str]
 
     def __init__(
-            self,
-            table: Table,
-            parse_tree: Tree,
-            reporter: PowerBiDashboardSourceReport,
-            parameters: Dict[str, str],
+        self,
+        table: Table,
+        parse_tree: Tree,
+        reporter: PowerBiDashboardSourceReport,
+        parameters: Dict[str, str],
     ):
         self.table = table
         self.parse_tree = parse_tree
@@ -69,8 +69,8 @@ class AbstractDataAccessMQueryResolver(ABC):
 
 class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     def get_item_selector_tokens(
-            self,
-            expression_tree: Tree,
+        self,
+        expression_tree: Tree,
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
 
         item_selector: Optional[Tree] = tree_function.first_item_selector_func(
@@ -96,7 +96,6 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                     cast(Tree, item_selector), parameters=self.parameters
                 )
             ),
-            '"',
         )
         identifier: List[str] = tree_function.token_values(
             cast(Tree, identifier_tree)
@@ -119,7 +118,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return argument_list
 
     def _process_invoke_expression(
-            self, invoke_expression: Tree
+        self, invoke_expression: Tree
     ) -> Union[DataAccessFunctionDetail, List[str], None]:
 
         letter_tree: Tree = invoke_expression.children[0]
@@ -192,7 +191,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return tokens
 
     def _process_item_selector_expression(
-            self, rh_tree: Tree
+        self, rh_tree: Tree
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
         new_identifier, key_vs_value = self.get_item_selector_tokens(  # type: ignore
             cast(Tree, tree_function.first_expression_func(rh_tree))
@@ -202,9 +201,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
     @staticmethod
     def _create_or_update_identifier_accessor(
-            identifier_accessor: Optional[IdentifierAccessor],
-            new_identifier: str,
-            key_vs_value: Dict[str, Any],
+        identifier_accessor: Optional[IdentifierAccessor],
+        new_identifier: str,
+        key_vs_value: Dict[str, Any],
     ) -> IdentifierAccessor:
 
         # It is first identifier_accessor
@@ -220,13 +219,13 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return new_identifier_accessor
 
     def create_data_access_functional_detail(
-            self, identifier: str
+        self, identifier: str
     ) -> List[DataAccessFunctionDetail]:
         table_links: List[DataAccessFunctionDetail] = []
 
         def internal(
-                current_identifier: str,
-                identifier_accessor: Optional[IdentifierAccessor],
+            current_identifier: str,
+            identifier_accessor: Optional[IdentifierAccessor],
         ) -> None:
             """
             1) Find statement where identifier appear in the left-hand side i.e. identifier  = expression
@@ -360,7 +359,7 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
     """
 
     def two_level_access_pattern(
-            self, data_access_func_detail: DataAccessFunctionDetail
+        self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         logger.debug(
             f"Processing PostgreSQL data-access function detail {data_access_func_detail}"
@@ -369,7 +368,6 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(data_access_func_detail.arg_list)
             ),
-            char='"',
         )
 
         if len(arguments) != 2:
@@ -404,7 +402,7 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
 
 class PostgresTableFullNameCreator(DefaultTwoStepDataAccessSources):
     def create_dataplatform_tables(
-            self, data_access_func_detail: DataAccessFunctionDetail
+        self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         return self.two_level_access_pattern(data_access_func_detail)
 
@@ -417,14 +415,13 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
         return SupportedDataPlatform.MS_SQL.value
 
     def create_dataplatform_tables(
-            self, data_access_func_detail: DataAccessFunctionDetail
+        self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(data_access_func_detail.arg_list)
             ),
-            char='"',
         )
 
         if len(arguments) == 2:
@@ -461,13 +458,15 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
 
 
 class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
-
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.ORACLE.value
 
     @staticmethod
-    def _get_server_and_db_name(value: str) -> Optional[str]:
-        error_message: str = f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>[.<domain>]"
+    def _get_server_and_db_name(value: str) -> Tuple[Optional[str], Optional[str]]:
+        error_message: str = (
+            f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>["
+            ".<domain>]"
+        )
         splitter_result: List[str] = value.split("/")
         if len(splitter_result) != 2:
             logger.debug(error_message)
@@ -475,10 +474,10 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
         db_name = splitter_result[1].split(".")[0]
 
-        return splitter_result[0].strip().strip("\""), db_name
+        return tree_function.strip_char_from_list([splitter_result[0]])[0], db_name
 
     def create_dataplatform_tables(
-            self, data_access_func_detail: DataAccessFunctionDetail
+        self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
 
         logger.debug(
@@ -514,11 +513,13 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
 
 class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
-    def get_datasource_server(self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail) -> str:
-        return arguments[0].strip().strip("\"")
+    def get_datasource_server(
+        self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail
+    ) -> str:
+        return tree_function.strip_char_from_list([arguments[0]])[0]
 
     def create_dataplatform_tables(
-            self, data_access_func_detail: DataAccessFunctionDetail
+        self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         logger.debug(
             f"Processing {self.get_platform_pair().datahub_data_platform_name} function detail {data_access_func_detail}"
@@ -548,7 +549,9 @@ class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             DataPlatformTable(
                 name=table_name,
                 full_name=full_table_name,
-                datasource_server=self.get_datasource_server(arguments, data_access_func_detail),
+                datasource_server=self.get_datasource_server(
+                    arguments, data_access_func_detail
+                ),
                 data_platform_pair=self.get_platform_pair(),
             )
         ]
@@ -563,9 +566,16 @@ class GoogleBigQueryTableFullNameCreator(DefaultThreeStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.GOOGLE_BIGQUERY.value
 
-    def get_datasource_server(self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail) -> str:
+    def get_datasource_server(
+        self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail
+    ) -> str:
         # In Google BigQuery server is project-name
-        return data_access_func_detail.identifier_accessor.items["Name"]
+        # condition to silent lint, it is not going to be None
+        return (
+            data_access_func_detail.identifier_accessor.items["Name"]
+            if data_access_func_detail.identifier_accessor is not None
+            else str()
+        )
 
 
 class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
@@ -573,7 +583,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         return SupportedDataPlatform.SNOWFLAKE.value
 
     def create_dataplatform_tables(
-            self, data_access_func_detail: DataAccessFunctionDetail
+        self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
         t1: Tree = cast(
@@ -594,8 +604,8 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         logger.debug(f"native query arguments = {data_access_tokens}")
 
         if (
-                data_access_tokens[0]
-                != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+            data_access_tokens[0]
+            != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
         ):
             logger.debug(
                 f"Provided native-query data-platform = {data_access_tokens[0]}"
@@ -614,7 +624,6 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(flat_argument_list[1])
             ),
-            char='"',
         )[
             0
         ]  # Remove any whitespaces and double quotes character
@@ -630,7 +639,9 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 DataPlatformTable(
                     name=table.split(".")[2],
                     full_name=table,
-                    datasource_server=tree_function.strip_char_from_list([data_access_tokens[2]], char="\"")[0],
+                    datasource_server=tree_function.strip_char_from_list(
+                        [data_access_tokens[2]]
+                    )[0],
                     data_platform_pair=self.get_platform_pair(),
                 )
             )

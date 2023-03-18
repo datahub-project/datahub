@@ -21,20 +21,19 @@ source:
     # Enable / Disable ingestion of endorsements.
     # Please notice that this may overwrite any existing tags defined to ingested entities!
     extract_endorsements_to_tags: false
-    # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
-    dataset_type_mapping:
-        PostgreSql:
+    # A mapping of PowerBI datasource's server i.e host[:port] to data platform instance.
+    # :port is optional and only needed if your datasource server is running on non-standard port.
+    # For Google BigQuery the datasource's server is google bigquery project name
+    server_to_platform_instance:
+        ap-south-1.snowflakecomputing.com:
           platform_instance: operational_instance
           env: DEV
-        Oracle:
+        oracle-server:1920:
           platform_instance: high_performance_production_unit
           env: PROD
-        Sql:
-          platform_instance: reporting-db
-          env: QA
-        GoogleBigQuery:
+        big-query-sales-project:
           platform_instance: sn-2
-          env: STAGE
+          env: QA
 
 sink:
   # sink configs

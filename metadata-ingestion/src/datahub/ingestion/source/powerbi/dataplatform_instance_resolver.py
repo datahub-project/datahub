@@ -60,7 +60,9 @@ class ResolvePlatformInstanceFromServerToPlatformInstance(
         )
 
 
-def create_dataplatform_instance_resolver(config: PowerBiDashboardSourceConfig):
+def create_dataplatform_instance_resolver(
+    config: PowerBiDashboardSourceConfig,
+) -> AbstractDataPlatformInstanceResolver:
     if config.server_to_platform_instance:
         logger.debug(
             "Creating resolver to resolve platform instance from server_to_platform_instance"
