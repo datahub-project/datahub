@@ -448,7 +448,7 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
 
             dataplatform_tables.append(
                 DataPlatformTable(
-                    name=schema_and_table[0],
+                    name=schema_and_table[1],
                     full_name=f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}",
                     datasource_server=arguments[0],
                     data_platform_pair=self.get_platform_pair(),
@@ -475,7 +475,7 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
         db_name = splitter_result[1].split(".")[0]
 
-        return splitter_result[0], db_name
+        return splitter_result[0].strip().strip("\""), db_name
 
     def create_dataplatform_tables(
             self, data_access_func_detail: DataAccessFunctionDetail
@@ -514,6 +514,9 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
 
 class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
+    def get_datasource_server(self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail) -> str:
+        return arguments[0].strip().strip("\"")
+
     def create_dataplatform_tables(
             self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
@@ -524,7 +527,6 @@ class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
         arguments: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(data_access_func_detail.arg_list)
         )
-        print("Three Steps Mohd ", arguments[0])
         # First is database name
         db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
         # Second is schema name
@@ -546,7 +548,7 @@ class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             DataPlatformTable(
                 name=table_name,
                 full_name=full_table_name,
-                datasource_server=arguments[0],
+                datasource_server=self.get_datasource_server(arguments, data_access_func_detail),
                 data_platform_pair=self.get_platform_pair(),
             )
         ]
@@ -560,6 +562,10 @@ class SnowflakeTableFullNameCreator(DefaultThreeStepDataAccessSources):
 class GoogleBigQueryTableFullNameCreator(DefaultThreeStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.GOOGLE_BIGQUERY.value
+
+    def get_datasource_server(self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail) -> str:
+        # In Google BigQuery server is project-name
+        return data_access_func_detail.identifier_accessor.items["Name"]
 
 
 class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
@@ -584,7 +590,8 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(flat_argument_list[0])
         )
-        print("Mohd ", data_access_tokens)
+
+        logger.debug(f"native query arguments = {data_access_tokens}")
 
         if (
                 data_access_tokens[0]
@@ -594,6 +601,12 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 f"Provided native-query data-platform = {data_access_tokens[0]}"
             )
             logger.debug("Only Snowflake is supported in NativeQuery")
+            return dataplatform_tables
+        if len(data_access_tokens[0]) < 3:
+            logger.debug(
+                f"Server is not available in argument list for data-platform {data_access_tokens[0]}. Returning empty "
+                "list"
+            )
             return dataplatform_tables
 
         # First argument is the query
@@ -617,7 +630,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 DataPlatformTable(
                     name=table.split(".")[2],
                     full_name=table,
-                    datasource_server="Dummy",
+                    datasource_server=tree_function.strip_char_from_list([data_access_tokens[2]], char="\"")[0],
                     data_platform_pair=self.get_platform_pair(),
                 )
             )
