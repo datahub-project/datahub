@@ -198,7 +198,9 @@ class PowerBiDashboardSourceConfig(
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
     workspace_id: Optional[str] = pydantic.Field(
-        description="[deprecated] Use workspace_id_pattern instead", default=None
+        default=None,
+        description="[deprecated] Use workspace_id_pattern instead",
+        hidden_from_docs=True,
     )
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
@@ -217,6 +219,7 @@ class PowerBiDashboardSourceConfig(
         "DataHub supported datasources."
         "You can configured platform instance for dataset lineage. "
         "See Quickstart Recipe for mapping",
+        hidden_from_docs=True,
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
