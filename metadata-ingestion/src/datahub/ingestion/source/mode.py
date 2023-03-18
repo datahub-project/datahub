@@ -214,6 +214,9 @@ class ModeSource(Source):
         )
         if creator is not None:
             modified_actor = builder.make_user_urn(creator)
+            if report_info.get('last_saved_at') is None:
+                report_info['last_saved_at'] = report_info.get('created_at')
+                
             modified_ts = int(
                 dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp()
                 * 1000
