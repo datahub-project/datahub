@@ -23,6 +23,7 @@ from requests_file import FileAdapter
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_PROJECT_FILTER,
+    DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DockerComposeVersionError,
     check_docker_quickstart,
     get_docker_client,
@@ -969,8 +970,9 @@ def nuke(keep_data: bool) -> None:
             click.echo("Skipping deleting data volumes in the datahub project")
         else:
             click.echo("Removing volumes in the datahub project")
-            for volume in client.volumes.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
-                volume.remove(force=True)
+            for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [DATAHUB_COMPOSE_PROJECT_FILTER]:
+                for volume in client.volumes.list(filters=filter):
+                    volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):

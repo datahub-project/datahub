@@ -189,6 +189,9 @@ elasticsearch:
       prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.6} # boost multiplier when exact prefix
       caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.7} # stacked boost multiplier when case mismatch
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
+    partial:
+      urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.7} # multiplier on Urn token match
+      factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on non-Urn token match
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size

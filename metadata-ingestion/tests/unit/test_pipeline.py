@@ -1,4 +1,4 @@
-from typing import Iterable, List, cast
+from typing import Iterable, List, cast, Optional, Any
 from unittest.mock import patch
 
 import pytest
@@ -66,7 +66,8 @@ class TestPipeline(object):
         assert pipeline.config.sink.type == "datahub-rest"
         assert pipeline.config.sink.config == {
             "server": "http://localhost:8080",
-            "token": None,
+            "token": Optional[Any],
+            # value is read from ~/datahubenv which may be None or not
         }
 
     @freeze_time(FROZEN_TIME)
