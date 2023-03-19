@@ -7,7 +7,7 @@ from datahub.configuration.common import ConfigModel, ConfigurationError
 
 class CSVEnricherConfig(ConfigModel):
     filename: str = pydantic.Field(
-        description="Path to CSV file to ingest. It can also be a URL."
+        description="Path to CSV file to ingest. It can also be in the form of a URL."
     )
     write_semantics: str = pydantic.Field(
         default="PATCH",

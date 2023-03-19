@@ -93,7 +93,7 @@ class DefaultConfig(ConfigModel):
 
 class BusinessGlossarySourceConfig(ConfigModel):
     file: Union[str, pathlib.Path] = Field(
-        description="Path to business glossary file to ingest. This can be a URL or local file YAML"
+        description="Path to business glossary file to ingest. This can be in the form of a URL or local file YAML."
     )
     enable_auto_id: bool = Field(
         description="Generate id field from GlossaryNode and GlossaryTerm's name field",

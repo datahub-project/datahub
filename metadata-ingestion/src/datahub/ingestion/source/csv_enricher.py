@@ -550,16 +550,18 @@ class CSVEnricherSource(Source):
                 pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
             ) as f:
                 rows = csv.DictReader(f, delimiter=self.config.delimiter)
-                for row in rows:
-                    keep_rows.append(row)
+                keep_rows = [row for row in rows]
         else:
-            resp = requests.get(self.config.filename)
-            decoded_content = resp.content.decode("utf-8-sig")
-            rows = csv.DictReader(
-                decoded_content.splitlines(), delimiter=self.config.delimiter
-            )
-            for row in rows:
-                keep_rows.append(row)
+            try:
+                resp = requests.get(self.config.filename)
+                decoded_content = resp.content.decode("utf-8-sig")
+                rows = csv.DictReader(
+                    decoded_content.splitlines(), delimiter=self.config.delimiter
+                )
+                keep_rows = [row for row in rows]
+            except Exception as e:
+                raise ConfigurationError(f"Cannot read remote file {self.config.filename}")
+
         for row in keep_rows:
             # We need the resource to move forward
             if not row["resource"]:
