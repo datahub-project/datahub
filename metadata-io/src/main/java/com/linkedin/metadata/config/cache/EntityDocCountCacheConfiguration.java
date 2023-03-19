@@ -1,4 +1,4 @@
-package com.linkedin.metadata.config;
+package com.linkedin.metadata.config.cache;
 
 import lombok.Data;
 
@@ -6,4 +6,5 @@ import lombok.Data;
 @Data
 public class EntityDocCountCacheConfiguration {
   long ttlSeconds;
+  long lightningThreshold;
 }

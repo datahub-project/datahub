@@ -1885,6 +1885,7 @@
       "optional" : true,
       "Searchable" : {
         "boostScore" : 10.0,
+        "enableAutocomplete" : true,
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true
       }
@@ -2063,6 +2064,7 @@
       "optional" : true,
       "Searchable" : {
         "boostScore" : 10.0,
+        "enableAutocomplete" : true,
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true
       }
@@ -2125,6 +2127,7 @@
       "optional" : true,
       "Searchable" : {
         "boostScore" : 10.0,
+        "enableAutocomplete" : true,
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true
       }
@@ -2216,7 +2219,10 @@
         "type" : "string",
         "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL"
+          "boostScore" : 10.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_PARTIAL",
+          "queryByDefault" : true
         }
       } ],
       "Aspect" : {

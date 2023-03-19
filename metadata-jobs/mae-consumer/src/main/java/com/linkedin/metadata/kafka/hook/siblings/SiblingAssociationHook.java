@@ -23,6 +23,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -126,13 +127,14 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   private void handleEntityKeyEvent(DatasetUrn datasetUrn) {
     Filter entitiesWithYouAsSiblingFilter = createFilterForEntitiesWithYouAsSibling(datasetUrn);
-    final SearchResult searchResult = _searchService.structuredSearch(
+    final SearchResult searchResult = _searchService.search(
         "dataset",
         "*",
         entitiesWithYouAsSiblingFilter,
         null,
         0,
-        10);
+        10,
+            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
 
     // we have a match of an entity with you as a sibling, associate yourself back
     searchResult.getEntities().forEach(entity -> {

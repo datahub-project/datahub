@@ -60,6 +60,7 @@ export const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeM
 
 export const addInterval = (interval_num: number, date: Date, interval: DateInterval): Date => {
     return moment(date)
+        .utc()
         .add(interval_num, INTERVAL_TO_MOMENT_INTERVAL[interval] as moment.DurationInputArg2)
         .toDate();
 };
