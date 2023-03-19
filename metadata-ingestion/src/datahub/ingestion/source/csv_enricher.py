@@ -560,7 +560,9 @@ class CSVEnricherSource(Source):
                 )
                 keep_rows = [row for row in rows]
             except Exception as e:
-                raise ConfigurationError(f"Cannot read remote file {self.config.filename}")
+                raise ConfigurationError(
+                    f"Cannot read remote file {self.config.filename}, error:{e}"
+                )
 
         for row in keep_rows:
             # We need the resource to move forward

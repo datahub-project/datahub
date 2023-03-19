@@ -98,7 +98,9 @@ def load_config_file(
                 response = requests.get(str(config_file))
                 raw_config_file = response.text
             except Exception as e:
-                raise ConfigurationError(f"Cannot read remote file {config_file_path}")
+                raise ConfigurationError(
+                    f"Cannot read remote file {config_file_path}, error:{e}"
+                )
 
     config_fp = io.StringIO(raw_config_file)
     raw_config = config_mech.load_config(config_fp)

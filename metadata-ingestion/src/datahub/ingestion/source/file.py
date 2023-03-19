@@ -14,7 +14,7 @@ import requests
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigEnum, ConfigurationError, ConfigModel
+from datahub.configuration.common import ConfigEnum, ConfigModel, ConfigurationError
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -252,7 +252,7 @@ class GenericFileSource(TestableSource):
                 parse_start_time = datetime.datetime.now()
                 data = response.json()
             except Exception as e:
-                raise ConfigurationError(f"Cannot read remote file {path}")
+                raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
             if not isinstance(data, list):
                 data = [data]
             # logger.error(data)

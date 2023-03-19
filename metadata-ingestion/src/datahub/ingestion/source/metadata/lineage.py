@@ -62,7 +62,9 @@ EntityNodeConfig.update_forward_refs()
 
 
 class LineageFileSourceConfig(ConfigModel):
-    file: str = Field(description="Path to lineage file to ingest. This may also be in the form of a URL.")
+    file: str = Field(
+        description="Path to lineage file to ingest. This may also be in the form of a URL."
+    )
     preserve_upstream: bool = Field(
         default=True,
         description="Whether we want to query datahub-gms for upstream data. False means it will hard replace upstream data for a given entity. True means it will query the backend for existing upstreams and include it in the ingestion run",
