@@ -1,9 +1,11 @@
 import csv
-import requests
+import pathlib
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
-from urllib import parse, request
+from urllib import parse
+
+import requests
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -542,14 +544,23 @@ class CSVEnricherSource(Source):
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
         parsed_location = parse.urlparse(self.config.filename)
-        if parsed_location.scheme in ('file', ''):
-            with open(self.config.filename, mode="r", encoding="utf-8-sig") as f:
+        keep_rows = []
+        if parsed_location.scheme in ("file", ""):
+            with open(
+                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
+            ) as f:
                 rows = csv.DictReader(f, delimiter=self.config.delimiter)
+                for row in rows:
+                    keep_rows.append(row)
         else:
             resp = requests.get(self.config.filename)
-            decoded_content = resp.content.decode('utf-8-sig')
-            rows = csv.DictReader(decoded_content.splitlines(), delimiter=self.config.delimiter)
-        for row in rows:
+            decoded_content = resp.content.decode("utf-8-sig")
+            rows = csv.DictReader(
+                decoded_content.splitlines(), delimiter=self.config.delimiter
+            )
+            for row in rows:
+                keep_rows.append(row)
+        for row in keep_rows:
             # We need the resource to move forward
             if not row["resource"]:
                 continue
@@ -563,13 +574,9 @@ class CSVEnricherSource(Source):
                 GlossaryTermAssociationClass
             ] = self.maybe_extract_glossary_terms(row)
 
-            tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(
-                row
-            )
+            tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(row)
 
-            owners: List[OwnerClass] = self.maybe_extract_owners(
-                row, is_resource_row
-            )
+            owners: List[OwnerClass] = self.maybe_extract_owners(row, is_resource_row)
 
             domain: Optional[str] = (
                 row["domain"]

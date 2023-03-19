@@ -3,10 +3,10 @@ import pathlib
 import re
 import sys
 import unittest.mock
-from urllib import parse, request
-import requests
 from typing import Any, Dict, Set, Union
+from urllib import parse
 
+import requests
 from expandvars import UnboundVariable, expandvars
 
 from datahub.configuration.common import ConfigurationError, ConfigurationMechanism
@@ -68,11 +68,11 @@ def list_referenced_env_variables(config: dict) -> Set[str]:
 
 
 def load_config_file(
-    config_file: Union[pathlib.Path, str],
+    config_file: Union[str, pathlib.Path],
     squirrel_original_config: bool = False,
     squirrel_field: str = "__orig_config",
     allow_stdin: bool = False,
-) -> dict: 
+) -> dict:
     config_mech: ConfigurationMechanism
     if allow_stdin and config_file == "-":
         # If we're reading from stdin, we assume that the input is a YAML file.
@@ -88,13 +88,13 @@ def load_config_file(
             raise ConfigurationError(
                 f"Only .toml and .yml are supported. Cannot process file type {config_file_path.suffix}"
             )
-        url_parsed = parse.urlparse(config_file)
-        if url_parsed.scheme in ('file', ''): # Possibly a local file
+        url_parsed = parse.urlparse(str(config_file))
+        if url_parsed.scheme in ("file", ""):  # Possibly a local file
             if not config_file_path.is_file():
-                raise ConfigurationError(f"Cannot open config file {config_file_path}")            
+                raise ConfigurationError(f"Cannot open config file {config_file_path}")
             raw_config_file = config_file_path.read_text()
         else:
-            response = requests.get(config_file)
+            response = requests.get(str(config_file))
             raw_config_file = response.text
 
     config_fp = io.StringIO(raw_config_file)

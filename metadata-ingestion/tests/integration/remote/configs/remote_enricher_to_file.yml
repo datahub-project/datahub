@@ -1,0 +1,11 @@
+run_id: remote-1
+
+source:
+  type: csv-enricher
+  config:
+    filename: http://127.0.0.1/csv_enricher_test_data.csv
+    write_semantics: OVERRIDE
+sink:
+  type: file
+  config:
+    filename: "./parsed_enriched_file.json"

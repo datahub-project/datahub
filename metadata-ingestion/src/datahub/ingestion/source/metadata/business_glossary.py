@@ -4,7 +4,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Union
 
-import pydantic
 from pydantic import validator
 from pydantic.fields import Field
 
@@ -93,7 +92,7 @@ class DefaultConfig(ConfigModel):
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
-    file: pydantic.AnyUrl = Field(
+    file: Union[str, pathlib.Path] = Field(
         description="Path to business glossary file to ingest. This can be a URL or local file YAML"
     )
     enable_auto_id: bool = Field(
@@ -481,7 +480,9 @@ class BusinessGlossaryFileSource(Source):
         config = BusinessGlossarySourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def load_glossary_config(self, file_name: pathlib.Path) -> BusinessGlossaryConfig:
+    def load_glossary_config(
+        self, file_name: Union[str, pathlib.Path]
+    ) -> BusinessGlossaryConfig:
         config = load_config_file(file_name)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg

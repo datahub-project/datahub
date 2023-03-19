@@ -6,7 +6,9 @@ from datahub.configuration.common import ConfigModel, ConfigurationError
 
 
 class CSVEnricherConfig(ConfigModel):
-    filename: str = pydantic.Field(description="Path to CSV file to ingest. It can also be a URL.")
+    filename: str = pydantic.Field(
+        description="Path to CSV file to ingest. It can also be a URL."
+    )
     write_semantics: str = pydantic.Field(
         default="PATCH",
         description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',

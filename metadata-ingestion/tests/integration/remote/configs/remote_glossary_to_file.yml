@@ -1,0 +1,10 @@
+run_id: remote-glossary
+
+source:
+  type: datahub-business-glossary
+  config:
+    file: http://127.0.0.1/business_glossary.yml
+sink:
+  type: file
+  config:
+    filename: "./remote_glossary_output.json"

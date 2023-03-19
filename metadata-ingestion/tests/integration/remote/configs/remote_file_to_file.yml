@@ -1,0 +1,10 @@
+run_id: remote-1
+
+source:
+  type: file
+  config:
+    path: http://127.0.0.1/mce_list.json
+sink:
+  type: file
+  config:
+    filename: "remote_file_output.json"

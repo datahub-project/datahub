@@ -2,7 +2,6 @@ import datetime
 import json
 import logging
 import os.path
-import requests
 import pathlib
 from dataclasses import dataclass, field
 from enum import auto
@@ -11,6 +10,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib import parse
 
 import ijson
+import requests
 from pydantic import validator
 from pydantic.fields import Field
 
@@ -180,8 +180,8 @@ class GenericFileSource(TestableSource):
         return cls(ctx, config)
 
     def get_filenames(self) -> Iterable[str]:
-        path_parsed = parse.urlparse(self.config.path)
-        if path_parsed.scheme in ('file', ''):
+        path_parsed = parse.urlparse(str(self.config.path))
+        if path_parsed.scheme in ("file", ""):
             self.config.path = pathlib.Path(self.config.path)
             if self.config.path.is_file():
                 self.report.total_num_files = 1
@@ -189,7 +189,9 @@ class GenericFileSource(TestableSource):
             elif self.config.path.is_dir():
                 files_and_stats = [
                     (str(x), os.path.getsize(x))
-                    for x in list(self.config.path.glob(f"*{self.config.file_extension}"))
+                    for x in list(
+                        self.config.path.glob(f"*{self.config.file_extension}")
+                    )
                     if x.is_file()
                 ]
                 self.report.total_num_files = len(files_and_stats)
@@ -244,14 +246,18 @@ class GenericFileSource(TestableSource):
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
         self.report.current_file_name = path
         path_parsed = parse.urlparse(path)
-        if not path_parsed.scheme in ('file', ''): # A remote file
+        if path_parsed.scheme not in ("file", ""):  # A remote file
             response = requests.get(path)
             parse_start_time = datetime.datetime.now()
             data = response.json()
+            if not isinstance(data, list):
+                data = [data]
+            # logger.error(data)
             parse_end_time = datetime.datetime.now()
-            self.report.add_parse_time(parse_end_time - parse_start_time)            
+            self.report.add_parse_time(parse_end_time - parse_start_time)
             self.report.current_file_size = len(response.content)
             self.report.current_file_elements_read = 0
+            logger.error(len(data))
             for i, obj in enumerate(data):
                 yield i, obj
                 self.report.current_file_elements_read += 1
