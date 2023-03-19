@@ -24,7 +24,9 @@ def load_file(config_file: Path) -> Union[dict, list]:
         raise ConfigurationError(f"Cannot open config file {config_file}")
 
     if config_file.suffix in {".yaml", ".yml"}:
-        config_mech: Union[YamlConfigurationMechanism, TomlConfigurationMechanism] = YamlConfigurationMechanism()
+        config_mech: Union[
+            YamlConfigurationMechanism, TomlConfigurationMechanism
+        ] = YamlConfigurationMechanism()
     elif config_file.suffix == ".toml":
         config_mech = TomlConfigurationMechanism()
     else:
