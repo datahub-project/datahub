@@ -27,7 +27,7 @@ Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the 
 mutation createGlossaryTerm {
     createGlossaryTerm(input:
     {
-      name: "Rate of Return.",
+      name: "Rate of Return",
       description: "A rate of return (RoR) is the net gain or loss of an investment over a specified time period."
     })
 }
