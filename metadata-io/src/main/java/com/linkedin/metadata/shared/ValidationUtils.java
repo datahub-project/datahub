@@ -11,6 +11,7 @@ import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
+import lombok.extern.slf4j.Slf4j;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import java.util.Objects;
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
+@Slf4j
 public class ValidationUtils {
 
 

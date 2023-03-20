@@ -367,6 +367,16 @@ module.exports = {
           ],
         },
         {
+          OpenAPI: [
+            {
+              label: "Usage Guide",
+              type: "doc",
+              id: "docs/api/openapi/openapi-usage-guide",
+            },
+            "docs/dev-guides/timeline",
+          ],
+        },
+        {
           "Rest.li": [
             {
               type: "doc",
@@ -386,13 +396,30 @@ module.exports = {
           ],
         },
         {
-          OpenAPI: [
+          "Getting Started: APIs & SDKs": [
             {
-              label: "Usage Guide",
-              type: "doc",
-              id: "docs/api/openapi/openapi-usage-guide",
+              "Creating Entities": [
+                "docs/api/tutorials/creating-datasets",
+                "docs/api/tutorials/creating-tags",
+                "docs/api/tutorials/creating-terms",
+              ],
             },
-            "docs/dev-guides/timeline",
+            {
+              "Enriching Entities": [
+                "docs/api/tutorials/adding-tags",
+                "docs/api/tutorials/adding-terms",
+                "docs/api/tutorials/adding-ownerships",
+                "docs/api/tutorials/adding-dataset-description",
+                "docs/api/tutorials/adding-column-description",
+                "docs/api/tutorials/adding-lineage",
+              ],
+            },
+            {
+              Reference: [
+                "docs/api/tutorials/references/generate-access-token",
+                "docs/api/tutorials/references/prepare-datahub",
+              ],
+            },
           ],
         },
       ],
@@ -410,7 +437,6 @@ module.exports = {
         "docs/datahub_lite",
       ],
     },
-
     {
       "Developer Guides": [
         // The purpose of this section is to provide developers & technical users with
@@ -448,6 +474,7 @@ module.exports = {
           ],
         },
         "docs/debugging",
+        "docs/faq-using-datahub",
         "docs/plugins",
 
         {
@@ -562,6 +589,7 @@ module.exports = {
 
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_3",
             "docs/managed-datahub/release-notes/v_0_2_2",
             "docs/managed-datahub/release-notes/v_0_2_1",
             "docs/managed-datahub/release-notes/v_0_2_0",

@@ -66,8 +66,9 @@ class SnowflakeColumnReference(PermissiveModel):
 class SnowflakeObjectAccessEntry(PermissiveModel):
     columns: Optional[List[SnowflakeColumnReference]]
     objectDomain: str
-    objectId: int
     objectName: str
+    # Seems like it should never be null, but in practice have seen null objectIds
+    objectId: Optional[int]
     stageKind: Optional[str]
 
 
@@ -378,7 +379,6 @@ class SnowflakeUsageExtractor(
                     id=f"{start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
-                self.report.report_workunit(wu)
                 yield wu
 
     def _process_snowflake_history_row(
