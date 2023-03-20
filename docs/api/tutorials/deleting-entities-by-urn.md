@@ -14,10 +14,48 @@ However, you can delete other entities like tags, terms, and owners with the sam
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
 For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
-## Delete Datasets With GraphQL (Not Supported)
+## Delete Datasets With GraphQL
 
-> 🚫 Deleting a dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
+> Hard delete with GraphQL is currently not supported. 
+> For more information about soft delete and hard delete, please refer to [Removing Metadata from DataHub](/docs/how/delete-metadata.md#delete-by-urn)
+
+### GraphQL Explorer
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
+
+```json
+mutation batchUpdateSoftDeleted {
+    batchUpdateSoftDeleted(input: 
+      { urns: ["urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"], 
+        deleted: true })
+}
+```
+If you see the following response, the operation was successful:
+```json
+{
+  "data": {
+    "batchUpdateSoftDeleted": true
+  },
+  "extensions": {}
+}
+```
+
+### CURL
+
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
+With `accessToken`, you can run the following command.
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "mutation batchUpdateSoftDeleted { batchUpdateSoftDeleted(input: { deleted: true, urns: [\"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\"] }) }", "variables":{}}'
+```
+
+Expected Response:
+```json
+{"data":{"batchUpdateSoftDeleted":true},"extensions":{}}
+```
 
 ## Delete Datasets With Python SDK
 
@@ -42,8 +80,6 @@ log.info(f"Deleted dataset {dataset_urn}")
 ```
 Soft delete (`soft=true`) sets the Status aspect of the entity to Removed, which hides the entity and all its aspects from being returned by the UI. 
 However, hard delete (`soft=false`) physically deletes all rows for all aspects of the entity.
-
-For more information about soft delete and hard delete, please refer to [Removing Metadata from DataHub](/docs/how/delete-metadata.md#delete-by-urn)
 
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
