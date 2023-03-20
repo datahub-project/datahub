@@ -108,6 +108,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/snowflake/configuration",
               ],
             },
+            {
+              PowerBI: [
+                "docs/quick-ingestion-guides/powerbi/overview",
+                "docs/quick-ingestion-guides/powerbi/setup",
+                "docs/quick-ingestion-guides/powerbi/configuration",
+              ],
+            },
           ],
         },
       ],
