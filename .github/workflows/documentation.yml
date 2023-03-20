@@ -17,6 +17,8 @@ concurrency:
 jobs:
   gh-pages:
     runs-on: ubuntu-latest
+    permissions:
+      deployments: write
     steps:
       - name: Start Deployment
         if: github.event_name == 'pull_request' && github.repository == 'datahub-project/datahub'
