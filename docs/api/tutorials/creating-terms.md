@@ -10,7 +10,7 @@ This guide will show you how to create a term named `Rate of Return`.
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 ## Create Terms With GraphQL
 
@@ -27,7 +27,7 @@ Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the 
 mutation createGlossaryTerm {
     createGlossaryTerm(input:
     {
-      name: "Rate of Return.",
+      name: "Rate of Return",
       description: "A rate of return (RoR) is the net gain or loss of an investment over a specified time period."
     })
 }
@@ -44,7 +44,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -62,7 +62,7 @@ Expected Response:
 ## Create Terms With Python SDK
 
 The following code creates a term named `Rate of Return`.
-You can refer to the full code in [dataset_add_column_term.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_term.py).
+You can refer to the full code in [create_term.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/create_term.py).
 ```python
 import logging
 
@@ -80,7 +80,7 @@ term_urn = make_term_urn("rateofreturn")
 term_properties_aspect = GlossaryTermInfoClass(
     definition="A rate of return (RoR) is the net gain or loss of an investment over a specified time period.",
     name="Rate of Return",
-    termSource=""
+    termSource="",
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
@@ -102,10 +102,10 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 You can now see `Rate of Return` term has been created. 
 To view the definition, you can either click on 'Govern > Glossary' at the top right of the page or simply search for the term by name.
 
-![term-added](../../imgs/tutorials/term-added.png)
+![term-created](../../imgs/apis/tutorials/term-created.png)
 
 ## What's Next?
 
-Now that you created a term, how about adding it to a dataset? Here's a guide on [how to add a term on a dataset](/docs/tools/tutorials/adding-terms.md). 
+Now that you created a term, how about adding it to a dataset? Here's a guide on [how to add a term on a dataset](/docs/api/tutorials/adding-terms.md). 
 
 

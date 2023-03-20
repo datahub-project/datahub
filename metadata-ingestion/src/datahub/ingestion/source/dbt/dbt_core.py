@@ -90,7 +90,9 @@ class DBTCoreConfig(DBTCommonConfig):
 
 
 def get_columns(
-    catalog_node: dict, manifest_node: dict, tag_prefix: str
+    catalog_node: dict,
+    manifest_node: dict,
+    tag_prefix: str,
 ) -> List[DBTColumn]:
     columns = []
 
@@ -256,7 +258,11 @@ def extract_dbt_entities(
             logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
             if catalog_node is not None:
                 # We already have done the reporting for catalog_node being None above.
-                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
+                dbtNode.columns = get_columns(
+                    catalog_node,
+                    manifest_node,
+                    tag_prefix,
+                )
 
         else:
             dbtNode.columns = []
