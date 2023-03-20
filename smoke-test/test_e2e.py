@@ -1240,7 +1240,7 @@ def test_generate_personal_access_token(frontend_session):
     assert "errors" in res_data  # Assert the request fails
 
 
-# @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_native_user_endpoints(frontend_session):
     # Sign up tests
 
