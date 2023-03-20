@@ -124,6 +124,21 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     return pipeline
 
 
+def delete_urn(urn: str) -> None:
+    payload_obj = {"urn": urn}
+
+    cli_utils.post_delete_endpoint_with_session_and_url(
+        requests.Session(),
+        get_gms_url() + "/entities?action=delete",
+        payload_obj,
+    )
+
+
+def delete_urns(urns: List[str]) -> None:
+    for urn in urns:
+        delete_urn(urn)
+
+
 def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
     if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
@@ -146,13 +161,7 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
             snapshot_union = entry["proposedSnapshot"]
             snapshot = list(snapshot_union.values())[0]
             urn = snapshot["urn"]
-        payload_obj = {"urn": urn}
-
-        cli_utils.post_delete_endpoint_with_session_and_url(
-            session,
-            get_gms_url() + "/entities?action=delete",
-            payload_obj,
-        )
+        delete_urn(urn)
 
     with open(filename) as f:
         d = json.load(f)
@@ -167,7 +176,6 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
 
 # Fixed now value
 NOW: datetime = datetime.now()
-
 
 def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
     """

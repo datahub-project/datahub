@@ -4,6 +4,8 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPath;
+import com.linkedin.datahub.graphql.generated.FreshnessStats;
+import com.linkedin.datahub.graphql.generated.SystemFreshness;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -33,6 +35,16 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
     result.setSearchResults(input.getEntities().stream().map(this::mapResult).collect(Collectors.toList()));
     result.setFacets(searchResultMetadata.getAggregations().stream().map(MapperUtils::mapFacet).collect(Collectors.toList()));
 
+    if (input.hasFreshness()) {
+      FreshnessStats outputFreshness = new FreshnessStats();
+      outputFreshness.setCached(input.getFreshness().isCached());
+      outputFreshness.setSystemFreshness(input.getFreshness().getSystemFreshness().entrySet().stream().map(x ->
+              SystemFreshness.builder()
+                      .setSystemName(x.getKey())
+                      .setFreshnessMillis(x.getValue())
+                      .build()).collect(Collectors.toList()));
+      result.setFreshness(outputFreshness);
+    }
     return result;
   }
 

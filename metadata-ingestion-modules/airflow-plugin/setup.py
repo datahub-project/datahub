@@ -125,5 +125,6 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "dev": list(dev_requirements),
+        "datahub-kafka": f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}",
     },
 )

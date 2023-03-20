@@ -38,6 +38,7 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 2.  Oracle 
 3.  PostgreSQL
 4.  Microsoft SQL Server
+5.  Google BigQuery
 
 Native SQL query parsing is only supported for `Snowflake` data-source and only first table from `FROM` clause will be ingested as upstream table. Advance SQL construct like JOIN and SUB-QUERIES in `FROM` clause are not supported.
 
@@ -132,7 +133,11 @@ PowerBI Source would be able to ingest below listed metadata of that particular 
   - Dashboard's Tiles
   - Report's Pages
 
-Lets consider user don't want (or doesn't have access) to add service principal as member in workspace then you can enable the `admin_apis_only: true` in recipe to use PowerBI Admin API only. if `admin_apis_only` is set to `true` then report's pages would not get ingested as page API is not available in PowerBI Admin API.
+If you don't want to add a service principal as a member in your workspace, then you can enable the `admin_apis_only: true` in recipe to use PowerBI Admin API only. 
+
+Caveats of setting `admin_apis_only` to `true`:
+  - Report's pages would not get ingested as page API is not available in PowerBI Admin API
+  - [PowerBI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) would not get resolved to actual values while processing M-Query for table lineage
 
 
 ### Basic Ingestion: Service Principal As Member In Workspace 

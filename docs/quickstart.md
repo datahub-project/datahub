@@ -29,6 +29,12 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
    python3 -m pip install --upgrade acryl-datahub
    datahub version
    ```
+   
+   If you're using poetry, run the following command. 
+   ```sh
+   poetry add acryl-datahub
+   datahub version
+   ```
 
 :::note
 

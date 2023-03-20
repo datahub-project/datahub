@@ -23,6 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
+from datahub.ingestion.source.usage.usage_common import TOTAL_BUDGET_FOR_QUERY_LIST
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetFieldUsageCounts,
     DatasetUsageStatistics,
@@ -65,8 +66,9 @@ class SnowflakeColumnReference(PermissiveModel):
 class SnowflakeObjectAccessEntry(PermissiveModel):
     columns: Optional[List[SnowflakeColumnReference]]
     objectDomain: str
-    objectId: int
     objectName: str
+    # Seems like it should never be null, but in practice have seen null objectIds
+    objectId: Optional[int]
     stageKind: Optional[str]
 
 
@@ -218,9 +220,8 @@ class SnowflakeUsageExtractor(
             )
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
-        total_budget_for_query_list: int = 24000
         budget_per_query: int = int(
-            total_budget_for_query_list / self.config.top_n_queries
+            TOTAL_BUDGET_FOR_QUERY_LIST / self.config.top_n_queries
         )
         return sorted(
             [
@@ -378,7 +379,6 @@ class SnowflakeUsageExtractor(
                     id=f"{start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
-                self.report.report_workunit(wu)
                 yield wu
 
     def _process_snowflake_history_row(
