@@ -411,19 +411,20 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
 @pytest.mark.parametrize(
     "table_name, expected_table_prefix, expected_shard",
     [
+        # Cases with Fully qualified name as input
         ("project.dataset.table", "project.dataset.table", None),
-        ("table", "table", None),
         ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
+        ("project.dataset.table_2023", "project.dataset.table_2023", None),
+        # incorrectly handled special case where dataset itself is a sharded table if full name is specified
+        ("project.dataset.20231215", "project.dataset.20231215", None),
+        # Cases with Just the table name as input
+        ("table", "table", None),
+        ("table20231215", "table20231215", None),
         ("table_20231215", "table", "20231215"),
         ("table_1624046611000_name", "table_1624046611000_name", None),
         ("table_1624046611000", "table_1624046611000", None),
         # Special case where dataset itself is a sharded table
         ("20231215", None, "20231215"),
-        #
-        ("project.dataset.table_2023", "project.dataset.table_2023", None),
-        ("table_2023", "table_2023", None),
-        ("table_1624046611", "table_1624046611", None),
-        ("2023", "2023", None),
     ],
 )
 def test_get_table_and_shard_default(
@@ -442,10 +443,16 @@ def test_get_table_and_shard_default(
 @pytest.mark.parametrize(
     "table_name, expected_table_prefix, expected_shard",
     [
+        # Cases with Fully qualified name as input
         ("project.dataset.table", "project.dataset.table", None),
-        ("table", "table", None),
         ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
         ("project.dataset.table_2023", "project.dataset.table", "2023"),
+        # incorrectly handled special case where dataset itself is a sharded table if full name is specified
+        ("project.dataset.20231215", "project.dataset.20231215", None),
+        ("project.dataset.2023", "project.dataset.2023", None),
+        # Cases with Just the table name as input
+        ("table", "table", None),
+        ("table20231215", "table20231215", None),
         ("table_20231215", "table", "20231215"),
         ("table_2023", "table", "2023"),
         ("table_1624046611000_name", "table_1624046611000_name", None),
@@ -480,6 +487,7 @@ def test_get_table_and_shard_custom_shard_pattern(
             "project.dataset.table_1624046611000_name",
         ),
         ("project.dataset.table_1624046611000", "project.dataset.table_1624046611000"),
+        ("project.dataset.table20231215", "project.dataset.table20231215"),
         ("project.dataset.table_*", "project.dataset.table"),
         ("project.dataset.table_2023*", "project.dataset.table"),
         ("project.dataset.table_202301*", "project.dataset.table"),
