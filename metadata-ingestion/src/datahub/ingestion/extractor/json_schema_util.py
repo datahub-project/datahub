@@ -291,7 +291,7 @@ class JsonSchemaTranslator:
         generic_type = JsonSchemaTranslator._get_type_from_schema(schema)
         if generic_type == "object" and "javaType" in schema:
             return schema["javaType"].split(".")[-1]
-        if generic_type == "object" and "title" in schema:
+        if generic_type == "object" and "title" in schema and "properties" in schema:
             return schema["title"]
         if "format" in schema:
             return f"{generic_type}({schema['format']})"
