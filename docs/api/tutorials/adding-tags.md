@@ -11,13 +11,13 @@ Additionally, we will cover how to add a tag to the dataset itself.
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding tags, you need to ensure the targeted dataset and the tag are already present in your datahub. 
 If you attempt to manipulate entities that do not exist, your operation will fail. 
 In this guide, we will be using data from a sample ingestion. 
-If you want to know how to create tags using APIs & SDKs, please refer to [Creating Tags](/docs/tools/tutorials/creating-tags.md) and [Creating Datasets](/docs/tools/tutorials/creating-datasets.md).
+If you want to know how to create tags using APIs & SDKs, please refer to [Creating Tags](/docs/api/tutorials/creating-tags.md) and [Creating Datasets](/docs/api/tutorials/creating-datasets.md).
 .
 :::
 
@@ -69,7 +69,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -201,5 +201,5 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 ## Expected Outcomes
 You can now see `CustomerAccount` tag has been added to `user_name` column. 
 
-![tag-added](../../imgs/tutorials/tag-added.png)
+![tag-added](../../imgs/apis/tutorials/tag-added.png)
 
