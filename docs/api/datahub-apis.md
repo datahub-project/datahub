@@ -54,7 +54,7 @@ The Rest.li API represents the underlying persistence layer, and exposes the raw
 Get started with our Rest.li API
 </a>
 
-## Datahub API Comparison
+## DataHub API Comparison
 DataHub supports several APIs, each with its own unique usage and format. 
 Here's an overview of what each API can do.
 
