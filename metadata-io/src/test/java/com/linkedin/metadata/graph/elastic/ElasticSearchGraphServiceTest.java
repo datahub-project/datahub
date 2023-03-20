@@ -26,6 +26,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Arrays;
 import java.util.Collections;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.junit.Assert;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.testng.SkipException;
