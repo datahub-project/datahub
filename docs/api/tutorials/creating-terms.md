@@ -27,7 +27,7 @@ Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the 
 mutation createGlossaryTerm {
     createGlossaryTerm(input:
     {
-      name: "Rate of Return.",
+      name: "Rate of Return",
       description: "A rate of return (RoR) is the net gain or loss of an investment over a specified time period."
     })
 }
@@ -102,7 +102,7 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 You can now see `Rate of Return` term has been created. 
 To view the definition, you can either click on 'Govern > Glossary' at the top right of the page or simply search for the term by name.
 
-![term-added](../../imgs/apis/tutorials/term-added.png)
+![term-created](../../imgs/apis/tutorials/term-created.png)
 
 ## What's Next?
 
