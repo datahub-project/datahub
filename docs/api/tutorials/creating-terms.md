@@ -102,7 +102,7 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 You can now see `Rate of Return` term has been created. 
 To view the definition, you can either click on 'Govern > Glossary' at the top right of the page or simply search for the term by name.
 
-![term-added](../../imgs/apis/tutorials/term-added.png)
+![term-created](../../imgs/apis/tutorials/term-created.png)
 
 ## What's Next?
 
