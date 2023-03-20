@@ -122,6 +122,7 @@ from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
+    auto_materialize_referenced_tags,
     auto_stale_entity_removal,
     auto_status_aspect,
     auto_workunit_reporter,
@@ -551,12 +552,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 yield from self.generate_lineage(project.id)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_workunit_reporter(
+                    self.report,
+                    auto_status_aspect(self.get_workunits_internal()),
+                ),
+            )
         )
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
