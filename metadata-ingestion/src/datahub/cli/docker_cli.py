@@ -11,7 +11,7 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Dict, List, Optional
 
 import click
 import click_spinner
@@ -85,18 +85,6 @@ def docker() -> None:
     """Helper commands for setting up and interacting with a local
     DataHub instance using Docker."""
     pass
-
-
-def _print_issue_list_and_exit(
-    issues: List[str], header: str, footer: Optional[str] = None
-) -> NoReturn:
-    click.secho(header, fg="bright_red")
-    for issue in issues:
-        click.echo(f"- {issue}")
-    if footer:
-        click.echo()
-        click.echo(footer)
-    sys.exit(1)
 
 
 @docker.command()
