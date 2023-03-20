@@ -414,7 +414,7 @@ module.exports = {
                 "docs/api/tutorials/adding-lineage",
               ],
             },
-                        {
+            {
               "Deleting Entities": [
                 "docs/api/tutorials/deleting-entities-by-urn",
               ],
