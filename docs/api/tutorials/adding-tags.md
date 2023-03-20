@@ -66,7 +66,6 @@ If you see the following response, the operation was successful:
 }
 ```
 
-
 ### CURL
 
 With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
