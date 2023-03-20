@@ -50,17 +50,6 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-      - name: Upload test results to BuildPulse for flaky test detection
-        if: '!cancelled()'
-        # https://github.com/marketplace/actions/buildpulse
-        uses: Workshop64/buildpulse-action@main
-        with:
-          account: ${{ secrets.BUILDPULSE_ACCOUNT }}
-          repository: ${{ secrets.BUILDPULSE_REPO }}
-          path: |
-            **/junit*.xml
-          key: ${{ secrets.BUILDPULSE_ACCESS_KEY_ID }}
-          secret: ${{ secrets.BUILDPULSE_SECRET_ACCESS_KEY }}
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1

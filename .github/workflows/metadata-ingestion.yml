@@ -69,17 +69,16 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-      - name: Upload test results to BuildPulse for flaky test detection
-        if: '!cancelled()'
-        # https://github.com/marketplace/actions/buildpulse
-        uses: Workshop64/buildpulse-action@main
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.python-version == '3.10' }}
+        uses: codecov/codecov-action@v3
         with:
-          account: ${{ secrets.BUILDPULSE_ACCOUNT }}
-          repository: ${{ secrets.BUILDPULSE_REPO }}
-          path: |
-            **/junit*.xml
-          key: ${{ secrets.BUILDPULSE_ACCESS_KEY_ID }}
-          secret: ${{ secrets.BUILDPULSE_SECRET_ACCESS_KEY }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: .
+          fail_ci_if_error: true
+          flags: pytest-${{ matrix.command }}
+          name: pytest-${{ matrix.command }}
+          verbose: true
 
   event-file:
     runs-on: ubuntu-latest
