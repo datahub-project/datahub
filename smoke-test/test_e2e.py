@@ -1382,7 +1382,7 @@ def test_native_user_endpoints(frontend_session):
     unauthenticated_get_invite_token_response = unauthenticated_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=get_invite_token_json
     )
-    unauthenticated_get_invite_token_response.status_code == HTTPStatus.UNAUTHORIZED
+    assert unauthenticated_get_invite_token_response.status_code == HTTPStatus.UNAUTHORIZED
 
     unauthenticated_create_reset_token_json = {
         "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n
@@ -1397,7 +1397,7 @@ def test_native_user_endpoints(frontend_session):
         f"{get_frontend_url()}/api/v2/graphql",
         json=unauthenticated_create_reset_token_json,
     )
-    unauthenticated_create_reset_token_response.status_code == HTTPStatus.UNAUTHORIZED
+    assert unauthenticated_create_reset_token_response.status_code == HTTPStatus.UNAUTHORIZED
 
     # cleanup steps
     json = {

@@ -37,11 +37,17 @@ class FieldRow(BaseModel):
         type: str
         field_name: Optional[str]
 
+    # matches any [...] style section inside a field path
+    _V2_FIELD_PATH_TOKEN_MATCHER = r"\[[\w.]*[=]*[\w\(\-\ \_\).]*\][\.]*"
+    # matches a .?[...] style section inside a field path anchored to the beginning
+    _V2_FIELD_PATH_TOKEN_MATCHER_PREFIX = rf"^[\.]*{_V2_FIELD_PATH_TOKEN_MATCHER}"
+    _V2_FIELD_PATH_FIELD_NAME_MATCHER = r"^\w+"
+
     @staticmethod
     def map_field_path_to_components(field_path: str) -> List[Component]:
         
-        m = re.match(r"^[\.]*\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*", field_path)
-        v = re.match(r"^\w+", field_path)
+        m = re.match(FieldRow._V2_FIELD_PATH_TOKEN_MATCHER_PREFIX, field_path)
+        v = re.match(FieldRow._V2_FIELD_PATH_FIELD_NAME_MATCHER, field_path)
         components: List[FieldRow.Component] = []
         while m or v:
             token = m.group() if m else v.group() # type: ignore
@@ -74,8 +80,8 @@ class FieldRow(BaseModel):
                             components.append(new_component)
 
             field_path = field_path[m.span()[1]:] if m else field_path[v.span()[1]:] # type: ignore
-            m = re.match(r"^[\.]*\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*", field_path)
-            v = re.match(r"^\w+", field_path)
+            m = re.match(FieldRow._V2_FIELD_PATH_TOKEN_MATCHER_PREFIX, field_path)
+            v = re.match(FieldRow._V2_FIELD_PATH_FIELD_NAME_MATCHER, field_path)
 
         return components
 
@@ -86,8 +92,9 @@ class FieldRow(BaseModel):
         [version=2.0].[type=x].foo.[type=string(format=uri)].bar => ["foo","bar"]
         '''
         if "type=map" not in field_path:
-            return re.sub(r"\[[\w.]*[=]*[\w\(\-\_\).]*\][\.]*","",field_path).split(".")
+            return re.sub(FieldRow._V2_FIELD_PATH_TOKEN_MATCHER,"",field_path).split(".")
         else:
+            # fields with maps in them need special handling to insert the `key` fragment
             return [c.field_name for c in FieldRow.map_field_path_to_components(field_path) if c.field_name]
 
     @classmethod
