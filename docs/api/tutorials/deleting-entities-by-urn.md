@@ -22,7 +22,7 @@ For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/ap
 ## Delete Datasets With Python SDK
 
 The following code deletes a hive dataset named `fct_users_deleted`.
-You can refer to the complete method in [delete_dataset]().
+You can refer to the complete code in [delete_dataset.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/delete_dataset.py).
 
 ```python
 import logging
@@ -36,10 +36,7 @@ logging.basicConfig(level=logging.INFO)
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 dataset_urn = make_dataset_urn(name="fct_users_created", platform="hive")
 
-delete_cli._delete_one_urn(
-    urn=dataset_urn,
-    soft=true,
-    cached_emitter=rest_emitter)
+delete_cli._delete_one_urn(urn=dataset_urn, soft=true, cached_emitter=rest_emitter)
 
 log.info(f"Deleted dataset {dataset_urn}")
 ```
