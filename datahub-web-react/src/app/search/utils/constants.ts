@@ -94,5 +94,3 @@ export enum UnionType {
     AND,
     OR,
 }
-
-export const SCROLL_KEEP_ALIVE_TIME = '10m'; // TODO: Determine if this is sufficient.

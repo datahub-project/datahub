@@ -73,7 +73,6 @@ export default function DownloadAsCsvModal({
                     count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
                     orFilters: filters,
                     viewUrn,
-                    keepAlive: '10m',
                 },
             }).then((refetchData) => {
                 console.log('fetched data for page number ', downloadPage);

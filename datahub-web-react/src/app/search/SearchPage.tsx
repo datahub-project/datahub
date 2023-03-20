@@ -9,7 +9,7 @@ import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
-import { ENTITY_FILTER_NAME, SCROLL_KEEP_ALIVE_TIME, UnionType } from './utils/constants';
+import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
@@ -89,7 +89,6 @@ export const SearchPage = () => {
                 query,
                 viewUrn,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                keepAlive: SCROLL_KEEP_ALIVE_TIME,
                 orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
