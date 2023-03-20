@@ -667,7 +667,7 @@ public class EntityService {
   }
 
   @Nonnull
-  protected SystemMetadata generateSystemMetadataIfEmpty(SystemMetadata systemMetadata) {
+  protected SystemMetadata generateSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
     if (systemMetadata == null) {
       systemMetadata = new SystemMetadata();
       systemMetadata.setRunId(DEFAULT_RUN_ID);
@@ -683,7 +683,7 @@ public class EntityService {
   }
 
   public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
-      @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
+      @Nonnull final AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
@@ -710,7 +710,7 @@ public class EntityService {
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
@@ -740,7 +740,7 @@ public class EntityService {
    */
   @Nullable
   public RecordTemplate ingestAspectIfNotPresent(@Nonnull Urn urn, @Nonnull String aspectName,
-      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
+      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
     log.debug("Invoked ingestAspectIfNotPresent with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
     final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
