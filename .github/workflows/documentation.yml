@@ -17,17 +17,7 @@ concurrency:
 jobs:
   gh-pages:
     runs-on: ubuntu-latest
-    permissions:
-      deployments: write
     steps:
-      - name: Start Deployment
-        if: github.event_name == 'pull_request' && github.repository == 'datahub-project/datahub'
-        uses: bobheadxi/deployments@v1
-        id: deployment
-        with:
-          step: start
-          env: docs-preview
-
       - uses: actions/checkout@v3
       - name: Set up JDK 11
         uses: actions/setup-java@v3
@@ -58,15 +48,5 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID}}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID}}
-          github-comment: false
+          github-comment: true
           working-directory: ./docs-website
-
-      - name: Update Deployment Status
-        uses: bobheadxi/deployments@v1
-        if: always()
-        with:
-          step: finish
-          status: ${{ job.status }}
-          env: ${{ steps.deployment.outputs.env }}
-          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
-          env_url: ${{ steps.vercel-action.outputs.preview-url }}

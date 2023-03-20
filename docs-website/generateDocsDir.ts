@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import * as matter from "gray-matter";
+import matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
 import { Octokit } from "@octokit/rest";
