@@ -1,12 +1,16 @@
-# Adding Owners
+# Adding Owners On Datasets/Columns
 
 ## Why Would You Add Owners? 
 Assigning an owner to an entity helps to establish accountability for the metadata and collaborating as a team. 
 If there are any issues or questions about the data, the designated owner can serve as a reliable point of contact.
 
+### Goal Of This Guide
+This guide will show you how to add user group `bfoo` as an owner to the `fct_users_created` datatset.
+
+
 ## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed information, please refer to [Preparing Your Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed information, please refer to [Preparing Your Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding owners, you need to ensure the targeted dataset and the owner are already present in your datahub. 
@@ -49,7 +53,7 @@ Expected Response:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -145,4 +149,4 @@ Expected Response:
 ## Expected Outcomes
 You can now see `bfoo` has been added as an owner to the `fct_users_created` dataset.
 
-![ownership-added](../../imgs/tutorials/owner-added.png)
+![ownership-added](../../imgs/apis/tutorials/owner-added.png)
