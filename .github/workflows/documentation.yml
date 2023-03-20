@@ -49,7 +49,7 @@ jobs:
           cname: datahubproject.io
 
       - name: Deploy Preview
-        uses: amondnet/vercel-action@v20
+        uses: amondnet/vercel-action@v25.1.1
         if: github.event_name == 'pull_request' && github.repository == 'datahub-project/datahub'
         id: vercel-action
         with:
@@ -61,6 +61,7 @@ jobs:
 
       - name: Update Deployment Status
         uses: bobheadxi/deployments@v1
+        if: always()
         with:
           step: finish
           status: ${{ job.status }}
