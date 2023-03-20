@@ -16,6 +16,7 @@ const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "docs";
+const STATIC_DIRECTORY = "genStatic/artifacts";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -535,6 +536,28 @@ function write_markdown_file(
   }
 }
 
+function copy_python_wheels(): void {
+  // Copy the built wheel files to the static directory.
+  const wheel_dirs = [
+    "../metadata-ingestion/dist",
+    "../metadata-ingestion-modules/airflow-plugin/dist",
+  ];
+
+  const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
+  fs.mkdirSync(wheel_output_directory, { recursive: true });
+
+  for (const wheel_dir of wheel_dirs) {
+    const wheel_files = fs.readdirSync(wheel_dir);
+    for (const wheel_file of wheel_files) {
+      const src = path.join(wheel_dir, wheel_file);
+      const dest = path.join(wheel_output_directory, wheel_file);
+
+      // console.log(`Copying artifact ${src} to ${dest}...`);
+      fs.copyFileSync(src, dest);
+    }
+  }
+}
+
 (async function main() {
   for (const filepath of markdown_files) {
     //console.log("Processing:", filepath);
@@ -586,4 +609,8 @@ function write_markdown_file(
       );
     }
   }
+
+  // Generate static directory.
+  copy_python_wheels();
+  // TODO: copy over the source json schemas + other artifacts.
 })();
