@@ -41,8 +41,8 @@
   </servlet>
   <servlet>
     <display-name>Search Config CSV Servlet</display-name>
-    <servlet-name>search-csv-config</servlet-name>
-    <servlet-class>com.datahub.gms.servlet.SearchConfigCsv</servlet-class>
+    <servlet-name>config-search-export</servlet-name>
+    <servlet-class>com.datahub.gms.servlet.ConfigSearchExport</servlet-class>
     <async-supported>true</async-supported>
   </servlet>
   <servlet>
@@ -84,8 +84,8 @@
     <url-pattern>/config</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
-    <servlet-name>search-csv-config</servlet-name>
-    <url-pattern>/config/searchConfig.csv</url-pattern>
+    <servlet-name>config-search-export</servlet-name>
+    <url-pattern>/config/search/export</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>apiServlet</servlet-name>

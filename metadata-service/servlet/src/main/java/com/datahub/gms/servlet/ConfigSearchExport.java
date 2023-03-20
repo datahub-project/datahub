@@ -33,7 +33,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 
 @Slf4j
-public class SearchConfigCsv extends HttpServlet {
+public class ConfigSearchExport extends HttpServlet {
 
   private ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
     return (ConfigurationProvider) ctx.getBean("configurationProvider");
@@ -152,6 +152,11 @@ public class SearchConfigCsv extends HttpServlet {
 
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp) {
+    if (!"csv".equals(req.getParameter("format"))) {
+      resp.setStatus(400);
+      return;
+    }
+
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(req.getServletContext());
 
     try {
@@ -161,7 +166,7 @@ public class SearchConfigCsv extends HttpServlet {
       out.flush();
       resp.setStatus(200);
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("Error rendering csv", e);
       resp.setStatus(500);
     }
   }
