@@ -401,7 +401,10 @@ class DBTCloudSource(DBTSourceBase):
             test_result=test_result,
         )
 
-    def _parse_into_dbt_column(self, column: Dict) -> DBTColumn:
+    def _parse_into_dbt_column(
+        self,
+        column: Dict,
+    ) -> DBTColumn:
         return DBTColumn(
             name=column["name"],
             comment=column.get("comment", ""),
