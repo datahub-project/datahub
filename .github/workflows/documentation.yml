@@ -57,7 +57,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID}}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID}}
           github-comment: false
-          working-directory: ./docs-website/build
+          working-directory: ./docs-website
 
       - name: Update Deployment Status
         uses: bobheadxi/deployments@v1
