@@ -244,7 +244,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, initialTime, null, initialTime, null, null),
         new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, initialTime, null, initialTime, null, null),
         // One with null values, should always be returned
-        new Edge(datasetFiveUrn, datasetTwoUrn, downstreamOf, null, null, null, null, null),
+        new Edge(datasetFiveUrn, datasetTwoUrn, downstreamOf, null, null, null, null, null)
     );
 
     edges.forEach(getGraphService()::addEdge);
