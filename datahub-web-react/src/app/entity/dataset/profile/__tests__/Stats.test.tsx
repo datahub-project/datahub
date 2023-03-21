@@ -1,9 +1,9 @@
 import React from 'react';
 import { render } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
 import SnapshotStatsView from '../stats/snapshot/SnapshotStatsView';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import { completeSampleProfile, missingFieldStatsProfile, missingTableStatsProfile } from '../stories/stats';
-import { MockedProvider } from '@apollo/client/testing';
 import { mocks } from '../../../../../Mocks';
 
 describe('SnapshotStatsView', () => {
