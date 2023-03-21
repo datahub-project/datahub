@@ -20,10 +20,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
-from datahub.metadata.schema_classes import (
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
