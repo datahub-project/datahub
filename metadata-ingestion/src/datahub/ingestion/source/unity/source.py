@@ -160,9 +160,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         config = UnityCatalogSourceConfig.parse_obj(config_dict)
         return cls(ctx=ctx, config=config)
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.config.platform_instance or self.platform
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
