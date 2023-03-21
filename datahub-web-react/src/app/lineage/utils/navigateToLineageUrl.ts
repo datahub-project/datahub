@@ -27,8 +27,8 @@ export const navigateToLineageUrl = ({
     let newSearch: any = {
         ...parsedSearch,
         is_lineage_mode: isLineageMode,
-        start_time_millis: startTimeMillis,
-        end_time_millis: endTimeMillis,
+        start_time_millis: startTimeMillis || null,
+        end_time_millis: endTimeMillis || null,
     };
     if (isHideSiblingMode !== undefined) {
         newSearch = {
