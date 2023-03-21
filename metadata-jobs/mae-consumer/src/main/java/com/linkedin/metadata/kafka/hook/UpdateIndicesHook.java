@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFields;
@@ -21,6 +22,7 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -61,6 +63,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 // TODO: Backfill tests for this class in UpdateIndicesHookTest.java
@@ -83,8 +86,20 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
 
-  @Value("${featureFlags.graphServiceDiffModeEnabled:false}")
-  private boolean _diffMode;
+  @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
+  private boolean _graphDiffMode;
+  @Value("${featureFlags.searchServiceDiffModeEnabled:true}")
+  private boolean _searchDiffMode;
+
+  @VisibleForTesting
+  void setGraphDiffMode(boolean graphDiffMode) {
+    _graphDiffMode = graphDiffMode;
+  }
+
+  @VisibleForTesting
+  void setSearchDiffMode(boolean searchDiffMode) {
+    _searchDiffMode = searchDiffMode;
+  }
 
   @Autowired
   public UpdateIndicesHook(
@@ -160,11 +175,13 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
 
     // Step 1. For all aspects, attempt to update Search
-    updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect,
-        event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
+    updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect, event.getSystemMetadata(), previousAspect);
 
     // Step 2. For all aspects, attempt to update Graph
-    if (_diffMode) {
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+    if (_graphDiffMode && _graphService instanceof ElasticSearchGraphService
+        && (systemMetadata == null || systemMetadata.getProperties() == null
+        || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
     } else {
       updateGraphService(urn, aspectSpec, aspect, event);
@@ -402,8 +419,9 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
    * Process snapshot and update search index
    */
   private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect,
-      @Nullable String runId) {
+      @Nullable SystemMetadata systemMetadata, @Nullable RecordTemplate previousAspect) {
     Optional<String> searchDocument;
+    Optional<String> previousSearchDocument = Optional.empty();
     try {
       searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
     } catch (Exception e) {
@@ -419,6 +437,28 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
     if (!docId.isPresent()) {
       return;
+    }
+
+    String searchDocumentValue = searchDocument.get();
+    if (_searchDiffMode && (systemMetadata == null || systemMetadata.getProperties() == null
+        || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
+      if (previousAspect != null) {
+        try {
+          previousSearchDocument = _searchDocumentTransformer.transformAspect(urn, previousAspect, aspectSpec, false);
+        } catch (Exception e) {
+          log.error(
+              "Error in getting documents from previous aspect state: {} for aspect {}, continuing without diffing.", e,
+              aspectSpec.getName());
+        }
+      }
+
+      if (previousSearchDocument.isPresent()) {
+        String previousSearchDocumentValue = previousSearchDocument.get();
+        if (searchDocumentValue.equals(previousSearchDocumentValue)) {
+          // No changes to search document, skip writing no-op update
+          return;
+        }
+      }
     }
 
     _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());

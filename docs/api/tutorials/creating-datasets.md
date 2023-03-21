@@ -9,12 +9,12 @@ This guide will show you how to create a dataset named `realestate_db.sales` wit
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 ## Create Datasets With GraphQL (Not Supported)
 
 > 🚫 Creating a dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/tools/tutorials/advantages.md#our-apis) for more information, 
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
 
 
 ## Create Datasets With Python SDK
@@ -98,16 +98,16 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 ## Expected Outcomes
 You can now see `realestate_db.sales` dataset has been created.
 
-![dataset-created](../../imgs/tutorials/dataset-created.png)
+![dataset-created](../../imgs/apis/tutorials/dataset-created.png)
 
 ## What's Next?
 
 Now that you created a dataset, how about enriching it? Here are some guides that you can check out. 
 
-* [how to add a tag on a dataset](/docs/tools/tutorials/adding-tags.md). 
-* [how to add a term on a dataset](/docs/tools/tutorials/adding-terms.md). 
-* [how to add owner on a dataset](/docs/tools/tutorials/adding-ownerships.md). 
-* [how to add lineage on a dataset](/docs/tools/tutorials/adding-lineage.md). 
+* [how to add a tag on a dataset](/docs/api/tutorials/adding-tags.md). 
+* [how to add a term on a dataset](/docs/api/tutorials/adding-terms.md). 
+* [how to add owner on a dataset](/docs/api/tutorials/adding-ownerships.md). 
+* [how to add lineage on a dataset](/docs/api/tutorials/adding-lineage.md). 
 
 
 

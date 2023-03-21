@@ -655,3 +655,19 @@ def test_simple_array():
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[0].type.type, ArrayTypeClass)
+
+
+def test_simple_object():
+    schema = {
+        "type": "object",
+        "title": "Object With Object",
+        "namespace": "io.datahubproject",
+        "properties": {"inner": {"type": "object"}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=Object With Object].[type=object].inner",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[0].type.type, RecordTypeClass)
