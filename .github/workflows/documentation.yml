@@ -18,15 +18,15 @@ jobs:
   gh-pages:
     runs-on: ubuntu-latest
     steps:
-      - name: Start Deployment
-        if: github.event_name == 'pull_request' && github.repository == 'datahub-project/datahub'
-        uses: bobheadxi/deployments@v1.4.0
-        id: deployment
-        with:
-          step: start
-          token: ${{ secrets.VERCEL_GITHUB_TOKEN }}
-          env: Preview
-          debug: true
+      # - name: Start Deployment
+      #   if: github.event_name == 'pull_request' && github.repository == 'datahub-project/datahub'
+      #   uses: bobheadxi/deployments@v1.4.0
+      #   id: deployment
+      #   with:
+      #     step: start
+      #     token: ${{ secrets.VERCEL_GITHUB_TOKEN }}
+      #     env: Preview
+      #     debug: true
 
       - uses: actions/checkout@v3
       - name: Set up JDK 11
@@ -62,14 +62,14 @@ jobs:
           github-comment: true
           working-directory: ./docs-website
 
-      - name: Update Deployment Status
-        uses: bobheadxi/deployments@v1.4.0
-        if: always() && github.event_name == 'pull_request' && github.repository == 'datahub-project/datahub'
-        with:
-          step: finish
-          status: ${{ job.status }}
-          token: ${{ secrets.VERCEL_GITHUB_TOKEN }}
-          env: ${{ steps.deployment.outputs.env }}
-          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
-          env_url: ${{ steps.vercel-action.outputs.preview-url }}
-          debug: true
+      # - name: Update Deployment Status
+      #   uses: bobheadxi/deployments@v1.4.0
+      #   if: always() && github.event_name == 'pull_request' && github.repository == 'datahub-project/datahub'
+      #   with:
+      #     step: finish
+      #     status: ${{ job.status }}
+      #     token: ${{ secrets.VERCEL_GITHUB_TOKEN }}
+      #     env: ${{ steps.deployment.outputs.env }}
+      #     deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+      #     env_url: ${{ steps.vercel-action.outputs.preview-url }}
+      #     debug: true
