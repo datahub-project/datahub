@@ -54,4 +54,22 @@ public class SearchUtilsTest {
                 "Expected all default values except skipHighlighting");
     }
 
+    @Test
+    public void testImmutableDefaults() throws CloneNotSupportedException {
+        SearchFlags defaultFlags = new SearchFlags()
+                .setFulltext(true)
+                .setSkipCache(true)
+                .setSkipAggregates(true)
+                .setMaxAggValues(1)
+                .setSkipHighlighting(true);
+        SearchFlags copyFlags = defaultFlags.copy();
+
+        assertEquals(SearchUtils.applyDefaultSearchFlags(new SearchFlags().setFulltext(false).setSkipCache(false)
+                        .setSkipAggregates(false).setMaxAggValues(2).setSkipHighlighting(false), "not empty", defaultFlags),
+                new SearchFlags().setFulltext(false).setSkipAggregates(false).setSkipCache(false).setMaxAggValues(2).setSkipHighlighting(false),
+                "Expected no default values");
+
+        assertEquals(defaultFlags, copyFlags, "Expected defaults to be unmodified");
+    }
+
 }
