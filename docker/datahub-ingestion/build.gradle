@@ -1,0 +1,45 @@
+plugins {
+    id 'com.palantir.docker'
+    id 'java' // required for versioning
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+
+ext {
+    docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
+    docker_repo = 'datahub-ingestion'
+    docker_dir = 'datahub-ingestion'
+}
+
+docker {
+    name "${docker_registry}/${docker_repo}:v${version}"
+    version "v${version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+    files fileTree(rootProject.projectDir) {
+        include "docker/${docker_dir}/*"
+        include "metadata-ingestion/**"
+        include "metadata-events/**"
+        include "metadata-models/**"
+        include "li-utils/**"
+        include "docs/**"
+        include "gradle/**"
+        include "buildSrc/**"
+        include "*"
+    }
+    buildArgs([DOCKER_VERSION: version])
+}
+tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion-base:docker'])
+
+task mkdirBuildDocker {
+    doFirst {
+        mkdir "${project.buildDir}/docker"
+    }
+}
+dockerClean.finalizedBy(mkdirBuildDocker)
+
+task cleanLocalDockerImages {
+    doLast {
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)
