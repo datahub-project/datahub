@@ -1048,5 +1048,20 @@
         "lastObserved": 1643871600000,
         "runId": "powerbi-test"
     }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:977b804137a1d2bf897ff1bbf440a1cc",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
 }
 ]

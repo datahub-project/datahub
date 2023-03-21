@@ -9,7 +9,7 @@ from typing import Iterable, List, Optional, Set, Tuple, Union, cast
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_containers
+from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -110,7 +110,7 @@ class Mapper:
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.processed_datasets: Set[powerbi_data_classes.PowerBIDataset] = set()
-        self.workspace_key = None
+        self.workspace_key: PlatformKey
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -234,7 +234,9 @@ class Mapper:
                 else field.expression
             )
         else:
-            description = field.description if field.description else None  # type: ignore
+            description = (
+                field.description if field.description else None  # type:ignore
+            )
 
         schema_field = SchemaFieldClass(
             fieldPath=f"{field.name}",
@@ -656,9 +658,9 @@ class Mapper:
     def generate_container_for_workspace(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
-        workspace_key = workspace.get_workspace_key(self.__config.platform_name)
+        self.workspace_key = workspace.get_workspace_key(self.__config.platform_name)
         container_work_units = gen_containers(
-            container_key=workspace_key,
+            container_key=self.workspace_key,
             name=workspace.name,
             sub_types=[BIContainerSubTypes.POWERBI_WORKSPACE],
         )
