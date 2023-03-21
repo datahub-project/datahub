@@ -76,7 +76,7 @@ jobs:
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
-            linkedin/datahub-ingestion-slim
+            acryldata/datahub-ingestion-slim
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
