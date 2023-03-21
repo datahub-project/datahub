@@ -130,7 +130,7 @@ export const SearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const authenticatedUserUrn = useUserContext()?.urn;
+    const authenticatedUserUrn = useUserContext().user?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
