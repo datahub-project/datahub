@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Zoom } from '@vx/zoom';
-
+import { MockedProvider } from '@apollo/client/testing';
 import {
     dataset3WithLineage,
     dataset4WithLineage,
@@ -15,7 +15,6 @@ import LineageTree from '../LineageTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
 import TestPageContainer, { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
 import { EntityType } from '../../../types.generated';
-import { MockedProvider } from '@apollo/client/testing';
 
 const margin = { top: 10, left: 280, right: 280, bottom: 10 };
 const [windowWidth, windowHeight] = [1000, 500];
