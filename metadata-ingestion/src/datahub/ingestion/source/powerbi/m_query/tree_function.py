@@ -120,7 +120,7 @@ def remove_whitespaces_from_list(values: List[str]) -> List[str]:
     return result
 
 
-def strip_char_from_list(values: List[str], char: str) -> List[str]:
+def strip_char_from_list(values: List[str], char: str = '"') -> List[str]:
     result: List[str] = []
     for item in values:
         result.append(item.strip(char))

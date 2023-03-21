@@ -288,13 +288,6 @@ class LDAPSource(StatefulIngestionSourceBase):
 
             cookie = set_cookie(self.lc, pctrls)
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        """
-        The source identifier such as the specific source host address required for stateful ingestion.
-        Individual subclasses need to override this method appropriately.
-        """
-        return self.config.ldap_server
-
     def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
         """
         Handle a DN and attributes by adding manager info and constructing a
