@@ -22,7 +22,7 @@ datahub docker quickstart
 ```
 After logging in with the default credential(`username: datahub / password: datahub`), you can see DataHub ready for you. 
 
-![datahub-main-ui](../../../imgs/tutorials/datahub-main-ui.png)
+![datahub-main-ui](../../../imgs/apis/tutorials/datahub-main-ui.png)
 
 Please refer to [DataHub Quickstart Guide](/docs/quickstart.md) for more information. 
 
@@ -34,6 +34,6 @@ If you already have data on your datahub, you might skip this part.
 datahub docker ingest-sample-data 
 ```
 This will ingest various entities like datasets, terms and tags to your local DataHub.
-![datahub-main-ui](../../../imgs/tutorials/sample-ingestion.png)
+![datahub-main-ui](../../../imgs/apis/tutorials/sample-ingestion.png)
 
 Now you're ready to start!

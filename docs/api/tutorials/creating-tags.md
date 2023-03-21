@@ -10,7 +10,7 @@ This guide will show you how to create a tag named `Deprecated`.
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 ## Create Tags With GraphQL
 
@@ -44,7 +44,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -100,10 +100,10 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 ## Expected Outcomes
 You can now see `Deprecated` tag has been created.
 
-![tag-created](../../imgs/tutorials/tag-created.png)
+![tag-created](../../imgs/apis/tutorials/tag-created.png)
 
 ## What's Next?
 
-Now that you created a tag, how about adding it to a dataset? Here's a guide on [how to add a tag on a dataset](/docs/tools/tutorials/adding-tags.md). 
+Now that you created a tag, how about adding it to a dataset? Here's a guide on [how to add a tag on a dataset](/docs/api/tutorials/adding-tags.md). 
 
 
