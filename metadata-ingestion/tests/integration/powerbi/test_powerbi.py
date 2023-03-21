@@ -1,12 +1,17 @@
 import logging
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    SupportedDataPlatform,
+)
+from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -1022,3 +1027,164 @@ def test_workspace_container(
         output_path=tmp_path / "powerbi_container_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
+
+
+def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
+    source_config: PowerBiDashboardSourceConfig = cast(
+        PowerBiDashboardSource, pipeline.source
+    ).source_config
+
+    assert source_config.dataset_type_mapping is not None
+
+    # Generate default dataset_type_mapping and compare it with source_config.dataset_type_mapping
+    default_dataset_type_mapping: dict = {}
+    for item in SupportedDataPlatform:
+        default_dataset_type_mapping[
+            item.value.powerbi_data_platform_name
+        ] = item.value.datahub_data_platform_name
+
+    assert default_dataset_type_mapping == source_config.dataset_type_mapping
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_dataset_type_mapping_should_set_to_all(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Here we don't need to run the pipeline. We need to verify dataset_type_mapping is set to default dataplatform
+    """
+    register_mock_api(request_mock=requests_mock)
+
+    new_config: dict = {**default_source_config()}
+
+    del new_config["dataset_type_mapping"]
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **new_config,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
+                },
+            },
+        }
+    )
+
+    dataset_type_mapping_set_to_all_platform(pipeline)
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_dataset_type_mapping_error(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Here we don't need to run the pipeline. We need to verify if both dataset_type_mapping and server_to_platform_instance
+    are set then value error should get raised
+    """
+    register_mock_api(request_mock=requests_mock)
+
+    try:
+        Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_source_config(),
+                        "server_to_platform_instance": {
+                            "localhost": {
+                                "platform_instance": "test",
+                            }
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
+                    },
+                },
+            }
+        )
+    except Exception as e:
+        assert (
+            "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
+            in str(e)
+        )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_server_to_platform_map(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+    new_config: dict = {
+        **default_source_config(),
+        "extract_lineage": True,
+        "convert_lineage_urns_to_lowercase": True,
+    }
+
+    del new_config["dataset_type_mapping"]
+
+    new_config["server_to_platform_instance"] = {
+        "hp123rt5.ap-southeast-2.fakecomputing.com": {
+            "platform_instance": "snowflake_production_instance",
+            "env": "PROD",
+        },
+        "my-test-project": {
+            "platform_instance": "bigquery-computing-dev-account",
+            "env": "QA",
+        },
+        "localhost:1521": {"platform_instance": "oracle-sales-instance", "env": "PROD"},
+    }
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_path: str = f"{tmp_path}/powerbi_server_to_platform_instance_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": new_config,
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file_path: str = (
+        f"{test_resources_dir}/golden_test_server_to_platform_instance.json"
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=golden_file_path,
+    )
+    # As server_to_platform_instance map is provided, the old dataset_type_mapping
+    # should be set to all supported platform
+    # to process all available upstream lineage even if mapping for platform instance is
+    # not provided in server_to_platform_instance map
+    dataset_type_mapping_set_to_all_platform(pipeline)

@@ -5,11 +5,10 @@
 #########################################################
 
 import logging
-from typing import Iterable, List, Optional, Tuple, Union, cast
+from typing import Iterable, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
-from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -29,6 +28,10 @@ from datahub.ingestion.source.powerbi.config import (
     PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+)
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+    create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
@@ -95,9 +98,11 @@ class Mapper:
         self,
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
+        dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ):
         self.__config = config
         self.__reporter = reporter
+        self.__dataplatform_instance_resolver = dataplatform_instance_resolver
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -157,7 +162,9 @@ class Mapper:
         upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
             table, self.__reporter, parameters=parameters
         )
-
+        logger.debug(
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}"
+        )
         for upstream_table in upstream_tables:
             if (
                 upstream_table.data_platform_pair.powerbi_data_platform_name
@@ -168,27 +175,15 @@ class Mapper:
                 )
                 continue
 
-            platform: Union[str, PlatformDetail] = self.__config.dataset_type_mapping[
-                upstream_table.data_platform_pair.powerbi_data_platform_name
-            ]
-
-            platform_name: str = (
-                upstream_table.data_platform_pair.datahub_data_platform_name
+            platform_detail: PlatformDetail = (
+                self.__dataplatform_instance_resolver.get_platform_instance(
+                    upstream_table
+                )
             )
-
-            platform_instance_name: Optional[str] = None
-            platform_env: str = DEFAULT_ENV
-            # Determine if PlatformDetail is provided
-            if isinstance(platform, PlatformDetail):
-                platform_instance_name = cast(
-                    PlatformDetail, platform
-                ).platform_instance
-                platform_env = cast(PlatformDetail, platform).env
-
             upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=platform_name,
-                platform_instance=platform_instance_name,
-                env=platform_env,
+                platform=upstream_table.data_platform_pair.datahub_data_platform_name,
+                platform_instance=platform_detail.platform_instance,
+                env=platform_detail.env,
                 name=self.lineage_urn_to_lowercase(upstream_table.full_name),
             )
 
@@ -200,9 +195,7 @@ class Mapper:
 
         if len(upstreams) > 0:
             upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
-            logger.debug(
-                f"DataSet Lineage = {ds_urn} and its lineage = {upstream_lineage}"
-            )
+            logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
             mcp = MetadataChangeProposalWrapper(
                 entityType=Constant.DATASET,
                 changeType=ChangeTypeClass.UPSERT,
@@ -906,6 +899,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
 
     source_config: PowerBiDashboardSourceConfig
     reporter: PowerBiDashboardSourceReport
+    dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver
     accessed_dashboards: int = 0
     platform: str = "powerbi"
 
@@ -913,15 +907,19 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         super(PowerBiDashboardSource, self).__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
+        self.dataplatform_instance_resolver = create_dataplatform_instance_resolver(
+            self.source_config
+        )
         try:
             self.powerbi_client = PowerBiAPI(self.source_config)
         except Exception as e:
             logger.warning(e)
             exit(
                 1
-            )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising unwanted stacktrace on console
+            )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising
+            # unwanted stacktrace on console
 
-        self.mapper = Mapper(config, self.reporter)
+        self.mapper = Mapper(config, self.reporter, self.dataplatform_instance_resolver)
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
@@ -961,6 +959,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         for key in self.source_config.dataset_type_mapping.keys():
             if key not in powerbi_data_platforms:
                 raise ValueError(f"PowerBI DataPlatform {key} is not supported")
+
+        logger.debug(
+            f"Dataset lineage would get ingested for data-platform = {self.source_config.dataset_type_mapping}"
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
