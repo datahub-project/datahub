@@ -41,6 +41,8 @@ services:
       - METADATA_SERVICE_AUTH_ENABLED=false
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001
       - BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE=false
+      - SEARCH_SERVICE_ENABLE_CACHE=false
+      - LINEAGE_SEARCH_CACHE_ENABLED=false
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
