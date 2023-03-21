@@ -1,9 +1,9 @@
 import React from 'react';
 import { render } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
 import { Properties } from '../../../shared/components/legacy/Properties';
 import { sampleProperties } from '../stories/properties';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { MockedProvider } from '@apollo/client/testing';
 import { mocks } from '../../../../../Mocks';
 
 describe('Properties', () => {
