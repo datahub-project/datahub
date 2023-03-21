@@ -4,6 +4,6 @@
     "silent": true,
     "autoJobCancelation": true
   },
-  "installCommand": "./metadata-ingestion/scripts/install_deps.sh",
+  "installCommand": "yum install -y python3 && export PATH=/usr/bin:$PATH && ./metadata-ingestion/scripts/install_deps.sh",
   "outputDirectory": "docs-website/build"
 }
