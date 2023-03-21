@@ -26,6 +26,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Arrays;
 import java.util.Collections;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.junit.Assert;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.testng.SkipException;
@@ -237,9 +238,13 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     Long initialTime = 1000L;
 
     List<Edge> edges = Arrays.asList(
+        // One upstream edge
         new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, initialTime, null, initialTime, null, null),
+        // Two downstream
         new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, initialTime, null, initialTime, null, null),
-        new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, initialTime, null, initialTime, null, null)
+        new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, initialTime, null, initialTime, null, null),
+        // One with null values, should always be returned
+        new Edge(datasetFiveUrn, datasetTwoUrn, downstreamOf, null, null, null, null, null),
     );
 
     edges.forEach(getGraphService()::addEdge);
@@ -249,7 +254,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     EntityLineageResult upstreamResult = getUpstreamLineage(datasetTwoUrn, null, null);
     EntityLineageResult downstreamResult = getDownstreamLineage(datasetTwoUrn, null, null);
     Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
 
     // Timestamp before
     upstreamResult = getUpstreamLineage(datasetTwoUrn,
@@ -259,7 +264,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         0L,
         initialTime - 10);
     Assert.assertEquals(new Integer(0), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(0), downstreamResult.getTotal());
+    Assert.assertEquals(new Integer(1), downstreamResult.getTotal());
 
     // Timestamp after
     upstreamResult = getUpstreamLineage(datasetTwoUrn,
@@ -269,7 +274,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         initialTime + 10,
         initialTime + 100);
     Assert.assertEquals(new Integer(0), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(0), downstreamResult.getTotal());
+    Assert.assertEquals(new Integer(1), downstreamResult.getTotal());
 
     // Timestamp included
     upstreamResult = getUpstreamLineage(datasetTwoUrn,
@@ -279,7 +284,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         initialTime - 10,
         initialTime + 10);
     Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
 
     // Update only one of the downstream edges
     Long updatedTime = 2000L;
@@ -299,7 +304,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         null,
         null);
     Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
 
     // Window includes initial time and updated time
     upstreamResult = getUpstreamLineage(datasetTwoUrn,
@@ -309,7 +314,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         initialTime - 10,
         updatedTime + 10);
     Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
 
     // Window includes updated time but not initial time
     upstreamResult = getUpstreamLineage(datasetTwoUrn,
@@ -319,7 +324,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         initialTime + 10,
         updatedTime + 10);
     Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(1), downstreamResult.getTotal());
+    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
 
   }
 
