@@ -11,13 +11,21 @@ record GlobalTags {
   /**
    * Tags associated with a given entity
    */
-   @Searchable = {
+  @Relationship = {
+    "/*/tag": {
+      "name": "TaggedWith",
+      "entityTypes": [ "tag" ]
+    }
+  }
+  @Searchable = {
     "/*/tag": {
       "fieldName": "tags",
       "fieldType": "URN",
       "boostScore": 0.5,
       "queryByDefault": true,
-      "addToFilters": true
+      "addToFilters": true,
+      "hasValuesFieldName": "hasTags",
+      "filterNameOverride": "Tag"
     }
   }
   tags: array[TagAssociation]
