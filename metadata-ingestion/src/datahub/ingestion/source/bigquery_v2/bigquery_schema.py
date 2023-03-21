@@ -94,6 +94,7 @@ class BigqueryTable(BaseTable):
 @dataclass
 class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
+    materialized: bool = False
 
 
 @dataclass
@@ -470,11 +471,10 @@ class BigQueryDataDictionary:
             BigqueryView(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered
-                if "last_altered" in table
-                else table.created,
+                last_altered=table.get("last_altered", table.created),
                 comment=table.comment,
                 view_definition=table.view_definition,
+                materialized=table.table_type == "MATERIALIZED VIEW",
             )
             for table in cur
         ]
