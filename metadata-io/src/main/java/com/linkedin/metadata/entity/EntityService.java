@@ -1086,7 +1086,7 @@ public class EntityService {
     logger.accept(String.format(
         "Reading rows %s through %s from the aspects table completed.", args.start, args.start + args.batchSize));
 
-    for (EbeanAspectV2 aspect : rows.getList()) {
+    for (EbeanAspectV2 aspect : rows != null ? rows.getList() : List.<EbeanAspectV2>of()) {
       // 1. Extract an Entity type from the entity Urn
       result.timeGetRowMs = System.currentTimeMillis() - startTime;
       startTime = System.currentTimeMillis();
