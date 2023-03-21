@@ -99,13 +99,13 @@ jobs:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
-          image: linkedin/datahub-ingestion-slim:latest
+          image: acryldata/datahub-ingestion-slim:latest
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.8.0
         env:
           TRIVY_OFFLINE_SCAN: true
         with:
-          image-ref: linkedin/datahub-ingestion-slim:latest
+          image-ref: acryldata/datahub-ingestion-slim:latest
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
