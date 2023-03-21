@@ -1,9 +1,10 @@
 import pytest
 from freezegun import freeze_time
-from datahub.ingestion.run.pipeline import Pipeline
 
+from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
-from tests.test_helpers.click_helpers import run_datahub_cmd
+
+# from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2021-08-24 09:00:00"
@@ -30,7 +31,7 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
         )
 
         # Run the metadata ingestion pipeline for remote file.
-        config_file = (test_resources_dir / "configs/remote_file_to_file.yml").resolve()
+        # config_file = (test_resources_dir / "configs/remote_file_to_file.yml").resolve()
         # run_datahub_cmd(
         #     ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
         # )
