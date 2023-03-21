@@ -63,7 +63,7 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
             {
                 "run_id": "remote-2",
                 "source": {
-                    "type": "csv-enricher",
+                    "type": "file",
                     "config": {
                         "path": "http://127.0.0.1/mce_list.json",
                     },
