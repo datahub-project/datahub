@@ -8,8 +8,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -21,6 +23,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import java.util.Arrays;
 import java.util.Collections;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -226,5 +229,143 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   public void testConcurrentRemoveNodes() {
     // https://github.com/datahub-project/datahub/issues/3118
     throw new SkipException("ElasticSearchGraphService produces duplicates");
+  }
+
+  @Test
+  public void testTimestampLineage() throws Exception{
+    // Populate one upstream and two downstream edges at initialTime
+    Long initialTime = 1000L;
+
+    List<Edge> edges = Arrays.asList(
+        new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, initialTime, null, initialTime, null, null),
+        new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, initialTime, null, initialTime, null, null),
+        new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, initialTime, null, initialTime, null, null)
+    );
+
+    edges.forEach(getGraphService()::addEdge);
+    syncAfterWrite();
+
+    // Without timestamps
+    EntityLineageResult upstreamResult = getUpstreamLineage(datasetTwoUrn, null, null);
+    EntityLineageResult downstreamResult = getDownstreamLineage(datasetTwoUrn, null, null);
+    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
+    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+
+    // Timestamp before
+    upstreamResult = getUpstreamLineage(datasetTwoUrn,
+        0L,
+        initialTime - 10);
+    downstreamResult = getDownstreamLineage(datasetTwoUrn,
+        0L,
+        initialTime - 10);
+    Assert.assertEquals(new Integer(0), upstreamResult.getTotal());
+    Assert.assertEquals(new Integer(0), downstreamResult.getTotal());
+
+    // Timestamp after
+    upstreamResult = getUpstreamLineage(datasetTwoUrn,
+        initialTime + 10,
+        initialTime + 100);
+    downstreamResult = getDownstreamLineage(datasetTwoUrn,
+        initialTime + 10,
+        initialTime + 100);
+    Assert.assertEquals(new Integer(0), upstreamResult.getTotal());
+    Assert.assertEquals(new Integer(0), downstreamResult.getTotal());
+
+    // Timestamp included
+    upstreamResult = getUpstreamLineage(datasetTwoUrn,
+        initialTime - 10,
+        initialTime + 10);
+    downstreamResult = getDownstreamLineage(datasetTwoUrn,
+        initialTime - 10,
+        initialTime + 10);
+    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
+    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+
+    // Update only one of the downstream edges
+    Long updatedTime = 2000L;
+    edges = Arrays.asList(
+        new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, initialTime, null, updatedTime, null, null),
+        new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, initialTime, null, updatedTime, null, null)
+    );
+
+    edges.forEach(getGraphService()::addEdge);
+    syncAfterWrite();
+
+    // Without timestamps
+    upstreamResult = getUpstreamLineage(datasetTwoUrn,
+        null,
+        null);
+    downstreamResult = getDownstreamLineage(datasetTwoUrn,
+        null,
+        null);
+    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
+    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+
+    // Window includes initial time and updated time
+    upstreamResult = getUpstreamLineage(datasetTwoUrn,
+        initialTime - 10,
+        updatedTime + 10);
+    downstreamResult = getDownstreamLineage(datasetTwoUrn,
+        initialTime - 10,
+        updatedTime + 10);
+    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
+    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+
+    // Window includes updated time but not initial time
+    upstreamResult = getUpstreamLineage(datasetTwoUrn,
+        initialTime + 10,
+        updatedTime + 10);
+    downstreamResult = getDownstreamLineage(datasetTwoUrn,
+        initialTime + 10,
+        updatedTime + 10);
+    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
+    Assert.assertEquals(new Integer(1), downstreamResult.getTotal());
+
+  }
+
+  /**
+   * Utility method to reduce repeated parameters for lineage tests
+   * @param urn URN to query
+   * @param startTime Start of time-based lineage query
+   * @param endTime End of time-based lineage query
+   * @return The Upstream lineage for urn from the window from startTime to endTime
+   */
+  private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime) {
+    return getLineage(urn,
+        LineageDirection.UPSTREAM,
+        startTime,
+        endTime);
+  }
+
+  /**
+   * Utility method to reduce repeated parameters for lineage tests
+   * @param urn URN to query
+   * @param startTime Start of time-based lineage query
+   * @param endTime End of time-based lineage query
+   * @return The Downstream lineage for urn from the window from startTime to endTime
+   */
+  private EntityLineageResult getDownstreamLineage(Urn urn, Long startTime, Long endTime) {
+    return getLineage(urn,
+        LineageDirection.DOWNSTREAM,
+        startTime,
+        endTime);
+  }
+
+  /**
+   * Utility method to reduce repeated parameters for lineage tests
+   * @param urn URN to query
+   * @param direction Direction to query (upstream/downstream)
+   * @param startTime Start of time-based lineage query
+   * @param endTime End of time-based lineage query
+   * @return The lineage for urn from the window from startTime to endTime in direction
+   */
+  private EntityLineageResult getLineage(Urn urn, LineageDirection direction, Long startTime, Long endTime) {
+    return getGraphService().getLineage(urn,
+        direction,
+        0,
+        0,
+        3,
+        startTime,
+        endTime);
   }
 }
