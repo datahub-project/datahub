@@ -4,6 +4,6 @@
     "silent": true,
     "autoJobCancelation": true
   },
-  "installCommand": "yum install -y python3 && export PATH=/usr/bin:$PATH && ./metadata-ingestion/scripts/install_deps.sh",
+  "installCommand": "amazon-linux-extras install python3.8 && py3=\"$(which python3)\" && rm \"$py3\" && ln \"$(which python3.8)\" \"$py3\" && ./metadata-ingestion/scripts/install_deps.sh",
   "outputDirectory": "docs-website/build"
 }
