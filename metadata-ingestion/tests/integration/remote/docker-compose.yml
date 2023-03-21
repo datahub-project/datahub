@@ -8,3 +8,4 @@ services:
     - '80:80'
     volumes:
     - ./content:/usr/local/apache2/htdocs
+    hostname: somehost.example.com
