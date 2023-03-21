@@ -21,6 +21,7 @@ source:
     # Enable / Disable ingestion of endorsements.
     # Please notice that this may overwrite any existing tags defined to ingested entities!
     extract_endorsements_to_tags: false
+    # This mapping is optional and only needed to configure platform-instance for upstream tables
     # A mapping of PowerBI datasource's server i.e host[:port] to data platform instance.
     # :port is optional and only needed if your datasource server is running on non-standard port.
     # For Google BigQuery the datasource's server is google bigquery project name
