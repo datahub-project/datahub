@@ -17,6 +17,7 @@ from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
 from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.redshift.redshift_schema import (
+    LineageRow,
     RedshiftDataDictionary,
     RedshiftSchema,
     RedshiftTable,
@@ -209,36 +210,11 @@ class RedshiftLineageExtractor:
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
                 conn=connection, query=query
             ):
-                if (
-                    lineage_type != LineageCollectorType.UNLOAD
-                    and lineage_row.target_schema
-                    and lineage_row.target_table
-                ):
-                    if not self.config.schema_pattern.allowed(
-                        lineage_row.target_schema
-                    ) or not self.config.table_pattern.allowed(
-                        f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
-                    ):
-                        continue
-
-                # Target
-                if lineage_type == LineageCollectorType.UNLOAD and lineage_row.filename:
-                    try:
-                        target_platform = LineageDatasetPlatform.S3
-                        # Following call requires 'filename' key in lineage_row
-                        target_path = self._build_s3_path_from_row(lineage_row.filename)
-                    except ValueError as e:
-                        self.warn(logger, "non-s3-lineage", str(e))
-                        continue
-                else:
-                    target_platform = LineageDatasetPlatform.REDSHIFT
-                    target_path = f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
-
-                target = LineageItem(
-                    dataset=LineageDataset(platform=target_platform, path=target_path),
-                    upstreams=set(),
-                    collector_type=lineage_type,
+                target = self._get_target_lineage(
+                    alias_db_name, lineage_row, lineage_type
                 )
+                if not target:
+                    continue
 
                 sources = self._get_sources(
                     lineage_type,
@@ -249,29 +225,14 @@ class RedshiftLineageExtractor:
                     filename=lineage_row.filename,
                 )
 
-                for source in sources:
-                    if source.platform == LineageDatasetPlatform.REDSHIFT:
-                        db, schema, table = source.path.split(".")
-                        if db == raw_db_name:
-                            db = alias_db_name
-                            path = f"{db}.{schema}.{table}"
-                            source = LineageDataset(platform=source.platform, path=path)
-
-                        # Filtering out tables which does not exist in Redshift
-                        # It was deleted in the meantime or query parser did not capture well the table name
-                        if (
-                            db not in all_tables
-                            or schema not in all_tables[db]
-                            or not any(table == t.name for t in all_tables[db][schema])
-                        ):
-                            self.warn(
-                                logger,
-                                "missing-table",
-                                f"{source.path} missing table",
-                            )
-                            continue
-
-                    target.upstreams.add(source)
+                target.upstreams.update(
+                    self._get_upstream_lineages(
+                        sources=sources,
+                        all_tables=all_tables,
+                        alias_db_name=alias_db_name,
+                        raw_db_name=raw_db_name,
+                    )
+                )
 
                 # Merging downstreams if dataset already exists and has downstreams
                 if target.dataset.path in self._lineage_map:
@@ -295,6 +256,75 @@ class RedshiftLineageExtractor:
                 f"extract-{lineage_type.name}",
                 f"Error was {e}, {traceback.format_exc()}",
             )
+
+    def _get_target_lineage(
+        self,
+        alias_db_name: str,
+        lineage_row: LineageRow,
+        lineage_type: LineageCollectorType,
+    ) -> Optional[LineageItem]:
+        if (
+            lineage_type != LineageCollectorType.UNLOAD
+            and lineage_row.target_schema
+            and lineage_row.target_table
+        ):
+            if not self.config.schema_pattern.allowed(
+                lineage_row.target_schema
+            ) or not self.config.table_pattern.allowed(
+                f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
+            ):
+                return None
+        # Target
+        if lineage_type == LineageCollectorType.UNLOAD and lineage_row.filename:
+            try:
+                target_platform = LineageDatasetPlatform.S3
+                # Following call requires 'filename' key in lineage_row
+                target_path = self._build_s3_path_from_row(lineage_row.filename)
+            except ValueError as e:
+                self.warn(logger, "non-s3-lineage", str(e))
+                return None
+        else:
+            target_platform = LineageDatasetPlatform.REDSHIFT
+            target_path = f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
+
+        return LineageItem(
+            dataset=LineageDataset(platform=target_platform, path=target_path),
+            upstreams=set(),
+            collector_type=lineage_type,
+        )
+
+    def _get_upstream_lineages(
+        self,
+        sources: List[LineageDataset],
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+        alias_db_name: str,
+        raw_db_name: str,
+    ) -> List[LineageDataset]:
+        targe_source = []
+        for source in sources:
+            if source.platform == LineageDatasetPlatform.REDSHIFT:
+                db, schema, table = source.path.split(".")
+                if db == raw_db_name:
+                    db = alias_db_name
+                    path = f"{db}.{schema}.{table}"
+                    source = LineageDataset(platform=source.platform, path=path)
+
+                # Filtering out tables which does not exist in Redshift
+                # It was deleted in the meantime or query parser did not capture well the table name
+                if (
+                    db not in all_tables
+                    or schema not in all_tables[db]
+                    or not any(table == t.name for t in all_tables[db][schema])
+                ):
+                    self.warn(
+                        logger,
+                        "missing-table",
+                        f"{source.path} missing table",
+                    )
+                    continue
+
+            targe_source.append(source)
+        return targe_source
 
     def populate_lineage(
         self,

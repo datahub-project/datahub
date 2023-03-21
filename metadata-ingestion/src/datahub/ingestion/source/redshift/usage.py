@@ -21,11 +21,11 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     OperationClass,
     OperationTypeClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -337,24 +337,17 @@ class RedshiftUsageExtractor:
                     else OperationTypeClass.DELETE
                 ),
             )
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                aspectName="operation",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=builder.make_dataset_urn_with_platform_instance(
-                    "redshift",
-                    resource.lower(),
-                    self.config.platform_instance,
-                    self.config.env,
-                ),
-                aspect=operation_aspect,
+            dataset_urn = DatasetUrn.create_from_ids(
+                platform_id="redshift",
+                table_name=resource.lower(),
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
-            wu = MetadataWorkUnit(
-                id=f"operation-aspect-{event.table}-{event.endtime.isoformat()}",
-                mcp=mcp,
-            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(dataset_urn), aspect=operation_aspect
+            ).as_workunit()
             self.report.num_operational_stats_workunits_emitted += 1
-            yield wu
 
     def _aggregate_access_events(
         self, events_iterable: Iterable[RedshiftAccessEvent]

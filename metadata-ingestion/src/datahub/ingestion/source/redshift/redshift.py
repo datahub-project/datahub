@@ -31,7 +31,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
@@ -359,6 +362,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             ),
         )
 
+    def gen_database_container(self, database: str) -> Iterable[MetadataWorkUnit]:
+        database_container_key = gen_database_key(
+            database=database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database=database,
+            database_container_key=database_container_key,
+            sub_types=[DatasetContainerSubTypes.DATABASE],
+        )
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         connection = RedshiftSource.get_redshift_connection(self.config)
         database = get_db_name(self.config)
@@ -368,20 +385,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.db_views[database] = defaultdict()
         self.db_schemas.setdefault(database, {})
 
-        database_container_key = gen_database_key(
+        yield from self.gen_database_container(
             database=database,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
-        yield from gen_database_container(
-            database_container_key=database_container_key,
-            database=database,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
-            report=self.report,
-            sub_types=[DatasetSubTypes.TABLE],
         )
         self.cache_tables_and_views(connection, database)
 
@@ -392,15 +397,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
-        for schema in RedshiftDataDictionary.get_schemas(
-            conn=connection, database=database
-        ):
-            logger.info(f"Schema: {database}.{schema.name}")
-            if not self.config.schema_pattern.allowed(schema.name):
-                self.report.report_dropped(f"{database}.{schema.name}")
-                continue
-            self.db_schemas[database][schema.name] = schema
-            yield from self.process_schema(connection, database, schema)
+        yield from self.process_schemas(connection, database)
 
         all_tables = self.get_all_tables()
 
@@ -431,6 +428,17 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 state_handler=self.profiling_state_handler,
             )
             yield from profiler.get_workunits(self.db_tables)
+
+    def process_schemas(self, connection, database):
+        for schema in RedshiftDataDictionary.get_schemas(
+            conn=connection, database=database
+        ):
+            logger.info(f"Schema: {database}.{schema.name}")
+            if not self.config.schema_pattern.allowed(schema.name):
+                self.report.report_dropped(f"{database}.{schema.name}")
+                continue
+            self.db_schemas[database][schema.name] = schema
+            yield from self.process_schema(connection, database, schema)
 
     def process_schema(
         self,
