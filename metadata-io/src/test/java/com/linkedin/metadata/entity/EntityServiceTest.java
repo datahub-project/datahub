@@ -38,7 +38,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
