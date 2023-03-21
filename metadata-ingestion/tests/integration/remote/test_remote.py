@@ -30,11 +30,7 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
             pause=5,
         )
 
-        # Run the metadata ingestion pipeline for remote file.
-        # config_file = (test_resources_dir / "configs/remote_file_to_file.yml").resolve()
-        # run_datahub_cmd(
-        #     ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
-        # )
+        # try reading from a remote csv
         pipeline = Pipeline.create(
             {
                 "run_id": "remote-1",
@@ -56,54 +52,90 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
         pipeline.run()
         pipeline.raise_from_status()
 
-        # Verify the output.
-        # mce_helpers.check_golden_file(
-        #     pytestconfig,
-        #     output_path=tmp_path / "remote_file_output.json",
-        #     golden_path=test_resources_dir / "golden/remote_file_golden.json",
-        # )
-
-        # # Run the metadata ingestion pipeline for remote glossary.
-        # config_file = (
-        #     test_resources_dir / "configs/remote_glossary_to_file.yml"
-        # ).resolve()
-        # run_datahub_cmd(
-        #     ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
-        # )
-
-        # # Verify the output.
-        # mce_helpers.check_golden_file(
-        #     pytestconfig,
-        #     output_path=tmp_path / "remote_glossary_output.json",
-        #     golden_path=test_resources_dir / "golden/remote_glossary_golden.json",
-        # )
-
-        # # Run the metadata ingestion pipeline for remote lineage.
-        # config_file = (
-        #     test_resources_dir / "configs/remote_lineage_to_file.yml"
-        # ).resolve()
-        # run_datahub_cmd(
-        #     ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
-        # )
-
-        # # Verify the output.
-        # mce_helpers.check_golden_file(
-        #     pytestconfig,
-        #     output_path=tmp_path / "parsed_lineage_output.json",
-        #     golden_path=test_resources_dir / "golden/remote_lineage_golden.json",
-        # )
-
-        # # Run the metadata ingestion pipeline for remote lineage.
-        # config_file = (
-        #     test_resources_dir / "configs/remote_enricher_to_file.yml"
-        # ).resolve()
-        # run_datahub_cmd(
-        #     ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
-        # )
-
-        # # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "parsed_enriched_file.json",
             golden_path=test_resources_dir / "golden/remote_enricher_golden.json",
+        )
+
+        # try reading from a remote file
+        pipeline = Pipeline.create(
+            {
+                "run_id": "remote-2",
+                "source": {
+                    "type": "csv-enricher",
+                    "config": {
+                        "path": "http://127.0.0.1/mce_list.json",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/remote_file_output.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "remote_file_output.json",
+            golden_path=test_resources_dir / "golden/remote_file_golden.json",
+        )
+
+        # try reading from a remote lineage file
+        pipeline = Pipeline.create(
+            {
+                "run_id": "remote-3",
+                "source": {
+                    "type": "datahub-lineage-file",
+                    "config": {
+                        "file": "http://127.0.0.1/file_lineage.yml",
+                        "preserve_upstream": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/parsed_lineage_output.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "parsed_lineage_output.json",
+            golden_path=test_resources_dir / "golden/remote_lineage_golden.json",
+        )
+
+        # try reading from a remote lineage file
+        pipeline = Pipeline.create(
+            {
+                "run_id": "remote-4",
+                "source": {
+                    "type": "datahub-business-glossary",
+                    "config": {
+                        "file": "http://127.0.0.1/business_glossary.yml",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/remote_glossary_output.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "remote_glossary_output.json",
+            golden_path=test_resources_dir / "golden/remote_glossary_golden.json",
         )
