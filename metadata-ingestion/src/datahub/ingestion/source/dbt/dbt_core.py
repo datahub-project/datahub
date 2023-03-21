@@ -488,16 +488,3 @@ class DBTCoreSource(DBTSourceBase):
         if self.config.git_info and node.dbt_file_path:
             return self.config.git_info.get_url_for_file_path(node.dbt_file_path)
         return None
-
-    def get_platform_instance_id(self) -> Optional[str]:
-        """The DBT project identifier is used as platform instance."""
-
-        project_id = (
-            self.load_file_as_json(self.config.manifest_path)
-            .get("metadata", {})
-            .get("project_id")
-        )
-        if project_id is None:
-            raise ValueError("DBT project identifier is not found in manifest")
-
-        return f"{self.platform}_{project_id}"

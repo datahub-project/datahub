@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -38,9 +39,11 @@ public class SearchQueryBuilder {
 
   public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
   private final ExactMatchConfiguration exactMatchConfiguration;
+  private final PartialConfiguration partialConfiguration;
 
   public SearchQueryBuilder(@Nonnull SearchConfiguration searchConfiguration) {
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
+    this.partialConfiguration = searchConfiguration.getPartial();
   }
 
   public QueryBuilder buildQuery(@Nonnull List<EntitySpec> entitySpecs, @Nonnull String query, boolean fulltext) {
@@ -71,7 +74,7 @@ public class SearchQueryBuilder {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(withoutQueryPrefix);
       queryBuilder.defaultOperator(Operator.AND);
       entitySpecs.stream()
-          .map(SearchQueryBuilder::getStandardFields)
+          .map(this::getStandardFields)
           .flatMap(Set::stream)
           .distinct()
           .forEach(cfg -> queryBuilder.field(cfg.getFieldName(), cfg.getBoost()));
@@ -84,13 +87,15 @@ public class SearchQueryBuilder {
     return finalQuery;
   }
 
-  private static Set<SearchFieldConfig> getStandardFields(@Nonnull EntitySpec entitySpec) {
+  private Set<SearchFieldConfig> getStandardFields(@Nonnull EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
     // Always present
     final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
-    List.of("urn", "urn.delimited").forEach(urnField -> fields.add(SearchFieldConfig.detectSubFieldType(
-            urnField, urnBoost, SearchableAnnotation.FieldType.URN)));
+
+    fields.add(SearchFieldConfig.detectSubFieldType("urn", urnBoost, SearchableAnnotation.FieldType.URN));
+    fields.add(SearchFieldConfig.detectSubFieldType("urn.delimited", urnBoost * partialConfiguration.getUrnFactor(),
+            SearchableAnnotation.FieldType.URN));
 
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
@@ -103,7 +108,8 @@ public class SearchQueryBuilder {
 
       if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasDelimitedSubfield()) {
         fields.add(SearchFieldConfig.detectSubFieldType(searchFieldConfig.getFieldName() + ".delimited",
-                searchFieldConfig.getBoost() * 0.4f, fieldSpec.getSearchableAnnotation().getFieldType()));
+                searchFieldConfig.getBoost() * partialConfiguration.getFactor(),
+                fieldSpec.getSearchableAnnotation().getFieldType()));
       }
     }
 
@@ -126,7 +132,7 @@ public class SearchQueryBuilder {
       // Simple query string does not use per field analyzers
       // Group the fields by analyzer
       Map<String, List<SearchFieldConfig>> analyzerGroup = entitySpecs.stream()
-              .map(SearchQueryBuilder::getStandardFields)
+              .map(this::getStandardFields)
               .flatMap(Set::stream)
               .collect(Collectors.groupingBy(SearchFieldConfig::getAnalyzer));
 
