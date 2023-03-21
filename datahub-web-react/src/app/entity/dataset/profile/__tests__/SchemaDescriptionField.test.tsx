@@ -1,8 +1,8 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
 import SchemaDescriptionField from '../schema/components/SchemaDescriptionField';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { MockedProvider } from '@apollo/client/testing';
 import { mocks } from '../../../../../Mocks';
 
 describe('SchemaDescriptionField', () => {
