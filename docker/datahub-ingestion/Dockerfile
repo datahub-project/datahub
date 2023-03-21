@@ -1,10 +1,12 @@
 # Defining environment
 ARG APP_ENV=prod
+ARG DOCKER_VERSION=latest
 
-FROM acryldata/datahub-ingestion-base as base
+FROM acryldata/datahub-ingestion-base:$DOCKER_VERSION as base
 
-FROM openjdk:11 as prod-build
+FROM eclipse-temurin:11 as prod-build
 COPY . /datahub-src
+WORKDIR /datahub-src
 # We noticed that the gradle wrapper download failed frequently on in CI on arm64 machines.
 # I suspect this was due because of the QEMU emulation slowdown, combined with the arm64
 # build being starved for CPU by the x86_64 build's codegen step.
@@ -15,8 +17,7 @@ COPY . /datahub-src
 # Inspired by https://github.com/gradle/gradle/issues/18124#issuecomment-958182335.
 # and https://unix.stackexchange.com/a/82610/378179.
 # This is a workaround for https://github.com/gradle/gradle/issues/18124.
-RUN cd /datahub-src && \
-    (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2<<$attempt)) ; done ) && \
+RUN (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2<<$attempt)) ; done ) && \
     ./gradlew :metadata-events:mxe-schemas:build
 
 FROM base as prod-codegen

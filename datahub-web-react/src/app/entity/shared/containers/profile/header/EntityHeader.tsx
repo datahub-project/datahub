@@ -37,7 +37,7 @@ const HeaderContainer = styled.div`
 
 const MainHeaderContent = styled.div`
     flex: 1;
-    width: 85%;
+    width: 70%;
 
     .entityCount {
         margin: 5px 0 -4px 0;

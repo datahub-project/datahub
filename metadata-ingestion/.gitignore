@@ -6,6 +6,7 @@ pvenv36/
 bq_credentials.json
 junit.*.xml
 /tmp
+*.bak
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -140,3 +141,4 @@ dmypy.json
 
 # Generated classes
 src/datahub/metadata/
+.preflight_sentinel
