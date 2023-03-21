@@ -17,13 +17,16 @@ source:
 
     # Enable / Disable ingestion of ownership information for dashboards
     extract_ownership: true
+    
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: true
+    
     # Enable / Disable ingestion of endorsements.
     # Please notice that this may overwrite any existing tags defined to ingested entities!
     extract_endorsements_to_tags: false
-
-    # Optional -- A mapping of PowerBI datasource's server i.e host[:port] to data platform instance.
+    
+    # Optional -- This mapping is optional and only required to configure platform-instance for upstream tables
+    # A mapping of PowerBI datasource's server i.e host[:port] to data platform instance.
     # :port is optional and only needed if your datasource server is running on non-standard port.
     # For Google BigQuery the datasource's server is google bigquery project name
     server_to_platform_instance:
