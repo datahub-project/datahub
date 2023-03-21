@@ -129,9 +129,15 @@ class SupportedDataPlatform(Enum):
     MS_SQL = DataPlatformPair(
         powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
     )
+
     GOOGLE_BIGQUERY = DataPlatformPair(
         powerbi_data_platform_name="GoogleBigQuery",
         datahub_data_platform_name="bigquery",
+    )
+
+    AMAZON_REDSHIFT = DataPlatformPair(
+        powerbi_data_platform_name="AmazonRedshift",
+        datahub_data_platform_name="redshift",
     )
 
 

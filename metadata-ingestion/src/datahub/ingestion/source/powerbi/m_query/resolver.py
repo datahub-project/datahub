@@ -41,6 +41,22 @@ class AbstractDataPlatformTableCreator(ABC):
     def get_platform_pair(self) -> DataPlatformPair:
         pass
 
+    @staticmethod
+    def get_db_detail_from_argument(
+        arg_list: Tree,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        arguments: List[str] = tree_function.strip_char_from_list(
+            values=tree_function.remove_whitespaces_from_list(
+                tree_function.token_values(arg_list)
+            ),
+        )
+
+        if len(arguments) < 2:
+            logger.debug(f"Expected minimum 2 arguments, but got {len(arguments)}")
+            return None, None
+
+        return arguments[0], arguments[1]
+
 
 class AbstractDataAccessMQueryResolver(ABC):
     table: Table
@@ -362,19 +378,14 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
         logger.debug(
-            f"Processing PostgreSQL data-access function detail {data_access_func_detail}"
-        )
-        arguments: List[str] = tree_function.strip_char_from_list(
-            values=tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(data_access_func_detail.arg_list)
-            ),
+            f"Processing {self.get_platform_pair().powerbi_data_platform_name} data-access function detail {data_access_func_detail}"
         )
 
-        if len(arguments) != 2:
-            logger.debug(f"Expected 2 arguments, but got {len(arguments)}")
-            return []
-
-        db_name: str = arguments[1]
+        server, db_name = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list
+        )
+        if server is None or db_name is None:
+            return []  # Return empty list
 
         schema_name: str = cast(
             IdentifierAccessor, data_access_func_detail.identifier_accessor
@@ -394,13 +405,13 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             DataPlatformTable(
                 name=table_name,
                 full_name=full_table_name,
-                datasource_server=arguments[0],
+                datasource_server=server,
                 data_platform_pair=self.get_platform_pair(),
             )
         ]
 
 
-class PostgresTableFullNameCreator(DefaultTwoStepDataAccessSources):
+class PostgresDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
@@ -410,7 +421,7 @@ class PostgresTableFullNameCreator(DefaultTwoStepDataAccessSources):
         return SupportedDataPlatform.POSTGRES_SQL.value
 
 
-class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
+class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.MS_SQL.value
 
@@ -557,12 +568,12 @@ class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
         ]
 
 
-class SnowflakeTableFullNameCreator(DefaultThreeStepDataAccessSources):
+class SnowflakeDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.SNOWFLAKE.value
 
 
-class GoogleBigQueryTableFullNameCreator(DefaultThreeStepDataAccessSources):
+class GoogleBigQueryDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.GOOGLE_BIGQUERY.value
 
@@ -578,9 +589,59 @@ class GoogleBigQueryTableFullNameCreator(DefaultThreeStepDataAccessSources):
         )
 
 
-class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
+class AmazonRedshiftDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def get_platform_pair(self) -> DataPlatformPair:
-        return SupportedDataPlatform.SNOWFLAKE.value
+        return SupportedDataPlatform.AMAZON_REDSHIFT.value
+
+    def create_dataplatform_tables(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[DataPlatformTable]:
+
+        logger.debug(
+            f"Processing AmazonRedshift data-access function detail {data_access_func_detail}"
+        )
+
+        server, db_name = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list
+        )
+        if db_name is None or server is None:
+            return []  # Return empty list
+
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Name"]
+
+        table_name: str = cast(
+            IdentifierAccessor,
+            cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
+        ).items["Name"]
+
+        return [
+            DataPlatformTable(
+                name=table_name,
+                full_name=f"{db_name}.{schema_name}.{table_name}",
+                datasource_server=server,
+                data_platform_pair=self.get_platform_pair(),
+            )
+        ]
+
+
+class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
+    SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
+        SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name: SupportedDataPlatform.SNOWFLAKE,
+        SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name: SupportedDataPlatform.AMAZON_REDSHIFT,
+    }
+    current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return self.current_data_platform.value
+
+    @staticmethod
+    def is_native_parsing_supported(data_access_function_name: str) -> bool:
+        return (
+            data_access_function_name
+            in NativeQueryDataPlatformTableCreator.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM
+        )
 
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -601,17 +662,14 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             tree_function.token_values(flat_argument_list[0])
         )
 
-        logger.debug(f"native query arguments = {data_access_tokens}")
-
-        if (
-            data_access_tokens[0]
-            != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
-        ):
+        if not self.is_native_parsing_supported(data_access_tokens[0]):
             logger.debug(
-                f"Provided native-query data-platform = {data_access_tokens[0]}"
+                f"Unsupported native-query data-platform = {data_access_tokens[0]}"
             )
-            logger.debug("Only Snowflake is supported in NativeQuery")
-            return dataplatform_tables
+            logger.debug(
+                f"NativeQuery is supported only for {self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM}"
+            )
+
         if len(data_access_tokens[0]) < 3:
             logger.debug(
                 f"Server is not available in argument list for data-platform {data_access_tokens[0]}. Returning empty "
@@ -619,6 +677,9 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             )
             return dataplatform_tables
 
+        self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
+            data_access_tokens[0]
+        ]
         # First argument is the query
         sql_query: str = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
@@ -656,11 +717,12 @@ class FunctionName(Enum):
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
+    AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
 
 
 class SupportedResolver(Enum):
     POSTGRES_SQL = (
-        PostgresTableFullNameCreator,
+        PostgresDataPlatformTableCreator,
         FunctionName.POSTGRESQL_DATA_ACCESS,
     )
 
@@ -670,19 +732,25 @@ class SupportedResolver(Enum):
     )
 
     SNOWFLAKE = (
-        SnowflakeTableFullNameCreator,
+        SnowflakeDataPlatformTableCreator,
         FunctionName.SNOWFLAKE_DATA_ACCESS,
     )
 
     MS_SQL = (
-        MSSqlTableFullNameCreator,
+        MSSqlDataPlatformTableCreator,
         FunctionName.MSSQL_DATA_ACCESS,
     )
 
     GOOGLE_BIG_QUERY = (
-        GoogleBigQueryTableFullNameCreator,
+        GoogleBigQueryDataPlatformTableCreator,
         FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS,
     )
+
+    AMAZON_REDSHIFT = (
+        AmazonRedshiftDataPlatformTableCreator,
+        FunctionName.AMAZON_REDSHIFT_DATA_ACCESS,
+    )
+
     NATIVE_QUERY = (
         NativeQueryDataPlatformTableCreator,
         FunctionName.NATIVE_QUERY,

@@ -392,16 +392,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        """
-        The source identifier such as the specific source host address required for stateful ingestion.
-        Individual subclasses need to override this method appropriately.
-        """
-        config_dict = self.config.dict()
-        host_port = config_dict.get("host_port", "no_host_port")
-        database = config_dict.get("database", "no_database")
-        return f"{self.platform}_{host_port}_{database}"
-
     def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
         # this function returns the schema names which are filtered by schema_pattern.
         for schema in self.get_schema_names(inspector):
