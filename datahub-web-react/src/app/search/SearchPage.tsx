@@ -20,6 +20,7 @@ import {
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
+import { useGetDownloadScrollResultsQuery } from '../../graphql/scroll.generated';
 
 type SearchPageParams = {
     type?: string;
@@ -81,22 +82,21 @@ export const SearchPage = () => {
 
     // we need to extract refetch on its own so paging thru results for csv download
     // doesnt also update search results
-    const { refetch } = useGetSearchResultsForMultipleQuery({
+    const { refetch } = useGetDownloadScrollResultsQuery({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
-                count: SearchCfg.RESULTS_PER_PAGE,
-                filters: [],
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
                 viewUrn,
+                count: SearchCfg.RESULTS_PER_PAGE,
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
+        skip: true,
     });
 
     const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetch(variables).then((res) => res.data.searchAcrossEntities);
+        return refetch(variables).then((res) => res.data.scrollAcrossEntities);
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
@@ -165,6 +165,7 @@ export const SearchPage = () => {
                 callSearchOnVariables={callSearchOnVariables}
                 page={page}
                 query={query}
+                viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
                 filters={data?.searchAcrossEntities?.facets}
