@@ -45,6 +45,7 @@ module.exports = {
         // target end-users, high-level architecture, & hosting options
 
         "docs/features",
+        "docs/what-is-datahub/datahub-concepts",
         {
           Architecture: [
             "docs/architecture/architecture",
