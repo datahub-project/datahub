@@ -5,6 +5,7 @@ output
 pvenv36/
 bq_credentials.json
 /tmp
+*.bak
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -917,9 +917,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             run_id=ctx.run_id,
         )
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.source_config.platform_name
-
     @classmethod
     def create(cls, config_dict, ctx):
         config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
