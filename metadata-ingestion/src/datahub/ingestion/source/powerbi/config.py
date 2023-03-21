@@ -235,6 +235,11 @@ class PowerBiDashboardSourceConfig(
         "be extracted. Admin API access is required if this setting is enabled",
     )
 
+    platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="The instance of the platform that all assets produced by this recipe belong to",
+    )
+
     @validator("dataset_type_mapping")
     @classmethod
     def map_data_platform(cls, value):

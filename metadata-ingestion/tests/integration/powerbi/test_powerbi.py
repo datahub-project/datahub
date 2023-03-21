@@ -624,6 +624,50 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_platform_instance_ingest(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_path: str = f"{tmp_path}/powerbi_platform_instance_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "platform_instance": "aws-ap-south-1",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_platform_instance_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_ingest_urn_lower_case(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):

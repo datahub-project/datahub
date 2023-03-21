@@ -233,9 +233,10 @@ class Mapper:
 
         for table in dataset.tables:
             # Create a URN for dataset
-            ds_urn = builder.make_dataset_urn(
+            ds_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.__config.platform_name,
                 name=self.assets_urn_to_lowercase(table.full_name),
+                platform_instance=self.__config.platform_instance,
                 env=self.__config.env,
             )
 
@@ -301,7 +302,9 @@ class Mapper:
         logger.info(f"Converting tile {tile.title}(id={tile.id}) to chart")
         # Create a URN for chart
         chart_urn = builder.make_chart_urn(
-            self.__config.platform_name, tile.get_urn_part()
+            platform=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            name=tile.get_urn_part(),
         )
 
         logger.info(f"{Constant.CHART_URN}={chart_urn}")
@@ -401,7 +404,9 @@ class Mapper:
         """
 
         dashboard_urn = builder.make_dashboard_urn(
-            self.__config.platform_name, dashboard.get_urn_part()
+            platform=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            name=dashboard.get_urn_part(),
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
@@ -514,7 +519,10 @@ class Mapper:
         entity_urn: str,
     ) -> None:
         if self.__config.extract_workspaces_to_containers:
-            container_key = workspace.get_workspace_key(self.__config.platform_name)
+            container_key = workspace.get_workspace_key(
+                platform_name=self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+            )
             container_urn = builder.make_container_urn(
                 guid=container_key.guid(),
             )
@@ -672,7 +680,9 @@ class Mapper:
             logger.debug(f"Converting page {page.displayName} to chart")
             # Create a URN for chart
             chart_urn = builder.make_chart_urn(
-                self.__config.platform_name, page.get_urn_part()
+                platform=self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+                name=page.get_urn_part(),
             )
 
             logger.debug(f"{Constant.CHART_URN}={chart_urn}")
@@ -741,7 +751,9 @@ class Mapper:
         """
 
         dashboard_urn = builder.make_dashboard_urn(
-            self.__config.platform_name, report.get_urn_part()
+            platform=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            name=report.get_urn_part(),
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
@@ -878,8 +890,11 @@ class Mapper:
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
-    SourceCapability.OWNERSHIP, "On by default but can disabled by configuration"
+    SourceCapability.OWNERSHIP,
+    "Disabled by default, configured using `extract_ownership`",
 )
 class PowerBiDashboardSource(StatefulIngestionSourceBase):
     """
