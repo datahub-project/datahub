@@ -10,11 +10,7 @@ from pydantic.class_validators import root_validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
-from datahub.configuration.source_common import (
-    DEFAULT_ENV,
-    ConfigModel,
-    DatasetSourceConfigMixin,
-)
+from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -149,6 +145,10 @@ class SupportedDataPlatform(Enum):
     AMAZON_REDSHIFT = DataPlatformPair(
         powerbi_data_platform_name="AmazonRedshift",
         datahub_data_platform_name="redshift",
+    )
+
+    DATABRICK_SQL = DataPlatformPair(
+        powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
     )
 
 
