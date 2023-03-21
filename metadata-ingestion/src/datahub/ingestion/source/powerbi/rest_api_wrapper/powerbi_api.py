@@ -188,8 +188,7 @@ class PowerBiAPI:
     def get_workspaces(self) -> List[Workspace]:
         if self.__config.modified_since:
             workspaces = self.get_modified_workspaces()
-            if workspaces:
-                return workspaces
+            return workspaces
 
         groups: List[dict] = []
         try:

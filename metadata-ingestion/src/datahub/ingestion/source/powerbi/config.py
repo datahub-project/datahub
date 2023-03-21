@@ -201,7 +201,7 @@ class PlatformDetail(ConfigModel):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
+        default=False, description="Whether ingest PowerBI user as Datahub Corpuser"
     )
     use_powerbi_email: bool = pydantic.Field(
         default=False,

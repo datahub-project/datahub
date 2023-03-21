@@ -48,7 +48,7 @@ class SupportedDataPlatform(Enum):
         powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
     )
     DATABRICK_SQL = DataPlatformPair(
-        powerbi_data_platform_name="Databrick", datahub_data_platform_name="databrick"
+        powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
     )
 
     GOOGLE_BIGQUERY = DataPlatformPair(

@@ -217,11 +217,8 @@ def get_current_checkpoint_from_pipeline(
     powerbi_source = cast(PowerBiDashboardSource, pipeline.source)
     checkpoints = {}
     for job_id in powerbi_source._usecase_handlers.keys():
-        if job_id != "powerbi_stale_entity_removal":
-            # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
-            checkpoint = powerbi_source.get_current_checkpoint(job_id)
-            if checkpoint:
-                checkpoints[job_id] = checkpoint
+        # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
+        checkpoints[job_id] = powerbi_source.get_current_checkpoint(job_id)
 
     return checkpoints
 

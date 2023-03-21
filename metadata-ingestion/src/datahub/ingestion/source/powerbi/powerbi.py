@@ -222,19 +222,19 @@ class Mapper:
             return builder.make_user_urn(user.split("@")[0])
         return builder.make_user_urn(f"users.{user}")
 
-    def get_dataset_table_schema(
+    def to_datahub_schema_field(
         self,
         field: Union[powerbi_data_classes.Column, powerbi_data_classes.Measure],
     ) -> SchemaFieldClass:
         data_type = field.dataType
-        if getattr(field, "expression", None):
+        if isinstance(field, powerbi_data_classes.Measure):
             description = (
                 f"{field.expression} {field.description}"
                 if field.description
                 else field.expression
             )
         else:
-            description = field.description if field.description else None
+            description = field.description if field.description else None  # type: ignore
 
         schema_field = SchemaFieldClass(
             fieldPath=f"{field.name}",
@@ -243,6 +243,36 @@ class Mapper:
             description=description,
         )
         return schema_field
+
+    def to_datahub_schema(
+        self,
+        table: powerbi_data_classes.Table,
+    ) -> SchemaMetadataClass:
+
+        fields = []
+        table_fields = (
+            [self.to_datahub_schema_field(column) for column in table.columns]
+            if table.columns
+            else []
+        )
+        measure_fields = (
+            [self.to_datahub_schema_field(measure) for measure in table.measures]
+            if table.measures
+            else []
+        )
+        fields.extend(table_fields)
+        fields.extend(measure_fields)
+
+        schema_metadata = SchemaMetadataClass(
+            schemaName=table.name,
+            platform=self.__config.platform_urn,
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=fields,
+        )
+
+        return schema_metadata
 
     def to_datahub_dataset(
         self,
@@ -263,6 +293,9 @@ class Mapper:
                 for tag in (dataset.tags or [""])
             ]
         ):
+            logger.debug(
+                "Returning empty dataset_mcps as no dataset tag matched with extract_only_matched_endorsed_dataset"
+            )
             return dataset_mcps
 
         logger.debug(
@@ -283,7 +316,7 @@ class Mapper:
             # Create datasetProperties mcp
             custom_properties = {}
             if table.expression:
-                custom_properties["expression"] = table.expression
+                custom_properties[Constant.EXPRESSION] = table.expression
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
                 description=dataset.description,
@@ -309,32 +342,7 @@ class Mapper:
                 aspect=StatusClass(removed=False),
             )
             if self.__config.extract_dataset_schema:
-                fields = []
-                table_fields = (
-                    [self.get_dataset_table_schema(column) for column in table.columns]
-                    if table.columns
-                    else []
-                )
-                measure_fields = (
-                    [
-                        self.get_dataset_table_schema(measure)
-                        for measure in table.measures
-                    ]
-                    if table.measures
-                    else []
-                )
-                fields.extend(table_fields)
-                fields.extend(measure_fields)
-
-                schema_metadata = SchemaMetadataClass(
-                    schemaName=table.name,
-                    platform=self.__config.platform_urn,
-                    version=0,
-                    hash="",
-                    platformSchema=OtherSchemaClass(rawSchema=""),
-                    fields=fields,
-                )
-
+                schema_metadata = self.to_datahub_schema(table)
                 schema_mcp = self.new_mcp(
                     entity_type=Constant.DATASET,
                     entity_urn=ds_urn,
@@ -1023,7 +1031,8 @@ class Mapper:
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
-        mcps.extend(user_mcps)
+        if self.__config.ownership.create_corp_user:
+            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
 
@@ -1181,24 +1190,37 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 batch_workspaces, self.reporter
             ):
                 logger.info(f"Processing workspace id: {workspace.id}")
-                # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                # Because job_id is used as dictionary key, we have to set a new job_id
-                # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
-                self.stale_entity_removal_handler.set_job_id(workspace.id)
-                self.register_stateful_ingestion_usecase_handler(
-                    self.stale_entity_removal_handler
-                )
 
-                yield from auto_stale_entity_removal(
-                    self.stale_entity_removal_handler,
-                    auto_workunit_reporter(
-                        self.reporter,
-                        auto_status_aspect(self.get_workspace_workunit(workspace)),
-                    ),
-                )
+                if self.source_config.modified_since:
+                    # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
+                    # Because job_id is used as dictionary key, we have to set a new job_id
+                    # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+                    self.stale_entity_removal_handler.set_job_id(workspace.id)
+                    self.register_stateful_ingestion_usecase_handler(
+                        self.stale_entity_removal_handler
+                    )
+
+                    yield from auto_stale_entity_removal(
+                        self.stale_entity_removal_handler,
+                        auto_workunit_reporter(
+                            self.reporter,
+                            auto_status_aspect(self.get_workspace_workunit(workspace)),
+                        ),
+                    )
+                else:
+                    # Maintain backward compatibility
+                    yield from self.get_workspace_workunit(workspace)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return self.get_workunits_internal()
+        if self.source_config.modified_since:
+            return self.get_workunits_internal()
+        else:
+            return auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_workunit_reporter(
+                    self.reporter, auto_status_aspect(self.get_workunits_internal())
+                ),
+            )
 
     def get_report(self) -> SourceReport:
         return self.reporter

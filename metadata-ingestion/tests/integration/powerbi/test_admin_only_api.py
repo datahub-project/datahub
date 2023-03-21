@@ -502,7 +502,7 @@ def default_source_config():
             "Oracle": {"platform_instance": "high_performance_production_unit"},
             "Sql": {"platform_instance": "reporting-db"},
             "Snowflake": {"platform_instance": "sn-2"},
-            "Databrick": {"platform_instance": "az-databrick"},
+            "Databricks": {"platform_instance": "az-databrick"},
         },
         "env": "DEV",
         "extract_workspaces_to_containers": False,
