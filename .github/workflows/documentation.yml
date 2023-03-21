@@ -20,16 +20,16 @@ jobs:
     permissions:
       deployments: write
     steps:
-    - name: Setup
-      id: setup
-      # perform secret check & put boolean result as an output
-      shell: bash
-      run: |
-        if [ "${{ secrets.VERCEL_TOKEN }}" != '' ]; then
-          echo "preview=true" >> $GITHUB_OUTPUT;
-        else
-          echo "preview=false" >> $GITHUB_OUTPUT;
-        fi
+      - name: Setup
+        id: setup
+        # perform secret check & put boolean result as an output
+        shell: bash
+        run: |
+          if [ "${{ secrets.VERCEL_TOKEN }}" != '' ]; then
+            echo "preview=true" >> $GITHUB_OUTPUT;
+          else
+            echo "preview=false" >> $GITHUB_OUTPUT;
+          fi
 
       - name: Start Deployment
         if: github.event_name == 'pull_request'
