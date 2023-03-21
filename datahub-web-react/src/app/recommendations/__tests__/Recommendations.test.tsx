@@ -7,7 +7,6 @@ import { mocks } from '../../../Mocks';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { PageRoutes } from '../../../conf/Global';
 import { SearchPage } from '../../search/SearchPage';
-import UserContextProvider from '../../context/UserContextProvider';
 
 describe('Recommendations', () => {
     it('home renders recommendations', async () => {
