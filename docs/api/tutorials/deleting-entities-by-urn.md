@@ -4,7 +4,11 @@
 You may want to delete a dataset if it is no longer needed, contains incorrect or sensitive information, or if it was created for testing purposes and is no longer necessary in production.
 It is possible to [delete entities via CLI](/docs/how/delete-metadata.md), but a programmatic approach is necessary for scalability.
 
-Refer to [Dataset](/docs/generated/metamodel/entities/dataset.md) for more information about datasets.
+There are two methods of deletion: soft delete and hard delete.
+**Soft delete** sets the Status aspect of the entity to Removed, which hides the entity and all its aspects from being returned by the UI. 
+**Hard delete** physically deletes all rows for all aspects of the entity.
+
+For more information about soft delete and hard delete, please refer to [Removing Metadata from DataHub](/docs/how/delete-metadata.md#delete-by-urn).
 
 ### Goal Of This Guide
 This guide will show you how to delete a dataset named `fct_user_deleted`.
@@ -16,8 +20,9 @@ For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/ap
 
 ## Delete Datasets With GraphQL
 
-> Hard delete with GraphQL is currently not supported. 
-> For more information about soft delete and hard delete, please refer to [Removing Metadata from DataHub](/docs/how/delete-metadata.md#delete-by-urn)
+> 🚫 Hard delete with GraphQL is currently not supported. 
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
+
 
 ### GraphQL Explorer
 GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
@@ -78,9 +83,6 @@ delete_cli._delete_one_urn(urn=dataset_urn, soft=true, cached_emitter=rest_emitt
 
 log.info(f"Deleted dataset {dataset_urn}")
 ```
-Soft delete (`soft=true`) sets the Status aspect of the entity to Removed, which hides the entity and all its aspects from being returned by the UI. 
-However, hard delete (`soft=false`) physically deletes all rows for all aspects of the entity.
-
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
