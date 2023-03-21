@@ -1,4 +1,4 @@
-package com.linkedin.metadata.models.registry.template.dataFlow;
+package com.linkedin.metadata.models.registry.template.dataflow;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.data.template.RecordTemplate;

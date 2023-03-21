@@ -1,4 +1,4 @@
-package com.linkedin.metadata.models.registry.template.dataJob;
+package com.linkedin.metadata.models.registry.template.datajob;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.data.template.RecordTemplate;
