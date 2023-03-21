@@ -179,7 +179,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
     // Step 2. For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
-    if (_graphDiffMode && _graphService instanceof ElasticSearchGraphService
+    if (_graphDiffMode
         && (systemMetadata == null || systemMetadata.getProperties() == null
         || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
