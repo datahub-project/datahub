@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -62,7 +63,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
     exactMatchConfiguration.setEnableStructured(true);
 
+    PartialConfiguration partialConfiguration = new PartialConfiguration();
+    partialConfiguration.setFactor(0.4f);
+    partialConfiguration.setUrnFactor(0.7f);
+
     testQueryConfig.setExactMatch(exactMatchConfiguration);
+    testQueryConfig.setPartial(partialConfiguration);
   }
 
   @Test
