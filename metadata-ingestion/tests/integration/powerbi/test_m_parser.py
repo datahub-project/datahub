@@ -33,6 +33,10 @@ M_QUERIES = [
     'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]),\n    GSL_TEST_DB_Database = Source{[Name="GSL_TEST_DB",Kind="Database"]}[Data],\n    PUBLIC_Schema = GSL_TEST_DB_Database{[Name="PUBLIC",Kind="Schema"]}[Data],\n    SALES_FORECAST_Table = PUBLIC_Schema{[Name="SALES_FORECAST",Kind="Table"]}[Data],\n    SALES_ANALYST_Table = PUBLIC_Schema{[Name="SALES_ANALYST",Kind="Table"]}[Data],\n    RESULT = Table.Combine({SALES_FORECAST_Table, SALES_ANALYST_Table})\n\nin\n    RESULT',
     'let\n    Source = GoogleBigQuery.Database(),\n    #"seraphic-music-344307" = Source{[Name="seraphic-music-344307"]}[Data],\n    school_dataset_Schema = #"seraphic-music-344307"{[Name="school_dataset",Kind="Schema"]}[Data],\n    first_Table = school_dataset_Schema{[Name="first",Kind="Table"]}[Data]\nin\n    first_Table',
     'let    \nSource = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\ngcp_billing_Schema = #"gcp-project"{[Name=#"My bq project",Kind="Schema"]}[Data],\nF_GCP_COST_Table = gcp_billing_Schema{[Name="GCP_TABLE",Kind="Table"]}[Data]\nin\nF_GCP_COST_Table',
+    'let\n Source = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\nuniversal_Schema = #"gcp-project"{[Name="universal",Kind="Schema"]}[Data],\nD_WH_DATE_Table = universal_Schema{[Name="D_WH_DATE",Kind="Table"]}[Data],\n#"Filtered Rows" = Table.SelectRows(D_WH_DATE_Table, each [D_DATE] > #datetime(2019, 9, 10, 0, 0, 0)),\n#"Filtered Rows1" = Table.SelectRows(#"Filtered Rows", each DateTime.IsInPreviousNHours([D_DATE], 87600))\n in \n#"Filtered Rows1"',
+    'let\n Source = GoogleBigQuery.Database([BillingProject="dwh-prod"]),\ngcp_project = Source{[Name="dwh-prod"]}[Data],\ngcp_billing_Schema = gcp_project {[Name="gcp_billing",Kind="Schema"]}[Data],\nD_GCP_CUSTOM_LABEL_Table = gcp_billing_Schema{[Name="D_GCP_CUSTOM_LABEL",Kind="Table"]}[Data] \n in \n D_GCP_CUSTOM_LABEL_Table',
+    'let\n    Source = AmazonRedshift.Database("redshift-url","dev"),\n    public = Source{[Name="public"]}[Data],\n    category1 = public{[Name="category"]}[Data]\nin\n    category1',
+    'let\n Source = Value.NativeQuery(AmazonRedshift.Database("redshift-url","dev"), "select * from dev.public.category", null, [EnableFolding=true]) \n in Source',
 ]
 
 
@@ -348,6 +352,61 @@ def test_google_bigquery_2():
     )
 
 
+def test_for_each_expression_1():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[19],
+        name="D_WH_DATE",
+        full_name="my-test-project.universal.D_WH_DATE",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        native_query_enabled=False,
+        parameters={
+            "Parameter - Source": "my-test-project",
+            "My bq project": "gcp_billing",
+        },
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+    )
+
+
+def test_for_each_expression_2():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[20],
+        name="D_GCP_CUSTOM_LABEL",
+        full_name="dwh-prod.gcp_billing.D_GCP_CUSTOM_LABEL",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        native_query_enabled=False,
+        parameters={
+            "dwh-prod": "originally-not-a-variable-ref-and-not-resolved",
+        },
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+    )
+
+
 @pytest.mark.integration
 def test_native_query_disabled():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
@@ -443,3 +502,43 @@ def test_expression_is_none():
     )
 
     assert len(data_platform_tables) == 0
+
+
+def test_redshift_regular_case():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[21],
+        name="category",
+        full_name="dev.public.category",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter, native_query_enabled=False
+    )
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name
+    )
+
+
+def test_redshift_native_query():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[22],
+        name="category",
+        full_name="dev.public.category",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter, native_query_enabled=True
+    )
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == table.full_name.split(".")[2]
+    assert data_platform_tables[0].full_name == table.full_name
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name
+    )

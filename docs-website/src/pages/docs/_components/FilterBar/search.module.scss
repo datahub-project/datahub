@@ -1,0 +1,84 @@
+/**
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.searchForm {
+  position: relative;
+
+  &:focus + svg {
+    color: red;
+  }
+}
+
+.searchIcon {
+  position: absolute;
+  top: calc(50% - 1rem);
+  left: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.filterIcon {
+  position: absolute;
+  top: calc(50% - 0.75rem);
+  right: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.filterIconDark {
+  position: absolute;
+  top: calc(50% - 0.75rem);
+  right: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  svg {
+    color: var(--docsearch-muted-color);
+  }
+}
+
+.closeIcon {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+
+  svg {
+    color: var(--docsearch-muted-color);
+  }
+}
+
+.searchQueryInput,
+.searchVersionInput {
+  border-radius: 1000em;
+  border-style: solid;
+  border-color: transparent;
+  font: var(--ifm-font-size-base) var(--ifm-font-family-base);
+  padding: 0.8rem 0.8rem 0.8rem 3rem;
+  width: 100%;
+  background: var(--docsearch-searchbox-background);
+  color: var(--docsearch-text-color);
+  margin-bottom: 0.5rem;
+  transition: border var(--ifm-transition-fast) ease;
+
+  &:focus {
+    background: var(--ifm-background-color);
+
+    + svg {
+      color: var(--docsearch-primary-color);
+    }
+  }
+}
+
+.searchQueryInput:focus,
+.searchVersionInput:focus {
+  border-color: var(--docsearch-primary-color);
+  outline: none;
+}
+
+.searchQueryInput::placeholder {
+  color: var(--docsearch-muted-color);
+}
