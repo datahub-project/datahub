@@ -569,6 +569,7 @@ function write_markdown_file(
     "docs/actions/sources",
     "docs/actions/guides",
     "metadata-ingestion/archived",
+    "metadata-ingestion/sink_docs",
     "docs/what",
     "docs/wip",
   ];
