@@ -14,6 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
     MapTypeClass,
     RecordTypeClass,
     UnionTypeClass,
@@ -149,7 +150,7 @@ def test_json_schema_with_recursion():
         },
         {
             "path": "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
-            "type": RecordTypeClass,
+            "type": ArrayTypeClass,
         },
     ]
     assert_field_paths_match(fields, expected_field_paths)
@@ -363,6 +364,7 @@ def test_nested_arrays():
         "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=integer].a",
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[0].type.type, ArrayTypeClass)
 
 
 def test_map_of_union_of_int_and_record_of_union():
@@ -583,3 +585,89 @@ def test_ignore_exceptions():
         JsonSchemaTranslator.get_fields_from_schema(malformed_schema)
     )
     assert not fields
+
+
+SCHEMA_WITH_ARRAY_TYPE = {
+    "title": "Administrative-Unit",
+    "type": "object",
+    "properties": {
+        "Identifier": {"type": ["integer"]},
+        "ValidFrom": {"format": "date", "type": ["string"]},
+        "ValidTo": {"format": "date", "type": ["string", "null"]},
+        "Level": {"minimum": 1, "maximum": 3, "type": ["integer"]},
+        "Parent": {"type": ["integer", "null"]},
+        "Name_en": {"type": ["string", "null"]},
+        "Name_fr": {"type": ["string", "null"]},
+        "Name_de": {"type": ["string", "null"]},
+        "Name_it": {"type": ["string", "null"]},
+        "ABBREV_1_Text_en": {"type": ["string", "null"]},
+        "ABBREV_1_Text_fr": {"type": ["string", "null"]},
+        "ABBREV_1_Text_de": {"type": ["string", "null"]},
+        "ABBREV_1_Text_it": {"type": ["string", "null"]},
+        "ABBREV_1_Text": {"type": ["string", "null"]},
+        "CODE_OFS_1_Text_en": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text_fr": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text_de": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text_it": {"type": ["integer", "null"]},
+        "CODE_OFS_1_Text": {"type": ["integer", "null"]},
+    },
+}
+
+
+def test_array_handling():
+    schema = SCHEMA_WITH_ARRAY_TYPE
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=Administrative-Unit].[type=integer].Identifier",
+        "[version=2.0].[type=Administrative-Unit].[type=string(date)].ValidFrom",
+        "[version=2.0].[type=Administrative-Unit].[type=string(date)].ValidTo",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].Level",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].Parent",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_en",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_fr",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_de",
+        "[version=2.0].[type=Administrative-Unit].[type=string].Name_it",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_en",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_fr",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_de",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text_it",
+        "[version=2.0].[type=Administrative-Unit].[type=string].ABBREV_1_Text",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_en",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_fr",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_de",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text_it",
+        "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+
+
+def test_simple_array():
+    schema = {
+        "type": "object",
+        "title": "ObjectWithArray",
+        "namespace": "com.linkedin",
+        "properties": {"ar": {"type": "array", "items": {"type": "string"}}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=ObjectWithArray].[type=array].[type=string].ar",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[0].type.type, ArrayTypeClass)
+
+
+def test_simple_object():
+    schema = {
+        "type": "object",
+        "title": "Object With Object",
+        "namespace": "io.datahubproject",
+        "properties": {"inner": {"type": "object"}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=Object With Object].[type=object].inner",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[0].type.type, RecordTypeClass)

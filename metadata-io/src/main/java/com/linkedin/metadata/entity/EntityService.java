@@ -27,6 +27,7 @@ import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.AspectType;
@@ -49,6 +50,7 @@ import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -81,6 +83,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -666,7 +669,7 @@ public class EntityService {
   }
 
   @Nonnull
-  protected SystemMetadata generateSystemMetadataIfEmpty(SystemMetadata systemMetadata) {
+  protected SystemMetadata generateSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
     if (systemMetadata == null) {
       systemMetadata = new SystemMetadata();
       systemMetadata.setRunId(DEFAULT_RUN_ID);
@@ -682,7 +685,7 @@ public class EntityService {
   }
 
   public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
-      @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
+      @Nonnull final AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
@@ -709,7 +712,7 @@ public class EntityService {
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
@@ -739,7 +742,7 @@ public class EntityService {
    */
   @Nullable
   public RecordTemplate ingestAspectIfNotPresent(@Nonnull Urn urn, @Nonnull String aspectName,
-      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
+      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
     log.debug("Invoked ingestAspectIfNotPresent with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
     final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
@@ -780,7 +783,7 @@ public class EntityService {
 
     // Produce MCL after a successful update
     boolean isNoOp = oldValue == updatedValue;
-    if (!isNoOp || _alwaysEmitChangeLog) {
+    if (!isNoOp || _alwaysEmitChangeLog || shouldAspectEmitChangeLog(urn, aspectName)) {
       log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
       String entityName = urnToEntityName(urn);
       EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
@@ -1027,32 +1030,39 @@ public class EntityService {
       RecordTemplate newAspect, SystemMetadata newSystemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn,
       AuditStamp auditStamp, AspectSpec aspectSpec) {
-    log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
+    boolean isNoOp = oldAspect == newAspect;
+    if (!isNoOp || _alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
+      log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
-    final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
-    metadataChangeLog.setEntityUrn(entityUrn);
-    metadataChangeLog.setCreated(auditStamp);
-    // The change log produced by this method is always an upsert as it contains the entire RecordTemplate update
-    metadataChangeLog.setChangeType(ChangeType.UPSERT);
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
+      metadataChangeLog.setEntityUrn(entityUrn);
+      metadataChangeLog.setCreated(auditStamp);
+      metadataChangeLog.setChangeType(isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT);
 
-    if (oldAspect != null) {
-      metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
+      if (oldAspect != null) {
+        metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
+      }
+      if (oldSystemMetadata != null) {
+        metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
+      }
+      if (newAspect != null) {
+        metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
+      }
+      if (newSystemMetadata != null) {
+        metadataChangeLog.setSystemMetadata(newSystemMetadata);
+      }
+
+      log.debug("Serialized MCL event: {}", metadataChangeLog);
+
+      produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
+
+      return true;
+    } else {
+      log.debug(
+          "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
+          mcp.getAspectName(), entityUrn);
+      return false;
     }
-    if (oldSystemMetadata != null) {
-      metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
-    }
-    if (newAspect != null) {
-      metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
-    }
-    if (newSystemMetadata != null) {
-      metadataChangeLog.setSystemMetadata(newSystemMetadata);
-    }
-
-    log.debug("Serialized MCL event: {}", metadataChangeLog);
-
-    produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
-
-    return true;
   }
 
   public Integer getCountAspect(@Nonnull String aspectName, @Nullable String urnLike) {
@@ -1129,7 +1139,12 @@ public class EntityService {
       result.createRecordMs += System.currentTimeMillis() - startTime;
       startTime = System.currentTimeMillis();
 
+      // Force indexing to skip diff mode and fix error states
       SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
+      StringMap properties = latestSystemMetadata.getProperties() != null ? latestSystemMetadata.getProperties()
+          : new StringMap();
+      properties.put(FORCE_INDEXING_KEY, Boolean.TRUE.toString());
+      latestSystemMetadata.setProperties(properties);
 
       // 5. Produce MAE events for the aspect record
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
@@ -1139,6 +1154,11 @@ public class EntityService {
       result.sendMessageMs += System.currentTimeMillis() - startTime;
 
       rowsMigrated++;
+    }
+    try {
+      TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
+    } catch (InterruptedException e) {
+      throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
     }
     result.ignored = ignored;
     result.rowsMigrated = rowsMigrated;
@@ -2044,12 +2064,26 @@ public class EntityService {
           urn,
           ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
       );
-      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)) {
-        return new DataPlatformInfo(entityResponse.getAspects().get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME).getValue().data());
+      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects()
+          .containsKey(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)) {
+        return new DataPlatformInfo(
+            entityResponse.getAspects().get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME).getValue().data());
       }
     } catch (Exception e) {
       log.warn(String.format("Failed to find Data Platform Info for urn %s", urn));
     }
     return null;
+  }
+
+  private boolean shouldAspectEmitChangeLog(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    final String entityName = urnToEntityName(urn);
+    final EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+    final AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    return shouldAspectEmitChangeLog(aspectSpec);
+  }
+
+  private boolean shouldAspectEmitChangeLog(@Nonnull final AspectSpec aspectSpec) {
+    final List<RelationshipFieldSpec> relationshipFieldSpecs = aspectSpec.getRelationshipFieldSpecs();
+    return relationshipFieldSpecs.stream().anyMatch(RelationshipFieldSpec::isLineageRelationship);
   }
 }
