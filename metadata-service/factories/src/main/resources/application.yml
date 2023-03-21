@@ -191,7 +191,7 @@ elasticsearch:
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
     # Field weight annotations are typically calibrated for exact match, if partial match is possible on the field use these adjustments
     partial:
-      urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.7} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
+      urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
