@@ -1,5 +1,5 @@
 {
-  "buildCommand": "./gradlew :docs-website:build",
+  "buildCommand": "./metadata-ingestion/scripts/install_deps.sh && ./gradlew :docs-website:build",
   "github": {
     "silent": true,
     "autoJobCancelation": true
