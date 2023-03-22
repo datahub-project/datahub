@@ -97,6 +97,9 @@ public class AspectUtils {
     if (original.getAuditHeader() != null) {
       proposal.setAuditHeader(original.getAuditHeader());
     }
+    
+    proposal.setEntityType(original.getEntityType());
+
     return proposal;
   }
 
