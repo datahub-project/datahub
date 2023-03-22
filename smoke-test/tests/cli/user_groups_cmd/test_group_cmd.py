@@ -8,8 +8,14 @@ from click.testing import CliRunner, Result
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+import time
+import requests_wrapper as requests
 
 runner = CliRunner(mix_stderr=False)
+
+
+def sync_elastic() -> None:
+    time.sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 def datahub_upsert_group(group: CorpGroup) -> None:
@@ -104,6 +110,7 @@ def test_group_upsert(wait_for_healthchecks: Any) -> None:
             "status": {"removed": False},
         }
 
+    sync_elastic()
     groups_owned = get_group_ownership("urn:li:corpuser:user1")
     groups_partof = get_group_membership("urn:li:corpuser:user2")
 

@@ -2,10 +2,10 @@ import json
 import sys
 import tempfile
 from typing import Any, Dict, Iterable, List
-from click.testing import CliRunner, Result
-import time
-from datahub.api.entities.corpuser.corpuser import CorpUser
+
 import yaml
+from click.testing import CliRunner, Result
+from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
 
 runner = CliRunner(mix_stderr=False)
@@ -24,6 +24,7 @@ def datahub_upsert_user(user: CorpUser) -> None:
         user_create_result = runner.invoke(datahub, upsert_args)
         assert user_create_result.exit_code == 0
 
+
 def gen_datahub_users(num_users: int) -> Iterable[CorpUser]:
     for i in range(0, num_users):
         user = CorpUser(
@@ -37,9 +38,10 @@ def gen_datahub_users(num_users: int) -> Iterable[CorpUser]:
             description=f"The User {i}",
             slack=f"@user{i}",
             picture_link=f"https://images.google.com/user{i}.jpg",
-            phone=f"1-800-USER-{i}"
+            phone=f"1-800-USER-{i}",
         )
         yield user
+
 
 def datahub_get_user(user_urn: str):
     get_args: List[str] = ["get", "--urn", user_urn]
@@ -52,13 +54,24 @@ def datahub_get_user(user_urn: str):
         print("Failed to decode: " + get_result.stdout, file=sys.stderr)
         raise e
 
+
 def test_user_upsert(wait_for_healthchecks: Any) -> None:
     num_user_profiles: int = 10
     for i, datahub_user in enumerate(gen_datahub_users(num_user_profiles)):
         datahub_upsert_user(datahub_user)
-        # Validate against all ingested values once every verification_batch_size to reduce overall test time. Since we
-        # are ingesting  the aspects in the ascending order of timestampMillis, get should return the one just put.
-        #sync_elastic()
         user_dict = datahub_get_user(f"urn:li:corpuser:user_{i}")
-        assert user_dict == {'corpUserEditableInfo': {'aboutMe': f'The User {i}', 'displayName': f'User {i}', 'email': f'user_{i}@datahubproject.io', 'phone': f'1-800-USER-{i}', 'pictureLink': f'https://images.google.com/user{i}.jpg', 'skills': [], 'slack': f'@user{i}', 'teams': []}, 'corpUserKey': {'username': f'user_{i}'}, 'groupMembership': {'groups': [f'urn:li:corpGroup:group_{i}']}, 'status': {'removed': False}}
-        #breakpoint()
+        assert user_dict == {
+            "corpUserEditableInfo": {
+                "aboutMe": f"The User {i}",
+                "displayName": f"User {i}",
+                "email": f"user_{i}@datahubproject.io",
+                "phone": f"1-800-USER-{i}",
+                "pictureLink": f"https://images.google.com/user{i}.jpg",
+                "skills": [],
+                "slack": f"@user{i}",
+                "teams": [],
+            },
+            "corpUserKey": {"username": f"user_{i}"},
+            "groupMembership": {"groups": [f"urn:li:corpGroup:group_{i}"]},
+            "status": {"removed": False},
+        }

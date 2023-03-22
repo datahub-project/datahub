@@ -22,10 +22,6 @@ def user() -> None:
 
 @user.command(
     name="upsert",
-    context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    ),
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option(
