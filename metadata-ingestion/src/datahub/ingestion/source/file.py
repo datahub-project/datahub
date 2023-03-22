@@ -255,12 +255,10 @@ class GenericFileSource(TestableSource):
                 raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
             if not isinstance(data, list):
                 data = [data]
-            # logger.error(data)
             parse_end_time = datetime.datetime.now()
             self.report.add_parse_time(parse_end_time - parse_start_time)
             self.report.current_file_size = len(response.content)
             self.report.current_file_elements_read = 0
-            logger.error(len(data))
             for i, obj in enumerate(data):
                 yield i, obj
                 self.report.current_file_elements_read += 1
