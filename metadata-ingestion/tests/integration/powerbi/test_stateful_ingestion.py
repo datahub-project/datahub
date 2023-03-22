@@ -1,4 +1,4 @@
-from typing import Any, Dict, cast
+from typing import Any, Dict, Optional, cast
 from unittest import mock
 
 from freezegun import freeze_time
@@ -213,13 +213,12 @@ def mock_msal_cca(*args, **kwargs):
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Dict[JobId, Checkpoint[Any]]:
+) -> Dict[JobId, Optional[Checkpoint[Any]]]:
     powerbi_source = cast(PowerBiDashboardSource, pipeline.source)
     checkpoints = {}
     for job_id in powerbi_source._usecase_handlers.keys():
         # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
         checkpoints[job_id] = powerbi_source.get_current_checkpoint(job_id)
-
     return checkpoints
 
 
@@ -282,8 +281,11 @@ def test_powerbi_stateful_ingestion(
     # Perform all assertions on the states. The deleted Dashboard should not be
     # part of the second state
     for job_id in checkpoint1.keys():
-        state1 = checkpoint1[job_id].state
-        state2 = checkpoint2[job_id].state
+        if isinstance(checkpoint1[job_id], Checkpoint) and isinstance(
+            checkpoint2[job_id], Checkpoint
+        ):
+            state1 = checkpoint1[job_id].state  # type:ignore
+            state2 = checkpoint2[job_id].state  # type:ignore
 
         if (
             job_id
