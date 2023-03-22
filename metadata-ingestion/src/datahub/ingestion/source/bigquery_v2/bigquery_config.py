@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
+    pydantic_removed_field("query_log_delay")
+
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",

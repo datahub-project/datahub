@@ -82,12 +82,10 @@ def make_usage_workunit(
         ],
     )
 
-    mcp = MetadataChangeProposalWrapper(
+    return MetadataChangeProposalWrapper(
         entityUrn=urn_builder(resource),
         aspect=usageStats,
-    )
-
-    return MetadataWorkUnit(id=f"{bucket_start_time.isoformat()}-{resource}", mcp=mcp)
+    ).as_workunit()
 
 
 @dataclasses.dataclass

@@ -160,7 +160,7 @@ class BigQueryUsageState:
     def __init__(self, config: BigQueryV2Config):
         self.conn = ConnectionWrapper()
         self.read_events = FileBackedDict[ReadEvent](
-            external_connection=self.conn,
+            shared_connection=self.conn,
             tablename="read_events",
             extra_columns={
                 "resource": lambda e: str(e.resource),
@@ -173,7 +173,7 @@ class BigQueryUsageState:
         )
         # Keyed by job_name
         self.query_events = FileBackedDict[QueryEvent](
-            external_connection=self.conn,
+            shared_connection=self.conn,
             tablename="query_events",
             extra_columns={
                 "query": lambda e: e.query,
@@ -182,7 +182,7 @@ class BigQueryUsageState:
         )
         # Created just to store column accesses in sqlite for JOIN
         self.column_accesses = FileBackedDict[Tuple[str, str]](
-            external_connection=self.conn,
+            shared_connection=self.conn,
             tablename="column_accesses",
             extra_columns={"read_event": lambda p: p[0], "field": lambda p: p[1]},
         )
@@ -331,6 +331,7 @@ class BigQueryUsageExtractor:
         """Read log and store events in usage_state."""
         num_aggregated = 0
         for project in projects:
+            self.report.set_project_state(project, "Usage Extraction Ingestion")
             for audit_event in self._get_usage_events(project):
                 try:
                     num_aggregated += self._store_usage_event(
@@ -345,6 +346,7 @@ class BigQueryUsageExtractor:
     def _generate_operational_workunits(
         self, usage_state: BigQueryUsageState
     ) -> Iterable[MetadataWorkUnit]:
+        self.report.set_project_state("All", "Usage Extraction Operational Stats")
         for audit_event in usage_state.standalone_events():
             try:
                 operational_wu = self._create_operation_workunit(audit_event)
@@ -360,6 +362,7 @@ class BigQueryUsageExtractor:
     def _generate_usage_workunits(
         self, usage_state: BigQueryUsageState
     ) -> Iterable[MetadataWorkUnit]:
+        self.report.set_project_state("All", "Usage Extraction Usage Aggregation")
         for timestamp, resource in usage_state.statistics_buckets():
             try:
                 resource_ref = BigQueryTableRef.from_string_name(resource)
@@ -398,7 +401,7 @@ class BigQueryUsageExtractor:
                 self.report.report_failure("usage-extraction", str(e))
                 trace = traceback.format_exc()
                 logger.error(
-                    f"Error getting usage events for project {project_id} due to error {e}, trace: {trace}"
+                    f"Error getting usage events for project {project_id} due to exception {e}, trace: {trace}"
                 )
 
             self.report.usage_extraction_sec[project_id] = round(
@@ -749,9 +752,7 @@ class BigQueryUsageExtractor:
                 return None
 
             if event.readReason:
-                self.report.read_reasons_stat[event.readReason] = (
-                    self.report.read_reasons_stat.get(event.readReason, 0) + 1
-                )
+                self.report.read_reasons_stat[event.readReason] += 1
             self.report.num_read_events += 1
 
         missing_query_entry = QueryEvent.get_missing_key_entry(entry)
@@ -768,9 +769,10 @@ class BigQueryUsageExtractor:
             self.report.num_query_events += 1
 
         if event is None:
-            reason = f"Unable to parse {type(entry)} missing read {missing_read_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
-            self.report.report_warning("usage-extraction", reason)
-            logger.warning(reason)
+            logger.warning(
+                f"Unable to parse {type(entry)} missing read {missing_read_entry}, "
+                f"missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
+            )
             return None
 
         return AuditEvent.create(event)
@@ -791,9 +793,7 @@ class BigQueryUsageExtractor:
                 self.report.num_filtered_read_events += 1
                 return None
             if event.readReason:
-                self.report.read_reasons_stat[event.readReason] = (
-                    self.report.read_reasons_stat.get(event.readReason, 0) + 1
-                )
+                self.report.read_reasons_stat[event.readReason] += 1
             self.report.num_read_events += 1
 
         missing_query_event = (
@@ -806,9 +806,11 @@ class BigQueryUsageExtractor:
             self.report.num_query_events += 1
 
         if event is None:
-            reason = f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event)} ReadEvent keys: {str(missing_read_event)} for {audit_metadata}"
-            self.report.report_warning("usage-extraction", reason)
-            logger.warning(reason)
+            logger.warning(
+                f"{audit_metadata['logName']}-{audit_metadata['insertId']} "
+                f"Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event)} "
+                f"ReadEvent keys: {str(missing_read_event)} for {audit_metadata}"
+            )
             return None
 
         return AuditEvent.create(event)
@@ -835,15 +837,21 @@ class BigQueryUsageExtractor:
             )
             parse_fn = self._parse_bigquery_log_entry
 
+        log_entry_parse_failures = 0
         for entry in entries:
             try:
                 event = parse_fn(entry)
                 if event:
                     yield event
             except Exception as e:
-                reason = f"Unable to parse log event `{entry}`: {e}"
-                self.report.report_warning("usage-extraction", reason)
-                logger.warning(reason)
+                logger.warning(f"Unable to parse log event `{entry}`: {e}")
+                log_entry_parse_failures += 1
+
+        if log_entry_parse_failures:
+            self.report.report_warning(
+                "usage-extraction",
+                f"Failed to parse {log_entry_parse_failures} audit log entries.",
+            )
 
     def test_capability(self, project_id: str) -> None:
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):

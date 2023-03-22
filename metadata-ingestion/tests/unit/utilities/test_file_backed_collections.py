@@ -203,14 +203,14 @@ def test_custom_column() -> None:
 def test_shared_connection() -> None:
     with ConnectionWrapper() as connection:
         cache1 = FileBackedDict[int](
-            external_connection=connection,
+            shared_connection=connection,
             tablename="cache1",
             extra_columns={
                 "v": lambda v: v,
             },
         )
         cache2 = FileBackedDict[Pair](
-            external_connection=connection,
+            shared_connection=connection,
             tablename="cache2",
             extra_columns={
                 "x": lambda m: m.x,

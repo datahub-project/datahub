@@ -142,7 +142,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """
 
     # Use a predefined connection, able to be shared across multiple FileBacked* objects
-    external_connection: Optional[ConnectionWrapper] = None
+    shared_connection: Optional[ConnectionWrapper] = None
     tablename: str = _DEFAULT_TABLE_NAME
 
     serializer: Callable[[_VT], SqliteValue] = _default_serializer
@@ -165,8 +165,8 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         assert "key" not in self.extra_columns, '"key" is a reserved column name'
         assert "value" not in self.extra_columns, '"value" is a reserved column name'
 
-        if self.external_connection:
-            self._conn = self.external_connection
+        if self.shared_connection:
+            self._conn = self.shared_connection
         else:
             self._conn = ConnectionWrapper()
 
@@ -330,7 +330,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
     def close(self) -> None:
         if self._conn:
-            if self.external_connection:  # Connection created inside this class
+            if self.shared_connection:  # Connection not owned by this object
                 self.flush()  # Ensure everything is written out
             else:
                 self._conn.close()
@@ -376,7 +376,7 @@ class FileBackedList(Generic[_VT]):
     ) -> None:
         self._len = 0
         self._dict = FileBackedDict(
-            external_connection=connection,
+            shared_connection=connection,
             serializer=serializer,
             deserializer=deserializer,
             tablename=tablename,
