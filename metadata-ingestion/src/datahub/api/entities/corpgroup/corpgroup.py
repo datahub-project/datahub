@@ -175,8 +175,8 @@ class CorpGroup(BaseModel):
                     )
         else:
             if admin_urns or member_urns:
-                logger.error(
-                    "Unable to emit group ownership because a DataHubGraph instance was not provided. Continuing to preserve backwards compatibility with existing functionality."
+                raise Exception(
+                    "Unable to emit group ownership because admins or members are non-empty, and a DataHubGraph instance was not provided."
                 )
 
         # emit status aspects for all user urns referenced (to ensure they get created)
