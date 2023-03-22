@@ -109,7 +109,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
     }
 
     const { data: getSchemaBlameData } = useGetSchemaBlameQuery({
-        skip: !datasetUrn,
+        skip: !datasetUrn || !selectedVersion,
         variables: {
             input: {
                 datasetUrn,
