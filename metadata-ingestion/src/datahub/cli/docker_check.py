@@ -16,6 +16,15 @@ MIN_MEMORY_NEEDED = 3.8  # GB
 
 DATAHUB_COMPOSE_PROJECT_FILTER = {"label": "com.docker.compose.project=datahub"}
 
+DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS = [
+    {"name": "datahub_neo4jdata"},
+    {"name": "datahub_mysqldata"},
+    {"name": "datahub_zkdata"},
+    {"name": "datahub_esdata"},
+    {"name": "datahub_cassandradata"},
+    {"name": "datahub_broker"},
+]
+
 
 class DockerNotRunningError(Exception):
     SHOW_STACK_TRACE = False

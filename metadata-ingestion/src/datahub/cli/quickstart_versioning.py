@@ -29,7 +29,7 @@ def _is_it_a_version(version: str) -> bool:
     :param version: The string to check.
     :return: True if the string is a valid version, False otherwise.
     """
-    return re.match(r"v?\d+\.\d+(\.\d+)?", version) is not None
+    return re.match(r"^v?\d+\.\d+(\.\d+)?$", version) is not None
 
 
 class QuickstartVersionMappingConfig(BaseModel):
@@ -141,4 +141,4 @@ def save_quickstart_config(
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         yaml.dump(config.dict(), f)
-    click.echo(f"Saved quickstart config to {path}.")
+    logger.info(f"Saved quickstart config to {path}.")

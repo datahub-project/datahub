@@ -395,6 +395,33 @@ module.exports = {
             },
           ],
         },
+        {
+          "Getting Started: APIs & SDKs": [
+            {
+              "Creating Entities": [
+                "docs/api/tutorials/creating-datasets",
+                "docs/api/tutorials/creating-tags",
+                "docs/api/tutorials/creating-terms",
+              ],
+            },
+            {
+              "Enriching Entities": [
+                "docs/api/tutorials/adding-tags",
+                "docs/api/tutorials/adding-terms",
+                "docs/api/tutorials/adding-ownerships",
+                "docs/api/tutorials/adding-dataset-description",
+                "docs/api/tutorials/adding-column-description",
+                "docs/api/tutorials/adding-lineage",
+              ],
+            },
+            {
+              Reference: [
+                "docs/api/tutorials/references/generate-access-token",
+                "docs/api/tutorials/references/prepare-datahub",
+              ],
+            },
+          ],
+        },
       ],
     },
 
@@ -408,20 +435,6 @@ module.exports = {
           ],
         },
         "docs/datahub_lite",
-        {
-          "Getting Started: APIs & SDKs": [
-            "docs/tools/tutorials/advantages",
-            "docs/tools/tutorials/adding-tags",
-            "docs/tools/tutorials/adding-terms",
-            "docs/tools/tutorials/adding-ownerships",
-            {
-              Reference: [
-                "docs/tools/tutorials/references/generate-access-token",
-                "docs/tools/tutorials/references/prepare-datahub",
-              ],
-            },
-          ],
-        },
       ],
     },
     {
@@ -461,6 +474,7 @@ module.exports = {
           ],
         },
         "docs/debugging",
+        "docs/faq-using-datahub",
         "docs/plugins",
 
         {
@@ -575,6 +589,7 @@ module.exports = {
 
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_3",
             "docs/managed-datahub/release-notes/v_0_2_2",
             "docs/managed-datahub/release-notes/v_0_2_1",
             "docs/managed-datahub/release-notes/v_0_2_0",

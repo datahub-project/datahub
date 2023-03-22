@@ -40,21 +40,6 @@ query getDataset($urn: String!) {
 
 fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
-    schemaMetadata(version: 0) {
-        ...schemaMetadataFields
-    }
-    editableSchemaMetadata {
-        editableSchemaFieldInfo {
-            fieldPath
-            description
-            globalTags {
-                ...globalTagsFields
-            }
-            glossaryTerms {
-                ...glossaryTerms
-            }
-        }
-    }
     deprecation {
         actor
         deprecated
@@ -76,10 +61,19 @@ fragment nonSiblingDatasetFields on Dataset {
     parentContainers {
         ...parentContainersFields
     }
-    usageStats(range: WEEK) {
+    usageStats(range: MONTH) {
         buckets {
+            bucket
             metrics {
                 totalSqlQueries
+            }
+        }
+        aggregations {
+            uniqueUserCount
+            totalSqlQueries
+            fields {
+                fieldName
+                count
             }
         }
     }
@@ -114,12 +108,6 @@ fragment nonSiblingDatasetFields on Dataset {
     operations(limit: 1) {
         timestampMillis
         lastUpdatedTimestamp
-    }
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-        ...partialLineageResults
-    }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-        ...partialLineageResults
     }
     ...viewProperties
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
@@ -285,6 +273,40 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
     dataset(urn: $urn) {
         runs(start: $start, count: $count, direction: $direction) {
             ...runResults
+        }
+    }
+}
+
+fragment datasetSchema on Dataset {
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+}
+
+query getDatasetSchema($urn: String!) {
+    dataset(urn: $urn) {
+        ...datasetSchema
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    ...datasetSchema
+                }
+            }
         }
     }
 }

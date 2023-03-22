@@ -433,7 +433,7 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 > - notebook
 > - all ML entities
 
-To edit the documentation for an entity, you can use the `updateDescription` mutation. 
+To edit the documentation for an entity, you can use the `updateDescription` mutation. `updateDescription` currently supports Dataset Schema Fields, Containers. 
 
 For example, to edit the documentation for a Pipeline, you can issue the following GraphQL mutation:
 
@@ -441,7 +441,14 @@ For example, to edit the documentation for a Pipeline, you can issue the followi
 
 ```graphql 
 mutation updateDescription {
-    updateDescription(input: { description: "The new description!", resourceUrn: "urn:li:dataFlow:(airflow,dag_abc,PROD)" })
+  updateDescription(
+    input: {
+      description: "Name of the user who was deleted. This description is updated via GrpahQL.",
+      resourceUrn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
+      subResource: "user_name",
+      subResourceType:DATASET_FIELD
+    }
+  )
 }
 ```
 
@@ -451,18 +458,9 @@ mutation updateDescription {
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query": "mutation updateDescription { updateDescription(input: { description: \"The new description!\", resourceUrn: \"urn:li:dataFlow:(airflow,dag_abc,PROD)\" }) }", "variables":{}}'
+--data-raw '{ "query": "mutation updateDescription { updateDescription ( input: { description: \"Name of the user who was deleted. This description is updated via GrpahQL.\", resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\", subResource: \"user_name\", subResourceType:DATASET_FIELD }) }", "variables":{}}'
 ```
 
-> **Pro-Tip**! You can also edit Documentation for Dataset Schema Fields (or *Columns*) by
-> providing 2 additional fields in your Query input:
->
-> - subResourceType
-> - subResource
->
-> Where `subResourceType` is set to `DATASET_FIELD` and `subResource` is the field path of the column
-> to change.
->
 
 #### Relevant Mutations
 
