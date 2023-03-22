@@ -59,7 +59,7 @@ DataHub supports several APIs, each with its own unique usage and format.
 Here's an overview of what each API can do.
 
 
-> Last Updated : Mar 15 2023
+> Last Updated : Mar 21 2023
 
 | Feature                                                 | GraphQL                                                         | Python SDK                                                     | OpenAPI |
 |---------------------------------------------------------|-----------------------------------------------------------------|----------------------------------------------------------------|---------|
@@ -74,7 +74,8 @@ Here's an overview of what each API can do.
 | Add owner to a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)           | ✅                                                              | ✅       |
 | Add lineage                                             | ✅ [[Guide]](/docs/api/tutorials/adding-lineage.md)              | ✅ [[Guide]](/docs/api/tutorials/adding-lineage.md)             | ✅       |
 | Add column level(Fine Grained) lineage                  | 🚫                                                              | ✅                                                              | ✅       |
-| Add documentation(Description) to a column of a dataset | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)   | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)  | ✅       |
-| Add documentation(Description) to a dataset             | 🚫                                                              | ✅ [[Guide]](/docs/api/tutorials/adding-dataset-description.md) | ✅       |
-| Delete a dataset                                        | 🚫                                                              | ✅                                                              | ✅       |
+| Add documentation(description) to a column of a dataset | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)   | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)  | ✅       |
+| Add documentation(description) to a dataset             | 🚫                                                              | ✅ [[Guide]](/docs/api/tutorials/adding-dataset-description.md) | ✅       |
+| Delete a dataset (Soft delete)                          | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)                                                                 | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)     | ✅       |
+| Delete a dataset (Hard delele)                          | 🚫                                                              | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)     | ✅       |
 | Search a dataset                                        | ✅                                                               | ✅                                                              | ✅       |
