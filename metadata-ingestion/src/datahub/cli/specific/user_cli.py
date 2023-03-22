@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 from click_default_group import DefaultGroup
 
-from datahub.api.entities.corpuser.corpuser import CorpUser
+from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
 from datahub.cli.specific.file_loader import load_file
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
@@ -47,7 +47,7 @@ def upsert(file: Path, override_editable: bool) -> None:
             try:
                 datahub_user: CorpUser = CorpUser.parse_obj(user_config)
                 for mcp in datahub_user.generate_mcp(
-                    generation_config=CorpUser.GenerationConfig(
+                    generation_config=CorpUserGenerationConfig(
                         override_editable=override_editable
                     )
                 ):

@@ -4,7 +4,10 @@ from pathlib import Path
 import click
 from click_default_group import DefaultGroup
 
-from datahub.api.entities.corpgroup.corpgroup import CorpGroup
+from datahub.api.entities.corpgroup.corpgroup import (
+    CorpGroup,
+    CorpGroupGenerationConfig,
+)
 from datahub.cli.specific.file_loader import load_file
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
@@ -42,7 +45,7 @@ def upsert(file: Path, override_editable: bool) -> None:
             try:
                 datahub_group = CorpGroup.parse_obj(config_dict)
                 for mcp in datahub_group.generate_mcp(
-                    generation_config=CorpGroup.GenerationConfig(
+                    generation_config=CorpGroupGenerationConfig(
                         override_editable=override_editable, datahub_graph=emitter
                     )
                 ):

@@ -18,6 +18,15 @@ from datahub.metadata.schema_classes import (
 )
 
 
+@dataclass
+class CorpUserGenerationConfig:
+    """
+    A holder for configuration for MCP generation from CorpUser objects
+    """
+
+    override_editable: bool = False
+
+
 class CorpUser(ConfigModel):
     """This is a CorpUser class which represents a CorpUser
 
@@ -57,10 +66,6 @@ class CorpUser(ConfigModel):
     picture_link: Optional[str] = None
     phone: Optional[str] = None
 
-    @dataclass
-    class GenerationConfig:
-        override_editable: bool = False
-
     @pydantic.validator("full_name", always=True)
     def full_name_can_be_built_from_first_name_last_name(v, values):
         if not v:
@@ -89,7 +94,7 @@ class CorpUser(ConfigModel):
             return []
 
     def generate_mcp(
-        self, generation_config: GenerationConfig = GenerationConfig()
+        self, generation_config: CorpUserGenerationConfig = CorpUserGenerationConfig()
     ) -> Iterable[MetadataChangeProposalWrapper]:
         if generation_config.override_editable or self._needs_editable_aspect():
             mcp = MetadataChangeProposalWrapper(

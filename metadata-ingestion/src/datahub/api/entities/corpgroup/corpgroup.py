@@ -9,7 +9,7 @@ import pydantic
 from pydantic import BaseModel
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.entities.corpuser.corpuser import CorpUser
+from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -26,6 +26,16 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CorpGroupGenerationConfig:
+    """
+    A container for configuration for generation of mcp-s from CorpGroup instances
+    """
+
+    override_editable: bool = False
+    datahub_graph: Optional[DataHubGraph] = None
 
 
 class CorpGroup(BaseModel):
@@ -67,16 +77,11 @@ class CorpGroup(BaseModel):
     def urn(self):
         return builder.make_group_urn(self.id)
 
-    @dataclass
-    class GenerationConfig:
-        override_editable: bool = False
-        datahub_graph: Optional[DataHubGraph] = None
-
     def _needs_editable_aspect(self) -> bool:
         return bool(self.picture_link)
 
     def generate_mcp(
-        self, generation_config: GenerationConfig = GenerationConfig()
+        self, generation_config: CorpGroupGenerationConfig = CorpGroupGenerationConfig()
     ) -> Iterable[MetadataChangeProposalWrapper]:
         urns_created = set()  # dedup member creation on the way out
         members_to_create: List[CorpUser] = (
@@ -100,7 +105,7 @@ class CorpGroup(BaseModel):
         for m in members_to_create + admins_to_create:
             if m.urn not in urns_created:
                 yield from m.generate_mcp(
-                    generation_config=CorpUser.GenerationConfig(
+                    generation_config=CorpUserGenerationConfig(
                         override_editable=generation_config.override_editable
                     )
                 )
@@ -228,7 +233,7 @@ class CorpGroup(BaseModel):
                 # will work
                 datahub_graph = self._datahub_graph_from_datahub_rest_emitter(emitter)
         for mcp in self.generate_mcp(
-            generation_config=CorpGroup.GenerationConfig(
+            generation_config=CorpGroupGenerationConfig(
                 override_editable=self.overrideEditable, datahub_graph=datahub_graph
             )
         ):

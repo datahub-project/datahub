@@ -7,6 +7,7 @@ import yaml
 from click.testing import CliRunner, Result
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.entrypoints import datahub
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 
 runner = CliRunner(mix_stderr=False)
 
@@ -52,6 +53,26 @@ def datahub_get_group(group_urn: str):
         raise e
 
 
+def get_group_ownership(user_urn: str) -> List[str]:
+    graph = get_default_graph()
+    entities = graph.get_related_entities(
+        entity_urn=user_urn,
+        relationship_types="OwnedBy",
+        direction=DataHubGraph.RelationshipDirection.INCOMING,
+    )
+    return [entity.urn for entity in entities]
+
+
+def get_group_membership(user_urn: str) -> List[str]:
+    graph = get_default_graph()
+    entities = graph.get_related_entities(
+        entity_urn=user_urn,
+        relationship_types="IsMemberOfGroup",
+        direction=DataHubGraph.RelationshipDirection.OUTGOING,
+    )
+    return [entity.urn for entity in entities]
+
+
 def test_group_upsert(wait_for_healthchecks: Any) -> None:
     num_groups: int = 10
     for i, datahub_group in enumerate(gen_datahub_groups(num_groups)):
@@ -82,3 +103,11 @@ def test_group_upsert(wait_for_healthchecks: Any) -> None:
             },
             "status": {"removed": False},
         }
+
+    groups_owned = get_group_ownership("urn:li:corpuser:user1")
+    groups_partof = get_group_membership("urn:li:corpuser:user2")
+
+    all_groups = sorted([f"urn:li:corpGroup:group_{i}" for i in range(0, num_groups)])
+
+    assert sorted(groups_owned) == all_groups
+    assert sorted(groups_partof) == all_groups
