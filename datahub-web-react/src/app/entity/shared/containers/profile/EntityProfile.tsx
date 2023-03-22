@@ -182,7 +182,7 @@ export const EntityProfile = <T, U>({
         ({
             tabName,
             tabParams,
-            method = 'push',
+            method = 'replace',
         }: {
             tabName: string;
             tabParams?: Record<string, any>;

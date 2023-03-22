@@ -22,7 +22,7 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -179,7 +179,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
     // Step 2. For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
-    if (_graphDiffMode && !(_graphService instanceof DGraphGraphService)
+    if (_graphDiffMode && !(_graphService instanceof DgraphGraphService)
         && (systemMetadata == null || systemMetadata.getProperties() == null
         || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
