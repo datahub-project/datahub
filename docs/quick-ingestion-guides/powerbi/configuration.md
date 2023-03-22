@@ -3,7 +3,7 @@ title: Configuration
 ---
 # Configuring Your PowerBI Connector to DataHub
 
-Now that you have created a DataHub-specific Azure AD app with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
+Now that you have created a DataHub specific Azure AD app with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
 ## Configure Secrets
 
@@ -23,131 +23,119 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    <img width="75%" alt="Secrets Tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_secrets_tab.png"/>
 </p>
 
-3. Create a ClientId secret
+3. Create a client id secret
 
-  This will securely store your PowerBI password within DataHub
+  This will securely store your PowerBI `Application (client) ID` within DataHub
 
-   * Enter a name like `PowerBI_ClientId` - we will use this later to refer to the secret
-   * Enter the password configured for the DataHub user in the previous step
+   * Enter a name like `POWER_BI_CLIENT_ID` - we will use this later to refer to the `Application (client) ID`
+   * Enter the `Application (client) ID`
    * Optionally add a description
    * Click **Create**
 
 <p align="center">
-   <img width="70%" alt="PowerBI Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_password_secret.png"/>
+   <img width="70%" alt="Application (client) ID" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-client-id-secret.png"/>
 </p>
 
-4. Create a ClientSecret secret
+4. Create a secret to store Azure AD app secret
 
   This will securely store your  Azure AD app secret
 
-   * Enter a name like `PowerBI_ClientSecret` - we will use this later to refer to the secret
-   * Enter the password configured for the DataHub user in the previous step
+   * Enter a name like `POWER_BI_CLIENT_SECRET` - we will use this later to refer to the secret
+   * Enter the `Azure AD app` secret
    * Optionally add a description
    * Click **Create**
 
 <p align="center">
-   <img width="70%" alt="PowerBI Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_password_secret.png"/>
+   <img width="70%" alt="Azure AD app Secret" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-client-secret.png"/>
 </p>
 
 ## Configure Recipe
 
-4. Navigate to the **Sources** tab and click **Create new source**
+1. Navigate to the **Sources** tab and click **Create new source**
 
 <p align="center">
   <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
 </p>
 
-5. Select PowerBI
+2. Select PowerBI
 
 <p align="center">
-  <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_PowerBI_source.png"/>
+  <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-source-window.png"/>
 </p>
 
-6. Fill out the PowerBI Recipe
+3. Fill out the PowerBI Recipe
 
-Enter the PowerBI Tenant Id as **Account ID** field. Account identifier is the part before `.PowerBIcomputing.com` in your PowerBI host URL:
+    Your PowerBI Tenant Id can be found at PowerBI Portal -> Click on `?` at top-right corner -> Click on `About PowerBI`  
+<p align="center">
+  <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-portal-about-setting-window.png"/>
+</p>
+
+  On `About PowerBI` window copy `ctid` as shown in below screenshot 
+
 
 <p align="center">
-   <img width="70%" alt="Account Id Field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_account_id.png"/>
+  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-portal-about-window.png"/>
 </p>
 
-*Learn more about PowerBI Account Identifiers [here](https://docs.PowerBI.com/en/user-guide/admin-account-identifier.html#account-identifiers)*
-
-Add the previously added Password secret to **Password** field:
-   * Click on the Password input field
-   * Select `PowerBI_PASSWORD` secret
-
+Sample recipe screenshot 
 <p align="center">
-     <img width="70%" alt="Password field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_password_secret_field.png"/>
+  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-recipe-window.png"/>
 </p>
 
-Populate the relevant fields using the same **Username**, **Role**, and **Warehouse** you created and/or specified in [PowerBI Prerequisites](setup.md).
 
-<p align="center">
-   <img width="70%" alt="Warehouse Field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_warehouse_username_role_fields.png"/>
-</p>
-
-7. Click **Test Connection**
-
-This step will ensure you have configured your credentials accurately and confirm you have the required permissions to extract all relevant metadata.
-
-<p align="center">
-  <img width="75%" alt="Test Snoflake connection" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_test_connection.png"/>
-</p>
-
-After you have successfully tested your connection, click **Next**.
+After you have successfully fill up the recipe, click on **Next**.
 
 ## Schedule Execution
 
 Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your PowerBI instance.
 
-8. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
+1. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_schedule.png"/>
 </p>  
 
-9. Ensure you've configured your correct timezone
+2. Ensure you've configured your correct timezone
 <p align="center">
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_timezone.png"/>
 </p>  
 
-10. Click **Next** when you are done
+3. Click **Next** when you are done
 
 ## Finish Up
 
-11. Name your ingestion source, then click **Save and Run**
+1. Name your ingestion source, then click **Save and Run**
 <p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_name_ingestion_source.png"/>
+  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-ingestion-source-window.png"/>
 </p>  
 
 You will now find your new ingestion source running
 
 <p align="center">
-  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_source_running.png"/>
+  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-ingestion-source-running.png"/>
 </p>  
 
 ## Validate Ingestion Runs
 
-12. View the latest status of ingestion runs on the Ingestion page
+1. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_ingestion_succeded.png"/>
 </p>  
 
-13. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
+2. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
 <p align="center">
   <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_ingestion_details.png"/>
 </p>
 
-14. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
+3. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_details_view_all.png"/>
 </p>  
 
-15. Pick an entity from the list to manually validate if it contains the detail you expected  
+4. Pick an entity from the list to manually validate if it contains the detail you expected  
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_view_ingested_assets.png"/>

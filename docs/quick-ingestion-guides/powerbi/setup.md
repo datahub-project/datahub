@@ -3,11 +3,11 @@ title: Setup
 ---
 # PowerBI Ingestion Guide: Setup & Prerequisites
 
-In order to configure ingestion from PowerBI, you'll first have to ensure you have a Azure AD app with permission to access the PowerBI resources.
+In order to configure ingestion from PowerBI, you'll first have to ensure you have an Azure AD app with permission to access the PowerBI resources.
 
 ## PowerBI Prerequisites
 
-1. Create a Azure AD app: Follow below steps to create an Azure AD app
+1. **Create an Azure AD app:** Follow below steps to create an Azure AD app
 
    a. Login to https://portal.azure.com
    
@@ -31,11 +31,11 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-connector-window.png"/>
       </p>
 
-   f. On `powerbi-connector-app | Certificates & secrets` window generate the client secret and not down the `Secret` 
+   f. On `powerbi-connector-app | Certificates & secrets` window generate the client secret and note down the `Secret` 
 
    You need to configure `Application (client) ID` and `Secret` in powerbi connector recipe.
 
-2. Create a Azure AD Security Group: You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create a Azure AD Security Gourp.
+2. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Gourp.
 
    a. Go to `Azure Active Directory`
 
@@ -51,7 +51,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
 
    f. On `New group` window click on `Create` to create the security group `powerbi-connector-app-security-group`.
 
-3. Assign privileges to `powerbi-connector-app-security-group` :  You need to add the created security group into PowerBI portal to allow resource access. Follow below steps to allow `powerbi-connector-app-security-group` to access PowerBI resources.
+3. **Assign privileges to powerbi-connector-app-security-group:**  You need to add the created security group into PowerBI portal to allow resource access. Follow below steps to allow `powerbi-connector-app-security-group` to access PowerBI resources.
 
    a. Login to https://app.powerbi.com/
    
@@ -63,16 +63,16 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-admin-portal.png"/>
       </p>
 
-   d. Enable PowerBI API: Under `Tenant settings` -> `Developer settings` -> `Allow service principals to use Power BI APIs` add the previously created security group i.e. *powerbi-connector-app-security-group* into `Specific security groups (Recommended)`
+   d. **Enable PowerBI API:** Under `Tenant settings` -> `Developer settings` -> `Allow service principals to use Power BI APIs` add the previously created security group i.e. *powerbi-connector-app-security-group* into `Specific security groups (Recommended)`
 
-   e. Enable Admin MetaData: Under `Tenant settings` -> `Admin API settings` enable below options 
+   e. **Enable Admin MetaData:** Under `Tenant settings` -> `Admin API settings` enable below options 
 
       * Allow service principals to use read-only admin APIs
       * Enhance admin APIs responses with detailed metadata
       * Enhance admin APIs responses with DAX and mashup expressions
    
-   <br/>
-   f. Add Security Group to Workspace: Navigate `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member
+   
+   f. **Add Security Group to Workspace:** Navigate to `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member
 
       <p align="center">
    <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/workspace-window.png"/>
