@@ -432,7 +432,10 @@ def _delete_one_urn(
         deletion_result.num_records = rows_affected
         deletion_result.num_timeseries_records = ts_rows_affected
     else:
-        logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
+        if aspect_name:
+            logger.info(f"[Dry-run] Would hard-delete aspect {aspect_name} of {urn} {soft_delete_msg}")
+        else:
+            logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
         deletion_result.num_records = (
             UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
         )
