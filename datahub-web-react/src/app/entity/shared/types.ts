@@ -140,6 +140,10 @@ export type EntityContextType = {
     lineage: FetchedEntity | undefined;
 };
 
+export type SchemaContextType = {
+    refetch?: () => Promise<any>;
+};
+
 export type RequiredAndNotNull<T> = {
     [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };

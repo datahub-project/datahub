@@ -99,10 +99,11 @@ class DataResolverBase(ABC):
     ) -> Optional[PowerBIDataset]:
         pass
 
+    @abstractmethod
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
-    ) -> Optional[Dict[str, str]]:
-        return None
+    ) -> Dict[str, str]:
+        pass
 
     @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
@@ -401,7 +402,7 @@ class RegularAPIResolver(DataResolverBase):
 
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
-    ) -> Optional[Dict[str, str]]:
+    ) -> Dict[str, str]:
         dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
             Constant.DATASET_GET
         ]
@@ -420,16 +421,14 @@ class RegularAPIResolver(DataResolverBase):
         params_response.raise_for_status()
         params_dict = params_response.json()
 
-        params_values: Optional[List] = params_dict.get(Constant.VALUE)
-        if params_values:
-            logger.debug(f"dataset {dataset_id} parameters = {params_values}")
-            return {
-                value[Constant.NAME]: value[Constant.CURRENT_VALUE]
-                for value in params_values
-            }
-        else:
-            logger.debug(f"dataset {dataset_id} has no parameters")
-            return {}
+        params_values: List[dict] = params_dict.get(Constant.VALUE, [])
+
+        logger.debug(f"dataset {dataset_id} parameters = {params_values}")
+
+        return {
+            value[Constant.NAME]: value[Constant.CURRENT_VALUE]
+            for value in params_values
+        }
 
     def get_groups_endpoint(self) -> str:
         return DataResolverBase.BASE_URL
@@ -741,3 +740,9 @@ class AdminAPIResolver(DataResolverBase):
 
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
+
+    def get_dataset_parameters(
+        self, workspace_id: str, dataset_id: str
+    ) -> Dict[str, str]:
+        logger.debug("Get dataset parameter is unsupported in Admin API")
+        return {}

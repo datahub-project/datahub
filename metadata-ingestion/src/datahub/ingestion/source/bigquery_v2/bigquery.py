@@ -122,6 +122,7 @@ from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
+    auto_materialize_referenced_tags,
     auto_stale_entity_removal,
     auto_status_aspect,
     auto_workunit_reporter,
@@ -433,13 +434,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             return None
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        """
-        The source identifier such as the specific source host address required for stateful ingestion.
-        Individual subclasses need to override this method appropriately.
-        """
-        return f"{self.platform}"
-
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
             project_id=db_name,
@@ -572,12 +566,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 yield from self.generate_lineage(project.id)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_workunit_reporter(
+                    self.report,
+                    auto_status_aspect(self.get_workunits_internal()),
+                ),
+            )
         )
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:

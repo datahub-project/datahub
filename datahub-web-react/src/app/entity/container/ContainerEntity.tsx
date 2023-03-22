@@ -10,7 +10,6 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetContainerQuery } from '../../../graphql/container.generated';
 import { ContainerEntitiesTab } from './ContainerEntitiesTab';
-import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -99,9 +98,10 @@ export class ContainerEntity implements Entity<Container> {
                 {
                     component: SidebarDomainSection,
                 },
-                {
-                    component: SidebarRecommendationsSection,
-                },
+                // TODO: Add back once entity-level recommendations are complete.
+                // {
+                //    component: SidebarRecommendationsSection,
+                // },
             ]}
         />
     );
