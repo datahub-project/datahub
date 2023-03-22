@@ -73,6 +73,10 @@ type Props<T, U> = {
     isNameEditable?: boolean;
 };
 
+const MAX_SIDEBAR_WIDTH = 800;
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_COMPACT_WIDTH = 490 - 24 * 2;
+
 const ContentContainer = styled.div`
     display: flex;
     height: auto;
@@ -128,6 +132,10 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
+const CompactProfile = styled.div`
+    max-width: ${MAX_COMPACT_WIDTH};
+`;
+
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
     enabled: (_, _1) => true,
@@ -136,9 +144,6 @@ const defaultTabDisplayConfig = {
 const defaultSidebarSection = {
     visible: (_, _1) => true,
 };
-
-const MAX_SIDEBAR_WIDTH = 800;
-const MIN_SIDEBAR_WIDTH = 200;
 
 /**
  * Container for display of the Entity Page
@@ -257,11 +262,11 @@ export const EntityProfile = <T, U>({
                     lineage,
                 }}
             >
-                <div>
+                <>
                     {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                     {(error && <ErrorSection />) ||
                         (!loading && (
-                            <>
+                            <CompactProfile>
                                 <EntityHeader
                                     headerDropdownItems={headerDropdownItems}
                                     headerActionItems={headerActionItems}
@@ -269,9 +274,9 @@ export const EntityProfile = <T, U>({
                                 />
                                 <Divider style={{ marginBottom: '0' }} />
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
-                            </>
+                            </CompactProfile>
                         ))}
-                </div>
+                </>
             </EntityContext.Provider>
         );
     }
