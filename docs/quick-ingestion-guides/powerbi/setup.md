@@ -3,71 +3,84 @@ title: Setup
 ---
 # PowerBI Ingestion Guide: Setup & Prerequisites
 
-In order to configure ingestion from PowerBI, you'll first have to ensure you have a PowerBI user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
+In order to configure ingestion from PowerBI, you'll first have to ensure you have a Azure AD app with permission to access the PowerBI resources.
 
 ## PowerBI Prerequisites
 
-1. Create a DataHub-specific role by executing the following queries in PowerBI. Replace `<your-warehouse>` with an existing warehouse that you wish to use for DataHub ingestion.
+1. Create a Azure AD app: Follow below steps to create an Azure AD app
 
-   ```sql
-   create or replace role datahub_role;
-   -- Grant access to a warehouse to run queries to view metadata
-   grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
-   ```
+   a. Login to https://portal.azure.com
+   
+   b. Go to `Azure Active Directory`
 
-   Make note of this role and warehouse. You'll need this in the next step.
+   c. Navigate to `App registrations`
 
-2. Create a DataHub-specific user by executing the following queries. Replace `<your-password>` with a strong password. Replace `<your-warehouse>` with the same warehouse used above.
+   d. Click on `+ New registration`
 
-   ```sql
-   create user datahub_user display_name = 'DataHub' password='<your-password>' default_role = datahub_role default_warehouse = '<your-warehouse>';
-   -- Grant access to the DataHub role created above
-   grant role datahub_role to user datahub_user;
-   ```
+   e. On `Register an application` window fill the `Name` of application says `powerbi-app-connector` and keep other default as is
 
-   Make note of the user and its password. You'll need this in the next step.
+      <p align="center">
+   <img width="75%" alt="app_registration" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/app-registration.png"/>
+      </p>
 
-3. Assign privileges to read metadata about your assets by executing the following queries. Replace `<your-database>` with an existing database. Repeat for all databases from your PowerBI instance that you wish to integrate with DataHub.
+   f. On `Register an application` window click on `Register`
 
-   ```sql
-   set db_var = '"<your-database>"';
-   -- Grant access to view database and schema in which your tables/views exist
-   grant usage on DATABASE identifier($db_var) to role datahub_role;
-   grant usage on all schemas in database identifier($db_var) to role datahub_role;
-   grant usage on future schemas in database identifier($db_var) to role datahub_role;
+   g. The Azure portal will open up the `powerbi-app-connector` window as shown below. On this screen note down the `Application (client) ID` and click on `Add a certificate or secret` to generate a secret for the `Application (client) ID`
 
-   -- Grant Select acccess enable Data Profiling
-   grant select on all tables in database identifier($db_var) to role datahub_role;
-   grant select on future tables in database identifier($db_var) to role datahub_role;
-   grant select on all external tables in database identifier($db_var) to role datahub_role;
-   grant select on future external tables in database identifier($db_var) to role datahub_role;
-   grant select on all views in database identifier($db_var) to role datahub_role;
-   grant select on future views in database identifier($db_var) to role datahub_role;
+      <p align="center">
+   <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-connector-window.png"/>
+      </p>
 
-   --  Grant access to view tables and views
-   grant references on all tables in database identifier($db_var) to role datahub_role;
-   grant references on future tables in database identifier($db_var) to role datahub_role;
-   grant references on all external tables in database identifier($db_var) to role datahub_role;
-   grant references on future external tables in database identifier($db_var) to role datahub_role;
-   grant references on all views in database identifier($db_var) to role datahub_role;
-   grant references on future views in database identifier($db_var) to role datahub_role;
+   f. On `powerbi-connector-app | Certificates & secrets` window generate the client secret and not down the `Secret` 
 
-   ```
+   You need to configure `Application (client) ID` and `Secret` in powerbi connector recipe.
 
-   If you have imported databases in your PowerBI instance that you wish to integrate with DataHub, you'll need to use the below query for them.
+2. Create a Azure AD Security Group: You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create a Azure AD Security Gourp.
 
-   ```sql
-   grant IMPORTED PRIVILEGES on database "<your-database>" to role datahub_role;  
-   ```
+   a. Go to `Azure Active Directory`
 
-4. Assign privileges to extract lineage and usage statistics from PowerBI by executing the below query.
+   b. Navigate to `Groups` and click on `New group`
 
-   ```sql
-   grant imported privileges on database PowerBI to role datahub_role;
-   ```
+   c. On `New group` window fill out the `Group type`,&nbsp; `Group name`, &nbsp;`Group description`. &nbsp;`Group type` should be set to `Security` . &nbsp; `New group` window is shown in below screenshot.
+
+      <p align="center">
+   <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/new-group-window.png"/>
+      </p>
+
+   d. On `New group` window click on `No members selected` and add `Azure AD app` i.e. *powerbi-connector-app* as member
+
+   f. On `New group` window click on `Create` to create the security group `powerbi-connector-app-security-group`.
+
+3. Assign privileges to `powerbi-connector-app-security-group` :  You need to add the created security group into PowerBI portal to allow resource access. Follow below steps to allow `powerbi-connector-app-security-group` to access PowerBI resources.
+
+   a. Login to https://app.powerbi.com/
+   
+   b. Go to `Settings` -> `Admin Portal`
+
+   c. On `Admin Portal` navigate to `Tenant settings` as shown in below screenshot.
+
+      <p align="center">
+   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/powerbi-admin-portal.png"/>
+      </p>
+
+   d. Enable PowerBI API: Under `Tenant settings` -> `Developer settings` -> `Allow service principals to use Power BI APIs` add the previously created security group i.e. *powerbi-connector-app-security-group* into `Specific security groups (Recommended)`
+
+   e. Enable Admin MetaData: Under `Tenant settings` -> `Admin API settings` enable below options 
+
+      * Allow service principals to use read-only admin APIs
+      * Enhance admin APIs responses with detailed metadata
+      * Enhance admin APIs responses with DAX and mashup expressions
+   
+   <br/>
+   f. Add Security Group to Workspace: Navigate `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member
+
+      <p align="center">
+   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Bpowerbi-quick-ingestion-guide/imgs/guides/powerbi/workspace-window.png"/>
+      </p>
+
 
 ## Next Steps
 
-Once you've done all of the above in PowerBI, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
+Once you've done all of the above steps, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*

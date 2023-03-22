@@ -3,7 +3,7 @@ title: Configuration
 ---
 # Configuring Your PowerBI Connector to DataHub
 
-Now that you have created a DataHub-specific user with the relevant roles in PowerBI in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
+Now that you have created a DataHub-specific Azure AD app with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
 ## Configure Secrets
 
@@ -23,11 +23,24 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    <img width="75%" alt="Secrets Tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_secrets_tab.png"/>
 </p>
 
-3. Create a Password secret
+3. Create a ClientId secret
 
   This will securely store your PowerBI password within DataHub
 
-   * Enter a name like `PowerBI_PASSWORD` - we will use this later to refer to the secret
+   * Enter a name like `PowerBI_ClientId` - we will use this later to refer to the secret
+   * Enter the password configured for the DataHub user in the previous step
+   * Optionally add a description
+   * Click **Create**
+
+<p align="center">
+   <img width="70%" alt="PowerBI Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_password_secret.png"/>
+</p>
+
+4. Create a ClientSecret secret
+
+  This will securely store your  Azure AD app secret
+
+   * Enter a name like `PowerBI_ClientSecret` - we will use this later to refer to the secret
    * Enter the password configured for the DataHub user in the previous step
    * Optionally add a description
    * Click **Create**
@@ -52,7 +65,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
 6. Fill out the PowerBI Recipe
 
-Enter the PowerBI Account Identifier as **Account ID** field. Account identifier is the part before `.PowerBIcomputing.com` in your PowerBI host URL:
+Enter the PowerBI Tenant Id as **Account ID** field. Account identifier is the part before `.PowerBIcomputing.com` in your PowerBI host URL:
 
 <p align="center">
    <img width="70%" alt="Account Id Field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/PowerBI/PowerBI_ingestion_account_id.png"/>
