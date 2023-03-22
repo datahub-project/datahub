@@ -1,9 +1,8 @@
 import logging
 from collections import defaultdict
-from enum import Enum
-
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery

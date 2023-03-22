@@ -18,8 +18,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQueryDataDictionary,
     BigqueryProject,
-    BigqueryView,
     BigqueryTableType,
+    BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
