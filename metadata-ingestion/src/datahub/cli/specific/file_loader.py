@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Union
 
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 
 
@@ -24,14 +23,10 @@ def load_file(config_file: Path) -> Union[dict, list]:
         raise ConfigurationError(f"Cannot open config file {config_file}")
 
     if config_file.suffix in {".yaml", ".yml"}:
-        config_mech: Union[
-            YamlConfigurationMechanism, TomlConfigurationMechanism
-        ] = YamlConfigurationMechanism()
-    elif config_file.suffix == ".toml":
-        config_mech = TomlConfigurationMechanism()
+        config_mech: YamlConfigurationMechanism = YamlConfigurationMechanism()
     else:
         raise ConfigurationError(
-            f"Only .toml and .yml are supported. Cannot process file type {config_file.suffix}"
+            f"Only .yaml and .yml are supported. Cannot process file type {config_file.suffix}"
         )
 
     raw_config_file = config_file.read_text()

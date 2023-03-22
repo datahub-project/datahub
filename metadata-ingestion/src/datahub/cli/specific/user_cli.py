@@ -7,7 +7,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.cli.specific.file_loader import load_file
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -40,10 +40,9 @@ def user() -> None:
 def upsert(file: Path, override_editable: bool) -> None:
     """Create or Update a User in DataHub"""
 
-    emitter: DataHubGraph = get_default_graph()
     config_dict = load_file(pathlib.Path(file))
     user_configs = config_dict if isinstance(config_dict, list) else [config_dict]
-    try:
+    with get_default_graph() as emitter:
         for user_config in user_configs:
             try:
                 datahub_user: CorpUser = CorpUser.parse_obj(user_config)
@@ -59,5 +58,3 @@ def upsert(file: Path, override_editable: bool) -> None:
                     f"Update failed for id {user_config.get('id')}. due to {e}",
                     fg="red",
                 )
-    finally:
-        emitter.close()

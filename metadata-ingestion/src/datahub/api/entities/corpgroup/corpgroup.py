@@ -110,7 +110,7 @@ class CorpGroup(BaseModel):
                     f"Supressing emission of member {m.urn} before we already emitted metadata for it"
                 )
 
-        aspects: List[_Aspect] = []
+        aspects: List[_Aspect] = [StatusClass(removed=False)]
         if generation_config.override_editable:
             aspects.append(
                 CorpGroupEditableInfoClass(
@@ -142,7 +142,6 @@ class CorpGroup(BaseModel):
                         email=self.email,
                     )
                 )
-
         for aspect in aspects:
             yield MetadataChangeProposalWrapper(entityUrn=self.urn, aspect=aspect)
 

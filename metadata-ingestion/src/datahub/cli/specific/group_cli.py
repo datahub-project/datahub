@@ -6,7 +6,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.cli.specific.file_loader import load_file
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -21,10 +21,6 @@ def group() -> None:
 
 @group.command(
     name="upsert",
-    context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    ),
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option(
@@ -39,10 +35,9 @@ def group() -> None:
 def upsert(file: Path, override_editable: bool) -> None:
     """Create or Update a Group with embedded Users"""
 
-    emitter: DataHubGraph = get_default_graph()
     config_dict = load_file(file)
     group_configs = config_dict if isinstance(config_dict, list) else [config_dict]
-    try:
+    with get_default_graph() as emitter:
         for group_config in group_configs:
             try:
                 datahub_group = CorpGroup.parse_obj(config_dict)
@@ -60,5 +55,3 @@ def upsert(file: Path, override_editable: bool) -> None:
                     f"Update failed for id {group_config.get('id')}. due to {e}",
                     fg="red",
                 )
-    finally:
-        emitter.close()
