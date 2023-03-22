@@ -73,7 +73,7 @@ class CorpGroup(BaseModel):
         datahub_graph: Optional[DataHubGraph] = None
 
     def _needs_editable_aspect(self) -> bool:
-        return (bool)(self.picture_link)
+        return bool(self.picture_link)
 
     def generate_mcp(
         self, generation_config: GenerationConfig = GenerationConfig()
