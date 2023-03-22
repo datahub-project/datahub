@@ -61,10 +61,19 @@ fragment nonSiblingDatasetFields on Dataset {
     parentContainers {
         ...parentContainersFields
     }
-    usageStats(range: WEEK) {
+    usageStats(range: MONTH) {
         buckets {
+            bucket
             metrics {
                 totalSqlQueries
+            }
+        }
+        aggregations {
+            uniqueUserCount
+            totalSqlQueries
+            fields {
+                fieldName
+                count
             }
         }
     }
