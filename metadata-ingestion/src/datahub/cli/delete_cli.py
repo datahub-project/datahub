@@ -433,7 +433,9 @@ def _delete_one_urn(
         deletion_result.num_timeseries_records = ts_rows_affected
     else:
         if aspect_name:
-            logger.info(f"[Dry-run] Would hard-delete aspect {aspect_name} of {urn} {soft_delete_msg}")
+            logger.info(
+                f"[Dry-run] Would hard-delete aspect {aspect_name} of {urn} {soft_delete_msg}"
+            )
         else:
             logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
         deletion_result.num_records = (
