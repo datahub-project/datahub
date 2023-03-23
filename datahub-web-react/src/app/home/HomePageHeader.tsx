@@ -4,7 +4,6 @@ import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components/macro';
 import { RightOutlined } from '@ant-design/icons';
 import { ManageAccount } from '../shared/ManageAccount';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
@@ -20,6 +19,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
 
 const Background = styled.div`
     width: 100%;
@@ -140,7 +140,7 @@ export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const user = useGetAuthenticatedUser()?.corpUser;
+    const user = useUserContext()?.user;
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();

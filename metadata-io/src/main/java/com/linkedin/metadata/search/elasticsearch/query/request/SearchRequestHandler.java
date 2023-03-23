@@ -186,7 +186,7 @@ public class SearchRequestHandler {
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
                                         @Nullable SortCriterion sortCriterion, int from, int size,
-                                        @Nonnull SearchFlags searchFlags) {
+                                        @Nullable SearchFlags searchFlags) {
     SearchFlags finalSearchFlags = applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
 
     SearchRequest searchRequest = new SearchRequest();

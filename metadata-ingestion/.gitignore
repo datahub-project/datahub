@@ -1,4 +1,5 @@
 .envrc
+src/datahub/__init__.py.bak
 .vscode/
 output
 pvenv36/
@@ -6,6 +7,7 @@ pvenv36/
 bq_credentials.json
 junit.*.xml
 /tmp
+*.bak
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
