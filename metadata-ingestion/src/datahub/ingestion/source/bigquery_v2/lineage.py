@@ -502,26 +502,11 @@ timestamp < "{end_time}"
                     + 1
                 )
                 continue
-            # Skip if schema/table pattern don't allow the destination table
-            try:
-                destination_table = e.destinationTable.get_sanitized_table_ref()
-            except Exception:
-                self.report.num_skipped_lineage_entries_missing_data[e.project_id] = (
-                    self.report.num_skipped_lineage_entries_missing_data.get(
-                        e.project_id, 0
-                    )
-                    + 1
-                )
-                continue
-
-            destination_table_str = str(
-                BigQueryTableRef(table_identifier=destination_table.table_identifier)
-            )
 
             if not self.config.dataset_pattern.allowed(
-                destination_table.table_identifier.dataset
+                e.destinationTable.table_identifier.dataset
             ) or not self.config.table_pattern.allowed(
-                destination_table.table_identifier.get_table_name()
+                e.destinationTable.table_identifier.get_table_name()
             ):
                 self.report.num_skipped_lineage_entries_not_allowed[e.project_id] = (
                     self.report.num_skipped_lineage_entries_not_allowed.get(
@@ -530,24 +515,25 @@ timestamp < "{end_time}"
                     + 1
                 )
                 continue
+
+            destination_table_str = str(e.destinationTable)
+
             has_table = False
             for ref_table in e.referencedTables:
-                ref_table_str = str(ref_table.get_sanitized_table_ref())
-                if ref_table_str != destination_table_str:
+                if str(ref_table) != destination_table_str:
                     lineage_map[destination_table_str].add(
                         LineageEdge(
-                            table=ref_table_str,
+                            table=str(ref_table),
                             auditStamp=e.end_time if e.end_time else datetime.now(),
                         )
                     )
                     has_table = True
             has_view = False
             for ref_view in e.referencedViews:
-                ref_view_str = str(ref_view.get_sanitized_table_ref())
-                if ref_view_str != destination_table_str:
+                if str(ref_view) != destination_table_str:
                     lineage_map[destination_table_str].add(
                         LineageEdge(
-                            table=ref_view_str,
+                            table=str(ref_view),
                             auditStamp=e.end_time if e.end_time else datetime.now(),
                         )
                     )
