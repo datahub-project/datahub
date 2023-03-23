@@ -46,7 +46,7 @@ class DatahubClientConfig(ConfigModel):
     retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
-    max_threads: int = 1
+    max_threads: int = 15
     disable_ssl_verification: bool = False
 
 
