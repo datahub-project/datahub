@@ -18,6 +18,7 @@ import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientArray;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.template.NotificationTemplateType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.EntityLineageResult;
@@ -230,7 +231,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     final NotificationRequest notificationRequest = new NotificationRequest();
     notificationRequest.setMessage(
         new NotificationMessage()
-            .setTemplate(templateType)
+            .setTemplate(NotificationTemplateType.valueOf(templateType))
             .setParameters(new StringMap(templateParams))
     );
     notificationRequest.setRecipients(new NotificationRecipientArray(recipients));

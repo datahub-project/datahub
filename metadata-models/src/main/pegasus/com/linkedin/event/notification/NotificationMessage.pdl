@@ -1,17 +1,25 @@
 namespace com.linkedin.event.notification
 
+import com.linkedin.event.notification.template.NotificationTemplateType
+import com.linkedin.event.notification.template.OwnershipParameters
+
 /**
  * A message to send via notification.
  */
 record NotificationMessage {
-  /**
-   * The name of a notification template to use, e.g. INCIDENT_CREATED, INCIDENT_STATUS_UPDATED, CUSTOM.
-   * Each sink may support a different set of template types.
-   */
-  template: string
+    /**
+    * The name of a notification template to use, e.g. INCIDENT_CREATED, INCIDENT_STATUS_UPDATED, CUSTOM.
+    * Each sink may support a different set of template types.
+    */
+    template: NotificationTemplateType
 
-  /**
-   * Parameters serving as input to the template, validated and substituted based on the selected template.
-   */
-   parameters: optional map[string, string]
+    /**
+    * Parameters serving as input to the template, validated and substituted based on the selected template.
+    */
+    parameters: optional map[string, string]
+
+    /**
+     * Input parameters for ownership notification template. Only filled when templateType is OWNERSHIP_CHANGE.
+     */
+    ownershipParameters: optional OwnershipParameters
 }

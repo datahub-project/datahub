@@ -1,0 +1,25 @@
+namespace com.linkedin.event.notification
+
+import com.linkedin.common.Urn
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Notification log.
+ */
+@Aspect = {
+    "name": "notificationLog"
+    "type": "timeseries"
+}
+record NotificationLog includes TimeseriesAspectBase {
+    /**
+     * Notification source
+     */
+    @TimeseriesField = {}
+    source: NotificationSource
+
+    /**
+     * Notification message
+     */
+    @TimeseriesField = {}
+    message: NotificationMessage
+}

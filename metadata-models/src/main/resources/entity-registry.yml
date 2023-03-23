@@ -187,6 +187,8 @@ entities:
       - corpUserSettings
       - origin
       - roleMembership
+      - notificationSettings
+      - notificationLog
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -197,6 +199,7 @@ entities:
       - ownership
       - status
       - origin
+      - notificationSettings
   - name: domain
     doc: A data domain within an organization.
     keyAspect: domainKey
@@ -533,5 +536,10 @@ entities:
     keyAspect: linkPreviewKey
     aspects:
       - linkPreviewInfo
+  - name: subscription
+    category: core
+    keyAspect: subscriptionKey
+    aspects:
+      - subscriptionInfo
 events:
   - name: notificationRequest

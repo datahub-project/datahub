@@ -1,0 +1,47 @@
+namespace com.linkedin.subscription
+
+/**
+  * Enum to define change types that can trigger a subscription.
+  */
+enum EntityChangeType {
+    /**
+    * Schema changes.
+    */
+    OPERATION_COLUMN_ADDED
+    OPERATION_COLUMN_REMOVED
+    OPERATION_COLUMN_MODIFIED
+    /**
+    * Operational metadata changes.
+    */
+    OPERATION_ROWS_INSERTED
+    OPERATION_ROWS_UPDATED
+    OPERATION_ROWS_REMOVED
+    /**
+    * Assertion run status changes.
+    */
+    ASSERTION_FAILED
+    /**
+    * Test status changes.
+    */
+    TEST_FAILED
+    /**
+    * Deprecation status changes.
+    */
+    DEPRECATED
+    /**
+    * Ingestion status changes.
+    */
+    INGESTION_FAILED
+    /**
+    * Ownership changes. Added or removed.
+    */
+    OWNERSHIP_CHANGE
+    /**
+    * Glossary term changes. Added, removed or proposed.
+    */
+    GLOSSARY_TERM_CHANGE
+    /**
+    * Tag changes. Added, removed or proposed.
+    */
+    TAG_CHANGE
+}

@@ -1,0 +1,15 @@
+namespace com.linkedin.common
+
+/**
+  * Enum to define an actor type.
+  */
+enum ActorType {
+  /**
+   * The actor is a user.
+   */
+  USER
+  /**
+   * The actor is a group.
+   */
+  GROUP
+}

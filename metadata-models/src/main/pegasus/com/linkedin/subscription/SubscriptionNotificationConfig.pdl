@@ -1,0 +1,11 @@
+namespace com.linkedin.subscription
+
+import com.linkedin.common.Urn
+import com.linkedin.event.notification.NotificationSinkType
+
+record SubscriptionNotificationConfig {
+    /**
+     * Sink types that notifications for the subscription are sent to.
+     */
+    sinkTypes: array[NotificationSinkType]
+}

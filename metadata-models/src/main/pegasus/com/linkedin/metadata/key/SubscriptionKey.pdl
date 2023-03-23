@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Subscription
+ */
+@Aspect = {
+    "name": "subscriptionKey"
+}
+record SubscriptionKey {
+    /**
+    * UUID for the subscription. Generated server-side when the subscription is created.
+    */
+    id: string
+}

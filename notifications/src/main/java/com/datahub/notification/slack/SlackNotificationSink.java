@@ -185,7 +185,8 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   private void sendNotifications(final NotificationRequest notificationRequest) {
-    final NotificationTemplateType templateType = NotificationTemplateType.valueOf(notificationRequest.getMessage().getTemplate());
+    final NotificationTemplateType templateType =
+        NotificationTemplateType.valueOf(notificationRequest.getMessage().getTemplate().toString());
     switch (templateType) {
       case CUSTOM:
         sendCustomNotification(notificationRequest);

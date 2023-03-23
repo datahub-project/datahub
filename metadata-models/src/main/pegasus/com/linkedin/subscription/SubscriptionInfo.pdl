@@ -1,0 +1,60 @@
+namespace com.linkedin.subscription
+
+import com.linkedin.common.ActorType
+import com.linkedin.common.Urn
+
+/**
+ * Subscription info.
+ */
+@Aspect = {
+    "name": "subscriptionInfo"
+}
+record SubscriptionInfo {
+    /**
+    * Actor Urn
+    */
+    @Searchable = {
+        "fieldType": "URN"
+    }
+    actorUrn: Urn
+
+    /**
+     * Actor type
+     */
+    @Searchable = {
+        "fieldType": "TEXT"
+    }
+    actorType: ActorType
+
+    /**
+     * The subscription type.
+     */
+    @Searchable = {
+        "fieldType": "TEXT"
+    }
+    type: SubscriptionType
+
+    /**
+    * Optional entity Urn
+    */
+    @Searchable = {
+        "fieldType": "URN"
+    }
+    entityUrn: optional Urn
+
+    /**
+     * Change types that trigger a notification for the subscription.
+     */
+    @Searchable = {
+        "/*" : {
+            "fieldName": "entityChangeTypes",
+            "fieldType": "TEXT"
+        }
+    }
+    entityChangeTypes: optional array[EntityChangeType]
+
+   /**
+    * Optional notification config.
+    */
+    notificationConfig: optional SubscriptionNotificationConfig
+}

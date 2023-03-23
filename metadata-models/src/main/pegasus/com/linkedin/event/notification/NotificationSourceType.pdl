@@ -1,0 +1,11 @@
+namespace com.linkedin.event.notification
+
+/**
+  * Enum to define the different types of Notification Sources.
+  */
+enum NotificationSourceType {
+  /**
+   * Notifications triggered via Subscriptions.
+   */
+  SUBSCRIPTION
+}

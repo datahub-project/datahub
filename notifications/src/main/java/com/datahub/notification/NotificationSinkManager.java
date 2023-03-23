@@ -65,7 +65,7 @@ public class NotificationSinkManager {
 
     // 1. Validate & extract the requested template and corresponding arguments.
     final NotificationTemplateType template = validateTemplate(
-        request.getMessage().getTemplate(),
+        request.getMessage().getTemplate().toString(),
         request.getMessage().getParameters());
 
     // 2. Identify the sinks capable of handling the template.

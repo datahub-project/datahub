@@ -1,0 +1,22 @@
+namespace com.linkedin.event.notification.template
+
+/**
+ * Possible notification template types.
+ */
+enum NotificationTemplateType {
+    /**
+    * Ownership change notification template.
+    */
+    OWNERSHIP_CHANGE
+
+    /**
+    * Legacy template types to support backwards compatibility.
+    */
+    CUSTOM
+    BROADCAST_NEW_INCIDENT
+    BROADCAST_INCIDENT_STATUS_CHANGE
+    BROADCAST_ENTITY_CHANGE
+    BROADCAST_INGESTION_RUN_CHANGE
+    BROADCAST_NEW_PROPOSAL
+    BROADCAST_PROPOSAL_STATUS_CHANGE
+}
