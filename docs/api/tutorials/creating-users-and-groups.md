@@ -6,7 +6,7 @@ By creating or updating user accounts and assigning them to appropriate groups, 
 This helps to avoid confusion or conflicts over who is responsible for specific datasets and can improve the overall effectiveness. 
 
 ### Goal Of This Guide
-This guide will show you how to create or update users and groups with embedded users.
+This guide will show you how to create or update users and groups.
 
 ## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
@@ -84,6 +84,9 @@ Update succeeded for group urn:li:corpGroup:foogroup@acryl.io.
 
 ### Upsert User
 
+The following code creates a user named `The Bar` with urn `urn:li:corpuser:bar@acryl.io`.
+You can refer to the full code in [upsert_user.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/upsert_user.py).
+
 ```python
 import logging
 
@@ -97,32 +100,35 @@ from datahub.metadata.schema_classes import CorpUserInfoClass
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-user_urn = make_user_urn("janedoe")
+user_urn = make_user_urn("bar@acryl.io")
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
     entityUrn=user_urn,
-    aspect=CorpUserInfoClass(active=True,
-                             displayName="Jane Doe",
-                             email="janedoe@acryl.io",
-                             title="Software Engineer",
-                             firstName="Jane",
-                             lastName="Doe",
-                             fullName="Jane Doe"),
+    aspect=CorpUserInfoClass(
+        active=True,
+        displayName="The Bar",
+        email="bar@acryl.io",
+        title="Software Engineer",
+        firstName="The",
+        lastName="Bar",
+        fullName="The Bar",
+    ),
 )
 
 # Create rest emitter
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 rest_emitter.emit(event)
-log.info(f"Created user {user_urn}")
+log.info(f"Upserted user {user_urn}")
 ```
 
-This will upsert a user named `Jane Doe` with urn `urn:li:corpuser:janedoe`.
-
 ### Upsert Group
+
+The following code creates a group called `Foo Group` with group `urn:li:corpgroup:foogroup@acryl.io`.
+You can refer to the full code in [upsert_group.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/upsert_group.py).
 
 ```python
 import logging
 
-from datahub.emitter.mce_builder import make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import make_group_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
@@ -132,25 +138,25 @@ from datahub.metadata.schema_classes import CorpGroupInfoClass
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-group_urn = make_group_urn("engineering")
+group_urn = make_group_urn("foogroup@acryl.io")
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
     entityUrn=group_urn,
-    aspect=CorpGroupInfoClass(admins=["urn:li:corpuser:janedoe"],
-                              members=["urn:li:corpuser:janedoe", "urn:li:corpuser:joe"],
-                              groups=[],
-                              displayName="Engineering",
-                              email="engineering@acryl.io",
-                              description="Software engineering team",
-                              slack="@engineering"),
+    aspect=CorpGroupInfoClass(
+        admins=["urn:li:corpuser:datahub"],
+        members=["urn:li:corpuser:bar@acryl.io", "urn:li:corpuser:joe@acryl.io"],
+        groups=[],
+        displayName="Foo Group",
+        email="foogroup@acryl.io",
+        description="Software engineering team",
+        slack="@foogroup",
+    ),
 )
 
 # Create rest emitter
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 rest_emitter.emit(event)
-log.info(f"Created group {group_urn}")
+log.info(f"Upserted group {group_urn}")
 ```
-
-This will upsert a group called `Engineering` with group `urn:li:corpgroup:engineering`.
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
@@ -158,9 +164,12 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 ## Expected Outcomes
 
 ### User
-You can see user `Jane Doe` has beend upserted under `Settings > Access > Users & Groups`
-![user-added](../../imgs/apis/tutorials/user-upserted.png)
+You can see the user `The bar` has been created and the user `Datahub` has been updated under `Settings > Access > Users & Groups`
+![user-upserted](../../imgs/apis/tutorials/user-upserted.png)
 
 ### Group
-You can see group `Engineering` has beend upserted under `Settings > Access > Users & Groups`
-![group-added](../../imgs/apis/tutorials/group-upserted.png)
+You can see the group `Foo Group` has been created under `Settings > Access > Users & Groups`
+![group-upserted](../../imgs/apis/tutorials/group-upserted.png)
+
+## What's Next?
+Now that you created users and groups, how about adding them as an owner to a dataset? Here's a guide on [how to add an owner on a dataset](/docs/api/tutorials/adding-ownerships.md). 
