@@ -1,10 +1,9 @@
-import { Affix } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { Affix } from 'antd';
 import { useGetBrowsePathsQuery } from '../../../../../../graphql/browse.generated';
 import { EntityType } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useLineageData } from '../../../EntityContext';
 import { ProfileNavBrowsePath } from './ProfileNavBrowsePath';
 
 type Props = {
@@ -20,18 +19,15 @@ export const EntityProfileNavBar = ({ urn, entityType }: Props) => {
         fetchPolicy: 'cache-first',
     });
     const entityRegistry = useEntityRegistry();
-
     const isBrowsable = entityRegistry.getBrowseEntityTypes().includes(entityType);
-    const lineage = useLineageData();
 
     return (
         <AffixWithHeight offsetTop={60}>
             <ProfileNavBrowsePath
-                breadcrumbLinksEnabled={isBrowsable}
+                urn={urn}
                 type={entityType}
+                breadcrumbLinksEnabled={isBrowsable}
                 path={browseData?.browsePaths?.[0]?.path || []}
-                upstreams={lineage?.numUpstreamChildren || 0}
-                downstreams={lineage?.numDownstreamChildren || 0}
             />
         </AffixWithHeight>
     );

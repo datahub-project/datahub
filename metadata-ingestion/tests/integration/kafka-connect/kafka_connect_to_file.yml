@@ -6,6 +6,9 @@ source:
   type: "kafka-connect"
   config:
     connect_uri: "http://localhost:58083"    
+    connector_patterns:
+      deny:
+        - source_mongodb_connector
     provided_configs:
       - provider: env
         path_key: MYSQL_CONNECTION_URL

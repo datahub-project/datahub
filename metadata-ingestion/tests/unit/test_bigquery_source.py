@@ -1,11 +1,12 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Dict
+from typing import Any, Dict, cast
 from unittest.mock import patch
 
-from google.cloud.bigquery.table import TableListItem
+import pytest
+from google.cloud.bigquery.table import Row, TableListItem
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -14,8 +15,15 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryProject
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigQueryDataDictionary,
+    BigqueryProject,
+    BigqueryTableType,
+    BigqueryView,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
 
 def test_bigquery_uri():
@@ -405,3 +413,109 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
     ]  # alternatively
     for table in tables.keys():
         assert tables[table].table_id in ["test-table", "20220103"]
+
+
+def create_row(d: Dict[str, Any]) -> Row:
+    values = []
+    field_to_index = {}
+    for i, (k, v) in enumerate(d.items()):
+        field_to_index[k] = i
+        values.append(v)
+    return Row(tuple(values), field_to_index)
+
+
+@pytest.fixture
+def bigquery_view_1():
+    now = datetime.now(tz=timezone.utc)
+    return BigqueryView(
+        name="table1",
+        created=now - timedelta(days=10),
+        last_altered=now - timedelta(hours=1),
+        comment="comment1",
+        view_definition="CREATE VIEW 1",
+        materialized=False,
+    )
+
+
+@pytest.fixture
+def bigquery_view_2():
+    now = datetime.now(tz=timezone.utc)
+    return BigqueryView(
+        name="table2",
+        created=now,
+        last_altered=now,
+        comment="comment2",
+        view_definition="CREATE VIEW 2",
+        materialized=True,
+    )
+
+
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQueryDataDictionary.get_query_result"
+)
+@patch("google.cloud.bigquery.client.Client")
+def test_get_views_for_dataset(
+    client_mock, query_mock, bigquery_view_1, bigquery_view_2
+):
+    row1 = create_row(
+        dict(
+            table_name=bigquery_view_1.name,
+            created=bigquery_view_1.created,
+            last_altered=bigquery_view_1.last_altered,
+            comment=bigquery_view_1.comment,
+            view_definition=bigquery_view_1.view_definition,
+            table_type=BigqueryTableType.VIEW,
+        )
+    )
+    row2 = create_row(  # Materialized view, no last_altered
+        dict(
+            table_name=bigquery_view_2.name,
+            created=bigquery_view_2.created,
+            comment=bigquery_view_2.comment,
+            view_definition=bigquery_view_2.view_definition,
+            table_type=BigqueryTableType.MATERIALIZED_VIEW,
+        )
+    )
+    query_mock.return_value = [row1, row2]
+
+    views = BigQueryDataDictionary.get_views_for_dataset(
+        conn=client_mock,
+        project_id="test-project",
+        dataset_name="test-dataset",
+        has_data_read=False,
+    )
+    assert views == [bigquery_view_1, bigquery_view_2]
+
+
+@patch.object(BigqueryV2Source, "gen_dataset_workunits", lambda *args, **kwargs: [])
+def test_gen_view_dataset_workunits(bigquery_view_1, bigquery_view_2):
+    project_id = "test-project"
+    dataset_name = "test-dataset"
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": project_id,
+        }
+    )
+    source: BigqueryV2Source = BigqueryV2Source(
+        config=config, ctx=PipelineContext(run_id="test")
+    )
+
+    gen = source.gen_view_dataset_workunits(
+        bigquery_view_1, [], project_id, dataset_name
+    )
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert mcp.aspect == ViewProperties(
+        materialized=bigquery_view_1.materialized,
+        viewLanguage="SQL",
+        viewLogic=bigquery_view_1.view_definition,
+    )
+
+    gen = source.gen_view_dataset_workunits(
+        bigquery_view_2, [], project_id, dataset_name
+    )
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert mcp.aspect == ViewProperties(
+        materialized=bigquery_view_2.materialized,
+        viewLanguage="SQL",
+        viewLogic=bigquery_view_2.view_definition,
+    )

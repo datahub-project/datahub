@@ -33,7 +33,7 @@ public class EntityRegistryFactory {
   @Nonnull
   protected EntityRegistry getInstance() throws EntityRegistryException {
     MergedEntityRegistry baseEntityRegistry = new MergedEntityRegistry(SnapshotEntityRegistry.getInstance()).apply(configEntityRegistry);
-    pluginEntityRegistryLoader.withBaseRegistry(baseEntityRegistry).start(false);
+    pluginEntityRegistryLoader.withBaseRegistry(baseEntityRegistry).start(true);
     return baseEntityRegistry;
   }
 }
