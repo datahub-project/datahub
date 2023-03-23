@@ -16,6 +16,7 @@ import ExternalUrlButton from '../../../ExternalUrlButton';
 import ShareButton from '../../../../../shared/share/ShareButton';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useUserContext } from '../../../../../context/useUserContext';
+import SubscribeButtons from '../../../../../shared/subscribe/SubscribeButtons';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -52,6 +53,7 @@ const SideHeaderContent = styled.div`
 const TopButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
     margin-bottom: 8px;
 `;
 
@@ -135,6 +137,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
                         <ShareButton entityType={entityType} subType={subType} urn={urn} name={entityName} />
+                        <SubscribeButtons isSubscribed={false} />
                         {headerDropdownItems && (
                             <EntityDropdown
                                 urn={urn}
