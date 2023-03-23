@@ -16,9 +16,9 @@ For detailed information, please refer to [Preparing Your Local DataHub Environm
 In this guide, ingesting sample data is optional.
 :::
 
-## Upsert Users And Groups With Python CLI
+## Upsert Users And Groups With Datahub CLI
 
-You can ingest users and groups with `yaml` using Python CLI. 
+You can ingest users and groups with `yaml` using Datahub CLI. 
 
 ### Upsert User
 

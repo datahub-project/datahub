@@ -300,7 +300,7 @@ Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_event
 ### user
 The `user` command allows you to interact with the User entity. 
 It currently supports the `upsert` operation, which can be used to create a new user or update an existing one. 
-For detailed information, please refer to [Creating Users and Groups with Python CLI](/docs/api/tutorials/creating-users-and-groups.md#create-users-and-groups-with-python-cli).
+For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/creating-users-and-groups.md#upsert-users-and-groups-with-datahub-cli).
 
 ```shell
 datahub user upsert -f users.yaml
@@ -327,7 +327,7 @@ An example of `users.yaml` would look like the following. You can refer to the [
 ### group
 The `group` command allows you to interact with the Group entity.
 It currently supports  the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users. 
-For more information, please refer to [Creating Users and Groups with Python CLI](/docs/api/tutorials/creating-users-and-groups.md#create-users-and-groups-with-python-cli).
+For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/creating-users-and-groups.md#upsert-users-and-groups-with-datahub-cli).
 
 ```shell
 datahub group upsert -f group.yaml
