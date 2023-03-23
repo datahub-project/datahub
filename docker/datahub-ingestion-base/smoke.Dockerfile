@@ -1,4 +1,4 @@
-FROM acryldata/datahub-ingestion-base as base
+FROM acryldata/datahub-ingestion-slim as base
 
 RUN apt-get update && apt-get install -y \
     sudo \
