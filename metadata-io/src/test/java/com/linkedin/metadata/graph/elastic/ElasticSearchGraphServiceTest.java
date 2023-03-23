@@ -233,7 +233,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Test
-  public void testTimestampLineage() throws Exception{
+  public void testTimestampLineage() throws Exception {
     // Populate one upstream and two downstream edges at initialTime
     Long initialTime = 1000L;
 
