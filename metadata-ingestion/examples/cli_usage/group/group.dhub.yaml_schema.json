@@ -1,0 +1,159 @@
+{
+    "title": "CorpGroupFile",
+    "anyOf": [
+        {
+            "$ref": "#/definitions/CorpGroup"
+        },
+        {
+            "$ref": "#/definitions/CorpGroupList"
+        }
+    ],
+    "definitions": {
+        "CorpUser": {
+            "title": "CorpUser",
+            "description": "This is a CorpUser class which represents a CorpUser\n\nArgs:\n    id (str): The id of the user\n    display_name (Optional[str]): The name of the user to display in the UI\n    email (Optional[str]): email address of this user\n    title (Optional[str]): title of this user\n    manager_urn (Optional[str]): direct manager of this user\n    department_id (Optional[int]): department id this user belongs to\n    department_name (Optional[str]): department name this user belongs to\n    first_name (Optional[str]): first name of this user\n    last_name (Optional[str]): last name of this user\n    full_name (Optional[str]): Common name of this user, format is firstName + lastName (split by a whitespace)\n    country_code (Optional[str]): two uppercase letters country code. e.g.  US\n    groups (List[str]): List of group ids the user belongs to\n    description (Optional[str]): A description string for the user\n    slack (Optional[str]): Slack handle for the user",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "title": "Id",
+                    "type": "string"
+                },
+                "display_name": {
+                    "title": "Display Name",
+                    "type": "string"
+                },
+                "email": {
+                    "title": "Email",
+                    "type": "string"
+                },
+                "title": {
+                    "title": "Title",
+                    "type": "string"
+                },
+                "manager_urn": {
+                    "title": "Manager Urn",
+                    "type": "string"
+                },
+                "department_id": {
+                    "title": "Department Id",
+                    "type": "integer"
+                },
+                "department_name": {
+                    "title": "Department Name",
+                    "type": "string"
+                },
+                "first_name": {
+                    "title": "First Name",
+                    "type": "string"
+                },
+                "last_name": {
+                    "title": "Last Name",
+                    "type": "string"
+                },
+                "full_name": {
+                    "title": "Full Name",
+                    "type": "string"
+                },
+                "country_code": {
+                    "title": "Country Code",
+                    "type": "string"
+                },
+                "groups": {
+                    "title": "Groups",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "title": "Description",
+                    "type": "string"
+                },
+                "slack": {
+                    "title": "Slack",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id"
+            ],
+            "additionalProperties": false
+        },
+        "CorpGroup": {
+            "title": "CorpGroup",
+            "description": "This is a CorpGroup class which represents a CorpGroup\n\nArgs:\n    id (str): The id of the group\n    display_name (Optional[str]): The name of the group\n    email (Optional[str]): email of this group\n    description (Optional[str]): A description of the group\n    overrideEditable (bool): If True, group information that is editable in the UI will be overridden\n    picture_link (Optional[str]): A URL which points to a picture which user wants to set as the photo for the group\n    slack (Optional[str]): Slack channel for the group\n    admins (List[Union[str, CorpUser]]): A list of administrator ids (or urns) for the group. You can also provide the user record for the admin inline within this section\n    members (List[Union[str, CorpUser]]): A list of member ids (or urns) for the group.",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "title": "Id",
+                    "type": "string"
+                },
+                "display_name": {
+                    "title": "Display Name",
+                    "type": "string"
+                },
+                "email": {
+                    "title": "Email",
+                    "type": "string"
+                },
+                "description": {
+                    "title": "Description",
+                    "type": "string"
+                },
+                "overrideEditable": {
+                    "title": "Overrideeditable",
+                    "default": false,
+                    "type": "boolean"
+                },
+                "picture_link": {
+                    "title": "Picture Link",
+                    "type": "string"
+                },
+                "slack": {
+                    "title": "Slack",
+                    "type": "string"
+                },
+                "admins": {
+                    "title": "Admins",
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "$ref": "#/definitions/CorpUser"
+                            }
+                        ]
+                    }
+                },
+                "members": {
+                    "title": "Members",
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "$ref": "#/definitions/CorpUser"
+                            }
+                        ]
+                    }
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
+        "CorpGroupList": {
+            "title": "CorpGroupList",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/CorpGroup"
+            }
+        }
+    }
+}

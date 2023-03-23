@@ -61,7 +61,19 @@ const errorLink = onError((error) => {
 const client = new ApolloClient({
     connectToDevTools: true,
     link: errorLink.concat(httpLink),
-    cache: new InMemoryCache(),
+    cache: new InMemoryCache({
+        typePolicies: {
+            Query: {
+                fields: {
+                    dataset: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
+                },
+            },
+        },
+    }),
     credentials: 'include',
     defaultOptions: {
         watchQuery: {
