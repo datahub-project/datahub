@@ -1,4 +1,5 @@
 .envrc
+src/datahub/__init__.py.bak
 .vscode/
 output
 pvenv36/

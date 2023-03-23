@@ -16,7 +16,12 @@ public class Constants {
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
 
+  /**
+   * System Metadata
+   */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
+  // Forces indexing for no-ops, enabled for restore indices calls. Only considered in the no-op case
+  public static final String FORCE_INDEXING_KEY = "forceIndexing";
 
   /**
    * Entities
