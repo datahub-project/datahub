@@ -707,5 +707,6 @@ def test_required_field():
     assert_field_paths_match(fields, expected_field_paths)
     assert_fields_are_valid(fields)
     assert fields[0].nullable is False
+    assert fields[1].nullable is True
     assert json.loads(fields[1].jsonProps or "{}")["required"] is True
     assert json.loads(fields[0].jsonProps or "{}")["required"] is False
