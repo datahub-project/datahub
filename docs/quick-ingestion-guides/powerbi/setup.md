@@ -35,7 +35,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
 
    You need to configure `Application (client) ID` and `Secret` in powerbi connector recipe.
 
-2. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Gourp.
+2. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Group.
 
    a. Go to `Azure Active Directory`
 
