@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
+import { validateSlackHandle } from '../../settings/personal/utils';
 
 type PropsData = {
     email: string | undefined;
@@ -116,7 +117,15 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                 <Form.Item
                     name="slack"
                     label={<Typography.Text strong>Slack Channel</Typography.Text>}
-                    rules={[{ whitespace: true }, { min: 2, max: 50 }]}
+                    rules={[
+                        { whitespace: true },
+                        { min: 2, max: 50 },
+                        ({ getFieldValue }) => ({
+                            validator() {
+                                validateSlackHandle(getFieldValue('slack'));
+                            },
+                        }),
+                    ]}
                     hasFeedback
                 >
                     <Input

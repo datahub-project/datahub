@@ -26,6 +26,7 @@ import { ManagePolicies } from '../permissions/policy/ManagePolicies';
 import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
 import { ManageOwnership } from '../entity/ownership/ManageOwnership';
+import { ManageActorNotifications } from './personal/notifications/ManageActorNotifications';
 
 const PageContainer = styled.div`
     display: flex;
@@ -73,6 +74,7 @@ const PATHS = [
     { path: 'identities', content: <ManageIdentities /> },
     { path: 'policies', content: <ManagePolicies /> },
     { path: 'preferences', content: <Preferences /> },
+    { path: 'personal-notifications', content: <ManageActorNotifications isPersonal /> },
     /* acryl-main only */
     ...ACRYL_PATHS,
     { path: 'permissions', content: <ManagePermissions /> },
@@ -126,6 +128,24 @@ export const SettingsPage = () => {
                         history.replace(`${url}/${newPath.key}`);
                     }}
                 >
+                    <Menu.ItemGroup title="Personal">
+                        {showViews && (
+                            <Menu.Item key="views">
+                                <FilterOutlined />
+                                <ItemTitle>My Views</ItemTitle>
+                            </Menu.Item>
+                        )}
+                        {showOwnershipTypes && (
+                            <Menu.Item key="ownership">
+                                <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
+                            </Menu.Item>
+                        )}
+                        <Menu.Item key="personal-notifications">
+                            <BellOutlined />
+                            <ItemTitle>My Notifications</ItemTitle>
+                        </Menu.Item>
+                    </Menu.ItemGroup>
+
                     <Menu.ItemGroup title="Developer">
                         <Menu.Item key="tokens">
                             <SafetyCertificateOutlined />
@@ -166,18 +186,6 @@ export const SettingsPage = () => {
                             </Menu.ItemGroup>
                         )
                     }
-                    <Menu.ItemGroup title="Manage">
-                        {showViews && (
-                            <Menu.Item key="views">
-                                <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
-                            </Menu.Item>
-                        )}
-                        {showOwnershipTypes && (
-                            <Menu.Item key="ownership">
-                                <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
-                            </Menu.Item>
-                        )}
-                    </Menu.ItemGroup>
 
                     <Menu.ItemGroup title="Preferences">
                         <Menu.Item key="preferences">

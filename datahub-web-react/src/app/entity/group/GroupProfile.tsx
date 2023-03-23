@@ -1,6 +1,6 @@
 import React from 'react';
 import { Col, Row } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { OriginType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
@@ -11,15 +11,17 @@ import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
+import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
 
 const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
     Assets = 'Assets',
     Members = 'Members',
+    Subscriptions = 'Subscriptions',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members, TabType.Subscriptions];
 
 const MEMBER_PAGE_SIZE = 15;
 
@@ -76,6 +78,14 @@ export default function GroupProfile() {
                         }}
                     />
                 ),
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Subscriptions,
+                path: TabType.Subscriptions.toLocaleLowerCase(),
+                content: <ManageActorNotifications isPersonal={false} />,
                 display: {
                     enabled: () => true,
                 },
