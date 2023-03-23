@@ -178,6 +178,11 @@ class DbtTestConfig:
                         "operation": "add_tag",
                         "config": {"tag": "sensitive"},
                     },
+                    "maturity": {
+                        "match": ".*",
+                        "operation": "add_term",
+                        "config": {"term": "maturity_{{ $match }}"},
+                    },
                 },
                 "entities_enabled": {
                     "test_definitions": "NO",
