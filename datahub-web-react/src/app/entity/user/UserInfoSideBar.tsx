@@ -5,7 +5,6 @@ import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.gener
 import { EntityRelationship, DataHubRole } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import {
     SideBar,
     SideBarSubSection,
@@ -21,6 +20,7 @@ import {
 } from '../shared/SidebarStyledComponents';
 import EntityGroups from '../shared/EntityGroups';
 import { mapRoleIcon } from '../../identity/user/UserUtils';
+import { useUserContext } from '../../context/useUserContext';
 
 const { Paragraph } = Typography;
 
@@ -58,8 +58,8 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     const [editProfileModal, showEditProfileModal] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
-    const me = useGetAuthenticatedUser();
-    const isProfileOwner = me?.corpUser?.urn === urn;
+    const me = useUserContext();
+    const isProfileOwner = me?.user?.urn === urn;
 
     const getEditModalData = {
         urn,
@@ -82,16 +82,16 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                 },
             },
         })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
+            .then(() => {
                 message.success({
                     content: `Changes saved.`,
                     duration: 3,
                 });
                 refetch();
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
             });
     };
     const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
