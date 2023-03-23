@@ -2,9 +2,14 @@
 
 ## Why Would You Add Description on Dataset? 
 Adding a description and related link to a dataset can provide important information about the data, such as its source, collection methods, and potential uses. This can help others understand the context of the data and how it may be relevant to their own work or research. Including a related link can also provide access to additional resources or related datasets, further enriching the information available to users.
+
+### Goal Of This Guide
+This guide will show you how to add a description and a link to dataset `fct_users_deleted`.
+
+
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding a description, you need to ensure the targeted dataset is already present in your datahub. 
@@ -16,7 +21,7 @@ In this example, we will add a description to `user_name `column of a dataset `f
 
 ## Add Description With GraphQL (Not Supported)
 > 🚫 Adding Description on Dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/tools/tutorials/advantages.md#our-apis) for more information, 
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
 
 
 ## Add Description With Python SDK
@@ -129,5 +134,5 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 ## Expected Outcomes
 You can now see the description is added to `fct_users_deleted`. 
 
-![dataset-description-added](../../imgs/tutorials/dataset-description-added.png)
+![dataset-description-added](../../imgs/apis/tutorials/dataset-description-added.png)
 
