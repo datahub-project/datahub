@@ -23,10 +23,13 @@ class Workspace:
     def get_urn_part(self):
         return self.name
 
-    def get_workspace_key(self, platform_name: str) -> PlatformKey:
+    def get_workspace_key(
+        self, platform_name: str, platform_instance: Optional[str] = None
+    ) -> PlatformKey:
         return WorkspaceKey(
             workspace=self.get_urn_part(),
             platform=platform_name,
+            instance=platform_instance,
         )
 
 
@@ -55,13 +58,19 @@ class Table:
     full_name: str
     expression: Optional[str]
 
+    # Pointer to the parent dataset.
+    dataset: Optional["PowerBIDataset"] = None
+
 
 @dataclass
 class PowerBIDataset:
     id: str
     name: Optional[str]
+    description: str
     webUrl: Optional[str]
     workspace_id: str
+    parameters: Dict[str, str]
+
     # Table in datasets
     tables: List["Table"]
     tags: List[str]
@@ -154,6 +163,7 @@ class Tile:
 class Dashboard:
     id: str
     displayName: str
+    description: str
     embedUrl: str
     webUrl: Optional[str]
     isReadOnly: Any
@@ -182,10 +192,12 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
     return PowerBIDataset(
         id=raw_instance["id"],
         name=raw_instance.get("name"),
+        description=raw_instance.get("description", str()),
         webUrl="{}/details".format(raw_instance.get("webUrl"))
         if raw_instance.get("webUrl") is not None
         else None,
         workspace_id=workspace_id,
+        parameters={},
         tables=[],
         tags=[],
     )

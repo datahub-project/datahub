@@ -1,13 +1,16 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -44,9 +47,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
@@ -66,46 +66,39 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
-import static com.linkedin.metadata.search.utils.ESUtils.*;
-import static com.linkedin.metadata.utils.SearchUtil.*;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_SUFFIX;
+import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
+import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
+import static com.linkedin.metadata.utils.SearchUtil.createFilterValue;
 
 
 @Slf4j
 public class SearchRequestHandler {
+  private static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS = new SearchFlags()
+          .setFulltext(false)
+          .setMaxAggValues(20)
+          .setSkipCache(false)
+          .setSkipAggregates(false)
+          .setSkipHighlighting(false);
 
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
   private static final String REMOVED = "removed";
 
   private static final String URN_FILTER = "urn";
-  private static final int DEFAULT_MAX_TERM_BUCKET_SIZE = 20;
   private final List<EntitySpec> _entitySpecs;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;
   private final Map<String, String> _filtersToDisplayName;
-  private final Configs _configs;
+  private final SearchConfiguration _configs;
+  private final SearchQueryBuilder _searchQueryBuilder;
 
 
-  @Data
-  @AllArgsConstructor
-  @Getter
-  public static class Configs {
-    private final int maxTermBucketSize;
-  }
-
-  private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
-    this(entitySpec, new Configs(DEFAULT_MAX_TERM_BUCKET_SIZE));
-  }
-
-  private SearchRequestHandler(@Nonnull EntitySpec entitySpec, @Nonnull Configs configs) {
+  private SearchRequestHandler(@Nonnull EntitySpec entitySpec, @Nonnull SearchConfiguration configs) {
     this(ImmutableList.of(entitySpec), configs);
   }
 
-  private SearchRequestHandler(@Nonnull List<EntitySpec> entitySpecs) {
-    this(entitySpecs, new Configs(DEFAULT_MAX_TERM_BUCKET_SIZE));
-  }
-
-  private SearchRequestHandler(@Nonnull List<EntitySpec> entitySpecs, @Nonnull Configs configs) {
+  private SearchRequestHandler(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchConfiguration configs) {
     _entitySpecs = entitySpecs;
     List<SearchableAnnotation> annotations = getSearchableAnnotations();
     _facetFields = getFacetFields(annotations);
@@ -114,22 +107,15 @@ public class SearchRequestHandler {
         .filter(SearchableAnnotation::isAddToFilters)
         .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
     _highlights = getHighlights();
+    _searchQueryBuilder = new SearchQueryBuilder(configs);
     _configs = configs;
   }
 
-  public static SearchRequestHandler getBuilder(@Nonnull EntitySpec entitySpec) {
-    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(ImmutableList.of(entitySpec), k -> new SearchRequestHandler(entitySpec));
-  }
-
-  public static SearchRequestHandler getBuilder(@Nonnull EntitySpec entitySpec, @Nonnull Configs configs) {
+  public static SearchRequestHandler getBuilder(@Nonnull EntitySpec entitySpec, @Nonnull SearchConfiguration configs) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(ImmutableList.of(entitySpec), k -> new SearchRequestHandler(entitySpec, configs));
   }
 
-  public static SearchRequestHandler getBuilder(@Nonnull List<EntitySpec> entitySpecs) {
-    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(ImmutableList.copyOf(entitySpecs), k -> new SearchRequestHandler(entitySpecs));
-  }
-
-  public static SearchRequestHandler getBuilder(@Nonnull List<EntitySpec> entitySpecs, @Nonnull Configs configs) {
+  public static SearchRequestHandler getBuilder(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchConfiguration configs) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(ImmutableList.copyOf(entitySpecs), k -> new SearchRequestHandler(entitySpecs, configs));
   }
 
@@ -148,6 +134,7 @@ public class SearchRequestHandler {
         .collect(Collectors.toSet());
   }
 
+  @VisibleForTesting
   private Set<String> getDefaultQueryFieldNames(List<SearchableAnnotation> annotations) {
     return Stream.concat(annotations.stream()
         .filter(SearchableAnnotation::isQueryByDefault)
@@ -192,13 +179,16 @@ public class SearchRequestHandler {
    * @param filter the search filter
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param fulltext Structured or full text search modes
+   * @param searchFlags Various flags controlling search query options
    * @return a valid search request
    */
   @Nonnull
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion, int from, int size, boolean fulltext) {
+                                        @Nullable SortCriterion sortCriterion, int from, int size,
+                                        @Nullable SearchFlags searchFlags) {
+    SearchFlags finalSearchFlags = applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
+
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
@@ -208,10 +198,14 @@ public class SearchRequestHandler {
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery()
-            .must(getQuery(input, fulltext))
+            .must(getQuery(input, finalSearchFlags.isFulltext()))
             .must(filterQuery));
-    getAggregations().forEach(searchSourceBuilder::aggregation);
-    searchSourceBuilder.highlighter(_highlights);
+    if (!finalSearchFlags.isSkipAggregates()) {
+      getAggregations().forEach(searchSourceBuilder::aggregation);
+    }
+    if (!finalSearchFlags.isSkipHighlighting()) {
+      searchSourceBuilder.highlighter(_highlights);
+    }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest.toString());
@@ -234,8 +228,9 @@ public class SearchRequestHandler {
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, @Nullable Object[] sort, @Nullable String pitId, @Nonnull String keepAlive,
-      int size, boolean fulltext) {
+      int size, SearchFlags searchFlags) {
     SearchRequest searchRequest = new PITAwareSearchRequest();
+    SearchFlags finalSearchFlags = applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
@@ -244,7 +239,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.fetchSource("urn", null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
-    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, fulltext)).must(filterQuery));
+    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).must(filterQuery));
     getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
@@ -334,7 +329,7 @@ public class SearchRequestHandler {
   }
 
   private QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
-    return SearchQueryBuilder.buildQuery(_entitySpecs, query, fulltext);
+    return _searchQueryBuilder.buildQuery(_entitySpecs, query, fulltext);
   }
 
   private List<AggregationBuilder> getAggregations() {
@@ -348,7 +343,8 @@ public class SearchRequestHandler {
     return aggregationBuilders;
   }
 
-  private HighlightBuilder getHighlights() {
+  @VisibleForTesting
+  public HighlightBuilder getHighlights() {
     HighlightBuilder highlightBuilder = new HighlightBuilder();
 
     // Don't set tags to get the original field value

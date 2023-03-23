@@ -5,8 +5,12 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"ephemeral\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "ephemeral",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -102,14 +106,6 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
-                                "type": "TRANSFORMED"
-                            },
-                            {
-                                "auditStamp": {
-                                    "time": 1643871600000,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
                             },
@@ -119,6 +115,14 @@
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -145,8 +149,12 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "table",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -266,7 +274,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -274,7 +282,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -301,8 +309,12 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "view",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -516,8 +528,12 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "table",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -647,8 +663,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -809,8 +828,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -992,8 +1014,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1115,8 +1140,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1250,8 +1278,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1390,8 +1421,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1597,8 +1631,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1756,8 +1793,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1933,8 +1973,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2092,8 +2135,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2251,8 +2297,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2410,8 +2459,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2599,6 +2651,36 @@
     "aspect": {
         "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-target-platform-instance"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:test_tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:test_tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-target-platform-instance"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:column_tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:column_tag"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,

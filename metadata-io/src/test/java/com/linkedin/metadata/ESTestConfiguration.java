@@ -1,6 +1,9 @@
 package com.linkedin.metadata;
 
-import com.linkedin.metadata.config.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -36,6 +39,28 @@ public class ESTestConfiguration {
     public static void syncAfterWrite(ESBulkProcessor bulkProcessor) throws InterruptedException {
         bulkProcessor.flush();
         Thread.sleep(1000);
+    }
+
+    @Bean
+    public SearchConfiguration searchConfiguration() {
+        SearchConfiguration searchConfiguration = new SearchConfiguration();
+        searchConfiguration.setMaxTermBucketSize(20);
+
+        ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();
+        exactMatchConfiguration.setExclusive(false);
+        exactMatchConfiguration.setExactFactor(10.0f);
+        exactMatchConfiguration.setWithPrefix(true);
+        exactMatchConfiguration.setPrefixFactor(6.0f);
+        exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
+        exactMatchConfiguration.setEnableStructured(true);
+
+        PartialConfiguration partialConfiguration = new PartialConfiguration();
+        partialConfiguration.setFactor(0.4f);
+        partialConfiguration.setUrnFactor(0.7f);
+
+        searchConfiguration.setExactMatch(exactMatchConfiguration);
+        searchConfiguration.setPartial(partialConfiguration);
+        return searchConfiguration;
     }
 
     @Scope("singleton")
@@ -99,7 +124,7 @@ public class ESTestConfiguration {
     }
 
     @Bean(name = "entityRegistry")
-    protected EntityRegistry entityRegistry() throws EntityRegistryException {
+    public EntityRegistry entityRegistry() throws EntityRegistryException {
         ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
                 ESTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
         return new MergedEntityRegistry(SnapshotEntityRegistry.getInstance()).apply(configEntityRegistry);

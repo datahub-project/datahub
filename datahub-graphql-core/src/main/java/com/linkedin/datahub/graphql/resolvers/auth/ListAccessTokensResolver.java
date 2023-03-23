@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
@@ -56,7 +57,7 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
               new SortCriterion().setField(EXPIRES_AT_FIELD_NAME).setOrder(SortOrder.DESCENDING);
           final SearchResult searchResult = _entityClient.search(Constants.ACCESS_TOKEN_ENTITY_NAME, "",
               buildFilter(filters, Collections.emptyList()), sortCriterion, start, count,
-              getAuthentication(environment), true, null);
+              getAuthentication(environment), new SearchFlags().setFulltext(true));
 
           final List<AccessTokenMetadata> tokens = searchResult.getEntities().stream().map(entity -> {
             final AccessTokenMetadata metadata = new AccessTokenMetadata();

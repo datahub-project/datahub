@@ -16,6 +16,7 @@ const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "docs";
+const STATIC_DIRECTORY = "genStatic/artifacts";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -274,6 +275,15 @@ function markdown_add_slug(
   contents.data.slug = slug;
 }
 
+// function copy_platform_logos(): void {
+//   execSync("mkdir -p " + OUTPUT_DIRECTORY + "/imgs/platform-logos");
+//   execSync(
+//     "cp -r ../datahub-web-react/src/images " +
+//       OUTPUT_DIRECTORY +
+//       "/imgs/platform-logos"
+//   );
+// }
+
 function new_url(original: string, filepath: string): string {
   if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
     // For absolute links to the hosted docs site, we transform them into local ones.
@@ -526,6 +536,28 @@ function write_markdown_file(
   }
 }
 
+function copy_python_wheels(): void {
+  // Copy the built wheel files to the static directory.
+  const wheel_dirs = [
+    "../metadata-ingestion/dist",
+    "../metadata-ingestion-modules/airflow-plugin/dist",
+  ];
+
+  const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
+  fs.mkdirSync(wheel_output_directory, { recursive: true });
+
+  for (const wheel_dir of wheel_dirs) {
+    const wheel_files = fs.readdirSync(wheel_dir);
+    for (const wheel_file of wheel_files) {
+      const src = path.join(wheel_dir, wheel_file);
+      const dest = path.join(wheel_output_directory, wheel_file);
+
+      // console.log(`Copying artifact ${src} to ${dest}...`);
+      fs.copyFileSync(src, dest);
+    }
+  }
+}
+
 (async function main() {
   for (const filepath of markdown_files) {
     //console.log("Processing:", filepath);
@@ -537,6 +569,7 @@ function write_markdown_file(
     markdown_add_edit_url(contents, filepath);
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
+    //copy_platform_logos();
     // console.log(contents);
 
     const out_path = `${OUTPUT_DIRECTORY}/${filepath}`;
@@ -559,6 +592,7 @@ function write_markdown_file(
     "docs/actions/sources",
     "docs/actions/guides",
     "metadata-ingestion/archived",
+    "metadata-ingestion/sink_docs",
     "docs/what",
     "docs/wip",
   ];
@@ -576,4 +610,8 @@ function write_markdown_file(
       );
     }
   }
+
+  // Generate static directory.
+  copy_python_wheels();
+  // TODO: copy over the source json schemas + other artifacts.
 })();

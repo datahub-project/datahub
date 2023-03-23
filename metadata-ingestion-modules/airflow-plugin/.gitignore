@@ -1,9 +1,11 @@
 .envrc
+src/datahub_airflow_plugin/__init__.py.bak
 .vscode/
 output
 pvenv36/
 bq_credentials.json
 /tmp
+*.bak
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

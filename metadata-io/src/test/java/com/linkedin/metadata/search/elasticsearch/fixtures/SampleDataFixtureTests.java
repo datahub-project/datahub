@@ -13,6 +13,10 @@ import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -24,11 +28,14 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.AnalyzeRequest;
 import org.elasticsearch.client.indices.AnalyzeResponse;
+import org.elasticsearch.client.indices.GetMappingsRequest;
+import org.elasticsearch.client.indices.GetMappingsResponse;
 import org.junit.Assert;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -54,6 +61,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertFalse;
 
 
 @Import(ESSampleDataFixture.class)
@@ -72,6 +80,112 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Qualifier("sampleDataEntityClient")
     protected EntityClient entityClient;
 
+    @Autowired
+    private EntityRegistry entityRegistry;
+
+    @Test
+    public void testSearchFieldConfig() throws IOException {
+        /*
+          For every field in every entity fixture, ensure proper detection of field types and analyzers
+         */
+        Map<EntitySpec, String> fixtureEntities = new HashMap<>();
+        fixtureEntities.put(entityRegistry.getEntitySpec("dataset"), "smpldat_datasetindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("chart"), "smpldat_chartindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("container"), "smpldat_containerindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("corpgroup"), "smpldat_corpgroupindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("corpuser"), "smpldat_corpuserindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("dashboard"), "smpldat_dashboardindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("dataflow"), "smpldat_dataflowindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("datajob"), "smpldat_datajobindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("domain"), "smpldat_domainindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("glossarynode"), "smpldat_glossarynodeindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("glossaryterm"), "smpldat_glossarytermindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("mlfeature"), "smpldat_mlfeatureindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("mlfeaturetable"), "smpldat_mlfeaturetableindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("mlmodelgroup"), "smpldat_mlmodelgroupindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("mlmodel"), "smpldat_mlmodelindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("mlprimarykey"), "smpldat_mlprimarykeyindex_v2");
+        fixtureEntities.put(entityRegistry.getEntitySpec("tag"), "smpldat_tagindex_v2");
+
+        for (Map.Entry<EntitySpec, String> entry : fixtureEntities.entrySet()) {
+            EntitySpec entitySpec = entry.getKey();
+            GetMappingsRequest req = new GetMappingsRequest().indices(entry.getValue());
+
+            GetMappingsResponse resp = _searchClient.indices().getMapping(req, RequestOptions.DEFAULT);
+            Map<String, Map<String, Object>> mappings = (Map<String, Map<String, Object>>) resp.mappings()
+                    .get(entry.getValue()).sourceAsMap().get("properties");
+
+            // For every fieldSpec determine whether the SearchFieldConfig is accurate
+            for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
+                SearchFieldConfig test = SearchFieldConfig.detectSubFieldType(fieldSpec);
+
+                if (!test.getFieldName().contains(".")) {
+                    Map<String, Object> actual = mappings.get(test.getFieldName());
+
+                    final String expectedAnalyzer;
+                    if (actual.get("search_analyzer") != null) {
+                        expectedAnalyzer = (String) actual.get("search_analyzer");
+                    } else if (actual.get("analyzer") != null) {
+                        expectedAnalyzer = (String) actual.get("analyzer");
+                    } else {
+                        expectedAnalyzer = "keyword";
+                    }
+
+                    assertEquals(test.getAnalyzer(), expectedAnalyzer,
+                            String.format("Expected search analyzer to match for entity: `%s`field: `%s`",
+                                    entitySpec.getName(), test.getFieldName()));
+
+                    if (test.hasDelimitedSubfield()) {
+                        assertTrue(((Map<String, Map<String, String>>) actual.get("fields")).containsKey("delimited"),
+                                String.format("Expected entity: `%s` field to have .delimited subfield: `%s`",
+                                        entitySpec.getName(), test.getFieldName()));
+                    } else {
+                        boolean nosubfield = !actual.containsKey("fields")
+                                || !((Map<String, Map<String, String>>) actual.get("fields")).containsKey("delimited");
+                        assertTrue(nosubfield, String.format("Expected entity: `%s` field to NOT have .delimited subfield: `%s`",
+                                entitySpec.getName(), test.getFieldName()));
+                    }
+                    if (test.hasKeywordSubfield()) {
+                        assertTrue(((Map<String, Map<String, String>>) actual.get("fields")).containsKey("keyword"),
+                                String.format("Expected entity: `%s` field to have .keyword subfield: `%s`",
+                                        entitySpec.getName(), test.getFieldName()));
+                    } else {
+                        boolean nosubfield = !actual.containsKey("fields")
+                                || !((Map<String, Map<String, String>>) actual.get("fields")).containsKey("keyword");
+                        assertTrue(nosubfield, String.format("Expected entity: `%s` field to NOT have .keyword subfield: `%s`",
+                                entitySpec.getName(), test.getFieldName()));
+                    }
+                } else {
+                    // this is a subfield therefore cannot have a subfield
+                    assertFalse(test.hasKeywordSubfield());
+                    assertFalse(test.hasDelimitedSubfield());
+
+                    String[] fieldAndSubfield = test.getFieldName().split("[.]", 2);
+
+                    Map<String, Object> actualParent = mappings.get(fieldAndSubfield[0]);
+                    Map<String, Object> actualSubfield = ((Map<String, Map<String, Object>>) actualParent.get("fields")).get(fieldAndSubfield[0]);
+
+                    String expectedAnalyzer = actualSubfield.get("search_analyzer") != null ? (String) actualSubfield.get("search_analyzer")
+                            : "keyword";
+
+                    assertEquals(test.getAnalyzer(), expectedAnalyzer,
+                            String.format("Expected search analyzer to match for field `%s`", test.getFieldName()));
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testDatasetHasTags() throws IOException {
+        GetMappingsRequest req = new GetMappingsRequest()
+                .indices("smpldat_datasetindex_v2");
+        GetMappingsResponse resp = _searchClient.indices().getMapping(req, RequestOptions.DEFAULT);
+        Map<String, Map<String, String>> mappings = (Map<String, Map<String, String>>) resp.mappings()
+                .get("smpldat_datasetindex_v2").sourceAsMap().get("properties");
+        assertTrue(mappings.containsKey("hasTags"));
+        assertEquals(mappings.get("hasTags"), Map.of("type", "boolean"));
+    }
+
     @Test
     public void testFixtureInitialization() {
         assertNotNull(searchService);
@@ -81,7 +195,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         final SearchResult result = search(searchService, "test");
 
         Map<String, Integer> expectedTypes = Map.of(
-                "dataset", 7,
+                "dataset", 10,
                 "chart", 0,
                 "container", 1,
                 "dashboard", 0,
@@ -108,17 +222,17 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     public void testDataPlatform() {
         Map<String, Integer> expected = ImmutableMap.<String, Integer>builder()
                 .put("urn:li:dataPlatform:BigQuery", 8)
-                .put("urn:li:dataPlatform:hive", 6)
+                .put("urn:li:dataPlatform:hive", 3)
                 .put("urn:li:dataPlatform:mysql", 5)
                 .put("urn:li:dataPlatform:s3", 1)
-                .put("urn:li:dataPlatform:hdfs", 2)
+                .put("urn:li:dataPlatform:hdfs", 1)
                 .put("urn:li:dataPlatform:graph", 1)
                 .put("urn:li:dataPlatform:dbt", 9)
                 .put("urn:li:dataplatform:BigQuery", 8)
-                .put("urn:li:dataplatform:hive", 6)
+                .put("urn:li:dataplatform:hive", 3)
                 .put("urn:li:dataplatform:mysql", 5)
                 .put("urn:li:dataplatform:s3", 1)
-                .put("urn:li:dataplatform:hdfs", 2)
+                .put("urn:li:dataplatform:hdfs", 1)
                 .put("urn:li:dataplatform:graph", 1)
                 .put("urn:li:dataplatform:dbt", 9)
                 .build();
@@ -162,13 +276,18 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
 
         testSets.forEach(testSet -> {
-            Set<SearchResult> results = testSet.stream()
-                    .map(test -> search(searchService, test))
-                    .collect(Collectors.toSet());
+            Integer expectedResults = null;
+            for (String testQuery : testSet) {
+                SearchResult results = search(searchService, testQuery);
 
-            results.forEach(r -> assertTrue(r.hasEntities() && !r.getEntities().isEmpty(), "Expected search results"));
-            assertEquals(results.stream().map(r -> r.getEntities().size()).distinct().count(), 1,
-                    String.format("Expected all result counts to match after stemming. %s", testSet));
+                assertTrue(results.hasEntities() && !results.getEntities().isEmpty(),
+                        String.format("Expected search results for `%s`", testQuery));
+                if (expectedResults == null) {
+                    expectedResults = results.getNumEntities();
+                }
+                assertEquals(expectedResults, results.getNumEntities(),
+                        String.format("Expected all result counts to match after stemming. %s", testSet));
+            }
         });
     }
 
@@ -282,7 +401,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "my_table"
         );
         List<String> tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
-        assertEquals(tokens, List.of("my_tabl"),
+        assertEquals(tokens, List.of("my_tabl", "tabl"),
                 String.format("Unexpected tokens. Found %s", tokens));
 
         request = AnalyzeRequest.withIndexAnalyzer(
@@ -291,7 +410,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "my_table"
         );
         tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
-        assertEquals(tokens, List.of("my_tabl"),
+        assertEquals(tokens, List.of("my_tabl", "tabl"),
                 String.format("Unexpected tokens. Found %s", tokens));
     }
 
@@ -495,8 +614,9 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "sample", 3,
                 "covid", 2,
                 "\"raw_orders\"", 6,
-                STRUCTURED_QUERY_PREFIX + "sample", 1,
-                STRUCTURED_QUERY_PREFIX + "covid", 0,
+                STRUCTURED_QUERY_PREFIX + "sample", 3,
+                STRUCTURED_QUERY_PREFIX + "\"sample\"", 2,
+                STRUCTURED_QUERY_PREFIX + "covid", 2,
                 STRUCTURED_QUERY_PREFIX + "\"raw_orders\"", 1
         );
 
@@ -540,6 +660,32 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         List<String> actual = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
         assertEquals(actual, expected,
                 String.format("Expected: %s Actual: %s", expected, actual));
+    }
+
+    @Test
+    public void testUnderscore() throws IOException {
+        String testQuery = "bad_fraud_id";
+        List<String> expected = List.of("bad_fraud_id", "bad", "fraud");
+
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
+                "smpldat_datasetindex_v2",
+                "query_word_delimited",
+                testQuery
+        );
+
+        List<String> actual = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
+        assertEquals(actual, expected,
+                String.format("Analayzer: query_word_delimited Expected: %s Actual: %s", expected, actual));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+                "smpldat_datasetindex_v2",
+                "word_delimited",
+                testQuery
+        );
+        actual = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
+        assertEquals(actual, expected,
+                String.format("Analyzer: word_delimited Expected: %s Actual: %s", expected, actual));
+
     }
 
     @Test
@@ -719,7 +865,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
             List<SearchResult> entityClientResults = testFilters.stream().map(filter -> {
                 try {
                     return entityClient.search("dataset", "*", filter, null, 0, 100,
-                            AUTHENTICATION, fulltextFlag, null);
+                            AUTHENTICATION, new SearchFlags().setFulltext(fulltextFlag));
                 } catch (RemoteInvocationException e) {
                     throw new RuntimeException(e);
                 }
@@ -732,6 +878,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         }
     }
 
+    @Test
     public void testStructQueryFieldMatch() {
         String query = STRUCTURED_QUERY_PREFIX + "name: customers";
         SearchResult result = search(searchService, query);
@@ -781,6 +928,25 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 String.format("%s - Expected search results to include matched fields", query));
 
         assertEquals(result.getEntities().size(), 5);
+    }
+
+    @Test
+    public void testCustomPropertiesQuoted() {
+        Map<String, Integer> expectedResults = Map.of(
+                "\"materialization=view\"", 3,
+                STRUCTURED_QUERY_PREFIX + "customProperties:\"materialization=view\"", 3
+        );
+
+        Map<String, SearchResult> results = expectedResults.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> search(searchService, entry.getKey())));
+
+        results.forEach((key, value) -> {
+            Integer actualCount = value.getEntities().size();
+            Integer expectedCount = expectedResults.get(key);
+            assertSame(actualCount, expectedCount,
+                    String.format("Search term `%s` has %s fulltext results, expected %s results.", key, actualCount,
+                            expectedCount));
+        });
     }
 
     @Test
@@ -964,6 +1130,24 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().get(0).getEntity().toString(),
                 "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
                 "Expected exact match and 1st position");
+    }
+
+    @Test
+    public void testPrefixVsExactCaseSensitivity() {
+        List<String> insensitiveExactMatches = List.of("testExactMatchCase", "testexactmatchcase", "TESTEXACTMATCHCASE");
+        for (String query : insensitiveExactMatches) {
+            SearchResult result = search(searchService, query);
+
+            assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                    String.format("%s - Expected search results", query));
+            assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                    String.format("%s - Expected search results to include matched fields", query));
+
+            assertEquals(result.getEntities().size(), insensitiveExactMatches.size());
+            assertEquals(result.getEntities().get(0).getEntity().toString(),
+                    "urn:li:dataset:(urn:li:dataPlatform:testOnly," + query + ",PROD)",
+                    "Expected exact match as first match with matching case");
+        }
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {

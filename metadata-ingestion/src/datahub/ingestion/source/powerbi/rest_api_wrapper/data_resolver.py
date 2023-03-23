@@ -2,7 +2,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import msal
 import requests
@@ -100,6 +100,12 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
+    def get_dataset_parameters(
+        self, workspace_id: str, dataset_id: str
+    ) -> Dict[str, str]:
+        pass
+
+    @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
         pass
 
@@ -111,7 +117,6 @@ class DataResolverBase(ABC):
 
     def get_access_token(self):
         if self.__access_token is not None:
-            logger.debug("Returning the cached access token")
             return self.__access_token
 
         logger.info("Generating PowerBi access token")
@@ -163,6 +168,7 @@ class DataResolverBase(ABC):
                 id=instance.get(Constant.ID),
                 isReadOnly=instance.get(Constant.IS_READ_ONLY),
                 displayName=instance.get(Constant.DISPLAY_NAME),
+                description=instance.get(Constant.DESCRIPTION, str()),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
@@ -245,7 +251,7 @@ class DataResolverBase(ABC):
                 name=raw_instance.get(Constant.NAME),
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION),
+                description=raw_instance.get(Constant.DESCRIPTION, str()),
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),
@@ -394,6 +400,36 @@ class RegularAPIResolver(DataResolverBase):
         # None/details
         return new_powerbi_dataset(workspace_id, response_dict)
 
+    def get_dataset_parameters(
+        self, workspace_id: str, dataset_id: str
+    ) -> Dict[str, str]:
+        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DATASET_GET
+        ]
+        dataset_get_endpoint = dataset_get_endpoint.format(
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            WORKSPACE_ID=workspace_id,
+            DATASET_ID=dataset_id,
+        )
+        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
+        params_get_endpoint = dataset_get_endpoint + "/parameters"
+
+        params_response = self._request_session.get(
+            params_get_endpoint,
+            headers=self.get_authorization_header(),
+        )
+        params_response.raise_for_status()
+        params_dict = params_response.json()
+
+        params_values: List[dict] = params_dict.get(Constant.VALUE, [])
+
+        logger.debug(f"dataset {dataset_id} parameters = {params_values}")
+
+        return {
+            value[Constant.NAME]: value[Constant.CURRENT_VALUE]
+            for value in params_values
+        }
+
     def get_groups_endpoint(self) -> str:
         return DataResolverBase.BASE_URL
 
@@ -525,7 +561,7 @@ class AdminAPIResolver(DataResolverBase):
         logger.debug(f"Hitting URL={scan_get_endpoint}")
         retry = 1
         while True:
-            logger.info(f"retry = {retry}")
+            logger.debug(f"retry = {retry}")
             res = self._request_session.get(
                 scan_get_endpoint,
                 headers=self.get_authorization_header(),
@@ -546,7 +582,7 @@ class AdminAPIResolver(DataResolverBase):
                 )
                 break
 
-            logger.info(
+            logger.debug(
                 f"Waiting to check for scan job completion for {minimum_sleep_seconds} seconds."
             )
             sleep(minimum_sleep_seconds)
@@ -562,7 +598,7 @@ class AdminAPIResolver(DataResolverBase):
         max_retry: int = AdminAPIResolver._calculate_max_retry(
             minimum_sleep_seconds, timeout
         )
-        logger.info(f"Max trial {max_retry}")
+        # logger.info(f"Max trial {max_retry}")
 
         scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
         scan_get_endpoint = scan_get_endpoint.format(
@@ -704,3 +740,9 @@ class AdminAPIResolver(DataResolverBase):
 
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
+
+    def get_dataset_parameters(
+        self, workspace_id: str, dataset_id: str
+    ) -> Dict[str, str]:
+        logger.debug("Get dataset parameter is unsupported in Admin API")
+        return {}

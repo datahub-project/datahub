@@ -5,7 +5,6 @@ import { EntityHealthStatus } from './EntityHealthStatus';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
 import { getPlatformName } from '../../../utils';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
 import EntityCount from './EntityCount';
 import EntityName from './EntityName';
@@ -16,6 +15,7 @@ import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import ExternalUrlButton from '../../../ExternalUrlButton';
 import ShareButton from '../../../../../shared/share/ShareButton';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
+import { useUserContext } from '../../../../../context/useUserContext';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -37,7 +37,7 @@ const HeaderContainer = styled.div`
 
 const MainHeaderContent = styled.div`
     flex: 1;
-    width: 85%;
+    width: 70%;
 
     .entityCount {
         margin: 5px 0 -4px 0;
@@ -81,7 +81,7 @@ type Props = {
 export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEditable, subHeader }: Props) => {
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
-    const me = useGetAuthenticatedUser();
+    const me = useUserContext();
     const platformName = getPlatformName(entityData);
     const externalUrl = entityData?.externalUrl || undefined;
     const entityCount = entityData?.entityCount;

@@ -318,9 +318,6 @@ class IcebergSource(StatefulIngestionSourceBase):
             ],
         }
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.config.platform_instance
-
     def get_report(self) -> SourceReport:
         return self.report
 

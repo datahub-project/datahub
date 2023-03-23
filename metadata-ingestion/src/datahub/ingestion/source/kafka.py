@@ -187,9 +187,6 @@ class KafkaSource(StatefulIngestionSourceBase):
                 f"Failed to create Kafka Admin Client due to error {e}.",
             )
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.source_config.platform_instance
-
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
         config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)

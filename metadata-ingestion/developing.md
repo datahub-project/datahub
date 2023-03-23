@@ -107,9 +107,16 @@ Some other notes:
 - Prefer a standalone helper method over a `@staticmethod`.
 - You probably should not be defining a `__hash__` method yourself. Using `@dataclass(frozen=True)` is a good way to get a hashable class.
 - Avoid global state. In sources, this includes instance variables that effectively function as "global" state for the source.
-- Avoid pinning version dependencies. The `acryl-datahub` package is frequently used as a library and hence installed alongside other tools. If we keep our dependencies pinned or too restrictive, we break such workflows.
 - Avoid defining functions within other functions. This makes it harder to read and test the code.
 - When interacting with external APIs, parse the responses into a dataclass rather than operating directly on the response object.
+
+## Dependency Management
+
+The vast majority of our dependencies are not required by the "core" package but instead can be optionally installed using Python "extras". This allows us to keep the core package lightweight. We should be deliberate about adding new dependencies to the core framework.
+
+Where possible, we should avoid pinning version dependencies. The `acryl-datahub` package is frequently used as a library and hence installed alongside other tools. If you need to restrict the version of a dependency, use a range like `>=1.2.3,<2.0.0` or a negative constraint like `>=1.2.3, !=1.2.7` instead. Every upper bound and negative constraint should be accompanied by a comment explaining why it's necessary.
+
+Caveat: Some packages like Great Expectations and Airflow frequently make breaking changes. For such packages, it's ok to add a "defensive" upper bound with the current latest version, accompanied by a comment. It's critical that we revisit these upper bounds at least once a month and broaden them if possible.
 
 ## Guidelines for Ingestion Configs
 
