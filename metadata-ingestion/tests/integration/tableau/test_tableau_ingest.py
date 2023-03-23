@@ -14,11 +14,16 @@ from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.tableau import TableauSource
+from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     make_table_urn,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    UpstreamLineage,
+)
+from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
@@ -560,7 +565,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
 
-    assert len(difference_dataset_urns) == 34
+    assert len(difference_dataset_urns) == 33
     deleted_dataset_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
@@ -595,7 +600,6 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.campaignstable,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_cat_item,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
@@ -692,32 +696,33 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_tableau_unsupported_csql(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
-    output_file_name: str = "tableau_unsupported_csql.json"
-    golden_file_name: str = "tableau_unsupported_csql_golden.json"
-    new_config = config_source_default.copy()
-    new_config["extract_lineage_from_unsupported_custom_sql_queries"] = True
-    new_config["lineage_overrides"] = TableauLineageOverrides(
+def test_tableau_unsupported_csql():
+    config = mock.MagicMock()
+    config.env = "PROD"
+    config.stateful_ingestion.enabled = False
+    config.extract_lineage_from_unsupported_custom_sql_queries = True
+    config.lineage_overrides = TableauLineageOverrides(
         database_override_map={"production database": "prod"}
     )
+    source = TableauSource(
+        config=config, ctx=PipelineContext(run_id="0", pipeline_name="test_tableau")
+    )
+    lineage = source._create_lineage_from_unsupported_csql(
+        csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
+        csql={
+            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+            "isUnsupportedCustomSql": "true",
+            "database": {"name": "production database", "connectionType": "bigquery"},
+        },
+    )
 
-    tableau_ingest_common(
-        pytestconfig,
-        tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-        ],
-        golden_file_name,
-        output_file_name,
-        mock_datahub_graph,
-        pipeline_name="test_tableau_unsupported_customsql",
-        pipeline_config=new_config,
+    mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
+
+    assert mcp.aspect == UpstreamLineage(
+        upstreams=[
+            UpstreamClass(
+                dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,prod.invent_dw.userdetail,PROD)",
+                type=DatasetLineageType.TRANSFORMED,
+            )
+        ]
     )
