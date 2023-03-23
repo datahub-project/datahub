@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery
@@ -16,6 +17,16 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class BigqueryTableType(Enum):
+    # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
+    BASE_TABLE = "BASE TABLE"
+    EXTERNAL = "EXTERNAL"
+    VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED VIEW"
+    CLONE = "CLONE"
+    SNAPSHOT = "SNAPSHOT"
 
 
 @dataclass
@@ -94,6 +105,7 @@ class BigqueryTable(BaseTable):
 @dataclass
 class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
+    materialized: bool = False
 
 
 @dataclass
@@ -138,7 +150,7 @@ order by
 """
 
     # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
-    tables_for_dataset = """
+    tables_for_dataset = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -159,9 +171,9 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
   left join (
@@ -173,20 +185,20 @@ FROM
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
     from
-        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+        `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL')
-{table_filter}
+  table_type in ({BigqueryTableType.BASE_TABLE}, {BigqueryTableType.EXTERNAL})
+{{table_filter}}
 order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
 """
 
-    tables_for_dataset_without_partition_data = """
+    tables_for_dataset_without_partition_data = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -200,20 +212,20 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL')
-{table_filter}
+  table_type in ({BigqueryTableType.BASE_TABLE}, {BigqueryTableType.EXTERNAL})
+{{table_filter}}
 order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
 """
 
-    views_for_dataset: str = """
+    views_for_dataset: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -227,19 +239,19 @@ SELECT
   row_count,
   size_bytes
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('MATERIALIZED VIEW', 'VIEW')
+  table_type in ({BigqueryTableType.VIEW}, {BigqueryTableType.MATERIALIZED_VIEW})
 order by
   table_schema ASC,
   table_name ASC
 """
 
-    views_for_dataset_without_data_read: str = """
+    views_for_dataset_without_data_read: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -250,12 +262,12 @@ SELECT
   is_insertable_into,
   ddl as view_definition
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('MATERIALIZED VIEW', 'VIEW')
+  table_type in ({BigqueryTableType.VIEW}, {BigqueryTableType.MATERIALIZED_VIEW})
 order by
   table_schema ASC,
   table_name ASC
@@ -470,11 +482,10 @@ class BigQueryDataDictionary:
             BigqueryView(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered
-                if "last_altered" in table
-                else table.created,
+                last_altered=table.get("last_altered", table.created),
                 comment=table.comment,
                 view_definition=table.view_definition,
+                materialized=table.table_type == BigqueryTableType.MATERIALIZED_VIEW,
             )
             for table in cur
         ]

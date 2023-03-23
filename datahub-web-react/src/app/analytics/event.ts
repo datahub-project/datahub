@@ -233,7 +233,6 @@ export interface BatchEntityActionEvent extends BaseEvent {
 
 export interface RecommendationImpressionEvent extends BaseEvent {
     type: EventType.RecommendationImpressionEvent;
-    renderId: string; // TODO : Determine whether we need a render id to join with click event.
     moduleId: string;
     renderType: RecommendationRenderType;
     scenarioType: ScenarioType;

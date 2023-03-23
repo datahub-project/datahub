@@ -1403,10 +1403,6 @@ class SnowflakeV2Source(
         except Exception:
             self.report.edition = None
 
-    # Stateful Ingestion Overrides.
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.config.get_account()
-
     # Ideally we do not want null values in sample data for a column.
     # However that would require separate query per column and
     # that would be expensive, hence not done.

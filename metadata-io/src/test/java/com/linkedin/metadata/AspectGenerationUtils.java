@@ -6,6 +6,8 @@ import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.UpstreamArray;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -60,6 +62,14 @@ public class AspectGenerationUtils {
     lastModified.setLastModified(createAuditStamp());
     chartInfo.setLastModified(lastModified);
     return chartInfo;
+  }
+
+  @Nonnull
+  public static UpstreamLineage createUpstreamLineage() {
+    final UpstreamLineage upstreamLineage = new UpstreamLineage();
+    final UpstreamArray upstreams = new UpstreamArray();
+    upstreamLineage.setUpstreams(upstreams);
+    return upstreamLineage;
   }
 
   @Nonnull
