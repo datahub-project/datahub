@@ -3,7 +3,6 @@ import pathlib
 
 import setuptools
 
-
 package_metadata: dict = {}
 with open("./src/datahub_airflow_plugin/__init__.py") as fp:
     exec(fp.read(), package_metadata)
@@ -125,6 +124,8 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "dev": list(dev_requirements),
-        "datahub-kafka": f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}",
+        "datahub-kafka": [
+            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}"
+        ],
     },
 )

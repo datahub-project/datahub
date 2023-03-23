@@ -196,6 +196,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 onClose={handleClose}
                 visible={isDrawerVisible}
                 width={490}
+                bodyStyle={{ overflowX: 'hidden' }}
                 mask={false}
                 footer={
                     selectedEntity && (
