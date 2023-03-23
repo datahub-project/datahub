@@ -391,6 +391,11 @@ module.exports = {
               ],
             },
             {
+              "Deleting Entities": [
+                "docs/api/tutorials/deleting-entities-by-urn",
+              ],
+            },
+            {
               Reference: [
                 "docs/api/tutorials/references/generate-access-token",
                 "docs/api/tutorials/references/prepare-datahub",
