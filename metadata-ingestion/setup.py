@@ -453,7 +453,7 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "redshift-legacy",
-            "redshift-usage",
+            "redshift-usage-legacy",
             "s3",
             "snowflake",
             "tableau",
