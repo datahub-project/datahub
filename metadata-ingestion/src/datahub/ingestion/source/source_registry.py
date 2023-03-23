@@ -25,6 +25,15 @@ source_registry.register_alias(
     ),
 )
 
+source_registry.register_alias(
+    "redshift-usage",
+    "redshift-usage-legacy",
+    lambda: warnings.warn(
+        "source type bigquery-beta is deprecated, use bigquery instead",
+        ConfigurationWarning,
+    ),
+)
+
 # The MSSQL source has two possible sets of dependencies. We alias
 # the second to the first so that we maintain the 1:1 mapping between
 # source type and pip extra.

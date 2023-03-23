@@ -5,10 +5,10 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
-- #7016 Add `add_database_name_to_urn` flag to Oracle source which ensure that Dataset urns have the DB name as a prefix to prevent collision (.e.g. {database}.{schema}.{table}). ONLY breaking if you set this flag to true, otherwise behavior remains the same. 
-- The Airflow plugin no longer includes the DataHub Kafka emitter by default.  Use `pip install acryl-datahub-airflow-plugin[datahub-kafka]` for Kafka support.
-- The Airflow lineage backend no longer includes the DataHub Kafka emitter by default.  Use `pip install acryl-datahub[airflow,datahub-kafka]` for Kafka support.
 
+- #7016 Add `add_database_name_to_urn` flag to Oracle source which ensure that Dataset urns have the DB name as a prefix to prevent collision (.e.g. {database}.{schema}.{table}). ONLY breaking if you set this flag to true, otherwise behavior remains the same.
+- The Airflow plugin no longer includes the DataHub Kafka emitter by default. Use `pip install acryl-datahub-airflow-plugin[datahub-kafka]` for Kafka support.
+- The Airflow lineage backend no longer includes the DataHub Kafka emitter by default. Use `pip install acryl-datahub[airflow,datahub-kafka]` for Kafka support.
 
 ### Potential Downtime
 
@@ -21,8 +21,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #7103 This should only impact users who have configured explicit non-default names for DataHub's Kafka topics. The environment variables used to configure Kafka topics for DataHub used in the `kafka-setup` docker image have been updated to be in-line with other DataHub components, for more info see our docs on [Configuring Kafka in DataHub
-](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
-- #6906 Redshift source is reworked and with the new connector there is no need for a separate usage source. The old redshift source was renamed as `redshift-legacy`. `redshift-usage` source is still exists but deprecated and will be removed in the future.
+  ](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
+- #6906 The Redshift source has been reworked and now also includes usage capabilities. The old Redshift source was renamed to `redshift-legacy`. The `redshift-usage` source has also been renamed to `redshift-usage-legacy` will be removed in the future.
 
 ### Potential Downtime
 
@@ -47,7 +47,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 
 ### Deprecations
 
-# 6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed
+- #6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed
 
 ### Other notable Changes
 
