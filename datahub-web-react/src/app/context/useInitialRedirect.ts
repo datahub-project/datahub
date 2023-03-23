@@ -19,8 +19,8 @@ export function useInitialRedirect(state, localState, setState, setLocalState) {
                 ...state,
                 loadedInitialPath: true,
             });
-            if (localState.selectedPath) {
-                history.push({
+            if (localState.selectedPath && !localState.selectedPath.includes(PageRoutes.EMBED)) {
+                history.replace({
                     pathname: localState.selectedPath,
                     search: localState.selectedSearch || '',
                 });
@@ -40,7 +40,10 @@ export function useInitialRedirect(state, localState, setState, setLocalState) {
      * When the location of the browse changes, save the latest to local state.
      */
     useEffect(() => {
-        if (localState.selectedPath !== location.pathname || localState.selectedSearch !== location.search) {
+        if (
+            (localState.selectedPath !== location.pathname || localState.selectedSearch !== location.search) &&
+            !location.pathname.includes(PageRoutes.EMBED)
+        ) {
             setLocalState({
                 ...localState,
                 selectedPath: location.pathname,

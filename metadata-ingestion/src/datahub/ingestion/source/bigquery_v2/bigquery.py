@@ -773,8 +773,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.include_views:
-            db_views[dataset_name] = self.get_views_for_dataset(
-                conn, project_id, dataset_name
+            db_views[dataset_name] = BigQueryDataDictionary.get_views_for_dataset(
+                conn, project_id, dataset_name, self.config.profiling.enabled
             )
 
             for view in db_views[dataset_name]:
@@ -959,7 +959,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view = cast(BigqueryView, table)
         view_definition_string = view.view_definition
         view_properties_aspect = ViewProperties(
-            materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
+            materialized=view.materialized,
+            viewLanguage="SQL",
+            viewLogic=view_definition_string,
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=self.gen_dataset_urn(
@@ -1285,19 +1287,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         table_items.update({value.table_id: value for value in sharded_tables.values()})
 
         return table_items
-
-    def get_views_for_dataset(
-        self,
-        conn: bigquery.Client,
-        project_id: str,
-        dataset_name: str,
-    ) -> List[BigqueryView]:
-        views: List[BigqueryView] = []
-
-        views = BigQueryDataDictionary.get_views_for_dataset(
-            conn, project_id, dataset_name, self.config.profiling.enabled
-        )
-        return views
 
     def add_config_to_report(self):
         self.report.include_table_lineage = self.config.include_table_lineage

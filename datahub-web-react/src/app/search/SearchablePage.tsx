@@ -10,10 +10,10 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 import useFilters from './utils/useFilters';
 import { PageRoutes } from '../../conf/Global';
+import { useUserContext } from '../context/useUserContext';
 
 const styles = {
     children: {
@@ -56,7 +56,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const themeConfig = useTheme();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const user = useGetAuthenticatedUser()?.corpUser;
+    const user = useUserContext()?.user;
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
 
     useEffect(() => {
