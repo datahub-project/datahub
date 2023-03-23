@@ -1,14 +1,18 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
 import SchemaDescriptionField from '../schema/components/SchemaDescriptionField';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
+import { mocks } from '../../../../../Mocks';
 
 describe('SchemaDescriptionField', () => {
     it('renders editable description', async () => {
         const { getByText, getByRole, queryByText } = render(
-            <TestPageContainer>
-                <SchemaDescriptionField description="test description updated" isEdited onUpdate={async () => {}} />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <SchemaDescriptionField description="test description updated" isEdited onUpdate={async () => {}} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
         expect(getByRole('img')).toBeInTheDocument();
         expect(getByText('test description updated')).toBeInTheDocument();
@@ -17,14 +21,16 @@ describe('SchemaDescriptionField', () => {
 
     it('renders update description modal', async () => {
         const { getByText, getByRole, queryByText } = render(
-            <TestPageContainer>
-                <SchemaDescriptionField
-                    description="test description"
-                    original="test description"
-                    isEdited
-                    onUpdate={async () => {}}
-                />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <SchemaDescriptionField
+                        description="test description"
+                        original="test description"
+                        isEdited
+                        onUpdate={async () => {}}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
         );
         expect(queryByText('Update description')).not.toBeInTheDocument();
         fireEvent.click(getByRole('img'));

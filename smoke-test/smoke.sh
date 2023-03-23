@@ -24,6 +24,7 @@ source venv/bin/activate
 
 source ./set-cypress-creds.sh
 
+# no_cypress, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
 else
