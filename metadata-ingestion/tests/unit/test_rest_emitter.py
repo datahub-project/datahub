@@ -1,4 +1,4 @@
-import datahub.emitter.rest_emitter as rest_emitter
+from datahub.emitter import rest_emitter
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
