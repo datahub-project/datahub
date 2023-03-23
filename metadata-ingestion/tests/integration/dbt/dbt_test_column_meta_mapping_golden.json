@@ -2929,5 +2929,35 @@
         "lastObserved": 1643871600000,
         "runId": "dbt-column-meta-mapping"
     }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:tag_from_dbt",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:tag_from_dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:sensitive",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:sensitive"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
 }
 ]
