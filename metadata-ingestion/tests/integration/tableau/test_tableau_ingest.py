@@ -697,7 +697,7 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
 def test_tableau_unsupported_csql(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_unsupported_csql.json"
-    golden_file_name: str = "tableau_mces_golden.json"
+    golden_file_name: str = "tableau_unsupported_csql_golden.json"
     new_config = config_source_default.copy()
     new_config["extract_lineage_from_unsupported_custom_sql_queries"] = True
     new_config["lineage_overrides"] = TableauLineageOverrides(
