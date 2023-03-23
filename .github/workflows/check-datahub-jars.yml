@@ -25,6 +25,7 @@ concurrency:
 jobs:
   check_jars:
     strategy:
+      max-parallel: 1
       fail-fast: false
       matrix:
         command:
