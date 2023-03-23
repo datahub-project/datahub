@@ -122,7 +122,8 @@ public class LineageSearchService {
     }
 
     // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
+    final EntityLineageResultCacheKey cacheKey = EntityLineageResultCacheKey.from(sourceUrn, direction, startTimeMillis,
+            endTimeMillis, maxHops);
     CachedEntityLineageResult cachedLineageResult = null;
 
     if (cacheEnabled) {
