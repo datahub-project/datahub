@@ -5,6 +5,7 @@ import pickle
 import sqlite3
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime
 from types import TracebackType
 from typing import (
     Any,
@@ -31,7 +32,8 @@ _DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
 _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
 
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
-SqliteValue = Union[int, float, str, bytes, None]
+# Datetimes get converted to strings
+SqliteValue = Union[int, float, str, bytes, datetime, None]
 
 _VT = TypeVar("_VT")
 
@@ -139,7 +141,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """
 
     # Use a predefined connection, able to be shared across multiple FileBacked* objects
-    connection: Optional[ConnectionWrapper] = None
+    shared_connection: Optional[ConnectionWrapper] = None
     tablename: str = _DEFAULT_TABLE_NAME
 
     serializer: Callable[[_VT], SqliteValue] = _default_serializer
@@ -162,8 +164,8 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         assert "key" not in self.extra_columns, '"key" is a reserved column name'
         assert "value" not in self.extra_columns, '"value" is a reserved column name'
 
-        if self.connection:
-            self._conn = self.connection
+        if self.shared_connection:
+            self._conn = self.shared_connection
         else:
             self._conn = ConnectionWrapper()
 
@@ -255,16 +257,44 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             raise KeyError(key)
 
     def __iter__(self) -> Iterator[str]:
+        # Cache should be small, so safe list cast to avoid mutation during iteration
+        cache_keys = list(self._active_object_cache.keys())
+        yield from cache_keys
+
         cursor = self._conn.execute(f"SELECT key FROM {self.tablename}")
         for row in cursor:
-            if row[0] in self._active_object_cache:
-                # If the key is in the active object cache, then SQL isn't the source of truth.
-                continue
+            if row[0] not in cache_keys:
+                yield row[0]
 
-            yield row[0]
+    def items(self) -> Iterator[Tuple[str, _VT]]:
+        # Implement manually to avoid __getitem__ calls
+        cache_keys = list(self._active_object_cache.keys())
+        yield from self._active_object_cache.items()
 
-        for key in self._active_object_cache:
-            yield key
+        cursor = self._conn.execute(f"SELECT key, value FROM {self.tablename}")
+        for row in cursor:
+            if row[0] not in cache_keys:
+                yield row[0], self.deserializer(row[1])
+
+    def filtered_items(self, cond_sql: str) -> Iterator[Tuple[str, _VT]]:
+        """
+        Flush the cache and iterate through a filtered list of the dictionary's items.
+
+        Args:
+            cond_sql: Conditional expression for WHERE statement, e.g. `x = 0 AND y = "value"`
+
+        Returns:
+            Iterator of filtered (key, value) pairs.
+        """
+        self.flush()
+        for row in self._conn.execute(
+            f"SELECT key, value FROM {self.tablename} WHERE {cond_sql}"
+        ):
+            yield row[0], self.deserializer(row[1])
+
+    def values(self) -> Iterator[_VT]:
+        # Implement manually to avoid __getitem__ calls
+        return (value for _, value in self.items())
 
     def __len__(self) -> int:
         cursor = self._conn.execute(
@@ -282,6 +312,22 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
     ) -> List[Tuple[Any, ...]]:
+        return self._sql_query(query, params, refs).fetchall()
+
+    def sql_query_iterator(
+        self,
+        query: str,
+        params: Tuple[Any, ...] = (),
+        refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
+    ) -> Iterator[Tuple[Any, ...]]:
+        return self._sql_query(query, params, refs)
+
+    def _sql_query(
+        self,
+        query: str,
+        params: Tuple[Any, ...] = (),
+        refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
+    ) -> sqlite3.Cursor:
         # We need to flush object and any objects the query references to ensure
         # that we don't miss objects that have been modified but not yet flushed.
         self.flush()
@@ -289,15 +335,13 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             for referenced_table in refs:
                 referenced_table.flush()
 
-        cursor = self._conn.execute(query, params)
-        return cursor.fetchall()
+        return self._conn.execute(query, params)
 
     def close(self) -> None:
         if self._conn:
-            # Ensure everything is written out.
-            self.flush()
-
-            if not self.connection:  # Connection created inside this class
+            if self.shared_connection:  # Connection not owned by this object
+                self.flush()  # Ensure everything is written out
+            else:
                 self._conn.close()
 
             # This forces all writes to go directly to the DB so they fail immediately.
@@ -305,6 +349,17 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             self._conn = None  # type: ignore
 
     def __del__(self) -> None:
+        self.close()
+
+    def __enter__(self) -> "FileBackedDict":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         self.close()
 
 
@@ -330,7 +385,7 @@ class FileBackedList(Generic[_VT]):
     ) -> None:
         self._len = 0
         self._dict = FileBackedDict(
-            connection=connection,
+            shared_connection=connection,
             serializer=serializer,
             deserializer=deserializer,
             tablename=tablename,
