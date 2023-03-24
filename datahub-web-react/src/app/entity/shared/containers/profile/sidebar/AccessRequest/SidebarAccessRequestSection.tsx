@@ -52,7 +52,7 @@ export const SidebarAccessRequestSection = ({ readOnly }: Props) => {
     return (
         <div>
             <div id={ENTITY_PROFILE_DOMAINS_ID} className="sidebar-domain-section">
-                <SidebarHeader title="Domain" />
+                <SidebarHeader title="Access Request" />
                 <div>
                     {domain && (
                         <DomainLink
@@ -72,20 +72,7 @@ export const SidebarAccessRequestSection = ({ readOnly }: Props) => {
                             </Typography.Paragraph>
                             {!readOnly && (
                                 <Button type="default" onClick={() => setShowModal(true)}>
-                                    <EditOutlined /> Set Domain
-                                </Button>
-                            )}
-                        </>
-                    )}
-                    <SidebarHeader title="Access" />
-                    {!domain && (
-                        <>
-                            <Typography.Paragraph type="secondary">
-                                {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
-                            </Typography.Paragraph>
-                            {!readOnly && (
-                                <Button type="default" onClick={() => setShowModal(true)}>
-                                    <EditOutlined /> Request Access
+                                    <EditOutlined /> Access Request
                                 </Button>
                             )}
                         </>
