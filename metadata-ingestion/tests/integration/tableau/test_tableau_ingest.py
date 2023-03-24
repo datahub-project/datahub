@@ -697,8 +697,7 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
 
 
 def test_tableau_unsupported_csql():
-    config = mock.MagicMock()
-    config.env = "PROD"
+    config = TableauConfig.parse_obj(config_source_default.copy())
     config.stateful_ingestion.enabled = False
     config.extract_lineage_from_unsupported_custom_sql_queries = True
     config.lineage_overrides = TableauLineageOverrides(
@@ -725,4 +724,8 @@ def test_tableau_unsupported_csql():
                 type=DatasetLineageType.TRANSFORMED,
             )
         ]
+    )
+    assert (
+        mcp.entityUrn
+        == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
     )
