@@ -84,7 +84,19 @@ class BigqueryTableIdentifier:
 
     @staticmethod
     def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
-        match = re.search(
+        """
+        Args:
+            table_name:
+                table name (in form <table-id> or <table-prefix>_<shard>`, optionally prefixed with <project-id>.<dataset-id>)
+                See https://cloud.google.com/bigquery/docs/reference/standard-sql/wildcard-table-reference
+                If table_name is fully qualified, i.e. prefixed with <project-id>.<dataset-id> then the special case of
+                dataset as a sharded table, i.e. table-id itself as shard can not be detected.
+        Returns:
+            (table_name_without_shard, shard):
+                In case of non-sharded tables, returns (<table-id>, None)
+                In case of sharded tables, returns (<table-prefix>, shard)
+        """
+        match = re.match(
             BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             table_name,
             re.IGNORECASE,
@@ -104,20 +116,28 @@ class BigqueryTableIdentifier:
         return f"{self.project_id}.{self.dataset}.{self.table}"
 
     def get_table_display_name(self) -> str:
+        """
+        Returns table display name to be used for DataHub
+            - removes shard suffix (table_yyyymmdd-> table)
+            - removes wildcard part (table_yyyy* -> table)
+            - remove time decorator (table@1624046611000 -> table)
+        """
         shortened_table_name = self.table
-        # if table name ends in _* or * then we strip it as that represents a query on a sharded table
+        # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
         shortened_table_name = re.sub(
             self._BIGQUERY_WILDCARD_REGEX, "", shortened_table_name
         )
 
+        matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
+        if matches:
+            shortened_table_name = matches.group(1)
+            logger.debug(
+                f"Found table snapshot. Using {shortened_table_name} as the table name."
+            )
+
         table_name, _ = self.get_table_and_shard(shortened_table_name)
         if not table_name:
             table_name = self.dataset
-
-        matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(table_name)
-        if matches:
-            table_name = matches.group(1)
-            logger.debug(f"Found table snapshot. Using {table_name} as the table name.")
 
         # Handle exceptions
         invalid_chars_in_table_name: List[str] = [
@@ -130,6 +150,12 @@ class BigqueryTableIdentifier:
         return table_name
 
     def get_table_name(self) -> str:
+        """
+        Returns qualified table name to be used for DataHub
+            - removes shard suffix (table_yyyymmdd-> table)
+            - removes wildcard part (table_yyyy* -> table)
+            - remove time decorator (table@1624046611000 -> table)
+        """
         table_name: str = (
             f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
         )
@@ -140,7 +166,7 @@ class BigqueryTableIdentifier:
         return table_name
 
     def is_sharded_table(self) -> bool:
-        _, shard = self.get_table_and_shard(self.raw_table_name())
+        _, shard = self.get_table_and_shard(self.table)
         if shard:
             return True
 
@@ -159,8 +185,9 @@ class BigqueryTableIdentifier:
 
 @dataclass(frozen=True, order=True)
 class BigQueryTableRef:
-    # Handle table snapshots
-    # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
+    # Handle table time travel. See https://cloud.google.com/bigquery/docs/time-travel
+    # See https://cloud.google.com/bigquery/docs/table-decorators#time_decorators
+    # Handling for @0 and @-TIME_OFFSET is apparently missing
     SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(r"^(.+)@(\d{13})$")
 
     table_identifier: BigqueryTableIdentifier
