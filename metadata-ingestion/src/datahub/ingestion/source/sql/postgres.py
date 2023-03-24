@@ -260,5 +260,5 @@ class PostgresSource(SQLAlchemySource):
             if self.config.database_alias:
                 return f"{self.config.database_alias}.{regular}"
             return f"{self.config.database}.{regular}"
-        current_database = inspector.engine.url.database
+        current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"
