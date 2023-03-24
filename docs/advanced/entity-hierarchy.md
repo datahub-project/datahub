@@ -1,3 +1,0 @@
-# Entity Hierarchy
-
-WIP

@@ -1,3 +1,0 @@
-# PDL Best Practices
-
-WIP

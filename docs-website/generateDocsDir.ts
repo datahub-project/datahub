@@ -119,8 +119,15 @@ function list_markdown_files(): string[] {
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
     /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
+    /^metadata-ingestion\/source-docs-template/,
+    /^metadata-ingestion\/examples\/transforms\/README\.md/,
+    /^metadata-jobs\/README\.md/,
+    /^perf-test\/README\.md/,
+    /^metadata-models-custom\/README\.md/,
     /^metadata-ingestion-examples\//,
+    /^introduction/, // Github main README.md
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
+    /^docker\/airflow\/local_airflow)/, //wasn't picked up by abv regex
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /^SECURITY\.md$/,
