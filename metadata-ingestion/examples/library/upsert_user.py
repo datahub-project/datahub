@@ -1,30 +1,27 @@
 import logging
 
-from datahub.emitter.mce_builder import make_user_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import CorpUserInfoClass
+from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-user_urn = make_user_urn("bar@acryl.io")
-event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityUrn=user_urn,
-    aspect=CorpUserInfoClass(
-        active=True,
-        displayName="The Bar",
-        email="bar@acryl.io",
-        title="Software Engineer",
-        firstName="The",
-        lastName="Bar",
-        fullName="The Bar",
-    ),
+user_email = "bar@acryl.io"
+
+user: CorpUser = CorpUser(
+    id=user_email,
+    display_name="The Bar",
+    email=user_email,
+    title="Software Engineer",
+    first_name="The",
+    last_name="Bar",
+    full_name="The Bar",
 )
 
-# Create rest emitter
-rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-rest_emitter.emit(event)
-log.info(f"Upserted user {user_urn}")
+# Create graph client
+datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
+for event in user.generate_mcp(
+    generation_config=CorpUserGenerationConfig(override_editable=False)
+):
+    datahub_graph.emit(event)
+log.info(f"Upserted user {user.urn}")
