@@ -1,0 +1,21 @@
+{
+    "success": true,
+    "data": [
+        {
+            "user_property": "test_user_id",
+            "description": null,
+            "type": null,
+            "enum_values": null,
+            "regex": null,
+            "is_array_type": false
+        },
+        {
+            "user_property": "test_event_id",
+            "description": null,
+            "type": null,
+            "enum_values": null,
+            "regex": null,
+            "is_array_type": false
+        }
+    ]
+}

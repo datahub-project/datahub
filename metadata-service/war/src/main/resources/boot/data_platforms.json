@@ -39,6 +39,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:amplitude",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "amplitude",
+      "displayName": "Amplitude",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/amplitudelogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:clickhouse",
     "aspect": {
       "datasetNameDelimiter": ".",

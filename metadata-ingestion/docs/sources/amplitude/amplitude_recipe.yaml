@@ -1,0 +1,12 @@
+source:
+  type: "amplitude"
+  config:
+    connect_uri: "https://amplitude.com/api/2"
+    projects:
+      - name: project name
+        description: project description
+        api_key: project api key
+        secret_key: project secret key
+
+sink:
+  # sink configs

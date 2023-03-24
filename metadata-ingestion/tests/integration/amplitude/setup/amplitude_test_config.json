@@ -1,0 +1,28 @@
+{
+  "source": {
+    "type": "amplitude",
+    "config": {
+      "connect_uri": "https://amplitude.com/api/2/taxonomy",
+      "projects": [
+        {
+          "name": "Amplitude test 1 project",
+          "description": "",
+          "api_key": "",
+          "secret_key": ""
+        },
+        {
+          "name": "Amplitude test 2 project",
+          "description": "",
+          "api_key": "",
+          "secret_key": ""
+        }
+      ]
+    }
+  },
+  "sink": {
+    "type": "datahub-rest",
+    "config": {
+      "server": "http://localhost:8080"
+    }
+  }
+}

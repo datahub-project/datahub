@@ -1,0 +1,12 @@
+{
+    "success": true,
+    "data": [
+        {
+            "event_type": "test_event",
+            "category": {
+                "name": "test_category"
+            },
+            "description": "This is a test event and category"
+        }
+    ]
+}

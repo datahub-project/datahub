@@ -202,6 +202,13 @@
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertica/",
         "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Vmart\n        # Credentials\n        username: dbadmin\n    password:null\n    include_tables: true\n        include_views: true\n    include_projections: true\n    include_oauth: true\n   include_models: true\n        include_view_lineage: true\n      include_projection_lineage: true\n    profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true  "
     },
+        {
+        "urn": "urn:li:dataPlatform:amplitude",
+        "name": "amplitude",
+        "displayName": "Amplitude",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/amplitude/",
+        "recipe": "source:\n  type: amplitude\n  config:\n    # Coordinates\n    connect_uri: https://amplitude.com/api/2\n\n    # Projects\n    projects:\n      - name: project name\n        description: project description\n        api_key: project api key\n        secret_key: project secret key"
+    },
     {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",

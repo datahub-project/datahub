@@ -258,6 +258,7 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 2.0.2",
         *rest_common,
     },
+    "amplitude": {"requests"},
     "circuit-breaker": {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
@@ -437,6 +438,7 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "amplitude",
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
@@ -572,6 +574,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "amplitude = datahub.ingestion.source.amplitude.source:AmplitudeSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",

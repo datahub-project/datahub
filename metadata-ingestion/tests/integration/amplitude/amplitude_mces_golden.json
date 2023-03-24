@@ -1,0 +1,292 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a643674ff0bc87a27704eaa5a3b946f6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "Amplitude",
+                "instance": "Amplitude Test Project",
+                "project_id": "Amplitude Test Project"
+            },
+            "name": "Amplitude Test Project",
+            "description": "This is a test project"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a643674ff0bc87a27704eaa5a3b946f6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a643674ff0bc87a27704eaa5a3b946f6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:Amplitude",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:Amplitude,Amplitude Test Project)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a643674ff0bc87a27704eaa5a3b946f6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:Amplitude,test_event,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a643674ff0bc87a27704eaa5a3b946f6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:Amplitude,test_event,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:Amplitude",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:Amplitude,PROD)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_event",
+                        "platform": "urn:li:dataPlatform:Amplitude",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "test_any_event_property",
+                                "nullable": false,
+                                "description": "This is an test any event property",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_boolean_event_property",
+                                "nullable": false,
+                                "description": "This is a test boolean event property",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_enum_event_property",
+                                "nullable": false,
+                                "description": "This is a test enum event property",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.EnumType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_number_event_property",
+                                "nullable": false,
+                                "description": "This is a test number event property",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_string_event_property",
+                                "nullable": false,
+                                "description": "This is a test string event property",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "event_category": "test_category"
+                        },
+                        "name": "test_event",
+                        "description": "This is a test event and category",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:Amplitude,Amplitude Test Project_user_properties,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a643674ff0bc87a27704eaa5a3b946f6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:Amplitude,Amplitude Test Project_user_properties,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:Amplitude",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:Amplitude,PROD)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "user_properties",
+                        "platform": "urn:li:dataPlatform:Amplitude",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "test_user_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_event_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "Amplitude Test Project project User Properties",
+                        "description": "A user property is an attribute that describes a useful detail about the user it's attached to. Amplitude sends user properties with every event",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1553837340000,
+        "runId": "amplitude-test"
+    }
+}
+]

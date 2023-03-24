@@ -27,7 +27,10 @@ import powerbiLogo from '../../../../images/powerbilogo.png';
 import modeLogo from '../../../../images/modelogo.png';
 import databricksLogo from '../../../../images/databrickslogo.png';
 import verticaLogo from '../../../../images/verticalogo.png';
+import amplitudeLogo from '../../../../images/amplitudelogo.png';
 
+export const AMPLITUDE = 'amplitude';
+export const AMPLITUDE_URN = `urn:li:dataPlatform:${AMPLITUDE}`;
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
@@ -101,6 +104,7 @@ export const VERTICA = 'vertica';
 export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 
 export const PLATFORM_URN_TO_LOGO = {
+    [AMPLITUDE_URN]: amplitudeLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [BIGQUERY_URN]: bigqueryLogo,

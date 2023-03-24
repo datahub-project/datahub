@@ -1,0 +1,58 @@
+{
+    "success": true,
+    "data": [
+        {
+            "event_property": "test_any_event_property",
+            "event_type": "test_event",
+            "description": "This is an test any event property",
+            "type": "any",
+            "regex": null,
+            "enum_values": null,
+            "is_array_type": false,
+            "is_required": false
+        },
+        {
+            "event_property": "test_boolean_event_property",
+            "event_type": "test_event",
+            "description": "This is a test boolean event property",
+            "type": "boolean",
+            "regex": null,
+            "enum_values": null,
+            "is_array_type": false,
+            "is_required": false
+        },
+        {
+            "event_property": "test_enum_event_property",
+            "event_type": "test_event",
+            "description": "This is a test enum event property",
+            "type": "enum",
+            "regex": null,
+            "enum_values": [
+                "\"enum2\"]",
+                "[\"enum1\""
+            ],
+            "is_array_type": false,
+            "is_required": false
+        },
+        {
+            "event_property": "test_number_event_property",
+            "event_type": "test_event",
+            "description": "This is a test number event property",
+            "type": "number",
+            "regex": null,
+            "enum_values": null,
+            "is_array_type": false,
+            "is_required": false
+        },
+        {
+            "event_property": "test_string_event_property",
+            "event_type": "test_event",
+            "description": "This is a test string event property",
+            "type": "string",
+            "regex": null,
+            "enum_values": null,
+            "is_array_type": false,
+            "is_required": false
+        }
+    ]
+}
