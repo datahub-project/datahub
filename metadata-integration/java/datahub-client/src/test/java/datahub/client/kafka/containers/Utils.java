@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 
 final class Utils {
-  public static final String CONFLUENT_PLATFORM_VERSION = "5.3.1";
+  public static final String CONFLUENT_PLATFORM_VERSION = "5.5.3";
 
   private Utils() {
   }
