@@ -1246,7 +1246,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             _, shard = BigqueryTableIdentifier.get_table_and_shard(
-                table_identifier.raw_table_name()
+                table_identifier.table
             )
             table_name = table_identifier.get_table_name().split(".")[-1]
 
@@ -1268,7 +1268,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     table=sharded_tables[table_name].table_id,
                 )
                 _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
-                    stored_table_identifier.raw_table_name()
+                    stored_table_identifier.table
                 )
                 # When table is none, we use dataset_name as table_name
                 assert stored_shard
