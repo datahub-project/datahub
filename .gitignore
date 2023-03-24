@@ -79,3 +79,4 @@ metadata-service/plugin/src/test/resources/sample-plugins/**
 
 smoke-test/rollback-reports
 coverage*.xml
+.vercel

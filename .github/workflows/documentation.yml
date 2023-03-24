@@ -32,6 +32,7 @@ jobs:
       - name: Build Docs
         run: |
           ./gradlew --info docs-website:build
+
       - name: Deploy
         if: github.event_name == 'push'
         uses: peaceiris/actions-gh-pages@v3
