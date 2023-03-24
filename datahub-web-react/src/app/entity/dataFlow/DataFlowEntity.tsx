@@ -14,6 +14,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarAccessRequestSection } from '../shared/containers/profile/sidebar/AccessRequest/SidebarAccessRequestSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
@@ -97,6 +98,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 },
                 {
                     component: SidebarDomainSection,
+                },
+                {
+                    component: SidebarAccessRequestSection,
                 },
             ]}
         />
