@@ -70,15 +70,16 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
       - name: Upload coverage to Codecov
-        if: ${{ matrix.python-version == '3.10' }}
+        if: ${{ always() && matrix.python-version == '3.10' && matrix.command != 'lint' }}
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: .
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           flags: pytest-${{ matrix.command }}
           name: pytest-${{ matrix.command }}
           verbose: true
+
 
   event-file:
     runs-on: ubuntu-latest
