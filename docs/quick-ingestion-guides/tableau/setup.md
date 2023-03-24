@@ -19,19 +19,19 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
    b. Navigate to `Users`
 
    <p align="center">
-   <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Btableau-quick-ingestion-guide/imgs/guides/tableau/tableau-user-navigation-window.png"/>
+   <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-navigation-window.png"/>
    </p> 
 
    c. Select particular user and click on `Actions` -> `Site Role`
 
    <p align="center">
-   <img width="75%" alt="Actions Site Role" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Btableau-quick-ingestion-guide/imgs/guides/tableau/tableau-user-list.png"/>
+   <img width="75%" alt="Actions Site Role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-list.png"/>
    </p> 
 
    d. Change user role to `Site Administrator Explorer`
 
    <p align="center">
-   <img width="75%" alt="tableau site role" src="https://raw.githubusercontent.com/mohdsiddique/static-assets-fork/main%2Btableau-quick-ingestion-guide/imgs/guides/tableau/tableau-site-role.png"/>
+   <img width="75%" alt="tableau site role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-site-role.png"/>
    </p> 
 
 ## Next Steps
