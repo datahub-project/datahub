@@ -46,7 +46,77 @@ Here are some examples of Posts displayed on the home page, with one **TEXT** po
 
 * [createPost](../graphql/mutations.md#createpost)
 * [listPosts](../graphql/queries.md#listposts)
+* [deletePosts](../graphql/queries.md#listposts)
 
+### Examples
+
+##### Create Post
+```graphql
+mutation test {
+  createPost(
+    input: {
+      postType: HOME_PAGE_ANNOUNCEMENT, 
+      content: {
+        contentType: TEXT, 
+        title: "Planed Upgrade 2023-03-23 20:05 - 2023-03-23 23:05", 
+        description: "datahub upgrade to v0.10.1"
+      }
+    }
+  )
+}
+
+```
+
+##### List Post
+
+```graphql
+query listPosts($input: ListPostsInput!) {
+  listPosts(input: $input) {
+    start
+    count
+    total
+    posts {
+      urn
+      type
+      postType
+      content {
+        contentType
+        title
+        description
+        link
+        media {
+          type
+          location
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}
+
+```
+##### Input for list post
+```shell
+{
+  "input": {
+    "start": 0,
+    "count": 10
+  }
+}
+```
+
+##### Delete Post
+
+```graphql
+mutation deletePosting { 
+  deletePost (
+    urn: "urn:li:post:61dd86fa-9e76-4924-ad45-3a533671835e"
+  )
+}
+```
 
 ## FAQ and Troubleshooting
 
