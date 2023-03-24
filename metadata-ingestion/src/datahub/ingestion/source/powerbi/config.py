@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
+from enum import Enum
 from typing import Dict, List, Optional, Union
 
 import pydantic
@@ -7,7 +8,8 @@ from pydantic import validator
 from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -106,6 +108,40 @@ class Constant:
 
 
 @dataclass
+class DataPlatformPair:
+    datahub_data_platform_name: str
+    powerbi_data_platform_name: str
+
+
+class SupportedDataPlatform(Enum):
+    POSTGRES_SQL = DataPlatformPair(
+        powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
+    )
+
+    ORACLE = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    SNOWFLAKE = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake", datahub_data_platform_name="snowflake"
+    )
+
+    MS_SQL = DataPlatformPair(
+        powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
+    )
+
+    GOOGLE_BIGQUERY = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    AMAZON_REDSHIFT = DataPlatformPair(
+        powerbi_data_platform_name="AmazonRedshift",
+        datahub_data_platform_name="redshift",
+    )
+
+
+@dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned: int = 0
     charts_scanned: int = 0
@@ -129,15 +165,26 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.number_of_workspaces = number_of_workspaces
 
 
-@dataclass
-class PlatformDetail:
+def default_for_dataset_type_mapping() -> Dict[str, str]:
+    dict_: dict = {}
+    for item in SupportedDataPlatform:
+        dict_[
+            item.value.powerbi_data_platform_name
+        ] = item.value.datahub_data_platform_name
+
+    return dict_
+
+
+class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
-        description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source of particular platform",
+        description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
+        "with platform instance name used in ingestion"
+        "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
-        description="The environment that all assets produced by DataHub platform ingestion source belong to",
+        description="The environment that the platform is located in. It is default to PROD",
     )
 
 
@@ -157,7 +204,9 @@ class PowerBiDashboardSourceConfig(
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
     workspace_id: Optional[str] = pydantic.Field(
-        description="[deprecated] Use workspace_id_pattern instead", default=None
+        default=None,
+        description="[deprecated] Use workspace_id_pattern instead",
+        hidden_from_docs=True,
     )
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
@@ -171,7 +220,23 @@ class PowerBiDashboardSourceConfig(
     dataset_type_mapping: Union[
         Dict[str, str], Dict[str, PlatformDetail]
     ] = pydantic.Field(
-        description="Mapping of PowerBI datasource type to DataHub supported data-sources. See Quickstart Recipe for mapping"
+        default_factory=default_for_dataset_type_mapping,
+        description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
+        "DataHub supported datasources."
+        "You can configured platform instance for dataset lineage. "
+        "See Quickstart Recipe for mapping",
+        hidden_from_docs=True,
+    )
+    # PowerBI datasource's server to platform instance mapping
+    server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+        default={},
+        description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
+        " :port is optional and only needed if your datasource server is running on non-standard port."
+        "For Google BigQuery the datasource's server is google bigquery project name",
+    )
+    # deprecated warning
+    _dataset_type_mapping = pydantic_field_deprecated(
+        "dataset_type_mapping", "server_to_platform_instance"
     )
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
@@ -235,6 +300,11 @@ class PowerBiDashboardSourceConfig(
         "be extracted. Admin API access is required if this setting is enabled",
     )
 
+    platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="The instance of the platform that all assets produced by this recipe belong to",
+    )
+
     @validator("dataset_type_mapping")
     @classmethod
     def map_data_platform(cls, value):
@@ -254,14 +324,28 @@ class PowerBiDashboardSourceConfig(
 
         if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
             logger.warning(
-                "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
+                "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as "
+                "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
             )
             values["workspace_id_pattern"] = AllowDenyPattern(
                 allow=[f"^{workspace_id}$"]
             )
         elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
             logger.warning(
-                "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern only."
+                "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, "
+                "please use workspace_id_pattern only."
             )
             values.pop("workspace_id")
+        return values
+
+    @root_validator(pre=True)
+    def raise_error_for_dataset_type_mapping(cls, values: Dict) -> Dict:
+        if (
+            values.get("dataset_type_mapping") is not None
+            and values.get("server_to_platform_instance") is not None
+        ):
+            raise ValueError(
+                "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
+            )
+
         return values
