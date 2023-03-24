@@ -29,10 +29,18 @@ This command generates static content into the `dist` directory and can be serve
 
 ## Generating GraphQL API Docs
 
-To regenerate GraphQL API docs, simply rebuild the docs-website directory. 
+To regenerate GraphQL API docs, simply rebuild the docs-website directory.
 
 ```console
 ./gradlew docs-website:build
+```
+
+## Install Pre-commit
+
+Run the following command to install pre-commit.
+
+```shell
+pre-commit install
 ```
 
 ## Managing Content
@@ -41,15 +49,15 @@ Please use the following steps when adding/managing content for the docs site.
 
 ### Leverage Documentation Templates
 
-* [Feature Guide Template](../docs/_feature-guide-template.md)
-* [Metadata Ingestion Source Template](../metadata-ingestion/source-docs-template.md)
+- [Feature Guide Template](../docs/_feature-guide-template.md)
+- [Metadata Ingestion Source Template](../metadata-ingestion/source-docs-template.md)
 
 ### Self-Hosted vs. Managed DataHub
 
 The docs site includes resources for both self-hosted (aka open-source) DataHub and Managed DataHub alike.
 
-* All Feature Guides should include the `FeatureAvailability` component within the markdown file itself
-* Features only available via Managed DataHub should have the `saasOnly` class if they are included in `sidebar.js` to display the small "cloud" icon:
+- All Feature Guides should include the `FeatureAvailability` component within the markdown file itself
+- Features only available via Managed DataHub should have the `saasOnly` class if they are included in `sidebar.js` to display the small "cloud" icon:
 
 ```
 {
@@ -83,7 +91,7 @@ title: [value to display in the sidebar]
 ---
 ```
 
-*This will be ignored your H1 value begins with `DataHub ` or `About DataHub `*
+_This will be ignored your H1 value begins with `DataHub ` or `About DataHub `_
 
 **NOTE:** Assigning a value for `label:` in `sidebar.js` is not reliable, e.g.
 
@@ -106,12 +114,13 @@ By the end of this section, readers should understand the core use cases that Da
 **Get Started**
 
 The goal of this section is to provide the bare-minimum steps required to:
-  - Get DataHub Running
-  - Optionally configure SSO
-  - Add/invite Users
-  - Create Polices & assign roles
-  - Ingest at least one source (i.e., data warehouse)
-  - Understand high-level options for enriching metadata
+
+- Get DataHub Running
+- Optionally configure SSO
+- Add/invite Users
+- Create Polices & assign roles
+- Ingest at least one source (i.e., data warehouse)
+- Understand high-level options for enriching metadata
 
 **Ingest Metadata**
 
@@ -123,7 +132,7 @@ The purpose of this section is to provide direction on how to enrich metadata wh
 
 **Act on Metadata**
 
-This section provides concrete examples of acting on metadata changes in real-time and enabling Active Metadata workflows/practices. 
+This section provides concrete examples of acting on metadata changes in real-time and enabling Active Metadata workflows/practices.
 
 **Deploy DataHub**
 
