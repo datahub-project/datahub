@@ -7,12 +7,7 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
 
 ## Tableau Prerequisites
 
-1. **Enable Tableau Metadata API:** 
-
-   - Open a command prompt as an admin on the initial node (*where TSM is installed*) in the cluster
-   - Run the command: `tsm maintenance metadata-services enable`
-
-2. **Allow Site Administrator Explorer permissions:**
+1. **Allow Site Administrator Explorer permissions:**
 
    a. login to tableau cloud https://sso.online.tableau.com/public/idp/SSO
 
@@ -33,6 +28,12 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
    <p align="center">
    <img width="75%" alt="tableau site role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-site-role.png"/>
    </p> 
+
+2. **Enable Tableau Metadata API:** This step is required only for Tableau Server. The Metadata API is installed with Tableau Server but disabled by default.
+
+   - Open a command prompt as an admin on the initial node (*where TSM is installed*) in the cluster
+   - Run the command: `tsm maintenance metadata-services enable`
+
 
 ## Next Steps
 
