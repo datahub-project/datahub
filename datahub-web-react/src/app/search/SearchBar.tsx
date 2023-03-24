@@ -13,8 +13,8 @@ import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { CustomAvatar } from '../shared/avatar';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
 import { getPlatformName } from '../entity/shared/utils';
+import { useUserContext } from '../context/useUserContext';
 
 const SuggestionContainer = styled.div`
     display: flex;
@@ -205,19 +205,19 @@ export const SearchBar = ({
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
-    const userUrn = useGetAuthenticatedUserUrn();
+    const userUrn = useUserContext().user?.urn;
 
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {
-                userUrn,
+                userUrn: userUrn as string,
                 requestContext: {
                     scenario: ScenarioType.SearchBar,
                 },
                 limit: 1,
             },
         },
-        skip: hideRecommendations,
+        skip: hideRecommendations || !userUrn,
     });
 
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
