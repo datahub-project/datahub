@@ -18,7 +18,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQueryDataDictionary,
     BigqueryProject,
-    BigqueryTableType,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
