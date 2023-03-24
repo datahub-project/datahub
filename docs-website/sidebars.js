@@ -376,6 +376,7 @@ module.exports = {
                 "docs/api/tutorials/creating-datasets",
                 "docs/api/tutorials/creating-tags",
                 "docs/api/tutorials/creating-terms",
+                "docs/api/tutorials/creating-users-and-groups",
               ],
             },
             {
