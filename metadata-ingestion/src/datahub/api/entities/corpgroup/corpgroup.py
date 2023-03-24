@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Callable, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, Iterable, List, Optional, Union
 
 import pydantic
 from pydantic import BaseModel
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
-from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
@@ -24,6 +23,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     _Aspect,
 )
+
+if TYPE_CHECKING:
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +215,7 @@ class CorpGroup(BaseModel):
 
     def emit(
         self,
-        emitter: Union[DatahubRestEmitter, DatahubKafkaEmitter],
+        emitter: Union[DatahubRestEmitter, "DatahubKafkaEmitter"],
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
