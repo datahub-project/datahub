@@ -21,8 +21,7 @@ Upon completing this guide, you will have a recurring ingestion pipeline that wi
 *To learn more about setting these advanced values, check out the [PowerBI Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/powerbi).*
 
 ## Next Steps
-
-If that all sounds like what you're looking for, navigate to the [next page](setup.md), where we'll talk about prerequisites.
+Continue to the [setup guide](setup.md), where we'll describe the prerequisites.
 
 ## Advanced Guides and Reference
 

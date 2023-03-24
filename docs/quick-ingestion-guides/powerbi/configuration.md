@@ -36,12 +36,12 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    <img width="70%" alt="Application (client) ID" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-client-id-secret.png"/>
 </p>
 
-4. Create a secret to store Azure AD app secret
+4. Create a secret to store the Azure AD Client Secret
 
-  This will securely store your  Azure AD app secret
+  This will securely store your client secret"
 
-   * Enter a name like `POWER_BI_CLIENT_SECRET` - we will use this later to refer to the secret
-   * Enter the `Azure AD app` secret
+   * Enter a name like `POWER_BI_CLIENT_SECRET` - we will use this later to refer to the client secret
+   * Enter the client secret
    * Optionally add a description
    * Click **Create**
 
@@ -50,40 +50,56 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 </p>
 
 ## Configure Recipe
+1.  Navigate to the **Sources** tab and click **Create new source**
 
-1. Navigate to the **Sources** tab and click **Create new source**
+  <p align="center">
+    <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
+  </p>
 
-<p align="center">
-  <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
-</p>
+2.  Select PowerBI
 
-2. Select PowerBI
+  <p align="center">
+    <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-source-window.png"/>
+  </p>
 
-<p align="center">
-  <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-source-window.png"/>
-</p>
+3.  Fill out the PowerBI Recipe
 
-3. Fill out the PowerBI Recipe
+    You need to set minimum 3 field in the recipe:
+    
+    a. **tenant_id:** This is the unique identifier (GUID) of the Azure Active Directory instance. Tenant Id can be found at: PowerBI Portal -> Click on `?` at top-right corner -> Click on `About PowerBI`
 
-    Your PowerBI Tenant Id can be found at PowerBI Portal -> Click on `?` at top-right corner -> Click on `About PowerBI`  
-<p align="center">
-  <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-portal-about-setting-window.png"/>
-</p>
+    <p align="center">
+      <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-portal-about-setting-window.png"/>
+    </p>
 
-  On `About PowerBI` window copy `ctid` as shown in below screenshot 
+    On `About PowerBI` window copy `ctid`:
+
+    <p align="center">
+      <img width="70%" alt="copy ctid" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-portal-about-window.png"/>
+    </p>
 
 
-<p align="center">
-  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-portal-about-window.png"/>
-</p>
+    b. **client_id:** You can use the POWER_BI_CLIENT_ID secret you've previously created by providing the secret name surrounded by "${}". For example, "\${POWER_BI_CLIENT_ID}"
 
-Sample recipe screenshot 
+    c. **client_secret:** You can use the POWER_BI_CLIENT_SECRET secret you've previously created by providing the secret name surrounded by "${}". For example, "\${POWER_BI_CLIENT_SECRET}"
+
+
+
+By default, this will ingest from all PowerBI workspaces. To filter for specific workspaces, use the `workspace_id_pattern` field:
+
+    config:
+         ...
+         workspace_id_pattern:
+            allow:
+              - "258829b1-82b1-4bdb-b9fb-6722c718bbd3"
+
+Your recipe should look something like this:
 <p align="center">
   <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-recipe-window.png"/>
 </p>
 
 
-After you have successfully fill up the recipe, click on **Next**.
+After you've successfully completed the recipe, click **Next**.    
 
 ## Schedule Execution
 
