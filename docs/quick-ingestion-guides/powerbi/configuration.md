@@ -62,7 +62,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
     <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-source-window.png"/>
   </p>
 
-3.  Fill out the PowerBI Recipe
+3.  Enter details into the PowerBI Recipe
 
     You need to set minimum 3 field in the recipe:
     
