@@ -84,11 +84,13 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   protected static String datasetTwoUrnString = "urn:li:" + datasetType + ":(urn:li:dataPlatform:type,SampleDatasetTwo,PROD)";
   protected static String datasetThreeUrnString = "urn:li:" + datasetType + ":(urn:li:dataPlatform:type,SampleDatasetThree,PROD)";
   protected static String datasetFourUrnString = "urn:li:" + datasetType + ":(urn:li:dataPlatform:type,SampleDatasetFour,PROD)";
+  protected static String datasetFiveUrnString = "urn:li:" + datasetType + ":(urn:li:dataPlatform:type,SampleDatasetFive,PROD)";
 
   protected static Urn datasetOneUrn = createFromString(datasetOneUrnString);
   protected static Urn datasetTwoUrn = createFromString(datasetTwoUrnString);
   protected static Urn datasetThreeUrn = createFromString(datasetThreeUrnString);
   protected static Urn datasetFourUrn = createFromString(datasetFourUrnString);
+  protected static Urn datasetFiveUrn = createFromString(datasetFiveUrnString);
 
   protected static String unknownUrnString = "urn:li:unknown:(urn:li:unknown:Unknown)";
 

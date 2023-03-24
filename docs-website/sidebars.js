@@ -383,6 +383,7 @@ module.exports = {
                 "docs/api/tutorials/creating-datasets",
                 "docs/api/tutorials/creating-tags",
                 "docs/api/tutorials/creating-terms",
+                "docs/api/tutorials/creating-users-and-groups",
               ],
             },
             {
@@ -393,6 +394,11 @@ module.exports = {
                 "docs/api/tutorials/adding-dataset-description",
                 "docs/api/tutorials/adding-column-description",
                 "docs/api/tutorials/adding-lineage",
+              ],
+            },
+            {
+              "Deleting Entities": [
+                "docs/api/tutorials/deleting-entities-by-urn",
               ],
             },
             {
