@@ -2,6 +2,7 @@
 
 /docs
 /genDocs
+/genStatic
 
 # Generated GraphQL
 /graphql/combined.graphql
