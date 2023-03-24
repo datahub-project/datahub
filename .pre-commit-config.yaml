@@ -1,3 +1,4 @@
+files: ^metadata-ingestion/
 repos:
   - repo: https://github.com/pre-commit/mirrors-isort
     rev: v5.10.1
