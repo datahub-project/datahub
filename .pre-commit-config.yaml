@@ -1,4 +1,3 @@
-files: ^metadata-ingestion/
 repos:
   - repo: https://github.com/pre-commit/mirrors-isort
     rev: v5.10.1
@@ -8,6 +7,15 @@ repos:
     rev: 23.1.0
     hooks:
       - id: black
+  - repo: https://github.com/myint/autoflake
+    rev: v1.4
+    hooks:
+      - id: autoflake
+        args:
+          - --in-place
+          - --remove-unused-variables
+          - --remove-all-unused-imports
+          - --expand-star-imports
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
     hooks:
