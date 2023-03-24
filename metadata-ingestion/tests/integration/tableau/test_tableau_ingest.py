@@ -696,16 +696,15 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-def test_tableau_unsupported_csql():
+def test_tableau_unsupported_csql(mock_datahub_graph):
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    context.graph = mock_datahub_graph
     config = TableauConfig.parse_obj(config_source_default.copy())
-    config.stateful_ingestion.enabled = False
     config.extract_lineage_from_unsupported_custom_sql_queries = True
     config.lineage_overrides = TableauLineageOverrides(
         database_override_map={"production database": "prod"}
     )
-    source = TableauSource(
-        config=config, ctx=PipelineContext(run_id="0", pipeline_name="test_tableau")
-    )
+    source = TableauSource(config=config, ctx=context)
     lineage = source._create_lineage_from_unsupported_csql(
         csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
         csql={
