@@ -1,0 +1,46 @@
+syntax = "proto3";
+package protobuf;
+
+/*
+   Multiline message description
+   https://some/link
+
+   #test-slack
+   @myOrg/teama
+
+   Kafka topic: `platform.topic`
+
+   References:
+   https://www.google.com/search?q=protobuf+messages
+   https://github.com/apache/kafka
+*/
+message MessageA {
+  // Leading single line comment
+  bytes sequence_id = 1;
+
+  // Leading multiline comment
+  // Second line of leading multiline comment
+  uint32 position = 2;
+
+  // Detached comment
+
+  uint32 total = 3;
+
+  repeated uint64 repeated_num = 4; // Test repeated and trailing comment
+  repeated string repeated_str = 5;
+
+  // Enum example
+  enum Corpus {
+    UNIVERSAL = 0;
+    WEB = 1;
+    IMAGES = 2;
+    LOCAL = 3;
+    NEWS = 4;
+    PRODUCTS = 5;
+    VIDEO = 6;
+  }
+
+  Corpus corpus_field = 6; // enum field see
+
+  map<string, uint32> map_field = 7; // https://developers.google.com/protocol-buffers/docs/proto3#maps
+}

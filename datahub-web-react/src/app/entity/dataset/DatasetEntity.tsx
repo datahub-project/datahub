@@ -20,6 +20,7 @@ import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarAccessRequestSection } from '../shared/containers/profile/sidebar/AccessRequest/SidebarAccessRequestSection';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
@@ -207,6 +208,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     component: SidebarDomainSection,
+                },
+                {
+                    component: SidebarAccessRequestSection,
                 },
                 // TODO: Add back once entity-level recommendations are complete.
                 // {

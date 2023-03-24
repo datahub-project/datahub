@@ -1,0 +1,582 @@
+# DataHub UI Application-Specific GraphQL Types
+
+extend type Query {
+  """
+  List all secrets stored in DataHub (no values)
+  """
+  listSecrets(input: ListSecretsInput!): ListSecretsResult
+
+  """
+  Fetch the values of a set of secrets. The caller must have the MANAGE_SECRETS
+  privilege to use.
+  """
+  getSecretValues(input: GetSecretValuesInput!): [SecretValue!]
+
+  """
+  List all ingestion sources
+  """
+  listIngestionSources(input: ListIngestionSourcesInput!): ListIngestionSourcesResult
+
+  """
+  Fetch a specific ingestion source
+  urn: The primary key associated with the ingestion source.
+  """
+  ingestionSource(urn: String!): IngestionSource
+
+  """
+  Get an execution request
+  urn: The primary key associated with the execution request.
+  """
+  executionRequest(urn: String!): ExecutionRequest
+}
+
+extend type Mutation {
+  """
+  Create a new Secret
+  """
+  createSecret(input: CreateSecretInput!): String
+
+  """
+  Delete a Secret
+  """
+  deleteSecret(urn: String!): String
+
+  """
+  Create a new ingestion source
+  """
+  createIngestionSource(input: UpdateIngestionSourceInput!): String
+
+  """
+  Update an existing ingestion source
+  """
+  updateIngestionSource(urn: String!, input: UpdateIngestionSourceInput!): String
+
+  """
+  Delete an existing ingestion source
+  """
+  deleteIngestionSource(urn: String!): String
+
+  """
+  Create a request to execute an ingestion job
+  input: Input required for creating an ingestion execution request
+  """
+  createIngestionExecutionRequest(input: CreateIngestionExecutionRequestInput!): String
+
+  """
+  Cancel a running execution request, provided the urn of the original execution request
+  """
+  cancelIngestionExecutionRequest(input: CancelIngestionExecutionRequestInput!): String
+
+  """
+  Create a request to execute a test ingestion connection job
+  input: Input required for creating a test connection request
+  """
+  createTestConnectionRequest(input: CreateTestConnectionRequestInput!): String
+
+  """
+  Rollback a specific ingestion execution run based on its runId
+  """
+  rollbackIngestion(input: RollbackIngestionInput!): String
+}
+
+"""
+Information about the source of an execution request
+"""
+type ExecutionRequestSource {
+  """
+  The type of the source, e.g. SCHEDULED_INGESTION_SOURCE
+  """
+  type: String
+}
+
+"""
+Input provided when creating an Execution Request
+"""
+type ExecutionRequestInput {
+  """
+  The type of the task to executed
+  """
+  task: String!
+
+  """
+  The source of the execution request
+  """
+  source: ExecutionRequestSource!
+
+  """
+  Arguments provided when creating the execution request
+  """
+  arguments: [StringMapEntry!]
+
+  """
+  The time at which the request was created
+  """
+  requestedAt: Long!
+}
+
+"""
+The result of an ExecutionRequest
+"""
+type ExecutionRequestResult {
+  """
+  The result of the request, e.g. either SUCCEEDED or FAILED
+  """
+  status: String!
+
+  """
+  Time at which the task began
+  """
+  startTimeMs: Long
+
+  """
+  Duration of the task
+  """
+  durationMs: Long
+
+  """
+  A report about the ingestion run
+  """
+  report: String
+
+  """
+  A structured report for this Execution Request
+  """
+  structuredReport: StructuredReport
+
+}
+
+"""
+A flexible carrier for structured results of an execution request.
+"""
+type StructuredReport {
+  """
+  The type of the structured report. (e.g. INGESTION_REPORT, TEST_CONNECTION_REPORT, etc.)
+  """
+  type: String!
+  """
+  The serialized value of the structured report
+  """
+  serializedValue: String!
+  """
+  The content-type of the serialized value (e.g. application/json, application/json;gzip etc.)
+  """
+  contentType: String!
+}
+
+"""
+Retrieve an ingestion execution request
+"""
+type ExecutionRequest {
+  """
+  Urn of the execution request
+  """
+  urn: String!
+
+  """
+  Unique id for the execution request
+  """
+  id: String!
+
+  """
+  Input provided when creating the Execution Request
+  """
+  input: ExecutionRequestInput!
+
+  """
+  Result of the execution request
+  """
+  result: ExecutionRequestResult
+
+}
+
+"""
+Input for creating an execution request input
+"""
+input CreateIngestionExecutionRequestInput {
+  """
+  Urn of the ingestion source to execute
+  """
+  ingestionSourceUrn: String!
+}
+
+"""
+Input for creating a test connection request
+"""
+input CreateTestConnectionRequestInput {
+  """
+  A JSON-encoded recipe
+  """
+  recipe: String!
+
+  """
+  Advanced: The version of the ingestion framework to use
+  """
+  version: String
+}
+
+"""
+Input for cancelling an execution request input
+"""
+input CancelIngestionExecutionRequestInput {
+  """
+  Urn of the ingestion source
+  """
+  ingestionSourceUrn: String!
+
+  """
+  Urn of the specific execution request to cancel
+  """
+  executionRequestUrn: String!
+}
+
+"""
+Input for listing DataHub Secrets
+"""
+input ListSecretsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  An optional search query
+  """
+  query: String
+}
+
+"""
+A referencible secret stored in DataHub's system. Notice that we do not return the actual secret value.
+"""
+type Secret {
+  """
+  The urn of the secret
+  """
+  urn: String!
+
+  """
+  The name of the secret
+  """
+  name: String!
+
+  """
+  An optional description for the secret
+  """
+  description: String
+}
+
+"""
+Input for listing DataHub Secrets
+"""
+type ListSecretsResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  The total number of results in the result set
+  """
+  total: Int
+
+  """
+  The secrets themselves
+  """
+  secrets: [Secret!]!
+}
+
+"""
+A schedule associated with an Ingestion Source
+"""
+type IngestionSchedule {
+  """
+  Time Zone abbreviation (e.g. GMT, EDT). Defaults to UTC.
+  """
+  timezone: String
+
+  """
+  The cron-formatted interval to execute the ingestion source on
+  """
+  interval: String!
+}
+
+"""
+A set of configurations for an Ingestion Source
+"""
+type IngestionConfig {
+  """
+  The JSON-encoded recipe to use for ingestion
+  """
+  recipe: String!
+
+  """
+  Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
+  """
+  executorId: String!
+
+  """
+  Advanced: The version of the ingestion framework to use
+  """
+  version: String
+
+  """
+  Advanced: Whether or not to run ingestion in debug mode
+  """
+  debugMode: Boolean
+}
+
+"""
+The runs associated with an Ingestion Source managed by DataHub
+"""
+type IngestionRun {
+
+  """
+  The urn of the execution request associated with the user
+  """
+  executionRequestUrn: String
+}
+
+"""
+Requests for execution associated with an ingestion source
+"""
+type IngestionSourceExecutionRequests {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  The total number of results in the result set
+  """
+  total: Int
+
+  """
+  The execution request objects comprising the result set
+  """
+  executionRequests: [ExecutionRequest!]!
+}
+
+"""
+An Ingestion Source Entity
+"""
+type IngestionSource {
+  """
+  The primary key of the Ingestion Source
+  """
+  urn: String!
+
+  """
+  The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
+  """
+  type: String!
+
+  """
+  The display name of the Ingestion Source
+  """
+  name: String!
+
+  """
+  An optional schedule associated with the Ingestion Source
+  """
+  schedule: IngestionSchedule
+
+  """
+  The data platform associated with this ingestion source
+  """
+  platform: DataPlatform
+
+  """
+  An type-specific set of configurations for the ingestion source
+  """
+  config: IngestionConfig!
+
+  """
+  Previous requests to execute the ingestion source
+  """
+  executions(start: Int, count: Int): IngestionSourceExecutionRequests
+}
+
+"""
+Input arguments for listing Ingestion Sources
+"""
+input ListIngestionSourcesInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  An optional search query
+  """
+  query: String
+}
+
+"""
+Results returned when listing ingestion sources
+"""
+type ListIngestionSourcesResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results to be returned
+  """
+  count: Int!
+
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The Ingestion Sources themselves
+  """
+  ingestionSources: [IngestionSource!]!
+}
+
+"""
+Input parameters for creating / updating an Ingestion Source
+"""
+input UpdateIngestionSourceConfigInput {
+  """
+  A JSON-encoded recipe
+  """
+  recipe: String!
+
+  """
+  The version of DataHub Ingestion Framework to use when executing the recipe.
+  """
+  version: String
+
+  """
+  The id of the executor to use for executing the recipe
+  """
+  executorId: String!
+
+  """
+  Whether or not to run ingestion in debug mode
+  """
+  debugMode: Boolean
+}
+
+"""
+Input arguments for creating / updating the schedule of an Ingestion Source
+"""
+input UpdateIngestionSourceScheduleInput {
+  """
+  The cron-formatted interval describing when the job should be executed
+  """
+  interval: String!
+
+  """
+  The name of the timezone in which the cron interval should be scheduled (e.g. America/Los Angeles)
+  """
+  timezone: String!
+}
+
+"""
+Input arguments for creating / updating an Ingestion Source
+"""
+input UpdateIngestionSourceInput {
+  """
+  A name associated with the ingestion source
+  """
+  name: String!
+
+  """
+  The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
+  """
+  type: String!
+
+  """
+  An optional description associated with the ingestion source
+  """
+  description: String
+
+  """
+  An optional schedule for the ingestion source. If not provided, the source is only available for run on-demand.
+  """
+  schedule: UpdateIngestionSourceScheduleInput
+
+  """
+  A set of type-specific ingestion source configurations
+  """
+  config: UpdateIngestionSourceConfigInput!
+}
+
+"""
+Input arguments for creating a new Secret
+"""
+input CreateSecretInput {
+  """
+  The name of the secret for reference in ingestion recipes
+  """
+  name: String!
+
+  """
+  The value of the secret, to be encrypted and stored
+  """
+  value: String!
+
+  """
+  An optional description for the secret
+  """
+  description: String
+}
+
+"""
+Input arguments for retrieving the plaintext values of a set of secrets
+"""
+input GetSecretValuesInput {
+   """
+   A list of secret names
+   """
+   secrets: [String!]!
+}
+
+"""
+A plaintext secret value
+"""
+type SecretValue {
+  """
+  The name of the secret
+  """
+  name: String!
+
+  """
+  The plaintext value of the secret.
+  """
+  value: String!
+}
+
+"""
+Input for rolling back an ingestion execution
+"""
+input RollbackIngestionInput {
+  """
+  An ingestion run ID
+  """
+  runId: String!
+}
+

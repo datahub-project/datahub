@@ -1,0 +1,83 @@
+<configuration scan="true" scanPeriod="120 seconds">
+  <property name="LOG_DIR" value="${LOG_DIR:- /tmp/datahub/logs/datahub-frontend}"/>
+  <timestamp key="bySecond" datePattern="yyyy-MM-dd'_'HH-mm-ss"/>
+  <timestamp key="byDate" datePattern="yyyy-MM-dd"/>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <layout class="ch.qos.logback.classic.PatternLayout">
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </layout>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>INFO</level>
+    </filter>
+    <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+      <excluded>Unable to renew the session. The session store may not support this feature</excluded>
+      <excluded>Preferred JWS algorithm: null not available. Using all metadata algorithms:</excluded>
+    </filter>
+  </appender>
+
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/datahub-frontend.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <FileNamePattern>${LOG_DIR}/datahub-frontend.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+      <!-- each archived file, size max 10MB -->
+      <maxFileSize>100MB</maxFileSize>
+      <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
+      <totalSizeCap>10GB</totalSizeCap>
+      <!-- 30 days to keep -->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>INFO</level>
+    </filter>
+    <encoder>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/datahub-frontend.debug.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <FileNamePattern>${LOG_DIR}/datahub-frontend.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+      <!-- each archived file, size max 100MB -->
+      <maxFileSize>100MB</maxFileSize>
+      <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
+      <totalSizeCap>2GB</totalSizeCap>
+      <!-- 1 days to keep -->
+      <maxHistory>1</maxHistory>
+    </rollingPolicy>
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <level>DEBUG</level>
+      <onMatch>ACCEPT</onMatch>
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <encoder>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Change this to disable logging debug -->
+  <logger name="com.linkedin" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="controller" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="auth" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="org.pac4j" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="graphql" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="react" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+    <appender-ref ref="FILE"/>
+  </root>
+</configuration>

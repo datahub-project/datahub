@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package meta.fld;
+
+import "google/protobuf/descriptor.proto";
+
+import "protobuf/meta.proto";
+
+
+extend google.protobuf.FieldOptions {
+    // Required: Mark option field with how to export to DataHub in one or more places.
+    repeated meta.DataHubMetadataType type = 6000;
+
+    /*
+       Examples below: The following is not required for annotation processing.
+     */
+
+    // Set true if the field is a primary key. This works for any boolean with `primary_key` in it.
+    bool is_primary_key = 6010;
+
+    // Extract classification field option as a Term, either works
+    string classification                   = 6001 [(meta.fld.type) = TERM];
+    meta.Classification classification_enum = 6002 [(meta.fld.type) = TERM];
+
+    // Expose this option as a tag on the field.
+    string product_type                    = 70004 [(meta.fld.type) = TAG];
+    bool product_type_bool                 = 70005 [(meta.fld.type) = TAG];
+    meta.MetaEnumExample product_type_enum = 70006 [(meta.fld.type) = TAG];
+}
+

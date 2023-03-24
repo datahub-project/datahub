@@ -1,0 +1,10 @@
+id: test-registry
+entities:
+  - name: corpuser
+    keyAspect: corpUserKey
+    aspects:
+      - corpUserInfo
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - domains

@@ -1,0 +1,383 @@
+# DataHub UI Application-Specific GraphQL Types
+
+extend type Query {
+    """
+    Fetch details associated with the authenticated user, provided via an auth cookie or header
+    """
+    me: AuthenticatedUser
+
+    """
+    Fetch configurations
+    Used by DataHub UI
+    """
+    appConfig: AppConfig
+
+    """
+    Fetch the Global Settings related to the Views feature.
+    Requires the 'Manage Global Views' Platform Privilege.
+    """
+    globalViewsSettings: GlobalViewsSettings
+}
+
+extend type Mutation {
+  """
+  Update the global settings related to the Views feature.
+  Requires the 'Manage Global Views' Platform Privilege.
+  """
+  updateGlobalViewsSettings(input: UpdateGlobalViewsSettingsInput!): Boolean!
+}
+
+"""
+Information about the currently authenticated user
+"""
+type AuthenticatedUser {
+  """
+  The user information associated with the authenticated user, including properties used in rendering the profile
+  """
+  corpUser: CorpUser!
+
+  """
+  The privileges assigned to the currently authenticated user, which dictates which parts of the UI they should be able to use
+  """
+  platformPrivileges: PlatformPrivileges!
+}
+
+"""
+The platform privileges that the currently authenticated user has
+"""
+type PlatformPrivileges {
+  """
+  Whether the user should be able to view analytics
+  """
+  viewAnalytics: Boolean!
+
+  """
+  Whether the user should be able to manage policies
+  """
+  managePolicies: Boolean!
+
+  """
+  Whether the user should be able to manage users & groups
+  """
+  manageIdentities: Boolean!
+
+  """
+  Whether the user should be able to generate personal access tokens
+  """
+  generatePersonalAccessTokens: Boolean!
+
+  """
+  Whether the user should be able to create new Domains
+  """
+  createDomains: Boolean!
+
+  """
+  Whether the user should be able to manage Domains
+  """
+  manageDomains: Boolean!
+
+  """
+  Whether the user is able to manage UI-based ingestion
+  """
+  manageIngestion: Boolean!
+
+  """
+  Whether the user is able to manage UI-based secrets
+  """
+  manageSecrets: Boolean!
+
+  """
+  Whether the user should be able to manage tokens on behalf of other users.
+  """
+  manageTokens: Boolean!
+
+  """
+  Whether the user is able to manage Tests
+  """
+  manageTests: Boolean!
+
+  """
+  Whether the user should be able to manage Glossaries
+  """
+  manageGlossaries: Boolean!
+
+  """
+  Whether the user is able to manage user credentials
+  """
+  manageUserCredentials: Boolean!
+
+  """
+  Whether the user should be able to create new Tags
+  """
+  createTags: Boolean!
+
+  """
+  Whether the user should be able to create and delete all Tags
+  """
+  manageTags: Boolean!
+
+  """
+  Whether the user should be able to create, update, and delete global views.
+  """
+  manageGlobalViews: Boolean!
+}
+
+"""
+Config loaded at application boot time
+This configuration dictates the behavior of the UI, such as which features are enabled or disabled
+"""
+type AppConfig {
+  """
+  App version
+  """
+  appVersion: String
+
+  """
+  Auth-related configurations
+  """
+  authConfig: AuthConfig!
+
+  """
+  Configurations related to the Analytics Feature
+  """
+  analyticsConfig: AnalyticsConfig!
+
+  """
+  Configurations related to the Policies Feature
+  """
+  policiesConfig: PoliciesConfig!
+
+  """
+  Configurations related to the User & Group management
+  """
+  identityManagementConfig: IdentityManagementConfig!
+
+  """
+  Configurations related to UI-based ingestion
+  """
+  managedIngestionConfig: ManagedIngestionConfig!
+
+  """
+  Configurations related to Lineage
+  """
+  lineageConfig: LineageConfig!
+
+  """
+  Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
+  """
+  visualConfig: VisualConfig!
+
+  """
+  Configurations related to tracking users in the app
+  """
+  telemetryConfig: TelemetryConfig!
+
+  """
+  Configurations related to DataHub tests
+  """
+  testsConfig: TestsConfig!
+
+  """
+  Configurations related to DataHub Views
+  """
+  viewsConfig: ViewsConfig!
+}
+
+"""
+Configurations related to visual appearance of the app
+"""
+type VisualConfig {
+  """
+  Custom logo url for the homepage & top banner
+  """
+  logoUrl: String
+
+  """
+  Custom favicon url for the homepage & top banner
+  """
+  faviconUrl: String
+
+  """
+  Configuration for the queries tab
+  """
+  queriesTab: QueriesTabConfig
+}
+
+"""
+Configuration for the queries tab
+"""
+type QueriesTabConfig {
+  """
+  Number of queries to show in the queries tab
+  """
+  queriesTabResultSize: Int
+}
+
+"""
+Configurations related to tracking users in the app
+"""
+type TelemetryConfig {
+  """
+  Env variable for whether or not third party logging should be enabled for this instance
+  """
+  enableThirdPartyLogging: Boolean
+}
+
+"""
+Configurations related to Lineage
+"""
+type LineageConfig {
+  """
+  Whether the backend support impact analysis feature
+  """
+  supportsImpactAnalysis: Boolean!
+}
+
+"""
+Configurations related to the Analytics Feature
+"""
+type AnalyticsConfig {
+  """
+  Whether the Analytics feature is enabled and should be displayed
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to auth
+"""
+type AuthConfig {
+  """
+  Whether token-based auth is enabled.
+  """
+  tokenAuthEnabled: Boolean!
+}
+
+
+"""
+Configurations related to the Policies Feature
+"""
+type PoliciesConfig {
+  """
+  Whether the policies feature is enabled and should be displayed in the UI
+  """
+  enabled: Boolean!
+
+  """
+  A list of platform privileges to display in the Policy Builder experience
+  """
+  platformPrivileges: [Privilege!]!
+
+  """
+  A list of resource privileges to display in the Policy Builder experience
+  """
+  resourcePrivileges: [ResourcePrivileges!]!
+}
+
+"""
+An individual DataHub Access Privilege
+"""
+type Privilege {
+  """
+  Standardized privilege type, serving as a unique identifier for a privilege eg EDIT_ENTITY
+  """
+  type: String!
+
+  """
+  The name to appear when displaying the privilege, eg Edit Entity
+  """
+  displayName: String
+
+  """
+  A description of the privilege to display
+  """
+  description: String
+}
+
+"""
+A privilege associated with a particular resource type
+A resource is most commonly a DataHub Metadata Entity
+"""
+type ResourcePrivileges {
+  """
+  Resource type associated with the Access Privilege, eg dataset
+  """
+  resourceType: String!
+
+  """
+  The name to used for displaying the resourceType
+  """
+  resourceTypeDisplayName: String
+
+  """
+  An optional entity type to use when performing search and navigation to the entity
+  """
+  entityType: EntityType
+
+  """
+  A list of privileges that are supported against this resource
+  """
+  privileges: [Privilege!]!
+}
+
+"""
+Configurations related to Identity Management
+"""
+type IdentityManagementConfig {
+  """
+  Whether identity management screen is able to be shown in the UI
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to managed, UI based ingestion
+"""
+type ManagedIngestionConfig {
+  """
+  Whether ingestion screen is enabled in the UI
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to DataHub Tests feature
+"""
+type TestsConfig {
+  """
+  Whether Tests feature is enabled
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to DataHub Views feature
+"""
+type ViewsConfig {
+  """
+  Whether Views feature is enabled
+  """
+  enabled: Boolean!
+}
+
+"""
+Input required to update Global View Settings.
+"""
+input UpdateGlobalViewsSettingsInput {
+  """
+  The URN of the View that serves as the Global, or organization-wide, default.
+  If this field is not provided, the existing Global Default will be cleared.
+  """
+  defaultView: String
+}
+
+"""
+Global (platform-level) settings related to the Views feature
+"""
+type GlobalViewsSettings {
+  """
+  The global default View. If a user does not have a personal default, then
+  this will be the default view.
+  """
+  defaultView: String
+}

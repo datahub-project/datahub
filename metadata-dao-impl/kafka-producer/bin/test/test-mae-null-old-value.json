@@ -1,0 +1,23 @@
+{
+  "auditHeader": null,
+  "oldSnapshot": null,
+  "newSnapshot": {
+    "MetricSnapshot": {
+      "urn": "urn:li:metric:(foo,bar)",
+      "aspects": [
+        {
+          "Ownership": {
+            "owners": [
+              {
+                "owner": "urn:li:corpuser:foo",
+                "type": "DEVELOPER",
+                "source": null
+              }
+            ],
+            "lastModified": null
+          }
+        }
+      ]
+    }
+  }
+}

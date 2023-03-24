@@ -1,0 +1,166 @@
+{{#if hasVars}}
+{{else}}
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+{{/if}}
+/**
+ * {{#description}}{{.}}{{/description}}{{^description}}{{classname}}{{/description}}
+ */{{#description}}
+{{#useOas2}}@ApiModel{{/useOas2}}{{^useOas2}}@Schema{{/useOas2}}(description = "{{{description}}}"){{/description}}
+{{#useBeanValidation}}@Validated{{/useBeanValidation}}
+{{>generatedAnnotation}}{{#discriminator}}{{>typeInfoAnnotation}}{{/discriminator}}{{>xmlAnnotation}}
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class {{classname}} {{#parent}}extends {{{parent}}}{{/parent}} {{#serializableModel}}implements Serializable {{#interfaceModels}}, {{classname}}{{^@last}}, {{/@last}}{{#@last}} {{/@last}}{{/interfaceModels}}{{/serializableModel}}{{^serializableModel}}{{#interfaceModels}}{{#@first}}implements {{/@first}}{{classname}}{{^@last}}, {{/@last}}{{#@last}}{{/@last}}{{/interfaceModels}}{{/serializableModel}} {
+{{#serializableModel}}
+  private static final long serialVersionUID = 1L;
+
+{{/serializableModel}}
+{{#if interfaceModels}}
+
+  @JsonProperty(value = "__type", defaultValue = "{{classname}}")
+  private String __type = "{{classname}}";
+
+  /**
+   * Name of this subclass in SimpleClassName format
+   * @return __type
+   **/
+  @Schema(required = true, description = "Name of this subclass in SimpleClassName format", allowableValues = {"{{classname}}"},
+  defaultValue = "{{classname}}")
+  @NotNull
+  public String get__type() {
+    return __type;
+  }
+{{/if}}
+
+  {{#vars}}
+    {{#baseItems this}}
+    {{#isEnum}}
+{{>enumClass}}
+    {{/isEnum}}
+    {{/baseItems}}
+  {{#jackson}}
+    {{#vendorExtensions.x-is-discriminator-property}}
+  @JsonTypeId
+    {{/vendorExtensions.x-is-discriminator-property}}
+    {{^vendorExtensions.x-is-discriminator-property}}
+  @JsonProperty("{{baseName}}"){{#withXml}}
+  @JacksonXmlProperty({{#isXmlAttribute}}isAttribute = true, {{/isXmlAttribute}}{{#xmlNamespace}}namespace="{{xmlNamespace}}", {{/xmlNamespace}}localName = "{{#xmlName}}{{xmlName}}{{/xmlName}}{{^xmlName}}{{baseName}}{{/xmlName}}"){{/withXml}}
+    {{/vendorExtensions.x-is-discriminator-property}}
+  {{/jackson}}
+  {{#gson}}
+  @SerializedName("{{baseName}}")
+  {{/gson}}
+  {{#isContainer}}
+  {{#useBeanValidation}}@Valid{{/useBeanValidation}}
+  private {{{datatypeWithEnum}}} {{name}}{{#required}} = {{{defaultValue}}}{{/required}}{{^required}} = null{{/required}};
+  {{/isContainer}}
+  {{^isContainer}}
+  private {{{datatypeWithEnum}}} {{name}} = {{{defaultValue}}};
+  {{/isContainer}}
+
+  {{/vars}}
+  {{#vars}}
+  public {{classname}} {{name}}({{{datatypeWithEnum}}} {{name}}) {
+    this.{{name}} = {{name}};
+    return this;
+  }
+  {{#isListContainer}}
+
+  public {{classname}} add{{nameInCamelCase}}Item({{{items.datatypeWithEnum}}} {{name}}Item) {
+    {{^required}}
+    if (this.{{name}} == null) {
+      this.{{name}} = {{{defaultValue}}};
+    }
+    {{/required}}
+    this.{{name}}.add({{name}}Item);
+    return this;
+  }
+  {{/isListContainer}}
+  {{#isMapContainer}}
+
+  public {{classname}} put{{nameInCamelCase}}Item(String key, {{{items.datatypeWithEnum}}} {{name}}Item) {
+    {{^required}}
+    if (this.{{name}} == null) {
+      this.{{name}} = {{{defaultValue}}};
+    }
+    {{/required}}
+    this.{{name}}.put(key, {{name}}Item);
+    return this;
+  }
+  {{/isMapContainer}}
+
+  /**
+  {{#description}}
+   * {{{description}}}
+  {{/description}}
+  {{^description}}
+   * Get {{name}}
+  {{/description}}
+  {{#minimum}}
+   * minimum: {{minimum}}
+  {{/minimum}}
+  {{#maximum}}
+   * maximum: {{maximum}}
+  {{/maximum}}
+   * @return {{name}}
+   **/
+ {{#vendorExtensions.extraAnnotation}}
+  {{{vendorExtensions.extraAnnotation}}}
+  {{/vendorExtensions.extraAnnotation}}
+  {{#useOas2}}
+  @ApiModelProperty({{#example}}example = "{{{example}}}", {{/example}}{{#required}}required = {{required}}, {{/required}}{{#isReadOnly}}readOnly = {{{isReadOnly}}}, {{/isReadOnly}}value = "{{{description}}}")
+  {{/useOas2}}
+  {{^useOas2}}
+  @Schema({{#example}}example = "{{{example}}}", {{/example}}{{#required}}required = {{required}}, {{/required}}{{#isReadOnly}}accessMode = Schema.AccessMode.READ_ONLY, {{/isReadOnly}}description = "{{{description}}}")
+  {{/useOas2}}
+  {{#useBeanValidation}}{{>beanValidation}}{{/useBeanValidation}}  public {{{datatypeWithEnum}}} {{getter}}() {
+    return {{name}};
+  }
+
+  public void {{setter}}({{{datatypeWithEnum}}} {{name}}) {
+    this.{{name}} = {{name}};
+  }
+
+  {{/vars}}
+
+  @Override
+  public boolean equals(java.lang.Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }{{#hasVars}}
+    {{classname}} {{classVarName}} = ({{classname}}) o;
+    return {{#vars}}Objects.equals(this.{{name}}, {{classVarName}}.{{name}}){{#hasMore}} &&
+        {{/hasMore}}{{/vars}}{{#parent}} &&
+        super.equals(o){{/parent}};{{/hasVars}}{{^hasVars}}
+    return true;{{/hasVars}}
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash({{#vars}}{{name}}{{#hasMore}}, {{/hasMore}}{{/vars}}{{#parent}}{{#hasVars}}, {{/hasVars}}super.hashCode(){{/parent}});
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("class {{classname}} {\n");
+    {{#parent}}sb.append("    ").append(toIndentedString(super.toString())).append("\n");{{/parent}}
+    {{#vars}}sb.append("    {{name}}: ").append(toIndentedString({{name}})).append("\n");
+    {{/vars}}sb.append("}");
+    return sb.toString();
+  }
+
+  /**
+   * Convert the given object to string with each line indented by 4 spaces
+   * (except the first line).
+   */
+  private String toIndentedString(java.lang.Object o) {
+    if (o == null) {
+      return "null";
+    }
+    return o.toString().replace("\n", "\n    ");
+  }
+}
