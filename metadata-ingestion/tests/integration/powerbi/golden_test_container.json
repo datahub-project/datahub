@@ -74,7 +74,7 @@
         "json": {
             "customProperties": {},
             "name": "public issue_history",
-            "description": "public issue_history",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -122,7 +122,7 @@
         "json": {
             "customProperties": {},
             "name": "SNOWFLAKE_TESTTABLE",
-            "description": "SNOWFLAKE_TESTTABLE",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -170,7 +170,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query",
-            "description": "snowflake native-query",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -211,6 +211,54 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "big-query-with-parameter",
+            "description": "Library dataset description",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -218,7 +266,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query-with-join",
-            "description": "snowflake native-query-with-join",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -266,7 +314,7 @@
         "json": {
             "customProperties": {},
             "name": "job-history",
-            "description": "job-history",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -314,7 +362,7 @@
         "json": {
             "customProperties": {},
             "name": "postgres_test_table",
-            "description": "postgres_test_table",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -362,7 +410,7 @@
         "json": {
             "customProperties": {},
             "name": "dbo_book_issue",
-            "description": "dbo_book_issue",
+            "description": "hr pbi test description",
             "tags": []
         }
     },
@@ -410,7 +458,7 @@
         "json": {
             "customProperties": {},
             "name": "ms_sql_native_table",
-            "description": "ms_sql_native_table",
+            "description": "hr pbi test description",
             "tags": []
         }
     },
@@ -512,6 +560,9 @@
                 },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)"
                 },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)"
@@ -725,7 +776,7 @@
                 "workspaceId": "64ED5CAD-7C10-4684-8180-826122881108"
             },
             "title": "test_dashboard",
-            "description": "test_dashboard",
+            "description": "Description of test dashboard",
             "charts": [
                 "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
                 "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
@@ -832,7 +883,7 @@
         "json": {
             "customProperties": {},
             "name": "public issue_history",
-            "description": "public issue_history",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -880,7 +931,7 @@
         "json": {
             "customProperties": {},
             "name": "SNOWFLAKE_TESTTABLE",
-            "description": "SNOWFLAKE_TESTTABLE",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -928,7 +979,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query",
-            "description": "snowflake native-query",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -969,6 +1020,54 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "big-query-with-parameter",
+            "description": "Library dataset description",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -976,7 +1075,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query-with-join",
-            "description": "snowflake native-query-with-join",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -1024,7 +1123,7 @@
         "json": {
             "customProperties": {},
             "name": "job-history",
-            "description": "job-history",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -1072,7 +1171,7 @@
         "json": {
             "customProperties": {},
             "name": "postgres_test_table",
-            "description": "postgres_test_table",
+            "description": "Library dataset description",
             "tags": []
         }
     },
@@ -1174,6 +1273,9 @@
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)"
                 },
                 {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)"
+                },
+                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)"
                 },
                 {
@@ -1268,6 +1370,9 @@
                 },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)"
                 },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)"
