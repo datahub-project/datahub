@@ -127,7 +127,7 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion-examples\//,
     /^introduction/, // Github main README.md
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
-    /^docker\/airflow\/local_airflow)/, //wasn't picked up by abv regex
+    /^docker\/airflow\/local_airflow/, //wasn't picked up by abv regex
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /^SECURITY\.md$/,

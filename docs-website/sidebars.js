@@ -468,15 +468,12 @@ module.exports = {
             "metadata-ingestion/docs/dev_guides/reporting_telemetry",
             "docs/advanced/mcp-mcl",
             "docker/datahub-upgrade/README",
-            "docs/advanced/no-code-modeling",
             "datahub-web-react/src/app/analytics/README",
-            "docs/advanced/es-7-upgrade",
             "docs/how/migrating-graph-service-implementation",
             "docs/advanced/field-path-spec-v2",
             "metadata-ingestion/adding-source",
             "docs/how/add-custom-ingestion-source",
             "docs/how/add-custom-data-platform",
-            "docs/advanced/browse-paths-upgrade",
           ],
         },
       ],
@@ -610,14 +607,9 @@ module.exports = {
     //"metadata-ingestion-modules/airflow-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
-    // "docs/what/entity",
-    // "docs/what/aspect",
-    // "docs/what/urn",
-    // "docs/what/relationship",
+ 
     // "docs/advanced/high-cardinality",
-    // "docs/what/search-document",
-    // "docs/what/snapshot",
-    // "docs/what/delta",
+    
     // - "docker/datahub-frontend/README",
     // - "docker/datahub-gms/README",
     // - "docker/datahub-mae-consumer/README",
