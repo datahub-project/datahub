@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery
@@ -19,7 +18,7 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BigqueryTableType(Enum):
+class BigqueryTableType:
     # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
     BASE_TABLE = "BASE TABLE"
     EXTERNAL = "EXTERNAL"
