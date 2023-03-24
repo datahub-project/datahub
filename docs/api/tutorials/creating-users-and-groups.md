@@ -90,34 +90,31 @@ You can refer to the full code in [upsert_user.py](https://github.com/datahub-pr
 ```python
 import logging
 
-from datahub.emitter.mce_builder import make_user_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import CorpUserInfoClass
+from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-user_urn = make_user_urn("bar@acryl.io")
-event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityUrn=user_urn,
-    aspect=CorpUserInfoClass(
-        active=True,
-        displayName="The Bar",
-        email="bar@acryl.io",
-        title="Software Engineer",
-        firstName="The",
-        lastName="Bar",
-        fullName="The Bar",
-    ),
+user_email = "bar@acryl.io"
+
+user: CorpUser = CorpUser(
+    id=user_email,
+    display_name="The Bar",
+    email=user_email,
+    title="Software Engineer",
+    first_name="The",
+    last_name="Bar",
+    full_name="The Bar",
 )
 
-# Create rest emitter
-rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-rest_emitter.emit(event)
-log.info(f"Upserted user {user_urn}")
+# Create graph client
+datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
+for event in user.generate_mcp(
+    generation_config=CorpUserGenerationConfig(override_editable=False)
+):
+    datahub_graph.emit(event)
+log.info(f"Upserted user {user.urn}")
 ```
 
 ### Upsert Group
@@ -128,34 +125,41 @@ You can refer to the full code in [upsert_group.py](https://github.com/datahub-p
 ```python
 import logging
 
-from datahub.emitter.mce_builder import make_group_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import CorpGroupInfoClass
+from datahub.api.entities.corpgroup.corpgroup import (
+    CorpGroup,
+    CorpGroupGenerationConfig,
+)
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.utilities.urns.corpuser_urn import CorpuserUrn
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-group_urn = make_group_urn("foogroup@acryl.io")
-event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityUrn=group_urn,
-    aspect=CorpGroupInfoClass(
-        admins=["urn:li:corpuser:datahub"],
-        members=["urn:li:corpuser:bar@acryl.io", "urn:li:corpuser:joe@acryl.io"],
-        groups=[],
-        displayName="Foo Group",
-        email="foogroup@acryl.io",
-        description="Software engineering team",
-        slack="@foogroup",
-    ),
+group_email = "foogroup@acryl.io"
+group = CorpGroup(
+    id=group_email,
+    admins=[str(CorpuserUrn.create_from_id("datahub"))],
+    members=[
+        str(CorpuserUrn.create_from_id("bar@acryl.io")),
+        str(CorpuserUrn.create_from_id("joe@acryl.io")),
+    ],
+    groups=[],
+    display_name="Foo Group",
+    email=group_email,
+    description="Software engineering team",
+    slack="@foogroup",
 )
 
-# Create rest emitter
-rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-rest_emitter.emit(event)
-log.info(f"Upserted group {group_urn}")
+# Create graph client
+datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
+
+for event in group.generate_mcp(
+    generation_config=CorpGroupGenerationConfig(
+        override_editable=False, datahub_graph=datahub_graph
+    )
+):
+    datahub_graph.emit(event)
+log.info(f"Upserted group {group.urn}")
 ```
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
