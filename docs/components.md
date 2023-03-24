@@ -48,7 +48,7 @@ To get started using the GraphQL API, check out the [Getting Started with GraphQ
 
 DataHub comes with a React UI including an ever-evolving set of features to make Discovering, Governing, & Debugging your Data Assets easy & delightful.
 For a full overview of the capabilities currently supported, take a look at the [Features](https://datahubproject.io/docs/features/) overview. For a look at what's coming next,
-head over to the [Roadmap](https://datahubproject.io/docs/roadmap/). 
+head over to the [Roadmap](https://feature-requests.datahubproject.io/roadmap). 
 
 ## Learn More
 

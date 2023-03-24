@@ -28,7 +28,7 @@ pip install acryl-datahub-airflow-plugin
 
 :::note
 
-The [DataHub Rest](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter is included in the plugin package by default.  To use [DataHub Kafka](../../metadata-ingestion/sink_docs/datahub.md#datahub-kafka) install `pip install acryl-datahub-airflow-plugin[datahub-kafka]`.
+The [DataHub Rest](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter is included in the plugin package by default. To use [DataHub Kafka](../../metadata-ingestion/sink_docs/datahub.md#datahub-kafka) install `pip install acryl-datahub-airflow-plugin[datahub-kafka]`.
 
 :::
 
@@ -82,11 +82,6 @@ The DataHub Airflow plugin (above) is the recommended way to integrate Airflow w
 
 If you're using Airflow 1.x, we recommend using the Airflow lineage backend with acryl-datahub <= 0.9.1.0.
 
-:::
-
-:::note
-
-If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../../docker/airflow/local_airflow.md). Otherwise proceed to follow the instructions below.
 :::
 
 ### Setting up Airflow to use DataHub as Lineage Backend

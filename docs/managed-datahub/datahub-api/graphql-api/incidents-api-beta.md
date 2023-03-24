@@ -1,10 +1,11 @@
 ---
 description: This page provides an overview of working with the DataHub Incidents API.
 ---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-
 # Incidents API (Beta)
+
 <FeatureAvailability saasOnly />
 
 ## Introduction
@@ -37,7 +38,7 @@ To create (i.e. raise) a new incident for a data asset, simply create a GraphQL 
 ```
 type Mutation {
     """
-    Raise a new incident for a data asset 
+    Raise a new incident for a data asset
     """
     raiseIncident(input: RaiseIncidentInput!): String! # Returns new Incident URN.
 }
@@ -153,7 +154,7 @@ To fetch the the ongoing incidents for a data asset, we can use the `incidents` 
 
 ### Datasets
 
-To retrieve all incidents for a Dataset with a particular [URN](docs/what/urn.md), you can reference the 'incidents' field of the Dataset type:
+To retrieve all incidents for a Dataset with a particular [URN](docs/components.md#metadata-models), you can reference the 'incidents' field of the Dataset type:
 
 ```
 type Dataset {
@@ -173,7 +174,7 @@ type Dataset {
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult # Returns a list of incidents. 
+    count: Int): EntityIncidentsResult # Returns a list of incidents.
 }
 ```
 
@@ -323,7 +324,7 @@ _Request_
 
 ```
 mutation updateIncidentStatus {
-  updateIncidentStatus(urn: "urn:li:incident:bfecab62-dc10-49a6-a305-78ce0cc6e5b1", 
+  updateIncidentStatus(urn: "urn:li:incident:bfecab62-dc10-49a6-a305-78ce0cc6e5b1",
   input: {
     state: RESOLVED
     message: "Dataset is now passing validations. Verified by John Joyce on Data Platform eng."
@@ -379,7 +380,7 @@ json = {
 
 response = datahub_session.post(f"https://your-account.acryl.io/api/graphql", headers=headers, json=json)
 response.raise_for_status()
-res_data = response.json() # Get result as JSON  
+res_data = response.json() # Get result as JSON
 ```
 
 ## Tips
@@ -406,5 +407,4 @@ These notifications are also able to tag the immediate asset's owners, along wit
 
 ![](../../imgs/saas/Screen-Shot-2022-03-22-at-6.46.41-PM.png)
 
-To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/saas-slack-setup.md) and contact your Acryl customer success team to enable the feature! 
-
+To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/saas-slack-setup.md) and contact your Acryl customer success team to enable the feature!

@@ -607,9 +607,9 @@ module.exports = {
     //"metadata-ingestion-modules/airflow-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
- 
+
     // "docs/advanced/high-cardinality",
-    
+
     // - "docker/datahub-frontend/README",
     // - "docker/datahub-gms/README",
     // - "docker/datahub-mae-consumer/README",

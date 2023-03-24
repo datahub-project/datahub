@@ -15,8 +15,6 @@ With the No Code metadata initiative, we've introduced various major changes:
 Because of these changes, it is required that your persistence layer be migrated after the NoCode containers have been
 deployed.
 
-For more information about the No Code Update, please see [no-code-modeling](./no-code-modeling.md).
-
 ## Migration strategy
 
 We are merging these breaking changes into the main branch upfront because we feel they are fundamental to subsequent
@@ -66,7 +64,7 @@ cd docker/datahub-upgrade/nocode
 
 Using this command, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
 that your deployment is local & that you are running MySQL. If this is not the case, you'll need to define your own environment variables to tell the
-upgrade system where your DataHub containers reside and run 
+upgrade system where your DataHub containers reside and run
 
 To update the default environment variables, you can either
 
@@ -78,7 +76,8 @@ documentation.
 
 To run the upgrade against a database other than MySQL, you can use the `-a dbType=<db-type>` argument.
 
-Execute 
+Execute
+
 ```
 ./docker/datahub-upgrade.sh -u NoCodeDataMigration -a dbType=POSTGRES
 ```
@@ -109,7 +108,6 @@ git pull origin master
 
 After that, you will be ready to go.
 
-
 ##### How to fix the "listening to port 5005" issue
 
 Fix for this issue have been published to the acryldata/datahub-upgrade:head tag. Please pull latest master and rerun
@@ -139,8 +137,8 @@ Once the storage layer has been migrated, subsequent runs of this job will be a 
 
 ### Step 3 (Optional): Cleaning Up
 
-Warning: This step clears all legacy metadata. If something is wrong with the upgraded metadata, there will no easy way to 
-re-run the migration. 
+Warning: This step clears all legacy metadata. If something is wrong with the upgraded metadata, there will no easy way to
+re-run the migration.
 
 This step involves removing data from previous versions of DataHub. This step should only be performed once you've
 validated that your DataHub deployment is healthy after performing the upgrade. If you're able to search, browse, and

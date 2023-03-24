@@ -2,7 +2,7 @@
 
 ## Goal
 
-DataHub stores different versions of [metadata aspects](https://datahubproject.io/docs/what/aspect) as they are ingested 
+DataHub stores different versions of metadata aspects as they are ingested 
 using a database (or key-value store).  These multiple versions allow us to look at an aspect's historical changes and 
 rollback to a previous version if incorrect metadata is ingested. However, every stored version takes additional storage 
 space, while possibly bringing less value to the system. We need to be able to impose a **retention** policy on these 

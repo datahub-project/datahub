@@ -27,6 +27,7 @@ from `ConfigModel`. The [file source](./src/datahub/ingestion/source/file.py) is
 We use [pydantic](https://pydantic-docs.helpmanual.io) conventions for documenting configuration flags. Use the `description` attribute to write rich documentation for your configuration field.
 
 For example, the following code:
+
 ```python
 from pydantic import Field
 from datahub.api.configuration.common import ConfigModel
@@ -49,7 +50,6 @@ generates the following documentation:
 :::note
 Inline markdown or code snippets are not yet supported for field level documentation.
 :::
-
 
 ### 2. Set up the reporter
 
@@ -115,37 +115,38 @@ from datahub.ingestion.api.decorators import (
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class FileSource(Source):
    """
-   
-   The File Source can be used to produce all kinds of metadata from a generic metadata events file. 
+
+   The File Source can be used to produce all kinds of metadata from a generic metadata events file.
    :::note
    Events in this file can be in MCE form or MCP form.
    :::
-   
+
    """
 
    ... source code goes here
 
 ```
 
-
 #### 7.2 Write custom documentation
 
-- Create a copy of [`source-docs-template.md`](./source-docs-template.md) and edit all relevant components. 
+- Create a copy of [`source-docs-template.md`](./source-docs-template.md) and edit all relevant components.
 - Name the document as `<plugin.md>` and move it to `metadata-ingestion/docs/sources/<platform>/<plugin>.md`. For example for the Kafka platform, under the `kafka` plugin, move the document to `metadata-ingestion/docs/sources/kafka/kafka.md`.
 - Add a quickstart recipe corresponding to the plugin under `metadata-ingestion/docs/sources/<platform>/<plugin>_recipe.yml`. For example, for the Kafka platform, under the `kafka` plugin, there is a quickstart recipe located at `metadata-ingestion/docs/sources/kafka/kafka_recipe.yml`.
 - To write platform-specific documentation (that is cross-plugin), write the documentation under `metadata-ingestion/docs/sources/<platform>/README.md`. For example, cross-plugin documentation for the BigQuery platform is located under `metadata-ingestion/docs/sources/bigquery/README.md`.
 
 #### 7.3 Viewing the Documentation
 
-Documentation for the source can be viewed by running the documentation generator from the `docs-website` module. 
+Documentation for the source can be viewed by running the documentation generator from the `docs-website` module.
 
 ##### Step 1: Build the Ingestion docs
+
 ```console
 # From the root of DataHub repo
 ./gradlew :metadata-ingestion:docGen
 ```
 
 If this finishes successfully, you will see output messages like:
+
 ```console
 Ingestion Documentation Generation Complete
 ############################################
@@ -166,7 +167,8 @@ Ingestion Documentation Generation Complete
 You can also find documentation files generated at `./docs/generated/ingestion/sources` relative to the root of the DataHub repo. You should be able to locate your specific source's markdown file here and investigate it to make sure things look as expected.
 
 #### Step 2: Build the Entire Documentation
-To view how this documentation looks in the browser, there is one more step. Just build the entire docusaurus page from the `docs-website` module. 
+
+To view how this documentation looks in the browser, there is one more step. Just build the entire docusaurus page from the `docs-website` module.
 
 ```console
 # From the root of DataHub repo
@@ -174,6 +176,7 @@ To view how this documentation looks in the browser, there is one more step. Jus
 ```
 
 This will generate messages like:
+
 ```console
 ...
 > Task :docs-website:yarnGenerate
@@ -215,15 +218,15 @@ BUILD SUCCESSFUL in 35s
 36 actionable tasks: 16 executed, 20 up-to-date
 ```
 
-After this you need to run the following script from the `docs-website` module. 
+After this you need to run the following script from the `docs-website` module.
+
 ```console
 cd docs-website
 npm run serve
 ```
 
-Now, browse to http://localhost:3000 or whichever port npm is running on, to browse the docs. 
-Your source should show up on the left sidebar under `Metadata Ingestion / Sources`. 
-
+Now, browse to http://localhost:3000 or whichever port npm is running on, to browse the docs.
+Your source should show up on the left sidebar under `Metadata Ingestion / Sources`.
 
 ### 8. Add SQL Alchemy mapping (if applicable)
 
