@@ -376,6 +376,7 @@ module.exports = {
                 "docs/api/tutorials/creating-datasets",
                 "docs/api/tutorials/creating-tags",
                 "docs/api/tutorials/creating-terms",
+                "docs/api/tutorials/creating-users-and-groups",
               ],
             },
             {
@@ -386,6 +387,11 @@ module.exports = {
                 "docs/api/tutorials/adding-dataset-description",
                 "docs/api/tutorials/adding-column-description",
                 "docs/api/tutorials/adding-lineage",
+              ],
+            },
+            {
+              "Deleting Entities": [
+                "docs/api/tutorials/deleting-entities-by-urn",
               ],
             },
             {
@@ -563,6 +569,7 @@ module.exports = {
 
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_4",
             "docs/managed-datahub/release-notes/v_0_2_3",
             "docs/managed-datahub/release-notes/v_0_2_2",
             "docs/managed-datahub/release-notes/v_0_2_1",
