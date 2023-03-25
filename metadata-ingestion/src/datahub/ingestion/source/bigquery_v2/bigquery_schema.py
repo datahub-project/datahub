@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery
@@ -19,7 +18,7 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BigqueryTableType(Enum):
+class BigqueryTableType:
     # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
     BASE_TABLE = "BASE TABLE"
     EXTERNAL = "EXTERNAL"
@@ -372,6 +371,12 @@ class BigQueryDataDictionary:
     def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
+        """
+        This method is not used as of now, due to below limitation.
+        Current query only fetches datasets in US region
+        We'll need Region wise separate queries to fetch all datasets
+        https://cloud.google.com/bigquery/docs/information-schema-datasets-schemata
+        """
         schemas = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
