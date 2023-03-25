@@ -1614,7 +1614,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "{'bind_all_filters': 'yes', 'columns': [{'name': 'country'}, {'name': 'city'}, {'name': 'is_latest'}], 'derived_columns': [{'sql': \"coalesce(country, 'US')\", 'name': 'derived_col'}], 'name': 'my_view_explore'}",
+            "viewLogic": "explore_source: my_view_explore {\n  bind_all_filters: yes\n\n  column: country {}\n\n  column: city {}\n\n  column: is_latest {}\n\n  derived_column: derived_col {\n    sql: coalesce(country, 'US') ;;\n  }\n}",
             "viewLanguage": "lookml"
         }
     },

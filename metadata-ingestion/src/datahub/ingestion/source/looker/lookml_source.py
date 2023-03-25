@@ -877,7 +877,10 @@ class LookerView:
                 view_logic = derived_table["sql"]
                 view_lang = VIEW_LANGUAGE_SQL
             if "explore_source" in derived_table:
-                view_logic = str(derived_table["explore_source"])
+                # We want this to render the full lkml block
+                # e.g. explore_source: source_name { ... }
+                # As such, we don't index in to use the ["explore_source"] value.
+                view_logic = lkml.dump(derived_table)
                 view_lang = VIEW_LANGUAGE_LOOKML
 
             materialized = False
