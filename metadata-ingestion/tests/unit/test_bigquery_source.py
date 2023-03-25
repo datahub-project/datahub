@@ -18,7 +18,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQueryDataDictionary,
     BigqueryProject,
-    BigqueryTableType,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
@@ -464,7 +463,7 @@ def test_get_views_for_dataset(
             last_altered=bigquery_view_1.last_altered,
             comment=bigquery_view_1.comment,
             view_definition=bigquery_view_1.view_definition,
-            table_type=BigqueryTableType.VIEW,
+            table_type="VIEW",
         )
     )
     row2 = create_row(  # Materialized view, no last_altered
@@ -473,7 +472,7 @@ def test_get_views_for_dataset(
             created=bigquery_view_2.created,
             comment=bigquery_view_2.comment,
             view_definition=bigquery_view_2.view_definition,
-            table_type=BigqueryTableType.MATERIALIZED_VIEW,
+            table_type="MATERIALIZED VIEW",
         )
     )
     query_mock.return_value = [row1, row2]
