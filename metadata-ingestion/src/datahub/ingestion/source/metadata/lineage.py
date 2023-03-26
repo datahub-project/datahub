@@ -30,7 +30,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
 logger = logging.getLogger(__name__)
-
+logger.error(f"glossary time is {get_sys_time()}")
 auditStamp = models.AuditStampClass(
     time=get_sys_time(), actor="urn:li:corpUser:pythonEmitter"
 )
