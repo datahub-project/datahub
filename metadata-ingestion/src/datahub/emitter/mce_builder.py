@@ -164,15 +164,34 @@ def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
 
 
 def make_user_urn(username: str) -> str:
-    return f"urn:li:corpuser:{username}"
+    """
+    Makes a user urn if the input is not a user urn already
+    """
+    return (
+        f"urn:li:corpuser:{username}"
+        if not username.startswith("urn:li:corpuser:")
+        else username
+    )
 
 
 def make_group_urn(groupname: str) -> str:
-    return f"urn:li:corpGroup:{groupname}"
+    """
+    Makes a group urn if the input is not a group urn already
+    """
+    if groupname and groupname.startswith("urn:li:corpGroup:"):
+        return groupname
+    else:
+        return f"urn:li:corpGroup:{groupname}"
 
 
 def make_tag_urn(tag: str) -> str:
-    return f"urn:li:tag:{tag}"
+    """
+    Makes a tag urn if the input is not a tag urn already
+    """
+    if tag and tag.startswith("urn:li:tag:"):
+        return tag
+    else:
+        return f"urn:li:tag:{tag}"
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
@@ -180,7 +199,13 @@ def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
 
 
 def make_term_urn(term: str) -> str:
-    return f"urn:li:glossaryTerm:{term}"
+    """
+    Makes a term urn if the input is not a term urn already
+    """
+    if term and term.startswith("urn:li:glossaryTerm:"):
+        return term
+    else:
+        return f"urn:li:glossaryTerm:{term}"
 
 
 def make_data_flow_urn(
