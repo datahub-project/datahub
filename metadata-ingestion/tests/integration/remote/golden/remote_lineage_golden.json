@@ -9,7 +9,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1629795600000,
+                        "time": 0,
                         "actor": "urn:li:corpUser:pythonEmitter"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)",
@@ -17,7 +17,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1629795600000,
+                        "time": 0,
                         "actor": "urn:li:corpUser:pythonEmitter"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,DEV)",
@@ -27,7 +27,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
+        "lastObserved": 0,
         "runId": "remote-3"
     }
 },
@@ -41,7 +41,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1629795600000,
+                        "time": 0,
                         "actor": "urn:li:corpUser:pythonEmitter"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.kafka.topic2,PROD)",
@@ -51,7 +51,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
+        "lastObserved": 0,
         "runId": "remote-3"
     }
 }

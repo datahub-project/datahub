@@ -14,10 +14,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.source_common import EnvConfigMixin
-from datahub.emitter.mce_builder import (
-    get_sys_time,
-    make_dataset_urn_with_platform_instance,
-)
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -30,10 +27,6 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
 logger = logging.getLogger(__name__)
-logger.error(f"glossary time is {get_sys_time()}")
-auditStamp = models.AuditStampClass(
-    time=get_sys_time(), actor="urn:li:corpUser:pythonEmitter"
-)
 
 
 class EntityConfig(EnvConfigMixin):
@@ -162,7 +155,6 @@ class LineageFileSource(Source):
                             new_upstream = models.UpstreamClass(
                                 dataset=upstream_entity_urn,
                                 type=models.DatasetLineageTypeClass.TRANSFORMED,
-                                auditStamp=auditStamp,
                             )
                             new_upstreams.append(new_upstream)
                         else:

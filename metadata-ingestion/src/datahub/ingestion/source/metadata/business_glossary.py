@@ -10,12 +10,7 @@ from pydantic.fields import Field
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import (
-    datahub_guid,
-    get_sys_time,
-    make_group_urn,
-    make_user_urn,
-)
+from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -36,10 +31,6 @@ valid_status: models.StatusClass = models.StatusClass(removed=False)
 
 # This needed to map path presents in inherits, contains, values, and related_terms to terms' optional id
 path_vs_id: Dict[str, Optional[str]] = {}
-logger.error(f"glossary time is {get_sys_time()}")
-auditStamp = models.AuditStampClass(
-    time=get_sys_time(), actor="urn:li:corpUser:restEmitter"
-)
 
 
 class Owners(ConfigModel):

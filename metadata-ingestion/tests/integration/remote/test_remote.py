@@ -105,11 +105,11 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
         pipeline.run()
         pipeline.raise_from_status()
 
-        # mce_helpers.check_golden_file(
-        #     pytestconfig,
-        #     output_path=tmp_path / "parsed_lineage_output.json",
-        #     golden_path=test_resources_dir / "golden/remote_lineage_golden.json",
-        # )
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "parsed_lineage_output.json",
+            golden_path=test_resources_dir / "golden/remote_lineage_golden.json",
+        )
 
         # try reading from a remote lineage file
         pipeline = Pipeline.create(
