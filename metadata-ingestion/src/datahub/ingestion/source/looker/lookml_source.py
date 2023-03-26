@@ -1090,7 +1090,10 @@ class LookerManifest:
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
-@capability(SourceCapability.LINEAGE_FINE, "Enabled by default, configured using `extract_column_level_lineage`")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configured using `extract_column_level_lineage`",
+)
 class LookMLSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
