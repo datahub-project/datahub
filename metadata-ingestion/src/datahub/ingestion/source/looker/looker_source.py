@@ -24,7 +24,7 @@ from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
@@ -106,7 +106,7 @@ class LookerDashboardSourceConfig(
     LookerAPIConfig,
     LookerCommonConfig,
     StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
+    EnvConfigMixin,
 ):
     _removed_github_info = pydantic_removed_field("github_info")
 
@@ -168,23 +168,18 @@ class LookerDashboardSourceConfig(
     ) -> Optional[str]:
         return v or values.get("base_url")
 
-    @validator("platform_instance")
-    def platform_instance_not_supported(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            raise ConfigurationError("Looker Source doesn't support platform instances")
-        return v
-
 
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
 @capability(
     SourceCapability.OWNERSHIP, "Enabled by default, configured using `extract_owners`"
 )
 @capability(
-    SourceCapability.USAGE_STATS, "Can be enabled using `extract_usage_history`"
+    SourceCapability.USAGE_STATS,
+    "Enabled by default, configured using `extract_usage_history`",
 )
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
