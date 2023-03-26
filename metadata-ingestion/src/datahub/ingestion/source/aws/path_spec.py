@@ -17,7 +17,7 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
-SUPPORTED_COMPRESSIONS: List[str] = ["gz", "bz2"]
+SUPPORTED_COMPRESSIONS: List[str] = ["gz", "gzip", "bz2"]
 
 
 class PathSpec(ConfigModel):
@@ -47,7 +47,7 @@ class PathSpec(ConfigModel):
 
     enable_compression: bool = Field(
         default=True,
-        description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
+        description="Enable or disable processing compressed files. Currently .gz, .gzip and .bz files are supported.",
     )
 
     sample_files: bool = Field(
