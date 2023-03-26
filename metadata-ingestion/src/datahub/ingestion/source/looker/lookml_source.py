@@ -861,27 +861,40 @@ class LookerView:
         # also store the view logic and materialization
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
 
-        # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
-            fields, sql_table_names = cls._extract_metadata_from_sql_query(
-                reporter,
-                parse_table_names_from_sql,
-                sql_parser_path,
-                view_name,
-                sql_table_name,
-                derived_table,
-                fields,
-                use_external_process=process_isolation_for_sql_parsing,
-            )
+            # Derived tables can either be a SQL query or a LookML explore.
+            sql_table_names: List[str] = []
+
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
                 view_lang = VIEW_LANGUAGE_SQL
-            if "explore_source" in derived_table:
+
+                # Parse SQL to extract dependencies.
+                if parse_table_names_from_sql:
+                    (
+                        fields,
+                        sql_table_names,
+                    ) = cls._extract_metadata_from_derived_table_sql(
+                        reporter,
+                        sql_parser_path,
+                        view_name,
+                        sql_table_name,
+                        view_logic,
+                        fields,
+                        use_external_process=process_isolation_for_sql_parsing,
+                    )
+
+            elif "explore_source" in derived_table:
+                explore_source = derived_table["explore_source"]
+
                 # We want this to render the full lkml block
                 # e.g. explore_source: source_name { ... }
-                # As such, we don't index in to use the ["explore_source"] value.
+                # As such, we use the full derived_table instead of the explore_source.
                 view_logic = lkml.dump(derived_table)
                 view_lang = VIEW_LANGUAGE_LOOKML
+
+                # TODO figure this out
+                breakpoint()
 
             materialized = False
             for k in derived_table:
@@ -932,76 +945,75 @@ class LookerView:
         return output_looker_view
 
     @classmethod
-    def _extract_metadata_from_sql_query(
-        cls: Type,
+    def _extract_metadata_from_derived_table_sql(
+        cls,
         reporter: LookMLSourceReport,
-        parse_table_names_from_sql: bool,
         sql_parser_path: str,
         view_name: str,
         sql_table_name: Optional[str],
-        derived_table: dict,
+        sql_query: str,
         fields: List[ViewField],
         use_external_process: bool,
     ) -> Tuple[List[ViewField], List[str]]:
         sql_table_names: List[str] = []
-        if parse_table_names_from_sql and "sql" in derived_table:
-            logger.debug(f"Parsing sql from derived table section of view: {view_name}")
-            sql_query = derived_table["sql"]
-            reporter.query_parse_attempts += 1
 
-            # Skip queries that contain liquid variables. We currently don't parse them correctly.
-            # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
-            # TODO: also support ${EXTENDS} and ${TABLE}
-            if "{%" in sql_query:
-                try:
-                    # test if parsing works
-                    sql_info: SQLInfo = cls._get_sql_info(
-                        sql_query, sql_parser_path, use_external_process
-                    )
-                    if not sql_info.table_names:
-                        raise Exception("Failed to find any tables")
-                except Exception:
-                    logger.debug(
-                        f"{view_name}: SQL Parsing didn't return any tables, trying a hail-mary"
-                    )
-                    # A hail-mary simple parse.
-                    for maybe_table_match in re.finditer(
-                        r"FROM\s*([a-zA-Z0-9_.`]+)", sql_query
-                    ):
-                        if maybe_table_match.group(1) not in sql_table_names:
-                            sql_table_names.append(maybe_table_match.group(1))
-                    return fields, sql_table_names
-            # Looker supports sql fragments that omit the SELECT and FROM parts of the query
-            # Add those in if we detect that it is missing
-            if not re.search(r"SELECT\s", sql_query, flags=re.I):
-                # add a SELECT clause at the beginning
-                sql_query = f"SELECT {sql_query}"
-            if not re.search(r"FROM\s", sql_query, flags=re.I):
-                # add a FROM clause at the end
-                sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
-                # Get the list of tables in the query
+        logger.debug(f"Parsing sql from derived table section of view: {view_name}")
+        reporter.query_parse_attempts += 1
+
+        # Skip queries that contain liquid variables. We currently don't parse them correctly.
+        # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
+        # TODO: also support ${EXTENDS} and ${TABLE}
+        if "{%" in sql_query:
             try:
-                sql_info = cls._get_sql_info(
+                # test if parsing works
+                sql_info: SQLInfo = cls._get_sql_info(
                     sql_query, sql_parser_path, use_external_process
                 )
-                sql_table_names = sql_info.table_names
-                column_names = sql_info.column_names
-                if not fields:
-                    # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
-                    fields = [
-                        # set types to unknown for now as our sql parser doesn't give us column types yet
-                        ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
-                        for c in sorted(column_names)
-                    ]
                 if not sql_info.table_names:
-                    reporter.query_parse_failures += 1
-                    reporter.query_parse_failure_views.append(view_name)
-            except Exception as e:
-                reporter.query_parse_failures += 1
-                reporter.report_warning(
-                    f"looker-view-{view_name}",
-                    f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
+                    raise Exception("Failed to find any tables")
+            except Exception:
+                logger.debug(
+                    f"{view_name}: SQL Parsing didn't return any tables, trying a hail-mary"
                 )
+                # A hail-mary simple parse.
+                for maybe_table_match in re.finditer(
+                    r"FROM\s*([a-zA-Z0-9_.`]+)", sql_query
+                ):
+                    if maybe_table_match.group(1) not in sql_table_names:
+                        sql_table_names.append(maybe_table_match.group(1))
+                return fields, sql_table_names
+
+        # Looker supports sql fragments that omit the SELECT and FROM parts of the query
+        # Add those in if we detect that it is missing
+        if not re.search(r"SELECT\s", sql_query, flags=re.I):
+            # add a SELECT clause at the beginning
+            sql_query = f"SELECT {sql_query}"
+        if not re.search(r"FROM\s", sql_query, flags=re.I):
+            # add a FROM clause at the end
+            sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
+            # Get the list of tables in the query
+        try:
+            sql_info = cls._get_sql_info(
+                sql_query, sql_parser_path, use_external_process
+            )
+            sql_table_names = sql_info.table_names
+            column_names = sql_info.column_names
+            if not fields:
+                # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
+                fields = [
+                    # set types to unknown for now as our sql parser doesn't give us column types yet
+                    ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
+                    for c in sorted(column_names)
+                ]
+            if not sql_info.table_names:
+                reporter.query_parse_failures += 1
+                reporter.query_parse_failure_views.append(view_name)
+        except Exception as e:
+            reporter.query_parse_failures += 1
+            reporter.report_warning(
+                f"looker-view-{view_name}",
+                f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
+            )
 
         # remove fields or sql tables that contain liquid variables
         fields = [f for f in fields if "{%" not in f.name]
