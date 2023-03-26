@@ -10,7 +10,7 @@
                 {
                     "auditStamp": {
                         "time": 0,
-                        "actor": "urn:li:corpUser:pythonEmitter"
+                        "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)",
                     "type": "TRANSFORMED"
@@ -18,7 +18,7 @@
                 {
                     "auditStamp": {
                         "time": 0,
-                        "actor": "urn:li:corpUser:pythonEmitter"
+                        "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,DEV)",
                     "type": "TRANSFORMED"
@@ -27,7 +27,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 0,
+        "lastObserved": 1629795600000,
         "runId": "remote-3"
     }
 },
@@ -42,7 +42,7 @@
                 {
                     "auditStamp": {
                         "time": 0,
-                        "actor": "urn:li:corpUser:pythonEmitter"
+                        "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.kafka.topic2,PROD)",
                     "type": "TRANSFORMED"
@@ -51,7 +51,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 0,
+        "lastObserved": 1629795600000,
         "runId": "remote-3"
     }
 }
