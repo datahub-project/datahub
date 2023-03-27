@@ -11,7 +11,7 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Dict, List, Optional
 
 import click
 import click_spinner
@@ -22,6 +22,7 @@ from requests_file import FileAdapter
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
+    DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
     DockerComposeVersionError,
     check_docker_quickstart,
@@ -85,18 +86,6 @@ def docker() -> None:
     """Helper commands for setting up and interacting with a local
     DataHub instance using Docker."""
     pass
-
-
-def _print_issue_list_and_exit(
-    issues: List[str], header: str, footer: Optional[str] = None
-) -> NoReturn:
-    click.secho(header, fg="bright_red")
-    for issue in issues:
-        click.echo(f"- {issue}")
-    if footer:
-        click.echo()
-        click.echo(footer)
-    sys.exit(1)
 
 
 @docker.command()
@@ -981,8 +970,11 @@ def nuke(keep_data: bool) -> None:
             click.echo("Skipping deleting data volumes in the datahub project")
         else:
             click.echo("Removing volumes in the datahub project")
-            for volume in client.volumes.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
-                volume.remove(force=True)
+            for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [
+                DATAHUB_COMPOSE_PROJECT_FILTER
+            ]:
+                for volume in client.volumes.list(filters=filter):
+                    volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):

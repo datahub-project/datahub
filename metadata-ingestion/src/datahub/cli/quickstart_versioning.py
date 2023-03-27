@@ -29,7 +29,7 @@ def _is_it_a_version(version: str) -> bool:
     :param version: The string to check.
     :return: True if the string is a valid version, False otherwise.
     """
-    return re.match(r"v?\d+\.\d+(\.\d+)?", version) is not None
+    return re.match(r"^v?\d+\.\d+(\.\d+)?$", version) is not None
 
 
 class QuickstartVersionMappingConfig(BaseModel):

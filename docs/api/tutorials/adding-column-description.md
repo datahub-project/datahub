@@ -1,11 +1,15 @@
 # Adding Description on Columns
 
 ## Why Would You Add Description on Columns? 
-Adding column descriptions to a dataset can provide crucial context for understanding the data and its variables. This can aid in data exploration, cleaning, and analysis, as well as ensure that others can understand the data if it is shared or used in collaboration. Additionally, column descriptions can help prevent errors and misunderstandings by clearly defining the meaning and units of measurement for each variable.
+Adding column descriptions(documentation) to a dataset can provide crucial context for understanding the data and its variables. This can aid in data exploration, cleaning, and analysis, as well as ensure that others can understand the data if it is shared or used in collaboration. Additionally, column descriptions can help prevent errors and misunderstandings by clearly defining the meaning and units of measurement for each variable.
+
+### Goal Of This Guide
+This guide will show you how to add a description to `user_name `column of a dataset `fct_users_deleted`.
+
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding a description, you need to ensure the targeted dataset is already present in your datahub. 
@@ -73,7 +77,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -192,5 +196,5 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 ## Expected Outcomes
 You can now see column description is added to `user_name` column of `fct_users_deleted`. 
 
-![column-description-added](../../imgs/tutorials/column-description-added.png)
+![column-description-added](../../imgs/apis/tutorials/column-description-added.png)
 

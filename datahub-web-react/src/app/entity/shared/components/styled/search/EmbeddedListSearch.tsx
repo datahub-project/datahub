@@ -7,6 +7,7 @@ import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
+import { useGetDownloadScrollResultsQuery } from '../../../../../../graphql/scroll.generated';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
@@ -129,21 +130,20 @@ export const EmbeddedListSearch = ({
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
-    const { refetch: refetchForDownload } = useGetSearchResults({
+    const { refetch: refetchForDownload } = useGetDownloadScrollResultsQuery({
         variables: {
             input: {
                 types: entityFilters,
-                query: finalQuery,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
+                query,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: finalFilters,
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
         skip: true,
     });
 
     const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetchForDownload(variables);
+        return refetchForDownload(variables).then((res) => res.data.scrollAcrossEntities);
     };
 
     const searchInput = {

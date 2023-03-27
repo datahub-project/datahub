@@ -4,17 +4,18 @@
 Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
 Fore more information about lineage, refer to [About DataHub Lineage](/docs/lineage/lineage-feature-guide.md).
 
+### Goal Of This Guide
+This guide will show you how to add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
+
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding lineage, you need to ensure the targeted dataset is already present in your datahub. 
 If you attempt to manipulate entities that do not exist, your operation will fail. 
 In this guide, we will be using data from sample ingestion.
 :::
-
-In this example, we will add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
 
 ## Add Lineage With GraphQL
 
@@ -82,7 +83,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -125,5 +126,5 @@ For more information about the `MetadataChangeEvent`, please refer to [Metadata 
 ## Expected Outcomes
 You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
-![lineage-added](../../imgs/tutorials/lineage-added.png)
+![lineage-added](../../imgs/apis/tutorials/lineage-added.png)
 
