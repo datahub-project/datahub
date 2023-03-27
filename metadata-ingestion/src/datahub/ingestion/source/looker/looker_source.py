@@ -23,8 +23,8 @@ from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase,
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
