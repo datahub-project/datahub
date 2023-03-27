@@ -207,7 +207,7 @@ SELECT null as database_name,
                             distinct cluster,
                             target_schema,
                             target_table,
-                            username,
+                            username as username,
                             source_schema,
                             source_table
                         from
@@ -229,7 +229,7 @@ SELECT null as database_name,
                                 ) as target_tables
                         join ( (
                             select
-                                pu.usename::varchar(40) as username,
+                                sui.usename as username,
                                 ss.tbl as source_table_id,
                                 sti.schema as source_schema,
                                 sti.table as source_table,
@@ -247,12 +247,12 @@ SELECT null as database_name,
                             ) ss
                             join SVV_TABLE_INFO sti on
                                 sti.table_id = ss.tbl
-                            left join pg_user pu on
-                                pu.usesysid = ss.userid
                             left join stl_query sq on
                                 ss.query = sq.query
+                            left join svl_user_info sui on
+                                sq.userid = sui.usesysid
                             where
-                                pu.usename <> 'rdsdb')
+                                sui.usename <> 'rdsdb')
                         ) as source_tables
                                 using (query)
                         where
