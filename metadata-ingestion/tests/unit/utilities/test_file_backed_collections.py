@@ -213,7 +213,13 @@ def test_custom_column(cache_max_size: int) -> None:
         ("second", Pair(100, "b")),
         ("third", Pair(27, "c")),
     ]
-    assert sorted(list(cache.filtered_items("x < 50"))) == [
+    assert sorted(list(cache.items_snapshot())) == [
+        ("first", Pair(4, "e")),
+        ("fourth", Pair(100, "d")),
+        ("second", Pair(100, "b")),
+        ("third", Pair(27, "c")),
+    ]
+    assert sorted(list(cache.items_snapshot("x < 50"))) == [
         ("first", Pair(4, "e")),
         ("third", Pair(27, "c")),
     ]
@@ -267,7 +273,7 @@ def test_shared_connection() -> None:
             == [("a", 45), ("b", 55)]
         )
 
-        assert list(cache2.filtered_items('y = "a"')) == [
+        assert list(cache2.items_snapshot('y = "a"')) == [
             ("ref-a-1", Pair(7, "a")),
             ("ref-a-2", Pair(8, "a")),
         ]

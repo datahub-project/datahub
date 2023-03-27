@@ -275,22 +275,14 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             if row[0] not in cache_keys:
                 yield row[0]
 
-    def items_snapshot(self) -> Iterator[Tuple[str, _VT]]:
-        """Return a fixed snapshot, rather than a view, of the dictionary's items.
-
-        Provides better performance over standard `items()` method
+    def items_snapshot(
+        self, cond_sql: Optional[str] = None
+    ) -> Iterator[Tuple[str, _VT]]:
         """
-        cache_keys = set(self._active_object_cache.keys())
-        yield from ((k, v[0]) for k, v in self._active_object_cache.items())
+        Return a fixed snapshot, rather than a view, of the dictionary's items.
 
-        cursor = self._conn.execute(f"SELECT key, value FROM {self.tablename}")
-        for row in cursor:
-            if row[0] not in cache_keys:
-                yield row[0], self.deserializer(row[1])
-
-    def filtered_items(self, cond_sql: str) -> Iterator[Tuple[str, _VT]]:
-        """
-        Flush the cache and iterate through a filtered list of the dictionary's items.
+        Flushes the cache and provides the option to filter the results.
+        Provides better performance over standard `items()` method.
 
         Args:
             cond_sql: Conditional expression for WHERE statement, e.g. `x = 0 AND y = "value"`
@@ -299,9 +291,13 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             Iterator of filtered (key, value) pairs.
         """
         self.flush()
-        for row in self._conn.execute(
-            f"SELECT key, value FROM {self.tablename} WHERE {cond_sql}"
-        ):
+        if cond_sql:
+            sql = f"SELECT key, value FROM {self.tablename} WHERE {cond_sql}"
+        else:
+            sql = f"SELECT key, value FROM {self.tablename}"
+
+        cursor = self._conn.execute(sql)
+        for row in cursor:
             yield row[0], self.deserializer(row[1])
 
     def __len__(self) -> int:
