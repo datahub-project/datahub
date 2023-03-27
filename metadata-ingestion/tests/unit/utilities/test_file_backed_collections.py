@@ -178,7 +178,7 @@ class Pair:
 
 
 @pytest.mark.parametrize("cache_max_size", [0, 1, 10])
-def test_custom_column(cache_max_size) -> None:
+def test_custom_column(cache_max_size: int) -> None:
     cache = FileBackedDict[Pair](
         extra_columns={
             "x": lambda m: m.x,
