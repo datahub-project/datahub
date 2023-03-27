@@ -291,10 +291,9 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             Iterator of filtered (key, value) pairs.
         """
         self.flush()
+        sql = f"SELECT key, value FROM {self.tablename}"
         if cond_sql:
-            sql = f"SELECT key, value FROM {self.tablename} WHERE {cond_sql}"
-        else:
-            sql = f"SELECT key, value FROM {self.tablename}"
+            sql += f" WHERE {cond_sql}"
 
         cursor = self._conn.execute(sql)
         for row in cursor:
