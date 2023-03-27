@@ -1,5 +1,6 @@
-import { FacetFilterInput, AndFilterInput } from '../../../types.generated';
+import { FacetFilterInput, AndFilterInput, QuickFilter, EntityType } from '../../../types.generated';
 import { FilterSet } from '../../entity/shared/components/styled/search/types';
+import { QuickFilterField } from '../autoComplete/quickFilters/utils';
 import { UnionType } from './constants';
 
 /**
@@ -162,3 +163,33 @@ export const mergeFilterSets = (filterSet1: FilterSet, filterSet2: FilterSet): A
     }
     return [];
 };
+
+function generateFilterInputFromQuickFilter(selectedQuickFilter: QuickFilter) {
+    return { field: selectedQuickFilter.field, values: [selectedQuickFilter.value] };
+}
+
+/**
+ * Generates a list of a singular facet filter with the selected quick filter.
+ * If no selected quick filter, return an empty list
+ */
+export function getFiltersWithQuickFilter(selectedQuickFilter: QuickFilter | null) {
+    const filters: FacetFilterInput[] = [];
+    if (selectedQuickFilter) {
+        filters.push(generateFilterInputFromQuickFilter(selectedQuickFilter));
+    }
+    return filters;
+}
+
+export function getAutoCompleteInputFromQuickFilter(selectedQuickFilter: QuickFilter | null) {
+    const filters: FacetFilterInput[] = [];
+    const types: EntityType[] = [];
+    if (selectedQuickFilter) {
+        if (selectedQuickFilter.field === QuickFilterField.Entity) {
+            types.push(selectedQuickFilter.value as EntityType);
+        } else if (selectedQuickFilter.field === QuickFilterField.Platform) {
+            filters.push(generateFilterInputFromQuickFilter(selectedQuickFilter));
+        }
+    }
+
+    return { filters, types };
+}
