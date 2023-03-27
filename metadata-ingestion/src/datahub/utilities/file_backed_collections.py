@@ -262,7 +262,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             raise KeyError(key)
 
     def mark_dirty(self, key: str) -> None:
-        if key in self._active_object_cache:
+        if key in self._active_object_cache and not self._active_object_cache[key][1]:
             self._active_object_cache[key] = self._active_object_cache[key][0], True
 
     def __iter__(self) -> Iterator[str]:
