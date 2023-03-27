@@ -37,6 +37,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -163,11 +164,10 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
     @Override
     public AutoCompleteResults autoComplete(@Nonnull String query,
                                             @Nullable String field,
-                                            @Nullable List<FacetFilterInput> filters,
+                                            @Nullable Filter filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, facetFilters, limit, context.getAuthentication());
+        final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
