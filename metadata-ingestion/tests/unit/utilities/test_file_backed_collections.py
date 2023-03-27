@@ -142,7 +142,7 @@ def test_custom_serde() -> None:
 
     assert cache["second"] == second
     assert cache["first"] == first
-    assert serializer_calls == 4  # Items written to cache on every access
+    assert serializer_calls == 2
     assert deserializer_calls == 2
 
 
@@ -163,6 +163,7 @@ def test_file_dict_stores_counter() -> None:
                 cache[str(i)][str(j)] += 100
                 in_memory_counters[i][str(j)] += 100
             cache[str(i)][str(j)] += j
+            cache.mark_dirty(str(i))
             in_memory_counters[i][str(j)] += j
 
     for i in range(n):

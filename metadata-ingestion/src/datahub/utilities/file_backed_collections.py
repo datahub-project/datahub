@@ -24,6 +24,8 @@ from typing import (
     Union,
 )
 
+from datahub.ingestion.api.closeable import Closeable
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 _DEFAULT_FILE_NAME = "sqlite.db"
@@ -132,7 +134,7 @@ def _default_deserializer(value: Any) -> Any:
 
 
 @dataclass(eq=False)
-class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
+class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
     """
     A dict-like object that stores its data in a temporary SQLite database.
     This is useful for storing large amounts of data that don't fit in memory.
@@ -154,7 +156,10 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     _conn: ConnectionWrapper = field(init=False, repr=False)
 
     # To improve performance, we maintain an in-memory LRU cache using an OrderedDict.
-    _active_object_cache: OrderedDict[str, _VT] = field(init=False, repr=False)
+    # Maintains a dirty bit marking whether the value has been modified since it was persisted.
+    _active_object_cache: OrderedDict[str, Tuple[_VT, bool]] = field(
+        init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         assert (
@@ -191,8 +196,8 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
                 f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
 
-    def _add_to_cache(self, key: str, value: _VT) -> None:
-        self._active_object_cache[key] = value
+    def _add_to_cache(self, key: str, value: _VT, dirty: bool) -> None:
+        self._active_object_cache[key] = value, dirty
 
         if len(self._active_object_cache) > self.cache_max_size:
             # Try to prune in batches rather than one at a time.
@@ -204,14 +209,15 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     def _prune_cache(self, num_items_to_prune: int) -> None:
         items_to_write: List[Tuple[SqliteValue, ...]] = []
         for _ in range(num_items_to_prune):
-            key, value = self._active_object_cache.popitem(last=False)
-
-            values = [key, self.serializer(value)]
-            for column_serializer in self.extra_columns.values():
-                values.append(column_serializer(value))
-            items_to_write.append(tuple(values))
+            key, (value, dirty) = self._active_object_cache.popitem(last=False)
+            if dirty:
+                values = [key, self.serializer(value)]
+                for column_serializer in self.extra_columns.values():
+                    values.append(column_serializer(value))
+                items_to_write.append(tuple(values))
 
         if items_to_write:
+            print("WRITING")
             self._conn.executemany(
                 f"""INSERT OR REPLACE INTO {self.tablename} (
                     key,
@@ -228,7 +234,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     def __getitem__(self, key: str) -> _VT:
         if key in self._active_object_cache:
             self._active_object_cache.move_to_end(key)
-            return self._active_object_cache[key]
+            return self._active_object_cache[key][0]
 
         cursor = self._conn.execute(
             f"SELECT value FROM {self.tablename} WHERE key = ?", (key,)
@@ -238,11 +244,11 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             raise KeyError(key)
 
         deserialized_result = self.deserializer(result[0])
-        self._add_to_cache(key, deserialized_result)
+        self._add_to_cache(key, deserialized_result, False)
         return deserialized_result
 
     def __setitem__(self, key: str, value: _VT) -> None:
-        self._add_to_cache(key, value)
+        self._add_to_cache(key, value, True)
 
     def __delitem__(self, key: str) -> None:
         in_cache = False
@@ -256,9 +262,13 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         if not in_cache and not n_deleted:
             raise KeyError(key)
 
+    def mark_dirty(self, key: str) -> None:
+        if key in self._active_object_cache:
+            self._active_object_cache[key] = self._active_object_cache[key][0], True
+
     def __iter__(self) -> Iterator[str]:
         # Cache should be small, so safe list cast to avoid mutation during iteration
-        cache_keys = list(self._active_object_cache.keys())
+        cache_keys = set(self._active_object_cache.keys())
         yield from cache_keys
 
         cursor = self._conn.execute(f"SELECT key FROM {self.tablename}")
@@ -266,10 +276,13 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             if row[0] not in cache_keys:
                 yield row[0]
 
-    def items(self) -> Iterator[Tuple[str, _VT]]:
-        # Implement manually to avoid __getitem__ calls
-        cache_keys = list(self._active_object_cache.keys())
-        yield from self._active_object_cache.items()
+    def items_snapshot(self) -> Iterator[Tuple[str, _VT]]:
+        """Return a fixed snapshot, rather than a view, of the dictionary's items.
+
+        Provides better performance over standard `items()` method
+        """
+        cache_keys = set(self._active_object_cache.keys())
+        yield from ((k, v[0]) for k, v in self._active_object_cache.items())
 
         cursor = self._conn.execute(f"SELECT key, value FROM {self.tablename}")
         for row in cursor:
@@ -291,10 +304,6 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             f"SELECT key, value FROM {self.tablename} WHERE {cond_sql}"
         ):
             yield row[0], self.deserializer(row[1])
-
-    def values(self) -> Iterator[_VT]:
-        # Implement manually to avoid __getitem__ calls
-        return (value for _, value in self.items())
 
     def __len__(self) -> int:
         cursor = self._conn.execute(
@@ -349,17 +358,6 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             self._conn = None  # type: ignore
 
     def __del__(self) -> None:
-        self.close()
-
-    def __enter__(self) -> "FileBackedDict":
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
-    ) -> None:
         self.close()
 
 
