@@ -12,6 +12,7 @@ from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
+from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -45,7 +46,7 @@ class DatahubClientConfig(ConfigModel):
     retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
-    max_threads: int = 1
+    max_threads: int = 15
     disable_ssl_verification: bool = False
 
 
@@ -131,10 +132,16 @@ class DataHubGraph(DatahubRestEmitter):
         :param version: The version of the aspect to retrieve. The default of 0 means latest. Versions > 0 go from oldest to newest, so 1 is the oldest.
         :return: the Aspect as a dictionary if present, None if no aspect was found (HTTP status 404)
 
+        :raises TypeError: if the aspect type is a timeseries aspect
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
 
         aspect = aspect_type.ASPECT_NAME
+        if aspect in TIMESERIES_ASPECT_MAP:
+            raise TypeError(
+                'Cannot get a timeseries aspect using "get_aspect". Use "get_latest_timeseries_value" instead.'
+            )
+
         url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
         response = self._session.get(url)
         if response.status_code == 404:
