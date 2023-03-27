@@ -423,13 +423,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (args.urnLike != null) {
       exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
     }
-    return  exp.orderBy()
-            .asc(EbeanAspectV2.URN_COLUMN)
-            .orderBy()
-            .asc(EbeanAspectV2.ASPECT_COLUMN)
-            .setFirstRow(args.start)
-            .setMaxRows(args.batchSize)
-            .findPagedList();
+    Query<EbeanAspectV2> query = exp.setFirstRow(args.start).setMaxRows(args.batchSize);
+    if (args.sortUrn == null || args.sortUrn == RestoreIndicesArgs.Sort.ASC) {
+      query = query.orderBy().asc(EbeanAspectV2.URN_COLUMN);
+    }
+    if (args.sortUrn == RestoreIndicesArgs.Sort.DESC) {
+      query = query.orderBy().desc(EbeanAspectV2.URN_COLUMN);
+    }
+    if (args.sortAspects == null || args.sortAspects == RestoreIndicesArgs.Sort.ASC) {
+      query = query.orderBy().asc(EbeanAspectV2.ASPECT_COLUMN);
+    }
+    if (args.sortAspects == RestoreIndicesArgs.Sort.DESC) {
+      query = query.orderBy().desc(EbeanAspectV2.ASPECT_COLUMN);
+    }
+    return query.findPagedList();
   }
 
   @Override

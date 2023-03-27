@@ -1175,6 +1175,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             args.setBatchDelayMs(1L);
             args.setNumThreads(1);
             args.setUrn(urnStr);
+            args.setSortUrn(RestoreIndicesArgs.Sort.ASC);
+            args.setSortAspects(RestoreIndicesArgs.Sort.ASC);
             _entityService.restoreIndices(args, obj -> {
             });
 

@@ -92,6 +92,12 @@ public class SendMAEStep implements UpgradeStep {
     if (containsKey(context.parsedArgs(), RestoreIndices.URN_LIKE_ARG_NAME)) {
       result.urnLike = context.parsedArgs().get(RestoreIndices.URN_LIKE_ARG_NAME).get();
     }
+    if (containsKey(context.parsedArgs(), RestoreIndices.URN_SORT_ARG_NAME)) {
+      result.sortUrn = RestoreIndicesArgs.Sort.of(context.parsedArgs().get(RestoreIndices.URN_SORT_ARG_NAME).get());
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_SORT_ARG_NAME)) {
+      result.sortAspects = RestoreIndicesArgs.Sort.of(context.parsedArgs().get(RestoreIndices.ASPECT_SORT_ARG_NAME).get());
+    }
     return result;
   }
 

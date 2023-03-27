@@ -24,6 +24,8 @@ public class RestoreIndices implements Upgrade {
   public static final String WRITER_POOL_SIZE = "WRITER_POOL_SIZE";
   public static final String URN_ARG_NAME = "urn";
   public static final String URN_LIKE_ARG_NAME = "urnLike";
+  public static final String URN_SORT_ARG_NAME = "urnSort";
+  public static final String ASPECT_SORT_ARG_NAME = "aspectSort";
 
   private final List<UpgradeStep> _steps;
 
