@@ -1067,12 +1067,13 @@ class LookerUser:
         )
 
     def get_urn(self, strip_user_ids_from_email: bool) -> Optional[str]:
-        if self.email is None:
+        user = self.email
+        if user and strip_user_ids_from_email:
+            user = user.split("@")[0]
+
+        if not user:
             return None
-        if strip_user_ids_from_email:
-            return builder.make_user_urn(self.email.split("@")[0])
-        else:
-            return builder.make_user_urn(self.email)
+        return builder.make_user_urn(user)
 
 
 @dataclass
