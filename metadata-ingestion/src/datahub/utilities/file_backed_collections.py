@@ -217,7 +217,6 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
                 items_to_write.append(tuple(values))
 
         if items_to_write:
-            print("WRITING")
             self._conn.executemany(
                 f"""INSERT OR REPLACE INTO {self.tablename} (
                     key,
