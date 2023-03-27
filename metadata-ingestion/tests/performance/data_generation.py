@@ -9,7 +9,7 @@ This is a work in progress, built piecemeal as needed.
 """
 import random
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, TypeVar
 
@@ -39,7 +39,7 @@ class NormalDistribution:
     def sample(self) -> int:
         return int(random.gauss(mu=self.mu, sigma=self.sigma))
 
-    def sample_with_floor(self, floor=1) -> int:
+    def sample_with_floor(self, floor: int = 1) -> int:
         return max(int(random.gauss(mu=self.mu, sigma=self.sigma)), floor)
 
 

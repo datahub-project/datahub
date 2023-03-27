@@ -3,6 +3,7 @@ import os
 import random
 import sys
 from datetime import timedelta
+from typing import Generator
 
 import humanfriendly
 import psutil
@@ -22,7 +23,7 @@ from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.utilities.perf_timer import PerfTimer
 
 
-def set_log_level(logger: logging.Logger, level: int):
+def set_log_level(logger: logging.Logger, level: int) -> Generator[None, None, None]:
     old_log_level = logger.level
     try:
         logger.setLevel(level)
@@ -84,7 +85,7 @@ def test_bigquery_usage(report_log_level_info):
 
     report.set_project_state("All", "Event Ingestion")
     with PerfTimer() as timer:
-        # TODO: Replace with call to usage extractor
+        assert usage_extractor, table_refs  # TODO: Replace with call to usage extractor
         num_workunits = sum(1 for _ in [])
         report.set_project_state("All", "Done")
         print(f"Workunits Generated: {num_workunits}")
