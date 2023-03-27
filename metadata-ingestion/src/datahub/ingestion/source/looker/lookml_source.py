@@ -20,7 +20,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.git import GitInfo
-from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
