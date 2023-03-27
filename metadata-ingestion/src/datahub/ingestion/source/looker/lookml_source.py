@@ -1281,12 +1281,18 @@ class LookMLSource(StatefulIngestionSourceBase):
         self, looker_view: LookerView
     ) -> Optional[UpstreamLineage]:
         upstreams = []
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
         for sql_table_name in looker_view.sql_table_names:
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
             upstream_dataset_urn: str = self._construct_datalineage_urn(
                 sql_table_name, looker_view
             )
-            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            upstream = UpstreamClass(
+                dataset=upstream_dataset_urn,
+                type=DatasetLineageTypeClass.VIEW,
+            )
+            upstreams.append(upstream)
+
             if self.source_config.extract_column_level_lineage and (
                 looker_view.view_details is not None
                 and looker_view.view_details.viewLanguage
@@ -1311,12 +1317,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                             ],
                         )
                         fine_grained_lineages.append(fine_grained_lineage)
-
-            upstream = UpstreamClass(
-                dataset=upstream_dataset_urn,
-                type=DatasetLineageTypeClass.VIEW,
-            )
-            upstreams.append(upstream)
 
         if upstreams != []:
             return UpstreamLineage(
