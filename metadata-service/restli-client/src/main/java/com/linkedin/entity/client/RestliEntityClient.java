@@ -237,13 +237,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nullable String field,
+      @Nullable Filter requestFilters, @Nonnull int limit, @Nullable String field,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionAutocomplete()
         .entityParam(entityType)
         .queryParam(query)
         .fieldParam(field)
-        .filterParam(newFilter(requestFilters))
+        .filterParam(filterOrDefaultEmptyFilter(requestFilters))
         .limitParam(limit);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
@@ -259,12 +259,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nonnull final Authentication authentication)
+      @Nullable Filter requestFilters, @Nonnull int limit, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionAutocomplete()
         .entityParam(entityType)
         .queryParam(query)
-        .filterParam(newFilter(requestFilters))
+        .filterParam(filterOrDefaultEmptyFilter(requestFilters))
         .limitParam(limit);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
@@ -835,5 +835,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public static Criterion newCriterion(@Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
     return new Criterion().setField(field).setValue(value).setCondition(condition);
+  }
+
+  @Nonnull
+  public static Filter filterOrDefaultEmptyFilter(@Nullable Filter filter) {
+    return filter != null ? filter : new Filter().setOr(new ConjunctiveCriterionArray());
   }
 }
