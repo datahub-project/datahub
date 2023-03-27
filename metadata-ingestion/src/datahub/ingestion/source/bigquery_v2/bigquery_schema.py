@@ -189,7 +189,7 @@ FROM
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ({BigqueryTableType.BASE_TABLE}, {BigqueryTableType.EXTERNAL})
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -216,7 +216,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ({BigqueryTableType.BASE_TABLE}, {BigqueryTableType.EXTERNAL})
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -244,7 +244,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ({BigqueryTableType.VIEW}, {BigqueryTableType.MATERIALIZED_VIEW})
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
@@ -266,7 +266,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ({BigqueryTableType.VIEW}, {BigqueryTableType.MATERIALIZED_VIEW})
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
