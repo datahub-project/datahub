@@ -33,6 +33,7 @@ export default function FilterOption({
             setSelectedFilterValues([...selectedFilterValues, aggregation.value]);
         }
     }
+
     return (
         <FilterOptionWrapper>
             <Checkbox
