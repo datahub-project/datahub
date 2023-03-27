@@ -888,7 +888,7 @@ class LookerView:
                 view_lang = VIEW_LANGUAGE_LOOKML
 
                 # TODO figure this out
-                breakpoint()
+                # breakpoint()
 
             materialized = False
             for k in derived_table:
@@ -900,43 +900,32 @@ class LookerView:
             view_details = ViewProperties(
                 materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
             )
-
-            return LookerView(
-                id=LookerViewId(
-                    project_name=project_name,
-                    model_name=model_name,
-                    view_name=view_name,
-                ),
-                absolute_file_path=looker_viewfile.absolute_file_path,
-                connection=connection,
-                sql_table_names=sql_table_names,
-                fields=fields,
-                raw_file_content=looker_viewfile.raw_file_content,
-                view_details=view_details,
+        else:
+            # If not a derived table, then this view essentially wraps an existing
+            # object in the database. If sql_table_name is set, there is a single
+            # dependency in the view, on the sql_table_name.
+            # Otherwise, default to the view name as per the docs:
+            # https://docs.looker.com/reference/view-params/sql_table_name-for-view
+            sql_table_names = (
+                [view_name] if sql_table_name is None else [sql_table_name]
+            )
+            view_details = ViewProperties(
+                materialized=False,
+                viewLogic=view_logic,
+                viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
-        # If not a derived table, then this view essentially wraps an existing
-        # object in the database. If sql_table_name is set, there is a single
-        # dependency in the view, on the sql_table_name.
-        # Otherwise, default to the view name as per the docs:
-        # https://docs.looker.com/reference/view-params/sql_table_name-for-view
-        sql_table_names = [view_name] if sql_table_name is None else [sql_table_name]
-        output_looker_view = LookerView(
+        return LookerView(
             id=LookerViewId(
                 project_name=project_name, model_name=model_name, view_name=view_name
             ),
             absolute_file_path=looker_viewfile.absolute_file_path,
-            sql_table_names=sql_table_names,
             connection=connection,
+            sql_table_names=sql_table_names,
             fields=fields,
             raw_file_content=looker_viewfile.raw_file_content,
-            view_details=ViewProperties(
-                materialized=False,
-                viewLogic=view_logic,
-                viewLanguage=VIEW_LANGUAGE_LOOKML,
-            ),
+            view_details=view_details,
         )
-        return output_looker_view
 
     @classmethod
     def _extract_metadata_from_derived_table_sql(
