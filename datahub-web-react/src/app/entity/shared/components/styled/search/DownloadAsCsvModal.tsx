@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { Button, Input, Modal } from 'antd';
 import { useLocation } from 'react-router';
 
-import { EntityType, AndFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
-import { SearchResultsInterface } from './types';
+import {
+    EntityType,
+    AndFilterInput,
+    ScrollAcrossEntitiesInput,
+    ScrollResults,
+} from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -12,23 +16,25 @@ import analytics, { EventType } from '../../../../../analytics';
 
 type Props = {
     callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
-    }) => Promise<SearchResultsInterface | null | undefined>;
+        input: ScrollAcrossEntitiesInput;
+    }) => Promise<ScrollResults | null | undefined>;
     entityFilters: EntityType[];
     filters: AndFilterInput[];
     query: string;
+    viewUrn?: string;
     setIsDownloadingCsv: (isDownloadingCsv: boolean) => any;
     showDownloadAsCsvModal: boolean;
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 1000;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 500;
 
 export default function DownloadAsCsvModal({
     callSearchOnVariables,
     entityFilters,
     filters,
     query,
+    viewUrn,
     setIsDownloadingCsv,
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
@@ -45,7 +51,9 @@ export default function DownloadAsCsvModal({
         setIsDownloadingCsv(true);
         console.log('preparing your csv');
 
+        let nextScrollId: string | null = null;
         let downloadPage = 0;
+        // let total = 0;
         let accumulatedResults: string[][] = [];
 
         analytics.event({
@@ -59,11 +67,12 @@ export default function DownloadAsCsvModal({
             console.log('fetch page number ', downloadPage);
             callSearchOnVariables({
                 input: {
+                    scrollId: nextScrollId,
                     types: entityFilters,
                     query,
-                    start: SEARCH_PAGE_SIZE_FOR_DOWNLOAD * downloadPage,
                     count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
                     orFilters: filters,
+                    viewUrn,
                 },
             }).then((refetchData) => {
                 console.log('fetched data for page number ', downloadPage);
@@ -71,8 +80,10 @@ export default function DownloadAsCsvModal({
                     ...accumulatedResults,
                     ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry),
                 ];
-                if ((refetchData?.start || 0) + (refetchData?.count || 0) < (refetchData?.total || 0)) {
+                if (refetchData?.nextScrollId) {
                     downloadPage += 1;
+                    // total = refetchData?.total;
+                    nextScrollId = refetchData?.nextScrollId;
                     fetchNextPage();
                 } else {
                     setIsDownloadingCsv(false);
@@ -84,7 +95,6 @@ export default function DownloadAsCsvModal({
                 }
             });
         }
-
         fetchNextPage();
     };
 

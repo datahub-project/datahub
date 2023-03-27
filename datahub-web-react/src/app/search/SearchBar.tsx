@@ -10,7 +10,6 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { getEntityPath } from '../entity/shared/containers/profile/utils';
 import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
 import AutoCompleteItem, { SuggestionContainer } from './autoComplete/AutoCompleteItem';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import QuickFilters from './autoComplete/quickFilters/QuickFilters';
@@ -19,6 +18,7 @@ import usePrevious from '../shared/usePrevious';
 import analytics, { Event, EventType } from '../analytics';
 import RecommendedOption from './autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
+import { useUserContext } from '../context/useUserContext';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
@@ -145,19 +145,19 @@ export const SearchBar = ({
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
-    const userUrn = useGetAuthenticatedUserUrn();
+    const userUrn = useUserContext().user?.urn;
 
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {
-                userUrn,
+                userUrn: userUrn as string,
                 requestContext: {
                     scenario: ScenarioType.SearchBar,
                 },
                 limit: 1,
             },
         },
-        skip: hideRecommendations,
+        skip: hideRecommendations || !userUrn,
     });
 
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
@@ -213,6 +213,13 @@ export const SearchBar = ({
             onQueryChange(searchQuery);
         }
     });
+
+    // clear quick filters when this search bar is unmounted (ie. going from search results to home page)
+    useEffect(() => {
+        return () => {
+            setSelectedQuickFilter(null);
+        };
+    }, [setSelectedQuickFilter]);
 
     const quickFilterOption = useMemo(() => {
         return showQuickFilters && quickFilters && quickFilters.length > 0 ? [QUICK_FILTER_AUTO_COMPLETE_OPTION] : [];

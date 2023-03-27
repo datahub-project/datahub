@@ -11,8 +11,13 @@ if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
 
+def get_coverage_arg(test_name) {
+  return "--cov-report term --cov-report xml:coverage_${test_name}.xml "
+}
+
 task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
+  commandLine python_executable, '-c',
+    'import sys; assert (3, 11) > sys.version_info >= (3, 7), f"Python version {sys.version_info[:2]} not allowed"'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
@@ -22,10 +27,22 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
 }
 
 task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
+  def sentinel_file = ".preflight_sentinel"
+  outputs.file(sentinel_file)
   commandLine "scripts/datahub_preflight.sh"
+  commandLine 'bash', '-c', "touch ${sentinel_file}"
 }
 
-task installPackage(type: Exec, dependsOn: runPreFlightScript) {
+task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
+  def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e ."
+  commandLine 'bash', '-c', "touch ${sentinel_file}"
+}
+
+task installPackage(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e . ${extra_pip_requirements}"
@@ -40,25 +57,27 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
 task install(dependsOn: [installPackage, codegen])
 
 task installDev(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_dev_sentinel")
+  outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
     "./scripts/install-sqlalchemy-stubs.sh && " +
-    "touch ${venv_name}/.build_install_dev_sentinel"
+    "touch ${sentinel_file}"
 }
 
 task installAll(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_all_sentinel"
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_all_sentinel")
+  outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[all] ${extra_pip_requirements} && " +
     "./scripts/install-sqlalchemy-stubs.sh && " +
-    "touch ${venv_name}/.build_install_all_sentinel"
+    "touch ${sentinel_file}"
 }
 
 
@@ -106,16 +125,18 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
+  def cvg_arg = get_coverage_arg("quick")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not integration and not integration_batch_1 and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'not integration and not integration_batch_1 and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task installDevTest(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_dev_test_sentinel")
+  outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "${venv_name}/bin/pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${venv_name}/.build_install_dev_test_sentinel"
+    "${venv_name}/bin/pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${sentinel_file}"
 }
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'
@@ -133,13 +154,15 @@ task testSingle(dependsOn: [installDevTest]) {
 }
 
 task testIntegration(type: Exec, dependsOn: [installDevTest]) {
+  def cvg_arg = get_coverage_arg("int")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=50 -m 'integration' -vv --continue-on-collection-errors --junit-xml=junit.integration.xml"
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration' -vv --continue-on-collection-errors --junit-xml=junit.integration.xml"
 }
 
 task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
+  def cvg_arg = get_coverage_arg("intBatch1")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
@@ -148,12 +171,16 @@ task testFull(type: Exec, dependsOn: [installDevTest]) {
 }
 
 task testSlowIntegration(type: Exec, dependsOn: [installDevTest]) {
+  def cvg_arg = get_coverage_arg("intSlow")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.slow.integration.xml"
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.slow.integration.xml"
 }
 
 task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
+}
+task buildWheel(type: Exec, dependsOn: [install, codegen]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 
@@ -176,6 +203,7 @@ clean {
   delete 'generated'
   delete '.mypy_cache'
   delete '.pytest_cache'
+  delete '.preflight_sentinel'
 }
 clean.dependsOn cleanPythonCache
 

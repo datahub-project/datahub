@@ -459,7 +459,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
         @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-        @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+        @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
       GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
       response.setEntityName(entity);
