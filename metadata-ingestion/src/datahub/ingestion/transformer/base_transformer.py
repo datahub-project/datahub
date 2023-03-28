@@ -9,6 +9,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import ControlRecord, EndOfStream, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
+    ChartSnapshotClass,
+    DashboardSnapshotClass,
     DataFlowSnapshotClass,
     DataJobSnapshotClass,
     DatasetSnapshotClass,
@@ -60,6 +62,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             "dataset": DatasetSnapshotClass,
             "dataFlow": DataFlowSnapshotClass,
             "dataJob": DataJobSnapshotClass,
+            "chart": ChartSnapshotClass,
+            "dashboard": DashboardSnapshotClass,
         }
         mixedin = False
         for mixin in [LegacyMCETransformer, SingleAspectTransformer]:
@@ -83,7 +87,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         if "*" in entity_types:
             return True
         if isinstance(record, MetadataChangeEventClass):
-            for e in entity_types:
+            for e in set(entity_types) & set(self.entity_type_mappings.keys()):
                 assert (
                     e in self.entity_type_mappings
                 ), f"Do not have a class mapping for {e}. Subscription to this entity will not work for transforming MCE-s"
