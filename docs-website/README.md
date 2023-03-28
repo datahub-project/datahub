@@ -37,9 +37,10 @@ To regenerate GraphQL API docs, simply rebuild the docs-website directory.
 
 ## Install Pre-commit
 
-Run the following command to install pre-commit.
+Run the following command to install pre-commit. 
 
 ```shell
+pip install pre-commit 
 pre-commit install
 ```
 
