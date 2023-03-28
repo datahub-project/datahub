@@ -9,6 +9,7 @@ import pydantic
 
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -61,26 +62,33 @@ class BigQueryV2Report(ProfilingSqlReport):
     invalid_partition_ids: Dict[str, str] = field(default_factory=TopKDict)
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
-    num_usage_workunits_emitted: Optional[int] = None
-    query_log_delay: Optional[int] = None
-    total_query_log_entries: Optional[int] = None
-    num_read_events: Optional[int] = None
-    num_query_events: Optional[int] = None
-    num_filtered_read_events: Optional[int] = None
-    num_filtered_query_events: Optional[int] = None
-    num_operational_stats_workunits_emitted: Optional[int] = None
+    num_usage_workunits_emitted: int = 0
+    total_query_log_entries: int = 0
+    num_read_events: int = 0
+    num_query_events: int = 0
+    num_filtered_read_events: int = 0
+    num_filtered_query_events: int = 0
+    num_operational_stats_workunits_emitted: int = 0
     read_reasons_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
     operation_types_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
-    current_project_status: Optional[Dict[str, Dict[str, datetime]]] = None
+    current_project_status: Optional[str] = None
+
+    timer: Optional[PerfTimer] = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def set_project_state(self, project: str, stage: str) -> None:
-        if self.current_project_status:
+        if self.timer:
             logger.info(
-                "Previous project state was: %s",
-                self.to_pure_python_obj(self.current_project_status),
+                f"Time spent in stage {self.current_project_status}: "
+                f"{self.timer.elapsed_seconds():.2f} seconds"
             )
-        self.current_project_status = {project: {stage: datetime.now()}}
+        else:
+            self.timer = PerfTimer()
+
+        self.current_project_status = f"{project}: {stage} at {datetime.now()}"
+        self.timer.start()
