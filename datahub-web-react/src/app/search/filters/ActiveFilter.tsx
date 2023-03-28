@@ -18,11 +18,11 @@ const ActiveFilterWrapper = styled.div`
     margin: 8px 8px 0 0;
 `;
 
-const Label = styled(Typography.Text)`
+export const Label = styled(Typography.Text)`
     max-width: 125px;
 `;
 
-const IconSpacer = styled.span`
+export const IconSpacer = styled.span`
     width: 4px;
 `;
 

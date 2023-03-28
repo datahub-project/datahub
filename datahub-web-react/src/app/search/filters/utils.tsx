@@ -33,8 +33,8 @@ export function getFilterEntity(filterField: string, filterValue: string, availa
     );
 }
 
-export const PlatformIcon = styled.img`
-    max-height: 12px;
+export const PlatformIcon = styled.img<{ size?: number }>`
+    max-height: ${(props) => (props.size ? props.size : 12)}px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
@@ -45,23 +45,24 @@ export function getFilterIconAndLabel(
     filterValue: string,
     entityRegistry: EntityRegistry,
     filterEntity: Entity | null,
+    size?: number,
 ) {
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
 
     if (filterField === ENTITY_FILTER_NAME) {
-        icon = entityRegistry.getIcon(filterValue as EntityType, 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     } else if (filterField === PLATFORM_FILTER_NAME) {
         const logoUrl = (filterEntity as DataPlatform)?.properties?.logoUrl;
         icon = logoUrl ? (
-            <PlatformIcon src={logoUrl} />
+            <PlatformIcon src={logoUrl} size={size} />
         ) : (
-            entityRegistry.getIcon(EntityType.DataPlatform, 12, IconStyleType.ACCENT, ANTD_GRAY[9])
+            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
         );
         label = entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity);
     } else if (filterEntity) {
-        icon = entityRegistry.getIcon(filterEntity.type, 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
     } else {
         label = filterValue;
