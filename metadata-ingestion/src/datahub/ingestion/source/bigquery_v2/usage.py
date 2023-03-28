@@ -87,26 +87,18 @@ def bigquery_audit_metadata_query_template(
               where REGEXP_CONTAINS(x, r'(projects/.*/datasets/.*/tables/{table_allow_filter if table_allow_filter else ".*"})'))
     """
 
-    query: str
+    limit_text = f"limit {limit}" if limit else ""
+
+    shard_condition = ""
     if use_date_sharded_tables:
-        query = (
-            f"""
-        SELECT
-            timestamp,
-            logName,
-            insertId,
-            protopayload_auditlog AS protoPayload,
-            protopayload_auditlog.metadataJson AS metadata
-        FROM
-            `{dataset}.cloudaudit_googleapis_com_data_access_*`
-        """
-            + """
-        WHERE
-            _TABLE_SUFFIX BETWEEN "{start_time}" AND "{end_time}"
-        """
+        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access_*`"
+        shard_condition = (
+            """ AND _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" """
         )
     else:
-        query = f"""
+        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access`"
+
+    query = f"""
         SELECT
             timestamp,
             logName,
@@ -114,33 +106,24 @@ def bigquery_audit_metadata_query_template(
             protopayload_auditlog AS protoPayload,
             protopayload_auditlog.metadataJson AS metadata
         FROM
-            `{dataset}.cloudaudit_googleapis_com_data_access`
-        WHERE 1=1
-        """
-    audit_log_filter_timestamps = """AND (timestamp >= "{start_time}"
-        AND timestamp < "{end_time}"
-    );
-    """
-    audit_log_filter_query_complete = f"""
-    AND (
-            (
-                protopayload_auditlog.serviceName="bigquery.googleapis.com"
-                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-                {allow_filter}
-            )
+            {from_table}
+        WHERE (
+            timestamp >= "{{start_time}}"
+            AND timestamp < "{{end_time}}"
+        )
+        {shard_condition}
+        AND (
+                (
+                    protopayload_auditlog.serviceName="bigquery.googleapis.com"
+                    AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+                    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+                    {allow_filter}
+                )
             OR
             JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
-    )
+        )
+        {limit_text};
     """
-
-    limit_text = f"limit {limit}" if limit else ""
-    query = (
-        textwrap.dedent(query)
-        + audit_log_filter_query_complete
-        + audit_log_filter_timestamps
-        + limit_text
-    )
 
     return textwrap.dedent(query)
 
@@ -271,22 +254,14 @@ class BigQueryUsageExtractor:
         if self.config.bigquery_audit_metadata_datasets is None:
             return
 
-        start_time: str = (
-            self.config.start_time - self.config.max_query_duration
-        ).strftime(
-            BQ_DATE_SHARD_FORMAT
-            if self.config.use_date_sharded_audit_log_tables
-            else BQ_DATETIME_FORMAT
-        )
+        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
+        start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time
 
-        end_time: str = (
-            self.config.end_time + self.config.max_query_duration
-        ).strftime(
-            BQ_DATE_SHARD_FORMAT
-            if self.config.use_date_sharded_audit_log_tables
-            else BQ_DATETIME_FORMAT
-        )
+        corrected_end_time = self.config.end_time + self.config.max_query_duration
+        end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
+        end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_end_time = end_time
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
@@ -295,10 +270,15 @@ class BigQueryUsageExtractor:
             )
 
             query = bigquery_audit_metadata_query_template(
-                dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
+                dataset,
+                self.config.use_date_sharded_audit_log_tables,
+                allow_filter,
+                limit=limit,
             ).format(
                 start_time=start_time,
                 end_time=end_time,
+                start_date=start_date,
+                end_date=end_date,
             )
 
             query_job = bigquery_client.query(query)
@@ -627,6 +607,7 @@ class BigQueryUsageExtractor:
         self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
     ) -> Iterable[Union[ReadEvent, QueryEvent]]:
         for audit_metadata in audit_metadata_rows:
+
             event: Optional[Union[QueryEvent, ReadEvent]] = None
             missing_query_event_exported_audit = (
                 QueryEvent.get_missing_key_exported_bigquery_audit_metadata(
