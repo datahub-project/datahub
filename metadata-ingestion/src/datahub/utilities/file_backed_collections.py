@@ -266,7 +266,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             self._active_object_cache[key] = self._active_object_cache[key][0], True
 
     def __iter__(self) -> Iterator[str]:
-        # Cache should be small, so safe list cast to avoid mutation during iteration
+        # Cache should be small, so safe set cast to avoid mutation during iteration
         cache_keys = set(self._active_object_cache.keys())
         yield from cache_keys
 

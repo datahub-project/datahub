@@ -1,9 +1,10 @@
+import itertools
 import logging
 import textwrap
 import time
 import traceback
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from types import TracebackType
 from typing import (
@@ -11,6 +12,7 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Set,
@@ -172,6 +174,7 @@ class BigQueryUsageState:
                 ),
                 "user": lambda e: e.actor_email,
             },
+            cache_max_size=config.file_backed_cache_size,
         )
         # Keyed by job_name
         self.query_events = FileBackedDict[QueryEvent](
@@ -181,12 +184,14 @@ class BigQueryUsageState:
                 "query": lambda e: e.query,
                 "is_read": lambda e: int(e.statementType in READ_STATEMENT_TYPES),
             },
+            cache_max_size=config.file_backed_cache_size,
         )
         # Created just to store column accesses in sqlite for JOIN
         self.column_accesses = FileBackedDict[Tuple[str, str]](
             shared_connection=self.conn,
             tablename="column_accesses",
             extra_columns={"read_event": lambda p: p[0], "field": lambda p: p[1]},
+            cache_max_size=config.file_backed_cache_size,
         )
 
     def __enter__(self) -> "BigQueryUsageState":
@@ -213,6 +218,112 @@ class BigQueryUsageState:
             yield AuditEvent(read_event=read_event, query_event=query_event)
         for _, query_event in self.query_events.filtered_items("NOT is_read"):
             yield AuditEvent(query_event=query_event)
+
+    @dataclass
+    class Aggregation:
+        timestamp: str
+        resource: str
+        query_count: int = field(init=False, default=0)
+        query_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
+        user_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
+        column_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
+
+    def aggregations(self, top_n: int) -> Iterator[Aggregation]:
+        query = f"""
+        SELECT
+            r.timestamp,
+            r.resource,
+            COUNT(q.query) query_count,
+            null as query,
+            null as query_freq,
+            null as user,
+            null as user_freq,
+            null as column,
+            null as column_freq
+        FROM
+            read_events r
+            LEFT JOIN query_events q ON r.name = q.key
+        GROUP BY r.timestamp, r.resource
+
+        UNION ALL
+
+        SELECT
+            r.timestamp,
+            r.resource,
+            null as query_count,
+            null as query,
+            null as query_freq,
+            r.user as user,
+            COUNT(r.key) as user_freq,
+            null as column,
+            null as column_freq
+        FROM
+            read_events r
+        GROUP BY r.timestamp, r.resource, r.user
+
+        UNION ALL
+
+        SELECT
+            r.timestamp,
+            r.resource,
+            null as query_count,
+            null as query,
+            null as query_freq,
+            null as user,
+            null as user_freq,
+            c.field as column,
+            COUNT(r.key) as column_freq
+        FROM
+            read_events r
+            INNER JOIN column_accesses c ON r.key = c.read_event
+        GROUP BY r.timestamp, r.resource, c.field
+
+        UNION ALL
+
+        SELECT * FROM (
+            SELECT
+                r.timestamp,
+                r.resource,
+                null as query_count,
+                q.query as query,
+                COUNT(r.key) as query_freq,
+                null as user,
+                null as user_freq,
+                null as column,
+                null as column_freq
+            FROM
+                read_events r
+                LEFT JOIN query_events q ON r.name = q.key
+            GROUP BY r.timestamp, r.resource, q.query
+            ORDER BY COUNT(r.key) DESC, q.query
+            LIMIT {top_n}
+        )
+        ORDER BY timestamp, resource
+        """
+
+        rows = self.read_events.sql_query_iterator(
+            query, refs=[self.query_events, self.column_accesses]
+        )
+
+        curr: Optional[BigQueryUsageState.Aggregation] = None
+        for ts, res, query_count, query, q_freq, user, u_freq, column, c_freq in rows:
+            if curr is None:
+                curr = self.Aggregation(timestamp=ts, resource=res)
+            elif (curr.timestamp, curr.resource) != (ts, res):
+                curr.timestamp = datetime.fromisoformat(curr.timestamp)
+                curr.resource = BigQueryTableRef.from_string_name(curr.resource)
+                yield curr
+                curr = None
+            else:
+                if query_count is not None:
+                    assert curr.query_count == 0
+                    curr.query_count = query_count
+                if query is not None:
+                    curr.query_freq.append((query, q_freq))
+                if user is not None:
+                    curr.user_freq.append((user, u_freq))
+                if column is not None:
+                    curr.column_freq.append((column, c_freq))
 
     def statistics_buckets(self) -> Iterable[Tuple[str, str]]:
         query = f"""
@@ -256,7 +367,7 @@ class BigQueryUsageState:
             query, params=(timestamp, resource), refs=[self.query_events]
         )
 
-    def user_frequencies(self, timestamp: str, resource: str) -> List[Tuple[str, int]]:
+    def user_freq(self, timestamp: str, resource: str) -> List[Tuple[str, int]]:
         query = f"""
         SELECT
           r.user,
@@ -269,9 +380,7 @@ class BigQueryUsageState:
         """
         return self.read_events.sql_query(query, params=(timestamp, resource))  # type: ignore
 
-    def column_frequencies(
-        self, timestamp: str, resource: str
-    ) -> List[Tuple[str, int]]:
+    def column_freq(self, timestamp: str, resource: str) -> List[Tuple[str, int]]:
         query = f"""
         SELECT
           c.field,
@@ -313,9 +422,17 @@ class BigQueryUsageExtractor:
     def run(
         self, projects: Iterable[str], table_refs: Set[str]
     ) -> Iterable[MetadataWorkUnit]:
+        events = itertools.chain.from_iterable(
+            self._get_usage_events(project) for project in projects
+        )
+        yield from self._run(events, table_refs)
+
+    def _run(
+        self, events: Iterable[AuditEvent], table_refs: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
         try:
             with BigQueryUsageState(self.config) as usage_state:
-                self._ingest_events(projects, table_refs, usage_state)
+                self._ingest_events(events, table_refs, usage_state)
 
                 if self.config.usage.include_operational_stats:
                     yield from self._generate_operational_workunits(usage_state)
@@ -326,30 +443,28 @@ class BigQueryUsageExtractor:
 
     def _ingest_events(
         self,
-        projects: Iterable[str],
+        events: Iterable[AuditEvent],
         table_refs: Set[str],
         usage_state: BigQueryUsageState,
     ) -> None:
         """Read log and store events in usage_state."""
         num_aggregated = 0
-        for project in projects:
-            self.report.set_project_state(project, "Usage Extraction Ingestion")
-            for audit_event in self._get_usage_events(project):
-                try:
-                    num_aggregated += self._store_usage_event(
-                        audit_event, usage_state, table_refs
-                    )
-                except Exception:
-                    logger.warning(
-                        f"Unable to store usage event {audit_event}", exc_info=True
-                    )
+        for audit_event in events:
+            try:
+                num_aggregated += self._store_usage_event(
+                    audit_event, usage_state, table_refs
+                )
+            except Exception:
+                logger.warning(
+                    f"Unable to store usage event {audit_event}", exc_info=True
+                )
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
     def _generate_operational_workunits(
         self, usage_state: BigQueryUsageState
     ) -> Iterable[MetadataWorkUnit]:
         self.report.set_project_state("All", "Usage Extraction Operational Stats")
-        for audit_event in usage_state.standalone_events():
+        for i, audit_event in enumerate(usage_state.standalone_events()):
             try:
                 operational_wu = self._create_operation_workunit(audit_event)
                 if operational_wu:
@@ -358,6 +473,38 @@ class BigQueryUsageExtractor:
             except Exception:
                 logger.warning(
                     f"Unable to generate operation workunit for event {audit_event}",
+                    exc_info=True,
+                )
+
+    def _generate_usage_workunits(
+        self, usage_state: BigQueryUsageState
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.set_project_state("All", "Usage Extraction Usage Aggregation")
+        top_n = (
+            self.config.usage.top_n_queries
+            if self.config.usage.include_top_n_queries
+            else 0
+        )
+        for i, aggregation in enumerate(usage_state.aggregations(top_n=top_n)):
+            if i % 100 == 0:
+                print(i)
+            try:
+                yield make_usage_workunit(
+                    bucket_start_time=aggregation.timestamp,
+                    resource=aggregation.resource,
+                    query_count=aggregation.query_count,
+                    query_freq=aggregation.query_freq,
+                    user_freq=aggregation.user_freq,
+                    column_freq=aggregation.column_freq,
+                    bucket_duration=self.config.bucket_duration,
+                    urn_builder=lambda resource: resource.to_urn(self.config.env),
+                    top_n_queries=self.config.usage.top_n_queries,
+                    format_sql_queries=self.config.usage.format_sql_queries,
+                )
+                self.report.num_usage_workunits_emitted += 1
+            except Exception:
+                logger.warning(
+                    f"Unable to generate usage workunit for bucket {aggregation.timestamp}, {aggregation.resource}",
                     exc_info=True,
                 )
 
@@ -380,8 +527,8 @@ class BigQueryUsageExtractor:
                     resource=resource_ref,
                     query_count=usage_state.query_count(timestamp, resource),
                     query_freq=query_freq,
-                    user_freq=usage_state.user_frequencies(timestamp, resource),
-                    column_freq=usage_state.column_frequencies(timestamp, resource),
+                    user_freq=usage_state.user_freq(timestamp, resource),
+                    column_freq=usage_state.column_freq(timestamp, resource),
                     bucket_duration=self.config.bucket_duration,
                     urn_builder=lambda resource: resource.to_urn(self.config.env),
                     top_n_queries=self.config.usage.top_n_queries,
@@ -397,6 +544,7 @@ class BigQueryUsageExtractor:
     def _get_usage_events(self, project_id: str) -> Iterable[AuditEvent]:
         with PerfTimer() as timer:
             try:
+                self.report.set_project_state(project_id, "Usage Extraction Ingestion")
                 yield from self._get_parsed_bigquery_log_events(project_id)
             except Exception as e:
                 self.report.usage_failed_extraction.append(project_id)

@@ -123,9 +123,7 @@ class BigqueryTableIdentifier:
             - remove time decorator (table@1624046611000 -> table)
         """
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
-        shortened_table_name = re.sub(
-            self._BIGQUERY_WILDCARD_REGEX, "", self.table
-        )
+        shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
 
         matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:

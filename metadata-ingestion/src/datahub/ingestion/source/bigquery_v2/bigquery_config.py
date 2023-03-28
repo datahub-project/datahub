@@ -191,6 +191,12 @@ class BigQueryV2Config(
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
+    file_backed_cache_size: int = Field(
+        hidden_from_docs=True,
+        default=200,
+        description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
+    )
+
     def __init__(self, **data: Any):
         super().__init__(**data)
 
