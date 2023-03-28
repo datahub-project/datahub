@@ -4,14 +4,14 @@ import re
 import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, Iterable, List
+from typing import Any, Dict, Generator, Iterable, List, Optional
 
 import click
 import requests
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -21,8 +21,20 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.sql_common_state import (
+    BaseSQLAlchemyCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     CorpGroupSnapshot,
     CorpUserSnapshot,
@@ -36,11 +48,16 @@ from datahub.metadata.schema_classes import (
     OriginTypeClass,
     StatusClass,
 )
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class AzureADConfig(ConfigModel):
+class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     """Config to create a token and connect to Azure AD instance"""
 
     # Required
@@ -133,9 +150,14 @@ class AzureADConfig(ConfigModel):
         description="Whether workunit ID's for users should be masked to avoid leaking sensitive information.",
     )
 
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="PowerBI Stateful Ingestion Config."
+    )
+
 
 @dataclass
-class AzureADSourceReport(SourceReport):
+class AzureADSourceReport(StaleEntityRemovalSourceReport):
     filtered: List[str] = field(default_factory=list)
     filtered_tracking: bool = field(default=True, repr=False)
     filtered_count: int = field(default=0)
@@ -152,7 +174,7 @@ class AzureADSourceReport(SourceReport):
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)
-class AzureADSource(Source):
+class AzureADSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -233,7 +255,7 @@ class AzureADSource(Source):
         return cls(config, ctx)
 
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super(AzureADSource, self).__init__(config, ctx)
         self.config = config
         self.report = AzureADSourceReport(
             filtered_tracking=self.config.filtered_tracking
@@ -249,6 +271,14 @@ class AzureADSource(Source):
         self.token = self.get_token()
         self.selected_azure_ad_groups: list = []
         self.azure_ad_groups_users: list = []
+        # Create and register the stateful ingestion use-case handler.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+        )
 
     def get_token(self):
         token_response = requests.post(self.config.token_url, data=self.token_data)
@@ -265,7 +295,7 @@ class AzureADSource(Source):
             click.echo("Error: Token response invalid")
             exit()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
         # 1) the groups
         # 2) the groups' memberships
@@ -362,6 +392,14 @@ class AzureADSource(Source):
                     datahub_corp_user_snapshots,
                     datahub_corp_user_urn_to_group_membership,
                 )
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
+        )
 
     def _add_group_members_to_group_membership(
         self,
@@ -486,6 +524,7 @@ class AzureADSource(Source):
                     f"Response status code: {str(response.status_code)}. "
                     f"Response content: {str(response.content)}"
                 )
+                logger.debug(f"URL = {url}")
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_ad_data_", error_str)
                 continue
@@ -529,7 +568,9 @@ class AzureADSource(Source):
             self.config.azure_ad_response_to_groupname_regex,
         )
         if not self.config.groups_pattern.allowed(group_name):
-            self.report.report_filtered(f"{corp_group_urn}")
+            # lintFix giving error: "StatefulIngestionReport" has no attribute "report_filtered"
+            # However self.report is instance of AzureADSourceReport and hence ignoring the lint
+            self.report.report_filtered(f"{corp_group_urn}")  # type: ignore
             return
         self.selected_azure_ad_groups.append(azure_ad_group)
         corp_group_snapshot = CorpGroupSnapshot(
@@ -575,7 +616,9 @@ class AzureADSource(Source):
             if error_str is not None:
                 continue
             if not self.config.users_pattern.allowed(corp_user_urn):
-                self.report.report_filtered(f"{corp_user_urn}.*")
+                # lintFix giving error: "StatefulIngestionReport" has no attribute "report_filtered"
+                # However self.report is instance of AzureADSourceReport and hence ignoring the lint
+                self.report.report_filtered(f"{corp_user_urn}.*")  # type: ignore
                 continue
             corp_user_snapshot = CorpUserSnapshot(
                 urn=corp_user_urn,
