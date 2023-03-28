@@ -129,7 +129,9 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
     )
 
-    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
