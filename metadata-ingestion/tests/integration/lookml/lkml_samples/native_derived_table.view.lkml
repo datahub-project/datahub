@@ -10,9 +10,15 @@ view: view_derived_explore {
   derived_table: {
     explore_source: my_view_explore {
       bind_all_filters: yes
-      column: country {}
-      column: city {}
-      column: is_latest {}
+      column: country {
+        field: my_view_explore.country
+      }
+      column: city {
+        field: my_view_explore.city
+      }
+      column: is_latest {
+        field: my_view_explore.is_latest
+      }
       derived_column: derived_col {
         sql: coalesce(country, 'US') ;;
       }
@@ -26,10 +32,10 @@ view: view_derived_explore {
   }
   measure: unique_countries {
     type: count_distinct
-    sql: ${my_view_explore.country} ;;
+    sql: ${TABLE}.country ;;
   }
   measure: derived_col {
     type: sum
-    sql: ${my_view_explore.is_latest} ;;
+    sql: ${TABLE}.is_latest ;;
   }
 }

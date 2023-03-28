@@ -685,6 +685,7 @@ class LookerView:
     absolute_file_path: str
     connection: LookerConnectionDefinition
     sql_table_names: List[str]
+    upstream_explores: List[str]
     fields: List[ViewField]
     raw_file_content: str
     view_details: Optional[ViewProperties] = None
@@ -771,6 +772,11 @@ class LookerView:
                             matched_field.replace('"', "").replace("`", "").lower()
                         )
                         upstream_fields.append(matched_field)
+                else:
+                    # If no SQL is specified, we assume this is referencing an upstream field
+                    # with the same name. This commonly happens for extends and derived tables.
+                    upstream_fields.append(name)
+
             upstream_fields = sorted(list(set(upstream_fields)))
 
             field = ViewField(
@@ -855,9 +861,11 @@ class LookerView:
         # also store the view logic and materialization
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
 
+        sql_table_names: List[str] = []
+        upstream_explores: List[str] = []
+
         if derived_table is not None:
             # Derived tables can either be a SQL query or a LookML explore.
-            sql_table_names: List[str] = []
 
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
@@ -879,6 +887,8 @@ class LookerView:
                     )
 
             elif "explore_source" in derived_table:
+                # This is called a "native derived table".
+                # See https://cloud.google.com/looker/docs/creating-ndts.
                 explore_source = derived_table["explore_source"]
 
                 # We want this to render the full lkml block
@@ -887,8 +897,12 @@ class LookerView:
                 view_logic = lkml.dump(derived_table)
                 view_lang = VIEW_LANGUAGE_LOOKML
 
-                # TODO figure this out
-                # breakpoint()
+                (
+                    fields,
+                    upstream_explores,
+                ) = cls._extract_metadata_from_derived_table_explore(
+                    reporter, view_name, explore_source, fields
+                )
 
             materialized = False
             for k in derived_table:
@@ -922,6 +936,7 @@ class LookerView:
             absolute_file_path=looker_viewfile.absolute_file_path,
             connection=connection,
             sql_table_names=sql_table_names,
+            upstream_explores=upstream_explores,
             fields=fields,
             raw_file_content=looker_viewfile.raw_file_content,
             view_details=view_details,
@@ -981,6 +996,7 @@ class LookerView:
             )
             sql_table_names = sql_info.table_names
             column_names = sql_info.column_names
+
             if not fields:
                 # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
                 fields = [
@@ -988,6 +1004,9 @@ class LookerView:
                     ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
                     for c in sorted(column_names)
                 ]
+                # remove fields or sql tables that contain liquid variables
+                fields = [f for f in fields if "{%" not in f.name]
+
             if not sql_info.table_names:
                 reporter.query_parse_failures += 1
                 reporter.query_parse_failure_views.append(view_name)
@@ -998,11 +1017,42 @@ class LookerView:
                 f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
             )
 
-        # remove fields or sql tables that contain liquid variables
-        fields = [f for f in fields if "{%" not in f.name]
         sql_table_names = [table for table in sql_table_names if "{%" not in table]
 
         return fields, sql_table_names
+
+    @classmethod
+    def _extract_metadata_from_derived_table_explore(
+        cls,
+        reporter: LookMLSourceReport,
+        view_name: str,
+        explore_source: dict,
+        fields: List[ViewField],
+    ) -> Tuple[List[ViewField], List[str]]:
+        logger.debug(
+            f"Parsing explore_source from derived table section of view: {view_name}"
+        )
+
+        upstream_explores = [explore_source["name"]]
+
+        explore_columns = explore_source.get("columns", [])
+        # TODO: We currently don't support column-level lineage for derived_column.
+        # In order to support it, we'd need to parse the `sql` field of the derived_column.
+
+        # The fields in the view are actually references to the fields in the explore.
+        # As such, we need to perform an extra mapping step to update
+        # the upstream column names.
+        for field in fields:
+            for i, upstream_field in enumerate(field.upstream_fields):
+                # Find the matching column in the explore.
+                for explore_column in explore_columns:
+                    if explore_column["name"] == upstream_field:
+                        field.upstream_fields[i] = explore_column.get(
+                            "field", explore_column["name"]
+                        )
+                        break
+
+        return fields, upstream_explores
 
     @classmethod
     def resolve_extends_view_name(
@@ -1092,7 +1142,10 @@ class LookerManifest:
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Supported using the `connection_to_platform_map`",
+)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -1269,13 +1322,25 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _get_upstream_lineage(
         self, looker_view: LookerView
     ) -> Optional[UpstreamLineage]:
-        upstreams = []
-        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        # Merge dataset upstreams with sql table upstreams.
+        upstream_dataset_urns = []
+        for upstream_explore in looker_view.upstream_explores:
+            # We're creating a "LookerExplore" just to use the urn generator.
+            upstream_dataset_urn = LookerExplore(
+                name=upstream_explore, model_name=looker_view.id.model_name
+            ).get_explore_urn(self.source_config)
+            upstream_dataset_urns.append(upstream_dataset_urn)
         for sql_table_name in looker_view.sql_table_names:
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
-            upstream_dataset_urn: str = self._construct_datalineage_urn(
+            upstream_dataset_urn = self._construct_datalineage_urn(
                 sql_table_name, looker_view
             )
+            upstream_dataset_urns.append(upstream_dataset_urn)
+
+        # Generate the upstream + fine grained lineage objects.
+        upstreams = []
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        for upstream_dataset_urn in upstream_dataset_urns:
             upstream = UpstreamClass(
                 dataset=upstream_dataset_urn,
                 type=DatasetLineageTypeClass.VIEW,
