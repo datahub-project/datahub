@@ -87,7 +87,7 @@ class BigQueryV2Config(
     )
 
     number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
-        default=80,
+        default=200,
         description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
 
@@ -128,7 +128,7 @@ class BigQueryV2Config(
 
     extract_lineage_from_catalog: bool = Field(
         default=False,
-        description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/reference/data-lineage/rest",
+        description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
     )
 
     convert_urns_to_lowercase: bool = Field(

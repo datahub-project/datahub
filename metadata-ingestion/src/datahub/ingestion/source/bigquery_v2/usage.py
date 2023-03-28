@@ -59,6 +59,8 @@ OPERATION_STATEMENT_TYPES = {
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
     "CREATE_SCHEMA": OperationTypeClass.CREATE,
     "DROP_TABLE": OperationTypeClass.DROP,
+    "CREATE_VIEW": OperationTypeClass.CREATE,
+    "CREATE_MATERIALIZED_VIEW": OperationTypeClass.CREATE,
 }
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]

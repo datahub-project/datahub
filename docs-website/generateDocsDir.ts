@@ -592,6 +592,7 @@ function copy_python_wheels(): void {
     "docs/actions/sources",
     "docs/actions/guides",
     "metadata-ingestion/archived",
+    "metadata-ingestion/sink_docs",
     "docs/what",
     "docs/wip",
   ];
