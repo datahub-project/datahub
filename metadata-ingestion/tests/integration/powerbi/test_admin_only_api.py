@@ -579,10 +579,13 @@ def test_most_config_and_modified_since(
                     "extract_dashboards": True,
                     "extract_dataset_schema": True,
                     "admin_apis_only": True,
+                    "scan_batch_size": 100,
+                    "workspace_id_as_urn_part": True,
                     "ownership": {
                         "create_corp_user": False,
                         "use_powerbi_email": True,
                         "remove_email_suffix": True,
+                        "dataset_configured_by_as_owner": True,
                         "owner_criteria": [
                             "Owner",
                         ],

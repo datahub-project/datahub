@@ -1,14 +1,14 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3",
+    "entityUrn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "platform": "powerbi",
-                "workspace": "64ED5CAD-7C10-4684-8180-826122881108"
+                "workspace": "demo-workspace"
             },
             "name": "demo-workspace"
         }
@@ -20,7 +20,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3",
+    "entityUrn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -35,7 +35,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3",
+    "entityUrn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -50,7 +50,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3",
+    "entityUrn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -58,6 +58,36 @@
             "typeNames": [
                 "Workspace"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User1@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User2@foo.com"
         }
     },
     "systemMetadata": {
@@ -126,7 +156,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -195,7 +225,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -264,7 +294,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -333,7 +363,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -402,7 +432,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -471,7 +501,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -540,7 +570,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -609,7 +639,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -678,7 +708,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -795,7 +825,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -897,7 +927,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1025,7 +1055,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1094,7 +1124,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1163,7 +1193,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1232,7 +1262,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1301,7 +1331,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1370,7 +1400,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1439,7 +1469,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1508,7 +1538,37 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User1@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User2@foo.com"
         }
     },
     "systemMetadata": {
@@ -1607,7 +1667,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1706,7 +1766,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1847,7 +1907,37 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:e3dc21b5c79f9d594f639a9f57d7f2c3"
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {

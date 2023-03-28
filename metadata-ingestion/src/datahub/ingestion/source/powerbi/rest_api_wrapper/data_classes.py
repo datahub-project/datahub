@@ -44,15 +44,18 @@ class Workspace:
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
 
-    def get_urn_part(self):
+    def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
-        return self.id
+        return self.id if workspace_id_as_urn_part else self.name
 
     def get_workspace_key(
-        self, platform_name: str, platform_instance: Optional[str] = None
+        self,
+        platform_name: str,
+        platform_instance: Optional[str] = None,
+        workspace_id_as_urn_part: Optional[bool] = False,
     ) -> PlatformKey:
         return WorkspaceKey(
-            workspace=self.get_urn_part(),
+            workspace=self.get_urn_part(workspace_id_as_urn_part),
             platform=platform_name,
             instance=platform_instance,
         )

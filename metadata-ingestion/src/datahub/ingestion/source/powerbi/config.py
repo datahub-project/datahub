@@ -201,7 +201,7 @@ class PlatformDetail(ConfigModel):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=False, description="Whether ingest PowerBI user as Datahub Corpuser"
+        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
     )
     use_powerbi_email: bool = pydantic.Field(
         default=False,
@@ -210,6 +210,10 @@ class OwnershipMapping(ConfigModel):
     remove_email_suffix: bool = pydantic.Field(
         default=False,
         description="Remove PowerBI User email suffix for example, @acryl.io",
+    )
+    dataset_configured_by_as_owner: bool = pydantic.Field(
+        default=False,
+        description="Take PBI dataset configuredBy as dataset owner if exist",
     )
     owner_criteria: Optional[List[str]] = pydantic.Field(
         default=None,
@@ -275,6 +279,17 @@ class PowerBiDashboardSourceConfig(
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
         default=60, description="timeout for PowerBI metadata scanning"
+    )
+    scan_batch_size: int = pydantic.Field(
+        default=1,
+        gt=0,
+        le=100,
+        description="batch size for sending workspace_ids to PBI, 100 is the limit",
+    )
+    workspace_id_as_urn_part: bool = pydantic.Field(
+        default=False,
+        description="Highly recommend changing this to True, as you can have the same workspace name"
+        "To maintain backward compatability, this is set to False which uses workspace name",
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(

@@ -158,6 +158,18 @@ class Mapper:
             mcp=mcp,
         )
 
+    def extract_dataset_schema(
+        self, table: powerbi_data_classes.Table, ds_urn: str
+    ) -> List[MetadataChangeProposalWrapper]:
+        schema_metadata = self.to_datahub_schema(table)
+        schema_mcp = self.new_mcp(
+            entity_type=Constant.DATASET,
+            entity_urn=ds_urn,
+            aspect_name=Constant.SCHEMA_METADATA,
+            aspect=schema_metadata,
+        )
+        return [schema_mcp]
+
     def extract_lineage(
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
@@ -344,14 +356,7 @@ class Mapper:
                 aspect=StatusClass(removed=False),
             )
             if self.__config.extract_dataset_schema:
-                schema_metadata = self.to_datahub_schema(table)
-                schema_mcp = self.new_mcp(
-                    entity_type=Constant.DATASET,
-                    entity_urn=ds_urn,
-                    aspect_name=Constant.SCHEMA_METADATA,
-                    aspect=schema_metadata,
-                )
-                dataset_mcps.extend([schema_mcp])
+                dataset_mcps.extend(self.extract_dataset_schema(table, ds_urn))
 
             subtype_mcp = self.new_mcp(
                 entity_type=Constant.DATASET,
@@ -360,7 +365,11 @@ class Mapper:
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.POWERBI_DATASET_TABLE]),
             )
             # normally the person who configure the dataset will be the most accurate person for ownership
-            if self.__config.extract_ownership and dataset.configuredBy:
+            if (
+                self.__config.extract_ownership
+                and self.__config.ownership.dataset_configured_by_as_owner
+                and dataset.configuredBy
+            ):
                 # Dashboard Ownership
                 user_urn = self.create_datahub_owner_urn(dataset.configuredBy)
                 owner_class = OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
@@ -641,6 +650,7 @@ class Mapper:
             container_key = workspace.get_workspace_key(
                 platform_name=self.__config.platform_name,
                 platform_instance=self.__config.platform_instance,
+                workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
             )
         else:
             return None
@@ -658,7 +668,10 @@ class Mapper:
     def generate_container_for_workspace(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
-        self.workspace_key = workspace.get_workspace_key(self.__config.platform_name)
+        self.workspace_key = workspace.get_workspace_key(
+            platform_name=self.__config.platform_name,
+            workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
+        )
         container_work_units = gen_containers(
             container_key=self.workspace_key,
             name=workspace.name,
@@ -1181,7 +1194,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         allowed_workspaces = self.get_allowed_workspaces()
         workspaces_len = len(allowed_workspaces)
 
-        batch_size = 100  # maximum allowed for powerbi scan
+        batch_size = (
+            self.source_config.scan_batch_size
+        )  # 100 is the maximum allowed for powerbi scan
         num_batches = (workspaces_len + batch_size - 1) // batch_size
         batches = [
             allowed_workspaces[i * batch_size : (i + 1) * batch_size]
