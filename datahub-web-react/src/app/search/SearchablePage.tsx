@@ -10,10 +10,12 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 import useFilters from './utils/useFilters';
 import { PageRoutes } from '../../conf/Global';
+import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
+import { useUserContext } from '../context/useUserContext';
 
 const styles = {
     children: {
@@ -54,9 +56,10 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const { selectedQuickFilter } = useQuickFiltersContext();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const user = useGetAuthenticatedUser()?.corpUser;
+    const user = useUserContext()?.user;
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
 
     useEffect(() => {
@@ -65,7 +68,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         }
     }, [suggestionsData]);
 
-    const search = (query: string, type?: EntityType) => {
+    const search = (query: string, type?: EntityType, quickFilters?: FacetFilterInput[]) => {
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -74,12 +77,16 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
             query,
             pageNumber: 1,
             originPath: window.location.pathname,
+            selectedQuickFilterTypes: selectedQuickFilter ? [selectedQuickFilter.field] : undefined,
+            selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
+
+        const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
 
         navigateToSearchUrl({
             type,
             query,
-            filters,
+            filters: appliedFilters,
             history,
         });
     };
@@ -90,6 +97,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 variables: {
                     input: {
                         query,
+                        ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
             });

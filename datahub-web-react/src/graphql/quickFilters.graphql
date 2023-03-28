@@ -1,0 +1,15 @@
+query getQuickFilters($input: GetQuickFiltersInput!) {
+    getQuickFilters(input: $input) {
+        quickFilters {
+            field
+            value
+            entity {
+                urn
+                type
+                ... on DataPlatform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+}

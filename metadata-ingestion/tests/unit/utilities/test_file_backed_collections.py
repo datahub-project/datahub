@@ -1,18 +1,21 @@
 import dataclasses
 import json
 import pathlib
-import tempfile
+import sqlite3
 from dataclasses import dataclass
 from typing import Counter, Dict
 
 import pytest
 
-from datahub.utilities.file_backed_collections import FileBackedDict, FileBackedList
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
+    FileBackedList,
+)
 
 
-def test_file_dict(tmp_path: pathlib.Path) -> None:
+def test_file_dict() -> None:
     cache = FileBackedDict[int](
-        filename=tmp_path / "test.db",
         tablename="cache",
         cache_max_size=10,
         cache_eviction_batch_size=10,
@@ -23,6 +26,8 @@ def test_file_dict(tmp_path: pathlib.Path) -> None:
 
     assert len(cache) == 100
     assert sorted(cache) == sorted([f"key-{i}" for i in range(100)])
+    assert sorted(cache.items()) == sorted([(f"key-{i}", i) for i in range(100)])
+    assert sorted(cache.values()) == sorted([i for i in range(100)])
 
     # Force eviction of everything.
     cache.flush()
@@ -80,7 +85,7 @@ def test_file_dict(tmp_path: pathlib.Path) -> None:
         cache["a"] = 1
 
 
-def test_custom_serde(tmp_path: pathlib.Path) -> None:
+def test_custom_serde() -> None:
     @dataclass(frozen=True)
     class Label:
         a: str
@@ -123,7 +128,6 @@ def test_custom_serde(tmp_path: pathlib.Path) -> None:
         return Main.from_dict(json.loads(s))
 
     cache = FileBackedDict[Main](
-        filename=tmp_path / "test.db",
         serializer=serialize,
         deserializer=deserialize,
         # Disable the in-memory cache to force all reads/writes to the DB.
@@ -139,28 +143,28 @@ def test_custom_serde(tmp_path: pathlib.Path) -> None:
 
     assert cache["second"] == second
     assert cache["first"] == first
-    assert serializer_calls == 4  # Items written to cache on every access
+    assert serializer_calls == 2
     assert deserializer_calls == 2
 
 
-def test_file_dict_stores_counter(tmp_path: pathlib.Path) -> None:
+def test_file_dict_stores_counter() -> None:
     cache = FileBackedDict[Counter[str]](
-        filename=tmp_path / "test.db",
         serializer=json.dumps,
-        deserializer=lambda s: Counter(json.loads(s)),
+        deserializer=lambda s: Counter[str](json.loads(s)),
         cache_max_size=1,
     )
 
     n = 5
     in_memory_counters: Dict[int, Counter[str]] = {}
     for i in range(n):
-        cache[str(i)] = Counter()
-        in_memory_counters[i] = Counter()
+        cache[str(i)] = Counter[str]()
+        in_memory_counters[i] = Counter[str]()
         for j in range(n):
             if i == j:
                 cache[str(i)][str(j)] += 100
                 in_memory_counters[i][str(j)] += 100
             cache[str(i)][str(j)] += j
+            cache.mark_dirty(str(i))
             in_memory_counters[i][str(j)] += j
 
     for i in range(n):
@@ -174,84 +178,121 @@ class Pair:
     y: str
 
 
-def test_custom_column(tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize("cache_max_size", [0, 1, 10])
+def test_custom_column(cache_max_size: int) -> None:
     cache = FileBackedDict[Pair](
-        filename=tmp_path / "test.db",
         extra_columns={
             "x": lambda m: m.x,
         },
+        cache_max_size=cache_max_size,
     )
 
     cache["first"] = Pair(3, "a")
     cache["second"] = Pair(100, "b")
+    cache["third"] = Pair(27, "c")
+    cache["fourth"] = Pair(100, "d")
 
     # Verify that the extra column is present and has the correct values.
-    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 103
+    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 230
 
     # Verify that the extra column is updated when the value is updated.
-    cache["first"] = Pair(4, "c")
-    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 104
+    cache["first"] = Pair(4, "e")
+    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 231
 
     # Test param binding.
     assert (
         cache.sql_query(
             f"SELECT sum(x) FROM {cache.tablename} WHERE x < ?", params=(50,)
         )[0][0]
-        == 4
+        == 31
     )
 
+    assert sorted(list(cache.items())) == [
+        ("first", Pair(4, "e")),
+        ("fourth", Pair(100, "d")),
+        ("second", Pair(100, "b")),
+        ("third", Pair(27, "c")),
+    ]
+    assert sorted(list(cache.items_snapshot())) == [
+        ("first", Pair(4, "e")),
+        ("fourth", Pair(100, "d")),
+        ("second", Pair(100, "b")),
+        ("third", Pair(27, "c")),
+    ]
+    assert sorted(list(cache.items_snapshot("x < 50"))) == [
+        ("first", Pair(4, "e")),
+        ("third", Pair(27, "c")),
+    ]
 
-def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
-    filename = tmp_path / "test.db"
 
-    cache1 = FileBackedDict[int](
-        filename=filename,
-        tablename="cache1",
-        extra_columns={
-            "v": lambda v: v,
-        },
-    )
-    cache2 = FileBackedDict[Pair](
-        filename=filename,
-        tablename="cache2",
-        extra_columns={
-            "x": lambda m: m.x,
-            "y": lambda m: m.y,
-        },
-    )
-
-    cache1["a"] = 3
-    cache1["b"] = 5
-    cache2["ref-a-1"] = Pair(7, "a")
-    cache2["ref-a-2"] = Pair(8, "a")
-    cache2["ref-b-1"] = Pair(11, "b")
-
-    assert len(cache1) == 2
-    assert len(cache2) == 3
-
-    # Test advanced SQL queries.
-    assert cache2.sql_query(
-        f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
-    ) == [("a", 15), ("b", 11)]
-
-    # Test joining between the two tables.
-    assert (
-        cache2.sql_query(
-            f"""
-            SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
-            LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
-            GROUP BY cache2.y
-            ORDER BY cache2.y
-            """,
-            refs=[cache1],
+def test_shared_connection() -> None:
+    with ConnectionWrapper() as connection:
+        cache1 = FileBackedDict[int](
+            shared_connection=connection,
+            tablename="cache1",
+            extra_columns={
+                "v": lambda v: v,
+            },
         )
-        == [("a", 45), ("b", 55)]
-    )
+        cache2 = FileBackedDict[Pair](
+            shared_connection=connection,
+            tablename="cache2",
+            extra_columns={
+                "x": lambda m: m.x,
+                "y": lambda m: m.y,
+            },
+        )
+
+        cache1["a"] = 3
+        cache1["b"] = 5
+        cache2["ref-a-1"] = Pair(7, "a")
+        cache2["ref-a-2"] = Pair(8, "a")
+        cache2["ref-b-1"] = Pair(11, "b")
+
+        assert len(cache1) == 2
+        assert len(cache2) == 3
+
+        # Test advanced SQL queries and sql_query_iterator.
+        iterator = cache2.sql_query_iterator(
+            f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
+        )
+        assert type(iterator) == sqlite3.Cursor
+        assert list(iterator) == [("a", 15), ("b", 11)]
+
+        # Test joining between the two tables.
+        assert (
+            cache2.sql_query(
+                f"""
+                SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
+                LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
+                GROUP BY cache2.y
+                ORDER BY cache2.y
+                """,
+                refs=[cache1],
+            )
+            == [("a", 45), ("b", 55)]
+        )
+
+        assert list(cache2.items_snapshot('y = "a"')) == [
+            ("ref-a-1", Pair(7, "a")),
+            ("ref-a-2", Pair(8, "a")),
+        ]
+
+        cache2.close()
+
+        # Check can still use cache1
+        cache1["c"] = 7
+        cache1.flush()
+        assert cache1["c"] == 7
+        cache1.close()
+
+        # Check connection is still usable
+        cur = connection.conn.execute("SELECT COUNT(*) FROM cache1")
+        assert list(cur)[0][0] == 3
 
 
-def test_file_list(tmp_path: pathlib.Path) -> None:
+def test_file_list() -> None:
     my_list = FileBackedList[int](
-        filename=tmp_path / "test.db",
         serializer=lambda x: x,
         deserializer=lambda x: x,
         cache_max_size=5,
@@ -290,14 +331,13 @@ def test_file_list(tmp_path: pathlib.Path) -> None:
 
 
 def test_file_cleanup():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        filename = pathlib.Path(tmpdir) / "test.db"
-        cache = FileBackedDict[int](filename=filename)
+    cache = FileBackedDict[int]()
+    filename = pathlib.Path(cache._conn.filename)
 
-        cache["a"] = 3
-        cache.flush()
-        assert len(cache) == 1
+    cache["a"] = 3
+    cache.flush()
+    assert len(cache) == 1
 
-        cache.close()
-
+    assert filename.exists()
+    cache.close()
     assert not filename.exists()

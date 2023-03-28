@@ -44,11 +44,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                 },
             },
         })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
+            .then(() => {
                 message.success({
                     content: `Changes saved.`,
                     duration: 3,
@@ -60,6 +56,10 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                     slack: '',
                     urn: '',
                 });
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     };

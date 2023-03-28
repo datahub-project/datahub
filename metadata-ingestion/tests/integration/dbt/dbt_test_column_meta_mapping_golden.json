@@ -604,6 +604,9 @@
                                             "urn": "urn:li:glossaryTerm:customer_id"
                                         },
                                         {
+                                            "urn": "urn:li:glossaryTerm:maturity_beta"
+                                        },
+                                        {
                                             "urn": "urn:li:glossaryTerm:pii"
                                         }
                                     ],
@@ -2924,6 +2927,36 @@
     "aspect": {
         "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:tag_from_dbt",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:tag_from_dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:sensitive",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:sensitive"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,

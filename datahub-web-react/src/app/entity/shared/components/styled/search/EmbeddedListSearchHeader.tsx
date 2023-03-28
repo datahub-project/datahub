@@ -5,8 +5,12 @@ import styled from 'styled-components';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, AndFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
-import { SearchResultsInterface } from './types';
+import {
+    EntityType,
+    AndFilterInput,
+    ScrollAcrossEntitiesInput,
+    ScrollResults,
+} from '../../../../../../types.generated';
 import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
@@ -33,8 +37,8 @@ type Props = {
     onToggleFilters: () => void;
     placeholderText?: string | null;
     callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
-    }) => Promise<SearchResultsInterface | null | undefined>;
+        input: ScrollAcrossEntitiesInput;
+    }) => Promise<ScrollResults | null | undefined>;
     entityFilters: EntityType[];
     filters: AndFilterInput[];
     query: string;

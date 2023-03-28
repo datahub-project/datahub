@@ -41,12 +41,12 @@ public class AutoCompleteForMultipleResolver implements DataFetcher<CompletableF
     public CompletableFuture<AutoCompleteMultipleResults> get(DataFetchingEnvironment environment) {
         final AutoCompleteMultipleInput input = bindArgument(environment.getArgument("input"), AutoCompleteMultipleInput.class);
 
-        // escape forward slash since it is a reserved character in Elasticsearch
-        final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
-        if (isBlank(sanitizedQuery)) {
+        if (isBlank(input.getQuery())) {
             _logger.error("'query' parameter was null or empty");
             throw new ValidationException("'query' parameter can not be null or empty");
         }
+        // escape forward slash since it is a reserved character in Elasticsearch
+        final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
 
         List<EntityType> types = input.getTypes();
         if (types != null && types.size() > 0) {
