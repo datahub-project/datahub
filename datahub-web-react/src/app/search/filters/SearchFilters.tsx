@@ -1,7 +1,9 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import ActiveFilter from './ActiveFilter';
 import SearchFilter from './SearchFilter';
 
 const SearchFiltersWrapper = styled.div`
@@ -9,8 +11,13 @@ const SearchFiltersWrapper = styled.div`
     padding: 8px 24px;
 `;
 
-const FilterDropdownsWrapper = styled.div`
+const FlexWrapper = styled.div`
     display: flex;
+    flex-wrap: wrap;
+`;
+
+const StyledDivider = styled(Divider)`
+    margin: 8px 0 0 0;
 `;
 
 interface Props {
@@ -22,7 +29,7 @@ interface Props {
 export default function SearchFilters({ availableFilters, activeFilters, onChangeFilters }: Props) {
     return (
         <SearchFiltersWrapper>
-            <FilterDropdownsWrapper>
+            <FlexWrapper>
                 {availableFilters?.map((filter) => (
                     <SearchFilter
                         key={filter.field}
@@ -31,7 +38,17 @@ export default function SearchFilters({ availableFilters, activeFilters, onChang
                         onChangeFilters={onChangeFilters}
                     />
                 ))}
-            </FilterDropdownsWrapper>
+            </FlexWrapper>
+            {activeFilters.length > 0 && (
+                <>
+                    <StyledDivider />
+                    <FlexWrapper>
+                        {activeFilters.map((activeFilter) => (
+                            <ActiveFilter filter={activeFilter} availableFilters={availableFilters} />
+                        ))}
+                    </FlexWrapper>
+                </>
+            )}
         </SearchFiltersWrapper>
     );
 }
