@@ -858,9 +858,8 @@ class LookerView:
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
 
-        # also store the view logic and materialization
+        # Prep "default" values for the view, which will be overridden by the logic below.
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
-
         sql_table_names: List[str] = []
         upstream_explores: List[str] = []
 
@@ -894,7 +893,7 @@ class LookerView:
                 # We want this to render the full lkml block
                 # e.g. explore_source: source_name { ... }
                 # As such, we use the full derived_table instead of the explore_source.
-                view_logic = lkml.dump(derived_table)
+                view_logic = str(lkml.dump(derived_table))[:max_file_snippet_length]
                 view_lang = VIEW_LANGUAGE_LOOKML
 
                 (
