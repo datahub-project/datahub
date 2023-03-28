@@ -8,7 +8,7 @@ import FilterOption from './FilterOption';
 import { FilterFields } from './types';
 import { getNewFilters } from './utils';
 
-const DropdownLabel = styled(Button)`
+const DropdownLabel = styled(Button)<{ isActive: boolean }>`
     font-size: 14px;
     font-weight: 700;
     margin-right: 12px;
@@ -17,6 +17,14 @@ const DropdownLabel = styled(Button)`
     display: flex;
     align-items: center;
     box-shadow: none;
+
+    ${(props) =>
+        props.isActive &&
+        `
+        background-color: ${props.theme.styles['primary-color']};
+        border: 1px solid ${props.theme.styles['primary-color']};
+        color: white;
+    `}
 `;
 
 const StyledButton = styled(Button)`
@@ -50,6 +58,8 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
     const initialFilters = activeFilters.find((f) => f.field === filter.field)?.values;
     const [selectedFilterValues, setSelectedFilterValues] = useState<string[]>(initialFilters || []);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const numActiveFilters = activeFilters.find((f) => f.field === filter.field)?.values?.length || 0;
 
     function handleMenuOpen(isOpen: boolean) {
         setIsMenuOpen(isOpen);
@@ -95,8 +105,9 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
                 </DropdownMenu>
             )}
         >
-            <DropdownLabel onClick={() => handleMenuOpen(!isMenuOpen)}>
-                {filter.displayName} <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
+            <DropdownLabel onClick={() => handleMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
+                {filter.displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </DropdownLabel>
         </Dropdown>
     );
