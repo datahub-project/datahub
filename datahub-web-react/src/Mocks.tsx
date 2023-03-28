@@ -119,7 +119,7 @@ const user2 = {
     settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
-const dataPlatform = {
+export const dataPlatform = {
     urn: 'urn:li:dataPlatform:hdfs',
     name: 'HDFS',
     type: EntityType.DataPlatform,
@@ -127,7 +127,8 @@ const dataPlatform = {
         displayName: 'HDFS',
         type: PlatformType.FileSystem,
         datasetNameDelimiter: '.',
-        logoUrl: '',
+        logoUrl:
+            'https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/lookerlogo.png',
     },
 };
 

@@ -22,6 +22,7 @@ import { ChartEntity } from '../../app/entity/chart/ChartEntity';
 import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
 import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
 import UserContextProvider from '../../app/context/UserContextProvider';
+import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -42,6 +43,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new MLFeatureTableEntity());
     entityRegistry.register(new MLModelEntity());
     entityRegistry.register(new MLModelGroupEntity());
+    entityRegistry.register(new DataPlatformEntity());
     return entityRegistry;
 }
 

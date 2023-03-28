@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { DataPlatform, Entity, EntityType, FacetFilterInput, FacetMetadata, Maybe } from '../../../types.generated';
+import { DataPlatform, Entity, EntityType, FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
 import { ENTITY_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
@@ -26,12 +26,14 @@ export function isFilterOptionSelected(selectedFilterValues: string[], filterVal
 }
 
 export function getFilterEntity(filterField: string, filterValue: string, availableFilters: FacetMetadata[] | null) {
-    return availableFilters
-        ?.find((facet) => facet.field === filterField)
-        ?.aggregations.find((agg) => agg.value === filterValue)?.entity;
+    return (
+        availableFilters
+            ?.find((facet) => facet.field === filterField)
+            ?.aggregations.find((agg) => agg.value === filterValue)?.entity || null
+    );
 }
 
-const PlatformIcon = styled.img`
+export const PlatformIcon = styled.img`
     max-height: 12px;
     width: auto;
     object-fit: contain;
@@ -42,7 +44,7 @@ export function getFilterIconAndLabel(
     filterField: string,
     filterValue: string,
     entityRegistry: EntityRegistry,
-    filterEntity?: Maybe<Entity>,
+    filterEntity: Entity | null,
 ) {
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
