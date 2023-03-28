@@ -354,11 +354,6 @@ module.exports = {
                 },
                 {
                   type: "doc",
-                  label: "Working with Metadata Entities",
-                  id: "docs/api/graphql/querying-entities",
-                },
-                {
-                  type: "doc",
                   label: "Access Token Management",
                   id: "docs/api/graphql/token-management",
                 },
