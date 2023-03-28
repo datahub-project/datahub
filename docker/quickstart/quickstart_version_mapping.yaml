@@ -21,8 +21,11 @@ quickstart_version_map:
   # The "default" key is mandatory and is used if no version is specified.
   # In case of a broken release or broken master branch, specify a working version here.
   default:
-    composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
-    docker_tag: v0.10.0
+    composefile_git_ref: master
+    docker_tag: head
+  # default:  # Use this to pin default to a specific version.
+  #   composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
+  #   docker_tag: v0.10.0
 
   head:
     composefile_git_ref: master
