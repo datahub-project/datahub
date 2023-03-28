@@ -53,10 +53,8 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
 
     function handleMenuOpen(isOpen: boolean) {
         setIsMenuOpen(isOpen);
-        // if we're closing the menu, set filters back to default
-        if (!isOpen) {
-            setSelectedFilterValues(initialFilters || []);
-        }
+        // set filters to default every time you open or close the menu
+        setSelectedFilterValues(initialFilters || []);
     }
 
     function updateFilters() {

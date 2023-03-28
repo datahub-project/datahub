@@ -44,7 +44,13 @@ export default function SearchFilters({ availableFilters, activeFilters, onChang
                     <StyledDivider />
                     <FlexWrapper>
                         {activeFilters.map((activeFilter) => (
-                            <ActiveFilter filter={activeFilter} availableFilters={availableFilters} />
+                            <ActiveFilter
+                                key={activeFilter.field}
+                                filter={activeFilter}
+                                availableFilters={availableFilters}
+                                activeFilters={activeFilters}
+                                onChangeFilters={onChangeFilters}
+                            />
                         ))}
                     </FlexWrapper>
                 </>

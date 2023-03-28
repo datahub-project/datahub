@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { getFilterEntity, getFilterIconAndLabel } from './utils';
+import { getFilterEntity, getFilterIconAndLabel, getNewFilters } from './utils';
 
 const ActiveFilterWrapper = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};
@@ -36,15 +36,28 @@ const StyledButton = styled(Button)`
 `;
 
 interface ActiveFilterProps {
-    filterField: string;
+    filterFacet: FacetFilterInput;
     filterValue: string;
     availableFilters: FacetMetadata[] | null;
+    activeFilters: FacetFilterInput[];
+    onChangeFilters: (newFilters: FacetFilterInput[]) => void;
 }
 
-function ActiveFilter({ filterField, filterValue, availableFilters }: ActiveFilterProps) {
+function ActiveFilter({
+    filterFacet,
+    filterValue,
+    availableFilters,
+    activeFilters,
+    onChangeFilters,
+}: ActiveFilterProps) {
     const entityRegistry = useEntityRegistry();
-    const filterEntity = getFilterEntity(filterField, filterValue, availableFilters);
-    const { icon, label } = getFilterIconAndLabel(filterField, filterValue, entityRegistry, filterEntity);
+    const filterEntity = getFilterEntity(filterFacet.field, filterValue, availableFilters);
+    const { icon, label } = getFilterIconAndLabel(filterFacet.field, filterValue, entityRegistry, filterEntity);
+
+    function removeFilter() {
+        const newFilterValues = filterFacet.values?.filter((value) => value !== filterValue) || [];
+        onChangeFilters(getNewFilters(filterFacet.field, activeFilters, newFilterValues));
+    }
 
     return (
         <ActiveFilterWrapper>
@@ -53,7 +66,7 @@ function ActiveFilter({ filterField, filterValue, availableFilters }: ActiveFilt
             <Label ellipsis={{ tooltip: label }} style={{ maxWidth: 150 }}>
                 {label}
             </Label>
-            <StyledButton icon={<CloseCircleOutlined />} />
+            <StyledButton icon={<CloseCircleOutlined />} onClick={removeFilter} />
         </ActiveFilterWrapper>
     );
 }
@@ -61,13 +74,22 @@ function ActiveFilter({ filterField, filterValue, availableFilters }: ActiveFilt
 interface Props {
     filter: FacetFilterInput;
     availableFilters: FacetMetadata[] | null;
+    activeFilters: FacetFilterInput[];
+    onChangeFilters: (newFilters: FacetFilterInput[]) => void;
 }
 
-export default function ActiveFilterContainer({ filter, availableFilters }: Props) {
+export default function ActiveFilterContainer({ filter, availableFilters, activeFilters, onChangeFilters }: Props) {
     return (
         <>
             {filter.values?.map((value) => (
-                <ActiveFilter filterField={filter.field} filterValue={value} availableFilters={availableFilters} />
+                <ActiveFilter
+                    key={value}
+                    filterFacet={filter}
+                    filterValue={value}
+                    availableFilters={availableFilters}
+                    activeFilters={activeFilters}
+                    onChangeFilters={onChangeFilters}
+                />
             ))}
         </>
     );
