@@ -7,27 +7,45 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
 
 ## Tableau Prerequisites
 
-1. **Allow Site Administrator Explorer permissions:**
+1. Grant `Site Administrator Explorer permissions` to a user
 
-   a. login to tableau cloud https://sso.online.tableau.com/public/idp/SSO
+   A. Log in to Tableau Cloud https://sso.online.tableau.com/public/idp/SSO.
 
-   b. Navigate to `Users`
+   B. Navigate to `Users`.
 
    <p align="center">
    <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-navigation-window.png"/>
    </p> 
 
-   c. Select particular user and click on `Actions` -> `Site Role`
 
-   <p align="center">
-   <img width="75%" alt="Actions Site Role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-list.png"/>
-   </p> 
+   C. **For New User**: Follow below steps to grant permission for new user.
 
-   d. Change user role to `Site Administrator Explorer`
+      -  Click `Add Users` -> `Add Users by Email`
 
-   <p align="center">
-   <img width="75%" alt="tableau site role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-site-role.png"/>
-   </p> 
+      <p align="center">
+      <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-add-user.png"/>
+      </p> 
+
+      -  Fill `Enter email addresses`, set `Site role` to `Site Administrator Explorer` and Click `Add Users` 
+
+      <p align="center">
+      <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-new-user-site-role.png"/>
+      </p> 
+
+
+   D. **For Existing User:**  Follow below steps to grant permission for existing user.
+   
+      - Select a user and click `Actions` -> `Site Role`
+
+      <p align="center">
+      <img width="75%" alt="Actions Site Role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-list.png"/>
+      </p> 
+
+      -  Change user role to `Site Administrator Explorer`
+
+      <p align="center">
+      <img width="75%" alt="tableau site role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-site-role.png"/>
+      </p> 
 
 2. **Enable Tableau Metadata API:** This step is required only for Tableau Server. The Metadata API is installed with Tableau Server but disabled by default.
 

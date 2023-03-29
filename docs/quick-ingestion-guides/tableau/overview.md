@@ -21,8 +21,8 @@ Upon completing this guide, you will have a recurring ingestion pipeline that wi
 
 The pipeline will also extract:
 
-* **Usage statistics** to help you understand top viewed Dashboard/Chart
-* **Table- and Column-level lineage** to automatically define interdependencies between datasets and columns
+* **Usage statistics** help you understand top viewed Dashboard/Chart
+* **Table- and Column-level lineage** automatically index relationships between datasets and columns
 
 ## Next Steps
 

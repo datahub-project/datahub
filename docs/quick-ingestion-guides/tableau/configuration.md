@@ -48,9 +48,10 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
   <p align="center">
     <img width="70%" alt="Tableau Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-password-secret.png"/>
   </p>
+
 ## Configure Recipe
 
-5. Navigate to the **Sources** tab and click **Create new source**
+5. Navigate to on the **Sources** tab and then **Create new source**
 
 <p align="center">
   <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
@@ -62,17 +63,17 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
   <img width="70%" alt="Select Tableau from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-new-ingestion-source.png"/>
 </p>
 
-7.  Enter details into the Tableau Recipe
+7.  Fill in the Tableau Recipe form:
 
     You need to set minimum following fields in the recipe:
     
-    a. **Host URL:** URL of your tableau instance. It is available in browser address bar on Tableau Portal. For example: https://15az.online.tableau.com
+    a. **Host URL:** URL of your Tableau instance (e.g., https://15az.online.tableau.com/). It is available in browser address bar on Tableau Portal.
 
-    b. **Username:** You can use the TABLEAU_USERNAME secret you've previously created by providing the secret name surrounded by "${}". For example, "\${TABLEAU_USERNAME}"
+    b. **Username:** Use the TABLEAU_USERNAME secret (e.g., "${TABLEAU_USERNAME}").
 
-    c. **Password:** You can use the TABLEAU_PASSWORD secret you've previously created by providing the secret name surrounded by "${}". For example, "\${TABLEAU_PASSWORD}"    
+    c. **Password:** Use the TABLEAU_PASSWORD secret (e.g., "${TABLEAU_PASSWORD}").   
 
-By default, this will ingest all project from default tableau site. To filter for specific site and project, use the `site` and `project_pattern` fields:
+To filter for specific site and project, use the `site` and `project_pattern` fields.
 
     config:
          ...
@@ -86,7 +87,7 @@ Your recipe should look something like this:
   <img width="70%" alt="tableau recipe in form format" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-recipe.png"/>
 </p>
 
-After you've successfully completed the recipe, click **Next**.
+Click **Next** when you're done.
 
 ## Schedule Execution
 
