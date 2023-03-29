@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.aspect import ASPECT_MAP
@@ -9,15 +9,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import ControlRecord, EndOfStream, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
-    ChartSnapshotClass,
-    DashboardSnapshotClass,
-    DataFlowSnapshotClass,
-    DataJobSnapshotClass,
-    DatasetSnapshotClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
 )
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
 
@@ -58,13 +53,6 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
 
     def __init__(self):
         self.entity_map: Dict[str, Dict[str, Any]] = {}
-        self.entity_type_mappings: Dict[str, Type] = {
-            "dataset": DatasetSnapshotClass,
-            "dataFlow": DataFlowSnapshotClass,
-            "dataJob": DataJobSnapshotClass,
-            "chart": ChartSnapshotClass,
-            "dashboard": DashboardSnapshotClass,
-        }
         mixedin = False
         for mixin in [LegacyMCETransformer, SingleAspectTransformer]:
             mixedin = mixedin or isinstance(self, mixin)
@@ -87,11 +75,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         if "*" in entity_types:
             return True
         if isinstance(record, MetadataChangeEventClass):
-            for e in set(entity_types) & set(self.entity_type_mappings.keys()):
-                if isinstance(record.proposedSnapshot, self.entity_type_mappings[e]):
-                    return True
-            # fall through, no entity type matched
-            return False
+            entity_type = guess_entity_type(record.proposedSnapshot.urn)
+            return entity_type in entity_types
         elif isinstance(
             record, (MetadataChangeProposalWrapper, MetadataChangeProposalClass)
         ):
