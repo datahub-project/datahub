@@ -72,7 +72,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -380,7 +379,6 @@ class LookerModel:
                     path, f"Failed to load {included_file} due to {e}"
                 )
                 # continue in this case, as it might be better to load and resolve whatever we can
-                pass
 
         return LookerModel(
             connection=connection,
@@ -501,7 +499,6 @@ class LookerModel:
                         path, f"Failed to load {included_file} due to {e}"
                     )
                     # continue in this case, as it might be better to load and resolve whatever we can
-                    pass
 
             resolved.extend(
                 [
@@ -1356,19 +1353,13 @@ class LookMLSource(StatefulIngestionSourceBase):
         self, looker_view: LookerView
     ) -> List[MetadataChangeProposalWrapper]:
         subTypeEvent = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=looker_view.id.get_urn(self.source_config),
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         )
         events = [subTypeEvent]
         if looker_view.view_details is not None:
             viewEvent = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=looker_view.id.get_urn(self.source_config),
-                aspectName="viewProperties",
                 aspect=looker_view.view_details,
             )
             events.append(viewEvent)

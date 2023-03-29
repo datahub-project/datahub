@@ -84,7 +84,7 @@ class BigQueryV2Report(ProfilingSqlReport):
     def set_project_state(self, project: str, stage: str) -> None:
         if self.timer:
             logger.info(
-                f"Time spent in stage {self.current_project_status}: "
+                f"Time spent in stage <{self.current_project_status}>: "
                 f"{self.timer.elapsed_seconds():.2f} seconds"
             )
         else:
