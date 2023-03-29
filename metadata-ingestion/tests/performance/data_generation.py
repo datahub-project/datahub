@@ -13,21 +13,26 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, TypeVar
 
-from performance.data_model import Container, FieldAccess, Query, Table, View
-
-from datahub.metadata.schema_classes import OperationTypeClass
+from tests.performance.data_model import (
+    Container,
+    FieldAccess,
+    Query,
+    StatementType,
+    Table,
+    View,
+)
 
 T = TypeVar("T")
 
-OperationTypes = [
-    OperationTypeClass.INSERT,
-    OperationTypeClass.UPDATE,
-    OperationTypeClass.DELETE,
-    OperationTypeClass.CREATE,
-    OperationTypeClass.ALTER,
-    OperationTypeClass.DROP,
-    OperationTypeClass.CUSTOM,
-    OperationTypeClass.UNKNOWN,
+OPERATION_TYPES: List[StatementType] = [
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "CREATE",
+    "ALTER",
+    "DROP",
+    "CUSTOM",
+    "UNKNOWN",
 ]
 
 
@@ -127,7 +132,7 @@ def generate_queries(
     for i in range(num_operations):
         modified_table = random.choice(seed_metadata.tables)
         n_col = len(modified_table.columns)
-        num_columns_modified = NormalDistribution(n_col, n_col / 2)
+        num_columns_modified = NormalDistribution(n_col / 2, n_col / 2)
         upstream_tables = _sample_list(all_tables, upstream_tables_per_operation)
 
         all_columns = [
@@ -137,18 +142,19 @@ def generate_queries(
         ]
         yield Query(
             text=f"{uuid.uuid4()}-{'*' * query_length.sample_with_floor(10)}",
-            type=random.choice(OperationTypes),
+            type=random.choice(OPERATION_TYPES),
             actor=random.choice(users),
             timestamp=_random_time_between(
                 seed_metadata.start_time, seed_metadata.end_time
             ),
-            fields_accessed=_sample_list(all_columns, num_columns_modified),
+            # Can have no field accesses, e.g. on a standard INSERT
+            fields_accessed=_sample_list(all_columns, num_columns_modified, 0),
             object_modified=modified_table,
         )
 
 
-def _sample_list(lst: List[T], dist: NormalDistribution) -> List[T]:
-    return random.sample(lst, min(dist.sample_with_floor(), len(lst)))
+def _sample_list(lst: List[T], dist: NormalDistribution, floor: int = 1) -> List[T]:
+    return random.sample(lst, min(dist.sample_with_floor(floor), len(lst)))
 
 
 def _random_time_between(start: datetime, end: datetime) -> datetime:
