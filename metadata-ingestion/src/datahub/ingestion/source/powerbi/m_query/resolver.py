@@ -88,7 +88,6 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         self,
         expression_tree: Tree,
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
-
         item_selector: Optional[Tree] = tree_function.first_item_selector_func(
             expression_tree
         )
@@ -136,7 +135,6 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     def _process_invoke_expression(
         self, invoke_expression: Tree
     ) -> Union[DataAccessFunctionDetail, List[str], None]:
-
         letter_tree: Tree = invoke_expression.children[0]
         data_access_func: str = tree_function.make_function_name(letter_tree)
         # The invoke function is either DataAccess function like PostgreSQL.Database(<argument-list>) or
@@ -221,7 +219,6 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         new_identifier: str,
         key_vs_value: Dict[str, Any],
     ) -> IdentifierAccessor:
-
         # It is first identifier_accessor
         if identifier_accessor is None:
             return IdentifierAccessor(
@@ -490,7 +487,6 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
-
         logger.debug(
             f"Processing Oracle data-access function detail {data_access_func_detail}"
         )
@@ -596,7 +592,6 @@ class AmazonRedshiftDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
-
         logger.debug(
             f"Processing AmazonRedshift data-access function detail {data_access_func_detail}"
         )
