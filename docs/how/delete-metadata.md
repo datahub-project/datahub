@@ -1,8 +1,9 @@
 # Removing Metadata from DataHub
 
 There are a two ways to delete metadata from DataHub. 
-- Delete metadata attached to entities by providing a specific urn or a filter that identifies a set of entities
-- Delete metadata affected by a single ingestion run
+
+- Delete metadata attached to entities by providing a specific urn or filters that identify a set of entities
+- Delete metadata created by a single ingestion run
 
 To follow this guide you need to use [DataHub CLI](../cli.md).
 
@@ -63,7 +64,7 @@ _Note: All these commands below support the soft-delete option (`-s/--soft`) as 
 
 ### Delete all Datasets from the Snowflake platform
 ```
-datahub delete --entity_type dataset --platform nowflake
+datahub delete --entity_type dataset --platform snowflake
 ```
 
 ### Delete all containers for a particular platform
@@ -78,8 +79,8 @@ datahub delete --env DEV --entity_type dataset
 
 ### Delete all Pipelines and Tasks in the DEV environment
 ```
-datahub delete --env DEV --entity_type "datajob"
-datahub delete --env DEV --entity_type "dataflow"
+datahub delete --env DEV --entity_type "dataJob"
+datahub delete --env DEV --entity_type "dataFlow"
 ```
 
 ### Delete all bigquery datasets in the PROD environment
@@ -95,7 +96,7 @@ datahub delete --entity_type chart --platform looker
 
 ### Delete all datasets that match a query
 ```
-datahub delete --entity_type dataset --query "_tmp" -n
+datahub delete --entity_type dataset --query "_tmp"
 ```
 
 ## Rollback Ingestion Run
