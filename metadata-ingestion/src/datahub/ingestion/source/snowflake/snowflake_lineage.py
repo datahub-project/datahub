@@ -220,6 +220,8 @@ class SnowflakeLineageExtractor(
                 yield from self._fetch_upstream_lineages_for_table(discovered_tables)
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
 
+                # TODO: check external_lineage_map. If not empty, emit upstreamLineage
+
     def get_view_upstream_workunits(
         self, discovered_views: List[str]
     ) -> Iterable[MetadataWorkUnit]:
@@ -349,7 +351,7 @@ class SnowflakeLineageExtractor(
                         db_row["UPSTREAM_TABLES"]
                     )
 
-                    external_lineage = self._external_lineage_map[dataset_name]
+                    external_lineage = self._external_lineage_map.pop(dataset_name)
                     # Populate the external-table-lineage(s3->snowflake) in aspect
                     self.update_external_tables_lineage(upstreams, external_lineage)
 
@@ -399,7 +401,7 @@ class SnowflakeLineageExtractor(
         if not upstream_tables:
             return []
         upstreams: List[UpstreamClass] = []
-        for upstream_table in upstream_tables:
+        for upstream_table in json.loads(upstream_tables):
             if upstream_table:
                 upstream_name = self.get_dataset_identifier_from_qualified_name(
                     upstream_table["upstream_object_name"]
@@ -424,29 +426,32 @@ class SnowflakeLineageExtractor(
         if not column_wise_upstreams:
             return []
         fine_upstreams: List[FineGrainedLineage] = []
-        for column_with_upstreams in column_wise_upstreams:
+        for column_with_upstreams in json.loads(column_wise_upstreams):
             if column_with_upstreams:
                 column_name = column_with_upstreams["column_name"]
-                upstream_columns = column_with_upstreams["upstreams"]
-                if column_name and upstream_columns:
-                    fine_upstreams.append(
-                        self.build_finegrained_lineage(
-                            dataset_urn=dataset_urn,
-                            col=column_name,
-                            fine_upstream=SnowflakeColumnFineGrainedLineage(
-                                frozenset(
-                                    [
-                                        SnowflakeColumnId(
-                                            columnName=col["column_name"],
-                                            objectName=col["object_name"],
-                                            objectDomain=col["object_domain"],
-                                        )
-                                        for col in upstream_columns
-                                    ]
-                                )
-                            ),
+                upstream_jobs = column_with_upstreams["upstreams"]
+                if column_name and upstream_jobs:
+                    for upstream_columns in upstream_jobs:
+                        if not upstream_columns:
+                            continue
+                        fine_upstreams.append(
+                            self.build_finegrained_lineage(
+                                dataset_urn=dataset_urn,
+                                col=column_name,
+                                fine_upstream=SnowflakeColumnFineGrainedLineage(
+                                    frozenset(
+                                        [
+                                            SnowflakeColumnId(
+                                                columnName=col["column_name"],
+                                                objectName=col["object_name"],
+                                                objectDomain=col["object_domain"],
+                                            )
+                                            for col in upstream_columns
+                                        ]
+                                    )
+                                ),
+                            )
                         )
-                    )
         return fine_upstreams
 
     def _fetch_upstream_lineages_for_view(

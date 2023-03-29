@@ -256,35 +256,41 @@ def default_query_results(query):  # noqa: C901
             {
                 "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
                 "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
-                "UPSTREAM_TABLES": [
-                    {
-                        "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                        "upstream_object_domain": "TABLE",
-                    }
-                ]
-                + (  # This additional upstream is only for TABLE_1
+                "UPSTREAM_TABLES": json.dumps(
                     [
                         {
-                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.VIEW_1",
-                            "upstream_object_domain": "VIEW",
+                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "upstream_object_domain": "TABLE",
                         }
                     ]
-                    if op_idx == 1
-                    else []
-                ),
-                "UPSTREAM_COLUMNS": [
-                    {
-                        "column_name": "COL_{}".format(col_idx),
-                        "upstreams": [
+                    + (  # This additional upstream is only for TABLE_1
+                        [
                             {
-                                "object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                                "object_domain": "Table",
-                                "column_name": "COL_{}".format(col_idx),
+                                "upstream_object_name": "TEST_DB.TEST_SCHEMA.VIEW_1",
+                                "upstream_object_domain": "VIEW",
                             }
-                        ],
-                    }
-                    for col_idx in range(1, NUM_COLS + 1)
-                ],
+                        ]
+                        if op_idx == 1
+                        else []
+                    )
+                ),
+                "UPSTREAM_COLUMNS": json.dumps(
+                    [
+                        {
+                            "column_name": "COL_{}".format(col_idx),
+                            "upstreams": [
+                                [
+                                    {
+                                        "object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                                        "object_domain": "Table",
+                                        "column_name": "COL_{}".format(col_idx),
+                                    }
+                                ]
+                            ],
+                        }
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                ),
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
@@ -297,12 +303,14 @@ def default_query_results(query):  # noqa: C901
             {
                 "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
                 "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
-                "UPSTREAM_TABLES": [
-                    {
-                        "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                        "upstream_object_domain": "TABLE",
-                    }
-                ],
+                "UPSTREAM_TABLES": json.dumps(
+                    [
+                        {
+                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "upstream_object_domain": "TABLE",
+                        }
+                    ]
+                ),
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
@@ -319,12 +327,14 @@ def default_query_results(query):  # noqa: C901
             {
                 "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.VIEW_2",
                 "DOWNSTREAM_TABLE_DOMAIN": "view",
-                "UPSTREAM_TABLES": [
-                    {
-                        "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                        "upstream_object_domain": "table",
-                    }
-                ],
+                "UPSTREAM_TABLES": json.dumps(
+                    [
+                        {
+                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "upstream_object_domain": "table",
+                        }
+                    ]
+                ),
             }
         ]
     elif query in [
