@@ -23,7 +23,7 @@ describe("add remove domain", () => {
         cy.waitTextVisible("Add assets")
         cy.clickOptionWithText("Add assets")     
         cy.get(".ant-modal-content").within(() => {
-            cy.get('[data-testid="search-input"]').click().type("jaffle")
+            cy.get('[data-testid="search-input"]').click().type("jaffle_shop")
             cy.waitTextVisible("jaffle_shop")
             cy.get(".ant-checkbox-input").first().click()
             cy.get("#continueButton").click()
