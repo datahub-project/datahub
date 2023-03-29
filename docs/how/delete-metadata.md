@@ -57,7 +57,7 @@ If you wish to hard-delete using a curl request you can use something like below
 curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
 
-## Delete using Broader Filters
+## Delete by filters
 
 _Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). 
 
