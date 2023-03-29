@@ -657,7 +657,6 @@ class Mapper:
         workspace: powerbi_data_classes.Workspace,
         ds_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
-
         chart_mcps = []
 
         # Return empty list if input list is empty
