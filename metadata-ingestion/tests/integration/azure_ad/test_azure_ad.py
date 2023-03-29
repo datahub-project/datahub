@@ -255,52 +255,22 @@ def test_azure_ad_source_empty_group_membership(
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )
 
-    with patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token"
-    ) as mock_token, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users"
-    ) as mock_users, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups"
-    ) as mock_groups, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_members"
-    ) as mock_group_users:
-        mocked_functions(
-            test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users
-        )
-        # Run an azure usage ingestion run.
-        pipeline = Pipeline.create(
-            {
-                "run_id": "test-azure-ad",
-                "source": {
-                    "type": "azure-ad",
-                    "config": {
-                        "client_id": "00000000-0000-0000-0000-000000000002",
-                        "tenant_id": "00000000-0000-0000-0000-000000000002",
-                        "client_secret": "client_secret",
-                        "redirect": "https://login.microsoftonline.com/common/oauth2/nativeclient",
-                        "authority": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000",
-                        "token_url": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token",
-                        "graph_url": "https://graph.microsoft.com/v1.0",
-                        "ingest_group_membership": True,
-                        "ingest_groups": True,
-                        "ingest_users": True,
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": f"{tmp_path}/azure_ad_mces_default_config.json",
-                    },
-                },
-            }
-        )
-        pipeline.run()
-        pipeline.raise_from_status()
+    output_file_name = "azure_ad_mces_no_groups_mcp.json"
+    new_recipe = default_recipe(tmp_path, output_file_name)
+
+    new_recipe["source"]["config"]["ingest_group_membership"] = False
+
+    run_ingest(
+        pytestconfig=pytestconfig,
+        mock_datahub_graph=mock_datahub_graph,
+        recipe=new_recipe,
+        mocked_functions_reference=mocked_functions,
+    )
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "azure_ad_mces_default_config.json",
-        golden_path=test_resources_dir / "azure_ad_mces_golden_default_config.json",
+        output_path=f"{tmp_path}/{output_file_name}",
+        golden_path=test_resources_dir / "azure_ad_mces_no_groups_golden_mcp.json",
     )
 
 
