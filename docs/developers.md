@@ -93,6 +93,15 @@ Open `datahub.ipr` in IntelliJ to start developing!
 
 For consistency please import and auto format the code using [LinkedIn IntelliJ Java style](../gradle/idea/LinkedIn%20Style.xml).
 
+
+## Windows Compatibility
+
+For optimal performance and compatibility, we strongly recommend building on a Mac or Linux system. 
+Please note that we do not actively support Windows in a non-virtualized environment.
+
+If you must use Windows, one workaround is to build within a virtualized environment, such as a VM (Virtual Machine). 
+This approach can help ensure that your build environment remains isolated and stable, and that your code is compiled correctly.
+
 ## Common Build Issues
 
 ### Getting `Unsupported class file major version 57`
@@ -110,7 +119,7 @@ You can install multiple version of Java on a single machine and switch between 
 
 ### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error
 
-This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when building the project on Windows due a bug in the Pegasus plugin. Please build on a Mac or Linux instead. 
+This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when building the project on Windows due a bug in the Pegasus plugin. Please refer to [Windows Compatibility](/docs/developers.md#windows-compatibility). 
 
 ### Various errors related to `generateDataTemplate` or other `generate` tasks
 
