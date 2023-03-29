@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple, Union
 
 from dateutil import parser
 
@@ -623,3 +623,12 @@ class ReadEvent:
 class AuditEvent:
     read_event: Optional[ReadEvent] = None
     query_event: Optional[QueryEvent] = None
+
+    @classmethod
+    def create(cls, event: Union[ReadEvent, QueryEvent]) -> "AuditEvent":
+        if isinstance(event, QueryEvent):
+            return AuditEvent(query_event=event)
+        elif isinstance(event, ReadEvent):
+            return AuditEvent(read_event=event)
+        else:
+            raise TypeError(f"Cannot create AuditEvent: {event}")
