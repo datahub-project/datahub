@@ -604,6 +604,9 @@
                                             "urn": "urn:li:glossaryTerm:customer_id"
                                         },
                                         {
+                                            "urn": "urn:li:glossaryTerm:maturity_beta"
+                                        },
+                                        {
                                             "urn": "urn:li:glossaryTerm:pii"
                                         }
                                     ],
