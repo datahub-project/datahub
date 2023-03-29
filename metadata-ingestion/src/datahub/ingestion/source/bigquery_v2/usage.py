@@ -211,7 +211,7 @@ class BigQueryUsageState(Closeable):
             yield AuditEvent(query_event=query_event)
 
     @dataclass
-    class Aggregation:
+    class UsageStatistic:
         timestamp: str
         resource: str
         query_count: int
@@ -219,7 +219,7 @@ class BigQueryUsageState(Closeable):
         user_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
         column_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
 
-    def aggregations(self, top_n: int) -> Iterator[Aggregation]:
+    def usage_statistics(self, top_n: int) -> Iterator[UsageStatistic]:
         query = f"""
         SELECT
             r.timestamp,
@@ -306,15 +306,15 @@ class BigQueryUsageState(Closeable):
             query, refs=[self.query_events, self.column_accesses]
         )
 
-        curr: Optional[BigQueryUsageState.Aggregation] = None
+        curr: Optional[BigQueryUsageState.UsageStatistic] = None
         for ts, res, query_count, query, q_freq, user, u_freq, column, c_freq in rows:
             if curr is None:
-                curr = self.Aggregation(
+                curr = self.UsageStatistic(
                     timestamp=ts, resource=res, query_count=query_count
                 )
             elif (curr.timestamp, curr.resource) != (ts, res):
                 yield curr
-                curr = self.Aggregation(
+                curr = self.UsageStatistic(
                     timestamp=ts, resource=res, query_count=query_count
                 )
             else:
@@ -418,15 +418,15 @@ class BigQueryUsageExtractor:
             if self.config.usage.include_top_n_queries
             else 0
         )
-        for aggregation in usage_state.aggregations(top_n=top_n):
+        for entry in usage_state.usage_statistics(top_n=top_n):
             try:
                 yield make_usage_workunit(
-                    bucket_start_time=datetime.fromisoformat(aggregation.timestamp),
-                    resource=BigQueryTableRef.from_string_name(aggregation.resource),
-                    query_count=aggregation.query_count,
-                    query_freq=aggregation.query_freq,
-                    user_freq=aggregation.user_freq,
-                    column_freq=aggregation.column_freq,
+                    bucket_start_time=datetime.fromisoformat(entry.timestamp),
+                    resource=BigQueryTableRef.from_string_name(entry.resource),
+                    query_count=entry.query_count,
+                    query_freq=entry.query_freq,
+                    user_freq=entry.user_freq,
+                    column_freq=entry.column_freq,
                     bucket_duration=self.config.bucket_duration,
                     urn_builder=lambda resource: resource.to_urn(self.config.env),
                     top_n_queries=self.config.usage.top_n_queries,
@@ -435,7 +435,7 @@ class BigQueryUsageExtractor:
                 self.report.num_usage_workunits_emitted += 1
             except Exception:
                 logger.warning(
-                    f"Unable to generate usage workunit for bucket {aggregation.timestamp}, {aggregation.resource}",
+                    f"Unable to generate usage workunit for bucket {entry.timestamp}, {entry.resource}",
                     exc_info=True,
                 )
 
@@ -898,7 +898,7 @@ class BigQueryUsageExtractor:
         if log_entry_parse_failures:
             self.report.report_warning(
                 "usage-extraction",
-                f"Failed to parse {log_entry_parse_failures} audit log entries.",
+                f"Failed to parse {log_entry_parse_failures} audit log entries for project {project_id}.",
             )
 
     def test_capability(self, project_id: str) -> None:
