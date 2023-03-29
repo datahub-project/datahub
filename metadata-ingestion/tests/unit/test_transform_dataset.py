@@ -286,7 +286,7 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
 
 
-def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str):
+def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str) -> None:
     input = make_generic_dataset(entity_urn=in_urn)
     transformer = ExtractDatasetTags.create(
         {
