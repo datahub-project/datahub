@@ -179,8 +179,8 @@ Note that whatever owners you send via `simple_remove_dataset_ownership` will ov
 ### Config Details
 | Field                       | Required | Type         | Default       | Description                                                      |
 |-----------------------------|----------|--------------|---------------|------------------------------------------------------------------|
-| `extract_tags_from`         | ✅        | string |  `urn`             | Which field to extract tag from. Currently only `urn` is supported.  |
-| `extract_tags_regex`        | ✅        | string |  `.*`             | Regex to use to extract tag.|
+| `extract_tags_from`         | ✅       | string       |  `urn`             | Which field to extract tag from. Currently only `urn` is supported.  |
+| `extract_tags_regex`        | ✅       | string       |  `.*`             | Regex to use to extract tag.|
 | `replace_existing`          |          | boolean      | `false`       | Whether to remove owners from entity sent by ingestion source.   |
 | `semantics`                 |          | enum         | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
