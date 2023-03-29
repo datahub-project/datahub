@@ -33,8 +33,6 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
 
    f. On `powerbi-connector-app | Certificates & secrets` window generate the client secret and note down the `Secret` 
 
-   You need to configure `Application (client) ID` and `Secret` in powerbi connector recipe.
-
 2. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Group.
 
    a. Go to `Azure Active Directory`
@@ -51,7 +49,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
 
    f. On `New group` window click on `Create` to create the security group `powerbi-connector-app-security-group`.
 
-3. **Assign privileges to powerbi-connector-app-security-group:**  You need to add the created security group into PowerBI portal to allow resource access. Follow below steps to allow `powerbi-connector-app-security-group` to access PowerBI resources.
+3. **Assign privileges to powerbi-connector-app-security-group:**  You need to add the created security group into PowerBI portal to grant resource access. Follow below steps to assign privileges to your security group.
 
    a. Login to https://app.powerbi.com/
    
@@ -65,7 +63,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
 
    d. **Enable PowerBI API:** Under `Tenant settings` -> `Developer settings` -> `Allow service principals to use Power BI APIs` add the previously created security group i.e. *powerbi-connector-app-security-group* into `Specific security groups (Recommended)`
 
-   e. **Enable Admin API Settings:** Under `Tenant settings` -> `Admin API settings` enable below options 
+   e. **Enable Admin API Settings:** Under `Tenant settings` -> `Admin API settings` enable the following options 
 
       * `Allow service principals to use read-only admin APIs`
       * `Enhance admin APIs responses with detailed metadata`

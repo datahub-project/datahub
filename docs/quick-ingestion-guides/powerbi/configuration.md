@@ -17,7 +17,7 @@ Now that you have created a DataHub specific Azure AD app with the relevant acce
 If you do not see the Ingestion tab, please contact your DataHub admin to grant you the correct permissions
 :::
 
-2. Navigate to the **Secrets** tab and click **Create new secret**
+2. Navigate to the **Secrets** tab and click **Create new secret**.
 
 <p align="center">
    <img width="75%" alt="Secrets Tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_secrets_tab.png"/>
@@ -56,7 +56,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
     <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
   </p>
 
-2.  Select PowerBI
+2.  Choose PowerBI
 
   <p align="center">
     <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-source-window.png"/>
@@ -79,13 +79,13 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
     </p>
 
 
-    b. **client_id:** You can use the POWER_BI_CLIENT_ID secret you've previously created by providing the secret name surrounded by "${}". For example, "\${POWER_BI_CLIENT_ID}"
+    b. **client_id:** Use the secret POWER_BI_CLIENT_ID with the format "${POWER_BI_CLIENT_ID}".
 
-    c. **client_secret:** You can use the POWER_BI_CLIENT_SECRET secret you've previously created by providing the secret name surrounded by "${}". For example, "\${POWER_BI_CLIENT_SECRET}"
+    c. **client_secret:** Use the secret POWER_BI_CLIENT_SECRET with the format "${POWER_BI_CLIENT_SECRET}".
 
 
 
-By default, this will ingest from all PowerBI workspaces. To filter for specific workspaces, use the `workspace_id_pattern` field:
+Optionally, use the `workspace_id_pattern` field to filter for specific workspaces.
 
     config:
          ...
@@ -99,7 +99,7 @@ Your recipe should look something like this:
 </p>
 
 
-After you've successfully completed the recipe, click **Next**.    
+After completing the recipe, click **Next**.    
 
 ## Schedule Execution
 
