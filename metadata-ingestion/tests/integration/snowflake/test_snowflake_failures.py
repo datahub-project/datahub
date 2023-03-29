@@ -227,8 +227,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
             default_query_results,
             [
                 snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-                    1654499820000,
-                    1654586220000,
+                    1654499820000, 1654586220000, False, True
                 )
             ],
             "Database 'SNOWFLAKE' does not exist or not authorized.",
@@ -276,20 +275,16 @@ def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warni
         # Error in getting view lineage
         sf_cursor.execute.side_effect = query_permission_error_override(
             default_query_results,
-            [
-                snowflake_query.SnowflakeQuery.view_lineage_history(
-                    1654499820000,
-                    1654586220000,
-                )
-            ],
+            [snowflake_query.SnowflakeQuery.view_dependencies()],
             "Unexpected Error",
         )
 
+        snowflake_pipeline_config1 = snowflake_pipeline_config.copy()
         cast(
             SnowflakeV2Config,
-            cast(PipelineConfig, snowflake_pipeline_config).source.config,
+            cast(PipelineConfig, snowflake_pipeline_config1).source.config,
         ).include_view_lineage = True
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_config1)
         pipeline.run()
         pipeline.raise_from_status()  # pipeline should not fail
-        assert "view-downstream-lineage" in pipeline.source.get_report().warnings.keys()
+        assert "view-upstream-lineage" in pipeline.source.get_report().warnings.keys()

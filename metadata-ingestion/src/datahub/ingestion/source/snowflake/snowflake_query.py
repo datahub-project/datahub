@@ -296,27 +296,41 @@ class SnowflakeQuery:
         include_column_lineage: bool = True,
     ) -> str:
         if include_column_lineage:
-            return SnowflakeQuery.table_upstreams_with_column_lineage(start_time_millis, end_time_millis, include_view_lineage)
+            return SnowflakeQuery.table_upstreams_with_column_lineage(
+                start_time_millis, end_time_millis, include_view_lineage
+            )
         else:
-            return SnowflakeQuery.table_upstreams_only(start_time_millis, end_time_millis, include_view_lineage)
+            return SnowflakeQuery.table_upstreams_only(
+                start_time_millis, end_time_millis, include_view_lineage
+            )
+
     @staticmethod
     def view_dependencies() -> str:
         return """
         SELECT
-          concat(
-            referenced_database, '.', referenced_schema,
-            '.', referenced_object_name
-          ) AS "VIEW_UPSTREAM",
-          referenced_object_domain as "REFERENCED_OBJECT_DOMAIN",
+            ARRAY_UNIQUE_AGG(
+                OBJECT_CONSTRUCT(
+                    'upstream_object_name', concat(
+                                    referenced_database, '.', referenced_schema,
+                                    '.', referenced_object_name
+                                ),
+                    'upstream_object_domain', referenced_object_domain
+                )
+                ) as "UPSTREAM_TABLES",
           concat(
             referencing_database, '.', referencing_schema,
             '.', referencing_object_name
-          ) AS "DOWNSTREAM_VIEW",
-          referencing_object_domain AS "REFERENCING_OBJECT_DOMAIN"
+          ) AS "DOWNSTREAM_TABLE_NAME",
+          referencing_object_domain AS "DOWNSTREAM_TABLE_DOMAIN"
         FROM
           snowflake.account_usage.object_dependencies
         WHERE
           referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
+        GROUP BY
+            concat(
+                referencing_database, '.', referencing_schema,
+                '.', referencing_object_name
+            )
         """
 
     @staticmethod
@@ -578,113 +592,115 @@ class SnowflakeQuery:
         include_view_lineage: bool = True,
     ) -> str:
         if include_view_lineage:
-            allowed_upstream_table_domains = "('Table', 'External table', 'View', 'Materialized view')"
+            allowed_upstream_table_domains = (
+                "('Table', 'External table', 'View', 'Materialized view')"
+            )
         else:
             allowed_upstream_table_domains = "('Table', 'External table')"
         return f"""
         WITH column_lineage_history AS (
-            SELECT 
-                r.value : "objectName" :: varchar AS upstream_table_name, 
-                r.value : "objectDomain" :: varchar AS upstream_table_domain, 
+            SELECT
+                r.value : "objectName" :: varchar AS upstream_table_name,
+                r.value : "objectDomain" :: varchar AS upstream_table_domain,
                 -- r.value:"columns" AS upstream_table_columns,
-                w.value : "objectName" :: varchar AS downstream_table_name, 
-                w.value : "objectDomain" :: varchar AS downstream_table_domain, 
+                w.value : "objectName" :: varchar AS downstream_table_name,
+                w.value : "objectDomain" :: varchar AS downstream_table_domain,
                 -- w.value:"columns" AS downstream_table_columns,
-                wcols.value : "columnName" :: varchar AS downstream_column_name, 
+                wcols.value : "columnName" :: varchar AS downstream_column_name,
                 -- wcols.value:"directSourceColumns" AS direct_upstream_columns,
                 -- wcols.value:"baseSourceColumns" AS base_upstream_columns,
-                wcols_directSources.value : "objectName" as upstream_column_table_name, 
-                wcols_directSources.value : "columnName" as upstream_column_name, 
-                wcols_directSources.value : "objectDomain" as upstream_column_object_domain, 
-                t.query_start_time AS query_start_time 
-            FROM 
+                wcols_directSources.value : "objectName" as upstream_column_table_name,
+                wcols_directSources.value : "columnName" as upstream_column_name,
+                wcols_directSources.value : "objectDomain" as upstream_column_object_domain,
+                t.query_start_time AS query_start_time
+            FROM
                 (
-                SELECT 
-                    * 
-                from 
+                SELECT
+                    *
+                from
                     snowflake.account_usage.access_history
-                ) t, 
-                lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r, 
-                lateral flatten(input => t.OBJECTS_MODIFIED) w, 
-                lateral flatten(input => w.value : "columns", outer => true) wcols, 
-                lateral flatten(input => wcols.value : "directSourceColumns", outer => true) wcols_directSources 
-            WHERE 
-                r.value : "objectId" IS NOT NULL 
-                AND w.value : "objectId" IS NOT NULL 
-                AND w.value : "objectName" NOT LIKE '%.GE_TMP_%' 
+                ) t,
+                lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
+                lateral flatten(input => t.OBJECTS_MODIFIED) w,
+                lateral flatten(input => w.value : "columns", outer => true) wcols,
+                lateral flatten(input => wcols.value : "directSourceColumns", outer => true) wcols_directSources
+            WHERE
+                r.value : "objectId" IS NOT NULL
+                AND w.value : "objectId" IS NOT NULL
+                AND w.value : "objectName" NOT LIKE '%.GE_TMP_%'
                 AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
-                AND upstream_table_domain in {allowed_upstream_table_domains} 
+                AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = 'Table'
-            ), 
+            ),
         table_upstreams AS (
-            SELECT 
-                downstream_table_name, 
-                ANY_VALUE(downstream_table_domain) as downstream_table_domain, 
+            SELECT
+                downstream_table_name,
+                ANY_VALUE(downstream_table_domain) as downstream_table_domain,
                 ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
-                    'upstream_object_name', upstream_table_name, 
+                    'upstream_object_name', upstream_table_name,
                     'upstream_object_domain', upstream_table_domain
                 )
-                ) as upstream_tables 
-            FROM 
-                column_lineage_history 
-            GROUP BY 
+                ) as upstream_tables
+            FROM
+                column_lineage_history
+            GROUP BY
                 downstream_table_name
-            ), 
+            ),
         column_upstream_jobs AS (
-            SELECT 
-                downstream_table_name, 
-                downstream_column_name, 
-                query_start_time, 
+            SELECT
+                downstream_table_name,
+                downstream_column_name,
+                query_start_time,
                 ARRAY_AGG(
                 OBJECT_CONSTRUCT(
-                    'object_name', upstream_column_table_name, 
-                    'object_domain', upstream_column_object_domain, 
-                    'column_name', upstream_column_name 
+                    'object_name', upstream_column_table_name,
+                    'object_domain', upstream_column_object_domain,
+                    'column_name', upstream_column_name
                     )
-                ) as upstream_columns_for_job 
-            FROM 
-                column_lineage_history 
-            WHERE 
-                upstream_column_name is not null 
-                and upstream_column_table_name is not null 
-            GROUP BY 
-                downstream_table_name, 
-                downstream_column_name, 
+                ) as upstream_columns_for_job
+            FROM
+                column_lineage_history
+            WHERE
+                upstream_column_name is not null
+                and upstream_column_table_name is not null
+            GROUP BY
+                downstream_table_name,
+                downstream_column_name,
                 query_start_time -- or query_id
-                ), 
+                ),
         column_upstreams AS (
-            SELECT 
-                downstream_table_name, 
-                downstream_column_name, 
-                ARRAY_UNIQUE_AGG(upstream_columns_for_job) as upstreams 
-            FROM 
-                column_upstream_jobs 
-            GROUP BY 
-                downstream_table_name, 
+            SELECT
+                downstream_table_name,
+                downstream_column_name,
+                ARRAY_UNIQUE_AGG(upstream_columns_for_job) as upstreams
+            FROM
+                column_upstream_jobs
+            GROUP BY
+                downstream_table_name,
                 downstream_column_name
-            ) 
-        SELECT 
-            table_upstreams.downstream_table_name AS "DOWNSTREAM_TABLE_NAME", 
+            )
+        SELECT
+            table_upstreams.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
             ANY_VALUE(
                 table_upstreams.downstream_table_domain
-            ) AS "DOWNSTREAM_TABLE_DOMAIN", 
+            ) AS "DOWNSTREAM_TABLE_DOMAIN",
             ANY_VALUE(
                 table_upstreams.upstream_tables
-            ) AS "UPSTREAM_TABLES", 
+            ) AS "UPSTREAM_TABLES",
             ARRAY_AGG(
                 OBJECT_CONSTRUCT(
-                'column_name', column_upstreams.downstream_column_name, 
+                'column_name', column_upstreams.downstream_column_name,
                 'upstreams', column_upstreams.upstreams
                 )
             ) AS "UPSTREAM_COLUMNS"
-            FROM 
-                table_upstreams table_upstreams 
-            LEFT JOIN column_upstreams column_upstreams 
-                on table_upstreams.downstream_table_name = column_upstreams.downstream_table_name 
-            GROUP BY 
+            FROM
+                table_upstreams table_upstreams
+            LEFT JOIN column_upstreams column_upstreams
+                on table_upstreams.downstream_table_name = column_upstreams.downstream_table_name
+            GROUP BY
                 table_upstreams.downstream_table_name
         """
 
@@ -693,9 +709,11 @@ class SnowflakeQuery:
         start_time_millis: int,
         end_time_millis: int,
         include_view_lineage: bool = True,
-    )->str:
+    ) -> str:
         if include_view_lineage:
-            allowed_upstream_table_domains = "('Table', 'External table', 'View', 'Materialized view')"
+            allowed_upstream_table_domains = (
+                "('Table', 'External table', 'View', 'Materialized view')"
+            )
         else:
             allowed_upstream_table_domains = "('Table', 'External table')"
         return f"""
@@ -718,20 +736,20 @@ class SnowflakeQuery:
                 AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                AND upstream_table_domain in {allowed_upstream_table_domains} 
+                AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = 'Table'
                 )
             SELECT
                 downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-                ANY_VALUE(downstream_table_domain) as "DOWNSTREAM_TABLE_DOMAIN", 
+                ANY_VALUE(downstream_table_domain) as "DOWNSTREAM_TABLE_DOMAIN",
                 ARRAY_UNIQUE_AGG(
                     OBJECT_CONSTRUCT(
-                        'upstream_object_name', upstream_table_name, 
+                        'upstream_object_name', upstream_table_name,
                         'upstream_object_domain', upstream_table_domain
                     )
-                ) as "UPSTREAM_TABLES" 
-                FROM 
+                ) as "UPSTREAM_TABLES"
+                FROM
                     table_lineage_history
-                GROUP BY 
+                GROUP BY
                     downstream_table_name
             """
