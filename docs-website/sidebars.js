@@ -71,17 +71,17 @@ module.exports = {
               ],
             },
             {
-              Snowflake: [
-                "docs/quick-ingestion-guides/snowflake/overview",
-                "docs/quick-ingestion-guides/snowflake/setup",
-                "docs/quick-ingestion-guides/snowflake/configuration",
-              ],
-            },
-            {
               Redshift: [
                 "docs/quick-ingestion-guides/redshift/overview",
                 "docs/quick-ingestion-guides/redshift/setup",
                 "docs/quick-ingestion-guides/redshift/configuration",
+              ],
+            },
+            {
+              Snowflake: [
+                "docs/quick-ingestion-guides/snowflake/overview",
+                "docs/quick-ingestion-guides/snowflake/setup",
+                "docs/quick-ingestion-guides/snowflake/configuration",
               ],
             },
           ],
