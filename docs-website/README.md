@@ -136,3 +136,15 @@ The purpose of this section is to provide developers & technical users with conc
 **Feature Guides**
 
 This section aims to provide plain-language feature overviews for both technical and non-technical readers alike.
+
+
+## Docs site generation process
+
+This process is orchestrated by a combination of Gradle and Yarn tasks. The main entrypoint is via the `docs-website:yarnGenerate` task, which in turn eventually runs `yarn run generate`.
+
+Steps:
+1. Generate the GraphQL combined schema using the gradle's `docs-website:generateGraphQLSchema` task. This generates `./graphql/combined.graphql`.
+2. Run `yarn run _generate-graphql` to produce some markdown in the `./docs` directory.
+3. Run the `generateDocsDir.ts` script to add the remaining markdown files to the `./docs` directory.
+4. Run a copy or rsync to copy the `./docs` directory to `./genDocs`.
+5. The docusaurus build process will then use the `./genDocs` directory as the source for the docs site.
