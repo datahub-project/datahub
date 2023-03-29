@@ -88,9 +88,6 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             return True
         if isinstance(record, MetadataChangeEventClass):
             for e in set(entity_types) & set(self.entity_type_mappings.keys()):
-                assert (
-                    e in self.entity_type_mappings
-                ), f"Do not have a class mapping for {e}. Subscription to this entity will not work for transforming MCE-s"
                 if isinstance(record.proposedSnapshot, self.entity_type_mappings[e]):
                     return True
             # fall through, no entity type matched
