@@ -98,7 +98,7 @@ datahub delete --entity_type chart --platform looker
 datahub delete --entity_type dataset --query "_tmp" -n
 ```
 
-## Rollback Ingestion Batch Run
+## Rollback Ingestion Run
 
 The second way to delete metadata is to identify entities (and the aspects affected) by using an ingestion `run-id`. Whenever you run `datahub ingest -c ...`, all the metadata ingested with that run will have the same run id.
 
