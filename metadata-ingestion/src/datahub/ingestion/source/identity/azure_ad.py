@@ -249,6 +249,14 @@ class AzureADSource(StatefulIngestionSourceBase):
 
     """
 
+    config: AzureADConfig
+    report: AzureADSourceReport
+    token_data: dict
+    token: str
+    selected_azure_ad_groups: list
+    azure_ad_groups_users: list
+    stale_entity_removal_handler: StaleEntityRemovalHandler
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = AzureADConfig.parse_obj(config_dict)
@@ -568,9 +576,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             self.config.azure_ad_response_to_groupname_regex,
         )
         if not self.config.groups_pattern.allowed(group_name):
-            # lintFix giving error: "StatefulIngestionReport" has no attribute "report_filtered"
-            # However self.report is instance of AzureADSourceReport and hence ignoring the lint
-            self.report.report_filtered(f"{corp_group_urn}")  # type: ignore
+            self.report.report_filtered(f"{corp_group_urn}")
             return
         self.selected_azure_ad_groups.append(azure_ad_group)
         corp_group_snapshot = CorpGroupSnapshot(
@@ -616,9 +622,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             if error_str is not None:
                 continue
             if not self.config.users_pattern.allowed(corp_user_urn):
-                # lintFix giving error: "StatefulIngestionReport" has no attribute "report_filtered"
-                # However self.report is instance of AzureADSourceReport and hence ignoring the lint
-                self.report.report_filtered(f"{corp_user_urn}.*")  # type: ignore
+                self.report.report_filtered(f"{corp_user_urn}.*")
                 continue
             corp_user_snapshot = CorpUserSnapshot(
                 urn=corp_user_urn,
