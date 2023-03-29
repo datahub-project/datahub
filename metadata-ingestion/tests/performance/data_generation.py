@@ -13,21 +13,26 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, TypeVar
 
-from performance.data_model import Container, FieldAccess, Query, Table, View
-
-from datahub.metadata.schema_classes import OperationTypeClass
+from tests.performance.data_model import (
+    Container,
+    FieldAccess,
+    Query,
+    StatementType,
+    Table,
+    View,
+)
 
 T = TypeVar("T")
 
-OperationTypes = [
-    OperationTypeClass.INSERT,
-    OperationTypeClass.UPDATE,
-    OperationTypeClass.DELETE,
-    OperationTypeClass.CREATE,
-    OperationTypeClass.ALTER,
-    OperationTypeClass.DROP,
-    OperationTypeClass.CUSTOM,
-    OperationTypeClass.UNKNOWN,
+OPERATION_TYPES: List[StatementType] = [
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "CREATE",
+    "ALTER",
+    "DROP",
+    "CUSTOM",
+    "UNKNOWN",
 ]
 
 
@@ -137,7 +142,7 @@ def generate_queries(
         ]
         yield Query(
             text=f"{uuid.uuid4()}-{'*' * query_length.sample_with_floor(10)}",
-            type=random.choice(OperationTypes),
+            type=random.choice(OPERATION_TYPES),
             actor=random.choice(users),
             timestamp=_random_time_between(
                 seed_metadata.start_time, seed_metadata.end_time

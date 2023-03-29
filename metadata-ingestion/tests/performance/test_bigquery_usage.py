@@ -1,15 +1,11 @@
 import logging
 import os
 import random
-import sys
 from datetime import timedelta
-from typing import Generator
 
 import humanfriendly
 import psutil
 import pytest
-from performance.bigquery import generate_events, ref_from_table
-from performance.data_generation import generate_data, generate_queries
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryUsageConfig,
@@ -21,34 +17,18 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import (
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.utilities.perf_timer import PerfTimer
+from tests.performance.bigquery import generate_events, ref_from_table
+from tests.performance.data_generation import generate_data, generate_queries
 
-
-def set_log_level(logger: logging.Logger, level: int) -> Generator[None, None, None]:
-    old_log_level = logger.level
-    try:
-        logger.setLevel(level)
-        yield
-    finally:
-        logger.setLevel(old_log_level)
+pytestmark = pytest.mark.performance
 
 
 @pytest.fixture(autouse=True)
-def default_log_level_error():
-    root_logger = logging.getLogger()
-    stream_handler = logging.StreamHandler(sys.stdout)
-    try:
-        root_logger.addHandler(stream_handler)
-        yield from set_log_level(root_logger, logging.ERROR)
-    finally:
-        root_logger.removeHandler(stream_handler)
+def report_log_level_info(caplog):
+    with caplog.at_level(logging.INFO, logger=report_logger.name):
+        yield
 
 
-@pytest.fixture
-def report_log_level_info():
-    yield from set_log_level(report_logger, logging.INFO)
-
-
-@pytest.mark.performance
 def test_bigquery_usage(report_log_level_info):
     report = BigQueryV2Report()
     report.set_project_state("All", "Seed Data Generation")

@@ -4,8 +4,6 @@ import uuid
 from collections import defaultdict
 from typing import Dict, Iterable, List
 
-from performance.data_model import Query, Table
-
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditEvent,
     BigqueryTableIdentifier,
@@ -14,6 +12,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     ReadEvent,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from tests.performance.data_model import Query, Table
 
 # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
 READ_REASONS = [
