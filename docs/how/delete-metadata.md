@@ -40,25 +40,6 @@ datahub delete --urn "<my urn>" --hard
 As of datahub v0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
 For now, this behaviour must be opted into by a prompt that will appear for you to manually accept or deny.
 
-Starting v0.8.44.2, this also supports deletion of a specific `timeseries` aspect associated with the entity, optionally for a specific time range.
-
-_Note: Deletion by a specific aspect and time range is currently supported only for timeseries aspects._
-
-```bash
-# Delete all of the aspect values for a given entity and a timeseries aspect.
-datahub delete --urn "<entity urn>" -a "<timeseries aspect>" --hard
-Eg: datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_dataset,TEST)" -a "datasetProfile" --hard
-
-# Delete all of the aspect values for a given platform and a timeseries aspect.
-datahub delete -p "<platform>" -a "<timeseries aspect>" --hard
-Eg: datahub delete -p "snowflake" -a "datasetProfile" --hard
-
-# Delete the aspect values for a given platform and a timeseries aspect corresponding to a specific time range.
-datahub delete -p "<platform>" -a "<timeseries aspect>" --start-time '<start_time>' --end-time '<end_time>' --hard
-Eg: datahub delete -p "snowflake" -a "datasetProfile" --start-time '2022-05-29 00:00:00' --end-time '2022-05-31 00:00:00' --hard
-```
-
-
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
 You can optionally add `-f` or `--force` to skip confirmations
 You can optionally add `--only-soft-deleted` flag to remove soft-deleted items only.
@@ -80,14 +61,19 @@ curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn
 _Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). 
 
 
-### Delete all datasets in the DEV environment
+### Delete all Datasets from the Snowflake platform
 ```
-datahub delete --env DEV --entity_type dataset
+datahub delete --entity_type dataset --platform nowflake
 ```
 
 ### Delete all containers for a particular platform
 ```
 datahub delete --entity_type container --platform s3
+```
+
+### Delete all datasets in the DEV environment
+```
+datahub delete --env DEV --entity_type dataset
 ```
 
 ### Delete all Pipelines and Tasks in the DEV environment
