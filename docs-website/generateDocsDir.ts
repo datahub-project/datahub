@@ -410,26 +410,29 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-      /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
-      (_, inline_file_path: string, show_path_as_comment: string) => {
-        if (!inline_file_path.startsWith('/')) {
-          throw new Error(`inline path must be absolute: ${inline_file_path}`);
-        }
-
-        console.log(`Inlining ${inline_file_path} into ${filepath}`)
-        const referenced_file = fs.readFileSync(path.join('..', inline_file_path), "utf8");
-
-        // TODO: Add support for start_after_line and end_before_line arguments
-        // that can be used to limit the inlined content to a specific range of lines.
-        let new_contents = '';
-        if (show_path_as_comment) {
-          new_contents += `# Inlined from ${inline_file_path}\n`;
-        }
-        new_contents += referenced_file;
-
-        return new_contents;
+    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
+    (_, inline_file_path: string, show_path_as_comment: string) => {
+      if (!inline_file_path.startsWith("/")) {
+        throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
-    );
+
+      console.log(`Inlining ${inline_file_path} into ${filepath}`);
+      const referenced_file = fs.readFileSync(
+        path.join("..", inline_file_path),
+        "utf8"
+      );
+
+      // TODO: Add support for start_after_line and end_before_line arguments
+      // that can be used to limit the inlined content to a specific range of lines.
+      let new_contents = "";
+      if (show_path_as_comment) {
+        new_contents += `# Inlined from ${inline_file_path}\n`;
+      }
+      new_contents += referenced_file;
+
+      return new_contents;
+    }
+  );
   contents.content = new_content;
 }
 
