@@ -891,10 +891,7 @@ class LookerExplore:
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_snapshot.urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.LOOKER_EXPLORE]),
         )
 

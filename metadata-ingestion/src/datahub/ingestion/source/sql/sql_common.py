@@ -430,7 +430,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         database: str,
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         database_container_key = gen_database_key(
             database,
             platform=self.platform,
@@ -464,7 +463,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         db_name: str,
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         schema_container_key = gen_schema_key(
             db_name=db_name,
             schema=schema,
@@ -691,17 +689,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
             )
-            lineage_mcpw = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
+            lineage_wu = MetadataChangeProposalWrapper(
                 entityUrn=dataset_snapshot.urn,
-                aspectName="upstreamLineage",
                 aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-            )
-            lineage_wu = MetadataWorkUnit(
-                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-                mcp=lineage_mcpw,
-            )
+            ).as_workunit()
             self.report.report_workunit(lineage_wu)
             yield lineage_wu
 
@@ -736,10 +727,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         subtypes_aspect = MetadataWorkUnit(
             id=f"{dataset_name}-subtypes",
             mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
             ),
         )
@@ -801,22 +789,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
-    ) -> Optional[SqlWorkUnit]:
+    ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
+            wu = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
                         self.platform, self.config.platform_instance
                     ),
                 ),
-            )
-            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            ).as_workunit()
             self.report.report_workunit(wu)
             return wu
         else:
@@ -1010,16 +994,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{view}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
-            ),
-        )
+        subtypes_aspect = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
+        ).as_workunit()
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
         if "view_definition" in properties:
@@ -1209,13 +1187,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 self.config.platform_instance,
                 self.config.env,
             )
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
+            wu = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="datasetProfile",
                 aspect=profile,
-            )
+            ).as_workunit()
             wu = MetadataWorkUnit(id=f"profile-{dataset_name}", mcp=mcp)
             self.report.report_workunit(wu)
 

@@ -369,9 +369,6 @@ class SnowflakeUsageExtractor(
                     operationType=operation_type,
                 )
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    aspectName="operation",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dataset_urn,
                     aspect=operation_aspect,
                 )

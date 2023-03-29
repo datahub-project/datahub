@@ -819,7 +819,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
-
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events = []
         for element in looker_dashboard.dashboard_elements:
@@ -1075,10 +1074,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         input_fields_aspect = InputFieldsClass(fields=all_fields)
 
         return MetadataChangeProposalWrapper(
-            entityType="dashboard",
             entityUrn=dashboard_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="inputFields",
             aspect=input_fields_aspect,
         )
 
@@ -1093,10 +1089,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         return MetadataChangeProposalWrapper(
-            entityType="chart",
             entityUrn=chart_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="inputFields",
             aspect=input_fields_aspect,
         )
 
