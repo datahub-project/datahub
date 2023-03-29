@@ -1,9 +1,9 @@
 # Removing Metadata from DataHub
 
-There are a two ways to delete metadata from DataHub. 
+There are a two ways to delete metadata from DataHub:
 
-- Delete metadata attached to entities by providing a specific urn or filters that identify a set of entities
-- Delete metadata created by a single ingestion run
+1. Delete metadata attached to entities by providing a specific urn or filters that identify a set of entities
+2. Delete metadata created by a single ingestion run
 
 To follow this guide you need to use [DataHub CLI](../cli.md).
 
