@@ -77,6 +77,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/snowflake/configuration",
               ],
             },
+            {
+              Redshift: [
+                "docs/quick-ingestion-guides/redshift/overview",
+                "docs/quick-ingestion-guides/redshift/setup",
+                "docs/quick-ingestion-guides/redshift/configuration",
+              ],
+            },
           ],
         },
       ],
