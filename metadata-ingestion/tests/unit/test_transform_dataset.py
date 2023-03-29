@@ -61,6 +61,7 @@ from datahub.ingestion.transformer.dataset_domain import (
     SimpleAddDatasetDomain,
 )
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
+from datahub.ingestion.transformer.extract_dataset_tags import ExtractDatasetTags
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
@@ -283,6 +284,52 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
     assert isinstance(ownership_aspect, OwnershipClass)
     assert len(ownership_aspect.owners) == 1
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
+
+
+def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str):
+    input = make_generic_dataset(entity_urn=in_urn)
+    transformer = ExtractDatasetTags.create(
+        {
+            "extract_tags_from": "urn",
+            "extract_tags_regex": regex_str,
+            "semantics": "overwrite",
+        },
+        PipelineContext(run_id="test"),
+    )
+    output = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
+    )
+
+    assert len(output) == 3
+    assert output[0].record == input
+    tags_aspect = output[1].record.aspect
+    assert isinstance(tags_aspect, GlobalTagsClass)
+    assert len(tags_aspect.tags) == 1
+    assert tags_aspect.tags[0].tag == out_tag
+
+
+def test_extract_dataset_tags(mock_time):
+    in_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.part1-part2-part3_part4,PROD)"
+    _test_extract_tags(
+        in_urn=in_urn,
+        regex_str="(.*)",
+        out_tag="clusterid.part1-part2-part3_part4",
+    )
+    _test_extract_tags(
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.USA-ops-team_table1,PROD)",
+        regex_str=".([^._]*)_",
+        out_tag="USA-ops-team",
+    )
+    _test_extract_tags(
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.Canada-marketing_table1,PROD)",
+        regex_str=".([^._]*)_",
+        out_tag="Canada-marketing",
+    )
 
 
 def test_simple_dataset_ownership_with_invalid_type_transformation(mock_time):
