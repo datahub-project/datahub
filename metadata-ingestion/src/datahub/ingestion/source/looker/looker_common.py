@@ -69,7 +69,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     FineGrainedLineageClass,
@@ -540,7 +539,6 @@ class LookerExplore:
         reporter: "LookMLSourceReport",
         model_explores_map: Dict[str, dict],
     ) -> "LookerExplore":
-
         view_names: Set[str] = set()
         joins = None
         assert "name" in dict, "Explore doesn't have a name field, this isn't allowed"

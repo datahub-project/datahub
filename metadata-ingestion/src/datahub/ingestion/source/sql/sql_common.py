@@ -78,7 +78,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -1191,7 +1190,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 entityUrn=dataset_urn,
                 aspect=profile,
             ).as_workunit()
-            wu = MetadataWorkUnit(id=f"profile-{dataset_name}", mcp=mcp)
             self.report.report_workunit(wu)
 
             yield wu

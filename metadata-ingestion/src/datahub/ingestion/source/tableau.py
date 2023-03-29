@@ -1968,7 +1968,7 @@ class TableauSource(StatefulIngestionSourceBase):
         entity_urn: str, embed_url: str
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
-            entity_urn=entity_urn,
+            entityUrn=entity_urn,
             aspect=EmbedClass(renderUrl=embed_url),
         )
 
