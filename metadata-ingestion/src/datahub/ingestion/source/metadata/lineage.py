@@ -14,7 +14,10 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.source_common import EnvConfigMixin
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    get_sys_time,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -166,6 +169,9 @@ def _get_lineage_mcp(
                 models.UpstreamClass(
                     dataset=upstream_entity_urn,
                     type=models.DatasetLineageTypeClass.TRANSFORMED,
+                    auditStamp=models.AuditStampClass(
+                        time=get_sys_time(), actor="urn:li:corpUser:ingestion"
+                    ),
                 )
             )
         else:
