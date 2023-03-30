@@ -170,7 +170,7 @@ class FieldRow(BaseModel):
         if self.inner_fields and len(self.inner_fields) > 1:
             # to deal with unions that have essentially the same simple field path, we include the supported types in the Notes section
             # Once we move to a better layout, we can expand this section out
-            notes = "One of " + ",".join(
+            notes = "One of " + ", ".join(
                 [x.type_name for x in self.inner_fields if x.discriminated_type]
             )
         else:
@@ -185,7 +185,7 @@ class FieldHeader(FieldRow):
         return "\n".join(
             [
                 "| Field [Required] | Type | Description | Default | Notes |",
-                "| ---   | ---  | --- | -- | -- |",
+                "|:---   |:---  |:--- |:-- |:-- |",
                 "",
             ]
         )
