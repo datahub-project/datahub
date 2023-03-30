@@ -47,6 +47,23 @@ public class DataHubKafkaProducerFactory {
   @Value("${kafka.producer.backoffTimeout}")
   private String kafkaProducerBackOffTimeout;
 
+  @Value("${kafka.protocol}")
+  private String protocol;
+
+  @Value("${kafka.ssl.trustStoreLocation}")
+  private String trustStoreLocation;
+
+  @Value("${kafka.ssl.trustStorePassword}")
+  private String trustStorePassword;
+
+  @Value("${kafka.ssl.keyStoreLocation}")
+  private String keyStoreLocation;
+
+  @Value("${kafka.ssl.keyStorePassword}")
+  private String keyStorePassword;
+
+  @Value("${kafka.ssl.keyPassword}")
+  private String keyPassword;
   @Autowired
   @Lazy
   @Qualifier("kafkaSchemaRegistry")
@@ -82,6 +99,15 @@ public class DataHubKafkaProducerFactory {
     props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, kafkaProducerDeliveryTimeout);
     props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaProducerRequestTimeout);
     props.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, kafkaProducerBackOffTimeout);
+
+    if (protocol != null && protocol.equals("SSL")) {
+      props.put("security.protocol", protocol);
+      props.put("ssl.truststore.location", trustStoreLocation);
+      props.put("ssl.truststore.password", trustStorePassword);
+      props.put("ssl.keystore.location", keyStoreLocation);
+      props.put("ssl.keystore.password", keyStorePassword);
+      props.put("ssl.key.password", keyPassword);
+    }
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()

@@ -35,6 +35,24 @@ public class KafkaEventConsumerFactory {
   @Value("${kafka.bootstrapServers}")
   private String kafkaBootstrapServers;
 
+  @Value("${kafka.protocol}")
+  private String protocol;
+
+  @Value("${kafka.ssl.trustStoreLocation}")
+  private String trustStoreLocation;
+
+  @Value("${kafka.ssl.trustStorePassword}")
+  private String trustStorePassword;
+
+  @Value("${kafka.ssl.keyStoreLocation}")
+  private String keyStoreLocation;
+
+  @Value("${kafka.ssl.keyStorePassword}")
+  private String keyStorePassword;
+
+  @Value("${kafka.ssl.keyPassword}")
+  private String keyPassword;
+
   @Value("${kafka.schemaRegistry.type}")
   private String schemaRegistryType;
 
@@ -80,6 +98,15 @@ public class KafkaEventConsumerFactory {
 
     consumerProps.setValueDeserializer(schemaRegistryConfig.getDeserializer());
     Map<String, Object> props = properties.buildConsumerProperties();
+
+    if (protocol != null && protocol.equals("SSL")) {
+      props.put("security.protocol", protocol);
+      props.put("ssl.truststore.location", trustStoreLocation);
+      props.put("ssl.truststore.password", trustStorePassword);
+      props.put("ssl.keystore.location", keyStoreLocation);
+      props.put("ssl.keystore.password", keyStorePassword);
+      props.put("ssl.key.password", keyPassword);
+    }
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()
