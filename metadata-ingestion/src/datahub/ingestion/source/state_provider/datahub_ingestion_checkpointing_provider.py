@@ -11,11 +11,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DatahubIngestionCheckpointClass,
-    StatusClass,
-)
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass, StatusClass
 
 logger = logging.getLogger(__name__)
 
