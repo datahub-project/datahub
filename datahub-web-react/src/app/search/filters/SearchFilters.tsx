@@ -3,8 +3,12 @@ import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ORIGIN_FILTER_NAME } from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
+import MoreFilters from './MoreFilters';
 import SearchFilter from './SearchFilter';
+
+const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 
 const SearchFiltersWrapper = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -27,10 +31,18 @@ interface Props {
 }
 
 export default function SearchFilters({ availableFilters, activeFilters, onChangeFilters }: Props) {
+    // only want Environment filter if there's 2 or more envs
+    // TODO: sort on what we deem as priority order once we solidify that
+    const filters = availableFilters?.filter((f) =>
+        f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true,
+    );
+    const visibleFilters = filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS);
+    const hiddenFilters = filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS);
+
     return (
         <SearchFiltersWrapper>
             <FlexWrapper>
-                {availableFilters?.map((filter) => (
+                {visibleFilters?.map((filter) => (
                     <SearchFilter
                         key={filter.field}
                         filter={filter}
@@ -38,6 +50,13 @@ export default function SearchFilters({ availableFilters, activeFilters, onChang
                         onChangeFilters={onChangeFilters}
                     />
                 ))}
+                {hiddenFilters && hiddenFilters.length > 0 && (
+                    <MoreFilters
+                        filters={hiddenFilters}
+                        activeFilters={activeFilters}
+                        onChangeFilters={onChangeFilters}
+                    />
+                )}
             </FlexWrapper>
             {activeFilters.length > 0 && (
                 <>

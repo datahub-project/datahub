@@ -70,3 +70,15 @@ export function getFilterIconAndLabel(
 
     return { icon, label };
 }
+
+export function getNumActiveFiltersForFilter(activeFilters: FacetFilterInput[], filter: FacetMetadata) {
+    return activeFilters.find((f) => f.field === filter.field)?.values?.length || 0;
+}
+
+export function getNumActiveFiltersForGroupOfFilters(activeFilters: FacetFilterInput[], filters: FacetMetadata[]) {
+    let numActiveFilters = 0;
+    filters.forEach((filter) => {
+        numActiveFilters += getNumActiveFiltersForFilter(activeFilters, filter);
+    });
+    return numActiveFilters;
+}
