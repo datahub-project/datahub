@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import FilterOption from './FilterOption';
+import { FilterFields } from './types';
 import { getNewFilters, getNumActiveFiltersForFilter } from './utils';
 
 interface Props {
@@ -26,12 +27,12 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     }
 
     const filterOptions = filter.aggregations.map((agg) => {
+        const filterFields: FilterFields = { field: filter.field, ...agg };
         return {
             key: agg.value,
             label: (
                 <FilterOption
-                    filterField={filter.field}
-                    aggregation={agg}
+                    filterFields={filterFields}
                     selectedFilterValues={selectedFilterValues}
                     setSelectedFilterValues={setSelectedFilterValues}
                 />
