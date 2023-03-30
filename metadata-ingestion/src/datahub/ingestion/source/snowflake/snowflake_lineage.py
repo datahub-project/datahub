@@ -4,8 +4,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, Iterable, List, Optional, Set
 
-from pydantic import Field
-from pydantic.error_wrappers import ValidationError
 from snowflake.connector import SnowflakeConnection
 
 import datahub.emitter.mce_builder as builder
@@ -20,9 +18,6 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
-    SnowflakeColumnReference,
-)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeConnectionMixin,
@@ -39,16 +34,6 @@ from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamCla
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-class SnowflakeColumnWithLineage(SnowflakeColumnReference):
-    class Config:
-        # This is for backward compatibility and can be removed later
-        allow_population_by_field_name = True
-
-    directSourceColumns: Optional[List[SnowflakeColumnReference]] = Field(
-        default=None, alias="directSources"
-    )
 
 
 @dataclass(frozen=True)
@@ -76,90 +61,6 @@ class SnowflakeColumnUpstreams:
         default_factory=set, init=False
     )
 
-    def update_column_lineage(
-        self, directSourceColumns: List[SnowflakeColumnReference]
-    ) -> None:
-        input_columns = frozenset(
-            [
-                SnowflakeColumnId(
-                    upstream_col.columnName,
-                    upstream_col.objectName,
-                    upstream_col.objectDomain,
-                )
-                for upstream_col in directSourceColumns
-                if upstream_col.objectName
-            ]
-        )
-        if not input_columns:
-            return
-        upstream = SnowflakeColumnFineGrainedLineage(inputColumns=input_columns)
-        if upstream not in self.upstreams:
-            self.upstreams.add(upstream)
-
-
-@dataclass
-class SnowflakeUpstreamTable:
-    upstreamDataset: str
-    upstreamColumns: List[SnowflakeColumnReference]
-    downstreamColumns: List[SnowflakeColumnWithLineage]
-
-    @classmethod
-    def from_dict(
-        cls,
-        dataset: str,
-        upstreams_columns_json: Optional[str],
-        downstream_columns_json: Optional[str],
-    ) -> "SnowflakeUpstreamTable":
-        try:
-            upstreams_columns_list = []
-            downstream_columns_list = []
-            if upstreams_columns_json is not None:
-                upstreams_columns_list = json.loads(upstreams_columns_json)
-            if downstream_columns_json is not None:
-                downstream_columns_list = json.loads(downstream_columns_json)
-
-            table_with_upstreams = cls(
-                dataset,
-                [
-                    SnowflakeColumnReference.parse_obj(col)
-                    for col in upstreams_columns_list
-                ],
-                [
-                    SnowflakeColumnWithLineage.parse_obj(col)
-                    for col in downstream_columns_list
-                ],
-            )
-        except ValidationError:
-            # Earlier versions of column lineage did not include columnName, only columnId
-            table_with_upstreams = cls(dataset, [], [])
-        return table_with_upstreams
-
-
-@dataclass
-class SnowflakeTableLineage:
-    # key: upstream table name
-    upstreamTables: Dict[str, SnowflakeUpstreamTable] = field(
-        default_factory=dict, init=False
-    )
-
-    # key: downstream column name
-    columnLineages: Dict[str, SnowflakeColumnUpstreams] = field(
-        default_factory=lambda: defaultdict(SnowflakeColumnUpstreams), init=False
-    )
-
-    def update_lineage(
-        self, table: SnowflakeUpstreamTable, include_column_lineage: bool = True
-    ) -> None:
-        if table.upstreamDataset not in self.upstreamTables.keys():
-            self.upstreamTables[table.upstreamDataset] = table
-
-        if include_column_lineage and table.downstreamColumns:
-            for col in table.downstreamColumns:
-                if col.directSourceColumns:
-                    self.columnLineages[col.columnName].update_column_lineage(
-                        col.directSourceColumns
-                    )
-
 
 class SnowflakeLineageExtractor(
     SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
@@ -178,9 +79,6 @@ class SnowflakeLineageExtractor(
     """
 
     def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
-        self._lineage_map: Dict[str, SnowflakeTableLineage] = defaultdict(
-            SnowflakeTableLineage
-        )
         self._external_lineage_map: Dict[str, Set[str]] = defaultdict(set)
         self.config = config
         self.platform = "snowflake"
@@ -192,21 +90,38 @@ class SnowflakeLineageExtractor(
         self, discovered_tables: List[str], discovered_views: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         self.connection = self.create_connection()
-        if self.connection is None or not self.config.include_table_lineage:
+        if self.connection is None:
             return
+
+        self._populate_external_lineage_map()
 
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
                 yield from self.get_view_upstream_workunits(discovered_views)
+                logger.info(
+                    f"Upstream lineage detected for {self.report.num_views_with_upstreams} views.",
+                )
             else:
                 logger.info("No views found. Skipping View Lineage Extraction.")
 
-        self._populate_external_lineage_upstreams()
-
-        if len(self._external_lineage_map.keys()) == 0:
-            logger.debug("No external lineage found.")
-
         yield from self.get_table_upstream_workunits(discovered_tables)
+        logger.info(
+            f"Upstream lineage detected for {self.report.num_tables_with_upstreams} tables.",
+        )
+
+        yield from self.get_table_external_upstream_workunits()
+
+    def get_table_external_upstream_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self._external_lineage_map:
+            for (
+                dataset_name,
+                external_lineage,
+            ) in self._external_lineage_map.items():
+                upstreams = self.get_external_upstreams(external_lineage)
+                if upstreams:
+                    yield self._create_upstream_lineage_workunit(
+                        dataset_name, upstreams
+                    )
 
     def get_table_upstream_workunits(
         self, discovered_tables: List[str]
@@ -216,49 +131,116 @@ class SnowflakeLineageExtractor(
                 "Snowflake Account is Standard Edition. Table to Table and View to Table Lineage Feature is not supported."
             )  # See Edition Note above for why
         else:
+            results = None
             with PerfTimer() as timer:
-                yield from self._fetch_upstream_lineages_for_table(discovered_tables)
+                results = self._fetch_upstream_lineages_for_tables()
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
 
-                if self._external_lineage_map:
-                    for (
-                        dataset_name,
-                        external_lineage,
-                    ) in self._external_lineage_map.items():
-                        # Populate the external-table-lineage(s3->snowflake) in aspect
-                        upstreams: List[UpstreamClass] = []
-                        self.update_external_tables_lineage(upstreams, external_lineage)
-                        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                            self.platform,
-                            dataset_name,
-                            self.config.platform_instance,
-                            self.config.env,
-                        )
+            if not results:
+                return
 
-                        if upstreams:
-                            logger.debug(
-                                f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
-                            )
-                            if self.config.upstream_lineage_in_report:
-                                self.report.upstream_lineage[dataset_name] = [
-                                    u.dataset for u in upstreams
-                                ]
-                            upstream_lineage = UpstreamLineage(
-                                upstreams=upstreams,
-                            )
-                            self.report.num_tables_with_upstreams += 1
-                            yield MetadataChangeProposalWrapper(
-                                entityUrn=dataset_urn, aspect=upstream_lineage
-                            ).as_workunit()
+            yield from self._build_upstream_lineage_workunits_from_query_result(
+                discovered_tables, results
+            )
+
+    def _build_upstream_lineage_workunits_from_query_result(
+        self, discovered_assets, results, report_upstream_for_view=False
+    ):
+        for db_row in results:
+            dataset_name = self.get_dataset_identifier_from_qualified_name(
+                db_row["DOWNSTREAM_TABLE_NAME"]
+            )
+            if dataset_name not in discovered_assets:
+                continue
+            (
+                upstreams,
+                fine_upstreams,
+            ) = self.get_upstreams_from_query_result_row(dataset_name, db_row)
+            if upstreams:
+                if report_upstream_for_view:
+                    self.report.num_views_with_upstreams += 1
+                else:
+                    self.report.num_tables_with_upstreams += 1
+                yield self._create_upstream_lineage_workunit(
+                    dataset_name, upstreams, fine_upstreams
+                )
+            else:
+                logger.debug(f"No lineage found for {dataset_name}")
 
     def get_view_upstream_workunits(
         self, discovered_views: List[str]
     ) -> Iterable[MetadataWorkUnit]:
+        results = None
         with PerfTimer() as timer:
-            yield from self._fetch_upstream_lineages_for_view(discovered_views)
+            results = self._fetch_upstream_lineages_for_views()
             self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
 
-    def _populate_external_lineage_upstreams(self) -> None:
+        if not results:
+            return
+
+        yield from self._build_upstream_lineage_workunits_from_query_result(
+            discovered_views, results, report_upstream_for_view=True
+        )
+
+    def _create_upstream_lineage_workunit(
+        self, dataset_name, upstreams, fine_upstreams=[]
+    ):
+        dataset_urn = builder.make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        logger.debug(
+            f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
+        )
+        if self.config.upstream_lineage_in_report:
+            self.report.upstream_lineage[dataset_name] = [u.dataset for u in upstreams]
+
+        upstream_lineage = UpstreamLineage(
+            upstreams=upstreams,
+            fineGrainedLineages=sorted(
+                fine_upstreams,
+                key=lambda x: (x.downstreams, x.upstreams),
+            )
+            or None,
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=upstream_lineage
+        ).as_workunit()
+
+    def get_upstreams_from_query_result_row(self, dataset_name, db_row):
+        upstreams: List[UpstreamClass] = []
+        fine_upstreams: List[FineGrainedLineage] = []
+
+        if "UPSTREAM_TABLES" in db_row and db_row["UPSTREAM_TABLES"] is not None:
+            upstreams = self.map_query_result_upstreams(
+                json.loads(db_row["UPSTREAM_TABLES"])
+            )
+
+        if (
+            self.config.include_column_lineage
+            and "UPSTREAM_COLUMNS" in db_row
+            and db_row["UPSTREAM_COLUMNS"] is not None
+        ):
+            dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            fine_upstreams = self.map_query_result_fine_upstreams(
+                dataset_urn, json.loads(db_row["UPSTREAM_COLUMNS"])
+            )
+
+        # Populate the external-table-lineage(s3->snowflake), if present
+        if dataset_name in self._external_lineage_map:
+            external_lineage = self._external_lineage_map.pop(dataset_name)
+            upstreams += self.get_external_upstreams(external_lineage)
+
+        return upstreams, fine_upstreams
+
+    def _populate_external_lineage_map(self) -> None:
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
@@ -276,6 +258,8 @@ class SnowflakeLineageExtractor(
             )
 
             self.report.external_lineage_queries_secs = timer.elapsed_seconds()
+        if len(self._external_lineage_map.keys()) == 0:
+            logger.debug("No external lineage found.")
 
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
@@ -347,9 +331,7 @@ class SnowflakeLineageExtractor(
                 f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
             )
 
-    def _fetch_upstream_lineages_for_table(
-        self, discovered_tables: List[str]
-    ) -> Iterable[MetadataWorkUnit]:
+    def _fetch_upstream_lineages_for_tables(self):
         query: str = SnowflakeQuery.table_to_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
@@ -358,62 +340,9 @@ class SnowflakeLineageExtractor(
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
         )
-        self.report.num_tables_with_upstreams = 0
         try:
             for db_row in self.query(query):
-
-                dataset_name = self.get_dataset_identifier_from_qualified_name(
-                    db_row["DOWNSTREAM_TABLE_NAME"]
-                )
-                if (
-                    self._is_dataset_pattern_allowed(
-                        dataset_name, db_row["DOWNSTREAM_TABLE_DOMAIN"]
-                    )
-                    and dataset_name in discovered_tables
-                ):
-                    dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        dataset_name,
-                        self.config.platform_instance,
-                        self.config.env,
-                    )
-                    upstreams: List[UpstreamClass] = self.map_query_upstreams(
-                        json.loads(db_row["UPSTREAM_TABLES"])
-                    )
-                    if dataset_name in self._external_lineage_map:
-                        external_lineage = self._external_lineage_map.pop(dataset_name)
-
-                        # Populate the external-table-lineage(s3->snowflake) in aspect
-                        self.update_external_tables_lineage(upstreams, external_lineage)
-
-                    fine_upstreams: List[FineGrainedLineage] = []
-                    if self.config.include_column_lineage:
-                        fine_upstreams = self.map_query_fine_upstreams(
-                            dataset_urn, json.loads(db_row["UPSTREAM_COLUMNS"])
-                        )
-                    if upstreams:
-                        logger.debug(
-                            f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
-                        )
-                        if self.config.upstream_lineage_in_report:
-                            self.report.upstream_lineage[dataset_name] = [
-                                u.dataset for u in upstreams
-                            ]
-                        upstream_lineage = UpstreamLineage(
-                            upstreams=upstreams,
-                            fineGrainedLineages=sorted(
-                                fine_upstreams,
-                                key=lambda x: (x.downstreams, x.upstreams),
-                            )
-                            or None,
-                        )
-                        self.report.num_tables_with_upstreams += 1
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=dataset_urn, aspect=upstream_lineage
-                        ).as_workunit()
-
-                    else:
-                        logger.debug(f"No lineage found for {dataset_name}")
+                yield db_row
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get table/view to table lineage. Please grant imported privileges on SNOWFLAKE database. "
@@ -424,114 +353,90 @@ class SnowflakeLineageExtractor(
                     "table-upstream-lineage",
                     f"Extracting lineage from Snowflake failed due to error {e}.",
                 )
-        logger.info(
-            f"Upstream lineage detected for {self.report.num_tables_with_upstreams} tables.",
-        )
 
-    def map_query_upstreams(self, upstream_tables):
+    def map_query_result_upstreams(self, upstream_tables):
         if not upstream_tables:
             return []
         upstreams: List[UpstreamClass] = []
         for upstream_table in upstream_tables:
             if upstream_table:
-                upstream_name = self.get_dataset_identifier_from_qualified_name(
-                    upstream_table["upstream_object_name"]
-                )
-                if upstream_name and self._is_dataset_pattern_allowed(
-                    upstream_name, upstream_table["upstream_object_domain"]
-                ):
-                    upstreams.append(
-                        UpstreamClass(
-                            dataset=builder.make_dataset_urn_with_platform_instance(
-                                self.platform,
-                                upstream_name,
-                                self.config.platform_instance,
-                                self.config.env,
-                            ),
-                            type=DatasetLineageTypeClass.TRANSFORMED,
-                        )
-                    )
+                try:
+                    self._process_add_single_upstream(upstreams, upstream_table)
+                except Exception as e:
+                    logger.debug(e, exc_info=e)
         return upstreams
 
-    def map_query_fine_upstreams(self, dataset_urn, column_wise_upstreams):
+    def _process_add_single_upstream(self, upstreams, upstream_table):
+        upstream_name = self.get_dataset_identifier_from_qualified_name(
+            upstream_table["upstream_object_name"]
+        )
+        if upstream_name and self._is_dataset_pattern_allowed(
+            upstream_name, upstream_table["upstream_object_domain"]
+        ):
+            upstreams.append(
+                UpstreamClass(
+                    dataset=builder.make_dataset_urn_with_platform_instance(
+                        self.platform,
+                        upstream_name,
+                        self.config.platform_instance,
+                        self.config.env,
+                    ),
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+            )
+
+    def map_query_result_fine_upstreams(self, dataset_urn, column_wise_upstreams):
         if not column_wise_upstreams:
             return []
         fine_upstreams: List[FineGrainedLineage] = []
         for column_with_upstreams in column_wise_upstreams:
             if column_with_upstreams:
-                column_name = column_with_upstreams["column_name"]
-                upstream_jobs = column_with_upstreams["upstreams"]
-                if column_name and upstream_jobs:
-                    for upstream_columns in upstream_jobs:
-                        if not upstream_columns:
-                            continue
-                        fine_upstreams.append(
-                            self.build_finegrained_lineage(
-                                dataset_urn=dataset_urn,
-                                col=column_name,
-                                fine_upstream=SnowflakeColumnFineGrainedLineage(
-                                    frozenset(
-                                        [
-                                            SnowflakeColumnId(
-                                                columnName=col["column_name"],
-                                                objectName=col["object_name"],
-                                                objectDomain=col["object_domain"],
-                                            )
-                                            for col in upstream_columns
-                                        ]
-                                    )
-                                ),
-                            )
-                        )
+                try:
+                    self._process_add_single_column_upstream(
+                        dataset_urn, fine_upstreams, column_with_upstreams
+                    )
+                except Exception as e:
+                    logger.debug(e, exc_info=e)
         return fine_upstreams
 
-    def _fetch_upstream_lineages_for_view(
-        self, discovered_views: List[str]
-    ) -> Iterable[MetadataWorkUnit]:
+    def _process_add_single_column_upstream(
+        self, dataset_urn, fine_upstreams, column_with_upstreams
+    ):
+        column_name = column_with_upstreams["column_name"]
+        upstream_jobs = column_with_upstreams["upstreams"]
+        if column_name and upstream_jobs:
+            for upstream_columns in upstream_jobs:
+                if not upstream_columns:
+                    continue
+                fine_upstream = self.build_finegrained_lineage(
+                    dataset_urn=dataset_urn,
+                    col=column_name,
+                    fine_upstream=SnowflakeColumnFineGrainedLineage(
+                        frozenset(
+                            [
+                                SnowflakeColumnId(
+                                    columnName=col["column_name"],
+                                    objectName=col["object_name"],
+                                    objectDomain=col["object_domain"],
+                                )
+                                for col in upstream_columns
+                            ]
+                        )
+                    ),
+                )
+                if not fine_upstream:
+                    continue
+                fine_upstreams.append(fine_upstream)
+
+    def _fetch_upstream_lineages_for_views(self):
         # NOTE: This query captures only the upstream lineage of a view (with no column lineage).
         # For more details see: https://docs.snowflake.com/en/user-guide/object-dependencies.html#object-dependencies
         # and also https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         view_upstream_lineage_query: str = SnowflakeQuery.view_dependencies()
 
-        self.report.num_views_with_upstreams = 0
-
         try:
             for db_row in self.query(view_upstream_lineage_query):
-                dataset_name = self.get_dataset_identifier_from_qualified_name(
-                    db_row["DOWNSTREAM_TABLE_NAME"]
-                )
-                if (
-                    self._is_dataset_pattern_allowed(dataset_name, "view")
-                    and dataset_name in discovered_views
-                ):
-                    dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        dataset_name,
-                        self.config.platform_instance,
-                        self.config.env,
-                    )
-                    upstreams: Optional[List[UpstreamClass]] = self.map_query_upstreams(
-                        json.loads(db_row["UPSTREAM_TABLES"])
-                    )
-
-                    if upstreams:
-                        logger.debug(
-                            f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
-                        )
-                        if self.config.upstream_lineage_in_report:
-                            self.report.upstream_lineage[dataset_name] = [
-                                u.dataset for u in upstreams
-                            ]
-
-                        upstream_lineage = UpstreamLineage(
-                            upstreams=upstreams,
-                        )
-                        self.report.num_views_with_upstreams += 1
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=dataset_urn, aspect=upstream_lineage
-                        ).as_workunit()
-                    else:
-                        logger.debug(f"No lineage found for {dataset_name}")
+                yield db_row
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get table to view lineage. Please grant imported privileges on SNOWFLAKE database."
@@ -542,19 +447,18 @@ class SnowflakeLineageExtractor(
                     "view-upstream-lineage",
                     f"Extracting the upstream view lineage from Snowflake failed due to error {e}.",
                 )
-        logger.info(
-            f"Upstream lineage detected for {self.report.num_views_with_upstreams} views.",
-        )
 
     def build_finegrained_lineage(
         self,
         dataset_urn: str,
         col: str,
         fine_upstream: SnowflakeColumnFineGrainedLineage,
-    ) -> FineGrainedLineage:
+    ) -> Optional[FineGrainedLineage]:
         fieldPath = col
 
         column_upstreams = self.build_finegrained_lineage_upstreams(fine_upstream)
+        if not column_upstreams:
+            return None
         finegrained_lineage_entry = FineGrainedLineage(
             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
             # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
@@ -599,9 +503,8 @@ class SnowflakeLineageExtractor(
                 )
         return column_upstreams
 
-    def update_external_tables_lineage(
-        self, upstream_tables: List[UpstreamClass], external_lineage: Set[str]
-    ) -> None:
+    def get_external_upstreams(self, external_lineage: Set[str]) -> List[UpstreamClass]:
+        external_upstreams = []
         for external_lineage_entry in sorted(external_lineage):
             # For now, populate only for S3
             if external_lineage_entry.startswith("s3://"):
@@ -609,4 +512,5 @@ class SnowflakeLineageExtractor(
                     dataset=make_s3_urn(external_lineage_entry, self.config.env),
                     type=DatasetLineageTypeClass.COPY,
                 )
-                upstream_tables.append(external_upstream_table)
+                external_upstreams.append(external_upstream_table)
+        return external_upstreams
