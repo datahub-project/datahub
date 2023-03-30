@@ -14,10 +14,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.source_common import EnvConfigMixin
-from datahub.emitter.mce_builder import (
-    get_sys_time,
-    make_dataset_urn_with_platform_instance,
-)
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -30,10 +27,6 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
 logger = logging.getLogger(__name__)
-
-auditStamp = models.AuditStampClass(
-    time=get_sys_time(), actor="urn:li:corpUser:pythonEmitter"
-)
 
 
 class EntityConfig(EnvConfigMixin):
@@ -62,7 +55,9 @@ EntityNodeConfig.update_forward_refs()
 
 
 class LineageFileSourceConfig(ConfigModel):
-    file: str = Field(description="Path to lineage file to ingest.")
+    file: str = Field(
+        description="Path to lineage file to ingest. This may also be in the form of a URL."
+    )
     preserve_upstream: bool = Field(
         default=True,
         description="Whether we want to query datahub-gms for upstream data. False means it will hard replace upstream data for a given entity. True means it will query the backend for existing upstreams and include it in the ingestion run",
@@ -160,7 +155,6 @@ class LineageFileSource(Source):
                             new_upstream = models.UpstreamClass(
                                 dataset=upstream_entity_urn,
                                 type=models.DatasetLineageTypeClass.TRANSFORMED,
-                                auditStamp=auditStamp,
                             )
                             new_upstreams.append(new_upstream)
                         else:

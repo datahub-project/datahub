@@ -41,7 +41,6 @@ _DEFAULT_RETRY_MAX_TIMES = int(
 
 
 class DataHubRestEmitter(Closeable):
-
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session

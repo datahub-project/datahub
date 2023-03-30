@@ -257,14 +257,12 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     def _load_json_schema_with_resolved_references(
         self, schema: Schema, name: str, subject: str
     ) -> dict:
-
         imported_json_schemas: List[
             JsonSchemaWrapper
         ] = self.get_schemas_from_confluent_ref_json(schema, name=name, subject=subject)
         schema_dict = json.loads(schema.schema_str)
         reference_map = {}
         for imported_schema in imported_json_schemas:
-
             reference_schema = json.loads(imported_schema.content)
             if "title" not in reference_schema:
                 reference_schema["title"] = imported_schema.subject
