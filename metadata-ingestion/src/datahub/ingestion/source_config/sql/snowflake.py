@@ -166,7 +166,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
 
     @pydantic.validator("account_id")
-    def validate_account_id(cls, account_id: str):
+    def validate_account_id(cls, account_id: str) -> str:
         account_id = remove_protocol(account_id)
         account_id = remove_trailing_slashes(account_id)
         account_id = remove_suffix(account_id, SNOWFLAKE_HOST_SUFFIX)
