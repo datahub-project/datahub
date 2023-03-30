@@ -81,8 +81,6 @@ You can search for a tag in the search bar, and even filter entities by the pres
 * [updateTag](../graphql/mutations.md#updatetag)
 * [deleteTag](../graphql/mutations.md#deletetag)
 
-You can easily fetch the Tags for an entity with a given its URN using the **tags** property. Check out [Working with Metadata Entities](./api/graphql/querying-entities.md#querying-for-tags-of-an-asset) for an example. 
-
 ### DataHub Blog
 
 * [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios
