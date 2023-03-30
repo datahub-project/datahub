@@ -1,0 +1,48 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:harshal",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
+                        "active": true,
+                        "displayName": "Harshal Sheth",
+                        "email": "harshal@sheth.io",
+                        "title": "Engineer",
+                        "fullName": "Harshal Sheth"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-2"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:jane",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
+                        "active": true,
+                        "displayName": "Jane Doe",
+                        "email": "jane@example.com",
+                        "title": "CEO",
+                        "fullName": "Jane Doe"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-2"
+    }
+}
+]
