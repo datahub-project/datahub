@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.metadata.query.filter.Filter;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,7 +50,7 @@ public interface SearchableEntityType<T extends Entity, K> extends EntityType<T,
      */
     AutoCompleteResults autoComplete(@Nonnull String query,
                                      @Nullable String field,
-                                     @Nullable List<FacetFilterInput> filters,
+                                     @Nullable Filter filters,
                                      int limit,
                                      @Nonnull final QueryContext context) throws Exception;
 

@@ -108,6 +108,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.source_helpers import (
+    auto_materialize_referenced_tags,
     auto_stale_entity_removal,
     auto_status_aspect,
 )
@@ -266,11 +267,6 @@ class DBTCommonConfig(
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
     )
 
-    incremental_lineage: bool = Field(
-        # Copied from LineageConfig, and changed the default.
-        default=False,
-        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
-    )
     include_env_in_assertion_guid: bool = Field(
         default=False,
         description="Prior to version 0.9.4.2, the assertion GUIDs did not include the environment. If you're using multiple dbt ingestion "
@@ -278,6 +274,11 @@ class DBTCommonConfig(
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
+    )
+    convert_column_urns_to_lowercase: bool = Field(
+        default=False,
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
+        "If `target_platform` is Snowflake, the default is True.",
     )
 
     @validator("target_platform")
@@ -288,6 +289,14 @@ class DBTCommonConfig(
                 "postgres."
             )
         return target_platform
+
+    @root_validator(pre=True)
+    def set_convert_column_urns_to_lowercase_default_for_snowflake(
+        cls, values: dict
+    ) -> dict:
+        if values.get("target_platform", "").lower() == "snowflake":
+            values.setdefault("convert_column_urns_to_lowercase", True)
+        return values
 
     @validator("write_semantics")
     def validate_write_semantics(cls, write_semantics: str) -> str:
@@ -875,9 +884,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         raise NotImplementedError()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_status_aspect(self.get_workunits_internal()),
+            )
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -965,7 +976,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
-
             is_primary_source = mce_platform == DBT_PLATFORM
             node_datahub_urn = node.get_urn(
                 mce_platform,
@@ -1253,8 +1263,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if meta_aspects.get(Constants.ADD_TERM_OPERATION):
                 glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
 
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+
             field = SchemaField(
-                fieldPath=column.name,
+                fieldPath=field_name,
                 nativeDataType=column.data_type,
                 type=get_column_type(
                     report, node.dbt_name, column.data_type, node.dbt_adapter

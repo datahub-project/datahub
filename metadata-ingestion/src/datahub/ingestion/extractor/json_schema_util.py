@@ -206,6 +206,12 @@ class JsonSchemaTranslator:
         "fixed": FixedTypeClass,
     }
 
+    @staticmethod
+    def _is_nullable(schema: Dict) -> bool:
+        if "type" in schema and isinstance(schema["type"], list):
+            return "null" in schema["type"]
+        return False
+
     @classmethod
     def _field_from_primitive(
         cls,
@@ -216,7 +222,10 @@ class JsonSchemaTranslator:
         specific_type: Optional[str] = None,
     ) -> Iterable[SchemaField]:
         type_override = field_path._get_type_override()
-        native_type = field_path._get_native_type_override() or schema.get("type") or ""
+        native_type = field_path._get_native_type_override() or str(
+            schema.get("type") or ""
+        )
+        nullable = JsonSchemaTranslator._is_nullable(schema)
         if "format" in schema:
             native_type = f"{native_type}({schema['format']})"
         if datahub_field_type in [
@@ -238,8 +247,10 @@ class JsonSchemaTranslator:
                     schema
                 ),
                 nativeDataType=native_type,
-                nullable=not required,
-                jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(schema),
+                nullable=nullable,
+                jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
+                    schema, required=required
+                ),
                 isPartOfKey=field_path.is_key_schema,
             )
         elif datahub_field_type in [EnumTypeClass]:
@@ -248,7 +259,10 @@ class JsonSchemaTranslator:
                 type=type_override or SchemaFieldDataTypeClass(type=EnumTypeClass()),
                 nativeDataType="Enum",
                 description=f"one of {','.join(schema['enum'])}",
-                nullable=not required,
+                nullable=nullable,
+                jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
+                    schema, required=required
+                ),
                 isPartOfKey=field_path.is_key_schema,
             )
         else:
@@ -291,7 +305,7 @@ class JsonSchemaTranslator:
         generic_type = JsonSchemaTranslator._get_type_from_schema(schema)
         if generic_type == "object" and "javaType" in schema:
             return schema["javaType"].split(".")[-1]
-        if generic_type == "object" and "title" in schema:
+        if generic_type == "object" and "title" in schema and "properties" in schema:
             return schema["title"]
         if "format" in schema:
             return f"{generic_type}({schema['format']})"
@@ -311,11 +325,15 @@ class JsonSchemaTranslator:
         return description
 
     @staticmethod
-    def _get_jsonprops_for_any_schema(schema: Dict) -> Optional[str]:
+    def _get_jsonprops_for_any_schema(
+        schema: Dict, required: Optional[bool] = None
+    ) -> Optional[str]:
         json_props = {}
         defaults = schema.get("default")
         if defaults:
             json_props["default"] = defaults
+        if required is not None:
+            json_props["required"] = required
 
         return json.dumps(json_props) if json_props else None
 
@@ -328,13 +346,13 @@ class JsonSchemaTranslator:
         required: bool = False,
         specific_type: Optional[str] = None,
     ) -> Iterable[SchemaField]:
-
         discriminated_type = (
             specific_type
             or JsonSchemaTranslator._get_discriminated_type_from_schema(schema)
         )
         type_override = field_path._get_type_override()
         native_type_override = field_path._get_native_type_override()
+        nullable = JsonSchemaTranslator._is_nullable(schema)
 
         if Ellipsis in schema:
             # This happens in the case of recursive fields, we short-circuit by making this just be an object
@@ -351,12 +369,12 @@ class JsonSchemaTranslator:
                     nativeDataType=native_type_override or recursive_type,
                     type=type_override
                     or SchemaFieldDataTypeClass(type=RecordTypeClass()),
-                    nullable=not required,
+                    nullable=nullable,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
                         schema
                     ),
                     jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
-                        schema
+                        schema, required
                     ),
                     isPartOfKey=field_path.is_key_schema,
                     recursive=True,
@@ -372,12 +390,12 @@ class JsonSchemaTranslator:
                     or JsonSchemaTranslator._get_discriminated_type_from_schema(schema),
                     type=type_override
                     or SchemaFieldDataTypeClass(type=RecordTypeClass()),
-                    nullable=not required,
+                    nullable=nullable,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
                         schema
                     ),
                     jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
-                        schema
+                        schema, required
                     ),
                     isPartOfKey=field_path.is_key_schema,
                 )
@@ -443,12 +461,12 @@ class JsonSchemaTranslator:
                     fieldPath=field_path.expand_type("union", schema).as_string(),
                     type=type_override or SchemaFieldDataTypeClass(UnionTypeClass()),
                     nativeDataType=f"union({union_category})",
-                    nullable=not required,
+                    nullable=nullable,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
                         schema
                     ),
                     jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
-                        schema
+                        schema, required
                     ),
                     isPartOfKey=field_path.is_key_schema,
                 )

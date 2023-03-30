@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -27,7 +28,7 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE = {
     "title": "TestRecord",
     "properties": {
         "my.field": {
-            "type": "string",
+            "type": ["string", "null"],
             "description": "some.doc",
         }
     },
@@ -43,6 +44,12 @@ def assert_field_paths_are_unique(fields: Iterable[SchemaField]) -> None:
 
     if fields_paths:
         assert len(fields_paths) == len(set(fields_paths))
+
+
+def assert_fields_are_valid(fields: Iterable[SchemaField]) -> None:
+    for f in fields:
+        f.validate()
+        assert isinstance(f.nativeDataType, str)
 
 
 def assert_field_paths_match(
@@ -98,6 +105,7 @@ def test_json_schema_to_mce_fields_sample_events_with_different_field_types():
         }
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_to_record_with_two_fields():
@@ -122,6 +130,7 @@ def test_json_schema_to_record_with_two_fields():
         },
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_to_mce_fields_toplevel_isnt_a_record():
@@ -131,6 +140,7 @@ def test_json_schema_to_mce_fields_toplevel_isnt_a_record():
         {"path": "[version=2.0].[type=string]", "type": StringTypeClass}
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_with_recursion():
@@ -154,6 +164,7 @@ def test_json_schema_with_recursion():
         },
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_sample_payment_schema_to_schema_fields_with_nesting():
@@ -208,6 +219,7 @@ def test_json_sample_payment_schema_to_schema_fields_with_nesting():
     assert fields[3].description == "testDoc\nField default value: null"
     assert fields[4].description == "areaCodeDoc\nField default value: "
     assert fields[8].description == "addressDoc\nField default value: null"
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_to_schema_fields_with_nesting_across_records():
@@ -639,6 +651,7 @@ def test_array_handling():
         "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text",
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_simple_array():
@@ -655,3 +668,45 @@ def test_simple_array():
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[0].type.type, ArrayTypeClass)
+
+
+def test_simple_object():
+    schema = {
+        "type": "object",
+        "title": "Object With Object",
+        "namespace": "io.datahubproject",
+        "properties": {"inner": {"type": "object"}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=Object With Object].[type=object].inner",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[0].type.type, RecordTypeClass)
+
+
+def test_required_field():
+    schema = {
+        "$id": "test",
+        "$schema": "http://json-schema.org/draft-06/schema#",
+        "properties": {
+            "a_str": {
+                "description": "Example String",
+                "type": "string",
+            },
+            "b_str": {"type": ["string", "null"]},
+        },
+        "required": ["b_str"],
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=object].[type=string].a_str",
+        "[version=2.0].[type=object].[type=string].b_str",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+    assert fields[0].nullable is False
+    assert fields[1].nullable is True
+    assert json.loads(fields[1].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[0].jsonProps or "{}")["required"] is False

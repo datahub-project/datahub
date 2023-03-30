@@ -66,7 +66,7 @@ fragment deprecationFields on Deprecation {
 fragment parentContainersFields on ParentContainersResult {
     count
     containers {
-        ...entityContainer
+        ...parentContainerFields
     }
 }
 
@@ -222,18 +222,6 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     institutionalMemory {
         ...institutionalMemoryFields
-    }
-    schemaMetadata(version: 0) {
-        ...schemaMetadataFields
-    }
-    editableSchemaMetadata {
-        editableSchemaFieldInfo {
-            fieldPath
-            description
-            globalTags {
-                ...globalTagsFields
-            }
-        }
     }
     globalTags {
         ...globalTagsFields
@@ -888,6 +876,13 @@ fragment entityContainer on Container {
     }
     deprecation {
         ...deprecationFields
+    }
+}
+
+fragment parentContainerFields on Container {
+    urn
+    properties {
+        name
     }
 }
 

@@ -1673,7 +1673,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def emit_sheets_as_charts(
         self, sheet: dict, workbook: Optional[Dict]
     ) -> Iterable[MetadataWorkUnit]:
-
         sheet_urn: str = builder.make_chart_urn(
             self.platform, sheet[tableau_constant.ID], self.config.platform_instance
         )
@@ -1748,7 +1747,6 @@ class TableauSource(StatefulIngestionSourceBase):
             and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
-
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
@@ -1966,29 +1964,11 @@ class TableauSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     @staticmethod
-    def new_mcp(
-        entity_urn: str,
-        aspect_name: str,
-        aspect: builder.Aspect,
-        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
-    ) -> MetadataChangeProposalWrapper:
-        """
-        Create MCP
-        """
-        return MetadataChangeProposalWrapper(
-            changeType=change_type,
-            entityUrn=entity_urn,
-            aspectName=aspect_name,
-            aspect=aspect,
-        )
-
-    @staticmethod
     def new_embed_aspect_mcp(
         entity_urn: str, embed_url: str
     ) -> MetadataChangeProposalWrapper:
-        return TableauSource.new_mcp(
-            entity_urn=entity_urn,
-            aspect_name=EmbedClass.ASPECT_NAME,
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
             aspect=EmbedClass(renderUrl=embed_url),
         )
 
@@ -2083,7 +2063,6 @@ class TableauSource(StatefulIngestionSourceBase):
             and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
-
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
@@ -2264,6 +2243,3 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
-
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.config.platform_instance or self.platform

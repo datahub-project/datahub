@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
@@ -17,6 +19,7 @@ import com.linkedin.metadata.query.FreshnessStats;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
@@ -47,6 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.cache.Cache;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
 
@@ -72,10 +76,18 @@ public class LineageSearchService {
   private static final String DEGREE_FILTER_INPUT = "degree.keyword";
   private static final AggregationMetadata DEGREE_FILTER_GROUP = new AggregationMetadata().setName(DEGREE_FILTER)
       .setDisplayName("Degree of Dependencies")
+      .setAggregations(new LongMap())
       .setFilterValues(new FilterValueArray(ImmutableList.of(new FilterValue().setValue("1").setFacetCount(0),
           new FilterValue().setValue("2").setFacetCount(0), new FilterValue().setValue("3+").setFacetCount(0))));
   private static final int MAX_RELATIONSHIPS = 1000000;
   private static final int MAX_TERMS = 50000;
+
+  private static final Set<String> PLATFORM_ENTITY_TYPES = ImmutableSet.of(
+      DATASET_ENTITY_NAME,
+      CHART_ENTITY_NAME,
+      DASHBOARD_ENTITY_NAME,
+      DATA_FLOW_ENTITY_NAME,
+      DATA_JOB_ENTITY_NAME);
 
   /**
    * Gets a list of documents that match given search request that is related to the input entity
@@ -110,7 +122,8 @@ public class LineageSearchService {
     }
 
     // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
+    final EntityLineageResultCacheKey cacheKey = EntityLineageResultCacheKey.from(sourceUrn, direction, startTimeMillis,
+            endTimeMillis, maxHops);
     CachedEntityLineageResult cachedLineageResult = null;
 
     if (cacheEnabled) {
@@ -175,11 +188,11 @@ public class LineageSearchService {
     long numEntities = 0;
     String codePath = null;
     try {
-      if ((lineageRelationships.size() > cacheConfiguration.getLightningThreshold()) && input.equals("*")) {
+      if (canDoLightning(lineageRelationships, input, inputFilters, sortCriterion)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
-        LineageSearchResult lineageSearchResult = getLightningSearchResult(lineageRelationships, input,
-                inputFilters, sortCriterion, from, size, finalFlags);
+        LineageSearchResult lineageSearchResult = getLightningSearchResult(lineageRelationships,
+                inputFilters, from, size, new HashSet<>(entities));
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug("Lightning Lineage entity result: {}", lineageSearchResult.getEntities().get(0).toString());
         }
@@ -201,32 +214,40 @@ public class LineageSearchService {
     }
   }
 
-  private LineageSearchResult getLightningSearchResult(List<LineageRelationship> lineageRelationships, String s,
-                                                       Filter inputFilters, SortCriterion sortCriterion,
-                                                       int from, int size, SearchFlags searchFlags) {
 
+  @VisibleForTesting
+  boolean canDoLightning(List<LineageRelationship> lineageRelationships, String input, Filter inputFilters,
+      SortCriterion sortCriterion) {
+    boolean simpleFilters = inputFilters == null || inputFilters.getOr() == null
+        || inputFilters.getOr()
+        .stream()
+        .allMatch(criterion -> criterion.getAnd()
+            .stream()
+            .allMatch(criterion1 -> "platform".equals(criterion1.getField()) || "origin".equals(criterion1.getField())
+            )
+        );
+    return (lineageRelationships.size() > cacheConfiguration.getLightningThreshold())
+        && input.equals("*") && simpleFilters && sortCriterion == null;
+  }
+
+  @VisibleForTesting
+  LineageSearchResult getLightningSearchResult(List<LineageRelationship> lineageRelationships,
+      Filter inputFilters, int from, int size, Set<String> entityNames) {
+
+    // Contruct result objects
     LineageSearchResult finalResult = new LineageSearchResult()
             .setMetadata(new SearchResultMetadata());
     LineageSearchEntityArray lineageSearchEntityArray = new LineageSearchEntityArray();
-    AggregationMetadata entityTypeAgg = new AggregationMetadata()
-            .setDisplayName("Type")
-            .setName("entity")
-            .setFilterValues(new FilterValueArray())
-            .setAggregations(new LongMap());
-    HashMap<String, Long> entityTypeAggregations = new HashMap<>();
-    HashMap<String, Long> platformTypeAggregations = new HashMap<>();
-    HashMap<String, Long> environmentAggregations = new HashMap<>();
-    AggregationMetadata platformTypeAgg = new AggregationMetadata()
-            .setDisplayName("Platform")
-            .setName("platform")
-            .setFilterValues(new FilterValueArray())
-            .setAggregations(new LongMap());
-    AggregationMetadata environmentAgg = new AggregationMetadata()
-            .setDisplayName("Environment")
-            .setName("origin")
-            .setFilterValues(new FilterValueArray())
-            .setAggregations(new LongMap());
+    AggregationMetadata entityTypeAgg = constructAggMetadata("Type", "entity");
+    AggregationMetadata platformTypeAgg = constructAggMetadata("Platform", "platform");
+    AggregationMetadata environmentAgg = constructAggMetadata("Environment", "origin");
+
+    Map<String, Long> entityTypeAggregations = new HashMap<>();
+    Map<String, Long> platformTypeAggregations = new HashMap<>();
+    Map<String, Long> environmentAggregations = new HashMap<>();
+
     AggregationMetadataArray aggregationMetadataArray = new AggregationMetadataArray();
+
     // Aggregations supported by this model
     // entity type
     // platform
@@ -234,52 +255,58 @@ public class LineageSearchService {
     int start = 0;
     int numElements = 0;
     for (LineageRelationship relnship: lineageRelationships) {
-      start++;
       Urn entityUrn = relnship.getEntity();
-      if ((start > from) && (numElements < size)) {
-        lineageSearchEntityArray.add(new LineageSearchEntity()
-                .setEntity(entityUrn)
-                .setDegree(relnship.getDegree())
-                .setPaths(relnship.getPaths()));
-        numElements++;
-      }
-      // entityType
       String entityType = entityUrn.getEntityType();
-      if (!entityTypeAggregations.containsKey(entityType)) {
-        entityTypeAggregations.put(entityType, 0L);
-      }
-      entityTypeAggregations.put(entityType, entityTypeAggregations.get(entityType) + 1);
+      // Apply platform, entity types, and environment filters
 
-      // platform
-      String platform = null;
-      if (entityType.equalsIgnoreCase("dataset")
-              || entityType.equalsIgnoreCase("dashboard")
-              || entityType.equalsIgnoreCase("chart")
-              || entityType.equalsIgnoreCase("dataFlow")
-              || entityType.equalsIgnoreCase("dataJob")
-      ) {
-        platform = entityUrn.getEntityKey().get(0);
-      }
-      if ((platform != null) && (!platform.startsWith("urn:li:dataPlatform"))) {
-        platform = "urn:li:dataPlatform:" + platform;
-      }
-      if (platform != null) {
-        if (!platformTypeAggregations.containsKey(platform)) {
-          platformTypeAggregations.put(platform, 0L);
-        }
-        platformTypeAggregations.put(platform, platformTypeAggregations.get(platform) + 1);
-      }
+      String platform = getPlatform(entityType, entityUrn);
 
-      // environment
       String environment = null;
-      if (entityType.equalsIgnoreCase("dataset")) {
+      if (entityType.equals(DATASET_ENTITY_NAME)) {
         environment = entityUrn.getEntityKey().get(2);
       }
-      if (environment != null) {
-        if (!environmentAggregations.containsKey(environment)) {
-          environmentAggregations.put(environment, 0L);
+
+      // Filters
+      Set<String> platformCriteriaValues = null;
+      Set<String> originCriteriaValues = null;
+      if (inputFilters != null && inputFilters.getOr() != null) {
+        platformCriteriaValues = inputFilters.getOr().stream().map(ConjunctiveCriterion::getAnd).flatMap(
+            CriterionArray::stream).filter(criterion -> "platform".equals(criterion.getField())).map(Criterion::getValue)
+            .collect(Collectors.toSet());
+        originCriteriaValues = inputFilters.getOr().stream().map(ConjunctiveCriterion::getAnd).flatMap(
+            CriterionArray::stream).filter(criterion -> "origin".equals(criterion.getField())).map(Criterion::getValue)
+            .collect(Collectors.toSet());
+      }
+      boolean isNotFiltered = (entityNames.isEmpty() || entityNames.contains(entityUrn.getEntityType()))
+          && (CollectionUtils.isEmpty(platformCriteriaValues) || (platform != null && platformCriteriaValues.contains(platform)))
+          && (CollectionUtils.isEmpty(originCriteriaValues) || (environment != null && originCriteriaValues.contains(environment)));
+
+      if (isNotFiltered) {
+        start++;
+        if ((start > from) && (numElements < size)) {
+          lineageSearchEntityArray.add(
+              new LineageSearchEntity()
+                  .setEntity(entityUrn)
+                  .setDegree(relnship.getDegree())
+                  .setPaths(relnship.getPaths()));
+          numElements++;
         }
-        environmentAggregations.put(environment, environmentAggregations.get(environment) + 1);
+
+        // entityType
+        entityTypeAggregations.compute(entityType,
+            (key, value) -> value == null ? 1L : ++value);
+
+        // platform
+        if (platform != null) {
+          platformTypeAggregations.compute(platform,
+              (key, value) -> value == null ? 1L : ++value);
+        }
+
+        // environment
+        if (environment != null) {
+          environmentAggregations.compute(environment,
+              (key, value) -> value == null ? 1L : ++value);
+        }
       }
     }
 
@@ -293,8 +320,8 @@ public class LineageSearchService {
                   .setEntity(Urn.createFromString(platformCount.getKey()))
           );
           platformTypeAgg.getAggregations().put(platformCount.getKey(), platformCount.getValue());
-        } catch (URISyntaxException uriSyntaxException) {
-          log.warn("Unexpected exception");
+        } catch (URISyntaxException e) {
+          log.warn("Unexpected exception: {}", e.getMessage());
         }
       }
         aggregationMetadataArray.add(platformTypeAgg);
@@ -319,8 +346,28 @@ public class LineageSearchService {
     }
     finalResult.setEntities(lineageSearchEntityArray);
     finalResult.getMetadata().setAggregations(aggregationMetadataArray);
-    finalResult.setNumEntities(lineageRelationships.size());
+    finalResult.setNumEntities(start);
     return finalResult.setFrom(from).setPageSize(size);
+  }
+
+  private AggregationMetadata constructAggMetadata(String displayName, String name) {
+    return new AggregationMetadata()
+        .setDisplayName(displayName)
+        .setName(name)
+        .setAggregations(new LongMap())
+        .setFilterValues(new FilterValueArray());
+  }
+
+  private String getPlatform(String entityType, Urn entityUrn) {
+    String platform = null;
+    if (PLATFORM_ENTITY_TYPES.contains(entityType)) {
+      platform = entityUrn.getEntityKey().get(0);
+    }
+    if ((platform != null) && (!platform.startsWith("urn:li:dataPlatform"))) {
+      platform = "urn:li:dataPlatform:" + platform;
+    }
+
+    return platform;
   }
 
   // Necessary so we don't filter out schemaField entities and so that we search to get the parent reference entity
