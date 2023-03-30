@@ -106,6 +106,7 @@ class CSVEnricherSource(Source):
 
     :::note
     This source will not work on very large csv files that do not fit in memory.
+    :::
     """
 
     def __init__(self, config: CSVEnricherConfig, ctx: PipelineContext):
