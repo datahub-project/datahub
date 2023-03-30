@@ -54,7 +54,7 @@ module.exports = {
           position: "right",
         },
         {
-          to: "docs/demo",
+          to: "https://demo.datahubproject.io/",
           label: "Demo",
           position: "right",
         },
