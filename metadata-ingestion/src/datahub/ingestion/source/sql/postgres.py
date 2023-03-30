@@ -177,7 +177,6 @@ class PostgresSource(SQLAlchemySource):
     def _get_view_lineage_elements(
         self, inspector: Inspector
     ) -> Dict[Tuple[str, str], List[str]]:
-
         data: List[ViewLineageEntry] = []
         with inspector.engine.connect() as conn:
             results = conn.execute(VIEW_LINEAGE_QUERY)
