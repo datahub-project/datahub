@@ -48,7 +48,7 @@ const Hero = ({}) => {
           <Link to={useBaseUrl("docs/introduction")}>What is DataHub?</Link>
           <Link to={useBaseUrl("docs/features")}>What can I do with DataHub?</Link>
           <Link to={useBaseUrl("docs/architecture/architecture")}>How is DataHub architected?</Link>
-          <Link to={useBaseUrl("docs/demo")}>See DataHub in action</Link>
+          <Link to="https://demo.datahubproject.io">See DataHub in action</Link>
         </div>
       </div>
     </header>
