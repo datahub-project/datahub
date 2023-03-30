@@ -14,9 +14,9 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     const [selectedFilterValues, setSelectedFilterValues] = useState<string[]>(initialFilters || []);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    function handleMenuOpen(isOpen: boolean) {
+    function updateIsMenuOpen(isOpen: boolean) {
         setIsMenuOpen(isOpen);
-        // set filters to default every time you open or close the menu
+        // set filters to default every time you open or close the menu without saving
         setSelectedFilterValues(initialFilters || []);
     }
 
@@ -42,5 +42,5 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
 
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
 
-    return { isMenuOpen, handleMenuOpen, updateFilters, filterOptions, numActiveFilters };
+    return { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters };
 }

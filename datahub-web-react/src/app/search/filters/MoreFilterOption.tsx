@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, activeFilters, onChangeFilters }: Props) {
-    const { isMenuOpen, handleMenuOpen, updateFilters, filterOptions, numActiveFilters } = useSearchFilterDropdown({
+    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
@@ -41,10 +41,10 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
             trigger={['click']}
             menu={{ items: filterOptions }}
             open={isMenuOpen}
-            onOpenChange={(open) => handleMenuOpen(open)}
+            onOpenChange={(open) => updateIsMenuOpen(open)}
             dropdownRender={(menu) => <OptionsDropdownMenu menu={menu} updateFilters={updateFilters} alignRight />}
         >
-            <OptionWrapper onClick={() => handleMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
+            <OptionWrapper onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
                 {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
             </OptionWrapper>

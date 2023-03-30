@@ -44,7 +44,7 @@ interface Props {
 }
 
 export default function SearchFilter({ filter, activeFilters, onChangeFilters }: Props) {
-    const { isMenuOpen, handleMenuOpen, updateFilters, filterOptions, numActiveFilters } = useSearchFilterDropdown({
+    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
@@ -55,10 +55,10 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             trigger={['click']}
             menu={{ items: filterOptions }}
             open={isMenuOpen}
-            onOpenChange={(open) => handleMenuOpen(open)}
+            onOpenChange={(open) => updateIsMenuOpen(open)}
             dropdownRender={(menu) => <OptionsDropdownMenu menu={menu} updateFilters={updateFilters} />}
         >
-            <DropdownLabel onClick={() => handleMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
+            <DropdownLabel onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
                 {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </DropdownLabel>

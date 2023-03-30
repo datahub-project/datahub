@@ -4,7 +4,15 @@ import { EntityType } from '../../../../types.generated';
 import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
 import { IconStyleType } from '../../../entity/Entity';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { getFilterEntity, getNewFilters, isFilterOptionSelected, getFilterIconAndLabel, PlatformIcon } from '../utils';
+import {
+    getFilterEntity,
+    getNewFilters,
+    isFilterOptionSelected,
+    getFilterIconAndLabel,
+    PlatformIcon,
+    getNumActiveFiltersForFilter,
+    getNumActiveFiltersForGroupOfFilters,
+} from '../utils';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -135,5 +143,76 @@ describe('filter utils - getFilterEntity', () => {
 
     it('should return null if the given filter has no associated entity in availableFilters', () => {
         expect(getFilterEntity('platform', 'nonExistent', availableFilters)).toBe(null);
+    });
+});
+
+describe('filter utils - getNumActiveFiltersForFilter', () => {
+    const activeFilters = [
+        { field: 'owners', values: ['chris', 'john'] },
+        { field: 'platform', values: ['dbt'] },
+    ];
+
+    it('should get the number of active filters for a given filter group when there are active filters', () => {
+        const filter = {
+            field: 'owners',
+            aggregations: [
+                { value: 'chris', count: 15 },
+                { value: 'john', count: 11 },
+            ],
+        };
+
+        expect(getNumActiveFiltersForFilter(activeFilters, filter)).toBe(2);
+    });
+
+    it('should get the number of active filters for a given filter group when there are no active filters', () => {
+        const filter = {
+            field: 'tags',
+            aggregations: [{ value: 'tag', count: 15 }],
+        };
+
+        expect(getNumActiveFiltersForFilter(activeFilters, filter)).toBe(0);
+    });
+});
+
+describe('filter utils - getNumActiveFiltersForGroupOfFilters', () => {
+    const activeFilters = [
+        { field: 'owners', values: ['chris', 'john'] },
+        { field: 'platform', values: ['dbt'] },
+    ];
+
+    it('should get the number of active filters for a given filter group when there are active filters', () => {
+        const filters = [
+            {
+                field: 'owners',
+                aggregations: [
+                    { value: 'chris', count: 15 },
+                    { value: 'john', count: 11 },
+                ],
+            },
+            {
+                field: 'tags',
+                aggregations: [{ value: 'tag1', count: 15 }],
+            },
+        ];
+
+        expect(getNumActiveFiltersForGroupOfFilters(activeFilters, filters)).toBe(2);
+    });
+
+    it('should get the number of active filters for a given filter group when there are no active filters', () => {
+        const filters = [
+            {
+                field: 'tags',
+                aggregations: [{ value: 'tag', count: 15 }],
+            },
+            {
+                field: 'origin',
+                aggregations: [
+                    { value: 'prod', count: 15 },
+                    { value: 'dev', count: 15 },
+                ],
+            },
+        ];
+
+        expect(getNumActiveFiltersForGroupOfFilters(activeFilters, filters)).toBe(0);
     });
 });
