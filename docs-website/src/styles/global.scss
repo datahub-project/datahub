@@ -206,6 +206,15 @@ div[class^="announcementBar"] {
   height: 100%;
 }
 
+.quickstart_subtitle {
+  font-size: 1.25em;
+}
+
+.quickstart_codeblock {
+  text-align: left;
+  padding: 0 20vh;
+  }
+
 .theme-doc-sidebar-menu ul li.saasOnly a.menu__link {
   &:after {
     content: "";

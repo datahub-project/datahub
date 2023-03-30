@@ -4,13 +4,14 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
   tagline: "A Metadata Platform for the Modern Data Stack",
-  url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
-  baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
+  url: process.env.DOCUSAURUS_CONFIG_URL || "https://yoonhyejin.github.io",
+  baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/datahub-project-forked/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "throw",
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
+  staticDirectories: ["static", "genStatic"],
   stylesheets: [
     "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
   ],
@@ -53,7 +54,7 @@ module.exports = {
           position: "right",
         },
         {
-          to: "docs/demo",
+          to: "https://demo.datahubproject.io/",
           label: "Demo",
           position: "right",
         },
