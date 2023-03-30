@@ -220,7 +220,36 @@ class SnowflakeLineageExtractor(
                 yield from self._fetch_upstream_lineages_for_table(discovered_tables)
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
 
-                # TODO: check external_lineage_map. If not empty, emit upstreamLineage
+                if self._external_lineage_map:
+                    for (
+                        dataset_name,
+                        external_lineage,
+                    ) in self._external_lineage_map.items():
+                        # Populate the external-table-lineage(s3->snowflake) in aspect
+                        upstreams: List[UpstreamClass] = []
+                        self.update_external_tables_lineage(upstreams, external_lineage)
+                        dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                            self.platform,
+                            dataset_name,
+                            self.config.platform_instance,
+                            self.config.env,
+                        )
+
+                        if upstreams:
+                            logger.debug(
+                                f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
+                            )
+                            if self.config.upstream_lineage_in_report:
+                                self.report.upstream_lineage[dataset_name] = [
+                                    u.dataset for u in upstreams
+                                ]
+                            upstream_lineage = UpstreamLineage(
+                                upstreams=upstreams,
+                            )
+                            self.report.num_tables_with_upstreams += 1
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=dataset_urn, aspect=upstream_lineage
+                            ).as_workunit()
 
     def get_view_upstream_workunits(
         self, discovered_views: List[str]
@@ -332,6 +361,7 @@ class SnowflakeLineageExtractor(
         self.report.num_tables_with_upstreams = 0
         try:
             for db_row in self.query(query):
+
                 dataset_name = self.get_dataset_identifier_from_qualified_name(
                     db_row["DOWNSTREAM_TABLE_NAME"]
                 )
@@ -348,17 +378,18 @@ class SnowflakeLineageExtractor(
                         self.config.env,
                     )
                     upstreams: List[UpstreamClass] = self.map_query_upstreams(
-                        db_row["UPSTREAM_TABLES"]
+                        json.loads(db_row["UPSTREAM_TABLES"])
                     )
+                    if dataset_name in self._external_lineage_map:
+                        external_lineage = self._external_lineage_map.pop(dataset_name)
 
-                    external_lineage = self._external_lineage_map.pop(dataset_name)
-                    # Populate the external-table-lineage(s3->snowflake) in aspect
-                    self.update_external_tables_lineage(upstreams, external_lineage)
+                        # Populate the external-table-lineage(s3->snowflake) in aspect
+                        self.update_external_tables_lineage(upstreams, external_lineage)
 
                     fine_upstreams: List[FineGrainedLineage] = []
                     if self.config.include_column_lineage:
                         fine_upstreams = self.map_query_fine_upstreams(
-                            dataset_urn, db_row["UPSTREAM_COLUMNS"]
+                            dataset_urn, json.loads(db_row["UPSTREAM_COLUMNS"])
                         )
                     if upstreams:
                         logger.debug(
@@ -401,7 +432,7 @@ class SnowflakeLineageExtractor(
         if not upstream_tables:
             return []
         upstreams: List[UpstreamClass] = []
-        for upstream_table in json.loads(upstream_tables):
+        for upstream_table in upstream_tables:
             if upstream_table:
                 upstream_name = self.get_dataset_identifier_from_qualified_name(
                     upstream_table["upstream_object_name"]
@@ -426,7 +457,7 @@ class SnowflakeLineageExtractor(
         if not column_wise_upstreams:
             return []
         fine_upstreams: List[FineGrainedLineage] = []
-        for column_with_upstreams in json.loads(column_wise_upstreams):
+        for column_with_upstreams in column_wise_upstreams:
             if column_with_upstreams:
                 column_name = column_with_upstreams["column_name"]
                 upstream_jobs = column_with_upstreams["upstreams"]
@@ -480,7 +511,7 @@ class SnowflakeLineageExtractor(
                         self.config.env,
                     )
                     upstreams: Optional[List[UpstreamClass]] = self.map_query_upstreams(
-                        db_row["UPSTREAM_TABLES"]
+                        json.loads(db_row["UPSTREAM_TABLES"])
                     )
 
                     if upstreams:
