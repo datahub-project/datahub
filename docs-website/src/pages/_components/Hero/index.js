@@ -41,20 +41,20 @@ const Hero = ({}) => {
           </div>
         </div>
         <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
-        <div className="hero__content">
-            <h1 className="hero__title">Start DataHub Now</h1>
-            <p className="quickstart_subtitle">Run the following command to get started with DataHub.</p>
-            <div className="quickstart_codeblock">
+        <div className="quickstart__content">
+            <h1 className="quickstart__title">Start DataHub Now</h1>
+            <p className="quickstart__subtitle">Run the following command to get started with DataHub.</p>
+            <div className="quickstart__codeblock">
               <CodeBlock className={"language-shell"}>
                 python3 -m pip install --upgrade pip wheel setuptools <br />
                 python3 -m pip install --upgrade acryl-datahub <br />
                 datahub docker quickstart
               </CodeBlock>
             </div>
-              <Link className="button button--primary button--lg" to={useBaseUrl("docs/quickstart")}>
+              <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
               DataHub Quickstart Guide
               </Link>
-              <Link className="button button--secondary button--outline button--lg" to={useBaseUrl("docs/deploy/kubernetes")}>
+              <Link className="button button--secondary button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
               Deploying With Kubernetes
               </Link>
         </div>
