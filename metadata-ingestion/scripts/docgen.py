@@ -132,8 +132,6 @@ class FieldRow(BaseModel):
         default_value = str(json_props.get("default"))
 
         field_path = ".".join(path_components)
-        if field_path == "strip_user_ids_from_email":
-            breakpoint()
 
         return FieldRow(
             path=field_path,
@@ -242,8 +240,6 @@ class FieldTree:
         else:
             path = path if path is not None else row.path
             top_level_field = path.split(".")[0]
-            if top_level_field == "":
-                breakpoint()
             if top_level_field in self.fields:
                 self.fields[top_level_field].add_field(
                     row, ".".join(path.split(".")[1:])
