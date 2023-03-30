@@ -152,7 +152,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="PowerBI Stateful Ingestion Config."
+        default=None, description="Azure AD Stateful Ingestion Config."
     )
 
 
