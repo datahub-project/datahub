@@ -148,9 +148,9 @@ class FieldRow(BaseModel):
     def get_checkbox(self) -> str:
         if self.required and not self.has_default:
             if not self.parent:  # None and empty string both count
-                return f'[<span title="Required">✅</span>]'
+                return f'<abbr title="Required">✅</abbr>'
             else:
-                return f'[<span title="Required if {self.parent} is set">❓</span>]'
+                return f'<abbr title="Required if {self.parent} is set">❓</abbr>'
         else:
             return ""
 
