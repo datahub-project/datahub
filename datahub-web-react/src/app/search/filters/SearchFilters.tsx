@@ -36,8 +36,10 @@ export default function SearchFilters({ availableFilters, activeFilters, onChang
     const filters = availableFilters?.filter((f) =>
         f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true,
     );
-    const visibleFilters = filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS);
-    const hiddenFilters = filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS);
+    // if there will only be one filter in the "More Filters" dropdown, show that filter instead
+    const shouldShowMoreDropdown = filters && filters.length > NUM_VISIBLE_FILTER_DROPDOWNS + 1;
+    const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;
+    const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
 
     return (
         <SearchFiltersWrapper>
