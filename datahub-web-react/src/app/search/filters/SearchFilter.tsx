@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import FilterOption from './FilterOption';
+import { FilterFields } from './types';
 import { getNewFilters } from './utils';
 
 const DropdownLabel = styled(Button)`
@@ -64,12 +65,12 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
     }
 
     const filterOptions = filter.aggregations.map((agg) => {
+        const filterFields: FilterFields = { field: filter.field, ...agg };
         return {
             key: agg.value,
             label: (
                 <FilterOption
-                    filterField={filter.field}
-                    aggregation={agg}
+                    filterFields={filterFields}
                     selectedFilterValues={selectedFilterValues}
                     setSelectedFilterValues={setSelectedFilterValues}
                 />
