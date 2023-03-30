@@ -1,60 +1,74 @@
-# Getting Started
-
-Get started using the DataHub GraphQL API.
-
-## Setup
-
-The first thing you'll need to use the GraphQL API is a deployed instance of DataHub with some metadata ingested. Unsure how to do that? Check out the [Deployment Quickstart](../../../docs/quickstart.md).
-
-## Querying the GraphQL API
-
-DataHub's GraphQL endpoint is served at the path `/api/graphql`, e.g. `https://my-company.datahub.com/api/graphql`.
-There are a few options when it comes to querying the GraphQL endpoint.
-
-For **Testing**, we recommend [Postman](https://learning.postman.com/docs/sending-requests/supported-api-frameworks/graphql/), GraphQL Explorer (described below), or CURL.
-For **Production**, we recommend a GraphQL [Client SDK](https://graphql.org/code/) for the language of your choice, or a basic HTTP client.
-
-
-> Notice: The DataHub GraphQL endpoint only supports POST requests at this time.
-
-### GraphQL Explorer 
-
-DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://github.com/graphql/graphiql)) for live interaction with the GraphQL API. This tool is available at the path `/api/graphiql` (e.g. `https://my-company.datahub.com/api/graphiql`)
-This interface allows you to easily craft queries and mutations against real metadata stored in your live DataHub deployment. For a detailed usage guide,
-check out [How to use GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/). 
-
-### CURL
-
-### Postman
-
-####  Authentication + Authorization
-
-In general, you'll need to provide an [Access Token](../../authentication/personal-access-tokens.md) when querying the GraphQL by
-providing an `Authorization` header containing a `Bearer` token. The header should take the following format:
-
-```bash
-Authorization: Bearer <access-token>
-```
-
-Authorization for actions exposed by the GraphQL endpoint will be performed based on the actor making the request.
-For Personal Access Tokens, the token will carry the user's privileges. Please refer to [Access Token Management](/docs/api/graphql/token-management.md) for more information.
+# Getting Started With GraphQL
 
 ## Reading an Entity: Queries
 
 DataHub provides the following GraphQL queries for retrieving entities in your Metadata Graph.
 
-[more general explanation on queries and searches]
 
 ### Query
-  * Querying for Owners of an entity
-  * Querying for Tags of an asset
-  * Querying for Domain of an asset
-  * Querying for Glossary Terms of an asset
-  * Querying for Deprecation of an asset
+
+The following GraphQL query retrieves the `urn` and `name` of the `properties` of a specific dataset
+
+```json
+{
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)") {
+    urn
+    properties {
+        name
+    }
+  }
+}
+```
+
+In addition to the URN and properties, you can also fetch other types of metadata for an asset, such as owners, tags, domains, and terms of an entity.
+For more information on, please refer to the following links."
+
+  * [Querying for Owners of a Dataset]()
+  * [Querying for Tags of a Dataset]()
+  * [Querying for Domain of a Dataset]()
+  * [Querying for Glossary Terms of a Dataset]()
+  * [Querying for Deprecation of a dataset]()
 
 ### Search
 
-  * Searching for a certain dataset
+To perform full-text search against an Entity of a particular type, use the search(input: `SearchInput!`) GraphQL Query.
+The following GraphQL query searches for datasets that match a specific query term.
+```json
+{
+  search(input: { type: DATASET, query: "my sql dataset", start: 0, count: 10 }) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+         urn
+         type
+         ...on Dataset {
+            name
+         }
+      }
+    }
+  }
+}
+```
+
+The `search` field is used to indicate that we want to perform a search. 
+The `input` argument specifies the search criteria, including the type of entity being searched, the search query term, the start index of the search results, and the count of results to return.
+
+The `query` term is used to specify the search term. 
+The search term can be a simple string, or it can be a more complex query using patterns.
+
+* `*` : Search for all entities.
+* `*[string]` : Search for all entities that contain aspects **starting with** the specified \[string\].
+* `[string]*` : Search for all entities that contain aspects **ending with** the specified \[string\].
+* `*[string]*` : Search for all entities that **match** aspects named \[string\].
+* `[string]` : Search for all entities that **contain** the specified \[string\].
+
+:::note 
+Note that by default Elasticsearch only allows pagination through 10,000 entities via the search API. 
+If you need to paginate through more, you can change the default value for the `index.max_result_window` setting in Elasticsearch, or using the scroll API to read from the index directly.
+:::
+
 
 ## Modifying an Entity: Mutations
 
@@ -63,20 +77,40 @@ DataHub provides the following GraphQL queries for retrieving entities in your M
 This means that DataHub's server will check whether the requesting actor is authorized to perform the action. 
 :::  
 
-[more general explanation on mutation] 
+To update an existing Metadata Entity, simply use the `update<entityName>(urn: String!, input: EntityUpdateInput!)` GraphQL Query.
+For example, to update a Dashboard entity, you can issue the following GraphQL mutation:
 
-Examples of mutation includes: 
+```json
+mutation updateDashboard {
+    updateDashboard(
+        urn: "urn:li:dashboard:(looker,baz)",
+        input: {
+            editableProperties: {
+                description: "My new desription"
+            }
+        }
+    ) {
+        urn
+    }
+}
+```
 
-* Updating a Metadata Entity
-* Adding & Removing Tags
-* Adding & Removing Glossary Terms
-* Adding & Removing Domain
-* Adding & Removing Owners
-* Updating Deprecation
-* Editing Description (i.e. Documentation)
-* Soft Deleting
+For more information, please refer to following links. 
 
-Please refer to Datahub API Comparison to navigate to the use-case oriented guide. 
+* [Updating a Metadata Entity]()
+* [Adding Tags](/docs/api/tutorials/adding-tags.md)
+* [Adding Glossary Terms](/docs/api/tutorials/adding-terms.md)
+* [Adding Domain]()
+* [Adding Owners](/docs/api/tutorials/adding-ownerships.md)
+* [Removing Tags]()
+* [Removing Glossary Terms]()
+* [Removing Domain]()
+* [Removing Owners]()
+* [Updating Deprecation]()
+* [Editing Description (i.e. Documentation)]()
+* [Soft Deleting]()
+
+Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide. 
 
 
 ## Handling Errors
@@ -122,11 +156,6 @@ With the following error codes officially supported:
 | 403  | UNAUTHORIZED | The current actor is not authorized to perform the requested action.                           |
 | 404  | NOT_FOUND    | The resource is not found.                                                                     |
 | 500  | SERVER_ERROR | An internal error has occurred. Check your server logs or contact your DataHub administrator.  |
-
-
-> Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
-stop by to say 'Hi'. 
-
 
 
 > Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just

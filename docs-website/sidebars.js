@@ -349,7 +349,12 @@ module.exports = {
               Guides: [
                 {
                   type: "doc",
-                  label: "Getting Started",
+                  label: "How To Set Up GraphQL",
+                  id: "docs/api/graphql/how-to-set-up-graphql",
+                },
+                {
+                  type: "doc",
+                  label: "Getting Started With GraphQL",
                   id: "docs/api/graphql/getting-started",
                 },
                 {
