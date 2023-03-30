@@ -74,7 +74,6 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         schema: str,
         schema_container_key: Optional[PlatformKey] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=self.get_database_container_key(db_name, schema),

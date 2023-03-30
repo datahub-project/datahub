@@ -66,7 +66,7 @@ fragment deprecationFields on Deprecation {
 fragment parentContainersFields on ParentContainersResult {
     count
     containers {
-        ...entityContainer
+        ...parentContainerFields
     }
 }
 
@@ -876,6 +876,13 @@ fragment entityContainer on Container {
     }
     deprecation {
         ...deprecationFields
+    }
+}
+
+fragment parentContainerFields on Container {
+    urn
+    properties {
+        name
     }
 }
 

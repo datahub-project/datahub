@@ -45,8 +45,7 @@ The following code snippet shows you how to add a Schema containing 3 fields to 
 <summary>Python SDK: Add a schema to a dataset</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_schema.py
-{{ inline examples/library/dataset_schema.py }}
+{{ inline /metadata-ingestion/examples/library/dataset_schema.py show_path_as_comment }}
 ```
 </details>
 
@@ -65,8 +64,7 @@ Here is an example for how to add a tag to a dataset. Note that this involves re
 <summary>Python SDK: Add a tag to a dataset at the top-level</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_add_tag.py
-{{ inline examples/library/dataset_add_tag.py }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_tag.py show_path_as_comment }}
 ```
 </details>
 
@@ -75,8 +73,7 @@ Here is an example of adding a term to a dataset. Note that this involves readin
 <summary>Python SDK: Add a term to a dataset at the top-level</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_add_term.py
-{{ inline examples/library/dataset_add_term.py }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_term.py show_path_as_comment }}
 ```
 </details>
 
@@ -91,8 +88,7 @@ Here is an example of how you can add a tag to a field in a dataset using the lo
 <summary>Python SDK: Add a tag to a column (field) of a dataset</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_add_column_term.py
-{{ inline examples/library/dataset_add_column_term.py }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_column_term.py show_path_as_comment }}
 ```
 </details>
 
@@ -101,8 +97,7 @@ Similarly, here is an example of how you would add a term to a field in a datase
 <summary>Python SDK: Add a term to a column (field) of a dataset</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_add_column_term.py
-{{ inline examples/library/dataset_add_column_term.py }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_column_term.py show_path_as_comment }}
 ```
 </details>
 
@@ -118,8 +113,7 @@ The following script shows you how to add an owner to a dataset using the low-le
 <summary>Python SDK: Add an owner to a dataset</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_add_owner.py
-{{ inline examples/library/dataset_add_owner.py }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_owner.py show_path_as_comment }}
 ```
 </details>
 
@@ -130,8 +124,7 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 <summary>Python SDK: Add fine-grained lineage to a dataset</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py
-{{ inline examples/library/lineage_emitter_dataset_finegrained.py }}
+{{ inline /metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py show_path_as_comment }}
 ```
 </details>
 
@@ -139,8 +132,7 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 <summary>Python SDK: Add fine-grained lineage to a datajob</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/lineage_emitter_datajob_finegrained.py
-{{ inline examples/library/lineage_emitter_datajob_finegrained.py }}
+{{ inline /metadata-ingestion/examples/library/lineage_emitter_datajob_finegrained.py show_path_as_comment }}
 ```
 </details>
 
@@ -336,8 +328,7 @@ Here is a simple script that shows you how to add documentation for a dataset in
 <summary>Python SDK: Add documentation, links to a dataset</summary>
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_add_documentation.py
-{{ inline examples/library/dataset_add_documentation.py }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_documentation.py show_path_as_comment }}
 ```
 </details>
 
