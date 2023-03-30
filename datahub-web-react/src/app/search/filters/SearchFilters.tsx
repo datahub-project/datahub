@@ -1,4 +1,4 @@
-import { Divider } from 'antd';
+import { Button, Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
@@ -18,6 +18,22 @@ const SearchFiltersWrapper = styled.div`
 const FlexWrapper = styled.div`
     display: flex;
     flex-wrap: wrap;
+`;
+
+const ActiveFiltersWrapper = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
+
+const ClearAllButton = styled(Button)`
+    color: ${(props) => props.theme.styles['primary-color']};
+    padding: 0px 6px;
+    margin-top: 8px;
+    height: 14px;
+
+    &:hover {
+        background-color: white;
+    }
 `;
 
 const StyledDivider = styled(Divider)`
@@ -41,6 +57,10 @@ export default function SearchFilters({ availableFilters, activeFilters, onChang
     const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;
     const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
 
+    function clearAllFilters() {
+        onChangeFilters([]);
+    }
+
     return (
         <SearchFiltersWrapper>
             <FlexWrapper>
@@ -63,17 +83,22 @@ export default function SearchFilters({ availableFilters, activeFilters, onChang
             {activeFilters.length > 0 && (
                 <>
                     <StyledDivider />
-                    <FlexWrapper>
-                        {activeFilters.map((activeFilter) => (
-                            <ActiveFilter
-                                key={activeFilter.field}
-                                filter={activeFilter}
-                                availableFilters={availableFilters}
-                                activeFilters={activeFilters}
-                                onChangeFilters={onChangeFilters}
-                            />
-                        ))}
-                    </FlexWrapper>
+                    <ActiveFiltersWrapper>
+                        <FlexWrapper>
+                            {activeFilters.map((activeFilter) => (
+                                <ActiveFilter
+                                    key={activeFilter.field}
+                                    filter={activeFilter}
+                                    availableFilters={availableFilters}
+                                    activeFilters={activeFilters}
+                                    onChangeFilters={onChangeFilters}
+                                />
+                            ))}
+                        </FlexWrapper>
+                        <ClearAllButton type="text" onClick={clearAllFilters}>
+                            clear all
+                        </ClearAllButton>
+                    </ActiveFiltersWrapper>
                 </>
             )}
         </SearchFiltersWrapper>

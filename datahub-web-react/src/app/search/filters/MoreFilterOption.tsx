@@ -8,7 +8,7 @@ import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
 
-const OptionWrapper = styled.div<{ isActive: boolean }>`
+const OptionWrapper = styled.div<{ isActive: boolean; isOpen: boolean }>`
     padding: 5px 12px;
     font-size: 14px;
     display: flex;
@@ -20,7 +20,8 @@ const OptionWrapper = styled.div<{ isActive: boolean }>`
         background-color: ${ANTD_GRAY[3]};
     }
 
-    ${(props) => props.isActive && `color: ${props.theme.styles['primary-color']}`}
+    ${(props) => props.isActive && `color: ${props.theme.styles['primary-color']};`}
+    ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
 `;
 
 interface Props {
@@ -44,7 +45,11 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
             onOpenChange={(open) => updateIsMenuOpen(open)}
             dropdownRender={(menu) => <OptionsDropdownMenu menu={menu} updateFilters={updateFilters} alignRight />}
         >
-            <OptionWrapper onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
+            <OptionWrapper
+                onClick={() => updateIsMenuOpen(!isMenuOpen)}
+                isActive={!!numActiveFilters}
+                isOpen={isMenuOpen}
+            >
                 {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
             </OptionWrapper>
