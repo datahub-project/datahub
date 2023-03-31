@@ -194,10 +194,12 @@ class FieldRow(BaseModel):
 
     def get_checkbox(self) -> str:
         if self.required and not self.has_default:
+            # Using a non-breaking space to prevent the checkbox from being
+            # broken into a new line.
             if not self.parent:  # None and empty string both count
-                return f'<abbr title="Required">✅</abbr>'
+                return f'&nbsp;<abbr title="Required">✅</abbr>'
             else:
-                return f'<abbr title="Required if {self.parent} is set">❓</abbr>'
+                return f'&nbsp;<abbr title="Required if {self.parent} is set">❓</abbr>'
         else:
             return ""
 
@@ -221,9 +223,7 @@ class FieldRow(BaseModel):
 
         md_line = (
             f'| <div className="path-line">{_format_path_component(self.path)}'
-            # Using a non-breaking space to prevent the checkbox from being
-            # broken into a new line.
-            f"&nbsp;{self.get_checkbox()}</div>"
+            f"{self.get_checkbox()}</div>"
             f' <div className="type-name-line">{_format_type_name(type_name)}</div> '
             f"| {description} "
             f"{_format_default_line(self.default, bool(description)) if self.has_default else ''} |\n"
