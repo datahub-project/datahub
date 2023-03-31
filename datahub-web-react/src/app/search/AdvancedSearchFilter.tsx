@@ -15,30 +15,38 @@ type Props = {
     onClose: () => void;
     onUpdate: (newValue: FacetFilterInput) => void;
     loading: boolean;
+    isCompact?: boolean;
     disabled?: boolean;
 };
 
-const FilterContainer = styled.div`
+const FilterContainer = styled.div<{ isCompact: boolean }>`
     box-shadow: 0px 0px 4px 0px #00000010;
     border-radius: 10px;
     border: 1px solid ${ANTD_GRAY[4]};
-    padding: 4px;
-    margin: 4px;
+    padding: ${(props) => (props.isCompact ? '0 4px' : '4px')};
+    margin: ${(props) => (props.isCompact ? '0 4px 4px 4px' : '4px')};
     :hover {
         cursor: pointer;
         background: ${ANTD_GRAY[2]};
     }
 `;
 
-const FieldFilterSection = styled.span`
+const FieldFilterSection = styled.span<{ isCompact: boolean }>`
     color: ${ANTD_GRAY[9]};
-    padding: 4px;
+    padding: ${(props) => (props.isCompact ? '2px 4px' : '4px')};
     display: flex;
     justify-content: space-between;
+
+    ${(props) =>
+        props.isCompact &&
+        `
+        display: flex;
+        align-items: center;
+    `}
 `;
 
-const FieldFilterSelect = styled.span`
-    padding-right: 8px;
+const FieldFilterSelect = styled.span<{ isCompact: boolean }>`
+    padding-right: ${(props) => (props.isCompact ? '0' : '8px;')};
 `;
 
 const CloseSpan = styled.span`
@@ -52,7 +60,15 @@ const FilterFieldLabel = styled.span`
     margin-right: 2px;
 `;
 
-export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading, disabled = false }: Props) => {
+export const AdvancedSearchFilter = ({
+    facet,
+    filter,
+    onClose,
+    onUpdate,
+    loading,
+    isCompact = false,
+    disabled = false,
+}: Props) => {
     const [isEditing, setIsEditing] = useState(false);
     return (
         <>
@@ -60,12 +76,14 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading
                 onClick={() => {
                     setIsEditing(!isEditing);
                 }}
+                isCompact={isCompact}
             >
-                <FieldFilterSection>
-                    <FieldFilterSelect>
+                <FieldFilterSection isCompact={isCompact}>
+                    <FieldFilterSelect isCompact={isCompact}>
                         <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
                         <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
                     </FieldFilterSelect>
+                    {!loading && isCompact && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} isCompact />}
                     {!disabled && (
                         <CloseSpan
                             role="button"
@@ -81,7 +99,7 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading
                         </CloseSpan>
                     )}
                 </FieldFilterSection>
-                {!loading && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} />}
+                {!loading && !isCompact && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} />}
             </FilterContainer>
             {!disabled && isEditing && (
                 <AdvancedFilterSelectValueModal

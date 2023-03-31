@@ -158,9 +158,11 @@ export const SearchPage = () => {
         <>
             {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
             <SearchFilters
-                availableFilters={data?.searchAcrossEntities?.facets || null}
+                availableFilters={data?.searchAcrossEntities?.facets || []}
                 activeFilters={filters}
+                unionType={unionType}
                 onChangeFilters={onChangeFilters}
+                onChangeUnionType={onChangeUnionType}
             />
             <SearchResults
                 unionType={unionType}

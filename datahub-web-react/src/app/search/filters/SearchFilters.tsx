@@ -1,105 +1,55 @@
-import { Button, Divider } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { ORIGIN_FILTER_NAME } from '../utils/constants';
-import ActiveFilter from './ActiveFilter';
-import MoreFilters from './MoreFilters';
-import SearchFilter from './SearchFilter';
+import { UnionType } from '../utils/constants';
+import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
+import AdvancedFilters from './AdvancedFilters';
+import BasicFilters from './BasicFilters';
 
-const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
-
-const SearchFiltersWrapper = styled.div`
+const SearchFiltersWrapper = styled.div<{ removePadding: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
-    padding: 8px 24px;
-`;
-
-const FlexWrapper = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-`;
-
-const ActiveFiltersWrapper = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
-const ClearAllButton = styled(Button)`
-    color: ${(props) => props.theme.styles['primary-color']};
-    padding: 0px 6px;
-    margin-top: 8px;
-    height: 14px;
-
-    &:hover {
-        background-color: white;
-    }
-`;
-
-const StyledDivider = styled(Divider)`
-    margin: 8px 0 0 0;
+    padding: ${(props) => (props.removePadding ? '8px 24px 4px 24px' : '8px 24px')};
 `;
 
 interface Props {
-    availableFilters: FacetMetadata[] | null;
+    availableFilters: FacetMetadata[];
     activeFilters: FacetFilterInput[];
+    unionType: UnionType;
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
+    onChangeUnionType: (unionType: UnionType) => void;
 }
 
-export default function SearchFilters({ availableFilters, activeFilters, onChangeFilters }: Props) {
-    // only want Environment filter if there's 2 or more envs
-    // TODO: sort on what we deem as priority order once we solidify that
-    const filters = availableFilters?.filter((f) =>
-        f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true,
-    );
-    // if there will only be one filter in the "More Filters" dropdown, show that filter instead
-    const shouldShowMoreDropdown = filters && filters.length > NUM_VISIBLE_FILTER_DROPDOWNS + 1;
-    const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;
-    const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
-
-    function clearAllFilters() {
-        onChangeFilters([]);
-    }
+export default function SearchFilters({
+    availableFilters,
+    activeFilters,
+    unionType,
+    onChangeFilters,
+    onChangeUnionType,
+}: Props) {
+    const onlyShowAdvancedFilters = hasAdvancedFilters(activeFilters, unionType);
+    const [isShowingBasicFilters, setIsShowingBasicFilters] = useState(!onlyShowAdvancedFilters);
 
     return (
-        <SearchFiltersWrapper>
-            <FlexWrapper>
-                {visibleFilters?.map((filter) => (
-                    <SearchFilter
-                        key={filter.field}
-                        filter={filter}
-                        activeFilters={activeFilters}
-                        onChangeFilters={onChangeFilters}
-                    />
-                ))}
-                {hiddenFilters && hiddenFilters.length > 0 && (
-                    <MoreFilters
-                        filters={hiddenFilters}
-                        activeFilters={activeFilters}
-                        onChangeFilters={onChangeFilters}
-                    />
-                )}
-            </FlexWrapper>
-            {activeFilters.length > 0 && (
-                <>
-                    <StyledDivider />
-                    <ActiveFiltersWrapper>
-                        <FlexWrapper>
-                            {activeFilters.map((activeFilter) => (
-                                <ActiveFilter
-                                    key={activeFilter.field}
-                                    filter={activeFilter}
-                                    availableFilters={availableFilters}
-                                    activeFilters={activeFilters}
-                                    onChangeFilters={onChangeFilters}
-                                />
-                            ))}
-                        </FlexWrapper>
-                        <ClearAllButton type="text" onClick={clearAllFilters}>
-                            clear all
-                        </ClearAllButton>
-                    </ActiveFiltersWrapper>
-                </>
+        <SearchFiltersWrapper removePadding={!isShowingBasicFilters}>
+            {isShowingBasicFilters && (
+                <BasicFilters
+                    availableFilters={availableFilters}
+                    activeFilters={activeFilters}
+                    onChangeFilters={onChangeFilters}
+                    showAdvancedFilters={() => setIsShowingBasicFilters(false)}
+                />
+            )}
+            {!isShowingBasicFilters && (
+                <AdvancedFilters
+                    availableFilters={availableFilters}
+                    activeFilters={activeFilters}
+                    unionType={unionType}
+                    onChangeFilters={onChangeFilters}
+                    onChangeUnionType={onChangeUnionType}
+                    showBasicFilters={() => setIsShowingBasicFilters(true)}
+                    onlyShowAdvancedFilters={onlyShowAdvancedFilters}
+                />
             )}
         </SearchFiltersWrapper>
     );
