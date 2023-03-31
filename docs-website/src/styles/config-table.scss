@@ -2,8 +2,13 @@
 // config tables for our sources.
 
 .config-table {
+	a {
+		// Forcibly allow links to wrap to avoid a horizontal scrollbar.
+		word-wrap: break-word;
+	}
+
 	.path-line {
-		max-width: 250px;
+		max-width: 330px;
 
 		// When the line wraps, make sure that it still looks ok.
 		line-height: 1.25;
@@ -11,6 +16,7 @@
 	.path-prefix {
 		font-size: 0.9rem;
 		font-style: italic;
+		margin-right: 1px;
 
 		// This tells the engine to prefer putting line breaks
 		// after the path prefix.
@@ -21,12 +27,23 @@
 		font-weight: 600;
 	}
 
-	.type-name-line {
-		margin-bottom: 5px;
-	}
+	// .type-name-line {
+	// 	margin-bottom: 5px;
+	// }
 
 	.type-name {
 		font-size: 0.9rem;
 		color: var(--ifm-font-color-secondary);
+	}
+
+	// .default-line {
+	// 	// margin-top: 10px;
+	// }
+	.default-line-with-docs {
+		margin-top: 7px;
+	}
+
+	.default-value {
+		font: var(--ifm-code-font-size) var(--ifm-font-family-monospace);
 	}
 }

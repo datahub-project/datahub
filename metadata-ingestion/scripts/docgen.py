@@ -1,4 +1,5 @@
 import glob
+import html
 import json
 import logging
 import os
@@ -36,20 +37,38 @@ def _truncate_default_value(value: str) -> str:
 def _format_path_component(path: str) -> str:
     """
     Given a path like 'a.b.c', adds css tags to the components.
-    Would return '<span class="path-prefix">a.b.</span><span class="path-main">c</span>'.
     """
     path_components = path.rsplit(".", maxsplit=1)
     if len(path_components) == 1:
-        return f'<span class="path-main">{path_components[0]}</span>'
+        return f'<span className="path-main">{path_components[0]}</span>'
 
     return (
-        f'<span class="path-prefix">{path_components[0]}.</span>'
-        f'<span class="path-main">{path_components[1]}</span>'
+        f'<span className="path-prefix">{path_components[0]}.</span>'
+        f'<span className="path-main">{path_components[1]}</span>'
     )
 
 
 def _format_type_name(type_name: str) -> str:
-    return f'<span class="type-name">{type_name}</span>'
+    return f'<span className="type-name">{type_name}</span>'
+
+
+def _format_default_line(default_value: str, has_desc_above: bool) -> str:
+    default_value = _truncate_default_value(default_value)
+    escaped_value = (
+        html.escape(default_value)
+        # Replace curly braces to avoid JSX issues.
+        .replace("{", "&#123;")
+        .replace("}", "&#125;")
+        # We also need to replace markdown special characters.
+        .replace("*", "&#42;")
+        .replace("_", "&#95;")
+        .replace("[", "&#91;")
+        .replace("]", "&#93;")
+        .replace("|", "&#124;")
+        .replace("`", "&#96;")
+    )
+    value_elem = f'<span className="default-value">{escaped_value}</span>'
+    return f'<div className="default-line {"default-line-with-docs" if has_desc_above else ""}">Default: {value_elem}</div>'
 
 
 class FieldRow(BaseModel):
@@ -195,16 +214,19 @@ class FieldRow(BaseModel):
         else:
             type_name = self.type_name
 
+        description = self.description.strip()
         description = self.description.replace(
-            "\n", " "
+            "\n", " <br /> "
         )  # descriptions with newlines in them break markdown rendering
 
         md_line = (
-            f'| <div className="path-line">{_format_path_component(self.path)} '
-            f"{self.get_checkbox()}</div>"
+            f'| <div className="path-line">{_format_path_component(self.path)}'
+            # Using a non-breaking space to prevent the checkbox from being
+            # broken into a new line.
+            f"&nbsp;{self.get_checkbox()}</div>"
             f' <div className="type-name-line">{_format_type_name(type_name)}</div> '
             f"| {description} "
-            f"| {_truncate_default_value(self.default) if self.has_default else ''} |\n"
+            f"{_format_default_line(self.default, bool(description)) if self.has_default else ''} |\n"
         )
         return md_line
 
@@ -213,8 +235,8 @@ class FieldHeader(FieldRow):
     def to_md_line(self) -> str:
         return "\n".join(
             [
-                "| Field | Description | Default |",
-                "|:--- |:--- |:-- |",
+                "| Field | Description |",
+                "|:--- |:--- |",
                 "",
             ]
         )
@@ -353,7 +375,7 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
         result.append(row.to_md_line())
 
     # Wrap with a .config-table div.
-    result = ["\n<div class='config-table'>\n\n", *result, "\n</div>\n"]
+    result = ["\n<div className='config-table'>\n\n", *result, "\n</div>\n"]
 
     return result
 
