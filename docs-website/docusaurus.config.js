@@ -139,7 +139,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              to: "docs/demo",
+              to: "https://demo.datahubproject.io/",
             },
             {
               label: "Roadmap",
