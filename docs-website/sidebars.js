@@ -23,7 +23,6 @@ module.exports = {
             "docs/architecture/metadata-serving",
           ],
         },
-        "docs/demo", // rename this to "DataHub Demo"
         "docs/saas",
       ],
     },
