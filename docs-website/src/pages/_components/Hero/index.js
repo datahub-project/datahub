@@ -54,7 +54,7 @@ const Hero = ({}) => {
               <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
               DataHub Quickstart Guide
               </Link>
-              <Link className="button button--secondary button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
+              <Link className="button button--secondary button--outline button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
               Deploying With Kubernetes
               </Link>
         </div>
