@@ -108,8 +108,6 @@ Check out [our demo site](https://demo.datahubproject.io/glossary) to see an exa
 * [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
 * [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
 
-You can easily fetch the Glossary Terms for an entity with a given its URN using the **glossaryTerms** property. Check out [Working with Metadata Entities](../api/graphql/querying-entities.md#querying-for-glossary-terms-of-an-asset) for an example.
-
 ## Resources
 - [Creating a Business Glossary and Putting it to use in DataHub](https://blog.datahubproject.io/creating-a-business-glossary-and-putting-it-to-use-in-datahub-43a088323c12)
 - [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
