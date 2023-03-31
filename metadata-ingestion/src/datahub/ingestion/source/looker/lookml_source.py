@@ -865,6 +865,7 @@ class LookerView:
 
         if derived_table is not None:
             # Derived tables can either be a SQL query or a LookML explore.
+            # See https://cloud.google.com/looker/docs/derived-tables.
 
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
