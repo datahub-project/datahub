@@ -15,8 +15,8 @@ from datahub.configuration.common import (
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
     get_sys_time,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
