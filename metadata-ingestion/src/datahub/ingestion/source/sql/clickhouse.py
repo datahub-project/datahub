@@ -48,7 +48,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -651,10 +650,7 @@ class ClickHouseSource(SQLAlchemySource):
             return None, properties
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="upstreamLineage",
             aspect=UpstreamLineage(upstreams=upstream_lineage),
         )
 
