@@ -62,7 +62,7 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         # avoid some test flakes. How does this work? The "key" is the same between both
         # calls to the docker_compose_runner and the first one sets cleanup=False.
 
-        wait_for_port(docker_services, "test_broker", 59092, timeout=120)
+        wait_for_port(docker_services, "test_broker", 29092, timeout=120)
         wait_for_port(docker_services, "test_connect", 58083, timeout=120)
         docker_services.wait_until_responsive(
             timeout=30,
