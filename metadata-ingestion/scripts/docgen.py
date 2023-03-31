@@ -23,6 +23,34 @@ from datahub.metadata.schema_classes import SchemaFieldClass
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_VALUE_MAX_LENGTH = 50
+DEFAULT_VALUE_TRUNCATION_MESSAGE = "..."
+
+
+def _truncate_default_value(value: str) -> str:
+    if len(value) > DEFAULT_VALUE_MAX_LENGTH:
+        return value[:DEFAULT_VALUE_MAX_LENGTH] + DEFAULT_VALUE_TRUNCATION_MESSAGE
+    return value
+
+
+def _format_path_component(path: str) -> str:
+    """
+    Given a path like 'a.b.c', adds css tags to the components.
+    Would return '<span class="path-prefix">a.b.</span><span class="path-main">c</span>'.
+    """
+    path_components = path.rsplit(".", maxsplit=1)
+    if len(path_components) == 1:
+        return f'<span class="path-main">{path_components[0]}</span>'
+
+    return (
+        f'<span class="path-prefix">{path_components[0]}.</span>'
+        f'<span class="path-main">{path_components[1]}</span>'
+    )
+
+
+def _format_type_name(type_name: str) -> str:
+    return f'<span class="type-name">{type_name}</span>'
+
 
 class FieldRow(BaseModel):
     path: str
@@ -159,7 +187,11 @@ class FieldRow(BaseModel):
             if len(self.inner_fields) == 1:
                 type_name = self.inner_fields[0].type_name or self.type_name
             else:
-                type_name = "UnionType (See notes for variants)"
+                # To deal with unions that have essentially the same simple field path,
+                # we combine the type names into a single string.
+                type_name = "One of " + ", ".join(
+                    [x.type_name for x in self.inner_fields if x.discriminated_type]
+                )
         else:
             type_name = self.type_name
 
@@ -167,16 +199,13 @@ class FieldRow(BaseModel):
             "\n", " "
         )  # descriptions with newlines in them break markdown rendering
 
-        if self.inner_fields and len(self.inner_fields) > 1:
-            # to deal with unions that have essentially the same simple field path, we include the supported types in the Notes section
-            # Once we move to a better layout, we can expand this section out
-            notes = "One of " + ", ".join(
-                [x.type_name for x in self.inner_fields if x.discriminated_type]
-            )
-        else:
-            notes = " "
-
-        md_line = f"| {self.path} {self.get_checkbox()} | {type_name} | {description} | {self.default if self.has_default else ''} | {notes} |\n"
+        md_line = (
+            f'| <div className="path-line">{_format_path_component(self.path)} '
+            f"{self.get_checkbox()}</div>"
+            f' <div className="type-name-line">{_format_type_name(type_name)}</div> '
+            f"| {description} "
+            f"| {_truncate_default_value(self.default) if self.has_default else ''} |\n"
+        )
         return md_line
 
 
@@ -184,8 +213,8 @@ class FieldHeader(FieldRow):
     def to_md_line(self) -> str:
         return "\n".join(
             [
-                "| Field [Required] | Type | Description | Default | Notes |",
-                "|:---   |:---  |:--- |:-- |:-- |",
+                "| Field | Description | Default |",
+                "|:--- |:--- |:-- |",
                 "",
             ]
         )
@@ -322,6 +351,10 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
 
     for row in field_tree.get_fields():
         result.append(row.to_md_line())
+
+    # Wrap with a .config-table div.
+    result = ["\n<div class='config-table'>\n\n", *result, "\n</div>\n"]
+
     return result
 
 
