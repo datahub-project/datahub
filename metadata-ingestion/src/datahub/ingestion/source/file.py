@@ -52,7 +52,6 @@ class FileReadMode(ConfigEnum):
 class FileSourceConfig(ConfigModel):
     _filename = pydantic_field_deprecated(
         "filename",
-        new_field="path",
         message="filename is deprecated. Use path instead.",
     )
     path: str = Field(
