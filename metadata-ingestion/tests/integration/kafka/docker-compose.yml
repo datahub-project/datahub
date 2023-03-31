@@ -6,7 +6,7 @@ services:
     env_file: zookeeper.env
     hostname: test_zookeeper
     ports:
-      - "52181:52181"
+      - "22181:52181"
     volumes:
       - test_zkdata:/var/opt/zookeeper
 
@@ -29,7 +29,7 @@ services:
       - zookeeper
       - broker
     ports:
-      - "58081:8081"
+      - "28081:8081"
 
 volumes:
   test_zkdata:
