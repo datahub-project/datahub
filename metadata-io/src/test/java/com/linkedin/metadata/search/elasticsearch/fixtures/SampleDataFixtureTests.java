@@ -1150,6 +1150,37 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         }
     }
 
+    @Test
+    public void testColumnExactMatch() {
+        String query = "event_data";
+        SearchResult result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+            String.format("%s - Expected search results to include matched fields", query));
+
+        assertTrue(result.getEntities().size() > 2,
+            String.format("%s - Expected search results to have at least two results", query));
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:testOnly," + query + ",PROD)",
+            "Expected table name exact match first");
+
+        query = "special_column_only_present_here_info";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+            String.format("%s - Expected search results to include matched fields", query));
+
+        assertTrue(result.getEntities().size() > 2,
+            String.format("%s - Expected search results to have at least two results", query));
+        /* TODO(indy): tune so that this is true
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:testOnly," + "important_events" + ",PROD)",
+            "Expected table with column name exact match first");
+         */
+    }
+
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {
         return _searchClient.indices().analyze(request, RequestOptions.DEFAULT).getTokens().stream();
     }
