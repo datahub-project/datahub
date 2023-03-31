@@ -50,6 +50,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
+    CORPUSER_DATAHUB,
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
@@ -106,7 +107,6 @@ lkml.simple.PLURAL_KEYS = (
 _EXPLORE_FILE_EXTENSION = ".explore.lkml"
 _VIEW_FILE_EXTENSION = ".view.lkml"
 _MODEL_FILE_EXTENSION = ".model.lkml"
-CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 
 def _get_bigquery_definition(
