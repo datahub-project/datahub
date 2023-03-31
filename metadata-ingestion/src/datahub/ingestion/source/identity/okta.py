@@ -199,6 +199,9 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 @config_class(OktaConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
 class OktaSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
