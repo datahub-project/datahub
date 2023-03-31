@@ -31,7 +31,7 @@ export default function SearchFilters({
     const [isShowingBasicFilters, setIsShowingBasicFilters] = useState(!onlyShowAdvancedFilters);
 
     return (
-        <SearchFiltersWrapper removePadding={!isShowingBasicFilters}>
+        <SearchFiltersWrapper removePadding={!isShowingBasicFilters && !!activeFilters.length}>
             {isShowingBasicFilters && (
                 <BasicFilters
                     availableFilters={availableFilters}

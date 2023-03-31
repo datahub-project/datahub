@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 import { AdvancedFilterSelectValueModal } from '../AdvancedFilterSelectValueModal';
 import { AdvancedSearchAddFilterSelect } from '../AdvancedSearchAddFilterSelect';
 import { AdvancedSearchFilter } from '../AdvancedSearchFilter';
@@ -12,6 +13,12 @@ import { FlexSpacer, FlexWrapper, TextButton } from './BasicFilters';
 const AnyAllToggle = styled.div`
     font-weight: 700;
     margin-bottom: 8px;
+`;
+
+const EmptyStateSection = styled.div`
+    padding: 6px 20px;
+    background-color: ${ANTD_GRAY[2]};
+    border-radius: 5px;
 `;
 
 interface Props {
@@ -53,8 +60,8 @@ export default function AdvancedFilters({
                     <AdvancedSearchAddFilterSelect
                         selectedFilters={activeFilters}
                         onFilterFieldSelect={onFilterFieldSelect}
+                        isCompact
                     />
-
                     {activeFilters.map((filter) => (
                         <AdvancedSearchFilter
                             key={`${filter.field}-${filter.condition}-${filter.negated}-${filter.values}-${filter.value}`}
@@ -79,6 +86,7 @@ export default function AdvancedFilters({
                             isCompact
                         />
                     ))}
+                    {!activeFilters.length && <EmptyStateSection>No filters applied.</EmptyStateSection>}
                 </FlexWrapper>
                 <TextButton disabled={onlyShowAdvancedFilters} type="text" onClick={showBasicFilters} marginTop={0}>
                     Basic Filters
