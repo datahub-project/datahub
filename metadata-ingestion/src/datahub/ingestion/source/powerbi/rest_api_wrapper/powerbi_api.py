@@ -375,7 +375,6 @@ class PowerBiAPI:
     def fill_workspace(
         self, workspace: Workspace, reporter: PowerBiDashboardSourceReport
     ) -> None:
-
         self._fill_metadata_from_scan_result(
             workspace=workspace
         )  # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
