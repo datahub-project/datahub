@@ -97,7 +97,6 @@ mutation updateDashboard {
 
 For more information, please refer to following links. 
 
-* [Updating a Metadata Entity]()
 * [Adding Tags](/docs/api/tutorials/adding-tags.md)
 * [Adding Glossary Terms](/docs/api/tutorials/adding-terms.md)
 * [Adding Domain]()
@@ -107,8 +106,9 @@ For more information, please refer to following links.
 * [Removing Domain]()
 * [Removing Owners]()
 * [Updating Deprecation]()
-* [Editing Description (i.e. Documentation)]()
-* [Soft Deleting]()
+* [Editing Description (i.e. Documentation) on Datasets](/docs/api/tutorials/adding-dataset-description.md)
+* [Editing Description (i.e. Documnetation) on Columns](/docs/api/tutorials/adding-column-description.md)
+* [Soft Deleting](https://datahubproject.io/docs/api/tutorials/deleting-entities-by-urn)
 
 Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide. 
 
