@@ -275,7 +275,6 @@ class DataResolverBase(ABC):
         return reports[0]
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
-
         """
         Get the list of tiles from PowerBi for the given workspace identifier
 
@@ -492,7 +491,6 @@ class RegularAPIResolver(DataResolverBase):
 
 
 class AdminAPIResolver(DataResolverBase):
-
     # Admin access endpoints
     API_ENDPOINTS = {
         Constant.DASHBOARD_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/dashboards",

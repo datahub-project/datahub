@@ -976,7 +976,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
-
             is_primary_source = mce_platform == DBT_PLATFORM
             node_datahub_urn = node.get_urn(
                 mce_platform,
