@@ -6,7 +6,7 @@ services:
     env_file: zookeeper.env
     hostname: test_zookeeper
     ports:
-      - "22181:52181"
+      - "52181"
     volumes:
       - test_zkdata:/var/opt/zookeeper
 
@@ -18,7 +18,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "59092:59092"
+      - "29092:59092"
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.2.0
