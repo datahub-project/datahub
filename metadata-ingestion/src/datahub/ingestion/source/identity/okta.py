@@ -55,7 +55,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
-    auto_workunit_reporter,
 )
 
 logger = logging.getLogger(__name__)
@@ -448,9 +447,7 @@ class OktaSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
+            auto_status_aspect(self.get_workunits_internal()),
         )
 
     def get_report(self):
