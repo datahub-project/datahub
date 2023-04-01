@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
+from datahub.utilities.source_helpers import auto_workunit_reporter
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -102,6 +103,10 @@ class CSVEnricherSource(Source):
     be applied at the entity field. If a subresource IS populated (as it is for the second and third rows), glossary
     terms and tags will be applied on the subresource. Every row MUST have a resource. Also note that owners can only
     be applied at the resource level and will be ignored if populated for a row with a subresource.
+
+    :::note
+    This source will not work on very large csv files that do not fit in memory.
+    :::
     """
 
     def __init__(self, config: CSVEnricherConfig, ctx: PipelineContext):
@@ -305,7 +310,6 @@ class CSVEnricherSource(Source):
         )
         if maybe_terms_wu:
             self.report.num_glossary_term_workunits_produced += 1
-            self.report.report_workunit(maybe_terms_wu)
             yield maybe_terms_wu
 
         maybe_tags_wu: Optional[MetadataWorkUnit] = self.get_resource_tags_work_unit(
@@ -314,7 +318,6 @@ class CSVEnricherSource(Source):
         )
         if maybe_tags_wu:
             self.report.num_tag_workunits_produced += 1
-            self.report.report_workunit(maybe_tags_wu)
             yield maybe_tags_wu
 
         maybe_owners_wu: Optional[
@@ -325,7 +328,6 @@ class CSVEnricherSource(Source):
         )
         if maybe_owners_wu:
             self.report.num_owners_workunits_produced += 1
-            self.report.report_workunit(maybe_owners_wu)
             yield maybe_owners_wu
 
         maybe_domain_wu: Optional[
@@ -336,7 +338,6 @@ class CSVEnricherSource(Source):
         )
         if maybe_domain_wu:
             self.report.num_domain_workunits_produced += 1
-            self.report.report_workunit(maybe_domain_wu)
             yield maybe_domain_wu
 
         maybe_description_wu: Optional[
@@ -347,7 +348,6 @@ class CSVEnricherSource(Source):
         )
         if maybe_description_wu:
             self.report.num_description_workunits_produced += 1
-            self.report.report_workunit(maybe_description_wu)
             yield maybe_description_wu
 
     def process_sub_resource_row(
@@ -469,9 +469,7 @@ class CSVEnricherSource(Source):
                 needs_write = True
 
             # Iterate over each sub resource row
-            for sub_resource_row in self.editable_schema_metadata_map[
-                entity_urn
-            ]:  # type: SubResourceRow
+            for sub_resource_row in self.editable_schema_metadata_map[entity_urn]:
                 (
                     current_editable_schema_metadata,
                     needs_write,
@@ -481,6 +479,7 @@ class CSVEnricherSource(Source):
 
             # Write an MCPW if needed.
             if needs_write:
+                self.report.num_editable_schema_metadata_workunits_produced += 1
                 yield MetadataChangeProposalWrapper(
                     entityUrn=entity_urn,
                     aspect=current_editable_schema_metadata,
@@ -538,48 +537,47 @@ class CSVEnricherSource(Source):
         return owners
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # As per https://stackoverflow.com/a/49150749/5004662, we want to use
         # the 'utf-8-sig' encoding to handle any BOM character that may be
         # present in the file. Excel is known to add a BOM to CSV files.
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
         parsed_location = parse.urlparse(self.config.filename)
-        keep_rows = []
         if parsed_location.scheme in ("file", ""):
             with open(
                 pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
             ) as f:
-                rows = csv.DictReader(f, delimiter=self.config.delimiter)
-                keep_rows = [row for row in rows]
+                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
         else:
             try:
                 resp = requests.get(self.config.filename)
                 decoded_content = resp.content.decode("utf-8-sig")
-                rows = csv.DictReader(
-                    decoded_content.splitlines(), delimiter=self.config.delimiter
+                rows = list(
+                    csv.DictReader(
+                        decoded_content.splitlines(), delimiter=self.config.delimiter
+                    )
                 )
-                keep_rows = [row for row in rows]
             except Exception as e:
                 raise ConfigurationError(
                     f"Cannot read remote file {self.config.filename}, error:{e}"
                 )
 
-        for row in keep_rows:
+        for row in rows:
             # We need the resource to move forward
             if not row["resource"]:
                 continue
 
             is_resource_row: bool = not row["subresource"]
-
             entity_urn = row["resource"]
             entity_type = Urn.create_from_string(row["resource"]).get_type()
 
             term_associations: List[
                 GlossaryTermAssociationClass
             ] = self.maybe_extract_glossary_terms(row)
-
             tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(row)
-
             owners: List[OwnerClass] = self.maybe_extract_owners(row, is_resource_row)
 
             domain: Optional[str] = (
@@ -587,7 +585,6 @@ class CSVEnricherSource(Source):
                 if row["domain"] and entity_type == DATASET_ENTITY_TYPE
                 else None
             )
-
             description: Optional[str] = (
                 row["description"]
                 if row["description"] and entity_type == DATASET_ENTITY_TYPE
@@ -595,31 +592,23 @@ class CSVEnricherSource(Source):
             )
 
             if is_resource_row:
-                for wu in self.get_resource_workunits(
+                yield from self.get_resource_workunits(
                     entity_urn=entity_urn,
                     term_associations=term_associations,
                     tag_associations=tag_associations,
                     owners=owners,
                     domain=domain,
                     description=description,
-                ):
-                    yield wu
-
-            # If this row is not applying changes at the resource level, modify the EditableSchemaMetadata map.
-            else:
+                )
+            elif entity_type == DATASET_ENTITY_TYPE:
                 # Only dataset sub-resources are currently supported.
-                if entity_type != DATASET_ENTITY_TYPE:
-                    continue
-
-                field_path = row["subresource"]
-                if entity_urn not in self.editable_schema_metadata_map:
-                    self.editable_schema_metadata_map[entity_urn] = []
                 # Add the row to the map from entity (dataset) to SubResource rows. We cannot emit work units for
                 # EditableSchemaMetadata until we parse the whole CSV due to read-modify-write issues.
+                self.editable_schema_metadata_map.setdefault(entity_urn, [])
                 self.editable_schema_metadata_map[entity_urn].append(
                     SubResourceRow(
                         entity_urn=entity_urn,
-                        field_path=field_path,
+                        field_path=row["subresource"],
                         term_associations=term_associations,
                         tag_associations=tag_associations,
                         description=description,
@@ -627,11 +616,7 @@ class CSVEnricherSource(Source):
                     )
                 )
 
-        # Yield sub resource work units once the map has been fully populated.
-        for wu in self.get_sub_resource_work_units():
-            self.report.num_editable_schema_metadata_workunits_produced += 1
-            self.report.report_workunit(wu)
-            yield wu
+        yield from self.get_sub_resource_work_units()
 
     def get_report(self):
         return self.report
