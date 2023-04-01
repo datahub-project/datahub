@@ -10,7 +10,7 @@ import pydantic
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.stats_collections import TopKDict
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -19,24 +19,22 @@ logger: logging.Logger = logging.getLogger(__name__)
 class BigQueryV2Report(ProfilingSqlReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
     num_skipped_lineage_entries_not_allowed: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
     num_lineage_entries_sql_parser_failure: TopKDict[str, int] = field(
-        default_factory=TopKDict
-    )
-    num_lineage_entries_sql_parser_success: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
     num_skipped_lineage_entries_other: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
-    num_total_log_entries: TopKDict[str, int] = field(default_factory=TopKDict)
-    num_parsed_log_entries: TopKDict[str, int] = field(default_factory=TopKDict)
-    num_total_audit_entries: TopKDict[str, int] = field(default_factory=TopKDict)
-    num_parsed_audit_entries: TopKDict[str, int] = field(default_factory=TopKDict)
+    num_total_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_parsed_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_lineage_log_parse_failures: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
     bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
     lineage_metadata_entries: TopKDict[str, int] = field(default_factory=TopKDict)

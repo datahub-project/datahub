@@ -5,7 +5,7 @@ import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -132,7 +132,7 @@ def bigquery_audit_metadata_query_template(
         """
     audit_log_filter_timestamps = """AND (timestamp >= "{start_time}"
         AND timestamp < "{end_time}"
-    );
+    )
     """
     audit_log_filter_query_complete = f"""
     AND (
@@ -193,15 +193,7 @@ class BigQueryUsageExtractor:
         parsed_events: Iterable[Union[ReadEvent, QueryEvent]]
         with PerfTimer() as timer:
             try:
-                bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
-                if self.config.use_exported_bigquery_audit_metadata:
-                    parsed_events = self._parse_exported_bigquery_audit_metadata(
-                        bigquery_log_entries
-                    )
-                else:
-                    parsed_events = self._parse_bigquery_log_entries(
-                        bigquery_log_entries
-                    )
+                parsed_events = self._get_parsed_bigquery_log_events(project_id)
 
                 hydrated_read_events = self._join_events_by_job_id(parsed_events)
                 # storing it all in one big object.
@@ -213,7 +205,7 @@ class BigQueryUsageExtractor:
                 self.report.num_operational_stats_workunits_emitted = 0
                 for event in hydrated_read_events:
                     if self.config.usage.include_operational_stats:
-                        operational_wu = self._create_operation_aspect_work_unit(event)
+                        operational_wu = self._create_operation_workunit(event)
                         if operational_wu:
                             yield operational_wu
                             self.report.num_operational_stats_workunits_emitted += 1
@@ -308,7 +300,10 @@ class BigQueryUsageExtractor:
             )
 
             query = bigquery_audit_metadata_query_template(
-                dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
+                dataset,
+                self.config.use_date_sharded_audit_log_tables,
+                allow_filter,
+                limit,
             ).format(
                 start_time=start_time,
                 end_time=end_time,
@@ -326,14 +321,14 @@ class BigQueryUsageExtractor:
 
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
-    ) -> Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]:
+    ) -> Iterable[AuditLogEntry]:
         self.report.total_query_log_entries = 0
 
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
 
         try:
-            list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+            list_entries: Iterable[AuditLogEntry]
             rate_limiter: Optional[RateLimiter] = None
             if self.config.rate_limit:
                 # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
@@ -437,9 +432,9 @@ class BigQueryUsageExtractor:
             and event.query_event
             and event.query_event.destinationTable
         ):
-            return event.query_event.destinationTable.get_sanitized_table_ref()
+            return event.query_event.destinationTable
         elif event.read_event:
-            return event.read_event.resource.get_sanitized_table_ref()
+            return event.read_event.resource
         else:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
@@ -492,7 +487,7 @@ class BigQueryUsageExtractor:
         else:
             return None
 
-    def _create_operation_aspect_work_unit(
+    def _create_operation_workunit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
         if not event.read_event and not event.query_event:
@@ -518,15 +513,7 @@ class BigQueryUsageExtractor:
         affected_datasets = []
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
-                try:
-                    affected_datasets.append(
-                        table.get_sanitized_table_ref().to_urn(self.config.env)
-                    )
-                except Exception as e:
-                    self.report.report_warning(
-                        str(table),
-                        f"Failed to clean up table, {e}",
-                    )
+                affected_datasets.append(table.to_urn(self.config.env))
 
         operation_aspect = OperationClass(
             timestampMillis=reported_time,
@@ -587,88 +574,78 @@ class BigQueryUsageExtractor:
 
         return custom_properties
 
-    def _parse_bigquery_log_entries(
-        self, entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
-    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
+    def _parse_bigquery_log_entry(
+        self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
+    ) -> Optional[Union[ReadEvent, QueryEvent]]:
         self.report.num_read_events = 0
         self.report.num_query_events = 0
         self.report.num_filtered_read_events = 0
         self.report.num_filtered_query_events = 0
-        for entry in entries:
-            event: Optional[Union[ReadEvent, QueryEvent]] = None
+        event: Optional[Union[ReadEvent, QueryEvent]] = None
 
-            missing_read_entry = ReadEvent.get_missing_key_entry(entry)
-            if missing_read_entry is None:
-                event = ReadEvent.from_entry(
-                    entry, self.config.debug_include_full_payloads
+        missing_read_entry = ReadEvent.get_missing_key_entry(entry)
+        if missing_read_entry is None:
+            event = ReadEvent.from_entry(entry, self.config.debug_include_full_payloads)
+            if not self._is_table_allowed(event.resource):
+                self.report.num_filtered_read_events += 1
+                return None
+
+            if event.readReason:
+                self.report.read_reasons_stat[event.readReason] = (
+                    self.report.read_reasons_stat.get(event.readReason, 0) + 1
                 )
-                if not self._is_table_allowed(event.resource):
-                    self.report.num_filtered_read_events += 1
-                    continue
+            self.report.num_read_events += 1
 
-                if event.readReason:
-                    self.report.read_reasons_stat[event.readReason] = (
-                        self.report.read_reasons_stat.get(event.readReason, 0) + 1
-                    )
-                self.report.num_read_events += 1
+        missing_query_entry = QueryEvent.get_missing_key_entry(entry)
+        if event is None and missing_query_entry is None:
+            event = QueryEvent.from_entry(entry)
+            self.report.num_query_events += 1
 
-            missing_query_entry = QueryEvent.get_missing_key_entry(entry)
-            if event is None and missing_query_entry is None:
-                event = QueryEvent.from_entry(entry)
-                self.report.num_query_events += 1
+        missing_query_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry)
 
-            missing_query_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry)
+        if event is None and missing_query_entry_v2 is None:
+            event = QueryEvent.from_entry_v2(
+                entry, self.config.debug_include_full_payloads
+            )
+            self.report.num_query_events += 1
 
-            if event is None and missing_query_entry_v2 is None:
-                event = QueryEvent.from_entry_v2(
-                    entry, self.config.debug_include_full_payloads
-                )
-                self.report.num_query_events += 1
-
-            if event is None:
-                logger.warning(
-                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
-                )
-            else:
-                yield event
-
-        logger.info(
-            f"Parsed {self.report.num_read_events} ReadEvents and {self.report.num_query_events} QueryEvents"
-        )
+        if event is None:
+            logger.warning(
+                f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
+            )
+            return None
+        else:
+            return event
 
     def _parse_exported_bigquery_audit_metadata(
-        self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
-    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
-        for audit_metadata in audit_metadata_rows:
-            event: Optional[Union[QueryEvent, ReadEvent]] = None
-            missing_query_event_exported_audit = (
-                QueryEvent.get_missing_key_exported_bigquery_audit_metadata(
-                    audit_metadata
-                )
+        self, audit_metadata: BigQueryAuditMetadata
+    ) -> Optional[Union[ReadEvent, QueryEvent]]:
+        event: Optional[Union[QueryEvent, ReadEvent]] = None
+        missing_query_event_exported_audit = (
+            QueryEvent.get_missing_key_exported_bigquery_audit_metadata(audit_metadata)
+        )
+        if missing_query_event_exported_audit is None:
+            event = QueryEvent.from_exported_bigquery_audit_metadata(
+                audit_metadata, self.config.debug_include_full_payloads
             )
-            if missing_query_event_exported_audit is None:
-                event = QueryEvent.from_exported_bigquery_audit_metadata(
-                    audit_metadata, self.config.debug_include_full_payloads
-                )
 
-            missing_read_event_exported_audit = (
-                ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
-                    audit_metadata
-                )
+        missing_read_event_exported_audit = (
+            ReadEvent.get_missing_key_exported_bigquery_audit_metadata(audit_metadata)
+        )
+        if missing_read_event_exported_audit is None:
+            event = ReadEvent.from_exported_bigquery_audit_metadata(
+                audit_metadata, self.config.debug_include_full_payloads
             )
-            if missing_read_event_exported_audit is None:
-                event = ReadEvent.from_exported_bigquery_audit_metadata(
-                    audit_metadata, self.config.debug_include_full_payloads
-                )
 
-            if event is not None:
-                yield event
-            else:
-                self.error(
-                    logger,
-                    "usage-extraction",
-                    f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
-                )
+        if event is None:
+            self.error(
+                logger,
+                "usage-extraction",
+                f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+            )
+            return None
+        else:
+            return event
 
     def error(self, log: logging.Logger, key: str, reason: str) -> Any:
         self.report.report_failure(key, reason)
@@ -755,23 +732,13 @@ class BigQueryUsageExtractor:
         floored_ts = get_time_bucket(
             event.read_event.timestamp, self.config.bucket_duration
         )
-        resource: Optional[BigQueryTableRef] = None
-        try:
-            resource = event.read_event.resource.get_sanitized_table_ref()
-            if (
-                resource.table_identifier.dataset not in tables
-                or resource.table_identifier.get_table_name()
-                not in tables[resource.table_identifier.dataset]
-            ):
-                logger.debug(f"Skipping non existing {resource} from usage")
-                return
-        except Exception as e:
-            self.report.report_warning(
-                str(event.read_event.resource), f"Failed to clean up resource, {e}"
-            )
-            logger.warning(
-                f"Failed to process event {str(event.read_event.resource)} - {e}"
-            )
+        resource = event.read_event.resource
+        if (
+            resource.table_identifier.dataset not in tables
+            or resource.table_identifier.get_table_name()
+            not in tables[resource.table_identifier.dataset]
+        ):
+            logger.debug(f"Skipping non existing {resource} from usage")
             return
 
         if resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
@@ -814,22 +781,41 @@ class BigQueryUsageExtractor:
 
     def _get_parsed_bigquery_log_events(
         self, project_id: str, limit: Optional[int] = None
-    ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
+    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
+        parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
         if self.config.use_exported_bigquery_audit_metadata:
-            _client: BigQueryClient = BigQueryClient(project=project_id)
-            return self._get_exported_bigquery_audit_metadata(
-                bigquery_client=_client,
+            bq_client = BigQueryClient(project=project_id)
+            entries = self._get_exported_bigquery_audit_metadata(
+                bigquery_client=bq_client,
                 allow_filter=self.config.get_table_pattern(
                     self.config.table_pattern.allow
                 ),
                 limit=limit,
             )
+            parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
-            logging_client: GCPLoggingClient = _make_gcp_logging_client(
+            logging_client = _make_gcp_logging_client(
                 project_id, self.config.extra_client_options
             )
-            return self._get_bigquery_log_entries_via_gcp_logging(
+            entries = self._get_bigquery_log_entries_via_gcp_logging(
                 logging_client, limit=limit
+            )
+            parse_fn = self._parse_bigquery_log_entry
+
+        log_entry_parse_failures = 0
+        for entry in entries:
+            try:
+                event = parse_fn(entry)
+                if event:
+                    yield event
+            except Exception as e:
+                logger.warning(f"Unable to parse log entry `{entry}`: {e}")
+                log_entry_parse_failures += 1
+
+        if log_entry_parse_failures:
+            self.report.report_warning(
+                "usage-extraction",
+                f"Failed to parse {log_entry_parse_failures} audit log entries for project {project_id}.",
             )
 
     def test_capability(self, project_id: str) -> None:
