@@ -638,18 +638,12 @@ class BigQueryUsageExtractor:
             )
 
         if event is None:
-            self.error(
-                logger,
-                "usage-extraction",
+            logger.warning(
                 f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
             )
             return None
         else:
             return event
-
-    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
 
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
