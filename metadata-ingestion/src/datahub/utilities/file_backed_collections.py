@@ -423,7 +423,7 @@ class FileBackedList(Generic[_VT]):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> List[sqlite3.Row]:
         return self._dict.sql_query(query, params, refs=refs)
 
     def close(self) -> None:
