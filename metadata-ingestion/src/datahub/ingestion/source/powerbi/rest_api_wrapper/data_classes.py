@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
-
-from avrogen.dict_wrapper import DictWrapper
+from typing import Any, Dict, List, Optional, Union
 
 from datahub.emitter.mcp_builder import PlatformKey
 from datahub.metadata.schema_classes import (
@@ -13,7 +11,12 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
 )
 
-FIELD_TYPE_MAPPING = {
+FIELD_TYPE_MAPPING: Dict[
+    str,
+    Union[
+        BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
+    ],
+] = {
     "Int64": NumberTypeClass(),
     "Double": NumberTypeClass(),
     "Boolean": BooleanTypeClass(),
@@ -85,7 +88,9 @@ class Column:
     name: str
     dataType: str
     isHidden: bool
-    datahubDataType: DictWrapper
+    datahubDataType: Union[
+        BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
+    ]
     columnType: Optional[str] = None
     expression: Optional[str] = None
     description: Optional[str] = None
@@ -97,7 +102,9 @@ class Measure:
     expression: str
     isHidden: bool
     dataType: str = "measure"
-    datahubDataType: DictWrapper = NullTypeClass()
+    datahubDataType: Union[
+        BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
+    ] = NullTypeClass()
     description: Optional[str] = None
 
 

@@ -245,14 +245,14 @@ class Mapper:
                 if field.description
                 else field.expression
             )
+        elif field.description:
+            description = field.description
         else:
-            description = (
-                field.description if field.description else None  # type:ignore
-            )
+            description = None
 
         schema_field = SchemaFieldClass(
             fieldPath=f"{field.name}",
-            type=SchemaFieldDataTypeClass(type=field.datahubDataType),  # type:ignore
+            type=SchemaFieldDataTypeClass(type=field.datahubDataType),
             nativeDataType=data_type,
             description=description,
         )
@@ -303,12 +303,12 @@ class Mapper:
             return dataset_mcps
         if not any(
             [
-                self.__config.extract_only_matched_endorsed_dataset.allowed(tag)
+                self.__config.filter_dataset_endorsements.allowed(tag)
                 for tag in (dataset.tags or [""])
             ]
         ):
             logger.debug(
-                "Returning empty dataset_mcps as no dataset tag matched with extract_only_matched_endorsed_dataset"
+                "Returning empty dataset_mcps as no dataset tag matched with filter_dataset_endorsements"
             )
             return dataset_mcps
 
@@ -1229,9 +1229,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     yield from self.get_workspace_workunit(workspace)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # As modified_workspaces is not idempotent, hence auto_stale_entity_removal is run later for each workspace_id
+        # This will result in creating checkpoint for each workspace_id
         if self.source_config.modified_since:
             return self.get_workunits_internal()
         else:
+            # Since we only run for a fixed list of workspace_ids
+            # This will result in one checkpoint for the list of configured workspace_ids
             return auto_stale_entity_removal(
                 self.stale_entity_removal_handler,
                 auto_workunit_reporter(

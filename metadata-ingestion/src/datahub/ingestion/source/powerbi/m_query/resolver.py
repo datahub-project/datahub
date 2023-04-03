@@ -531,7 +531,7 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         temp_accessor: Optional[
             Union[IdentifierAccessor, AbstractIdentifierAccessor]
         ] = data_access_func_detail.identifier_accessor
-        while True:
+        while temp_accessor:
             if isinstance(temp_accessor, IdentifierAccessor):
                 value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
                 if temp_accessor.next is not None:

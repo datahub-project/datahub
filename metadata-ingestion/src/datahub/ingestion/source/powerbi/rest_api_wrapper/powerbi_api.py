@@ -214,7 +214,7 @@ class PowerBiAPI:
     def get_modified_workspaces(self) -> List[Workspace]:
         workspaces = []
         try:
-            modified_workspace_ids = self._get_resolver().get_mod_workspaces(
+            modified_workspace_ids = self._get_resolver().get_modified_workspaces(
                 self.__config.modified_since
             )
             workspaces = [

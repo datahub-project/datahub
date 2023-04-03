@@ -330,9 +330,9 @@ class PowerBiDashboardSourceConfig(
         description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
         "access is required is this setting is enabled",
     )
-    extract_only_matched_endorsed_dataset: AllowDenyPattern = pydantic.Field(
+    filter_dataset_endorsements: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Only ingest dataset when endorsement is matched, for example ['Certified']",
+        description="Filter and ingest datasets which are 'Certified' or 'Promoted' endorsement. If both are added, dataset which are 'Certified' or 'Promoted' will be ingested . Default setting allows all dataset to be ingested",
     )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
@@ -341,7 +341,7 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable grouping PBI dataset tables into Datahub container (PBI Dataset)
     extract_datasets_to_containers: bool = pydantic.Field(
         default=False,
-        description="Extract PBI dataset tables into Datahub container (PBI Dataset)",
+        description="PBI tables will be grouped under a Datahub Container, the container reflect a PBI Dataset",
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(

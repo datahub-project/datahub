@@ -746,9 +746,9 @@ class AdminAPIResolver(DataResolverBase):
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
 
-    def get_mod_workspaces(self, modified_since: str) -> List[str]:
+    def get_modified_workspaces(self, modified_since: str) -> List[str]:
         """
-        Get list of mod workspaces
+        Get list of modified workspaces
         """
         modified_workspaces_endpoint = self.API_ENDPOINTS[
             Constant.WORKSPACE_MODIFIED_LIST
@@ -767,9 +767,18 @@ class AdminAPIResolver(DataResolverBase):
             headers=self.get_authorization_header(),
         )
         if res.status_code == 400:
-            raise ConfigurationError(
-                "Please check if modified_since is within last 30 days."
-            )
+            error_msg_json = res.json()
+            if (
+                error_msg_json.get("error")
+                and error_msg_json["error"]["code"] == "InvalidRequest"
+            ):
+                raise ConfigurationError(
+                    "Please check if modified_since is within last 30 days."
+                )
+            else:
+                raise ConfigurationError(
+                    f"Please resolve the following error: {res.text}"
+                )
         res.raise_for_status()
 
         # Return scan_id of Scan created for the given workspace

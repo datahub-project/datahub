@@ -335,7 +335,7 @@ parenthesized_expression:   "(" WS_INLINE? expression WS_INLINE? ")"
 
 not_implemented_expression: "..."
 
-invoke_expression:  "#"? primary_expression "(" NEWLINE? keyword? argument_list? NEWLINE? ")"
+invoke_expression:  "#"? primary_expression "(" NEWLINE? argument_list? NEWLINE? ")"
 
 argument_list:  WS_INLINE? expression
             |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
@@ -435,8 +435,6 @@ optional_parameter: "optional" WS_INLINE parameter
 each_expression:    "each" WS_INLINE each_expression_body
 
 each_expression_body:   function_body
-                |       invoke_expression NEWLINE? WS_INLINE? "+" NEWLINE? WS_INLINE? invoke_expression
-                |       invoke_expression NEWLINE? WS_INLINE? "and" NEWLINE? WS_INLINE? invoke_expression
 
 let_expression: "let" whitespace variable_list WS_INLINE? NEWLINE? in_expression
 
