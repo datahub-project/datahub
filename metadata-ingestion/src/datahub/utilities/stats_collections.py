@@ -1,4 +1,5 @@
-from typing import Any, Callable, DefaultDict, Dict, Optional, Protocol, TypeVar
+from typing import Any, Callable, DefaultDict, Dict, Optional, TypeVar
+from typing_extensions import Protocol
 
 _CT = TypeVar("_CT")
 
