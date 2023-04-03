@@ -132,7 +132,7 @@ class AmplitudeSource(Source):
                 data=data,
                 auth=HTTPBasicAuth(
                     api_key.get_secret_value(), secret_key.get_secret_value()
-                ),
+                )
             )
             response.raise_for_status()
             return response.json()
