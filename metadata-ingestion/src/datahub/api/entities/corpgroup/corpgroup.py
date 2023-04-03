@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import TYPE_CHECKING, Callable, Iterable, List, Optional, Union
 
 import pydantic
@@ -192,9 +191,9 @@ class CorpGroup(BaseModel):
                 entityUrn=urn, aspect=StatusClass(removed=False)
             )
 
-    @lru_cache(maxsize=32)
+    @staticmethod
     def _datahub_graph_from_datahub_rest_emitter(
-        self, rest_emitter: DatahubRestEmitter
+            rest_emitter: DatahubRestEmitter
     ) -> DataHubGraph:
         """
         Create a datahub graph instance from a REST Emitter.
