@@ -99,7 +99,7 @@ For consistency please import and auto format the code using [LinkedIn IntelliJ 
 For optimal performance and compatibility, we strongly recommend building on a Mac or Linux system. 
 Please note that we do not actively support Windows in a non-virtualized environment.
 
-If you must use Windows, one workaround is to build within a virtualized environment, such as a VM (Virtual Machine). 
+If you must use Windows, one workaround is to build within a virtualized environment, such as a VM(Virtual Machine) or [WSL(Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl).
 This approach can help ensure that your build environment remains isolated and stable, and that your code is compiled correctly.
 
 ## Common Build Issues
