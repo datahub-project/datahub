@@ -1,7 +1,15 @@
-from typing import Any, Callable, DefaultDict, Dict, Optional, TypeVar, Union
+from typing import Any, Callable, DefaultDict, Dict, Optional, Protocol, TypeVar
+
+_CT = TypeVar("_CT")
+
+
+class Comparable(Protocol):
+    def __lt__(self: _CT, other: _CT) -> bool:
+        pass
+
 
 _KT = TypeVar("_KT")
-_VT = TypeVar("_VT")
+_VT = TypeVar("_VT", bound=Comparable)
 
 
 class TopKDict(DefaultDict[_KT, _VT]):
@@ -10,7 +18,7 @@ class TopKDict(DefaultDict[_KT, _VT]):
     def __init__(
         self,
         default_factory: Optional[Callable[[], _VT]] = None,
-        *args,
+        *args: Any,
         top_k: int = 10,
         **kwargs: Any,
     ) -> None:
@@ -27,8 +35,13 @@ class TopKDict(DefaultDict[_KT, _VT]):
         if len(self) <= self.top_k:
             return dict(self)
         else:
-            trimmed_dict = dict(sorted(self.items(), key=lambda x: -x[1])[: self.top_k])
-            trimmed_dict[f"... top {self.top_k} of total {len(self)} entries"] = ""
+            try:
+                trimmed_dict = dict(
+                    sorted(self.items(), key=lambda x: x[1], reverse=True)[: self.top_k]
+                )
+            except TypeError:
+                trimmed_dict = dict(list(self.items())[: self.top_k])
+            trimmed_dict[f"... top {self.top_k} of total {len(self)} entries"] = ""  # type: ignore
             return trimmed_dict
 
 
