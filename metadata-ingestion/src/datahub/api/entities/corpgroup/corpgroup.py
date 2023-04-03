@@ -193,7 +193,7 @@ class CorpGroup(BaseModel):
 
     @staticmethod
     def _datahub_graph_from_datahub_rest_emitter(
-            rest_emitter: DatahubRestEmitter
+        rest_emitter: DatahubRestEmitter,
     ) -> DataHubGraph:
         """
         Create a datahub graph instance from a REST Emitter.
