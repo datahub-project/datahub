@@ -1,37 +1,51 @@
-# Creating Domains
+# Reading Domains From Datasets
 
-## Why Would You Create Domains? 
+## Why Would You Remove Domains? 
 Domains are curated, top-level folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out to Domain owners Currently, an asset can belong to only one Domain at a time.
 For more information about domains, refer to [About DataHub Domains](/docs/domains.md).
 
 ### Goal Of This Guide
-This guide will show you how to create a domain named `Marketing`.
+This guide will show you how to remove the domain `Marketing` from the `fct_users_created` datatset.
 
-## Prerequisites
+
+## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+For detailed information, please refer to [Preparing Your Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
-## Create Domain with GrpahQL
+:::note
+Before removing domains, you need to ensure the targeted dataset and the domain are already present in your datahub. 
+If you attempt to manipulate entities that do not exist, your operation will fail. 
+In this guide, we will be using data from a sample ingestion.
 
-::note
+Specifically, we will assume that the domain `Marketing` is attached to the dataset `fct_users_created`. 
+To learn how to add datasets to a domain, please refer to our documentation on [Adding Domain](/docs/api/tutorials/adding-domain.md).
+:::
+
+
+## Remove Domains With GraphQL
+
+:::note
 Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
-
 ### GraphQL Explorer
 GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
-```json
-mutation createDomain {
-  createDomain(input: { name: "Marketing", description: "Entities related to the marketing department" })
+```python
+mutation unsetDomain {
+    unsetDomain(
+      entityUrn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+    )
 }
 ```
-If you see the following response, the operation was successful:
-```json
+
+
+Expected Response: 
+```python
 {
   "data": {
-    "createDomain": "<domain_urn>"
+    "removeDomain": true
   },
   "extensions": {}
 }
@@ -46,34 +60,21 @@ With `accessToken`, you can run the following command.
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query": "mutation createDomain { createDomain(input: { name: \"Marketing\", description: \"Entities related to the marketing department.\" }) }", "variables":{}}'
-```
-Expected Response:
-```json
-{"data":{"createDomain":"<domain_urn>"},"extensions":{}}
+--data-raw '{ "query": "mutation unsetDomain { unsetDomain(entityUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\") }", "variables":{}}'
 ```
 
-## Create a Domain With Python SDK
 
-The following code creates a domain named `Marketing`.
-```python
-{{ inline /metadata-ingestion/examples/library/create_domain.py show_path_as_comment }}
-```
+## Remove Domain With Python SDK
+
+Following codes remove an domain named `Marketing` from a dataset named `fct_users_created`.
+
+> Coming Soon! 
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
 
 ## Expected Outcomes
-You can now see `Marketing` domain has been created under `Govern > Domains`.
+You can now see a domain `Marketing` has been removed from the `fct_users_created` dataset.
 
-![domain-created](../../imgs/apis/tutorials/domain-created.png)
-
-## What's Next?
-
-Now that you created a domain, how about enriching it? Here is a guide that you can check out. 
-
-* [how to add a dataset to a domain](/docs/api/tutorials/adding-domain.md).
-
-
-
+![domain-removed](../../imgs/apis/tutorials/domain-removed.png)

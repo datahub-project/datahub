@@ -3,7 +3,7 @@
 ## Why Would You Add Tags? 
 Tags are informal, loosely controlled labels that help in search & discovery. They can be added to datasets, dataset schemas, or containers, for an easy way to label or categorize entities – without having to associate them to a broader business glossary or vocabulary.
 
-Fore more information about tags, refer to [About DataHub Tags](/docs/tags.md).
+For more information about tags, refer to [About DataHub Tags](/docs/tags.md).
 
 ### Goal Of This Guide
 This guide will show you how to add a `CustomerAccount` tag to the `user_name` column of a dataset called `fct_users_created`.
@@ -29,7 +29,7 @@ Please note that there are two available endpoints (`:8000`, `:9002`) to access 
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json

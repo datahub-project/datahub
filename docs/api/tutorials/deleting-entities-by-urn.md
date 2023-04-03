@@ -25,7 +25,7 @@ For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/ap
 
 
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json

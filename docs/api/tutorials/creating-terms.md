@@ -3,7 +3,7 @@
 ## Why Would You Create Terms? 
 The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary within the orgarnization, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
 
-Fore more information about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
+For more information about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
 
 ### Goal Of This Guide
 This guide will show you how to create a term named `Rate of Return`.
@@ -20,7 +20,7 @@ For more information about the differences between these endpoints, please refer
 :::
 
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```python

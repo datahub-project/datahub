@@ -389,6 +389,15 @@ module.exports = {
               ],
             },
             {
+              "Reading Entities": [
+                "docs/api/tutorials/reading-tags",
+                "docs/api/tutorials/reading-terms",
+                "docs/api/tutorials/reading-domains",
+                "docs/api/tutorials/reading-owners",
+                "docs/api/tutorials/reading-deprecation",
+              ],
+            },
+            {
               "Enriching Entities": [
                 "docs/api/tutorials/adding-tags",
                 "docs/api/tutorials/adding-terms",
@@ -397,10 +406,15 @@ module.exports = {
                 "docs/api/tutorials/adding-dataset-description",
                 "docs/api/tutorials/adding-column-description",
                 "docs/api/tutorials/adding-lineage",
+                "docs/api/tutorials/update-deprecation",
               ],
             },
             {
               "Deleting Entities": [
+                "docs/api/tutorials/removing-tags",
+                "docs/api/tutorials/removing-terms",
+                "docs/api/tutorials/removing-owners",
+                "docs/api/tutorials/removing-domains",
                 "docs/api/tutorials/deleting-entities-by-urn",
               ],
             },

@@ -3,7 +3,7 @@
 ## Why Would You Create Tags? 
 Tags are informal, loosely controlled labels that help in search & discovery. They can be added to datasets, dataset schemas, or containers, for an easy way to label or categorize entities – without having to associate them to a broader business glossary or vocabulary.
 
-Fore more information about tags, refer to [About DataHub Tags](/docs/tags.md).
+For more information about tags, refer to [About DataHub Tags](/docs/tags.md).
 
 ### Goal Of This Guide
 This guide will show you how to create a tag named `Deprecated`.
@@ -20,7 +20,7 @@ For more information about the differences between these endpoints, please refer
 :::
 
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```python

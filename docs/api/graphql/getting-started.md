@@ -23,11 +23,11 @@ The following GraphQL query retrieves the `urn` and `name` of the `properties` o
 In addition to the URN and properties, you can also fetch other types of metadata for an asset, such as owners, tags, domains, and terms of an entity.
 For more information on, please refer to the following links."
 
-  * [Querying for Owners of a Dataset]()
-  * [Querying for Tags of a Dataset]()
-  * [Querying for Domain of a Dataset]()
-  * [Querying for Glossary Terms of a Dataset]()
-  * [Querying for Deprecation of a dataset]()
+  * [Querying for Owners of a Dataset](/docs/api/tutorials/reading-owners.md)
+  * [Querying for Tags of a Dataset](/docs/api/tutorials/reading-tags.md)
+  * [Querying for Domain of a Dataset](/docs/api/tutorials/reading-domains.md)
+  * [Querying for Glossary Terms of a Dataset](/docs/api/tutorials/reading-terms.md)
+  * [Querying for Deprecation of a dataset](/docs/api/tutorials/reading-deprecation.md)
 
 ### Search
 
@@ -99,16 +99,16 @@ For more information, please refer to following links.
 
 * [Adding Tags](/docs/api/tutorials/adding-tags.md)
 * [Adding Glossary Terms](/docs/api/tutorials/adding-terms.md)
-* [Adding Domain]()
+* [Adding Domain](/docs/api/tutorials/adding-domain.md)
 * [Adding Owners](/docs/api/tutorials/adding-ownerships.md)
-* [Removing Tags]()
-* [Removing Glossary Terms]()
-* [Removing Domain]()
-* [Removing Owners]()
-* [Updating Deprecation]()
+* [Removing Tags](/docs/api/tutorials/removing-tags.md)
+* [Removing Glossary Terms](/docs/api/tutorials/removing-terms.md)
+* [Removing Domain](/docs/api/tutorials/removing-domains.md)
+* [Removing Owners](/docs/api/tutorials/removing-owners.md)
+* [Updating Deprecation](/docs/api/tutorials/update-deprecation.md)
 * [Editing Description (i.e. Documentation) on Datasets](/docs/api/tutorials/adding-dataset-description.md)
 * [Editing Description (i.e. Documnetation) on Columns](/docs/api/tutorials/adding-column-description.md)
-* [Soft Deleting](https://datahubproject.io/docs/api/tutorials/deleting-entities-by-urn)
+* [Soft Deleting](/docs/api/tutorials/deleting-entities-by-urn.md)
 
 Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide. 
 

@@ -61,21 +61,31 @@ Here's an overview of what each API can do.
 
 > Last Updated : Mar 21 2023
 
-| Feature                                                 | GraphQL                                                         | Python SDK                                                     | OpenAPI |
-|---------------------------------------------------------|-----------------------------------------------------------------|----------------------------------------------------------------|---------|
-| Create a dataset                                        | 🚫                                                              | ✅ [[Guide]](/docs/api/tutorials/creating-datasets.md)          | ✅       |
-| Create a tag                                            | ✅ [[Guide]](/docs/api/tutorials/creating-tags.md)               | ✅ [[Guide]](/docs/api/tutorials/creating-tags.md)              | ✅       |
-| Create a glossary term                                  | ✅ [[Guide]](/docs/api/tutorials/creating-terms.md)              | ✅ [[Guide]](/docs/api/tutorials/creating-terms.md)             | ✅       |
-| Add tags to a column of a dataset                       | ✅ [[Guide]](/docs/api/tutorials/adding-tags.md)                 | ✅ [[Guide]](/docs/api/tutorials/adding-tags.md)                | ✅       |
-| Add terms to a column of a dataset                      | ✅ [[Guide]](/docs/api/tutorials/adding-terms.md)                | ✅ [[Guide]](/docs/api/tutorials/adding-terms.md)               | ✅       |
-| Add terms to a column of a dataset                      | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)           | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)          | ✅       |
-| Add tags to a dataset                                   | ✅ [[Guide]](/docs/api/tutorials/adding-tags.md)                 | ✅                                                              | ✅       |
-| Add terms to a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/adding-terms.md)                | ✅                                                              | ✅       |
-| Add owner to a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)           | ✅                                                              | ✅       |
-| Add lineage                                             | ✅ [[Guide]](/docs/api/tutorials/adding-lineage.md)              | ✅ [[Guide]](/docs/api/tutorials/adding-lineage.md)             | ✅       |
-| Add column level(Fine Grained) lineage                  | 🚫                                                              | ✅                                                              | ✅       |
-| Add documentation(description) to a column of a dataset | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)   | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)  | ✅       |
-| Add documentation(description) to a dataset             | 🚫                                                              | ✅ [[Guide]](/docs/api/tutorials/adding-dataset-description.md) | ✅       |
-| Delete a dataset (Soft delete)                          | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)                                                                 | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)     | ✅       |
-| Delete a dataset (Hard delele)                          | 🚫                                                              | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)     | ✅       |
-| Search a dataset                                        | ✅                                                               | ✅                                                              | ✅       |
+| Feature                                                 | GraphQL                                                       | Python SDK                                                     | OpenAPI |
+|---------------------------------------------------------|---------------------------------------------------------------|----------------------------------------------------------------|---------|
+| Create a dataset                                        | 🚫                                                            | ✅ [[Guide]](/docs/api/tutorials/creating-datasets.md)          | ✅       |
+| Create a tag                                            | ✅ [[Guide]](/docs/api/tutorials/creating-tags.md)             | ✅ [[Guide]](/docs/api/tutorials/creating-tags.md)              | ✅       |
+| Create a glossary term                                  | ✅ [[Guide]](/docs/api/tutorials/creating-terms.md)            | ✅ [[Guide]](/docs/api/tutorials/creating-terms.md)             | ✅       |
+| Read tags of a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/reading-tags.md)              | ✅            | ✅       |
+| Read terms of a dataset                                 | ✅ [[Guide]](/docs/api/tutorials/reading-terms.md)             | ✅             | ✅       |
+| Read domains of a dataset                               | ✅ [[Guide]](/docs/api/tutorials/reading-domains.md)           | ✅             | ✅       |
+| Read owners of a dataset                                | ✅ [[Guide]](/docs/api/tutorials/reading-owners.md)            | ✅            | ✅       |
+| Read deprecation status of a dataset                    | ✅ [[Guide]](/docs/api/tutorials/reading-deprecation.md)       | ✅             | ✅       |
+| Update deprecation status of a dataset                  | ✅ [[Guide]](/docs/api/tutorials/update-deprecation.md)        | ✅              | ✅       |
+| Add tags to a column of a dataset                       | ✅ [[Guide]](/docs/api/tutorials/adding-tags.md)               | ✅ [[Guide]](/docs/api/tutorials/adding-tags.md)                | ✅       |
+| Add terms to a column of a dataset                      | ✅ [[Guide]](/docs/api/tutorials/adding-terms.md)              | ✅ [[Guide]](/docs/api/tutorials/adding-terms.md)               | ✅       |
+| Add terms to a column of a dataset                      | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)         | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)          | ✅       |
+| Add tags to a dataset                                   | ✅ [[Guide]](/docs/api/tutorials/adding-tags.md)               | ✅                                                              | ✅       |
+| Add terms to a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/adding-terms.md)              | ✅                                                              | ✅       |
+| Add owner to a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/adding-ownerships.md)         | ✅                                                              | ✅       |
+| Add lineage                                             | ✅ [[Guide]](/docs/api/tutorials/adding-lineage.md)            | ✅ [[Guide]](/docs/api/tutorials/adding-lineage.md)             | ✅       |
+| Add column level(Fine Grained) lineage                  | 🚫                                                            | ✅                                                              | ✅       |
+| Add documentation(description) to a column of a dataset | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md) | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)  | ✅       |
+| Add documentation(description) to a dataset             | 🚫                                                            | ✅ [[Guide]](/docs/api/tutorials/adding-dataset-description.md) | ✅       |
+| Remove tags from a dataset                              | ✅ [[Guide]](/docs/api/tutorials/removing-tags.md)             | ✅                                                              | ✅       |
+| Remove terms from a dataset                             | ✅ [[Guide]](/docs/api/tutorials/removing-terms.md)            | ✅                                                              | ✅       |
+| Remove domains from a dataset                           | ✅ [[Guide]](/docs/api/tutorials/removing-domains.md)          | ✅                                                              | ✅       |
+| Remove owners from a dataset                            | ✅ [[Guide]](/docs/api/tutorials/removing-owners.md)           | ✅                                                              | ✅       |
+| Delete a dataset (Soft delete)                           | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)  | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)     | ✅       |
+| Delete a dataset (Hard delele)                           | 🚫                                                            | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)     | ✅       |
+| Search a dataset                                         | ✅                                                             | ✅                                                              | ✅       |
