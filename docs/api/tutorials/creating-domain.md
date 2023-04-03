@@ -1,47 +1,41 @@
-# Adding a Dataset to a Domain
+# Creating Domains
 
-## Why Would You Add Domains? 
+## Why Would You Create Domains? 
 Domains are curated, top-level folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out to Domain owners Currently, an asset can belong to only one Domain at a time.
 For more information about domains, refer to [About DataHub Domains](/docs/domains.md).
 
 ### Goal Of This Guide
-This guide will show you how to add a dataset named `fct_user_created` to a domain named `Marketing`.
+This guide will show you how to create a domain named `Marketing`.
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
 For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
 
-:::note
-Before adding domains, you need to ensure the targeted dataset and the domain are already present in your datahub. 
-If you attempt to manipulate entities that do not exist, your operation will fail. 
-For more information on how to create domains, please refert to [Create Domain](/docs/api/tutorials/creating-domain.md)
-:::
+## Create Domain with GrpahQL
 
-
-## Add Domains With GraphQL
-
-:::note
+::note
 Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
+
 ### GraphQL Explorer
 GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json
-
+mutation createDomain {
+  createDomain(input: { name: "Marketing", description: "Entities related to the marketing department" })
+}
 ```
-
 If you see the following response, the operation was successful:
-```python
+```json
 {
   "data": {
-    "setDomain": true
+    "createDomain": "<domain_urn>"
   },
   "extensions": {}
 }
 ```
-
 
 ### CURL
 
@@ -52,29 +46,33 @@ With `accessToken`, you can run the following command.
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query": "mutation setDomain { setDomain(entityUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)", domainUrn: "urn:li:domain:marketing")) }", "variables":{}}'
+--data-raw '{ "query": "mutation createDomain { createDomain(input: { name: \"Marketing\", description: \"Entities related to the marketing department.\" }) }", "variables":{}}'
 ```
 Expected Response:
 ```json
-{"data":{"setDomain":true},"extensions":{}}
+{"data":{"createDomain":"<domain_urn>"},"extensions":{}}
 ```
 
+## Create a Domain With Python SDK
 
-## Add Domains With Python SDK
-
-The following code adds a dataset `fct_users_created` to a domain named `Marketing`.
-You can refer to the full code in [dataset_add_domain.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_domain.py).
+The following code creates a domain named `Marketing`.
 ```python
-{{ inline metadata-ingestion/examples/library/adding_domain.py show_path_as_comment }}
 ```
-
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
 
 ## Expected Outcomes
-You can now see `CustomerAccount` domain has been added to `user_name` column. 
+You can now see `Marketing` domain has been created under `Govern > Domains`.
 
-![tag-added](../../imgs/apis/tutorials/tag-added.png)
+![domain-created](../../imgs/apis/tutorials/domain-created.png)
+
+## What's Next?
+
+Now that you created a domain, how about enriching it? Here is a guide that you can check out. 
+
+* [how to add a dataset to a domain](/docs/api/tutorials/adding-domain.md).
+
+
 
