@@ -2,7 +2,7 @@ import { Checkbox } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { FilterFields } from './types';
-import { Tag } from '../../../types.generated';
+import { EntityType, Tag } from '../../../types.generated';
 import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -56,8 +56,8 @@ export default function FilterOption({ filterFields, selectedFilterValues, setSe
     const { field, value, count, entity } = filterFields;
     const entityRegistry = useEntityRegistry();
     const { icon, label } = getFilterIconAndLabel(field, value, entityRegistry, entity || null, 14);
-    const shouldShowIcon = field === PLATFORM_FILTER_NAME;
-    const shouldShowTagColor = field === TAGS_FILTER_NAME;
+    const shouldShowIcon = field === PLATFORM_FILTER_NAME && icon !== null;
+    const shouldShowTagColor = field === TAGS_FILTER_NAME && entity?.type === EntityType.Tag;
 
     function updateFilterValues() {
         if (isFilterOptionSelected(selectedFilterValues, value)) {
