@@ -14,6 +14,7 @@ module.exports = {
         // target end-users, high-level architecture, & hosting options
 
         "docs/features",
+        "docs/what-is-datahub/datahub-concepts",
         {
           Architecture: [
             "docs/architecture/architecture",
@@ -68,6 +69,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/bigquery/overview",
                 "docs/quick-ingestion-guides/bigquery/setup",
                 "docs/quick-ingestion-guides/bigquery/configuration",
+              ],
+            },
+            {
+              Redshift: [
+                "docs/quick-ingestion-guides/redshift/overview",
+                "docs/quick-ingestion-guides/redshift/setup",
+                "docs/quick-ingestion-guides/redshift/configuration",
               ],
             },
             {
