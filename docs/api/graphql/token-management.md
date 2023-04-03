@@ -119,7 +119,5 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 This endpoint will return a boolean detailing whether the operation was successful. In case of failure, an error message will appear explaining what went wrong.
 
-## Feedback, Feature Requests, & Support
-
-Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
+> Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
 stop by to say 'Hi'. 

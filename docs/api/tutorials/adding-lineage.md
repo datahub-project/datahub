@@ -2,7 +2,7 @@
 
 ## Why Would You Add Lineage? 
 Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
-Fore more information about lineage, refer to [About DataHub Lineage](/docs/lineage/lineage-feature-guide.md).
+For moreinformation about lineage, refer to [About DataHub Lineage](/docs/lineage/lineage-feature-guide.md).
 
 ### Goal Of This Guide
 This guide will show you how to add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.

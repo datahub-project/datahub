@@ -3,8 +3,10 @@
 DataHub provides a rich [GraphQL](https://graphql.org/) API for programmatically interacting with the Entities & Relationships comprising your organization's Metadata Graph.
 
 ## Getting Started
+To begin using the DataHub GraphQL API, please consult the [Getting Started](/docs/api/graphql/getting-started.md).
 
-Check out [Getting Started](./getting-started.md) to start using the DataHub GraphQL API right away. 
+For detailed guidance on using GraphQL for specific use cases, please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison).
+
 
 ## About GraphQL 
 
@@ -34,22 +36,5 @@ that may be performed using the API.
 - Available Operations: [Queries](/graphql/queries.md) (Reads) & [Mutations](/graphql/mutations.md) (Writes)
 - Schema Types: [Objects](/graphql/objects.md), [Input Objects](/graphql/inputObjects.md), [Interfaces](/graphql/interfaces.md), [Unions](/graphql/unions.md), [Enums](/graphql/enums.md), [Scalars](/graphql/scalars.md)
 
-## On the Horizon
-
-The GraphQL API undergoing continuous development. A few of the things we're most excited about can be found below.
-
-### Supporting Additional Use Cases
-
-DataHub plans to support the following use cases via the GraphQL API:
-
-- **Creating entities**: Programmatically creating Datasets, Dashboards, Charts, Data Flows (Pipelines), Data Jobs (Tasks) and more.
-
-### Client SDKs
-
-DataHub plans to develop Open Source Client SDKs for Python, Java, Javascript among others on top of this API. If you're interested
-in contributing, [join us on Slack](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email)!
-
-## Feedback, Feature Requests, & Support
-
-Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
+> Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
 stop by to say 'Hi'. 
