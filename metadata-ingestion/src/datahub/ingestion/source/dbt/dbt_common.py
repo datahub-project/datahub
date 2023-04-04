@@ -419,17 +419,16 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     custom_properties = node.meta
 
     # additional node attributes to extract to custom properties
-    node_attributes = [
-        "node_type",
-        "materialization",
-        "dbt_file_path",
-        "catalog_type",
-        "language",
-    ]
+    node_attributes = {
+        "node_type": node.node_type,
+        "materialization": node.materialization,
+        "dbt_file_path": node.dbt_file_path,
+        "catalog_type": node.catalog_type,
+        "language": node.language,
+        "dbt_unique_id": node.dbt_name,
+    }
 
-    for attribute in node_attributes:
-        node_attribute_value = getattr(node, attribute)
-
+    for attribute, node_attribute_value in node_attributes.items():
         if node_attribute_value is not None:
             custom_properties[attribute] = node_attribute_value
 
