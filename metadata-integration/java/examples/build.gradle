@@ -1,0 +1,64 @@
+apply plugin: 'java'
+apply plugin: 'jacoco'
+
+
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+dependencies {
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  implementation externalDependency.typesafeConfig
+  implementation externalDependency.opentracingJdbc
+
+  implementation project(path: ':li-utils')
+  implementation project(path: ':metadata-models')
+  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+  implementation externalDependency.httpAsyncClient
+
+  // Tests need a concrete log4j available. Providing it here
+  testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
+  testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+
+  testImplementation externalDependency.mockito
+
+}
+
+
+test {
+  forkEvery = 1
+  useJUnit()
+  finalizedBy jacocoTestReport
+}
+
+task integrationTest(type: Exec, dependsOn: [build, ':docker:quickstart'] ) {
+    environment "RUN_QUICKSTART", "false"
+    commandLine "java-sdk-smoke-test/smoke.sh"
+}
+
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+}
+
+ext {
+   datasetCustomPropertiesClass = "io.datahubproject.examples.DatasetCustomProperties"
+}
+
+
+task runDatasetCustomProperties(type: JavaExec) {
+    group = "Execution"
+    description = "Run the Dataset Custom Properties example with JavaExecTask"
+    classpath = sourceSets.main.runtimeClasspath
+    main = datasetCustomPropertiesClass
+}

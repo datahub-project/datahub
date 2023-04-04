@@ -411,6 +411,7 @@ module.exports = {
                 "docs/api/tutorials/adding-ownerships",
                 "docs/api/tutorials/adding-dataset-description",
                 "docs/api/tutorials/adding-column-description",
+                "docs/api/tutorials/adding-dataset-custom-properties",
                 "docs/api/tutorials/adding-lineage",
               ],
             },
