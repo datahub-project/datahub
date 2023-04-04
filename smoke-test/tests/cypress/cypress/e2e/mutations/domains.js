@@ -1,19 +1,19 @@
-const test_domain = "CypressDomainTest";
-let domain_created_urn = ""
+const test_domain_id = Math.floor(Math.random() * 100000);
+const test_domain = `CypressDomainTest ${test_domain_id}`
+const test_domain_urn = `urn:li:domain:${test_domain_id}`
+
 
 describe("add remove domain", () => {
     it("create domain", () => {
         cy.login();
         cy.goToDomainList();
         cy.clickOptionWithText("New Domain");
-        cy.addViaModal(test_domain, "Create new Domain")
-        cy.waitTextVisible("Created domain!")
+        cy.waitTextVisible("Create new Domain");
+        cy.get('[data-testid="create-domain-name"]').click().type(test_domain)
+        cy.clickOptionWithText('Advanced')
+        cy.get('[data-testid="create-domain-id"]').click().type(test_domain_id)
+        cy.get('[data-testid="create-domain-button"]').click()
         cy.waitTextVisible(test_domain)
-            .parents("[data-testid^='urn:li:domain:']")
-            .invoke('attr', 'data-testid')
-            .then((data_test_id) => {
-                domain_created_urn = data_test_id;
-            })
     })
 
     it("add entities to domain", () => {
@@ -23,8 +23,8 @@ describe("add remove domain", () => {
         cy.waitTextVisible("Add assets")
         cy.clickOptionWithText("Add assets")     
         cy.get(".ant-modal-content").within(() => {
-            cy.get('[data-testid="search-input"]').click().type("jaffle_shop")
-            cy.waitTextVisible("jaffle_shop")
+            cy.get('[data-testid="search-input"]').click().invoke("val", "cypress_project.jaffle_shop.").type("customer")
+            cy.contains("customers")
             cy.get(".ant-checkbox-input").first().click()
             cy.get("#continueButton").click()
         })
@@ -35,8 +35,8 @@ describe("add remove domain", () => {
         cy.login();
         cy.goToStarSearchList()
         cy.waitTextVisible(test_domain)
-        cy.get('[data-testid="facet-domains-' + domain_created_urn + '"]').click()
-        cy.waitTextVisible("jaffle_shop")
+        cy.get('[data-testid="facet-domains-' + test_domain_urn + '"]').click()
+        cy.waitTextVisible("customers")
     })
 
     it("remove entity from domain", () => {
@@ -45,14 +45,14 @@ describe("add remove domain", () => {
         cy.removeDomainFromDataset(
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
             "customers",
-            domain_created_urn
+            test_domain_urn
         )
     })
 
     it("delete a domain and ensure dangling reference is deleted on entities", () => {
         cy.login();
         cy.goToDomainList();
-        cy.get('[data-testid="dropdown-menu-' + domain_created_urn + '"]').click();
+        cy.get('[data-testid="dropdown-menu-' + test_domain_urn + '"]').click();
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
         cy.ensureTextNotPresent(test_domain)
