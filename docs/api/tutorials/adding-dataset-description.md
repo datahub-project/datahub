@@ -1,30 +1,33 @@
 # Adding Description on Datasets
 
-## Why Would You Add Description on Dataset? 
+## Why Would You Add Description on Dataset?
+
 Adding a description and related link to a dataset can provide important information about the data, such as its source, collection methods, and potential uses. This can help others understand the context of the data and how it may be relevant to their own work or research. Including a related link can also provide access to additional resources or related datasets, further enriching the information available to users.
 
 ### Goal Of This Guide
+
 This guide will show you how to add a description and a link to dataset `fct_users_deleted`.
 
-
 ## Prerequisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 :::note
-Before adding a description, you need to ensure the targeted dataset is already present in your datahub. 
-If you attempt to manipulate entities that do not exist, your operation will fail. 
+Before adding a description, you need to ensure the targeted dataset is already present in your datahub.
+If you attempt to manipulate entities that do not exist, your operation will fail.
 In this guide, we will be using data from sample ingestion.
 :::
 
 In this example, we will add a description to `user_name `column of a dataset `fct_users_deleted`.
 
 ## Add Description With GraphQL (Not Supported)
-> 🚫 Adding Description on Dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
 
+> 🚫 Adding Description on Dataset via GraphQL is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information,
 
 ## Add Description With Python SDK
+
 Following code add a description and link to a dataset named `fct_users_deleted`.
 For more information, please refer to [dataset_add_documentation.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_documentation.py)
 
@@ -130,9 +133,8 @@ else:
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
 ## Expected Outcomes
-You can now see the description is added to `fct_users_deleted`. 
+
+You can now see the description is added to `fct_users_deleted`.
 
 ![dataset-description-added](../../imgs/apis/tutorials/dataset-description-added.png)
-

@@ -1,82 +1,157 @@
-# How To Set Up GraphQL
+# Getting Started With GraphQL
 
-## Preparing Local Datahub Deployment
+## Reading an Entity: Queries
 
-The first thing you'll need to use the GraphQL API is a deployed instance of DataHub with some metadata ingested. 
-For more information, please refer to [Preparing Your Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+DataHub provides the following GraphQL queries for retrieving entities in your Metadata Graph.
 
+### Query
 
-## Querying the GraphQL API
+The following GraphQL query retrieves the `urn` and `name` of the `properties` of a specific dataset
 
-DataHub's GraphQL endpoint is served at the path `/api/graphql`, e.g. `https://my-company.datahub.com/api/graphql`.
-There are a few options when it comes to querying the GraphQL endpoint.
-
-For **Testing**:
-* GraphQL Explorer (GraphiQL)
-* CURL
-* Postman
-
-For **Production**: 
-* GraphQL [Client SDK](https://graphql.org/code/) for the language of your choice
-* Basic HTTP client
-
-> Notice: The DataHub GraphQL endpoint only supports POST requests at this time.
-
-### GraphQL Explorer (GraphiQL)
-
-DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://github.com/graphql/graphiql)) for live interaction with the GraphQL API. This tool is available at the path `/api/graphiql` (e.g. `https://my-company.datahub.com/api/graphiql`)
-This interface allows you to easily craft queries and mutations against real metadata stored in your live DataHub deployment. 
-
-To experiment with GraphiQL before deploying it in your live DataHub deployment, you can access a demo site provided by DataHub at https://demo.datahubproject.io/api/graphiql.
-For instance, you can create a tag by posting the following query:
 ```json
-mutation createTag {
-    createTag(input:
-    {
-      name: "Deprecated",
-      description: "Having this tag means this column or table is deprecated."
-    })
+{
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)") {
+    urn
+    properties {
+        name
+    }
+  }
 }
 ```
-For a detailed usage guide, check out [How to use GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/). 
 
+In addition to the URN and properties, you can also fetch other types of metadata for an asset, such as owners, tags, domains, and terms of an entity.
+For more information on, please refer to the following links."
 
-### CURL
+- [Querying for Owners of a Dataset](/docs/api/tutorials/reading-owners.md)
+- [Querying for Tags of a Dataset](/docs/api/tutorials/reading-tags.md)
+- [Querying for Domain of a Dataset](/docs/api/tutorials/reading-domains.md)
+- [Querying for Glossary Terms of a Dataset](/docs/api/tutorials/reading-terms.md)
+- [Querying for Deprecation of a dataset](/docs/api/tutorials/reading-deprecation.md)
 
-CURL is a command-line tool used for transferring data using various protocols including HTTP, HTTPS, and others. 
-To query the DataHub GraphQL API using CURL, you can send a `POST` request to the `/api/graphql` endpoint with the GraphQL query in the request body. 
-Here is an example CURL command to create a tag via GraphQL API:
+### Search
 
-```shell
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{ "query": "mutation createTag { createTag(input: { name: \"Deprecated\", description: \"Having this tag means this column or table is deprecated.\" }) }", "variables":{}}'
+To perform full-text search against an Entity of a particular type, use the search(input: `SearchInput!`) GraphQL Query.
+The following GraphQL query searches for datasets that match a specific query term.
+
+```json
+{
+  search(input: { type: DATASET, query: "my sql dataset", start: 0, count: 10 }) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+         urn
+         type
+         ...on Dataset {
+            name
+         }
+      }
+    }
+  }
+}
 ```
 
-### Postman
-Postman is a popular API client that provides a graphical user interface for sending requests and viewing responses.
-Within Postman, you can create a `POST` request and set the request URL to the `/api/graphql` endpoint. 
-In the request body, select the `GraphQL` option and enter your GraphQL query in the request body.
+The `search` field is used to indicate that we want to perform a search.
+The `input` argument specifies the search criteria, including the type of entity being searched, the search query term, the start index of the search results, and the count of results to return.
 
-![postman-graphql](../../imgs/apis/postman-graphql.png)
+The `query` term is used to specify the search term.
+The search term can be a simple string, or it can be a more complex query using patterns.
 
+- `*` : Search for all entities.
+- `*[string]` : Search for all entities that contain aspects **starting with** the specified \[string\].
+- `[string]*` : Search for all entities that contain aspects **ending with** the specified \[string\].
+- `*[string]*` : Search for all entities that **match** aspects named \[string\].
+- `[string]` : Search for all entities that **contain** the specified \[string\].
 
-Please refer to [Querying with GraphQL](https://learning.postman.com/docs/sending-requests/graphql/graphql/) in the Postman documentation for more information.
+:::note
+Note that by default Elasticsearch only allows pagination through 10,000 entities via the search API.
+If you need to paginate through more, you can change the default value for the `index.max_result_window` setting in Elasticsearch, or using the scroll API to read from the index directly.
+:::
 
-### Authentication + Authorization
+## Modifying an Entity: Mutations
 
-In general, you'll need to provide an [Access Token](../../authentication/personal-access-tokens.md) when querying the GraphQL by
-providing an `Authorization` header containing a `Bearer` token. The header should take the following format:
+:::note
+Mutations which change Entity metadata are subject to [DataHub Access Policies](../../authorization/policies.md).
+This means that DataHub's server will check whether the requesting actor is authorized to perform the action.
+:::
 
-```bash
-Authorization: Bearer <access-token>
+To update an existing Metadata Entity, simply use the `update<entityName>(urn: String!, input: EntityUpdateInput!)` GraphQL Query.
+For example, to update a Dashboard entity, you can issue the following GraphQL mutation:
+
+```json
+mutation updateDashboard {
+    updateDashboard(
+        urn: "urn:li:dashboard:(looker,baz)",
+        input: {
+            editableProperties: {
+                description: "My new desription"
+            }
+        }
+    ) {
+        urn
+    }
+}
 ```
 
-Authorization for actions exposed by the GraphQL endpoint will be performed based on the actor making the request.
-For Personal Access Tokens, the token will carry the user's privileges. Please refer to [Access Token Management](/docs/api/graphql/token-management.md) for more information.
+For more information, please refer to following links.
 
-## What's Next?
+- [Adding Tags](/docs/api/tutorials/adding-tags.md)
+- [Adding Glossary Terms](/docs/api/tutorials/adding-terms.md)
+- [Adding Domain](/docs/api/tutorials/adding-domain.md)
+- [Adding Owners](/docs/api/tutorials/adding-ownerships.md)
+- [Removing Tags](/docs/api/tutorials/removing-tags.md)
+- [Removing Glossary Terms](/docs/api/tutorials/removing-terms.md)
+- [Removing Domain](/docs/api/tutorials/removing-domains.md)
+- [Removing Owners](/docs/api/tutorials/removing-owners.md)
+- [Updating Deprecation](/docs/api/tutorials/update-deprecation.md)
+- [Editing Description (i.e. Documentation) on Datasets](/docs/api/tutorials/adding-dataset-description.md)
+- [Editing Description (i.e. Documnetation) on Columns](/docs/api/tutorials/adding-column-description.md)
+- [Soft Deleting](/docs/api/tutorials/deleting-entities-by-urn.md)
 
-Now that you are ready with GraphQL, how about browsing through some use cases? 
-Please refer to [Getting Started With GraphQL](/docs/api/graphql/getting-started.md) for more information. 
+Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
+
+## Handling Errors
+
+In GraphQL, requests that have errors do not always result in a non-200 HTTP response body. Instead, errors will be
+present in the response body inside a top-level `errors` field.
+
+This enables situations in which the client is able to deal gracefully will partial data returned by the application server.
+To verify that no error has returned after making a GraphQL request, make sure you check _both_ the `data` and `errors` fields that are returned.
+
+To catch a GraphQL error, simply check the `errors` field side the GraphQL response. It will contain a message, a path, and a set of extensions
+which contain a standard error code.
+
+```json
+{
+  "errors": [
+    {
+      "message": "Failed to change ownership for resource urn:li:dataFlow:(airflow,dag_abc,PROD). Expected a corp user urn.",
+      "locations": [
+        {
+          "line": 1,
+          "column": 22
+        }
+      ],
+      "path": ["addOwners"],
+      "extensions": {
+        "code": 400,
+        "type": "BAD_REQUEST",
+        "classification": "DataFetchingException"
+      }
+    }
+  ]
+}
+```
+
+With the following error codes officially supported:
+
+| Code | Type         | Description                                                                                   |
+| ---- | ------------ | --------------------------------------------------------------------------------------------- |
+| 400  | BAD_REQUEST  | The query or mutation was malformed.                                                          |
+| 403  | UNAUTHORIZED | The current actor is not authorized to perform the requested action.                          |
+| 404  | NOT_FOUND    | The resource is not found.                                                                    |
+| 500  | SERVER_ERROR | An internal error has occurred. Check your server logs or contact your DataHub administrator. |
+
+> Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
+> stop by to say 'Hi'.

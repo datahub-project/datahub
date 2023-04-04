@@ -1,16 +1,19 @@
 # Creating Tags
 
-## Why Would You Create Tags? 
+## Why Would You Create Tags?
+
 Tags are informal, loosely controlled labels that help in search & discovery. They can be added to datasets, dataset schemas, or containers, for an easy way to label or categorize entities – without having to associate them to a broader business glossary or vocabulary.
 
 For moreinformation about tags, refer to [About DataHub Tags](/docs/tags.md).
 
 ### Goal Of This Guide
+
 This guide will show you how to create a tag named `Deprecated`.
 
 ## Prerequisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 ## Create Tags With GraphQL
 
@@ -20,7 +23,8 @@ For more information about the differences between these endpoints, please refer
 :::
 
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies.
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```python
@@ -32,7 +36,9 @@ mutation createTag {
     })
 }
 ```
+
 If you see the following response, the operation was successful:
+
 ```python
 {
   "data": {
@@ -44,7 +50,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Access Token Management](/docs/api/graphql/token-management.md).
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -53,16 +59,18 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Content-Type: application/json' \
 --data-raw '{ "query": "mutation createTag { createTag(input: { name: \"Deprecated\", description: \"Having this tag means this column or table is deprecated.\" }) }", "variables":{}}'
 ```
-Expected Response:
-```json
-{"data":{"createTag":"<tag_urn>"},"extensions":{}}
-```
 
+Expected Response:
+
+```json
+{ "data": { "createTag": "<tag_urn>" }, "extensions": {} }
+```
 
 ## Create Tags With Python SDK
 
 The following code creates a tag named `Deprecated`.
 You can refer to the full code in [create_tag.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/create_tag.py).
+
 ```python
 import logging
 
@@ -96,14 +104,12 @@ log.info(f"Created tag {tag_urn}")
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
 ## Expected Outcomes
+
 You can now see `Deprecated` tag has been created.
 
 ![tag-created](../../imgs/apis/tutorials/tag-created.png)
 
 ## What's Next?
 
-Now that you created a tag, how about adding it to a dataset? Here's a guide on [how to add a tag on a dataset](/docs/api/tutorials/adding-tags.md). 
-
-
+Now that you created a tag, how about adding it to a dataset? Here's a guide on [how to add a tag on a dataset](/docs/api/tutorials/adding-tags.md).

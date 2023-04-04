@@ -1,23 +1,24 @@
 # Adding Owners On Datasets/Columns
 
-## Why Would You Add Owners? 
-Assigning an owner to an entity helps to establish accountability for the metadata and collaborating as a team. 
+## Why Would You Add Owners?
+
+Assigning an owner to an entity helps to establish accountability for the metadata and collaborating as a team.
 If there are any issues or questions about the data, the designated owner can serve as a reliable point of contact.
 
 ### Goal Of This Guide
+
 This guide will show you how to add user group `bfoo` as an owner to the `fct_users_created` datatset.
 
-
 ## Pre-requisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed information, please refer to [Preparing Your Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 :::note
-Before adding owners, you need to ensure the targeted dataset and the owner are already present in your datahub. 
-If you attempt to manipulate entities that do not exist, your operation will fail. 
+Before adding owners, you need to ensure the targeted dataset and the owner are already present in your datahub.
+If you attempt to manipulate entities that do not exist, your operation will fail.
 In this guide, we will be using data from a sample ingestion.
 :::
-
 
 ## Add Owners With GraphQL
 
@@ -25,15 +26,17 @@ In this guide, we will be using data from a sample ingestion.
 Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
+
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies.
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```python
 mutation addOwners {
     addOwner(
-      input: { 
-        ownerUrn: "urn:li:corpGroup:bfoo", 
+      input: {
+        ownerUrn: "urn:li:corpGroup:bfoo",
         resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
         ownerEntityType: CORP_GROUP,
         type: TECHNICAL_OWNER
@@ -41,7 +44,9 @@ mutation addOwners {
     )
 }
 ```
-Expected Response: 
+
+Expected Response:
+
 ```python
 {
   "data": {
@@ -53,7 +58,7 @@ Expected Response:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Access Token Management](/docs/api/graphql/token-management.md).
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -63,11 +68,11 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 --data-raw '{ "query": "mutation addOwners { addOwner(input: { ownerUrn: \"urn:li:corpGroup:bfoo\", resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\", ownerEntityType: CORP_GROUP, type: TECHNICAL_OWNER }) }", "variables":{}}'
 ```
 
-
 ## Add Ownerships With Python SDK
 
 Following codes add an owner named `bfoo` to a hive dataset named `fct_users_created`.
 You can refer to a full code in [dataset_add_column_ownership.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_owner.py).
+
 ```python
 # inlined from metadata-ingestion/examples/library/dataset_add_column_ownership.py
 import logging
@@ -141,12 +146,13 @@ We're using the `MetdataChangeProposalWrapper` to change entities in this exampl
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
 Expected Response:
+
 ```json
-{"data":{"addOwner":true},"extensions":{}}
+{ "data": { "addOwner": true }, "extensions": {} }
 ```
 
-
 ## Expected Outcomes
+
 You can now see `bfoo` has been added as an owner to the `fct_users_created` dataset.
 
 ![ownership-added](../../imgs/apis/tutorials/owner-added.png)
