@@ -60,7 +60,7 @@ from datahub.utilities.source_helpers import (
 logger = logging.getLogger(__name__)
 
 
-class OktaConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class OktaConfig(StatefulIngestionConfigBase):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
