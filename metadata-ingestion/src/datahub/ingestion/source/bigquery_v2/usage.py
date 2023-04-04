@@ -3,7 +3,6 @@ import json
 import logging
 import textwrap
 import time
-import traceback
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -353,8 +352,9 @@ class BigQueryUsageExtractor:
                     yield from self._generate_operational_workunits(usage_state)
 
                 yield from self._generate_usage_workunits(usage_state)
-        except Exception:
+        except Exception as e:
             logger.error("Error processing usage", exc_info=True)
+            self.report.report_failure("usage-ingestion", str(e))
 
     def _ingest_events(
         self,
@@ -369,10 +369,11 @@ class BigQueryUsageExtractor:
                 num_aggregated += self._store_usage_event(
                     audit_event, usage_state, table_refs
                 )
-            except Exception:
+            except Exception as e:
                 logger.warning(
                     f"Unable to store usage event {audit_event}", exc_info=True
                 )
+                self._report_exception("usage-store-event", e)
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
     def _generate_operational_workunits(
@@ -385,11 +386,12 @@ class BigQueryUsageExtractor:
                 if operational_wu:
                     yield operational_wu
                     self.report.num_operational_stats_workunits_emitted += 1
-            except Exception:
+            except Exception as e:
                 logger.warning(
                     f"Unable to generate operation workunit for event {audit_event}",
                     exc_info=True,
                 )
+                self._report_exception("usage-operation-workunit", e)
 
     def _generate_usage_workunits(
         self, usage_state: BigQueryUsageState
@@ -415,11 +417,12 @@ class BigQueryUsageExtractor:
                     format_sql_queries=self.config.usage.format_sql_queries,
                 )
                 self.report.num_usage_workunits_emitted += 1
-            except Exception:
+            except Exception as e:
                 logger.warning(
                     f"Unable to generate usage workunit for bucket {entry.timestamp}, {entry.resource}",
                     exc_info=True,
                 )
+                self._report_exception("usage-statistics-workunit", e)
 
     def _get_usage_events(self, project_id: str) -> Iterable[AuditEvent]:
         with PerfTimer() as timer:
@@ -427,12 +430,12 @@ class BigQueryUsageExtractor:
                 self.report.set_project_state(project_id, "Usage Extraction Ingestion")
                 yield from self._get_parsed_bigquery_log_events(project_id)
             except Exception as e:
-                self.report.usage_failed_extraction.append(project_id)
-                self.report.report_failure("usage-extraction", str(e))
-                trace = traceback.format_exc()
                 logger.error(
-                    f"Error getting usage events for project {project_id} due to exception {e}, trace: {trace}"
+                    f"Error getting usage events for project {project_id}",
+                    exc_info=True,
                 )
+                self.report.usage_failed_extraction.append(project_id)
+                self.report.report_failure(f"usage-extraction-{project_id}", str(e))
 
             self.report.usage_extraction_sec[project_id] = round(
                 timer.elapsed_seconds(), 2
@@ -528,52 +531,38 @@ class BigQueryUsageExtractor:
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
 
-        try:
-            list_entries: Iterable[AuditLogEntry]
-            rate_limiter: Optional[RateLimiter] = None
-            if self.config.rate_limit:
-                # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
-                # to properly ratelimit we multiply the page size by the number of requests per minute
-                rate_limiter = RateLimiter(
-                    max_calls=self.config.requests_per_min * self.config.log_page_size,
-                    period=60,
-                )
-
-            list_entries = client.list_entries(
-                filter_=filter,
-                page_size=self.config.log_page_size,
-                max_results=limit,
+        list_entries: Iterable[AuditLogEntry]
+        rate_limiter: Optional[RateLimiter] = None
+        if self.config.rate_limit:
+            # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
+            # to properly ratelimit we multiply the page size by the number of requests per minute
+            rate_limiter = RateLimiter(
+                max_calls=self.config.requests_per_min * self.config.log_page_size,
+                period=60,
             )
 
-            for i, entry in enumerate(list_entries):
-                if i == 0:
-                    logger.info(
-                        f"Starting log load from GCP Logging for {client.project}"
-                    )
-                if i % 1000 == 0:
-                    logger.info(
-                        f"Loaded {i} log entries from GCP Log for {client.project}"
-                    )
-                self.report.total_query_log_entries += 1
+        list_entries = client.list_entries(
+            filter_=filter,
+            page_size=self.config.log_page_size,
+            max_results=limit,
+        )
 
-                if rate_limiter:
-                    with rate_limiter:
-                        yield entry
-                else:
+        for i, entry in enumerate(list_entries):
+            if i == 0:
+                logger.info(f"Starting log load from GCP Logging for {client.project}")
+            if i % 1000 == 0:
+                logger.info(f"Loaded {i} log entries from GCP Log for {client.project}")
+            self.report.total_query_log_entries += 1
+
+            if rate_limiter:
+                with rate_limiter:
                     yield entry
+            else:
+                yield entry
 
-            logger.info(
-                f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
-            )
-
-        except Exception as e:
-            logger.warning(
-                f"Encountered exception retrieving AuditLogEntires for project {client.project} - {e}"
-            )
-            self.report.report_failure(
-                "usage-extraction",
-                f"{client.project} - unable to retrive log entrires {e}",
-            )
+        logger.info(
+            f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
+        )
 
     def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
         # We adjust the filter values a bit, since we need to make sure that the join
@@ -874,21 +863,18 @@ class BigQueryUsageExtractor:
             )
             parse_fn = self._parse_bigquery_log_entry
 
-        log_entry_parse_failures = 0
         for entry in entries:
             try:
                 event = parse_fn(entry)
                 if event:
                     yield event
             except Exception as e:
-                logger.warning(f"Unable to parse log entry `{entry}`: {e}")
-                log_entry_parse_failures += 1
+                logger.warning(f"Unable to parse log entry `{entry}`", exc_info=True)
+                self._report_exception(f"usage-log-parse-{project_id}", e)
 
-        if log_entry_parse_failures:
-            self.report.report_warning(
-                "usage-extraction",
-                f"Failed to parse {log_entry_parse_failures} audit log entries for project {project_id}.",
-            )
+    def _report_exception(self, label: str, e: Exception) -> None:
+        self.report.num_usage_failures[label] += 1
+        self.report.report_failure(label, str(e))
 
     def test_capability(self, project_id: str) -> None:
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):

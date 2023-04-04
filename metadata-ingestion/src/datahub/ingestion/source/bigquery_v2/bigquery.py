@@ -519,48 +519,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
-        if self.config.include_usage_statistics:
-            if self.config.store_last_usage_extraction_timestamp:
-                if self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                ):
-                    self.report.report_warning(
-                        "usage-extraction",
-                        f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                    )
-                    return
-                else:
-                    # Update the checkpoint state for this run.
-                    self.redundant_run_skip_handler.update_state(
-                        start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                        end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                    )
-
+        if self._should_ingest_usage():
             yield from self.usage_extractor.run(
                 [p.id for p in projects], self.table_refs
             )
 
-        if self.config.include_table_lineage:
-            if (
-                self.config.store_last_lineage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_lineage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
+        if self._should_ingest_lineage():
             for project in projects:
                 self.report.set_project_state(project.id, "Lineage Extraction")
                 yield from self.generate_lineage(project.id)
@@ -575,6 +539,49 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
         )
+
+    def _should_ingest_usage(self) -> bool:
+        if not self.config.include_usage_statistics:
+            return False
+
+        if self.config.store_last_usage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return False
+            else:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+        return True
+
+    def _should_ingest_lineage(self) -> bool:
+        if not self.config.include_table_lineage:
+            return False
+
+        if self.config.store_last_lineage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                # Skip this run
+                self.report.report_warning(
+                    "lineage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return False
+            else:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+        return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
         if self.config.project_ids or self.config.project_id:
