@@ -33,5 +33,6 @@ insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, creat
   'urn:li:corpuser:__datahub_system'
 );
 
+create view metadata_aspect_view as select urn, aspect from metadata_aspect_v2 where version=0;
 -- To get estimate counts of table rows after analyze
 ANALYZE

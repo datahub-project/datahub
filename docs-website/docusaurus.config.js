@@ -11,6 +11,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
+  staticDirectories: ["static", "genStatic"],
   stylesheets: [
     "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
   ],
@@ -198,6 +199,7 @@ module.exports = {
               ? require.resolve("./src/styles/acryl.scss")
               : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
+            require.resolve("./src/styles/config-table.scss"),
           ],
         },
         pages: {

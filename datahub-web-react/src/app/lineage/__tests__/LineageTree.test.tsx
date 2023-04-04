@@ -1,8 +1,14 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Zoom } from '@vx/zoom';
-
-import { dataset3WithLineage, dataset4WithLineage, dataset5WithLineage, dataset6WithLineage } from '../../../Mocks';
+import { MockedProvider } from '@apollo/client/testing';
+import {
+    dataset3WithLineage,
+    dataset4WithLineage,
+    dataset5WithLineage,
+    dataset6WithLineage,
+    mocks,
+} from '../../../Mocks';
 import { Direction, FetchedEntities } from '../types';
 import constructTree from '../utils/constructTree';
 import LineageTree from '../LineageTree';
@@ -62,38 +68,40 @@ describe('LineageTree', () => {
         );
 
         const { getByTestId } = render(
-            <TestPageContainer>
-                <Zoom
-                    width={width}
-                    height={height}
-                    scaleXMin={1 / 8}
-                    scaleXMax={2}
-                    scaleYMin={1 / 8}
-                    scaleYMax={2}
-                    transformMatrix={initialTransform}
-                >
-                    {(zoom) => (
-                        <svg>
-                            <LineageTree
-                                upstreamData={upstreamData}
-                                downstreamData={downstreamData}
-                                zoom={zoom}
-                                onEntityClick={jest.fn()}
-                                onLineageExpand={jest.fn()}
-                                canvasHeight={yMax}
-                                margin={margin}
-                                direction={Direction.Upstream}
-                                setIsDraggingNode={jest.fn()}
-                                draggedNodes={{}}
-                                setDraggedNodes={jest.fn()}
-                                onEntityCenter={jest.fn()}
-                                setHoveredEntity={jest.fn()}
-                                fetchedEntities={mockFetchedEntities}
-                            />
-                        </svg>
-                    )}
-                </Zoom>
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks}>
+                <TestPageContainer>
+                    <Zoom
+                        width={width}
+                        height={height}
+                        scaleXMin={1 / 8}
+                        scaleXMax={2}
+                        scaleYMin={1 / 8}
+                        scaleYMax={2}
+                        transformMatrix={initialTransform}
+                    >
+                        {(zoom) => (
+                            <svg>
+                                <LineageTree
+                                    upstreamData={upstreamData}
+                                    downstreamData={downstreamData}
+                                    zoom={zoom}
+                                    onEntityClick={jest.fn()}
+                                    onLineageExpand={jest.fn()}
+                                    canvasHeight={yMax}
+                                    margin={margin}
+                                    direction={Direction.Upstream}
+                                    setIsDraggingNode={jest.fn()}
+                                    draggedNodes={{}}
+                                    setDraggedNodes={jest.fn()}
+                                    onEntityCenter={jest.fn()}
+                                    setHoveredEntity={jest.fn()}
+                                    fetchedEntities={mockFetchedEntities}
+                                />
+                            </svg>
+                        )}
+                    </Zoom>
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(getByTestId('edge-urn:li:dataset:6-urn:li:dataset:5-Upstream')).toBeInTheDocument();

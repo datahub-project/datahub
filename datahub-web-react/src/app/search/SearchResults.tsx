@@ -13,7 +13,6 @@ import {
 } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
 import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
@@ -26,6 +25,7 @@ import { UnionType } from './utils/constants';
 import { SearchFiltersSection } from './SearchFiltersSection';
 import { generateOrFilters } from './utils/generateOrFilters';
 import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
 
 const SearchBody = styled.div`
     display: flex;
@@ -132,7 +132,7 @@ export const SearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
+    const authenticatedUserUrn = useUserContext().user?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
