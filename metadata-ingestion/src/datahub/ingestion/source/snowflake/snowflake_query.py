@@ -572,21 +572,6 @@ class SnowflakeQuery:
                 AND lower(upstream_table_domain) in {allowed_upstream_table_domains}
                 AND lower(downstream_table_domain) = '{SnowflakeObjectDomain.TABLE}'
             ),
-        table_upstreams AS (
-            SELECT
-                downstream_table_name,
-                ANY_VALUE(downstream_table_domain) as downstream_table_domain,
-                ARRAY_UNIQUE_AGG(
-                    OBJECT_CONSTRUCT(
-                        'upstream_object_name', upstream_table_name,
-                        'upstream_object_domain', upstream_table_domain
-                    )
-                ) as upstream_tables
-            FROM
-                column_lineage_history
-            GROUP BY
-                downstream_table_name
-            ),
         column_upstream_jobs AS (
             SELECT
                 downstream_table_name,
@@ -622,12 +607,13 @@ class SnowflakeQuery:
                 downstream_column_name
             )
         SELECT
-            table_upstreams.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-            ANY_VALUE(
-                table_upstreams.downstream_table_domain
-            ) AS "DOWNSTREAM_TABLE_DOMAIN",
-            ANY_VALUE(
-                table_upstreams.upstream_tables
+            h.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+            ANY_VALUE(h.downstream_table_domain) AS "DOWNSTREAM_TABLE_DOMAIN",
+            ARRAY_UNIQUE_AGG(
+                OBJECT_CONSTRUCT(
+                    'upstream_object_name', h.upstream_table_name,
+                    'upstream_object_domain', h.upstream_table_domain
+                )
             ) AS "UPSTREAM_TABLES",
             ARRAY_AGG(
                 OBJECT_CONSTRUCT(
@@ -636,11 +622,11 @@ class SnowflakeQuery:
                 )
             ) AS "UPSTREAM_COLUMNS"
             FROM
-                table_upstreams table_upstreams
+                column_lineage_history h
             LEFT JOIN column_upstreams column_upstreams
-                on table_upstreams.downstream_table_name = column_upstreams.downstream_table_name
+                on h.downstream_table_name = column_upstreams.downstream_table_name
             GROUP BY
-                table_upstreams.downstream_table_name
+                h.downstream_table_name
         """
 
     @staticmethod
