@@ -14,12 +14,12 @@ const getDisplayName = (data?: DataPlatform): string => {
 export class DataPlatformEntity implements Entity<DataPlatform> {
     type: EntityType = EntityType.DataPlatform;
 
-    icon = (fontSize: number, _: IconStyleType) => {
+    icon = (fontSize: number, _styleType: IconStyleType, color?: string) => {
         return (
             <DatabaseOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );

@@ -27,10 +27,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MapTypeClass,
     NumberTypeClass,
@@ -133,7 +133,7 @@ TrinoDialect._get_columns = _get_columns
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="trino", description="", hidden_from_schema=True)
+    scheme = Field(default="trino", description="", hidden_from_docs=True)
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"

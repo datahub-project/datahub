@@ -41,7 +41,7 @@ This integration does not support
     - `env` (optional, defaults to "PROD"): Environment to use in namespace when constructing dataset URNs.
     - `exclude_dbname` (optional): Exclude dbname / catalog when constructing dataset URNs. (Highly applicable to Trino / Presto where we want to omit catalog e.g. `hive`)
     - `platform_alias` (optional): Platform alias when constructing dataset URNs. e.g. main data platform is `presto-on-hive` but using `trino` to run the test
-    - `platform_instance_map` (optional): Platform instance mapping to use when constructing dataset URNs. Maps the GE 'data source' name to a platform instance on DataHub. e.g. `platform_instance_map: { "datasource_name": "warehouse" }`
+    - `platform_instance_map` (optional): Platform instance mapping to use when constructing dataset URNs. Maps the GX 'data source' name to a platform instance on DataHub. e.g. `platform_instance_map: { "datasource_name": "warehouse" }`
     - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall checkpoint to fail. Note that configuration issues will still throw exceptions.
     - `token` (optional): Bearer token used for authentication.
     - `timeout_sec` (optional): Per-HTTP request timeout.
@@ -49,6 +49,7 @@ This integration does not support
     - `retry_max_times` (optional): Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially.
     - `extra_headers` (optional): Extra headers which will be added to the datahub request.
     - `parse_table_names_from_sql` (defaults to false): The integration can use an SQL parser to try to parse the datasets being asserted. This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`.  The parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
+    - `convert_urns_to_lowercase` (optional): Whether to convert dataset urns to lowercase.
     
 ## Debugging
 Set environment variable `DATAHUB_DEBUG` (default `false`) to `true` to enable debug logging for `DataHubValidationAction`.

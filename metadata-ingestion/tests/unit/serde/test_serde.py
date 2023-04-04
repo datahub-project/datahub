@@ -12,31 +12,16 @@ from freezegun import freeze_time
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
+from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
-from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    OwnershipClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.type_helpers import PytestConfig
 
 FROZEN_TIME = "2021-07-22 18:54:06"
-
-
-def test_codegen_aspect_name():
-    assert issubclass(OwnershipClass, _Aspect)
-
-    assert OwnershipClass.ASPECT_NAME == "ownership"
-    assert OwnershipClass.get_aspect_name() == "ownership"
-
-
-def test_cannot_instantiated_codegen_aspect():
-    with pytest.raises(TypeError, match="instantiate"):
-        _Aspect()
 
 
 @freeze_time(FROZEN_TIME)
@@ -199,6 +184,9 @@ def test_field_discriminator() -> None:
 
     assert cost_object.validate()
 
+    redo = models.CostClass.from_obj(cost_object.to_obj())
+    assert redo == cost_object
+
 
 def test_type_error() -> None:
     dataflow = models.DataFlowSnapshotClass(
@@ -328,3 +316,66 @@ def test_write_optional_empty_dict() -> None:
 
     out = json.dumps(model.to_obj())
     assert out == '{"type": "SUCCESS", "nativeResults": {}}'
+
+
+@pytest.mark.parametrize(
+    "model,ref_server_obj",
+    [
+        (
+            models.MLModelSnapshotClass(
+                urn="urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+                aspects=[
+                    models.CostClass(
+                        costType=models.CostTypeClass.ORG_COST_TYPE,
+                        cost=models.CostCostClass(
+                            fieldDiscriminator=models.CostCostDiscriminatorClass.costCode,
+                            costCode="sampleCostCode",
+                        ),
+                    )
+                ],
+            ),
+            {
+                "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.common.Cost": {
+                            "costType": "ORG_COST_TYPE",
+                            "cost": {"costCode": "sampleCostCode"},
+                        }
+                    }
+                ],
+            },
+        ),
+    ],
+)
+def test_json_transforms(model, ref_server_obj):
+    server_obj = pre_json_transform(model.to_obj())
+    assert server_obj == ref_server_obj
+
+    post_obj = post_json_transform(server_obj)
+
+    recovered = type(model).from_obj(post_obj)
+    assert recovered == model
+
+
+def test_unions_with_aliases_assumptions():
+    # We have special handling for unions with aliases in our json serialization helpers.
+    # Specifically, we assume that cost is the only instance of a union with alias.
+    # This test validates that assumption.
+
+    for cls in set(models.__SCHEMA_TYPES.values()):
+        if cls is models.CostCostClass:
+            continue
+
+        if hasattr(cls, "fieldDiscriminator"):
+            raise ValueError(f"{cls} has a fieldDiscriminator")
+
+    assert set(models.CostClass.RECORD_SCHEMA.fields_dict.keys()) == {
+        "cost",
+        "costType",
+    }
+    assert set(models.CostCostClass.RECORD_SCHEMA.fields_dict.keys()) == {
+        "fieldDiscriminator",
+        "costId",
+        "costCode",
+    }

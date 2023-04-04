@@ -31,12 +31,12 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
     SqlWorkUnit,
     logger,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -48,7 +48,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -123,7 +122,7 @@ class ClickHouseConfig(
 ):
     # defaults
     host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme = Field(default="clickhouse", description="", hidden_from_schema=True)
+    scheme = Field(default="clickhouse", description="", hidden_from_docs=True)
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
@@ -651,10 +650,7 @@ class ClickHouseSource(SQLAlchemySource):
             return None, properties
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="upstreamLineage",
             aspect=UpstreamLineage(upstreams=upstream_lineage),
         )
 

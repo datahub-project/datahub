@@ -58,6 +58,7 @@ dependencies {
   testCompile externalDependency.lombok
   testCompile project(':test-models')
   testImplementation externalDependency.springBootTest
+  testImplementation project(':datahub-graphql-core')
 
   testAnnotationProcessor externalDependency.lombok
 
@@ -70,6 +71,15 @@ dependencies {
     }
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
+    }
+    implementation(externalDependency.snakeYaml) {
+      because("previous versions are vulnerable to CVE-2022-25857")
+    }
+    implementation(externalDependency.woodstoxCore) {
+      because("previous versions are vulnerable to CVE-2022-40151-2")
+    }
+    implementation(externalDependency.jettison) {
+      because("previous versions are vulnerable")
     }
   }
 }

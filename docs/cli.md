@@ -1,24 +1,16 @@
 # DataHub CLI
 
-DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line.
-
-## Release Notes and CLI versions
-
-The server release notes can be found in [github releases](https://github.com/datahub-project/datahub/releases). These releases are done approximately every week on a regular cadence unless a blocking issue or regression is discovered.
-
-CLI release is made through a different repository and release notes can be found in [acryldata releases](https://github.com/acryldata/datahub/releases). At least one release which is tied to the server release is always made alongwith the server release. Multiple other bigfix releases are made in between based on amount of fixes that are merged between the server release mentioned above.
-
-If server with version `0.8.28` is being used then CLI used to connect to it should be `0.8.28.x`. Tests of new CLI are not ran with older server versions so it is not recommended to update the CLI if the server is not updated.
+DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [Acryl Data](https://acryldata.io) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
 
 ## Installation
 
 ### Using pip
 
-We recommend python virtual environments (venv-s) to namespace pip modules. The folks over at [Acryl Data](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion. Here's an example setup:
+We recommend Python virtual environments (venv-s) to namespace pip modules. Here's an example setup:
 
 ```shell
-python3 -m venv datahub-env             # create the environment
-source datahub-env/bin/activate         # activate the environment
+python3 -m venv venv             # create the environment
+source venv/bin/activate         # activate the environment
 ```
 
 **_NOTE:_** If you install `datahub` in a virtual environment, that same virtual environment must be re-activated each time a shell window or session is created.
@@ -29,130 +21,18 @@ Once inside the virtual environment, install `datahub` using the following comma
 # Requires Python 3.7+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
+# validate that the install was successful
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
 ```
 
 If you run into an error, try checking the [_common setup issues_](../metadata-ingestion/developing.md#Common-setup-issues).
 
-### Using docker
-
-[![Docker Hub](https://img.shields.io/docker/pulls/linkedin/datahub-ingestion?style=plastic)](https://hub.docker.com/r/linkedin/datahub-ingestion)
-[![datahub-ingestion docker](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml)
-
-If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
-We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
-
-You can use the `datahub-ingestion` docker image as explained in [Docker Images](../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
-
-_Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
-
-```shell
-# Assumes the DataHub repo is cloned locally.
-./metadata-ingestion/scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
-```
-
-### Install from source
-
-If you'd like to install from source, see the [developer guide](../metadata-ingestion/developing.md).
-
-## Installing Plugins
-
-We use a plugin architecture so that you can install only the dependencies you actually need. Click the plugin name to learn more about the specific source recipe and any FAQs!
-
-### Sources
-
-| Plugin Name                                                                         | Install Command                                            | Provides                            |
-|-------------------------------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
-| [file](./generated/ingestion/sources/file.md)                                   | _included by default_                                      | File source and sink                |
-| [athena](./generated/ingestion/sources/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
-| [bigquery](./generated/ingestion/sources/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)           | _no additional dependencies_                               | Lineage File source           |
-| [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
-| [dbt](./generated/ingestion/sources/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
-| [druid](./generated/ingestion/sources/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| [feast](./generated/ingestion/sources/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.26.0)               |
-| [glue](./generated/ingestion/sources/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
-| [hana](./generated/ingestion/sources/hana.md)                                   | `pip install 'acryl-datahub[hana]'`                        | SAP HANA source                     |
-| [hive](./generated/ingestion/sources/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| [kafka](./generated/ingestion/sources/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                 | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |
-| [ldap](./generated/ingestion/sources/ldap.md)                                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| [looker](./generated/ingestion/sources/looker.md)                               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| [metabase](./generated/ingestion/sources/metabase.md)                           | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                     |
-| [mode](./generated/ingestion/sources/mode.md)                                   | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source               |
-| [mongodb](./generated/ingestion/sources/mongodb.md)                             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
-| [mssql](./generated/ingestion/sources/mssql.md)                                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
-| [mysql](./generated/ingestion/sources/mysql.md)                                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
-| [mariadb](./generated/ingestion/sources/mariadb.md)                             | `pip install 'acryl-datahub[mariadb]'`                     | MariaDB source                      |
-| [openapi](./generated/ingestion/sources/openapi.md)                             | `pip install 'acryl-datahub[openapi]'`                     | OpenApi Source                      |
-| [oracle](./generated/ingestion/sources/oracle.md)                               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
-| [postgres](./generated/ingestion/sources/postgres.md)                           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
-| [redash](./generated/ingestion/sources/redash.md)                               | `pip install 'acryl-datahub[redash]'`                      | Redash source                       |
-| [redshift](./generated/ingestion/sources/redshift.md)                           | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
-| [sagemaker](./generated/ingestion/sources/sagemaker.md)                         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
-| [snowflake](./generated/ingestion/sources/snowflake.md)                         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| [sqlalchemy](./generated/ingestion/sources/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
-| [superset](./generated/ingestion/sources/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
-| [tableau](./generated/ingestion/sources/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |
-| [trino](./generated/ingestion/sources/trino.md)                                 | `pip install 'acryl-datahub[trino]'`                       | Trino source                        |
-| [starburst-trino-usage](./generated/ingestion/sources/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
-| [nifi](./generated/ingestion/sources/nifi.md)                                   | `pip install 'acryl-datahub[nifi]'`                        | Nifi source                         |
-| [powerbi](./generated/ingestion/sources/powerbi.md#module-powerbi)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source           |
-| [powerbi-report-server](./generated/ingestion/sources/powerbi.md#module-powerbi-report-server) | `pip install 'acryl-datahub[powerbi-report-server]'`       | Microsoft Power BI Report Server source           |
-
-### Sinks
-
-| Plugin Name                             | Install Command                              | Provides                   |
-| --------------------------------------- | -------------------------------------------- | -------------------------- |
-| [file](../metadata-ingestion/sink_docs/file.md)             | _included by default_                        | File source and sink       |
-| [console](../metadata-ingestion/sink_docs/console.md)       | _included by default_                        | Console sink               |
-| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)  | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
-| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md) | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
-
-These plugins can be mixed and matched as desired. For example:
-
-```shell
-pip install 'acryl-datahub[bigquery,datahub-rest]'
-```
-
-### Check the active plugins
-
-```shell
-datahub check plugins
-```
-
-[extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
-
-## Environment variables supported
-
-The env variables take precedence over what is in the DataHub CLI config created through `init` command. The list of supported environment variables are as follows
-
-- `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip creating the configuration file.
-- `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
-- `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
-- `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
-- `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
-- `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
-- `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
-- `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
-- `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
-- `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
-- `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
-
-```shell
-DATAHUB_SKIP_CONFIG=false
-DATAHUB_GMS_URL=http://localhost:8080
-DATAHUB_GMS_TOKEN=
-DATAHUB_TELEMETRY_ENABLED=true
-DATAHUB_TELEMETRY_TIMEOUT=10
-DATAHUB_DEBUG=false
-```
+Other installation options such as installation from source and running the cli inside a container are available further below in the guide [here](#alternate-installation-options)
 
 ## User Guide
 
-The `datahub` cli allows you to do many things, such as quickstarting a DataHub docker instance locally, ingesting metadata from your sources, as well as retrieving and modifying metadata.
+The `datahub` cli allows you to do many things, such as quickstarting a DataHub docker instance locally, ingesting metadata from your sources into a DataHub server or a DataHub lite instance, as well as retrieving, modifying and exploring metadata.
 Like most command line tools, `--help` is your best friend. Use it to discover the capabilities of the cli and the different commands and sub-commands that are supported.
 
 ```console
@@ -184,7 +64,9 @@ The `docker` command allows you to start up a local DataHub instance using `data
 
 ### ingest
 
-The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. [Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-runs` sub-command.
+The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes.
+Source specific crawlers are provided by plugins and might sometimes need additional extras to be installed. See [installing plugins](#installing-plugins) for more information.
+[Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-runs` sub-command.
 
 ```console
 Usage: datahub [datahub-options] ingest [command-options]
@@ -197,11 +79,6 @@ Command Options:
   --strict-warnings    If enabled, ingestion runs with warnings will yield a non-zero error code
 ```
 
-### check
-
-The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
-The `check` command allows you to check if all plugins are loaded correctly as well as validate an individual MCE-file.
-
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
@@ -209,19 +86,45 @@ Running `datahub init` will allow you to customize the datahub instance you are 
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 
-### telemetry
+### Environment variables supported
 
-To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
-We do not collect private information such as IP addresses, contents of ingestions, or credentials.
-The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
+The environment variables listed below take precedence over the DataHub CLI config created through the `init` command.
 
-Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
+- `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip creating the configuration file.
+- `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
+- `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
+- `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
+- `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
+- `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+- `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
+- `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
+- `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
+- `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
+- `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
+
+```shell
+DATAHUB_SKIP_CONFIG=false
+DATAHUB_GMS_URL=http://localhost:8080
+DATAHUB_GMS_TOKEN=
+DATAHUB_TELEMETRY_ENABLED=true
+DATAHUB_TELEMETRY_TIMEOUT=10
+DATAHUB_DEBUG=false
+```
+
+### check
+
+The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
+The `check` command allows you to check if all plugins are loaded correctly as well as validate an individual MCE-file.
+
+### lite (experimental)
+
+The lite group of commands allow you to run an embedded, lightweight DataHub instance for command line exploration of your metadata. This is intended more for developer tool oriented usage rather than as a production server instance for DataHub. See [DataHub Lite](./datahub_lite.md) for more information about how you can ingest metadata into DataHub Lite and explore your metadata easily.
 
 ### delete
 
 The `delete` command allows you to delete metadata from DataHub. Read this [guide](./how/delete-metadata.md) to understand how you can delete metadata from DataHub.
 :::info
-Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Container, it will not automatically delete the children, you will instead need to delete each child by URN in addition to deleting the parent. 
+Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Container, it will not automatically delete the children, you will instead need to delete each child by URN in addition to deleting the parent.
 :::
 
 ```console
@@ -313,6 +216,30 @@ datahub put platform --name longtail_schemas --display_name "Long Tail Schemas" 
 ✅ Successfully wrote data platform metadata for urn:li:dataPlatform:longtail_schemas to DataHub (DataHubRestEmitter: configured to talk to https://longtailcompanions.acryl.io/api/gms with token: eyJh**********Cics)
 ```
 
+### timeline
+
+The `timeline` command allows you to view a version history for entities. Currently only supported for Datasets. For example,
+the following command will show you the modifications to tags for a dataset for the past week. The output includes a computed semantic version,
+relevant for schema changes only currently, the target of the modification, and a description of the change including a timestamp.
+The default output is sanitized to be more readable, but the full API output can be obtained by passing the `--verbose` flag and
+to get the raw JSON difference in addition to the API output you can add the `--raw` flag. For more details about the feature please see [the main feature page](dev-guides/timeline.md)
+
+```console
+datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)" --category TAG --start 7daysago
+2022-02-17 14:03:42 - 0.0.0-computed
+ MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:03:42.0
+2022-02-17 14:17:30 - 0.0.0-computed
+ MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
+```
+
+### telemetry
+
+To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
+We do not collect private information such as IP addresses, contents of ingestions, or credentials.
+The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
+
+Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
+
 ### migrate
 
 The `migrate` group of commands allows you to perform certain kinds of migrations.
@@ -370,19 +297,154 @@ New Entities Created: {'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.Sampl
 External Entities Affected: None
 Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
+### user
+The `user` command allows you to interact with the User entity. 
+It currently supports the `upsert` operation, which can be used to create a new user or update an existing one. 
+For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/creating-users-and-groups.md#upsert-users-and-groups-with-datahub-cli).
 
-### timeline
-
-The `timeline` command allows you to view a version history for entities. Currently only supported for Datasets. For example,
-the following command will show you the modifications to tags for a dataset for the past week. The output includes a computed semantic version,
-relevant for schema changes only currently, the target of the modification, and a description of the change including a timestamp.
-The default output is sanitized to be more readable, but the full API output can be obtained by passing the `--verbose` flag and
-to get the raw JSON difference in addition to the API output you can add the `--raw` flag. For more details about the feature please see [the main feature page](dev-guides/timeline.md)
-
-```console
-datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)" --category TAG --start 7daysago
-2022-02-17 14:03:42 - 0.0.0-computed
- MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:03:42.0
-2022-02-17 14:17:30 - 0.0.0-computed
- MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
+```shell
+datahub user upsert -f users.yaml
 ```
+
+An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
+```yaml
+- id: bar@acryl.io
+  first_name: The
+  last_name: Bar
+  email: bar@acryl.io
+  slack: "@the_bar_raiser"
+  description: "I like raising the bar higher"
+  groups:
+    - foogroup@acryl.io
+- id: datahub
+  slack: "@datahubproject"
+  phone: "1-800-GOT-META"
+  description: "The DataHub Project"
+  picture_link: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/datahub-logo-color-stable.svg"
+```
+
+
+### group
+The `group` command allows you to interact with the Group entity.
+It currently supports  the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users. 
+For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/creating-users-and-groups.md#upsert-users-and-groups-with-datahub-cli).
+
+```shell
+datahub group upsert -f group.yaml
+```
+
+An example of `group.yaml` would look like the following. You can refer to the [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
+
+```yaml
+id: foogroup@acryl.io
+display_name: Foo Group
+admins:
+  - datahub
+members:
+  - bar@acryl.io # refer to a user either by id or by urn
+  - id: joe@acryl.io # inline specification of user
+    slack: "@joe_shmoe"
+    display_name: "Joe's Hub"
+```
+
+## Alternate Installation Options
+
+### Using docker
+
+[![Docker Hub](https://img.shields.io/docker/pulls/linkedin/datahub-ingestion?style=plastic)](https://hub.docker.com/r/linkedin/datahub-ingestion)
+[![datahub-ingestion docker](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml)
+
+If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
+We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
+
+You can use the `datahub-ingestion` docker image as explained in [Docker Images](../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
+
+_Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
+
+```shell
+# Assumes the DataHub repo is cloned locally.
+./metadata-ingestion/scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
+```
+
+### Install from source
+
+If you'd like to install from source, see the [developer guide](../metadata-ingestion/developing.md).
+
+## Installing Plugins
+
+We use a plugin architecture so that you can install only the dependencies you actually need. Click the plugin name to learn more about the specific source recipe and any FAQs!
+
+### Sources
+
+Please see our [Integrations page](https://datahubproject.io/integrations) if you want to filter on the features offered by each source.
+
+| Plugin Name                                                                                    | Install Command                                            | Provides                                |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
+| [file](./generated/ingestion/sources/file.md)                                                  | _included by default_                                      | File source and sink                    |
+| [athena](./generated/ingestion/sources/athena.md)                                              | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                       |
+| [bigquery](./generated/ingestion/sources/bigquery.md)                                          | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                         |
+| [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)                    | _no additional dependencies_                               | Lineage File source                     |
+| [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md)                | _no additional dependencies_                               | Business Glossary File source           |
+| [dbt](./generated/ingestion/sources/dbt.md)                                                    | _no additional dependencies_                               | dbt source                              |
+| [druid](./generated/ingestion/sources/druid.md)                                                | `pip install 'acryl-datahub[druid]'`                       | Druid Source                            |
+| [feast](./generated/ingestion/sources/feast.md)                                                | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.26.0)                   |
+| [glue](./generated/ingestion/sources/glue.md)                                                  | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                         |
+| [hana](./generated/ingestion/sources/hana.md)                                                  | `pip install 'acryl-datahub[hana]'`                        | SAP HANA source                         |
+| [hive](./generated/ingestion/sources/hive.md)                                                  | `pip install 'acryl-datahub[hive]'`                        | Hive source                             |
+| [kafka](./generated/ingestion/sources/kafka.md)                                                | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                            |
+| [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                                | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                    |
+| [ldap](./generated/ingestion/sources/ldap.md)                                                  | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                             |
+| [looker](./generated/ingestion/sources/looker.md)                                              | `pip install 'acryl-datahub[looker]'`                      | Looker source                           |
+| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+     |
+| [metabase](./generated/ingestion/sources/metabase.md)                                          | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                         |
+| [mode](./generated/ingestion/sources/mode.md)                                                  | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source                   |
+| [mongodb](./generated/ingestion/sources/mongodb.md)                                            | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                          |
+| [mssql](./generated/ingestion/sources/mssql.md)                                                | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                       |
+| [mysql](./generated/ingestion/sources/mysql.md)                                                | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                            |
+| [mariadb](./generated/ingestion/sources/mariadb.md)                                            | `pip install 'acryl-datahub[mariadb]'`                     | MariaDB source                          |
+| [openapi](./generated/ingestion/sources/openapi.md)                                            | `pip install 'acryl-datahub[openapi]'`                     | OpenApi Source                          |
+| [oracle](./generated/ingestion/sources/oracle.md)                                              | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                           |
+| [postgres](./generated/ingestion/sources/postgres.md)                                          | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                         |
+| [redash](./generated/ingestion/sources/redash.md)                                              | `pip install 'acryl-datahub[redash]'`                      | Redash source                           |
+| [redshift](./generated/ingestion/sources/redshift.md)                                          | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                         |
+| [sagemaker](./generated/ingestion/sources/sagemaker.md)                                        | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                    |
+| [snowflake](./generated/ingestion/sources/snowflake.md)                                        | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                        |
+| [sqlalchemy](./generated/ingestion/sources/sqlalchemy.md)                                      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source               |
+| [superset](./generated/ingestion/sources/superset.md)                                          | `pip install 'acryl-datahub[superset]'`                    | Superset source                         |
+| [tableau](./generated/ingestion/sources/tableau.md)                                            | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                          |
+| [trino](./generated/ingestion/sources/trino.md)                                                | `pip install 'acryl-datahub[trino]'`                       | Trino source                            |
+| [starburst-trino-usage](./generated/ingestion/sources/trino.md)                                | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
+| [nifi](./generated/ingestion/sources/nifi.md)                                                  | `pip install 'acryl-datahub[nifi]'`                        | NiFi source                             |
+| [powerbi](./generated/ingestion/sources/powerbi.md#module-powerbi)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source               |
+| [powerbi-report-server](./generated/ingestion/sources/powerbi.md#module-powerbi-report-server) | `pip install 'acryl-datahub[powerbi-report-server]'`       | Microsoft Power BI Report Server source |
+
+### Sinks
+
+| Plugin Name                                                 | Install Command                              | Provides                   |
+| ----------------------------------------------------------- | -------------------------------------------- | -------------------------- |
+| [file](../metadata-ingestion/sink_docs/file.md)             | _included by default_                        | File source and sink       |
+| [console](../metadata-ingestion/sink_docs/console.md)       | _included by default_                        | Console sink               |
+| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)  | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
+| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md) | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
+
+These plugins can be mixed and matched as desired. For example:
+
+```shell
+pip install 'acryl-datahub[bigquery,datahub-rest]'
+```
+
+### Check the active plugins
+
+```shell
+datahub check plugins
+```
+
+[extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
+
+## Release Notes and CLI versions
+
+The server release notes can be found in [github releases](https://github.com/datahub-project/datahub/releases). These releases are done approximately every week on a regular cadence unless a blocking issue or regression is discovered.
+
+CLI release is made through a different repository and release notes can be found in [acryldata releases](https://github.com/acryldata/datahub/releases). At least one release which is tied to the server release is always made alongwith the server release. Multiple other bigfix releases are made in between based on amount of fixes that are merged between the server release mentioned above.
+
+If server with version `0.8.28` is being used then CLI used to connect to it should be `0.8.28.x`. Tests of new CLI are not ran with older server versions so it is not recommended to update the CLI if the server is not updated.

@@ -1,16 +1,29 @@
 {
   "child_map": {
     "model.sample_dbt.customer_details": [
-      "model.sample_dbt.monthly_billing_with_cust"
+      "model.sample_dbt.monthly_billing_with_cust",
+      "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b"
     ],
-    "model.sample_dbt.monthly_billing_with_cust": [],
+    "model.sample_dbt.monthly_billing_with_cust": [
+      "test.sample_dbt.is_email_monthly_billing_with_cust_email.57a935ce99",
+      "test.sample_dbt.not_null_monthly_billing_with_cust_billing_month.19ce54289b",
+      "test.sample_dbt.not_null_monthly_billing_with_cust_email.d405c2cc13",
+      "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b"
+    ],
     "model.sample_dbt.payments_base": [
       "model.sample_dbt.payments_by_customer_by_month"
     ],
     "model.sample_dbt.payments_by_customer_by_month": [
       "model.sample_dbt.monthly_billing_with_cust"
     ],
-    "source.sample_dbt.pagila.actor": [],
+    "snapshot.sample_dbt.customer_snapshot": [
+      "model.sample_dbt.customer_details"
+    ],
+    "source.sample_dbt.pagila.actor": [
+      "test.sample_dbt.assert_source_actor_last_update_is_recent",
+      "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e",
+      "test.sample_dbt.source_unique_pagila_actor_actor_id.76aff1935a"
+    ],
     "source.sample_dbt.pagila.address": [
       "model.sample_dbt.customer_details"
     ],
@@ -20,7 +33,8 @@
     ],
     "source.sample_dbt.pagila.country": [],
     "source.sample_dbt.pagila.customer": [
-      "model.sample_dbt.customer_details"
+      "model.sample_dbt.customer_details",
+      "snapshot.sample_dbt.customer_snapshot"
     ],
     "source.sample_dbt.pagila.payment_p2020_01": [
       "model.sample_dbt.payments_base"
@@ -39,7 +53,14 @@
     ],
     "source.sample_dbt.pagila.payment_p2020_06": [
       "model.sample_dbt.payments_base"
-    ]
+    ],
+    "test.sample_dbt.assert_source_actor_last_update_is_recent": [],
+    "test.sample_dbt.is_email_monthly_billing_with_cust_email.57a935ce99": [],
+    "test.sample_dbt.not_null_monthly_billing_with_cust_billing_month.19ce54289b": [],
+    "test.sample_dbt.not_null_monthly_billing_with_cust_email.d405c2cc13": [],
+    "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b": [],
+    "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e": [],
+    "test.sample_dbt.source_unique_pagila_actor_actor_id.76aff1935a": []
   },
   "disabled": {},
   "docs": {
@@ -57,7 +78,7 @@
   "macros": {
     "macro.dbt._split_part_negative": {
       "arguments": [],
-      "created_at": 1670298551.466659,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -81,7 +102,7 @@
     },
     "macro.dbt.after_commit": {
       "arguments": [],
-      "created_at": 1670298551.242806,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.make_hook_config"
@@ -107,7 +128,7 @@
     },
     "macro.dbt.alter_column_comment": {
       "arguments": [],
-      "created_at": 1670298551.512034,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__alter_column_comment"
@@ -133,7 +154,7 @@
     },
     "macro.dbt.alter_column_type": {
       "arguments": [],
-      "created_at": 1670298551.528278,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__alter_column_type"
@@ -159,7 +180,7 @@
     },
     "macro.dbt.alter_relation_add_remove_columns": {
       "arguments": [],
-      "created_at": 1670298551.529997,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__alter_relation_add_remove_columns"
@@ -185,7 +206,7 @@
     },
     "macro.dbt.alter_relation_comment": {
       "arguments": [],
-      "created_at": 1670298551.5129092,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__alter_relation_comment"
@@ -211,7 +232,7 @@
     },
     "macro.dbt.any_value": {
       "arguments": [],
-      "created_at": 1670298551.4485052,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__any_value"
@@ -237,7 +258,7 @@
     },
     "macro.dbt.apply_grants": {
       "arguments": [],
-      "created_at": 1670298551.50767,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__apply_grants"
@@ -263,7 +284,7 @@
     },
     "macro.dbt.array_append": {
       "arguments": [],
-      "created_at": 1670298551.470447,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__array_append"
@@ -289,7 +310,7 @@
     },
     "macro.dbt.array_concat": {
       "arguments": [],
-      "created_at": 1670298551.4605079,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__array_concat"
@@ -315,7 +336,7 @@
     },
     "macro.dbt.array_construct": {
       "arguments": [],
-      "created_at": 1670298551.46897,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__array_construct"
@@ -341,7 +362,7 @@
     },
     "macro.dbt.before_begin": {
       "arguments": [],
-      "created_at": 1670298551.242221,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.make_hook_config"
@@ -367,7 +388,7 @@
     },
     "macro.dbt.bool_or": {
       "arguments": [],
-      "created_at": 1670298551.461714,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__bool_or"
@@ -393,7 +414,7 @@
     },
     "macro.dbt.build_config_dict": {
       "arguments": [],
-      "created_at": 1670298551.5360699,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -417,7 +438,7 @@
     },
     "macro.dbt.build_ref_function": {
       "arguments": [],
-      "created_at": 1670298551.5341718,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -441,7 +462,7 @@
     },
     "macro.dbt.build_snapshot_staging_table": {
       "arguments": [],
-      "created_at": 1670298551.27379,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.make_temp_relation",
@@ -470,7 +491,7 @@
     },
     "macro.dbt.build_snapshot_table": {
       "arguments": [],
-      "created_at": 1670298551.2724018,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__build_snapshot_table"
@@ -496,7 +517,7 @@
     },
     "macro.dbt.build_source_function": {
       "arguments": [],
-      "created_at": 1670298551.5351338,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -520,7 +541,7 @@
     },
     "macro.dbt.call_dcl_statements": {
       "arguments": [],
-      "created_at": 1670298551.5065012,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__call_dcl_statements"
@@ -546,7 +567,7 @@
     },
     "macro.dbt.cast_bool_to_text": {
       "arguments": [],
-      "created_at": 1670298551.44711,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__cast_bool_to_text"
@@ -572,7 +593,7 @@
     },
     "macro.dbt.check_for_schema_changes": {
       "arguments": [],
-      "created_at": 1670298551.339218,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.diff_columns",
@@ -599,7 +620,7 @@
     },
     "macro.dbt.check_schema_exists": {
       "arguments": [],
-      "created_at": 1670298551.521215,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__check_schema_exists"
@@ -625,7 +646,7 @@
     },
     "macro.dbt.collect_freshness": {
       "arguments": [],
-      "created_at": 1670298551.495685,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__collect_freshness"
@@ -651,7 +672,7 @@
     },
     "macro.dbt.concat": {
       "arguments": [],
-      "created_at": 1670298551.407477,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__concat"
@@ -677,7 +698,7 @@
     },
     "macro.dbt.convert_datetime": {
       "arguments": [],
-      "created_at": 1670298551.4006772,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -701,7 +722,7 @@
     },
     "macro.dbt.copy_grants": {
       "arguments": [],
-      "created_at": 1670298551.499706,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__copy_grants"
@@ -727,7 +748,7 @@
     },
     "macro.dbt.create_columns": {
       "arguments": [],
-      "created_at": 1670298551.268071,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__create_columns"
@@ -753,7 +774,7 @@
     },
     "macro.dbt.create_csv_table": {
       "arguments": [],
-      "created_at": 1670298551.3752189,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__create_csv_table"
@@ -779,7 +800,7 @@
     },
     "macro.dbt.create_indexes": {
       "arguments": [],
-      "created_at": 1670298551.478535,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__create_indexes"
@@ -805,7 +826,7 @@
     },
     "macro.dbt.create_or_replace_view": {
       "arguments": [],
-      "created_at": 1670298551.359894,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.run_hooks",
@@ -837,7 +858,7 @@
     },
     "macro.dbt.create_schema": {
       "arguments": [],
-      "created_at": 1670298551.471772,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__create_schema"
@@ -863,7 +884,7 @@
     },
     "macro.dbt.create_table_as": {
       "arguments": [],
-      "created_at": 1670298551.350219,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__create_table_as"
@@ -889,7 +910,7 @@
     },
     "macro.dbt.create_view_as": {
       "arguments": [],
-      "created_at": 1670298551.36138,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__create_view_as"
@@ -915,7 +936,7 @@
     },
     "macro.dbt.current_timestamp": {
       "arguments": [],
-      "created_at": 1670298551.474187,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__current_timestamp"
@@ -941,7 +962,7 @@
     },
     "macro.dbt.current_timestamp_backcompat": {
       "arguments": [],
-      "created_at": 1670298551.47562,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__current_timestamp_backcompat"
@@ -967,7 +988,7 @@
     },
     "macro.dbt.current_timestamp_in_utc_backcompat": {
       "arguments": [],
-      "created_at": 1670298551.4763389,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__current_timestamp_in_utc_backcompat"
@@ -993,7 +1014,7 @@
     },
     "macro.dbt.date_trunc": {
       "arguments": [],
-      "created_at": 1670298551.4675012,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__date_trunc"
@@ -1019,7 +1040,7 @@
     },
     "macro.dbt.dateadd": {
       "arguments": [],
-      "created_at": 1670298551.409394,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__dateadd"
@@ -1045,7 +1066,7 @@
     },
     "macro.dbt.datediff": {
       "arguments": [],
-      "created_at": 1670298551.442951,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__datediff"
@@ -1071,7 +1092,7 @@
     },
     "macro.dbt.dates_in_range": {
       "arguments": [],
-      "created_at": 1670298551.402984,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.convert_datetime"
@@ -1097,7 +1118,7 @@
     },
     "macro.dbt.default__alter_column_comment": {
       "arguments": [],
-      "created_at": 1670298551.5124328,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1121,7 +1142,7 @@
     },
     "macro.dbt.default__alter_column_type": {
       "arguments": [],
-      "created_at": 1670298551.52948,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -1147,7 +1168,7 @@
     },
     "macro.dbt.default__alter_relation_add_remove_columns": {
       "arguments": [],
-      "created_at": 1670298551.53156,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.run_query"
@@ -1173,7 +1194,7 @@
     },
     "macro.dbt.default__alter_relation_comment": {
       "arguments": [],
-      "created_at": 1670298551.513366,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1197,7 +1218,7 @@
     },
     "macro.dbt.default__any_value": {
       "arguments": [],
-      "created_at": 1670298551.448807,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1221,7 +1242,7 @@
     },
     "macro.dbt.default__apply_grants": {
       "arguments": [],
-      "created_at": 1670298551.510319,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.run_query",
@@ -1250,7 +1271,7 @@
     },
     "macro.dbt.default__array_append": {
       "arguments": [],
-      "created_at": 1670298551.470784,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1274,7 +1295,7 @@
     },
     "macro.dbt.default__array_concat": {
       "arguments": [],
-      "created_at": 1670298551.460879,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1298,7 +1319,7 @@
     },
     "macro.dbt.default__array_construct": {
       "arguments": [],
-      "created_at": 1670298551.469611,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1322,7 +1343,7 @@
     },
     "macro.dbt.default__bool_or": {
       "arguments": [],
-      "created_at": 1670298551.4620101,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1346,7 +1367,7 @@
     },
     "macro.dbt.default__build_snapshot_table": {
       "arguments": [],
-      "created_at": 1670298551.272919,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1370,7 +1391,7 @@
     },
     "macro.dbt.default__call_dcl_statements": {
       "arguments": [],
-      "created_at": 1670298551.507085,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -1396,7 +1417,7 @@
     },
     "macro.dbt.default__cast_bool_to_text": {
       "arguments": [],
-      "created_at": 1670298551.4475598,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1420,7 +1441,7 @@
     },
     "macro.dbt.default__check_schema_exists": {
       "arguments": [],
-      "created_at": 1670298551.521954,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.replace",
@@ -1447,7 +1468,7 @@
     },
     "macro.dbt.default__collect_freshness": {
       "arguments": [],
-      "created_at": 1670298551.496642,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement",
@@ -1474,7 +1495,7 @@
     },
     "macro.dbt.default__concat": {
       "arguments": [],
-      "created_at": 1670298551.407736,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1498,7 +1519,7 @@
     },
     "macro.dbt.default__copy_grants": {
       "arguments": [],
-      "created_at": 1670298551.49998,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1522,7 +1543,7 @@
     },
     "macro.dbt.default__create_columns": {
       "arguments": [],
-      "created_at": 1670298551.268671,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -1548,7 +1569,7 @@
     },
     "macro.dbt.default__create_csv_table": {
       "arguments": [],
-      "created_at": 1670298551.376986,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -1574,7 +1595,7 @@
     },
     "macro.dbt.default__create_indexes": {
       "arguments": [],
-      "created_at": 1670298551.4794502,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_create_index_sql",
@@ -1601,7 +1622,7 @@
     },
     "macro.dbt.default__create_schema": {
       "arguments": [],
-      "created_at": 1670298551.472215,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -1627,7 +1648,7 @@
     },
     "macro.dbt.default__create_table_as": {
       "arguments": [],
-      "created_at": 1670298551.351029,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1651,7 +1672,7 @@
     },
     "macro.dbt.default__create_view_as": {
       "arguments": [],
-      "created_at": 1670298551.361897,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1675,7 +1696,7 @@
     },
     "macro.dbt.default__current_timestamp": {
       "arguments": [],
-      "created_at": 1670298551.474595,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1699,7 +1720,7 @@
     },
     "macro.dbt.default__current_timestamp_backcompat": {
       "arguments": [],
-      "created_at": 1670298551.4758148,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1723,7 +1744,7 @@
     },
     "macro.dbt.default__current_timestamp_in_utc_backcompat": {
       "arguments": [],
-      "created_at": 1670298551.4767418,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.current_timestamp_backcompat",
@@ -1750,7 +1771,7 @@
     },
     "macro.dbt.default__date_trunc": {
       "arguments": [],
-      "created_at": 1670298551.467838,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1774,7 +1795,7 @@
     },
     "macro.dbt.default__dateadd": {
       "arguments": [],
-      "created_at": 1670298551.4097338,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1798,7 +1819,7 @@
     },
     "macro.dbt.default__datediff": {
       "arguments": [],
-      "created_at": 1670298551.4434402,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1822,7 +1843,7 @@
     },
     "macro.dbt.default__drop_relation": {
       "arguments": [],
-      "created_at": 1670298551.4889011,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -1848,7 +1869,7 @@
     },
     "macro.dbt.default__drop_schema": {
       "arguments": [],
-      "created_at": 1670298551.473046,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -1874,7 +1895,7 @@
     },
     "macro.dbt.default__escape_single_quotes": {
       "arguments": [],
-      "created_at": 1670298551.41143,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1898,7 +1919,7 @@
     },
     "macro.dbt.default__except": {
       "arguments": [],
-      "created_at": 1670298551.405764,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1922,7 +1943,7 @@
     },
     "macro.dbt.default__generate_alias_name": {
       "arguments": [],
-      "created_at": 1670298551.3859031,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1946,7 +1967,7 @@
     },
     "macro.dbt.default__generate_database_name": {
       "arguments": [],
-      "created_at": 1670298551.38943,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1970,7 +1991,7 @@
     },
     "macro.dbt.default__generate_schema_name": {
       "arguments": [],
-      "created_at": 1670298551.387462,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -1994,7 +2015,7 @@
     },
     "macro.dbt.default__get_batch_size": {
       "arguments": [],
-      "created_at": 1670298551.3807201,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2018,7 +2039,7 @@
     },
     "macro.dbt.default__get_binding_char": {
       "arguments": [],
-      "created_at": 1670298551.379793,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2042,7 +2063,7 @@
     },
     "macro.dbt.default__get_catalog": {
       "arguments": [],
-      "created_at": 1670298551.51899,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2066,7 +2087,7 @@
     },
     "macro.dbt.default__get_columns_in_query": {
       "arguments": [],
-      "created_at": 1670298551.527812,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -2092,7 +2113,7 @@
     },
     "macro.dbt.default__get_columns_in_relation": {
       "arguments": [],
-      "created_at": 1670298551.526114,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2116,7 +2137,7 @@
     },
     "macro.dbt.default__get_create_index_sql": {
       "arguments": [],
-      "created_at": 1670298551.478167,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2140,7 +2161,7 @@
     },
     "macro.dbt.default__get_create_table_as_sql": {
       "arguments": [],
-      "created_at": 1670298551.34937,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.create_table_as"
@@ -2166,7 +2187,7 @@
     },
     "macro.dbt.default__get_create_view_as_sql": {
       "arguments": [],
-      "created_at": 1670298551.3610141,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.create_view_as"
@@ -2192,7 +2213,7 @@
     },
     "macro.dbt.default__get_csv_sql": {
       "arguments": [],
-      "created_at": 1670298551.379252,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2216,7 +2237,7 @@
     },
     "macro.dbt.default__get_dcl_statement_list": {
       "arguments": [],
-      "created_at": 1670298551.5059571,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.support_multiple_grantees_per_dcl_statement"
@@ -2242,7 +2263,7 @@
     },
     "macro.dbt.default__get_delete_insert_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.3104372,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_quoted_csv"
@@ -2268,7 +2289,7 @@
     },
     "macro.dbt.default__get_grant_sql": {
       "arguments": [],
-      "created_at": 1670298551.503052,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2292,7 +2313,7 @@
     },
     "macro.dbt.default__get_incremental_append_sql": {
       "arguments": [],
-      "created_at": 1670298551.315692,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_insert_into_sql"
@@ -2318,7 +2339,7 @@
     },
     "macro.dbt.default__get_incremental_default_sql": {
       "arguments": [],
-      "created_at": 1670298551.319065,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_incremental_append_sql"
@@ -2344,7 +2365,7 @@
     },
     "macro.dbt.default__get_incremental_delete_insert_sql": {
       "arguments": [],
-      "created_at": 1670298551.316586,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_delete_insert_merge_sql"
@@ -2370,7 +2391,7 @@
     },
     "macro.dbt.default__get_incremental_insert_overwrite_sql": {
       "arguments": [],
-      "created_at": 1670298551.3183832,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_insert_overwrite_merge_sql"
@@ -2396,7 +2417,7 @@
     },
     "macro.dbt.default__get_incremental_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.317482,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_merge_sql"
@@ -2422,7 +2443,7 @@
     },
     "macro.dbt.default__get_insert_overwrite_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.312233,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_quoted_csv"
@@ -2448,7 +2469,7 @@
     },
     "macro.dbt.default__get_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.308408,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_quoted_csv",
@@ -2475,7 +2496,7 @@
     },
     "macro.dbt.default__get_merge_update_columns": {
       "arguments": [],
-      "created_at": 1670298551.298201,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2499,7 +2520,7 @@
     },
     "macro.dbt.default__get_or_create_relation": {
       "arguments": [],
-      "created_at": 1670298551.49324,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2523,7 +2544,7 @@
     },
     "macro.dbt.default__get_revoke_sql": {
       "arguments": [],
-      "created_at": 1670298551.5039842,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2547,7 +2568,7 @@
     },
     "macro.dbt.default__get_show_grant_sql": {
       "arguments": [],
-      "created_at": 1670298551.502111,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2571,7 +2592,7 @@
     },
     "macro.dbt.default__get_test_sql": {
       "arguments": [],
-      "created_at": 1670298551.289614,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2595,7 +2616,7 @@
     },
     "macro.dbt.default__get_true_sql": {
       "arguments": [],
-      "created_at": 1670298551.269789,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2619,7 +2640,7 @@
     },
     "macro.dbt.default__get_where_subquery": {
       "arguments": [],
-      "created_at": 1670298551.291193,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2643,7 +2664,7 @@
     },
     "macro.dbt.default__handle_existing_table": {
       "arguments": [],
-      "created_at": 1670298551.357036,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2667,7 +2688,7 @@
     },
     "macro.dbt.default__hash": {
       "arguments": [],
-      "created_at": 1670298551.4462452,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2691,7 +2712,7 @@
     },
     "macro.dbt.default__information_schema_name": {
       "arguments": [],
-      "created_at": 1670298551.519673,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2715,7 +2736,7 @@
     },
     "macro.dbt.default__intersect": {
       "arguments": [],
-      "created_at": 1670298551.410484,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2739,7 +2760,7 @@
     },
     "macro.dbt.default__last_day": {
       "arguments": [],
-      "created_at": 1670298551.464326,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default_last_day"
@@ -2765,7 +2786,7 @@
     },
     "macro.dbt.default__length": {
       "arguments": [],
-      "created_at": 1670298551.408619,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2789,7 +2810,7 @@
     },
     "macro.dbt.default__list_relations_without_caching": {
       "arguments": [],
-      "created_at": 1670298551.522859,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2813,7 +2834,7 @@
     },
     "macro.dbt.default__list_schemas": {
       "arguments": [],
-      "created_at": 1670298551.5207932,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.information_schema_name",
@@ -2840,7 +2861,7 @@
     },
     "macro.dbt.default__listagg": {
       "arguments": [],
-      "created_at": 1670298551.4417012,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2864,7 +2885,7 @@
     },
     "macro.dbt.default__load_csv_rows": {
       "arguments": [],
-      "created_at": 1670298551.384554,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_batch_size",
@@ -2892,7 +2913,7 @@
     },
     "macro.dbt.default__make_backup_relation": {
       "arguments": [],
-      "created_at": 1670298551.4880042,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2916,7 +2937,7 @@
     },
     "macro.dbt.default__make_intermediate_relation": {
       "arguments": [],
-      "created_at": 1670298551.485622,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__make_temp_relation"
@@ -2942,7 +2963,7 @@
     },
     "macro.dbt.default__make_temp_relation": {
       "arguments": [],
-      "created_at": 1670298551.486759,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -2966,7 +2987,7 @@
     },
     "macro.dbt.default__persist_docs": {
       "arguments": [],
-      "created_at": 1670298551.515136,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.run_query",
@@ -2994,7 +3015,7 @@
     },
     "macro.dbt.default__position": {
       "arguments": [],
-      "created_at": 1670298551.450131,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3018,7 +3039,7 @@
     },
     "macro.dbt.default__post_snapshot": {
       "arguments": [],
-      "created_at": 1670298551.269226,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3042,7 +3063,7 @@
     },
     "macro.dbt.default__rename_relation": {
       "arguments": [],
-      "created_at": 1670298551.491068,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -3068,7 +3089,7 @@
     },
     "macro.dbt.default__replace": {
       "arguments": [],
-      "created_at": 1670298551.4068532,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3092,7 +3113,7 @@
     },
     "macro.dbt.default__reset_csv_table": {
       "arguments": [],
-      "created_at": 1670298551.3784,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.create_csv_table"
@@ -3118,7 +3139,7 @@
     },
     "macro.dbt.default__right": {
       "arguments": [],
-      "created_at": 1670298551.438331,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3142,7 +3163,7 @@
     },
     "macro.dbt.default__safe_cast": {
       "arguments": [],
-      "created_at": 1670298551.4448671,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3166,7 +3187,7 @@
     },
     "macro.dbt.default__snapshot_get_time": {
       "arguments": [],
-      "created_at": 1670298551.475214,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.current_timestamp"
@@ -3192,7 +3213,7 @@
     },
     "macro.dbt.default__snapshot_hash_arguments": {
       "arguments": [],
-      "created_at": 1670298551.253029,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3216,7 +3237,7 @@
     },
     "macro.dbt.default__snapshot_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.2463481,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3240,7 +3261,7 @@
     },
     "macro.dbt.default__snapshot_staging_table": {
       "arguments": [],
-      "created_at": 1670298551.2720032,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.snapshot_get_time"
@@ -3266,7 +3287,7 @@
     },
     "macro.dbt.default__snapshot_string_as_time": {
       "arguments": [],
-      "created_at": 1670298551.255126,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3290,7 +3311,7 @@
     },
     "macro.dbt.default__split_part": {
       "arguments": [],
-      "created_at": 1670298551.466079,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3314,7 +3335,7 @@
     },
     "macro.dbt.default__string_literal": {
       "arguments": [],
-      "created_at": 1670298551.451336,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3338,7 +3359,7 @@
     },
     "macro.dbt.default__support_multiple_grantees_per_dcl_statement": {
       "arguments": [],
-      "created_at": 1670298551.500675,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3362,7 +3383,7 @@
     },
     "macro.dbt.default__test_accepted_values": {
       "arguments": [],
-      "created_at": 1670298551.3928099,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3386,7 +3407,7 @@
     },
     "macro.dbt.default__test_not_null": {
       "arguments": [],
-      "created_at": 1670298551.390924,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.should_store_failures"
@@ -3412,7 +3433,7 @@
     },
     "macro.dbt.default__test_relationships": {
       "arguments": [],
-      "created_at": 1670298551.390204,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3436,7 +3457,7 @@
     },
     "macro.dbt.default__test_unique": {
       "arguments": [],
-      "created_at": 1670298551.391626,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3460,7 +3481,7 @@
     },
     "macro.dbt.default__truncate_relation": {
       "arguments": [],
-      "created_at": 1670298551.489698,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -3486,7 +3507,7 @@
     },
     "macro.dbt.default__type_bigint": {
       "arguments": [],
-      "created_at": 1670298551.4577549,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3510,7 +3531,7 @@
     },
     "macro.dbt.default__type_boolean": {
       "arguments": [],
-      "created_at": 1670298551.459562,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3534,7 +3555,7 @@
     },
     "macro.dbt.default__type_float": {
       "arguments": [],
-      "created_at": 1670298551.455922,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3558,7 +3579,7 @@
     },
     "macro.dbt.default__type_int": {
       "arguments": [],
-      "created_at": 1670298551.458689,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3582,7 +3603,7 @@
     },
     "macro.dbt.default__type_numeric": {
       "arguments": [],
-      "created_at": 1670298551.4568682,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3606,7 +3627,7 @@
     },
     "macro.dbt.default__type_string": {
       "arguments": [],
-      "created_at": 1670298551.454168,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3630,7 +3651,7 @@
     },
     "macro.dbt.default__type_timestamp": {
       "arguments": [],
-      "created_at": 1670298551.4550478,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3654,7 +3675,7 @@
     },
     "macro.dbt.default_last_day": {
       "arguments": [],
-      "created_at": 1670298551.463785,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.dateadd",
@@ -3681,7 +3702,7 @@
     },
     "macro.dbt.diff_column_data_types": {
       "arguments": [],
-      "created_at": 1670298551.2963068,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3705,7 +3726,7 @@
     },
     "macro.dbt.diff_columns": {
       "arguments": [],
-      "created_at": 1670298551.294998,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3729,7 +3750,7 @@
     },
     "macro.dbt.drop_relation": {
       "arguments": [],
-      "created_at": 1670298551.488418,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__drop_relation"
@@ -3755,7 +3776,7 @@
     },
     "macro.dbt.drop_relation_if_exists": {
       "arguments": [],
-      "created_at": 1670298551.494573,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3779,7 +3800,7 @@
     },
     "macro.dbt.drop_schema": {
       "arguments": [],
-      "created_at": 1670298551.4726038,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__drop_schema"
@@ -3805,7 +3826,7 @@
     },
     "macro.dbt.escape_single_quotes": {
       "arguments": [],
-      "created_at": 1670298551.4111412,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__escape_single_quotes"
@@ -3831,7 +3852,7 @@
     },
     "macro.dbt.except": {
       "arguments": [],
-      "created_at": 1670298551.405597,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__except"
@@ -3857,7 +3878,7 @@
     },
     "macro.dbt.generate_alias_name": {
       "arguments": [],
-      "created_at": 1670298551.3854442,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__generate_alias_name"
@@ -3883,7 +3904,7 @@
     },
     "macro.dbt.generate_database_name": {
       "arguments": [],
-      "created_at": 1670298551.388889,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__generate_database_name"
@@ -3909,7 +3930,7 @@
     },
     "macro.dbt.generate_schema_name": {
       "arguments": [],
-      "created_at": 1670298551.386942,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__generate_schema_name"
@@ -3935,7 +3956,7 @@
     },
     "macro.dbt.generate_schema_name_for_env": {
       "arguments": [],
-      "created_at": 1670298551.388025,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -3959,7 +3980,7 @@
     },
     "macro.dbt.get_batch_size": {
       "arguments": [],
-      "created_at": 1670298551.3802922,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_batch_size"
@@ -3985,7 +4006,7 @@
     },
     "macro.dbt.get_binding_char": {
       "arguments": [],
-      "created_at": 1670298551.379551,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_binding_char"
@@ -4011,7 +4032,7 @@
     },
     "macro.dbt.get_catalog": {
       "arguments": [],
-      "created_at": 1670298551.51827,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__get_catalog"
@@ -4037,7 +4058,7 @@
     },
     "macro.dbt.get_columns_in_query": {
       "arguments": [],
-      "created_at": 1670298551.527127,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_columns_in_query"
@@ -4063,7 +4084,7 @@
     },
     "macro.dbt.get_columns_in_relation": {
       "arguments": [],
-      "created_at": 1670298551.525661,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__get_columns_in_relation"
@@ -4089,7 +4110,7 @@
     },
     "macro.dbt.get_create_index_sql": {
       "arguments": [],
-      "created_at": 1670298551.4778419,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__get_create_index_sql"
@@ -4115,7 +4136,7 @@
     },
     "macro.dbt.get_create_table_as_sql": {
       "arguments": [],
-      "created_at": 1670298551.349,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_create_table_as_sql"
@@ -4141,7 +4162,7 @@
     },
     "macro.dbt.get_create_view_as_sql": {
       "arguments": [],
-      "created_at": 1670298551.360684,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_create_view_as_sql"
@@ -4167,7 +4188,7 @@
     },
     "macro.dbt.get_csv_sql": {
       "arguments": [],
-      "created_at": 1670298551.378786,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_csv_sql"
@@ -4193,7 +4214,7 @@
     },
     "macro.dbt.get_dcl_statement_list": {
       "arguments": [],
-      "created_at": 1670298551.50449,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_dcl_statement_list"
@@ -4219,7 +4240,7 @@
     },
     "macro.dbt.get_delete_insert_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.308919,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_delete_insert_merge_sql"
@@ -4245,7 +4266,7 @@
     },
     "macro.dbt.get_grant_sql": {
       "arguments": [],
-      "created_at": 1670298551.502623,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_grant_sql"
@@ -4271,7 +4292,7 @@
     },
     "macro.dbt.get_incremental_append_sql": {
       "arguments": [],
-      "created_at": 1670298551.3152268,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_incremental_append_sql"
@@ -4297,7 +4318,7 @@
     },
     "macro.dbt.get_incremental_default_sql": {
       "arguments": [],
-      "created_at": 1670298551.318759,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__get_incremental_default_sql"
@@ -4323,7 +4344,7 @@
     },
     "macro.dbt.get_incremental_delete_insert_sql": {
       "arguments": [],
-      "created_at": 1670298551.3160691,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_incremental_delete_insert_sql"
@@ -4349,7 +4370,7 @@
     },
     "macro.dbt.get_incremental_insert_overwrite_sql": {
       "arguments": [],
-      "created_at": 1670298551.317858,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_incremental_insert_overwrite_sql"
@@ -4375,7 +4396,7 @@
     },
     "macro.dbt.get_incremental_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.31696,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_incremental_merge_sql"
@@ -4401,7 +4422,7 @@
     },
     "macro.dbt.get_insert_into_sql": {
       "arguments": [],
-      "created_at": 1670298551.319639,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_quoted_csv"
@@ -4427,7 +4448,7 @@
     },
     "macro.dbt.get_insert_overwrite_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.3109581,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_insert_overwrite_merge_sql"
@@ -4453,7 +4474,7 @@
     },
     "macro.dbt.get_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.3051069,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_merge_sql"
@@ -4479,7 +4500,7 @@
     },
     "macro.dbt.get_merge_update_columns": {
       "arguments": [],
-      "created_at": 1670298551.296777,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_merge_update_columns"
@@ -4505,7 +4526,7 @@
     },
     "macro.dbt.get_or_create_relation": {
       "arguments": [],
-      "created_at": 1670298551.491816,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_or_create_relation"
@@ -4531,7 +4552,7 @@
     },
     "macro.dbt.get_quoted_csv": {
       "arguments": [],
-      "created_at": 1670298551.293896,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -4555,7 +4576,7 @@
     },
     "macro.dbt.get_revoke_sql": {
       "arguments": [],
-      "created_at": 1670298551.5035589,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_revoke_sql"
@@ -4581,7 +4602,7 @@
     },
     "macro.dbt.get_seed_column_quoted_csv": {
       "arguments": [],
-      "created_at": 1670298551.381716,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -4605,7 +4626,7 @@
     },
     "macro.dbt.get_show_grant_sql": {
       "arguments": [],
-      "created_at": 1670298551.501869,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__get_show_grant_sql"
@@ -4631,7 +4652,7 @@
     },
     "macro.dbt.get_test_sql": {
       "arguments": [],
-      "created_at": 1670298551.289005,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_test_sql"
@@ -4657,7 +4678,7 @@
     },
     "macro.dbt.get_true_sql": {
       "arguments": [],
-      "created_at": 1670298551.269536,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_true_sql"
@@ -4683,7 +4704,7 @@
     },
     "macro.dbt.get_where_subquery": {
       "arguments": [],
-      "created_at": 1670298551.29043,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__get_where_subquery"
@@ -4709,7 +4730,7 @@
     },
     "macro.dbt.handle_existing_table": {
       "arguments": [],
-      "created_at": 1670298551.356553,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__handle_existing_table"
@@ -4735,7 +4756,7 @@
     },
     "macro.dbt.hash": {
       "arguments": [],
-      "created_at": 1670298551.445781,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__hash"
@@ -4761,7 +4782,7 @@
     },
     "macro.dbt.in_transaction": {
       "arguments": [],
-      "created_at": 1670298551.242513,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.make_hook_config"
@@ -4787,7 +4808,7 @@
     },
     "macro.dbt.incremental_validate_on_schema_change": {
       "arguments": [],
-      "created_at": 1670298551.336801,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -4811,7 +4832,7 @@
     },
     "macro.dbt.information_schema_name": {
       "arguments": [],
-      "created_at": 1670298551.5193589,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__information_schema_name"
@@ -4837,7 +4858,7 @@
     },
     "macro.dbt.intersect": {
       "arguments": [],
-      "created_at": 1670298551.4103181,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__intersect"
@@ -4863,7 +4884,7 @@
     },
     "macro.dbt.is_incremental": {
       "arguments": [],
-      "created_at": 1670298551.3135989,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.should_full_refresh"
@@ -4889,7 +4910,7 @@
     },
     "macro.dbt.last_day": {
       "arguments": [],
-      "created_at": 1670298551.463029,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__last_day"
@@ -4915,7 +4936,7 @@
     },
     "macro.dbt.length": {
       "arguments": [],
-      "created_at": 1670298551.408395,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__length"
@@ -4941,7 +4962,7 @@
     },
     "macro.dbt.list_relations_without_caching": {
       "arguments": [],
-      "created_at": 1670298551.522364,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__list_relations_without_caching"
@@ -4967,7 +4988,7 @@
     },
     "macro.dbt.list_schemas": {
       "arguments": [],
-      "created_at": 1670298551.520302,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__list_schemas"
@@ -4993,7 +5014,7 @@
     },
     "macro.dbt.listagg": {
       "arguments": [],
-      "created_at": 1670298551.440186,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__listagg"
@@ -5019,7 +5040,7 @@
     },
     "macro.dbt.load_cached_relation": {
       "arguments": [],
-      "created_at": 1670298551.4937768,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5043,7 +5064,7 @@
     },
     "macro.dbt.load_csv_rows": {
       "arguments": [],
-      "created_at": 1670298551.382082,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__load_csv_rows"
@@ -5069,7 +5090,7 @@
     },
     "macro.dbt.load_relation": {
       "arguments": [],
-      "created_at": 1670298551.4941142,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.load_cached_relation"
@@ -5095,7 +5116,7 @@
     },
     "macro.dbt.make_backup_relation": {
       "arguments": [],
-      "created_at": 1670298551.4873002,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__make_backup_relation"
@@ -5121,7 +5142,7 @@
     },
     "macro.dbt.make_hook_config": {
       "arguments": [],
-      "created_at": 1670298551.241919,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5145,7 +5166,7 @@
     },
     "macro.dbt.make_intermediate_relation": {
       "arguments": [],
-      "created_at": 1670298551.485225,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__make_intermediate_relation"
@@ -5171,7 +5192,7 @@
     },
     "macro.dbt.make_temp_relation": {
       "arguments": [],
-      "created_at": 1670298551.4861162,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__make_temp_relation"
@@ -5197,7 +5218,7 @@
     },
     "macro.dbt.materialization_incremental_default": {
       "arguments": [],
-      "created_at": 1670298551.3286989,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.load_cached_relation",
@@ -5240,7 +5261,7 @@
     },
     "macro.dbt.materialization_seed_default": {
       "arguments": [],
-      "created_at": 1670298551.368004,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.should_full_refresh",
@@ -5278,7 +5299,7 @@
     },
     "macro.dbt.materialization_snapshot_default": {
       "arguments": [],
-      "created_at": 1670298551.2841868,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_or_create_relation",
@@ -5319,7 +5340,7 @@
     },
     "macro.dbt.materialization_table_default": {
       "arguments": [],
-      "created_at": 1670298551.347976,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.load_cached_relation",
@@ -5357,7 +5378,7 @@
     },
     "macro.dbt.materialization_test_default": {
       "arguments": [],
-      "created_at": 1670298551.288075,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.should_store_failures",
@@ -5388,7 +5409,7 @@
     },
     "macro.dbt.materialization_view_default": {
       "arguments": [],
-      "created_at": 1670298551.355838,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.load_cached_relation",
@@ -5425,7 +5446,7 @@
     },
     "macro.dbt.noop_statement": {
       "arguments": [],
-      "created_at": 1670298551.3970811,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5449,7 +5470,7 @@
     },
     "macro.dbt.partition_range": {
       "arguments": [],
-      "created_at": 1670298551.404437,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.dates_in_range"
@@ -5475,7 +5496,7 @@
     },
     "macro.dbt.persist_docs": {
       "arguments": [],
-      "created_at": 1670298551.5139258,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__persist_docs"
@@ -5501,7 +5522,7 @@
     },
     "macro.dbt.position": {
       "arguments": [],
-      "created_at": 1670298551.449753,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__position"
@@ -5527,7 +5548,7 @@
     },
     "macro.dbt.post_snapshot": {
       "arguments": [],
-      "created_at": 1670298551.2690291,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__post_snapshot"
@@ -5553,7 +5574,7 @@
     },
     "macro.dbt.process_schema_changes": {
       "arguments": [],
-      "created_at": 1670298551.343294,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.check_for_schema_changes",
@@ -5580,7 +5601,7 @@
     },
     "macro.dbt.py_current_timestring": {
       "arguments": [],
-      "created_at": 1670298551.4049861,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5604,7 +5625,7 @@
     },
     "macro.dbt.py_script_comment": {
       "arguments": [],
-      "created_at": 1670298551.53705,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5628,7 +5649,7 @@
     },
     "macro.dbt.py_script_postfix": {
       "arguments": [],
-      "created_at": 1670298551.536886,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.build_ref_function",
@@ -5658,7 +5679,7 @@
     },
     "macro.dbt.rename_relation": {
       "arguments": [],
-      "created_at": 1670298551.490154,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__rename_relation"
@@ -5684,7 +5705,7 @@
     },
     "macro.dbt.replace": {
       "arguments": [],
-      "created_at": 1670298551.406516,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__replace"
@@ -5710,7 +5731,7 @@
     },
     "macro.dbt.reset_csv_table": {
       "arguments": [],
-      "created_at": 1670298551.37745,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__reset_csv_table"
@@ -5736,7 +5757,7 @@
     },
     "macro.dbt.right": {
       "arguments": [],
-      "created_at": 1670298551.4121852,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__right"
@@ -5762,7 +5783,7 @@
     },
     "macro.dbt.run_hooks": {
       "arguments": [],
-      "created_at": 1670298551.241405,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -5788,7 +5809,7 @@
     },
     "macro.dbt.run_query": {
       "arguments": [],
-      "created_at": 1670298551.397651,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -5814,7 +5835,7 @@
     },
     "macro.dbt.safe_cast": {
       "arguments": [],
-      "created_at": 1670298551.444459,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__safe_cast"
@@ -5840,7 +5861,7 @@
     },
     "macro.dbt.set_sql_header": {
       "arguments": [],
-      "created_at": 1670298551.243606,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5864,7 +5885,7 @@
     },
     "macro.dbt.should_full_refresh": {
       "arguments": [],
-      "created_at": 1670298551.244211,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5888,7 +5909,7 @@
     },
     "macro.dbt.should_revoke": {
       "arguments": [],
-      "created_at": 1670298551.5014431,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.copy_grants"
@@ -5914,7 +5935,7 @@
     },
     "macro.dbt.should_store_failures": {
       "arguments": [],
-      "created_at": 1670298551.2448268,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -5938,7 +5959,7 @@
     },
     "macro.dbt.snapshot_check_all_get_existing_columns": {
       "arguments": [],
-      "created_at": 1670298551.259003,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_columns_in_query"
@@ -5964,7 +5985,7 @@
     },
     "macro.dbt.snapshot_check_strategy": {
       "arguments": [],
-      "created_at": 1670298551.261952,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.snapshot_get_time",
@@ -5993,7 +6014,7 @@
     },
     "macro.dbt.snapshot_get_time": {
       "arguments": [],
-      "created_at": 1670298551.474946,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__snapshot_get_time"
@@ -6019,7 +6040,7 @@
     },
     "macro.dbt.snapshot_hash_arguments": {
       "arguments": [],
-      "created_at": 1670298551.2525802,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__snapshot_hash_arguments"
@@ -6045,7 +6066,7 @@
     },
     "macro.dbt.snapshot_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.245815,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__snapshot_merge_sql"
@@ -6071,7 +6092,7 @@
     },
     "macro.dbt.snapshot_staging_table": {
       "arguments": [],
-      "created_at": 1670298551.270217,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__snapshot_staging_table"
@@ -6097,7 +6118,7 @@
     },
     "macro.dbt.snapshot_string_as_time": {
       "arguments": [],
-      "created_at": 1670298551.254751,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__snapshot_string_as_time"
@@ -6123,7 +6144,7 @@
     },
     "macro.dbt.snapshot_timestamp_strategy": {
       "arguments": [],
-      "created_at": 1670298551.254416,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.snapshot_hash_arguments"
@@ -6149,7 +6170,7 @@
     },
     "macro.dbt.split_part": {
       "arguments": [],
-      "created_at": 1670298551.4656482,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__split_part"
@@ -6175,7 +6196,7 @@
     },
     "macro.dbt.sql_convert_columns_in_relation": {
       "arguments": [],
-      "created_at": 1670298551.526747,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6199,7 +6220,7 @@
     },
     "macro.dbt.statement": {
       "arguments": [],
-      "created_at": 1670298551.395661,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6223,7 +6244,7 @@
     },
     "macro.dbt.strategy_dispatch": {
       "arguments": [],
-      "created_at": 1670298551.252231,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6247,7 +6268,7 @@
     },
     "macro.dbt.string_literal": {
       "arguments": [],
-      "created_at": 1670298551.451034,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__string_literal"
@@ -6273,7 +6294,7 @@
     },
     "macro.dbt.support_multiple_grantees_per_dcl_statement": {
       "arguments": [],
-      "created_at": 1670298551.5004091,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__support_multiple_grantees_per_dcl_statement"
@@ -6299,7 +6320,7 @@
     },
     "macro.dbt.sync_column_schemas": {
       "arguments": [],
-      "created_at": 1670298551.3416152,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.alter_relation_add_remove_columns",
@@ -6326,7 +6347,7 @@
     },
     "macro.dbt.test_accepted_values": {
       "arguments": [],
-      "created_at": 1670298551.539191,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__test_accepted_values"
@@ -6352,7 +6373,7 @@
     },
     "macro.dbt.test_not_null": {
       "arguments": [],
-      "created_at": 1670298551.538603,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__test_not_null"
@@ -6378,7 +6399,7 @@
     },
     "macro.dbt.test_relationships": {
       "arguments": [],
-      "created_at": 1670298551.539754,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__test_relationships"
@@ -6404,7 +6425,7 @@
     },
     "macro.dbt.test_unique": {
       "arguments": [],
-      "created_at": 1670298551.538126,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__test_unique"
@@ -6430,7 +6451,7 @@
     },
     "macro.dbt.truncate_relation": {
       "arguments": [],
-      "created_at": 1670298551.489314,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__truncate_relation"
@@ -6456,7 +6477,7 @@
     },
     "macro.dbt.type_bigint": {
       "arguments": [],
-      "created_at": 1670298551.457319,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__type_bigint"
@@ -6482,7 +6503,7 @@
     },
     "macro.dbt.type_boolean": {
       "arguments": [],
-      "created_at": 1670298551.459148,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__type_boolean"
@@ -6508,7 +6529,7 @@
     },
     "macro.dbt.type_float": {
       "arguments": [],
-      "created_at": 1670298551.4554949,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__type_float"
@@ -6534,7 +6555,7 @@
     },
     "macro.dbt.type_int": {
       "arguments": [],
-      "created_at": 1670298551.45821,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__type_int"
@@ -6560,7 +6581,7 @@
     },
     "macro.dbt.type_numeric": {
       "arguments": [],
-      "created_at": 1670298551.4563808,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__type_numeric"
@@ -6586,7 +6607,7 @@
     },
     "macro.dbt.type_string": {
       "arguments": [],
-      "created_at": 1670298551.4537349,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__type_string"
@@ -6612,7 +6633,7 @@
     },
     "macro.dbt.type_timestamp": {
       "arguments": [],
-      "created_at": 1670298551.454622,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__type_timestamp"
@@ -6638,7 +6659,7 @@
     },
     "macro.dbt_postgres.postgres__alter_column_comment": {
       "arguments": [],
-      "created_at": 1670298551.225419,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres_escape_comment"
@@ -6664,7 +6685,7 @@
     },
     "macro.dbt_postgres.postgres__alter_relation_comment": {
       "arguments": [],
-      "created_at": 1670298551.2241971,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres_escape_comment"
@@ -6690,7 +6711,7 @@
     },
     "macro.dbt_postgres.postgres__any_value": {
       "arguments": [],
-      "created_at": 1670298551.236993,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6714,7 +6735,7 @@
     },
     "macro.dbt_postgres.postgres__check_schema_exists": {
       "arguments": [],
-      "created_at": 1670298551.21941,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -6740,7 +6761,7 @@
     },
     "macro.dbt_postgres.postgres__copy_grants": {
       "arguments": [],
-      "created_at": 1670298551.2261271,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6764,7 +6785,7 @@
     },
     "macro.dbt_postgres.postgres__create_schema": {
       "arguments": [],
-      "created_at": 1670298551.215181,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -6790,7 +6811,7 @@
     },
     "macro.dbt_postgres.postgres__create_table_as": {
       "arguments": [],
-      "created_at": 1670298551.2133482,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6814,7 +6835,7 @@
     },
     "macro.dbt_postgres.postgres__current_timestamp": {
       "arguments": [],
-      "created_at": 1670298551.1987891,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6838,7 +6859,7 @@
     },
     "macro.dbt_postgres.postgres__current_timestamp_backcompat": {
       "arguments": [],
-      "created_at": 1670298551.200057,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.type_timestamp"
@@ -6864,7 +6885,7 @@
     },
     "macro.dbt_postgres.postgres__current_timestamp_in_utc_backcompat": {
       "arguments": [],
-      "created_at": 1670298551.2002811,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.type_timestamp"
@@ -6890,7 +6911,7 @@
     },
     "macro.dbt_postgres.postgres__dateadd": {
       "arguments": [],
-      "created_at": 1670298551.229297,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -6914,7 +6935,7 @@
     },
     "macro.dbt_postgres.postgres__datediff": {
       "arguments": [],
-      "created_at": 1670298551.236534,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.datediff"
@@ -6940,7 +6961,7 @@
     },
     "macro.dbt_postgres.postgres__drop_schema": {
       "arguments": [],
-      "created_at": 1670298551.2158039,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -6966,7 +6987,7 @@
     },
     "macro.dbt_postgres.postgres__get_catalog": {
       "arguments": [],
-      "created_at": 1670298551.202367,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -6992,7 +7013,7 @@
     },
     "macro.dbt_postgres.postgres__get_columns_in_relation": {
       "arguments": [],
-      "created_at": 1670298551.2167602,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement",
@@ -7019,7 +7040,7 @@
     },
     "macro.dbt_postgres.postgres__get_create_index_sql": {
       "arguments": [],
-      "created_at": 1670298551.214549,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7043,7 +7064,7 @@
     },
     "macro.dbt_postgres.postgres__get_incremental_default_sql": {
       "arguments": [],
-      "created_at": 1670298551.2271192,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.get_incremental_delete_insert_sql",
@@ -7070,7 +7091,7 @@
     },
     "macro.dbt_postgres.postgres__get_show_grant_sql": {
       "arguments": [],
-      "created_at": 1670298551.225875,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7094,7 +7115,7 @@
     },
     "macro.dbt_postgres.postgres__information_schema_name": {
       "arguments": [],
-      "created_at": 1670298551.217869,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7118,7 +7139,7 @@
     },
     "macro.dbt_postgres.postgres__last_day": {
       "arguments": [],
-      "created_at": 1670298551.238176,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.dateadd",
@@ -7146,7 +7167,7 @@
     },
     "macro.dbt_postgres.postgres__list_relations_without_caching": {
       "arguments": [],
-      "created_at": 1670298551.2175071,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -7172,7 +7193,7 @@
     },
     "macro.dbt_postgres.postgres__list_schemas": {
       "arguments": [],
-      "created_at": 1670298551.218627,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -7198,7 +7219,7 @@
     },
     "macro.dbt_postgres.postgres__listagg": {
       "arguments": [],
-      "created_at": 1670298551.2307389,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7222,7 +7243,7 @@
     },
     "macro.dbt_postgres.postgres__make_backup_relation": {
       "arguments": [],
-      "created_at": 1670298551.222691,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__make_relation_with_suffix"
@@ -7248,7 +7269,7 @@
     },
     "macro.dbt_postgres.postgres__make_intermediate_relation": {
       "arguments": [],
-      "created_at": 1670298551.221505,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__make_relation_with_suffix"
@@ -7274,7 +7295,7 @@
     },
     "macro.dbt_postgres.postgres__make_relation_with_suffix": {
       "arguments": [],
-      "created_at": 1670298551.221094,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7298,7 +7319,7 @@
     },
     "macro.dbt_postgres.postgres__make_temp_relation": {
       "arguments": [],
-      "created_at": 1670298551.222146,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt_postgres.postgres__make_relation_with_suffix"
@@ -7324,7 +7345,7 @@
     },
     "macro.dbt_postgres.postgres__snapshot_get_time": {
       "arguments": [],
-      "created_at": 1670298551.199831,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.current_timestamp"
@@ -7350,7 +7371,7 @@
     },
     "macro.dbt_postgres.postgres__snapshot_merge_sql": {
       "arguments": [],
-      "created_at": 1670298551.2286642,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7374,7 +7395,7 @@
     },
     "macro.dbt_postgres.postgres__snapshot_string_as_time": {
       "arguments": [],
-      "created_at": 1670298551.1996002,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7398,7 +7419,7 @@
     },
     "macro.dbt_postgres.postgres__split_part": {
       "arguments": [],
-      "created_at": 1670298551.2391849,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.default__split_part",
@@ -7425,7 +7446,7 @@
     },
     "macro.dbt_postgres.postgres_escape_comment": {
       "arguments": [],
-      "created_at": 1670298551.223697,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": []
       },
@@ -7449,7 +7470,7 @@
     },
     "macro.dbt_postgres.postgres_get_relations": {
       "arguments": [],
-      "created_at": 1670298551.203551,
+      "created_at": 1663278957.5715818,
       "depends_on": {
         "macros": [
           "macro.dbt.statement"
@@ -7472,6 +7493,30 @@
       "supported_languages": null,
       "tags": [],
       "unique_id": "macro.dbt_postgres.postgres_get_relations"
+    },
+    "macro.sample_dbt.test_is_email": {
+      "arguments": [],
+      "created_at": 1663278957.5715818,
+      "depends_on": {
+        "macros": []
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "macro_sql": "{% test is_email(model, column_name) %}\n\n    select *\n    from {{ model }}\n    where {{ column_name }} not like '%@%'\n\n{% endtest %}",
+      "meta": {},
+      "name": "test_is_email",
+      "original_file_path": "tests/generic/assert_is_email.sql",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "tests/generic/assert_is_email.sql",
+      "resource_type": "macro",
+      "root_path": "/some-path/sample-dbt",
+      "supported_languages": null,
+      "tags": [],
+      "unique_id": "macro.sample_dbt.test_is_email"
     }
   },
   "metadata": {
@@ -7479,11 +7524,11 @@
     "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v7.json",
     "dbt_version": "1.3.0",
     "env": {},
-    "generated_at": "2022-12-06T03:49:11.154513Z",
+    "generated_at": "2021-06-18T21:38:36.384613Z",
     "invocation_id": "just-some-random-id",
     "project_id": "d7ed27e3f02ff95ca753dd76aed208ee",
     "send_anonymous_usage_stats": true,
-    "user_id": "0291cdf8-5dae-42a8-be0a-23dc3ecca550"
+    "user_id": "e2ada6ad-3b40-4a61-8f16-dc722bad324d"
   },
   "metrics": {},
   "nodes": {
@@ -7491,12 +7536,12 @@
       "alias": "customer_details",
       "build_path": null,
       "checksum": {
-        "checksum": "038ac5af10d168699b8e5dcef54752c22a31a705eed010cacbf180e9ca214ceb",
+        "checksum": "84914e889940a80b3a628e160ff92910bfd2749fc253520a602aa885f878f28b",
         "name": "sha256"
       },
       "columns": {},
       "compiled": true,
-      "compiled_code": "\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id",
+      "compiled_code": "\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id",
       "compiled_path": "target/compiled/sample_dbt/models/transform/customer_details.sql",
       "config": {
         "alias": null,
@@ -7522,15 +7567,16 @@
         "tags": [],
         "unique_key": null
       },
-      "created_at": 1670298551.7804742,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "deferred": false,
       "depends_on": {
         "macros": [],
         "nodes": [
           "source.sample_dbt.pagila.customer",
+          "source.sample_dbt.pagila.city",
           "source.sample_dbt.pagila.address",
-          "source.sample_dbt.pagila.city"
+          "snapshot.sample_dbt.customer_snapshot"
         ]
       },
       "description": "",
@@ -7553,12 +7599,16 @@
       "package_name": "sample_dbt",
       "patch_path": null,
       "path": "transform/customer_details.sql",
-      "raw_code": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
-      "refs": [],
+      "raw_code": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from {{ ref('customer_snapshot') }} cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
+      "refs": [
+        [
+          "customer_snapshot"
+        ]
+      ],
       "relation_name": null,
       "resource_type": "model",
       "root_path": "/some-path/sample-dbt",
-      "schema": "dbt_postgres",
+      "schema": "public",
       "sources": [
         [
           "pagila",
@@ -7566,11 +7616,11 @@
         ],
         [
           "pagila",
-          "address"
+          "city"
         ],
         [
           "pagila",
-          "city"
+          "address"
         ]
       ],
       "tags": [],
@@ -7581,14 +7631,39 @@
     },
     "model.sample_dbt.monthly_billing_with_cust": {
       "alias": "an-aliased-view-for-monthly-billing",
-      "build_path": null,
+      "build_path": "target/run/sample_dbt/models/billing/monthly_billing_with_cust.sql",
       "checksum": {
         "checksum": "3f13dfa22648e3bb3e52082de053591b33b07ca028216db3b12a1a09d6bf747a",
         "name": "sha256"
       },
-      "columns": {},
+      "columns": {
+        "billing_month": {
+          "data_type": null,
+          "description": "",
+          "meta": {},
+          "name": "billing_month",
+          "quote": null,
+          "tags": []
+        },
+        "customer_id": {
+          "data_type": null,
+          "description": "",
+          "meta": {},
+          "name": "customer_id",
+          "quote": null,
+          "tags": []
+        },
+        "email": {
+          "data_type": null,
+          "description": "",
+          "meta": {},
+          "name": "email",
+          "quote": null,
+          "tags": []
+        }
+      },
       "compiled": true,
-      "compiled_code": "\n\nwith __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)SELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    \"pagila\".\"dbt_postgres\".\"payments_by_customer_by_month\" pbc\n    left outer join __dbt__cte__customer_details cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
+      "compiled_code": "\n\nwith __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)SELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    \"pagila\".\"public\".\"payments_by_customer_by_month\" pbc\n    left outer join __dbt__cte__customer_details cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
       "compiled_path": "target/compiled/sample_dbt/models/billing/monthly_billing_with_cust.sql",
       "config": {
         "alias": "an-aliased-view-for-monthly-billing",
@@ -7614,7 +7689,7 @@
         "tags": [],
         "unique_key": null
       },
-      "created_at": 1670298551.786046,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "deferred": false,
       "depends_on": {
@@ -7632,7 +7707,7 @@
       "extra_ctes": [
         {
           "id": "model.sample_dbt.customer_details",
-          "sql": " __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)"
+          "sql": " __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)"
         }
       ],
       "extra_ctes_injected": true,
@@ -7647,7 +7722,7 @@
       "name": "monthly_billing_with_cust",
       "original_file_path": "models/billing/monthly_billing_with_cust.sql",
       "package_name": "sample_dbt",
-      "patch_path": null,
+      "patch_path": "sample_dbt://models/base.yml",
       "path": "billing/monthly_billing_with_cust.sql",
       "raw_code": "{{ config(\n    materialized = \"table\",\n    alias='an-aliased-view-for-monthly-billing'\n) }}\n\nSELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    {{ ref('payments_by_customer_by_month')}} pbc\n    left outer join {{ ref('customer_details')}} cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
       "refs": [
@@ -7658,10 +7733,10 @@
           "customer_details"
         ]
       ],
-      "relation_name": "\"pagila\".\"dbt_postgres\".\"an-aliased-view-for-monthly-billing\"",
+      "relation_name": "\"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"",
       "resource_type": "model",
       "root_path": "/some-path/sample-dbt",
-      "schema": "dbt_postgres",
+      "schema": "public",
       "sources": [],
       "tags": [],
       "unique_id": "model.sample_dbt.monthly_billing_with_cust",
@@ -7671,10 +7746,10 @@
       }
     },
     "model.sample_dbt.payments_base": {
-      "alias": "an-aliased-view-for-payments",
-      "build_path": null,
+      "alias": "an_aliased_view_for_payments",
+      "build_path": "target/run/sample_dbt/models/base/payments_base.sql",
       "checksum": {
-        "checksum": "11032ac45a744ecfe350f4ba5d7cbdd8b47bc83f0b39474dd0e7839888768dd3",
+        "checksum": "33a656d04defa3ea5153708e66658621465f444b388b775cfa7c3bbdc8cf7898",
         "name": "sha256"
       },
       "columns": {},
@@ -7682,7 +7757,7 @@
       "compiled_code": "\n\nwith payments as (\n\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_01\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_03\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_04\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_05\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_06\"\n)\n\nselect *\nfrom payments",
       "compiled_path": "target/compiled/sample_dbt/models/base/payments_base.sql",
       "config": {
-        "alias": "an-aliased-view-for-payments",
+        "alias": "an_aliased_view_for_payments",
         "column_types": {},
         "database": null,
         "docs": {
@@ -7705,18 +7780,18 @@
         "tags": [],
         "unique_key": null
       },
-      "created_at": 1670298551.78323,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "deferred": false,
       "depends_on": {
         "macros": [],
         "nodes": [
-          "source.sample_dbt.pagila.payment_p2020_05",
-          "source.sample_dbt.pagila.payment_p2020_04",
-          "source.sample_dbt.pagila.payment_p2020_01",
+          "source.sample_dbt.pagila.payment_p2020_03",
           "source.sample_dbt.pagila.payment_p2020_06",
+          "source.sample_dbt.pagila.payment_p2020_01",
+          "source.sample_dbt.pagila.payment_p2020_04",
           "source.sample_dbt.pagila.payment_p2020_02",
-          "source.sample_dbt.pagila.payment_p2020_03"
+          "source.sample_dbt.pagila.payment_p2020_05"
         ]
       },
       "description": "",
@@ -7739,24 +7814,16 @@
       "package_name": "sample_dbt",
       "patch_path": null,
       "path": "base/payments_base.sql",
-      "raw_code": "{{ config(\n    materialized=\"view\",\n    alias='an-aliased-view-for-payments'\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
+      "raw_code": "{{ config(\n    materialized=\"view\",\n    alias='an_aliased_view_for_payments'\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
       "refs": [],
-      "relation_name": "\"pagila\".\"dbt_postgres\".\"an-aliased-view-for-payments\"",
+      "relation_name": "\"pagila\".\"public\".\"an_aliased_view_for_payments\"",
       "resource_type": "model",
       "root_path": "/some-path/sample-dbt",
-      "schema": "dbt_postgres",
+      "schema": "public",
       "sources": [
         [
           "pagila",
-          "payment_p2020_05"
-        ],
-        [
-          "pagila",
-          "payment_p2020_04"
-        ],
-        [
-          "pagila",
-          "payment_p2020_01"
+          "payment_p2020_03"
         ],
         [
           "pagila",
@@ -7764,23 +7831,31 @@
         ],
         [
           "pagila",
+          "payment_p2020_01"
+        ],
+        [
+          "pagila",
+          "payment_p2020_04"
+        ],
+        [
+          "pagila",
           "payment_p2020_02"
         ],
         [
           "pagila",
-          "payment_p2020_03"
+          "payment_p2020_05"
         ]
       ],
       "tags": [],
       "unique_id": "model.sample_dbt.payments_base",
       "unrendered_config": {
-        "alias": "an-aliased-view-for-payments",
+        "alias": "an_aliased_view_for_payments",
         "materialized": "view"
       }
     },
     "model.sample_dbt.payments_by_customer_by_month": {
       "alias": "payments_by_customer_by_month",
-      "build_path": null,
+      "build_path": "target/run/sample_dbt/models/transform/payments_by_customer_by_month.sql",
       "checksum": {
         "checksum": "691757217fdc0ad849160f0b24bff8fa09385b51f9f5605dda388a6d47d1ab28",
         "name": "sha256"
@@ -7807,6 +7882,7 @@
           "description": "description for customer_id from dbt",
           "meta": {
             "is_sensitive": true,
+            "maturity": "beta",
             "terms": "pii, customer_id"
           },
           "name": "customer_id",
@@ -7817,7 +7893,7 @@
         }
       },
       "compiled": true,
-      "compiled_code": "\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    \"pagila\".\"dbt_postgres\".\"an-aliased-view-for-payments\"\nGROUP BY\n    billing_month,\n    customer_id",
+      "compiled_code": "\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    \"pagila\".\"public\".\"an_aliased_view_for_payments\"\nGROUP BY\n    billing_month,\n    customer_id",
       "compiled_path": "target/compiled/sample_dbt/models/transform/payments_by_customer_by_month.sql",
       "config": {
         "alias": null,
@@ -7843,7 +7919,7 @@
         "tags": [],
         "unique_key": null
       },
-      "created_at": 1670298551.767744,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "deferred": false,
       "depends_on": {
@@ -7870,7 +7946,7 @@
       "name": "payments_by_customer_by_month",
       "original_file_path": "models/transform/payments_by_customer_by_month.sql",
       "package_name": "sample_dbt",
-      "patch_path": null,
+      "patch_path": "sample_dbt://models/base.yml",
       "path": "transform/payments_by_customer_by_month.sql",
       "raw_code": "{{ config(\n    materialized = \"table\",\n) }}\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    {{ ref('payments_base')}}\nGROUP BY\n    billing_month,\n    customer_id",
       "refs": [
@@ -7878,20 +7954,710 @@
           "payments_base"
         ]
       ],
-      "relation_name": "\"pagila\".\"dbt_postgres\".\"payments_by_customer_by_month\"",
+      "relation_name": "\"pagila\".\"public\".\"payments_by_customer_by_month\"",
       "resource_type": "model",
       "root_path": "/some-path/sample-dbt",
-      "schema": "dbt_postgres",
+      "schema": "public",
       "sources": [],
       "tags": [],
       "unique_id": "model.sample_dbt.payments_by_customer_by_month",
       "unrendered_config": {
         "materialized": "table"
       }
+    },
+    "snapshot.sample_dbt.customer_snapshot": {
+      "alias": "customer_snapshot",
+      "build_path": "target/run/sample_dbt/snapshots/customer_snapshot.sql",
+      "checksum": {
+        "checksum": "a410c31c45fe4eb67521dd1801e84eea6ad896950e43adc9d794fbc2499d2784",
+        "name": "sha256"
+      },
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "\n\n\n\nselect * from \"pagila\".\"public\".\"customer\"\n",
+      "compiled_path": null,
+      "config": {
+        "alias": null,
+        "column_types": {},
+        "database": null,
+        "docs": {
+          "node_color": null,
+          "show": true
+        },
+        "enabled": true,
+        "full_refresh": null,
+        "grants": {},
+        "incremental_strategy": null,
+        "materialized": "snapshot",
+        "meta": {},
+        "on_schema_change": "ignore",
+        "packages": [],
+        "persist_docs": {},
+        "post-hook": [],
+        "pre-hook": [],
+        "quoting": {},
+        "schema": null,
+        "strategy": "timestamp",
+        "tags": [],
+        "target_database": "pagila",
+        "target_schema": "public",
+        "unique_key": "customer_id",
+        "updated_at": "last_update"
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "source.sample_dbt.pagila.customer"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [],
+      "extra_ctes_injected": true,
+      "fqn": [
+        "sample_dbt",
+        "customer_snapshot",
+        "customer_snapshot"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "customer_snapshot",
+      "original_file_path": "snapshots/customer_snapshot.sql",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "customer_snapshot.sql",
+      "raw_code": "\n\n{{\n    config(\n      target_database='pagila',\n      target_schema='public',\n      unique_key='customer_id',\n\n      strategy='timestamp',\n      updated_at='last_update',\n    )\n}}\n\nselect * from {{ source('pagila', 'customer') }}\n\n",
+      "refs": [],
+      "relation_name": "\"pagila\".\"public\".\"customer_snapshot\"",
+      "resource_type": "snapshot",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public",
+      "sources": [
+        [
+          "pagila",
+          "customer"
+        ]
+      ],
+      "tags": [],
+      "unique_id": "snapshot.sample_dbt.customer_snapshot",
+      "unrendered_config": {
+        "strategy": "timestamp",
+        "target_database": "pagila",
+        "target_schema": "public",
+        "unique_key": "customer_id",
+        "updated_at": "last_update"
+      }
+    },
+    "test.sample_dbt.assert_source_actor_last_update_is_recent": {
+      "alias": "assert_source_actor_last_update_is_recent",
+      "build_path": "target/run/sample_dbt/tests/assert_source_actor_last_update_is_recent.sql",
+      "checksum": {
+        "checksum": "2e93cd1a76b699545141d26bc80ae46d05b577ca86ad615cd8e27428b950d1d9",
+        "name": "sha256"
+      },
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "select\n    *\nfrom \"pagila\".\"public\".\"actor\"\nwhere last_update < (now() - interval '100 years')",
+      "compiled_path": "target/compiled/sample_dbt/tests/assert_source_actor_last_update_is_recent.sql",
+      "config": {
+        "alias": null,
+        "database": null,
+        "enabled": true,
+        "error_if": "!= 0",
+        "fail_calc": "count(*)",
+        "limit": null,
+        "materialized": "test",
+        "meta": {},
+        "schema": "dbt_test__audit",
+        "severity": "ERROR",
+        "store_failures": null,
+        "tags": [],
+        "warn_if": "!= 0",
+        "where": null
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [
+          "macro.dbt.should_store_failures",
+          "macro.dbt.statement"
+        ],
+        "nodes": [
+          "source.sample_dbt.pagila.actor"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [],
+      "extra_ctes_injected": true,
+      "fqn": [
+        "sample_dbt",
+        "assert_source_actor_last_update_is_recent"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "assert_source_actor_last_update_is_recent",
+      "original_file_path": "tests/assert_source_actor_last_update_is_recent.sql",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "assert_source_actor_last_update_is_recent.sql",
+      "raw_code": "select\n    *\nfrom {{ source('pagila', 'actor') }}\nwhere last_update < (now() - interval '100 years')",
+      "refs": [],
+      "relation_name": null,
+      "resource_type": "test",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public_dbt_test__audit",
+      "sources": [
+        [
+          "pagila",
+          "actor"
+        ]
+      ],
+      "tags": [],
+      "unique_id": "test.sample_dbt.assert_source_actor_last_update_is_recent",
+      "unrendered_config": {}
+    },
+    "test.sample_dbt.is_email_monthly_billing_with_cust_email.57a935ce99": {
+      "alias": "is_email_monthly_billing_with_cust_email",
+      "build_path": "target/run/sample_dbt/models/base.yml/is_email_monthly_billing_with_cust_email.sql",
+      "checksum": {
+        "checksum": "",
+        "name": "none"
+      },
+      "column_name": "email",
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "\n\n    select *\n    from \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\n    where email not like '%@%'\n\n",
+      "compiled_path": "target/compiled/sample_dbt/models/base.yml/is_email_monthly_billing_with_cust_email.sql",
+      "config": {
+        "alias": null,
+        "database": null,
+        "enabled": true,
+        "error_if": "!= 0",
+        "fail_calc": "count(*)",
+        "limit": null,
+        "materialized": "test",
+        "meta": {},
+        "schema": "dbt_test__audit",
+        "severity": "ERROR",
+        "store_failures": null,
+        "tags": [],
+        "warn_if": "!= 0",
+        "where": null
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [
+          "macro.sample_dbt.test_is_email",
+          "macro.dbt.get_where_subquery",
+          "macro.dbt.should_store_failures",
+          "macro.dbt.statement"
+        ],
+        "nodes": [
+          "model.sample_dbt.monthly_billing_with_cust"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [],
+      "extra_ctes_injected": true,
+      "file_key_name": "models.monthly_billing_with_cust",
+      "fqn": [
+        "sample_dbt",
+        "is_email_monthly_billing_with_cust_email"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "is_email_monthly_billing_with_cust_email",
+      "original_file_path": "models/base.yml",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "is_email_monthly_billing_with_cust_email.sql",
+      "raw_code": "{{ test_is_email(**_dbt_generic_test_kwargs) }}",
+      "refs": [
+        [
+          "monthly_billing_with_cust"
+        ]
+      ],
+      "relation_name": null,
+      "resource_type": "test",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public_dbt_test__audit",
+      "sources": [],
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "email",
+          "model": "{{ get_where_subquery(ref('monthly_billing_with_cust')) }}"
+        },
+        "name": "is_email",
+        "namespace": null
+      },
+      "unique_id": "test.sample_dbt.is_email_monthly_billing_with_cust_email.57a935ce99",
+      "unrendered_config": {}
+    },
+    "test.sample_dbt.not_null_monthly_billing_with_cust_billing_month.19ce54289b": {
+      "alias": "not_null_monthly_billing_with_cust_billing_month",
+      "build_path": "target/run/sample_dbt/models/base.yml/not_null_monthly_billing_with_cust_billing_month.sql",
+      "checksum": {
+        "checksum": "",
+        "name": "none"
+      },
+      "column_name": "billing_month",
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\n\n\nselect billing_month\nfrom \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\nwhere billing_month is null\n\n\n",
+      "compiled_path": "target/compiled/sample_dbt/models/base.yml/not_null_monthly_billing_with_cust_billing_month.sql",
+      "config": {
+        "alias": null,
+        "database": null,
+        "enabled": true,
+        "error_if": "!= 0",
+        "fail_calc": "count(*)",
+        "limit": null,
+        "materialized": "test",
+        "meta": {},
+        "schema": "dbt_test__audit",
+        "severity": "ERROR",
+        "store_failures": null,
+        "tags": [],
+        "warn_if": "!= 0",
+        "where": null
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [
+          "macro.dbt.test_not_null",
+          "macro.dbt.get_where_subquery",
+          "macro.dbt.should_store_failures",
+          "macro.dbt.statement"
+        ],
+        "nodes": [
+          "model.sample_dbt.monthly_billing_with_cust"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [],
+      "extra_ctes_injected": true,
+      "file_key_name": "models.monthly_billing_with_cust",
+      "fqn": [
+        "sample_dbt",
+        "not_null_monthly_billing_with_cust_billing_month"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "not_null_monthly_billing_with_cust_billing_month",
+      "original_file_path": "models/base.yml",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "not_null_monthly_billing_with_cust_billing_month.sql",
+      "raw_code": "{{ test_not_null(**_dbt_generic_test_kwargs) }}",
+      "refs": [
+        [
+          "monthly_billing_with_cust"
+        ]
+      ],
+      "relation_name": null,
+      "resource_type": "test",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public_dbt_test__audit",
+      "sources": [],
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "billing_month",
+          "model": "{{ get_where_subquery(ref('monthly_billing_with_cust')) }}"
+        },
+        "name": "not_null",
+        "namespace": null
+      },
+      "unique_id": "test.sample_dbt.not_null_monthly_billing_with_cust_billing_month.19ce54289b",
+      "unrendered_config": {}
+    },
+    "test.sample_dbt.not_null_monthly_billing_with_cust_email.d405c2cc13": {
+      "alias": "not_null_monthly_billing_with_cust_email",
+      "build_path": "target/run/sample_dbt/models/base.yml/not_null_monthly_billing_with_cust_email.sql",
+      "checksum": {
+        "checksum": "",
+        "name": "none"
+      },
+      "column_name": "email",
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\n\n\nselect email\nfrom \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\nwhere email is null\n\n\n",
+      "compiled_path": "target/compiled/sample_dbt/models/base.yml/not_null_monthly_billing_with_cust_email.sql",
+      "config": {
+        "alias": null,
+        "database": null,
+        "enabled": true,
+        "error_if": "!= 0",
+        "fail_calc": "count(*)",
+        "limit": null,
+        "materialized": "test",
+        "meta": {},
+        "schema": "dbt_test__audit",
+        "severity": "ERROR",
+        "store_failures": null,
+        "tags": [],
+        "warn_if": "!= 0",
+        "where": null
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [
+          "macro.dbt.test_not_null",
+          "macro.dbt.get_where_subquery",
+          "macro.dbt.should_store_failures",
+          "macro.dbt.statement"
+        ],
+        "nodes": [
+          "model.sample_dbt.monthly_billing_with_cust"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [],
+      "extra_ctes_injected": true,
+      "file_key_name": "models.monthly_billing_with_cust",
+      "fqn": [
+        "sample_dbt",
+        "not_null_monthly_billing_with_cust_email"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "not_null_monthly_billing_with_cust_email",
+      "original_file_path": "models/base.yml",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "not_null_monthly_billing_with_cust_email.sql",
+      "raw_code": "{{ test_not_null(**_dbt_generic_test_kwargs) }}",
+      "refs": [
+        [
+          "monthly_billing_with_cust"
+        ]
+      ],
+      "relation_name": null,
+      "resource_type": "test",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public_dbt_test__audit",
+      "sources": [],
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "email",
+          "model": "{{ get_where_subquery(ref('monthly_billing_with_cust')) }}"
+        },
+        "name": "not_null",
+        "namespace": null
+      },
+      "unique_id": "test.sample_dbt.not_null_monthly_billing_with_cust_email.d405c2cc13",
+      "unrendered_config": {}
+    },
+    "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b": {
+      "alias": "relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3",
+      "build_path": "target/run/sample_dbt/models/base.yml/relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3.sql",
+      "checksum": {
+        "checksum": "",
+        "name": "none"
+      },
+      "column_name": "customer_id",
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\nwith  __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n),child as (\n    select customer_id as from_field\n    from \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\n    where customer_id is not null\n),\n\nparent as (\n    select customer_id as to_field\n    from __dbt__cte__customer_details\n)\n\nselect\n    from_field\n\nfrom child\nleft join parent\n    on child.from_field = parent.to_field\n\nwhere parent.to_field is null\n\n\n",
+      "compiled_path": "target/compiled/sample_dbt/models/base.yml/relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3.sql",
+      "config": {
+        "alias": "relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3",
+        "database": null,
+        "enabled": true,
+        "error_if": "!= 0",
+        "fail_calc": "count(*)",
+        "limit": null,
+        "materialized": "test",
+        "meta": {},
+        "schema": "dbt_test__audit",
+        "severity": "ERROR",
+        "store_failures": null,
+        "tags": [],
+        "warn_if": "!= 0",
+        "where": null
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [
+          "macro.dbt.test_relationships",
+          "macro.dbt.get_where_subquery",
+          "macro.dbt.should_store_failures",
+          "macro.dbt.statement"
+        ],
+        "nodes": [
+          "model.sample_dbt.customer_details",
+          "model.sample_dbt.monthly_billing_with_cust"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [
+        {
+          "id": "model.sample_dbt.customer_details",
+          "sql": " __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)"
+        }
+      ],
+      "extra_ctes_injected": true,
+      "file_key_name": "models.monthly_billing_with_cust",
+      "fqn": [
+        "sample_dbt",
+        "relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_",
+      "original_file_path": "models/base.yml",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3.sql",
+      "raw_code": "{{ test_relationships(**_dbt_generic_test_kwargs) }}{{ config(alias=\"relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3\") }}",
+      "refs": [
+        [
+          "customer_details"
+        ],
+        [
+          "monthly_billing_with_cust"
+        ]
+      ],
+      "relation_name": null,
+      "resource_type": "test",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public_dbt_test__audit",
+      "sources": [],
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "customer_id",
+          "field": "customer_id",
+          "model": "{{ get_where_subquery(ref('monthly_billing_with_cust')) }}",
+          "to": "ref('customer_details')"
+        },
+        "name": "relationships",
+        "namespace": null
+      },
+      "unique_id": "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b",
+      "unrendered_config": {
+        "alias": "relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3"
+      }
+    },
+    "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e": {
+      "alias": "source_not_null_pagila_actor_actor_id",
+      "build_path": "target/run/sample_dbt/models/base.yml/source_not_null_pagila_actor_actor_id.sql",
+      "checksum": {
+        "checksum": "",
+        "name": "none"
+      },
+      "column_name": "actor_id",
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\n\n\nselect actor_id\nfrom \"pagila\".\"public\".\"actor\"\nwhere actor_id is null\n\n\n",
+      "compiled_path": "target/compiled/sample_dbt/models/base.yml/source_not_null_pagila_actor_actor_id.sql",
+      "config": {
+        "alias": null,
+        "database": null,
+        "enabled": true,
+        "error_if": "!= 0",
+        "fail_calc": "count(*)",
+        "limit": null,
+        "materialized": "test",
+        "meta": {},
+        "schema": "dbt_test__audit",
+        "severity": "ERROR",
+        "store_failures": null,
+        "tags": [],
+        "warn_if": "!= 0",
+        "where": null
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [
+          "macro.dbt.test_not_null",
+          "macro.dbt.get_where_subquery",
+          "macro.dbt.should_store_failures",
+          "macro.dbt.statement"
+        ],
+        "nodes": [
+          "source.sample_dbt.pagila.actor"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [],
+      "extra_ctes_injected": true,
+      "file_key_name": "sources.pagila",
+      "fqn": [
+        "sample_dbt",
+        "source_not_null_pagila_actor_actor_id"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "source_not_null_pagila_actor_actor_id",
+      "original_file_path": "models/base.yml",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "source_not_null_pagila_actor_actor_id.sql",
+      "raw_code": "{{ test_not_null(**_dbt_generic_test_kwargs) }}",
+      "refs": [],
+      "relation_name": null,
+      "resource_type": "test",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public_dbt_test__audit",
+      "sources": [
+        [
+          "pagila",
+          "actor"
+        ]
+      ],
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "actor_id",
+          "model": "{{ get_where_subquery(source('pagila', 'actor')) }}"
+        },
+        "name": "not_null",
+        "namespace": null
+      },
+      "unique_id": "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e",
+      "unrendered_config": {}
+    },
+    "test.sample_dbt.source_unique_pagila_actor_actor_id.76aff1935a": {
+      "alias": "source_unique_pagila_actor_actor_id",
+      "build_path": "target/run/sample_dbt/models/base.yml/source_unique_pagila_actor_actor_id.sql",
+      "checksum": {
+        "checksum": "",
+        "name": "none"
+      },
+      "column_name": "actor_id",
+      "columns": {},
+      "compiled": true,
+      "compiled_code": "\n    \n    \n\nselect\n    actor_id as unique_field,\n    count(*) as n_records\n\nfrom \"pagila\".\"public\".\"actor\"\nwhere actor_id is not null\ngroup by actor_id\nhaving count(*) > 1\n\n\n",
+      "compiled_path": "target/compiled/sample_dbt/models/base.yml/source_unique_pagila_actor_actor_id.sql",
+      "config": {
+        "alias": null,
+        "database": null,
+        "enabled": true,
+        "error_if": "!= 0",
+        "fail_calc": "count(*)",
+        "limit": null,
+        "materialized": "test",
+        "meta": {},
+        "schema": "dbt_test__audit",
+        "severity": "ERROR",
+        "store_failures": null,
+        "tags": [],
+        "warn_if": "!= 0",
+        "where": null
+      },
+      "created_at": 1663278957.5715818,
+      "database": "pagila",
+      "deferred": false,
+      "depends_on": {
+        "macros": [
+          "macro.dbt.test_unique",
+          "macro.dbt.get_where_subquery",
+          "macro.dbt.should_store_failures",
+          "macro.dbt.statement"
+        ],
+        "nodes": [
+          "source.sample_dbt.pagila.actor"
+        ]
+      },
+      "description": "",
+      "docs": {
+        "node_color": null,
+        "show": true
+      },
+      "extra_ctes": [],
+      "extra_ctes_injected": true,
+      "file_key_name": "sources.pagila",
+      "fqn": [
+        "sample_dbt",
+        "source_unique_pagila_actor_actor_id"
+      ],
+      "language": "sql",
+      "meta": {},
+      "metrics": [],
+      "name": "source_unique_pagila_actor_actor_id",
+      "original_file_path": "models/base.yml",
+      "package_name": "sample_dbt",
+      "patch_path": null,
+      "path": "source_unique_pagila_actor_actor_id.sql",
+      "raw_code": "{{ test_unique(**_dbt_generic_test_kwargs) }}",
+      "refs": [],
+      "relation_name": null,
+      "resource_type": "test",
+      "root_path": "/some-path/sample-dbt",
+      "schema": "public_dbt_test__audit",
+      "sources": [
+        [
+          "pagila",
+          "actor"
+        ]
+      ],
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "actor_id",
+          "model": "{{ get_where_subquery(source('pagila', 'actor')) }}"
+        },
+        "name": "unique",
+        "namespace": null
+      },
+      "unique_id": "test.sample_dbt.source_unique_pagila_actor_actor_id.76aff1935a",
+      "unrendered_config": {}
     }
   },
   "parent_map": {
     "model.sample_dbt.customer_details": [
+      "snapshot.sample_dbt.customer_snapshot",
       "source.sample_dbt.pagila.address",
       "source.sample_dbt.pagila.city",
       "source.sample_dbt.pagila.customer"
@@ -7911,6 +8677,9 @@
     "model.sample_dbt.payments_by_customer_by_month": [
       "model.sample_dbt.payments_base"
     ],
+    "snapshot.sample_dbt.customer_snapshot": [
+      "source.sample_dbt.pagila.customer"
+    ],
     "source.sample_dbt.pagila.actor": [],
     "source.sample_dbt.pagila.address": [],
     "source.sample_dbt.pagila.category": [],
@@ -7922,12 +8691,42 @@
     "source.sample_dbt.pagila.payment_p2020_03": [],
     "source.sample_dbt.pagila.payment_p2020_04": [],
     "source.sample_dbt.pagila.payment_p2020_05": [],
-    "source.sample_dbt.pagila.payment_p2020_06": []
+    "source.sample_dbt.pagila.payment_p2020_06": [],
+    "test.sample_dbt.assert_source_actor_last_update_is_recent": [
+      "source.sample_dbt.pagila.actor"
+    ],
+    "test.sample_dbt.is_email_monthly_billing_with_cust_email.57a935ce99": [
+      "model.sample_dbt.monthly_billing_with_cust"
+    ],
+    "test.sample_dbt.not_null_monthly_billing_with_cust_billing_month.19ce54289b": [
+      "model.sample_dbt.monthly_billing_with_cust"
+    ],
+    "test.sample_dbt.not_null_monthly_billing_with_cust_email.d405c2cc13": [
+      "model.sample_dbt.monthly_billing_with_cust"
+    ],
+    "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b": [
+      "model.sample_dbt.customer_details",
+      "model.sample_dbt.monthly_billing_with_cust"
+    ],
+    "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e": [
+      "source.sample_dbt.pagila.actor"
+    ],
+    "test.sample_dbt.source_unique_pagila_actor_actor_id.76aff1935a": [
+      "source.sample_dbt.pagila.actor"
+    ]
   },
   "selectors": {},
   "sources": {
     "source.sample_dbt.pagila.actor": {
       "columns": {
+        "actor_id": {
+          "data_type": null,
+          "description": "description for actor_id column from dbt",
+          "meta": {},
+          "name": "actor_id",
+          "quote": null,
+          "tags": []
+        },
         "first_name": {
           "data_type": null,
           "description": "description for first_name from dbt",
@@ -7956,7 +8755,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.820541,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "description for actor table from dbt",
       "external": null,
@@ -8011,7 +8810,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.820682,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "a user's address",
       "external": null,
@@ -8062,7 +8861,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.820788,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "a user's category",
       "external": null,
@@ -8113,7 +8912,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.820918,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "",
       "external": null,
@@ -8164,7 +8963,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.8210292,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "",
       "external": null,
@@ -8219,7 +9018,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.821124,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "description for customer table from dbt",
       "external": null,
@@ -8270,7 +9069,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.821228,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "",
       "external": null,
@@ -8321,7 +9120,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.821324,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "",
       "external": null,
@@ -8381,7 +9180,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.821418,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "",
       "external": null,
@@ -8432,7 +9231,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.821511,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "",
       "external": null,
@@ -8483,7 +9282,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.8216152,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "a payment",
       "external": null,
@@ -8534,7 +9333,7 @@
       "config": {
         "enabled": true
       },
-      "created_at": 1670298551.821711,
+      "created_at": 1663278957.5715818,
       "database": "pagila",
       "description": "",
       "external": null,

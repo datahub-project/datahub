@@ -1,5 +1,6 @@
 import collections
 import dataclasses
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Counter, Dict, List, Optional
@@ -8,7 +9,10 @@ import pydantic
 
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -45,7 +49,6 @@ class BigQueryV2Report(ProfilingSqlReport):
     include_table_lineage: Optional[bool] = None
     use_date_sharded_audit_log_tables: Optional[bool] = None
     log_page_size: Optional[pydantic.PositiveInt] = None
-    use_v2_audit_metadata: Optional[bool] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
     end_time: Optional[datetime] = None
     log_entry_start_time: Optional[str] = None
@@ -73,3 +76,20 @@ class BigQueryV2Report(ProfilingSqlReport):
     operation_types_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
+    current_project_status: Optional[str] = None
+
+    timer: Optional[PerfTimer] = field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    def set_project_state(self, project: str, stage: str) -> None:
+        if self.timer:
+            logger.info(
+                f"Time spent in stage <{self.current_project_status}>: "
+                f"{self.timer.elapsed_seconds():.2f} seconds"
+            )
+        else:
+            self.timer = PerfTimer()
+
+        self.current_project_status = f"{project}: {stage} at {datetime.now()}"
+        self.timer.start()

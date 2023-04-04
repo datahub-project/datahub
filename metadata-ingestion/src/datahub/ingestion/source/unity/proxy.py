@@ -134,6 +134,13 @@ class UnityCatalogApiProxy:
         self._unity_catalog_api.list_metastores()
         return True
 
+    def assigned_metastore(self) -> Optional[Metastore]:
+        response: dict = self._unity_catalog_api.get_metastore_summary()
+        if response.get("metastore_id") is None:
+            logger.info("Not found assigned metastore")
+            return None
+        return self._create_metastore(response)
+
     def metastores(self) -> Iterable[Metastore]:
         response: dict = self._unity_catalog_api.list_metastores()
         if response.get("metastores") is None:
@@ -149,8 +156,6 @@ class UnityCatalogApiProxy:
         if response.get("catalogs") is None:
             logger.info(f"Catalogs not found for metastore {metastore.name}")
             return []
-
-        self.report.num_catalogs_to_scan[metastore.id] = len(response["catalogs"])
 
         for obj in response["catalogs"]:
             if obj["metastore_id"] == metastore.metastore_id:
@@ -170,10 +175,6 @@ class UnityCatalogApiProxy:
             logger.info(f"Schemas not found for catalog {catalog.name}")
             return []
 
-        self.report.num_schemas_to_scan[
-            f"{catalog.metastore.metastore_id}.{catalog.name}"
-        ] = len(response["schemas"])
-
         for schema in response["schemas"]:
             yield self._create_schema(catalog, schema)
 
@@ -188,9 +189,6 @@ class UnityCatalogApiProxy:
             logger.info(f"Tables not found for schema {schema.name}")
             return []
 
-        self.report.num_tables_to_scan[
-            f"{schema.catalog.metastore.metastore_id}.{schema.catalog.name}.{schema.name}"
-        ] = len(response["tables"])
         for table in response["tables"]:
             yield self._create_table(schema=schema, obj=table)
 

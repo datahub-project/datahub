@@ -8,7 +8,7 @@ import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '.
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
@@ -18,9 +18,14 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
-    return data?.dataFlow?.platform?.properties?.displayName || data?.dataFlow?.platform?.name || '';
+    return (
+        data?.dataFlow?.platform?.properties?.displayName ||
+        capitalizeFirstLetterOnly(data?.dataFlow?.platform?.name) ||
+        ''
+    );
 };
 
 /**
@@ -29,20 +34,20 @@ const getDataJobPlatformName = (data?: DataJob): string => {
 export class DataJobEntity implements Entity<DataJob> {
     type: EntityType = EntityType.DataJob;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <ConsoleSqlOutlined style={{ fontSize }} />;
+            return <ConsoleSqlOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ConsoleSqlOutlined style={{ fontSize, color: '#B37FEB' }} />;
+            return <ConsoleSqlOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
             <ConsoleSqlOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -194,7 +199,7 @@ export class DataJobEntity implements Entity<DataJob> {
             name: this.displayName(entity),
             expandedName: this.getExpandedNameForDataJob(entity),
             type: EntityType.DataJob,
-            icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
+            icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined,
             platform: entity?.dataFlow?.platform,
         };
     };

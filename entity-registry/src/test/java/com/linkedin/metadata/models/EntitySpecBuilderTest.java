@@ -44,9 +44,13 @@ public class EntitySpecBuilderTest {
 
   @Test
   public void testBuildAspectSpecValidationDuplicateSearchableFields() {
-    assertThrows(ModelValidationException.class, () ->
-        new EntitySpecBuilder().buildAspectSpec(new DuplicateSearchableFields().schema(), RecordTemplate.class)
-    );
+    AspectSpec aspectSpec = new EntitySpecBuilder()
+        .buildAspectSpec(new DuplicateSearchableFields().schema(), RecordTemplate.class);
+
+    aspectSpec.getSearchableFieldSpecs().forEach(searchableFieldSpec -> {
+        String name = searchableFieldSpec.getSearchableAnnotation().getFieldName();
+        assertTrue("textField".equals(name) || "textField2".equals(name));
+    });
   }
 
   @Test
@@ -109,7 +113,7 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityKey().schema().getFullName(), keyAspectSpec.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(2, keyAspectSpec.getSearchableFieldSpecs().size());
+    assertEquals(2, keyAspectSpec.getSearchableFieldSpecs().size()); // keyPart1, keyPart3
     assertEquals("keyPart1", keyAspectSpec.getSearchableFieldSpecMap().get(new PathSpec("keyPart1").toString())
         .getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.TEXT, keyAspectSpec.getSearchableFieldSpecMap().get(new PathSpec("keyPart1").toString())
@@ -176,6 +180,11 @@ public class EntitySpecBuilderTest {
     assertEquals(SearchableAnnotation.FieldType.OBJECT, testEntityInfo.getSearchableFieldSpecMap().get(
             new PathSpec("esObjectField").toString())
         .getSearchableAnnotation().getFieldType());
+    assertEquals("foreignKey", testEntityInfo.getSearchableFieldSpecMap().get(
+            new PathSpec("foreignKey").toString()).getSearchableAnnotation().getFieldName());
+    assertEquals(true, testEntityInfo.getSearchableFieldSpecMap().get(
+            new PathSpec("foreignKey").toString()).getSearchableAnnotation().isQueryByDefault());
+
 
     // Assert on Relationship Fields
     assertEquals(4, testEntityInfo.getRelationshipFieldSpecs().size());

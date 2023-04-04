@@ -1,19 +1,43 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewInfo;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.plexus.util.CollectionUtils;
+
+import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 
 
 @Slf4j
@@ -53,6 +77,7 @@ public class SearchUtils {
           EntityType.DATASET,
           EntityType.DASHBOARD,
           EntityType.CHART,
+          EntityType.CONTAINER,
           EntityType.MLMODEL,
           EntityType.MLMODEL_GROUP,
           EntityType.MLFEATURE_TABLE,
@@ -64,6 +89,32 @@ public class SearchUtils {
           EntityType.CORP_GROUP,
           EntityType.NOTEBOOK);
 
+  /**
+   * A prioritized list of source filter types used to generate quick filters
+   */
+  public static final List<String> PRIORITIZED_SOURCE_ENTITY_TYPES = Stream.of(
+      DATASET_ENTITY_NAME,
+      DASHBOARD_ENTITY_NAME,
+      DATA_FLOW_ENTITY_NAME,
+      DATA_JOB_ENTITY_NAME,
+      CHART_ENTITY_NAME,
+      CONTAINER_ENTITY_NAME,
+      ML_MODEL_ENTITY_NAME,
+      ML_MODEL_GROUP_ENTITY_NAME,
+      ML_FEATURE_ENTITY_NAME,
+      ML_FEATURE_TABLE_ENTITY_NAME,
+      ML_PRIMARY_KEY_ENTITY_NAME
+  ).map(String::toLowerCase).collect(Collectors.toList());
+
+  /**
+   * A prioritized list of DataHub filter types used to generate quick filters
+   */
+  public static final List<String> PRIORITIZED_DATAHUB_ENTITY_TYPES = Stream.of(
+      DOMAIN_ENTITY_NAME,
+      GLOSSARY_TERM_ENTITY_NAME,
+      CORP_GROUP_ENTITY_NAME,
+      CORP_USER_ENTITY_NAME
+  ).map(String::toLowerCase).collect(Collectors.toList());
 
   /**
    * Combines two {@link Filter} instances in a conjunction and returns a new instance of {@link Filter}
@@ -271,5 +322,39 @@ public class SearchUtils {
     }
     throw new IllegalArgumentException(
         String.format("Illegal filter provided! Neither 'or' nor 'criteria' fields were populated for filter %s", filter));
+  }
+
+  /**
+   * Attempts to resolve a View by urn. Throws {@link IllegalArgumentException} if a View with the specified
+   * urn cannot be found.
+   */
+  public static DataHubViewInfo resolveView(@Nonnull ViewService viewService, @Nonnull final Urn viewUrn,
+      @Nonnull final Authentication authentication) {
+    try {
+      DataHubViewInfo maybeViewInfo = viewService.getViewInfo(viewUrn, authentication);
+      if (maybeViewInfo == null) {
+        log.warn(String.format("Failed to resolve View with urn %s. View does not exist!", viewUrn));
+      }
+      return maybeViewInfo;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Caught exception while attempting to resolve View with URN %s", viewUrn), e);
+    }
+  }
+
+  //  Assumption is that filter values for degree are either null, 3+, 2, or 1.
+  public static Integer getMaxHops(List<FacetFilterInput> filters) {
+    Set<String> degreeFilterValues = filters.stream()
+        .filter(filter -> filter.getField().equals("degree"))
+        .flatMap(filter -> filter.getValues().stream())
+        .collect(Collectors.toSet());
+    Integer maxHops = null;
+    if (!degreeFilterValues.contains("3+")) {
+      if (degreeFilterValues.contains("2")) {
+        maxHops = 2;
+      } else if (degreeFilterValues.contains("1")) {
+        maxHops = 1;
+      }
+    }
+    return maxHops;
   }
 }

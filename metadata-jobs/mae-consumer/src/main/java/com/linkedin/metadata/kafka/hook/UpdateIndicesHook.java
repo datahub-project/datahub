@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFields;
@@ -21,6 +22,7 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -45,8 +47,8 @@ import com.linkedin.util.Pair;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +63,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 // TODO: Backfill tests for this class in UpdateIndicesHookTest.java
@@ -71,9 +74,9 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES = ImmutableSet.of(
-    ChangeType.UPSERT,
-    ChangeType.RESTATE,
-    ChangeType.PATCH);
+      ChangeType.UPSERT,
+      ChangeType.RESTATE,
+      ChangeType.PATCH);
   private static final String DOWNSTREAM_OF = "DownstreamOf";
 
   private final GraphService _graphService;
@@ -83,8 +86,20 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
 
-  @Value("${featureFlags.graphServiceDiffModeEnabled:false}")
-  private boolean _diffMode;
+  @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
+  private boolean _graphDiffMode;
+  @Value("${featureFlags.searchServiceDiffModeEnabled:true}")
+  private boolean _searchDiffMode;
+
+  @VisibleForTesting
+  void setGraphDiffMode(boolean graphDiffMode) {
+    _graphDiffMode = graphDiffMode;
+  }
+
+  @VisibleForTesting
+  void setSearchDiffMode(boolean searchDiffMode) {
+    _searchDiffMode = searchDiffMode;
+  }
 
   @Autowired
   public UpdateIndicesHook(
@@ -100,10 +115,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
-    _graphService.configure();
-    _entitySearchService.configure();
-    _systemMetadataService.configure();
-    _timeseriesAspectService.configure();
   }
 
   @Override
@@ -164,11 +175,13 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
 
     // Step 1. For all aspects, attempt to update Search
-    updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect,
-        event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
+    updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect, event.getSystemMetadata(), previousAspect);
 
     // Step 2. For all aspects, attempt to update Graph
-    if (_diffMode) {
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+    if (_graphDiffMode && !(_graphService instanceof DgraphGraphService)
+        && (systemMetadata == null || systemMetadata.getProperties() == null
+        || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
     } else {
       updateGraphService(urn, aspectSpec, aspect, event);
@@ -218,9 +231,9 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
   // TODO: remove this method once we implement sourceOverride when creating graph edges
   private void updateFineGrainedEdgesAndRelationships(
-          RecordTemplate aspect,
-          List<Edge> edgesToAdd,
-          HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+      RecordTemplate aspect,
+      List<Edge> edgesToAdd,
+      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
   ) {
     UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
     if (upstreamLineage.getFineGrainedLineages() != null) {
@@ -251,10 +264,10 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
   // TODO: remove this method once we implement sourceOverride and update inputFields aspect
   private void updateInputFieldEdgesAndRelationships(
-          @Nonnull final Urn urn,
-          @Nonnull final InputFields inputFields,
-          @Nonnull final List<Edge> edgesToAdd,
-          @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+      @Nonnull final Urn urn,
+      @Nonnull final InputFields inputFields,
+      @Nonnull final List<Edge> edgesToAdd,
+      @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
   ) {
     if (inputFields.hasFields()) {
       for (final InputField field : inputFields.getFields()) {
@@ -274,7 +287,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       @Nonnull final Urn urn,
       @Nonnull final AspectSpec aspectSpec,
       @Nonnull final RecordTemplate aspect,
-      @Nonnull final MetadataChangeLog event
+      @Nonnull final MetadataChangeLog event,
+      final boolean isNewAspectVersion
   ) {
     final List<Edge> edgesToAdd = new ArrayList<>();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
@@ -296,7 +310,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(urn, new HashSet<>());
       relationshipTypes.add(entry.getKey().getRelationshipName());
       urnToRelationshipTypesBeingAdded.put(urn, relationshipTypes);
-      final List<Edge> newEdges = GraphIndexUtils.extractGraphEdges(entry, aspect, urn, event);
+      final List<Edge> newEdges = GraphIndexUtils.extractGraphEdges(entry, aspect, urn, event, isNewAspectVersion);
       edgesToAdd.addAll(newEdges);
     }
     return Pair.of(edgesToAdd, urnToRelationshipTypesBeingAdded);
@@ -312,7 +326,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       @Nonnull final MetadataChangeLog event
   ) {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event);
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
 
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
@@ -336,25 +350,31 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   ) {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
     if (oldAspect != null) {
-      oldEdgeAndRelationTypes = getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, oldAspect, event);
+      oldEdgeAndRelationTypes = getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, oldAspect, event, false);
     }
 
-    final List<Edge> oldEdges = oldEdgeAndRelationTypes != null ? oldEdgeAndRelationTypes.getFirst() : Collections.emptyList();
+    final List<Edge> oldEdges =
+        oldEdgeAndRelationTypes != null ? oldEdgeAndRelationTypes.getFirst() : Collections.emptyList();
     final Set<Edge> oldEdgeSet = new HashSet<>(oldEdges);
 
     Pair<List<Edge>, HashMap<Urn, Set<String>>> newEdgeAndRelationTypes =
-            getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, newAspect, event);
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, newAspect, event, true);
 
     final List<Edge> newEdges = newEdgeAndRelationTypes.getFirst();
     final Set<Edge> newEdgeSet = new HashSet<>(newEdges);
 
-    List<Edge> additiveDifference = newEdges.stream()
-            .filter(edge -> !oldEdgeSet.contains(edge))
-            .collect(Collectors.toList());
+    // Edges to add
+    final List<Edge> additiveDifference = newEdgeSet.stream()
+        .filter(edge -> !oldEdgeSet.contains(edge))
+        .collect(Collectors.toList());
 
-    List<Edge> subtractiveDifference = oldEdges.stream()
-            .filter(edge -> !newEdgeSet.contains(edge))
-            .collect(Collectors.toList());
+    // Edges to remove
+    final List<Edge> subtractiveDifference = oldEdgeSet.stream()
+        .filter(edge -> !newEdgeSet.contains(edge))
+        .collect(Collectors.toList());
+
+    // Edges to update
+    final List<Edge> mergedEdges = getMergedEdges(oldEdgeSet, newEdgeSet);
 
     // Remove any old edges that no longer exist first
     if (subtractiveDifference.size() > 0) {
@@ -367,13 +387,41 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       log.debug("Adding edges: {}", additiveDifference);
       additiveDifference.forEach(_graphService::addEdge);
     }
+
+    // Then update existing edges
+    if (mergedEdges.size() > 0) {
+      log.debug("Updating edges: {}", mergedEdges);
+      mergedEdges.forEach(_graphService::upsertEdge);
+    }
+  }
+
+  private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
+    final Map<Integer, com.linkedin.metadata.graph.Edge> oldEdgesMap = oldEdgeSet
+        .stream()
+        .map(edge -> Pair.of(edge.hashCode(), edge))
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+
+    final List<com.linkedin.metadata.graph.Edge> mergedEdges = new ArrayList<>();
+    if (!oldEdgesMap.isEmpty()) {
+      for (com.linkedin.metadata.graph.Edge newEdge : newEdgeSet) {
+        if (oldEdgesMap.containsKey(newEdge.hashCode())) {
+          final com.linkedin.metadata.graph.Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
+          final com.linkedin.metadata.graph.Edge mergedEdge = GraphIndexUtils.mergeEdges(oldEdge, newEdge);
+          mergedEdges.add(mergedEdge);
+        }
+      }
+    }
+
+    return mergedEdges;
   }
 
   /**
    * Process snapshot and update search index
    */
-  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, @Nullable String runId) {
+  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect,
+      @Nullable SystemMetadata systemMetadata, @Nullable RecordTemplate previousAspect) {
     Optional<String> searchDocument;
+    Optional<String> previousSearchDocument = Optional.empty();
     try {
       searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
     } catch (Exception e) {
@@ -389,6 +437,28 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
     if (!docId.isPresent()) {
       return;
+    }
+
+    String searchDocumentValue = searchDocument.get();
+    if (_searchDiffMode && (systemMetadata == null || systemMetadata.getProperties() == null
+        || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
+      if (previousAspect != null) {
+        try {
+          previousSearchDocument = _searchDocumentTransformer.transformAspect(urn, previousAspect, aspectSpec, false);
+        } catch (Exception e) {
+          log.error(
+              "Error in getting documents from previous aspect state: {} for aspect {}, continuing without diffing.", e,
+              aspectSpec.getName());
+        }
+      }
+
+      if (previousSearchDocument.isPresent()) {
+        String previousSearchDocumentValue = previousSearchDocument.get();
+        if (searchDocumentValue.equals(previousSearchDocumentValue)) {
+          // No changes to search document, skip writing no-op update
+          return;
+        }
+      }
     }
 
     _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());
@@ -445,7 +515,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
 
     Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event);
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
 
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
     if (urnToRelationshipTypesBeingAdded.size() > 0) {
@@ -457,30 +527,30 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   private void deleteSearchData(Urn urn, String entityName, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
-      String docId;
-      try {
-        docId = URLEncoder.encode(urn.toString(), "UTF-8");
-      } catch (UnsupportedEncodingException e) {
-        log.error("Failed to encode the urn with error: {}", e.toString());
-        return;
-      }
+    String docId;
+    try {
+      docId = URLEncoder.encode(urn.toString(), "UTF-8");
+    } catch (UnsupportedEncodingException e) {
+      log.error("Failed to encode the urn with error: {}", e.toString());
+      return;
+    }
 
-      if (isKeyAspect) {
-        _entitySearchService.deleteDocument(entityName, docId);
-        return;
-      }
+    if (isKeyAspect) {
+      _entitySearchService.deleteDocument(entityName, docId);
+      return;
+    }
 
-      Optional<String> searchDocument;
-      try {
-        searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
-      } catch (Exception e) {
-        log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
-        return;
-      }
+    Optional<String> searchDocument;
+    try {
+      searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
+    } catch (Exception e) {
+      log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
+      return;
+    }
 
-      if (!searchDocument.isPresent()) {
-        return;
-      }
+    if (!searchDocument.isPresent()) {
+      return;
+    }
 
     _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
   }

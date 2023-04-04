@@ -84,7 +84,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/kafka/value_topic"
+                            "/prod/kafka"
                         ]
                     }
                 },
@@ -118,7 +118,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"topic\"]}",
+        "value": "{\"typeNames\": [\"Topic\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -187,7 +187,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/kafka/key_topic"
+                            "/prod/kafka"
                         ]
                     }
                 },
@@ -221,7 +221,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"topic\"]}",
+        "value": "{\"typeNames\": [\"Topic\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -326,7 +326,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/kafka/key_value_topic"
+                            "/prod/kafka"
                         ]
                     }
                 },
@@ -360,7 +360,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"topic\"]}",
+        "value": "{\"typeNames\": [\"Topic\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

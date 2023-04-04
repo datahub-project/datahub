@@ -82,7 +82,12 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="createDomainButton" onClick={onCreateDomain} disabled={!createButtonEnabled}>
+                    <Button
+                        id="createDomainButton"
+                        data-testid="create-domain-button"
+                        onClick={onCreateDomain}
+                        disabled={!createButtonEnabled}
+                    >
                         Create
                     </Button>
                 </>
@@ -106,11 +111,11 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                 message: 'Enter a Domain name.',
                             },
                             { whitespace: true },
-                            { min: 1, max: 50 },
+                            { min: 1, max: 150 },
                         ]}
                         hasFeedback
                     >
-                        <Input placeholder="A name for your domain" />
+                        <Input data-testid="create-domain-name" placeholder="A name for your domain" />
                     </Form.Item>
                     <SuggestedNamesGroup>
                         {SUGGESTED_DOMAIN_NAMES.map((name) => {
@@ -164,7 +169,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                     }),
                                 ]}
                             >
-                                <Input placeholder="engineering" />
+                                <Input data-testid="create-domain-id" placeholder="engineering" />
                             </Form.Item>
                         </Form.Item>
                     </Collapse.Panel>

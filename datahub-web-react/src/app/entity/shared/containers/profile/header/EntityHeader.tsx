@@ -1,12 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { EntityHealthStatus } from './EntityHealthStatus';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
 import { getPlatformName } from '../../../utils';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
 import EntityCount from './EntityCount';
 import EntityName from './EntityName';
@@ -16,6 +14,8 @@ import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types'
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import ExternalUrlButton from '../../../ExternalUrlButton';
 import ShareButton from '../../../../../shared/share/ShareButton';
+import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
+import { useUserContext } from '../../../../../context/useUserContext';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -37,7 +37,7 @@ const HeaderContainer = styled.div`
 
 const MainHeaderContent = styled.div`
     flex: 1;
-    width: 85%;
+    width: 70%;
 
     .entityCount {
         margin: 5px 0 -4px 0;
@@ -72,32 +72,23 @@ export function getCanEditName(
 }
 
 type Props = {
-    refreshBrowser?: () => void;
     headerDropdownItems?: Set<EntityMenuItems>;
     headerActionItems?: Set<EntityActionItem>;
     isNameEditable?: boolean;
     subHeader?: EntitySubHeaderSection;
 };
 
-export const EntityHeader = ({
-    refreshBrowser,
-    headerDropdownItems,
-    headerActionItems,
-    isNameEditable,
-    subHeader,
-}: Props) => {
+export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEditable, subHeader }: Props) => {
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
-    const me = useGetAuthenticatedUser();
-    const basePlatformName = getPlatformName(entityData);
-    const platformName = capitalizeFirstLetterOnly(basePlatformName);
+    const me = useUserContext();
+    const platformName = getPlatformName(entityData);
     const externalUrl = entityData?.externalUrl || undefined;
     const entityCount = entityData?.entityCount;
     const isCompact = React.useContext(CompactContext);
 
     const entityName = entityData?.name;
-    const subType =
-        (entityData?.subTypes?.typeNames?.length || 0) > 0 ? entityData?.subTypes?.typeNames![0] : undefined;
+    const subType = capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || undefined;
 
     const canEditName =
         isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
@@ -149,7 +140,6 @@ export const EntityHeader = ({
                                 entityData={entityData}
                                 menuItems={headerDropdownItems}
                                 refetchForEntity={refetch}
-                                refreshBrowser={refreshBrowser}
                             />
                         )}
                     </TopButtonsWrapper>

@@ -42,6 +42,7 @@ workbook_graphql_query = """
       luid
       uri
       projectName
+      projectLuid
       owner {
         username
       }
@@ -54,97 +55,120 @@ workbook_graphql_query = """
       }
       sheets {
         id
-        name
-        path
-        luid
-        createdAt
-        updatedAt
-        tags {
-          name
-        }
-        containedInDashboards {
-          name
-          path
-        }
-        datasourceFields {
-          __typename
-          id
-          name
-          description
-          datasource {
-            id
-            name
-          }
-          ... on ColumnField {
-            dataCategory
-            role
-            dataType
-            aggregation
-          }
-          ... on CalculatedField {
-            role
-            dataType
-            aggregation
-            formula
-          }
-          ... on GroupField {
-            role
-            dataType
-          }
-          ... on DatasourceField {
-            remoteField {
-              __typename
-              id
-              name
-              description
-              folderName
-              ... on ColumnField {
-                dataCategory
-                role
-                dataType
-                aggregation
-              }
-              ... on CalculatedField {
-                role
-                dataType
-                aggregation
-                formula
-              }
-              ... on GroupField {
-                role
-                dataType
-              }
-            }
-          }
-        }
       }
       dashboards {
         id
-        name
-        path
-        luid
-        createdAt
-        updatedAt
-        sheets {
-          id
-          name
-        }
-        tags {
-            name
-        }
       }
       embeddedDatasources {
         id
       }
-      upstreamDatasources {
-        name
-        id
-        downstreamSheets {
-          name
-          id
-        }
-      }
     }
+"""
+
+sheet_graphql_query = """
+{
+    id
+    name
+    path
+    luid
+    documentViewId
+    createdAt
+    updatedAt
+    tags {
+        name
+    }
+    containedInDashboards {
+        name
+        path
+    }
+    workbook {
+        id
+        name
+        projectName
+        projectLuid
+        owner {
+          username
+        }
+    }
+    datasourceFields {
+        __typename
+        id
+        name
+        description
+        datasource {
+        id
+        name
+        }
+        ... on ColumnField {
+        dataCategory
+        role
+        dataType
+        aggregation
+        }
+        ... on CalculatedField {
+        role
+        dataType
+        aggregation
+        formula
+        }
+        ... on GroupField {
+        role
+        dataType
+        }
+        ... on DatasourceField {
+        remoteField {
+            __typename
+            id
+            name
+            description
+            folderName
+            ... on ColumnField {
+            dataCategory
+            role
+            dataType
+            aggregation
+            }
+            ... on CalculatedField {
+            role
+            dataType
+            aggregation
+            formula
+            }
+            ... on GroupField {
+            role
+            dataType
+            }
+        }
+        }
+    }
+}
+"""
+
+dashboard_graphql_query = """
+{
+    id
+    name
+    path
+    luid
+    createdAt
+    updatedAt
+    sheets {
+        id
+        name
+    }
+    tags {
+        name
+    }
+    workbook {
+        id
+        name
+        projectName
+        projectLuid
+        owner {
+          username
+        }
+    }
+}
 """
 
 embedded_datasource_graphql_query = """
@@ -223,6 +247,7 @@ embedded_datasource_graphql_query = """
         id
         name
         projectName
+        projectLuid
         owner {
           username
         }
@@ -258,12 +283,14 @@ custom_sql_graphql_query = """
             }
             ... on PublishedDatasource {
               projectName
+              luid
             }
             ... on EmbeddedDatasource {
               workbook {
                 id
                 name
                 projectName
+                projectLuid
               }
             }
           }
@@ -293,6 +320,7 @@ published_datasource_graphql_query = """
     __typename
     id
     name
+    luid
     hasExtracts
     extractLastRefreshTime
     extractLastIncrementalUpdateTime
@@ -596,7 +624,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
     return unique_custom_sql
 
 
-def clean_query(query):
+def clean_query(query: str) -> str:
     """
     Clean special chars in query
     """

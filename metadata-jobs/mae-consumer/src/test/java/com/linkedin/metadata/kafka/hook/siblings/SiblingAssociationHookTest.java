@@ -24,6 +24,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -253,7 +254,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.when(
         _mockSearchService.search(
-            anyString(), anyString(), any(), any(), anyInt(), anyInt()
+            anyString(), anyString(), any(), any(), anyInt(), anyInt(), eq(new SearchFlags().setFulltext(false)
+                        .setSkipAggregates(true).setSkipHighlighting(true))
         )).thenReturn(returnSearchResult);
 
     MetadataChangeLog event = new MetadataChangeLog();

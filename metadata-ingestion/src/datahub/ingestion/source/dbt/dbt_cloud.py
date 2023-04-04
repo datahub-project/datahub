@@ -93,7 +93,7 @@ _DBT_GRAPHQL_NODE_COMMON_FIELDS = """
   #}
 """
 
-_DBT_GRAPHQL_MODEL_SEED_FIELDS = """
+_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
   alias
   error
   status
@@ -109,7 +109,7 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
   models(jobId: $jobId, runId: $runId) {{
     { _DBT_GRAPHQL_COMMON_FIELDS }
     { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_FIELDS }
+    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
     dependsOn
     materializedType
   }}
@@ -117,7 +117,7 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
   seeds(jobId: $jobId, runId: $runId) {{
     { _DBT_GRAPHQL_COMMON_FIELDS }
     { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_FIELDS }
+    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
   }}
 
   sources(jobId: $jobId, runId: $runId) {{
@@ -131,6 +131,18 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
     state
     freshnessChecked
     loader
+  }}
+
+  snapshots(jobId: $jobId, runId: $runId) {{
+    { _DBT_GRAPHQL_COMMON_FIELDS }
+    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
+    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    parentsSources {{
+      uniqueId
+    }}
+    parentsModels {{
+      uniqueId
+    }}
   }}
 
   tests(jobId: $jobId, runId: $runId) {{
@@ -206,6 +218,7 @@ class DBTCloudSource(DBTSourceBase):
             },
             headers={
                 "Authorization": f"Bearer {self.config.token}",
+                "X-dbt-partner-source": "acryldatahub",
             },
         )
 
@@ -224,6 +237,7 @@ class DBTCloudSource(DBTSourceBase):
             *data["models"],
             *data["seeds"],
             *data["sources"],
+            *data["snapshots"],
             *data["tests"],
         ]
 
@@ -253,10 +267,21 @@ class DBTCloudSource(DBTSourceBase):
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
+        elif node["resourceType"] == "snapshot":
+            materialization = "snapshot"
         else:
             materialization = None
 
-        upstream_nodes = node.get("dependsOn", [])
+        if node["resourceType"] == "snapshot":
+            upstream_nodes = [
+                obj["uniqueId"]
+                for obj in [
+                    *node.get("parentsModels", []),
+                    *node.get("parentsSources", []),
+                ]
+            ]
+        else:
+            upstream_nodes = node.get("dependsOn", [])
 
         catalog_type = node.get("type")
 
@@ -269,7 +294,7 @@ class DBTCloudSource(DBTSourceBase):
         tags = node["tags"]
         tags = [self.config.tag_prefix + tag for tag in tags]
 
-        if node["resourceType"] in {"model", "seed"}:
+        if node["resourceType"] in {"model", "seed", "snapshot"}:
             status = node["status"]
             if status is None and materialization != "ephemeral":
                 self.report.report_warning(
@@ -376,7 +401,10 @@ class DBTCloudSource(DBTSourceBase):
             test_result=test_result,
         )
 
-    def _parse_into_dbt_column(self, column: Dict) -> DBTColumn:
+    def _parse_into_dbt_column(
+        self,
+        column: Dict,
+    ) -> DBTColumn:
         return DBTColumn(
             name=column["name"],
             comment=column.get("comment", ""),
@@ -390,8 +418,3 @@ class DBTCloudSource(DBTSourceBase):
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
         return f"https://cloud.getdbt.com/next/accounts/{self.config.account_id}/projects/{self.config.project_id}/develop"
-
-    def get_platform_instance_id(self) -> str:
-        """The DBT project identifier is used as platform instance."""
-
-        return f"{self.platform}_{self.config.project_id}"

@@ -8,7 +8,7 @@ from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, c
 import looker_sdk
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
-from looker_sdk.sdk.api31.models import (
+from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardBase,
     DBConnection,
@@ -68,7 +68,7 @@ class LookerAPI:
         os.environ["LOOKERSDK_CLIENT_SECRET"] = config.client_secret
         os.environ["LOOKERSDK_BASE_URL"] = config.base_url
 
-        self.client = looker_sdk.init31()
+        self.client = looker_sdk.init40()
         self.transport_options = (
             config.transport_options.get_transport_options()
             if config.transport_options is not None
@@ -84,7 +84,7 @@ class LookerAPI:
             )
         except SDKError as e:
             raise ConfigurationError(
-                "Failed to initialize Looker client. Please check your configuration."
+                f"Failed to connect/authenticate with looker - check your configuration: {e}"
             ) from e
 
         self.client_stats = LookerAPIStats()
@@ -108,7 +108,7 @@ class LookerAPI:
         return permissions
 
     @lru_cache(maxsize=2000)
-    def get_user(self, id_: int, user_fields: str) -> Optional[User]:
+    def get_user(self, id_: str, user_fields: str) -> Optional[User]:
         self.client_stats.user_calls += 1
         try:
             return self.client.user(

@@ -1,12 +1,16 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"ephemeral\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "ephemeral",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -16,7 +20,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -25,6 +29,7 @@
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.customer_details",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -71,6 +76,22 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer_snapshot,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
                             },
@@ -81,14 +102,6 @@
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
-                            },
-                            {
-                                "auditStamp": {
-                                    "time": 1643871600000,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
-                                "type": "TRANSFORMED"
                             }
                         ]
                     }
@@ -96,7 +109,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.ViewProperties": {
                         "materialized": false,
-                        "viewLogic": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
+                        "viewLogic": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from {{ ref('customer_snapshot') }} cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
                         "viewLanguage": "SQL"
                     }
                 }
@@ -110,12 +123,16 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "table",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -125,7 +142,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -135,6 +152,7 @@
                             "dbt_file_path": "models/billing/monthly_billing_with_cust.sql",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.monthly_billing_with_cust",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -230,7 +248,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -238,7 +256,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -261,12 +279,16 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "view",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -276,7 +298,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -286,13 +308,14 @@
                             "dbt_file_path": "models/base/payments_base.sql",
                             "catalog_type": "VIEW",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.payments_base",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.3.0"
                         },
-                        "name": "an-aliased-view-for-payments",
+                        "name": "an_aliased_view_for_payments",
                         "description": "",
                         "tags": []
                     }
@@ -405,14 +428,6 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
-                                "type": "TRANSFORMED"
-                            },
-                            {
-                                "auditStamp": {
-                                    "time": 1643871600000,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
                             },
@@ -437,7 +452,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -447,6 +462,14 @@
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD)",
+                                "type": "TRANSFORMED"
                             }
                         ]
                     }
@@ -454,7 +477,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.ViewProperties": {
                         "materialized": false,
-                        "viewLogic": "{{ config(\n    materialized=\"view\",\n    alias='an-aliased-view-for-payments'\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
+                        "viewLogic": "{{ config(\n    materialized=\"view\",\n    alias='an_aliased_view_for_payments'\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
                         "viewLanguage": "SQL"
                     }
                 }
@@ -468,12 +491,16 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\", \"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "table",
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -483,7 +510,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -493,6 +520,7 @@
                             "dbt_file_path": "models/transform/payments_by_customer_by_month.sql",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.payments_by_customer_by_month",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -555,8 +583,8 @@
                             },
                             {
                                 "fieldPath": "customer_id",
-                                "description": "description for customer_id from dbt",
                                 "nullable": false,
+                                "description": "description for customer_id from dbt",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -580,6 +608,9 @@
                                             "urn": "urn:li:glossaryTerm:customer_id"
                                         },
                                         {
+                                            "urn": "urn:li:glossaryTerm:maturity_beta"
+                                        },
+                                        {
                                             "urn": "urn:li:glossaryTerm:pii"
                                         }
                                     ],
@@ -601,7 +632,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an_aliased_view_for_payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -624,12 +655,283 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "snapshot",
+                "view"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "snapshot",
+                            "materialization": "snapshot",
+                            "dbt_file_path": "snapshots/customer_snapshot.sql",
+                            "catalog_type": "BASE TABLE",
+                            "language": "sql",
+                            "dbt_unique_id": "snapshot.sample_dbt.customer_snapshot",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.3.0"
+                        },
+                        "name": "customer_snapshot",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "snapshot.sample_dbt.customer_snapshot",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "active",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "activebool",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                    }
+                                },
+                                "nativeDataType": "boolean",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "address_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "create_date",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "date",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "dbt_scd_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "text",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "dbt_updated_at",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "timestamp with time zone",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "dbt_valid_from",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "timestamp with time zone",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "dbt_valid_to",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "timestamp with time zone",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "email",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "text",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "first_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "text",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "last_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "text",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "last_update",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "timestamp with time zone",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "store_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": true,
+                        "viewLogic": "\n\n{{\n    config(\n      target_database='pagila',\n      target_schema='public',\n      unique_key='customer_id',\n\n      strategy='timestamp',\n      updated_at='last_update',\n    )\n}}\n\nselect * from {{ source('pagila', 'customer') }}\n\n",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -651,6 +953,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.actor",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -707,6 +1010,7 @@
                             {
                                 "fieldPath": "actor_id",
                                 "nullable": false,
+                                "description": "description for actor_id column from dbt",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -786,8 +1090,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -806,6 +1113,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.address",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -969,8 +1277,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -989,6 +1300,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.category",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -1092,8 +1404,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1112,6 +1427,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.city",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -1227,8 +1543,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1250,6 +1569,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.country",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -1370,8 +1690,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1390,6 +1713,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.customer",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -1577,8 +1901,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1597,6 +1924,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_01",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -1736,8 +2064,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1760,6 +2091,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_02",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -1916,8 +2248,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -1936,6 +2271,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_03",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -2075,8 +2411,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2095,6 +2434,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_04",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -2234,8 +2574,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2254,6 +2597,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_05",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -2393,8 +2737,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"source\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "source"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2413,6 +2760,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_06",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
                             "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
@@ -2548,11 +2896,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -2562,11 +2910,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an_aliased_view_for_payments,PROD)",
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -2576,12 +2924,56 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payments_by_customer_by_month,PROD)",
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer_snapshot,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:sensitive",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:sensitive"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:tag_from_dbt",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:tag_from_dbt"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,

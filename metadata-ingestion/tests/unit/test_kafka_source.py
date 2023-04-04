@@ -8,9 +8,9 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     Schema,
 )
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
+    make_dataset_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.common import PipelineContext
@@ -25,6 +25,12 @@ from datahub.metadata.schema_classes import (
 )
 
 
+@pytest.fixture
+def mock_admin_client():
+    with patch("datahub.ingestion.source.kafka.AdminClient", autospec=True) as mock:
+        yield mock
+
+
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_configuration(mock_kafka):
     ctx = PipelineContext(run_id="test")
@@ -37,7 +43,7 @@ def test_kafka_source_configuration(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_wildcard_topic(mock_kafka):
+def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
     mock_cluster_metadata.topics = {"foobar": None, "bazbaz": None}
@@ -58,7 +64,7 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_topic_pattern(mock_kafka):
+def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
     mock_cluster_metadata.topics = {"test": None, "foobar": None, "bazbaz": None}
@@ -92,7 +98,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_with_platform_instance(mock_kafka):
+def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_client):
     PLATFORM_INSTANCE = "kafka_cluster"
     PLATFORM = "kafka"
     TOPIC_NAME = "test"
@@ -138,14 +144,53 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka):
         asp for asp in proposed_snap.aspects if type(asp) == BrowsePathsClass
     ]
     assert len(browse_path_aspects) == 1
-    assert (
-        f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}/{TOPIC_NAME}"
-        in browse_path_aspects[0].paths
-    )
+    assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_path_aspects[0].paths
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_close(mock_kafka):
+def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_client):
+    PLATFORM = "kafka"
+    TOPIC_NAME = "test"
+
+    mock_kafka_instance = mock_kafka.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {TOPIC_NAME: None}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    ctx = PipelineContext(run_id="test1")
+    kafka_source = KafkaSource.create(
+        {"connection": {"bootstrap": "localhost:9092"}},
+        ctx,
+    )
+    workunits = [w for w in kafka_source.get_workunits()]
+
+    # We should only have 1 topic + sub-type wu.
+    assert len(workunits) == 2
+    assert isinstance(workunits[0], MetadataWorkUnit)
+    assert isinstance(workunits[0].metadata, MetadataChangeEvent)
+    proposed_snap = workunits[0].metadata.proposedSnapshot
+    assert proposed_snap.urn == make_dataset_urn(
+        platform=PLATFORM,
+        name=TOPIC_NAME,
+        env="PROD",
+    )
+
+    # DataPlatform aspect should be present when platform_instance is configured
+    data_platform_aspects = [
+        asp for asp in proposed_snap.aspects if type(asp) == DataPlatformInstanceClass
+    ]
+    assert len(data_platform_aspects) == 0
+
+    # The default browse path should include the platform_instance value
+    browse_path_aspects = [
+        asp for asp in proposed_snap.aspects if type(asp) == BrowsePathsClass
+    ]
+    assert len(browse_path_aspects) == 1
+    assert f"/prod/{PLATFORM}" in browse_path_aspects[0].paths
+
+
+@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+def test_close(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource.create(
@@ -159,41 +204,13 @@ def test_close(mock_kafka):
     assert mock_kafka_instance.close.call_count == 1
 
 
-def test_kafka_source_stateful_ingestion_requires_platform_instance():
-    class StatefulProviderMock:
-        def __init__(self, config, ctx):
-            self.ctx = ctx
-            self.config = config
-
-        def is_stateful_ingestion_configured(self):
-            return self.config.stateful_ingestion.enabled
-
-    ctx = PipelineContext(run_id="test", pipeline_name="test")
-    with pytest.raises(ConfigurationError) as e:
-        KafkaSource.create(
-            {
-                "stateful_ingestion": {
-                    "enabled": "true",
-                    "fail_safe_threshold": 100.0,
-                },
-                "connection": {"bootstrap": "localhost:9092"},
-            },
-            ctx,
-        )
-
-    assert (
-        "Enabling kafka stateful ingestion requires to specify a platform instance"
-        in str(e)
-    )
-
-
 @patch(
     "datahub.ingestion.source.kafka.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
     autospec=True,
 )
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_schema_registry_subject_name_strategies(
-    mock_kafka_consumer, mock_schema_registry_client
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
     # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
     # <key=topic_name, value=(<key_schema>,<value_schema>)
@@ -362,6 +379,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
 def test_kafka_ignore_warnings_on_schema_type(
     mock_kafka_consumer,
     mock_schema_registry_client,
+    mock_admin_client,
     ignore_warnings_on_schema_type,
 ):
     # define the key and value schemas for topic1
@@ -369,7 +387,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         schema_id="schema_id_2",
         schema=Schema(
             schema_str="{}",
-            schema_type="JSON",
+            schema_type="UNKNOWN_TYPE",
         ),
         subject="topic1-key",
         version=1,
@@ -378,7 +396,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         schema_id="schema_id_1",
         schema=Schema(
             schema_str="{}",
-            schema_type="JSON",
+            schema_type="UNKNOWN_TYPE",
         ),
         subject="topic1-value",
         version=1,

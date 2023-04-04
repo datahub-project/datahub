@@ -8,6 +8,7 @@ from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -99,7 +100,7 @@ def set_cookie(
     return bool(cookie)
 
 
-class LDAPSourceConfig(StatefulIngestionConfigBase):
+class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     """Config used by the LDAP Source."""
 
     # Server configuration.
@@ -115,6 +116,11 @@ class LDAPSourceConfig(StatefulIngestionConfigBase):
     filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
     attrs_list: Optional[List[str]] = Field(
         default=None, description="Retrieved attributes list"
+    )
+
+    custom_props_list: Optional[List[str]] = Field(
+        default=None,
+        description="A list of custom attributes to extract from the LDAP provider.",
     )
 
     # If set to true, any users without first and last names will be dropped.
@@ -282,13 +288,6 @@ class LDAPSource(StatefulIngestionSourceBase):
 
             cookie = set_cookie(self.lc, pctrls)
 
-    def get_platform_instance_id(self) -> str:
-        """
-        The source identifier such as the specific source host address required for stateful ingestion.
-        Individual subclasses need to override this method appropriately.
-        """
-        return self.config.ldap_server
-
     def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
         """
         Handle a DN and attributes by adding manager info and constructing a
@@ -379,6 +378,12 @@ class LDAPSource(StatefulIngestionSourceBase):
             if self.config.user_attrs_map["title"] in attrs
             else None
         )
+        custom_props_map = {}
+        if self.config.custom_props_list:
+            for prop in self.config.custom_props_list:
+                if prop in attrs:
+                    custom_props_map[prop] = (attrs[prop][0]).decode()
+
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
         user_snapshot = CorpUserSnapshotClass(
@@ -396,12 +401,12 @@ class LDAPSource(StatefulIngestionSourceBase):
                     countryCode=country_code,
                     title=title,
                     managerUrn=manager_urn,
+                    customProperties=custom_props_map,
                 ),
             ],
         )
 
-        if groups:
-            user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
+        user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 

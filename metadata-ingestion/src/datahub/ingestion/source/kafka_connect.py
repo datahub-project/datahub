@@ -13,7 +13,10 @@ from sqlalchemy.engine.url import make_url
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+    PlatformInstanceConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -24,9 +27,23 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +60,11 @@ class GenericConnectorConfig(ConfigModel):
     source_platform: str
 
 
-class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
+class KafkaConnectSourceConfig(
+    PlatformInstanceConfigMixin,
+    DatasetLineageProviderConfigBase,
+    StatefulIngestionConfigBase,
+):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
     connect_uri: str = Field(
@@ -54,9 +75,10 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     cluster_name: Optional[str] = Field(
         default="connect-cluster", description="Cluster to ingest from."
     )
-    construct_lineage_workunits: bool = Field(
-        default=True,
-        description="Whether to create the input and output Dataset entities",
+    # convert lineage dataset's urns to lowercase
+    convert_lineage_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Whether to convert the urns of ingested lineage dataset to lowercase",
     )
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -78,9 +100,11 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
         description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector, Debezium Source Connector, and Mongo Source Connector",
     )
 
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
 
 @dataclass
-class KafkaConnectSourceReport(SourceReport):
+class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
@@ -492,7 +516,7 @@ class ConfluentJDBCSourceConnector:
 
                 matcher = transform_regex.matcher(topic)
                 if matcher.matches():
-                    topic = matcher.replaceFirst(transform_replacement)
+                    topic = str(matcher.replaceFirst(transform_replacement))
 
                 # Additional check to confirm that the topic present
                 # in connector topics
@@ -897,24 +921,13 @@ def transform_connector_config(
 @config_class(KafkaConnectSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-class KafkaConnectSource(Source):
-    """
-    This plugin extracts the following:
-    - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
-    - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
-    - Lineage information between source database to Kafka topic
-    Current limitations:
-    - works only for
-        - JDBC, Debezium, and Mongo source connectors
-        - Generic connectors with user-defined lineage graph
-        - BigQuery sink connector
-    """
-
+class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
+    platform: str = "kafka-connect"
 
     def __init__(self, config: KafkaConnectSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = KafkaConnectSourceReport()
         self.session = requests.Session()
@@ -923,6 +936,15 @@ class KafkaConnectSource(Source):
                 "Accept": "application/json",
                 "Content-Type": "application/json",
             }
+        )
+
+        # Create and register the stateful ingestion use-case handlers.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
         )
 
         # Test the connection
@@ -958,9 +980,12 @@ class KafkaConnectSource(Source):
         for c in payload:
             connector_url = f"{self.config.connect_uri}/connectors/{c}"
             connector_response = self.session.get(connector_url)
-
             manifest = connector_response.json()
             connector_manifest = ConnectorManifest(**manifest)
+            if not self.config.connector_patterns.allowed(connector_manifest.name):
+                self.report.report_dropped(connector_manifest.name)
+                continue
+
             if self.config.provided_configs:
                 transform_connector_config(
                     connector_manifest.config, self.config.provided_configs
@@ -1055,7 +1080,10 @@ class KafkaConnectSource(Source):
         flow_property_bag = connector.flow_property_bag
         # connector_url = connector.url  # NOTE: this will expose connector credential when used
         flow_urn = builder.make_data_flow_urn(
-            "kafka-connect", connector_name, self.config.env
+            self.platform,
+            connector_name,
+            self.config.env,
+            self.config.platform_instance,
         )
 
         mcp = MetadataChangeProposalWrapper(
@@ -1070,7 +1098,8 @@ class KafkaConnectSource(Source):
 
         for proposal in [mcp]:
             wu = MetadataWorkUnit(
-                id=f"kafka-connect.{connector_name}.{proposal.aspectName}", mcp=proposal
+                id=f"{self.platform}.{connector_name}.{proposal.aspectName}",
+                mcp=proposal,
             )
             self.report.report_workunit(wu)
             yield wu
@@ -1080,7 +1109,10 @@ class KafkaConnectSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         connector_name = connector.name
         flow_urn = builder.make_data_flow_urn(
-            "kafka-connect", connector_name, self.config.env
+            self.platform,
+            connector_name,
+            self.config.env,
+            self.config.platform_instance,
         )
 
         lineages = connector.lineages
@@ -1088,18 +1120,8 @@ class KafkaConnectSource(Source):
             for lineage in lineages:
                 source_dataset = lineage.source_dataset
                 source_platform = lineage.source_platform
-                source_platform_instance = (
-                    self.config.platform_instance_map.get(source_platform)
-                    if self.config.platform_instance_map
-                    else None
-                )
                 target_dataset = lineage.target_dataset
                 target_platform = lineage.target_platform
-                target_platform_instance = (
-                    self.config.platform_instance_map.get(target_platform)
-                    if self.config.platform_instance_map
-                    else None
-                )
                 job_property_bag = lineage.job_property_bag
 
                 job_id = (
@@ -1111,22 +1133,18 @@ class KafkaConnectSource(Source):
 
                 inlets = (
                     [
-                        builder.make_dataset_urn_with_platform_instance(
+                        self.make_lineage_dataset_urn(
                             source_platform,
                             source_dataset,
-                            platform_instance=source_platform_instance,
-                            env=self.config.env,
                         )
                     ]
                     if source_dataset
                     else []
                 )
                 outlets = [
-                    builder.make_dataset_urn_with_platform_instance(
+                    self.make_lineage_dataset_urn(
                         target_platform,
                         target_dataset,
-                        platform_instance=target_platform_instance,
-                        env=self.config.env,
                     )
                 ]
 
@@ -1142,7 +1160,7 @@ class KafkaConnectSource(Source):
                 )
 
                 wu = MetadataWorkUnit(
-                    id=f"kafka-connect.{connector_name}.{job_id}.{mcp.aspectName}",
+                    id=f"{self.platform}.{connector_name}.{job_id}.{mcp.aspectName}",
                     mcp=mcp,
                 )
                 self.report.report_workunit(wu)
@@ -1157,92 +1175,43 @@ class KafkaConnectSource(Source):
                 )
 
                 wu = MetadataWorkUnit(
-                    id=f"kafka-connect.{connector_name}.{job_id}.{mcp.aspectName}",
+                    id=f"{self.platform}.{connector_name}.{job_id}.{mcp.aspectName}",
                     mcp=mcp,
                 )
                 self.report.report_workunit(wu)
                 yield wu
 
-    def construct_lineage_workunits(
-        self, connector: ConnectorManifest
-    ) -> Iterable[MetadataWorkUnit]:
-        lineages = connector.lineages
-        if lineages:
-            for lineage in lineages:
-                source_dataset = lineage.source_dataset
-                source_platform = lineage.source_platform
-                source_platform_instance = (
-                    self.config.platform_instance_map.get(source_platform)
-                    if self.config.platform_instance_map
-                    else None
-                )
-                target_dataset = lineage.target_dataset
-                target_platform = lineage.target_platform
-                target_platform_instance = (
-                    self.config.platform_instance_map.get(target_platform)
-                    if self.config.platform_instance_map
-                    else None
-                )
-
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=builder.make_dataset_urn_with_platform_instance(
-                        target_platform,
-                        target_dataset,
-                        platform_instance=target_platform_instance,
-                        env=self.config.env,
-                    ),
-                    aspect=models.DataPlatformInstanceClass(
-                        platform=builder.make_data_platform_urn(target_platform),
-                        instance=builder.make_dataplatform_instance_urn(
-                            target_platform, target_platform_instance
-                        )
-                        if target_platform_instance
-                        else None,
-                    ),
-                )
-
-                wu = MetadataWorkUnit(id=target_dataset, mcp=mcp)
-                self.report.report_workunit(wu)
-                yield wu
-                if source_dataset:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityUrn=builder.make_dataset_urn_with_platform_instance(
-                            source_platform,
-                            source_dataset,
-                            platform_instance=source_platform_instance,
-                            env=self.config.env,
-                        ),
-                        aspect=models.DataPlatformInstanceClass(
-                            platform=builder.make_data_platform_urn(source_platform),
-                            instance=builder.make_dataplatform_instance_urn(
-                                source_platform, source_platform_instance
-                            )
-                            if source_platform_instance
-                            else None,
-                        ),
-                    )
-
-                    wu = MetadataWorkUnit(id=source_dataset, mcp=mcp)
-                    self.report.report_workunit(wu)
-                    yield wu
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         connectors_manifest = self.get_connectors_manifest()
         for connector in connectors_manifest:
             name = connector.name
-            if self.config.connector_patterns.allowed(name):
-                yield from self.construct_flow_workunit(connector)
-                yield from self.construct_job_workunits(connector)
-                if self.config.construct_lineage_workunits:
-                    yield from self.construct_lineage_workunits(connector)
 
-                self.report.report_connector_scanned(name)
-
-            else:
-                self.report.report_dropped(name)
+            yield from self.construct_flow_workunit(connector)
+            yield from self.construct_job_workunits(connector)
+            self.report.report_connector_scanned(name)
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report
+
+    def make_lineage_dataset_urn(self, platform: str, name: str) -> str:
+        if self.config.convert_lineage_urns_to_lowercase:
+            name = name.lower()
+
+        platform_instance = (
+            self.config.platform_instance_map.get(platform)
+            if self.config.platform_instance_map
+            else None
+        )
+
+        return builder.make_dataset_urn_with_platform_instance(
+            platform, name, platform_instance, self.config.env
+        )
 
 
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.

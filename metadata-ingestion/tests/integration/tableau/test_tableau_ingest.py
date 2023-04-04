@@ -1,11 +1,14 @@
 import json
+import logging
 import pathlib
+import sys
 from typing import Optional, cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
-from tableauserverclient.models import ViewItem
+from requests.adapters import ConnectionError
+from tableauserverclient.models import DatasourceItem, ProjectItem, ViewItem
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
@@ -33,7 +36,8 @@ config_source_default = {
     "password": "pass`",
     "connect_uri": "https://do-not-connect",
     "site": "acryl",
-    "projects": ["default", "Project 2"],
+    "projects": ["default", "Project 2", "Samples"],
+    "extract_project_hierarchy": False,
     "page_size": 10,
     "ingest_tags": True,
     "ingest_owner": True,
@@ -54,6 +58,12 @@ config_source_default = {
         },
     },
 }
+
+
+def enable_logging():
+    # set logging to console
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+    logging.getLogger().setLevel(logging.DEBUG)
 
 
 def read_response(pytestconfig, file_name):
@@ -84,6 +94,55 @@ def side_effect_usage_stat(*arg, **kwargs):
     return [dashboard_stat, sheet_stat], mock_pagination
 
 
+def side_effect_project_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    project1: ProjectItem = ProjectItem(name="default")
+    project1._id = "190a6a5c-63ed-4de1-8045-faeae5df5b01"
+
+    project2: ProjectItem = ProjectItem(name="Project 2")
+    project2._id = "c30aafe5-44f4-4f28-80d3-d181010a263c"
+
+    project3: ProjectItem = ProjectItem(name="Samples")
+    project3._id = "910733aa-2e95-4ac3-a2e8-71570751099d"
+
+    project4: ProjectItem = ProjectItem(name="DenyProject")
+    project4._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903"
+    project4.parent_id = project1._id
+
+    return [project1, project2, project3, project4], mock_pagination
+
+
+def side_effect_datasource_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    datasource1: DatasourceItem = DatasourceItem(
+        name="test publish datasource",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource1._id = "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d"
+
+    datasource2: DatasourceItem = DatasourceItem(
+        name="Superstore Datasource",
+        project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
+    )
+    datasource2._id = "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2"
+
+    datasource3: DatasourceItem = DatasourceItem(
+        name="Customer Payment Query",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource3._id = "1a4e81b9-1107-4b8c-a864-7009b6414858"
+
+    return [
+        datasource1,
+        datasource2,
+        datasource3,
+    ], mock_pagination
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -92,6 +151,8 @@ def tableau_ingest_common(
     output_file_name,
     mock_datahub_graph,
     pipeline_config=config_source_default,
+    sign_out_side_effect=lambda: None,
+    pipeline_name="tableau-test-pipeline",
 ):
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/tableau"
@@ -109,16 +170,20 @@ def tableau_ingest_common(
             mock_client.metadata = mocked_metadata
             mock_client.auth = mock.Mock()
             mock_client.views = mock.Mock()
+            mock_client.projects = mock.Mock()
+            mock_client.projects.get.side_effect = side_effect_project_data
+            mock_client.datasources = mock.Mock()
+            mock_client.datasources.get.side_effect = side_effect_datasource_data
             mock_client.views.get.side_effect = side_effect_usage_stat
             mock_client.auth.sign_in.return_value = None
-            mock_client.auth.sign_out.return_value = None
+            mock_client.auth.sign_out.side_effect = sign_out_side_effect
             mock_sdk.return_value = mock_client
             mock_sdk._auth_token = "ABC"
 
             pipeline = Pipeline.create(
                 {
                     "run_id": "tableau-test",
-                    "pipeline_name": "tableau-test-pipeline",
+                    "pipeline_name": pipeline_name,
                     "source": {
                         "type": "tableau",
                         "config": pipeline_config,
@@ -153,8 +218,9 @@ def get_current_checkpoint_from_pipeline(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
+@pytest.mark.integration
 def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     tableau_ingest_common(
@@ -162,6 +228,8 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         tmp_path,
         [
             read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
@@ -169,14 +237,172 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
     )
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
+@pytest.mark.integration
+def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_project_pattern_mces.json"
+    golden_file_name: str = "tableau_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+
+    new_config["project_pattern"] = {"allow": ["^default$", "^Project 2$", "^Samples$"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_project_pattern",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_project_path_mces.json"
+    golden_file_name: str = "tableau_project_path_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+
+    new_config["project_pattern"] = {"allow": ["^default/DenyProject$"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_project_path_pattern",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+
+    output_file_name: str = "tableau_nested_project_mces.json"
+    golden_file_name: str = "tableau_nested_project_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_pattern"] = {"allow": ["^default$", "^Project 2$", "^Samples$"]}
+    new_config["extract_project_hierarchy"] = True
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_project_hierarchy",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_extract_all_project_mces.json"
+    golden_file_name: str = "tableau_extract_all_project_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config[
+        "projects"
+    ]  # in absence of projects the ingestion should extract all projects
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
+
+
+def test_value_error_projects_and_project_pattern(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    # Ingestion should raise ValueError
+    output_file_name: str = "tableau_project_pattern_precedence_mces.json"
+    golden_file_name: str = "tableau_project_pattern_precedence_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["projects"] = ["default"]
+    new_config["project_pattern"] = {"allow": ["^Samples$"]}
+
+    try:
+        tableau_ingest_common(
+            pytestconfig,
+            tmp_path,
+            [
+                read_response(pytestconfig, "workbooksConnection_all.json"),
+                read_response(pytestconfig, "sheetsConnection_all.json"),
+                read_response(pytestconfig, "dashboardsConnection_all.json"),
+                read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+                read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+                read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            ],
+            golden_file_name,
+            output_file_name,
+            mock_datahub_graph,
+            pipeline_config=new_config,
+        )
+    except Exception as e:
+        assert "projects is deprecated. Please use project_pattern only" in str(e)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_tableau_ingest_with_platform_instance(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
+    enable_logging()
     output_file_name: str = "tableau_with_platform_instance_mces.json"
     golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
 
@@ -197,6 +423,7 @@ def test_tableau_ingest_with_platform_instance(
         },
         "platform_instance_map": {"postgres": "demo_postgres_instance"},
         "extract_usage_stats": True,
+        "extract_project_hierarchy": False,
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
@@ -213,6 +440,8 @@ def test_tableau_ingest_with_platform_instance(
         tmp_path,
         [
             read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
@@ -221,10 +450,12 @@ def test_tableau_ingest_with_platform_instance(
         output_file_name,
         mock_datahub_graph,
         config_source,
+        pipeline_name="test_tableau_ingest_with_platform_instance",
     )
 
 
 def test_lineage_overrides():
+    enable_logging()
     # Simple - specify platform instance to presto table
     assert (
         make_table_urn(
@@ -284,6 +515,8 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         tmp_path,
         [
             read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
@@ -326,20 +559,42 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
-    assert len(difference_dataset_urns) == 12
+
+    assert len(difference_dataset_urns) == 33
     deleted_dataset_urns = [
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,00cce29f-b561-bb41-3557-8e19660bb5dd,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,801c95e3-b07e-7bfe-3789-a561c7beccd3,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.activity7,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.returns,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.actor,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,3ade7817-ae27-259e-8e48-1570e7f932f6,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,4644ccb1-2adc-cf26-c654-04ed1dcc7090,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,618c87db-5959-338b-bcc7-6f5f4cc0b6c6,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,06c3e060-8133-4b58-9b53-a0fced25e056,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,3ade7817-ae27-259e-8e48-1570e7f932f6,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sys_user_group,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.activity11,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.task,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d8d4c0ea-3162-fa11-31e6-26675da44a38,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,801c95e3-b07e-7bfe-3789-a561c7beccd3,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.address,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.activity6,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.incident,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.cmdb_ci,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_req_item,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,06c3e060-8133-4b58-9b53-a0fced25e056,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,00cce29f-b561-bb41-3557-8e19660bb5dd,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.problem,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.activity10,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_request,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.staff,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.campaignstable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_cat_item,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
@@ -389,6 +644,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
 
 
 def test_tableau_no_verify():
+    enable_logging()
     # This test ensures that we can connect to a self-signed certificate
     # when ssl_verify is set to False.
 
@@ -408,3 +664,28 @@ def test_tableau_no_verify():
     report = source.get_report().as_string()
     assert "SSL" not in report
     assert "Unable to login" in report
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
+def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_signout_timeout_mces.json"
+    golden_file_name: str = "tableau_signout_timeout_mces_golden.json"
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        sign_out_side_effect=ConnectionError,
+        pipeline_name="test_tableau_signout_timeout",
+    )

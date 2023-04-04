@@ -79,7 +79,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetPropertiesClass,
     MapTypeClass,
     OtherSchemaClass,
@@ -159,8 +158,6 @@ profiling_flags_to_report = [
     "include_field_histogram",
     "include_field_sample_values",
 ]
-
-S3_PREFIXES = ("s3://", "s3n://", "s3a://")
 
 
 # LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG = AddDatasetBrowsePathConfig(
@@ -307,6 +304,15 @@ class S3Source(Source):
                 conf.set(
                     "spark.hadoop.fs.s3a.aws.credentials.provider",
                     "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
+                )
+
+            if self.source_config.aws_config.aws_endpoint_url is not None:
+                conf.set(
+                    "fs.s3a.endpoint", self.source_config.aws_config.aws_endpoint_url
+                )
+            if self.source_config.aws_config.aws_region is not None:
+                conf.set(
+                    "fs.s3a.endpoint.region", self.source_config.aws_config.aws_region
                 )
 
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
@@ -498,10 +504,7 @@ class S3Source(Source):
             self.profiling_times_taken.append(time_taken)
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
             aspect=table_profiler.profile,
         )
         wu = MetadataWorkUnit(
@@ -743,6 +746,17 @@ class S3Source(Source):
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
+                        logger.debug(
+                            f"Update schema on partition file updates is set to: {self.source_config.update_schema_on_partition_file_updates!s}"
+                        )
+                        if (
+                            self.source_config.update_schema_on_partition_file_updates
+                            and not path_spec.sample_files
+                        ):
+                            logger.info(
+                                "Will update table schema as file within the partitions has an updated schema."
+                            )
+                            table_dict[table_data.table_path] = table_data
                         table_dict[table_data.table_path].number_of_files = (
                             table_dict[table_data.table_path].number_of_files + 1
                         )
@@ -754,6 +768,9 @@ class S3Source(Source):
                             table_dict[table_data.table_path].timestamp
                             < table_data.timestamp
                         ):
+                            table_dict[
+                                table_data.table_path
+                            ].full_path = table_data.full_path
                             table_dict[
                                 table_data.table_path
                             ].timestamp = table_data.timestamp

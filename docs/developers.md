@@ -70,7 +70,7 @@ cd ../
 
 Once you have compiled & packaged the project or appropriate module you can deploy the entire system via docker-compose by running:
 ```
-datahub docker quickstart --build-locally
+./gradlew quickstart
 ```
 
 Replace whatever container you want in the existing deployment.

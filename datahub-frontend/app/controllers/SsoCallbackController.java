@@ -1,5 +1,6 @@
 package controllers;
 
+import auth.CookieConfigs;
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
@@ -40,11 +41,12 @@ public class SsoCallbackController extends CallbackController {
       @Nonnull SsoManager ssoManager,
       @Nonnull Authentication systemAuthentication,
       @Nonnull EntityClient entityClient,
-      @Nonnull AuthServiceClient authClient) {
+      @Nonnull AuthServiceClient authClient,
+      @Nonnull com.typesafe.config.Config configs) {
     _ssoManager = ssoManager;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
     setSaveInSession(false);
-    setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient));
+    setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient, new CookieConfigs(configs)));
   }
 
   public CompletionStage<Result> handleCallback(String protocol, Http.Request request) {
@@ -55,8 +57,11 @@ public class SsoCallbackController extends CallbackController {
           log.error("Caught exception while attempting to handle SSO callback! It's likely that SSO integration is mis-configured.", e);
           return Results.redirect(
               String.format("/login?error_msg=%s",
-                  URLEncoder.encode("Failed to sign in using Single Sign-On provider. Please contact your DataHub Administrator, "
-                      + "or refer to server logs for more information.", StandardCharsets.UTF_8)));
+                  URLEncoder.encode(
+                      "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.",
+                      StandardCharsets.UTF_8)))
+              .discardingCookie("actor")
+              .withNewSession();
         }
         return res;
       });
@@ -74,8 +79,8 @@ public class SsoCallbackController extends CallbackController {
     private final OidcCallbackLogic _oidcCallbackLogic;
 
     SsoCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication,
-        final EntityClient entityClient, final AuthServiceClient authClient) {
-      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient);
+        final EntityClient entityClient, final AuthServiceClient authClient, final CookieConfigs cookieConfigs) {
+      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient, cookieConfigs);
     }
 
     @Override

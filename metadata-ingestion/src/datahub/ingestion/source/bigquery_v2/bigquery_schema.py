@@ -2,10 +2,15 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery
-from google.cloud.bigquery.table import RowIterator, TableListItem, TimePartitioning
+from google.cloud.bigquery.table import (
+    RowIterator,
+    TableListItem,
+    TimePartitioning,
+    TimePartitioningType,
+)
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
@@ -13,10 +18,73 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class BigqueryTableType:
+    # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
+    BASE_TABLE = "BASE TABLE"
+    EXTERNAL = "EXTERNAL"
+    VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED VIEW"
+    CLONE = "CLONE"
+    SNAPSHOT = "SNAPSHOT"
+
+
 @dataclass
 class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
+
+
+RANGE_PARTITION_NAME: str = "RANGE"
+
+
+@dataclass
+class PartitionInfo:
+    field: str
+    # Data type is optional as we not have it when we set it from TimePartitioning
+    column: Optional[BigqueryColumn] = None
+    type: str = TimePartitioningType.DAY
+    expiration_ms: Optional[int] = None
+    require_partition_filter: bool = False
+
+    # TimePartitioning field doesn't provide data_type so we have to add it afterwards
+    @classmethod
+    def from_time_partitioning(
+        cls, time_partitioning: TimePartitioning
+    ) -> "PartitionInfo":
+        return cls(
+            field=time_partitioning.field
+            if time_partitioning.field
+            else "_PARTITIONTIME",
+            type=time_partitioning.type_,
+            expiration_ms=time_partitioning.expiration_ms,
+            require_partition_filter=time_partitioning.require_partition_filter,
+        )
+
+    @classmethod
+    def from_range_partitioning(
+        cls, range_partitioning: Dict[str, Any]
+    ) -> Optional["PartitionInfo"]:
+        field: Optional[str] = range_partitioning.get("field")
+        if not field:
+            return None
+
+        return cls(
+            field=field,
+            type="RANGE",
+        )
+
+    @classmethod
+    def from_table_info(cls, table_info: TableListItem) -> Optional["PartitionInfo"]:
+        RANGE_PARTITIONING_KEY: str = "rangePartitioning"
+
+        if table_info.time_partitioning:
+            return PartitionInfo.from_time_partitioning(table_info.time_partitioning)
+        elif RANGE_PARTITIONING_KEY in table_info._properties:
+            return PartitionInfo.from_range_partitioning(
+                table_info._properties[RANGE_PARTITIONING_KEY]
+            )
+        else:
+            return None
 
 
 @dataclass
@@ -29,24 +97,27 @@ class BigqueryTable(BaseTable):
     max_shard_id: Optional[str] = None
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
-    time_partitioning: Optional[TimePartitioning] = None
-    columns: List[BigqueryColumn] = field(default_factory=list)
+    partition_info: Optional[PartitionInfo] = None
+    columns_ignore_from_profiling: List[str] = field(default_factory=list)
 
 
 @dataclass
 class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
+    materialized: bool = False
 
 
 @dataclass
 class BigqueryDataset:
     name: str
+    labels: Optional[Dict[str, str]] = None
     created: Optional[datetime] = None
     last_altered: Optional[datetime] = None
     location: Optional[str] = None
     comment: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
+    columns: List[BigqueryColumn] = field(default_factory=list)
 
 
 @dataclass
@@ -78,7 +149,7 @@ order by
 """
 
     # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
-    tables_for_dataset = """
+    tables_for_dataset = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -99,9 +170,9 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
   left join (
@@ -113,20 +184,20 @@ FROM
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
     from
-        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+        `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL')
-{table_filter}
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+{{table_filter}}
 order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
 """
 
-    tables_for_dataset_without_partition_data = """
+    tables_for_dataset_without_partition_data = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -140,20 +211,20 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL')
-{table_filter}
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+{{table_filter}}
 order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
 """
 
-    views_for_dataset: str = """
+    views_for_dataset: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -167,19 +238,19 @@ SELECT
   row_count,
   size_bytes
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('VIEW MATERIALIZED', 'VIEW')
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
 """
 
-    views_for_dataset_without_data_read: str = """
+    views_for_dataset_without_data_read: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -190,12 +261,12 @@ SELECT
   is_insertable_into,
   ddl as view_definition
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('VIEW MATERIALIZED', 'VIEW')
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
@@ -220,6 +291,34 @@ from
   and cfp.column_name = c.column_name
 ORDER BY
   table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
+
+    optimized_columns_for_dataset: str = """
+select * from
+(select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
+  c.is_nullable as is_nullable,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
+  description as comment,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column,
+  -- We count the columns to be able limit it later
+  row_number() over (partition by c.table_catalog, c.table_schema, c.table_name order by c.ordinal_position asc, c.data_type DESC) as column_num,
+  -- Getting the maximum shard for each table
+  row_number() over (partition by c.table_catalog, c.table_schema, ifnull(REGEXP_EXTRACT(c.table_name, r'(.*)_\\d{{8}}$'), c.table_name), cfp.field_path order by c.table_catalog, c.table_schema asc, c.table_name desc) as shard_num
+from
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMNS c
+  join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+  )
+-- We filter column limit + 1 to make sure we warn about the limit being reached but not reading too much data
+where column_num <= {column_limit} and shard_num = 1
+ORDER BY
+  table_catalog, table_schema, table_name, ordinal_position, column_num ASC, table_name, data_type DESC"""
 
     columns_for_table: str = """
 select
@@ -266,13 +365,18 @@ class BigQueryDataDictionary:
         # FIXME: Due to a bug in BigQuery's type annotations, we need to cast here.
         maxResults = cast(int, maxResults)
         datasets = conn.list_datasets(project_id, max_results=maxResults)
-
-        return [BigqueryDataset(name=d.dataset_id) for d in datasets]
+        return [BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets]
 
     @staticmethod
     def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
+        """
+        This method is not used as of now, due to below limitation.
+        Current query only fetches datasets in US region
+        We'll need Region wise separate queries to fetch all datasets
+        https://cloud.google.com/bigquery/docs/information-schema-datasets-schemata
+        """
         schemas = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
@@ -320,7 +424,6 @@ class BigQueryDataDictionary:
                     table_filter=f" and t.table_name in ({filter})" if filter else "",
                 ),
             )
-
         # Some property we want to capture only available from the TableListItem we get from an earlier query of
         # the list of tables.
         return [
@@ -338,7 +441,7 @@ class BigQueryDataDictionary:
                 ddl=table.ddl,
                 expires=tables[table.table_name].expires if tables else None,
                 labels=tables[table.table_name].labels if tables else None,
-                time_partitioning=tables[table.table_name].time_partitioning
+                partition_info=PartitionInfo.from_table_info(tables[table.table_name])
                 if tables
                 else None,
                 clustering_fields=tables[table.table_name].clustering_fields
@@ -384,11 +487,10 @@ class BigQueryDataDictionary:
             BigqueryView(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered
-                if "last_altered" in table
-                else table.created,
+                last_altered=table.get("last_altered", table.created),
                 comment=table.comment,
                 view_definition=table.view_definition,
+                materialized=table.table_type == BigqueryTableType.MATERIALIZED_VIEW,
             )
             for table in cur
         ]
@@ -398,7 +500,8 @@ class BigQueryDataDictionary:
         conn: bigquery.Client,
         project_id: str,
         dataset_name: str,
-        column_limit: Optional[int] = None,
+        column_limit: int,
+        run_optimized_column_query: bool = False,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         try:
@@ -406,6 +509,12 @@ class BigQueryDataDictionary:
                 conn,
                 BigqueryQuery.columns_for_dataset.format(
                     project_id=project_id, dataset_name=dataset_name
+                )
+                if not run_optimized_column_query
+                else BigqueryQuery.optimized_columns_for_dataset.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    column_limit=column_limit,
                 ),
             )
         except Exception as e:

@@ -6,8 +6,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -114,7 +114,9 @@ public class DescriptionUtils {
     CorpGroupEditableInfo corpGroupEditableInfo =
         (CorpGroupEditableInfo) getAspectFromEntity(
             resourceUrn.toString(), Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, entityService, new CorpGroupEditableInfo());
-    corpGroupEditableInfo.setDescription(newDescription);
+    if (corpGroupEditableInfo != null) {
+      corpGroupEditableInfo.setDescription(newDescription);
+    }
     persistAspect(resourceUrn, Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, corpGroupEditableInfo, actor, entityService);
   }
 
@@ -156,7 +158,9 @@ public class DescriptionUtils {
       EntityService entityService) {
     EditableNotebookProperties notebookProperties = (EditableNotebookProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, entityService, null);
-    notebookProperties.setDescription(newDescription);
+    if (notebookProperties != null) {
+      notebookProperties.setDescription(newDescription);
+    }
     persistAspect(resourceUrn, Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, notebookProperties, actor, entityService);
   }
 
@@ -290,7 +294,9 @@ public class DescriptionUtils {
       EntityService entityService) {
     EditableMLModelProperties editableProperties = (EditableMLModelProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLModelProperties());
-    editableProperties.setDescription(newDescription);
+    if (editableProperties != null) {
+      editableProperties.setDescription(newDescription);
+    }
     persistAspect(resourceUrn, Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
   }
 
@@ -301,7 +307,9 @@ public class DescriptionUtils {
       EntityService entityService) {
     EditableMLModelGroupProperties editableProperties = (EditableMLModelGroupProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLModelGroupProperties());
-    editableProperties.setDescription(newDescription);
+    if (editableProperties != null) {
+      editableProperties.setDescription(newDescription);
+    }
     persistAspect(resourceUrn, Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
   }
   public static void updateMlFeatureDescription(
@@ -311,7 +319,9 @@ public class DescriptionUtils {
       EntityService entityService) {
     EditableMLFeatureProperties editableProperties = (EditableMLFeatureProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLFeatureProperties());
-    editableProperties.setDescription(newDescription);
+    if (editableProperties != null) {
+      editableProperties.setDescription(newDescription);
+    }
     persistAspect(resourceUrn, Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
   }
 
@@ -322,7 +332,9 @@ public class DescriptionUtils {
       EntityService entityService) {
     EditableMLFeatureTableProperties editableProperties = (EditableMLFeatureTableProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLFeatureTableProperties());
-    editableProperties.setDescription(newDescription);
+    if (editableProperties != null) {
+      editableProperties.setDescription(newDescription);
+    }
     persistAspect(resourceUrn, Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
   }
 
@@ -333,7 +345,9 @@ public class DescriptionUtils {
       EntityService entityService) {
     EditableMLPrimaryKeyProperties editableProperties = (EditableMLPrimaryKeyProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLPrimaryKeyProperties());
-    editableProperties.setDescription(newDescription);
+    if (editableProperties != null) {
+      editableProperties.setDescription(newDescription);
+    }
     persistAspect(resourceUrn, Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
   }
 }

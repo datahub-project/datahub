@@ -7,7 +7,7 @@ import pydantic
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
@@ -106,7 +106,3 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
                 "bigquery_audit_metadata_datasets must be specified if using exported audit metadata. Otherwise set use_v2_audit_metadata to True."
             )
         return values
-
-    @pydantic.validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"

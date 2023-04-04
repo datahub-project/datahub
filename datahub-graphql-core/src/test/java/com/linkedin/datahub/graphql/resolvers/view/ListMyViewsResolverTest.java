@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.DataHubViewType;
 import com.linkedin.datahub.graphql.generated.ListMyViewsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -48,33 +49,34 @@ public class ListMyViewsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockClient.search(
-        Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
-        Mockito.eq(""),
-        Mockito.eq(
-            new Filter()
-              .setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-                  new ConjunctiveCriterion()
-                    .setAnd(new CriterionArray(ImmutableList.of(
-                        new Criterion()
-                          .setField("createdBy.keyword")
-                          .setValue(TEST_USER.toString())
-                          .setValues(new StringArray(ImmutableList.of(TEST_USER.toString())))
-                          .setCondition(Condition.EQUAL)
-                          .setNegated(false),
-                        new Criterion()
-                            .setField("type.keyword")
-                            .setValue(DataHubViewType.GLOBAL.toString())
-                            .setValues(new StringArray(
-                                ImmutableList.of(DataHubViewType.GLOBAL.toString())))
-                            .setCondition(Condition.EQUAL)
-                            .setNegated(false)
-                    )))
-              )))
-        ),
-        Mockito.any(),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.any(Authentication.class)
+            Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+            Mockito.eq(""),
+            Mockito.eq(
+                    new Filter()
+                            .setOr(new ConjunctiveCriterionArray(ImmutableList.of(
+                                    new ConjunctiveCriterion()
+                                            .setAnd(new CriterionArray(ImmutableList.of(
+                                                    new Criterion()
+                                                            .setField("createdBy.keyword")
+                                                            .setValue(TEST_USER.toString())
+                                                            .setValues(new StringArray(ImmutableList.of(TEST_USER.toString())))
+                                                            .setCondition(Condition.EQUAL)
+                                                            .setNegated(false),
+                                                    new Criterion()
+                                                            .setField("type.keyword")
+                                                            .setValue(DataHubViewType.GLOBAL.toString())
+                                                            .setValues(new StringArray(
+                                                                    ImmutableList.of(DataHubViewType.GLOBAL.toString())))
+                                                            .setCondition(Condition.EQUAL)
+                                                            .setNegated(false)
+                                            )))
+                            )))
+            ),
+            Mockito.any(),
+            Mockito.eq(0),
+            Mockito.eq(20),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true))
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -105,26 +107,27 @@ public class ListMyViewsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockClient.search(
-        Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
-        Mockito.eq(""),
-        Mockito.eq(
-            new Filter()
-                .setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-                    new ConjunctiveCriterion()
-                        .setAnd(new CriterionArray(ImmutableList.of(
-                            new Criterion()
-                                .setField("createdBy.keyword")
-                                .setValue(TEST_USER.toString())
-                                .setValues(new StringArray(ImmutableList.of(TEST_USER.toString())))
-                                .setCondition(Condition.EQUAL)
-                                .setNegated(false)
-                        )))
-                )))
-        ),
-        Mockito.any(),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.any(Authentication.class)
+            Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+            Mockito.eq(""),
+            Mockito.eq(
+                    new Filter()
+                            .setOr(new ConjunctiveCriterionArray(ImmutableList.of(
+                                    new ConjunctiveCriterion()
+                                            .setAnd(new CriterionArray(ImmutableList.of(
+                                                    new Criterion()
+                                                            .setField("createdBy.keyword")
+                                                            .setValue(TEST_USER.toString())
+                                                            .setValues(new StringArray(ImmutableList.of(TEST_USER.toString())))
+                                                            .setCondition(Condition.EQUAL)
+                                                            .setNegated(false)
+                                            )))
+                            )))
+            ),
+            Mockito.any(),
+            Mockito.eq(0),
+            Mockito.eq(20),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true))
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -163,12 +166,13 @@ public class ListMyViewsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).search(
-        Mockito.any(),
-        Mockito.eq(""),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class));
+            Mockito.any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
@@ -176,12 +180,13 @@ public class ListMyViewsResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).search(
-        Mockito.any(),
-        Mockito.eq(""),
-        Mockito.anyMap(),
-        Mockito.anyInt(),
-        Mockito.anyInt(),
-        Mockito.any(Authentication.class));
+            Mockito.any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.eq(new SearchFlags().setFulltext(true)));
     ListMyViewsResolver resolver = new ListMyViewsResolver(mockClient);
 
     // Execute resolver

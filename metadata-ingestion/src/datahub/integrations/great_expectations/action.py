@@ -87,6 +87,7 @@ class DataHubValidationAction(ValidationAction):
         extra_headers: Optional[Dict[str, str]] = None,
         exclude_dbname: Optional[bool] = None,
         parse_table_names_from_sql: bool = False,
+        convert_urns_to_lowercase: bool = False,
     ):
         super().__init__(data_context)
         self.server_url = server_url
@@ -101,6 +102,7 @@ class DataHubValidationAction(ValidationAction):
         self.extra_headers = extra_headers
         self.exclude_dbname = exclude_dbname
         self.parse_table_names_from_sql = parse_table_names_from_sql
+        self.convert_urns_to_lowercase = convert_urns_to_lowercase
 
     def _run(
         self,
@@ -593,6 +595,7 @@ class DataHubValidationAction(ValidationAction):
                     ),
                     self.exclude_dbname,
                     self.platform_alias,
+                    self.convert_urns_to_lowercase,
                 )
                 batchSpec = BatchSpec(
                     nativeBatchId=batch_identifier,
@@ -661,6 +664,7 @@ class DataHubValidationAction(ValidationAction):
                         ),
                         self.exclude_dbname,
                         self.platform_alias,
+                        self.convert_urns_to_lowercase,
                     )
                     dataset_partitions.append(
                         {
@@ -703,6 +707,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
     platform_instance=None,
     exclude_dbname=None,
     platform_alias=None,
+    convert_urns_to_lowercase=False,
 ):
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
     url_instance = make_url(sqlalchemy_uri)
@@ -744,12 +749,14 @@ def make_dataset_urn_from_sqlalchemy_uri(
             return None
         # If data platform is snowflake, we artificially lowercase the Database name.
         # This is because DataHub also does this during ingestion.
-        # Ref: https://github.com/datahub-project/datahub/blob/master/metadata-ingestion%2Fsrc%2Fdatahub%2Fingestion%2Fsource%2Fsql%2Fsnowflake.py#L272
+        # Ref: https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/snowflake/snowflake_utils.py#L155
         database_name = (
             url_instance.database.lower()
             if data_platform == "snowflake"
             else url_instance.database
         )
+        if database_name.endswith(f"/{schema_name}"):
+            database_name = database_name[: -len(f"/{schema_name}")]
         schema_name = (
             schema_name
             if exclude_dbname
@@ -774,6 +781,9 @@ def make_dataset_urn_from_sqlalchemy_uri(
         return None
 
     dataset_name = f"{schema_name}.{table_name}"
+
+    if convert_urns_to_lowercase:
+        dataset_name = dataset_name.lower()
 
     dataset_urn = builder.make_dataset_urn_with_platform_instance(
         platform=data_platform if platform_alias is None else platform_alias,

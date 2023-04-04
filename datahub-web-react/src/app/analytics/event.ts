@@ -56,6 +56,14 @@ export enum EventType {
     SetUserDefaultViewEvent,
     ManuallyCreateLineageEvent,
     ManuallyDeleteLineageEvent,
+    LineageGraphTimeRangeSelectionEvent,
+    LineageTabTimeRangeSelectionEvent,
+    CreateQueryEvent,
+    UpdateQueryEvent,
+    DeleteQueryEvent,
+    SelectAutoCompleteOption,
+    SelectQuickFilterEvent,
+    DeselectQuickFilterEvent,
 }
 
 /**
@@ -122,6 +130,8 @@ export interface SearchEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
+    selectedQuickFilterValues?: string[];
+    selectedQuickFilterTypes?: string[];
 }
 
 /**
@@ -132,6 +142,8 @@ export interface HomePageSearchEvent extends BaseEvent {
     query: string;
     entityTypeFilter?: EntityType;
     pageNumber: number;
+    selectedQuickFilterValues?: string[];
+    selectedQuickFilterTypes?: string[];
 }
 
 /**
@@ -228,7 +240,6 @@ export interface BatchEntityActionEvent extends BaseEvent {
 
 export interface RecommendationImpressionEvent extends BaseEvent {
     type: EventType.RecommendationImpressionEvent;
-    renderId: string; // TODO : Determine whether we need a render id to join with click event.
     moduleId: string;
     renderType: RecommendationRenderType;
     scenarioType: ScenarioType;
@@ -441,6 +452,49 @@ export interface SetGlobalDefaultViewEvent extends BaseEvent {
     urn: string | null;
 }
 
+export interface LineageGraphTimeRangeSelectionEvent extends BaseEvent {
+    type: EventType.LineageGraphTimeRangeSelectionEvent;
+    relativeStartDate: string;
+    relativeEndDate: string;
+}
+
+export interface LineageTabTimeRangeSelectionEvent extends BaseEvent {
+    type: EventType.LineageTabTimeRangeSelectionEvent;
+    relativeStartDate: string;
+    relativeEndDate: string;
+}
+
+export interface CreateQueryEvent extends BaseEvent {
+    type: EventType.CreateQueryEvent;
+}
+
+export interface UpdateQueryEvent extends BaseEvent {
+    type: EventType.UpdateQueryEvent;
+}
+
+export interface DeleteQueryEvent extends BaseEvent {
+    type: EventType.DeleteQueryEvent;
+}
+
+export interface SelectAutoCompleteOption extends BaseEvent {
+    type: EventType.SelectAutoCompleteOption;
+    optionType: string;
+    entityType?: EntityType;
+    entityUrn?: string;
+}
+
+export interface SelectQuickFilterEvent extends BaseEvent {
+    type: EventType.SelectQuickFilterEvent;
+    quickFilterType: string;
+    quickFilterValue: string;
+}
+
+export interface DeselectQuickFilterEvent extends BaseEvent {
+    type: EventType.DeselectQuickFilterEvent;
+    quickFilterType: string;
+    quickFilterValue: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -495,4 +549,12 @@ export type Event =
     | SetUserDefaultViewEvent
     | SetGlobalDefaultViewEvent
     | ManuallyCreateLineageEvent
-    | ManuallyDeleteLineageEvent;
+    | ManuallyDeleteLineageEvent
+    | LineageGraphTimeRangeSelectionEvent
+    | LineageTabTimeRangeSelectionEvent
+    | CreateQueryEvent
+    | UpdateQueryEvent
+    | DeleteQueryEvent
+    | SelectAutoCompleteOption
+    | SelectQuickFilterEvent
+    | DeselectQuickFilterEvent;

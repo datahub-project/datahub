@@ -23,17 +23,14 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
+from datahub.ingestion.source.usage.usage_common import TOTAL_BUDGET_FOR_QUERY_LIST
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetFieldUsageCounts,
     DatasetUsageStatistics,
     DatasetUserUsageCounts,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import TimeWindowSize
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 
@@ -65,8 +62,9 @@ class SnowflakeColumnReference(PermissiveModel):
 class SnowflakeObjectAccessEntry(PermissiveModel):
     columns: Optional[List[SnowflakeColumnReference]]
     objectDomain: str
-    objectId: int
     objectName: str
+    # Seems like it should never be null, but in practice have seen null objectIds
+    objectId: Optional[int]
     stageKind: Optional[str]
 
 
@@ -204,12 +202,10 @@ class SnowflakeUsageExtractor(
                 self.config.platform_instance,
                 self.config.env,
             )
-            yield self.wrap_aspect_as_workunit(
-                "dataset",
-                dataset_urn,
-                "datasetUsageStatistics",
-                stats,
-            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=stats
+            ).as_workunit()
         except Exception as e:
             logger.debug(
                 f"Failed to parse usage statistics for dataset {dataset_identifier} due to error {e}.",
@@ -220,9 +216,8 @@ class SnowflakeUsageExtractor(
             )
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
-        total_budget_for_query_list: int = 24000
         budget_per_query: int = int(
-            total_budget_for_query_list / self.config.top_n_queries
+            TOTAL_BUDGET_FOR_QUERY_LIST / self.config.top_n_queries
         )
         return sorted(
             [
@@ -370,9 +365,6 @@ class SnowflakeUsageExtractor(
                     operationType=operation_type,
                 )
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    aspectName="operation",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dataset_urn,
                     aspect=operation_aspect,
                 )
@@ -380,7 +372,6 @@ class SnowflakeUsageExtractor(
                     id=f"{start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
-                self.report.report_workunit(wu)
                 yield wu
 
     def _process_snowflake_history_row(

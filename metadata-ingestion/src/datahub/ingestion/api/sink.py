@@ -90,7 +90,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     report: SinkReportType
 
     @classmethod
-    def get_config_class(cls) -> Type[SinkConfig]:
+    def get_config_class(cls: Type[Self]) -> Type[SinkConfig]:
         config_class = get_class_from_annotation(cls, Sink, ConfigModel)
         assert config_class, "Sink subclasses must define a config class"
         return cast(Type[SinkConfig], config_class)
@@ -123,7 +123,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
 
     @abstractmethod
     def write_record_async(
-        self, record_envelope: RecordEnvelope, callback: WriteCallback
+        self, record_envelope: RecordEnvelope, write_callback: WriteCallback
     ) -> None:
         # must call callback when done.
         pass

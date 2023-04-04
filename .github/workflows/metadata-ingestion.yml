@@ -51,28 +51,11 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
-        with:
-          spark-version: "3.0.3"
-          hadoop-version: "3.2"
+          cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Calculate pip install plan
-        id: "packages_checksum"
-        run: |
-          cd metadata-ingestion
-          pip install pip -U # only 22.2 and above contains the --dry-run flag
-
-          # only the last line of the output is the packages that will be installed
-          pip install --dry-run -e .[dev]  ${{ matrix.extraPythonRequirement }} | tail -n 1 > /tmp/would_be_installed.txt
-          CHECKSUM=$(shasum /tmp/would_be_installed.txt | awk '{print $1}')
-          echo "packages_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
-        id: cache-venv
-        with:
-          path: ./metadata-ingestion/venv/
-          key: ${{ runner.os }}-venv-${{ steps.packages_checksum.outputs.packages_checksum }}-${{ matrix.python-version }}-${{ matrix.command }}
+      - name: Install package
+        run: ./gradlew :metadata-ingestion:installPackageOnly
       - name: Run metadata-ingestion tests (extras ${{ matrix.extraPythonRequirement }})
         run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }}
       - name: pip freeze show list installed
@@ -86,6 +69,17 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
+      - name: Upload coverage to Codecov
+        if: ${{ always() && matrix.python-version == '3.10' && matrix.command != 'lint' }}
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: .
+          fail_ci_if_error: false
+          flags: pytest-${{ matrix.command }}
+          name: pytest-${{ matrix.command }}
+          verbose: true
+
 
   event-file:
     runs-on: ubuntu-latest

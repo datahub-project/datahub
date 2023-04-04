@@ -13,7 +13,6 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     LineageConfig,
 )
-from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
@@ -62,12 +61,12 @@ class StatefulIngestionConfig(ConfigModel):
     max_checkpoint_state_size: pydantic.PositiveInt = Field(
         default=2**24,  # 16 MB
         description="The maximum size of the checkpoint state in bytes. Default is 16MB",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
         default=None,
         description="The ingestion state provider configuration.",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     ignore_old_state: bool = Field(
         default=False,
@@ -91,9 +90,7 @@ class StatefulIngestionConfig(ConfigModel):
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
 
 
-class StatefulIngestionConfigBase(
-    DatasetSourceConfigBase, GenericModel, Generic[CustomConfig]
-):
+class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
@@ -103,7 +100,7 @@ class StatefulIngestionConfigBase(
     )
 
 
-class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig):
+class StatefulLineageConfigMixin(LineageConfig):
     store_last_lineage_extraction_timestamp: bool = Field(
         default=False,
         description="Enable checking last lineage extraction date in store.",
@@ -122,7 +119,7 @@ class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig)
         return values
 
 
-class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
+class StatefulProfilingConfigMixin(ConfigModel):
     store_last_profiling_timestamps: bool = Field(
         default=False,
         description="Enable storing last profile timestamp in store.",
@@ -140,7 +137,7 @@ class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
         return values
 
 
-class UsageStatefulIngestionConfig(BaseTimeWindowConfig, StatefulIngestionConfigBase):
+class StatefulUsageConfigMixin(BaseTimeWindowConfig):
     store_last_usage_extraction_timestamp: bool = Field(
         default=True,
         description="Enable checking last usage timestamp in store.",
@@ -169,7 +166,9 @@ class StatefulIngestionSourceBase(Source):
     """
 
     def __init__(
-        self, config: StatefulIngestionConfigBase, ctx: PipelineContext
+        self,
+        config: StatefulIngestionConfigBase[StatefulIngestionConfig],
+        ctx: PipelineContext,
     ) -> None:
         super().__init__(ctx)
         self.stateful_ingestion_config = config.stateful_ingestion
@@ -281,12 +280,6 @@ class StatefulIngestionSourceBase(Source):
             raise ValueError(f"No use-case handler for job_id{job_id}")
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
-    def get_platform_instance_id(self) -> str:
-        # This method is retained for backwards compatibility, but it is not
-        # required that new sources implement it. We mainly need it for the
-        # fallback logic in _get_last_checkpoint.
-        raise NotImplementedError("no platform_instance_id configured")
-
     def _get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
@@ -295,28 +288,15 @@ class StatefulIngestionSourceBase(Source):
         """
         last_checkpoint: Optional[Checkpoint] = None
         if self.is_stateful_ingestion_configured():
-            # TRICKY: We currently don't include the platform_instance_id in the
-            # checkpoint urn, but we previously did. As such, we need to fallback
-            # and try the old urn format if the new format doesn't return anything.
-
             # Obtain the latest checkpoint from GMS for this job.
             assert self.ctx.pipeline_name
-            last_checkpoint_aspect = self.ingestion_checkpointing_state_provider.get_latest_checkpoint(  # type: ignore
-                pipeline_name=self.ctx.pipeline_name,
-                job_name=job_id,
+            assert self.ingestion_checkpointing_state_provider
+            last_checkpoint_aspect = (
+                self.ingestion_checkpointing_state_provider.get_latest_checkpoint(
+                    pipeline_name=self.ctx.pipeline_name,
+                    job_name=job_id,
+                )
             )
-            if last_checkpoint_aspect is None:
-                # Try again with the platform_instance_id, if implemented.
-                try:
-                    platform_instance_id = self.get_platform_instance_id()
-                except NotImplementedError:
-                    pass
-                else:
-                    last_checkpoint_aspect = self.ingestion_checkpointing_state_provider.get_latest_checkpoint(  # type: ignore
-                        pipeline_name=self.ctx.pipeline_name,
-                        job_name=job_id,
-                        platform_instance_id=platform_instance_id,
-                    )
 
             # Convert it to a first-class Checkpoint object.
             last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
@@ -358,6 +338,8 @@ class StatefulIngestionSourceBase(Source):
         # Perform validations
         if not self.is_stateful_ingestion_configured():
             return None
+        assert self.stateful_ingestion_config
+
         if (
             self.stateful_ingestion_config
             and self.stateful_ingestion_config.ignore_new_state
@@ -381,7 +363,7 @@ class StatefulIngestionSourceBase(Source):
             job_checkpoint.prepare_for_commit()
             try:
                 checkpoint_aspect = job_checkpoint.to_checkpoint_aspect(
-                    self.stateful_ingestion_config.max_checkpoint_state_size  # type: ignore
+                    self.stateful_ingestion_config.max_checkpoint_state_size
                 )
             except Exception as e:
                 logger.error(

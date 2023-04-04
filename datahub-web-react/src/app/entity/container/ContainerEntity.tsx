@@ -5,15 +5,15 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Ent
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetContainerQuery } from '../../../graphql/container.generated';
 import { ContainerEntitiesTab } from './ContainerEntitiesTab';
-import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 /**
  * Definition of the DataHub Container entity.
@@ -21,13 +21,13 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 export class ContainerEntity implements Entity<Container> {
     type: EntityType = EntityType.Container;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined />;
+            return <FolderOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderOutlined style={{ fontSize, color: '#B37FEB' }} />;
+            return <FolderOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -40,7 +40,7 @@ export class ContainerEntity implements Entity<Container> {
             <FolderOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -98,9 +98,10 @@ export class ContainerEntity implements Entity<Container> {
                 {
                     component: SidebarDomainSection,
                 },
-                {
-                    component: SidebarRecommendationsSection,
-                },
+                // TODO: Add back once entity-level recommendations are complete.
+                // {
+                //    component: SidebarRecommendationsSection,
+                // },
             ]}
         />
     );
@@ -110,7 +111,7 @@ export class ContainerEntity implements Entity<Container> {
             <Preview
                 urn={data.urn}
                 name={this.displayName(data)}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
                 platformLogo={data.platform.properties?.logoUrl}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
@@ -130,7 +131,7 @@ export class ContainerEntity implements Entity<Container> {
             <Preview
                 urn={data.urn}
                 name={this.displayName(data)}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}

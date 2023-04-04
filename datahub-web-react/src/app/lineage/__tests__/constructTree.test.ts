@@ -32,7 +32,7 @@ describe('constructTree', () => {
                 testEntityRegistry,
                 {},
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Yet Another Dataset',
             expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
@@ -383,7 +383,7 @@ describe('constructTree', () => {
                 testEntityRegistry,
                 {},
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Display Name of Sixth',
             expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
@@ -403,7 +403,7 @@ describe('constructTree', () => {
                     urn: dataJob1.urn,
                     children: [],
                     countercurrentChildrenUrns: [],
-                    icon: '',
+                    icon: undefined,
                     status: null,
                     platform: airflowPlatform,
                     subtype: undefined,

@@ -21,6 +21,7 @@ import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChang
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorFactory;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
@@ -126,7 +127,32 @@ public class TimelineServiceImpl implements TimelineService {
       }
       datasetElementAspectRegistry.put(elementName, aspects);
     }
+
+    // GlossaryTerm registry
+    HashMap<ChangeCategory, Set<String>> glossaryTermElementAspectRegistry = new HashMap<>();
+    String entityTypeGlossaryTerm = GLOSSARY_TERM_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case OWNER: {
+          aspects.add(OWNERSHIP_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(entityTypeGlossaryTerm, elementName, OWNERSHIP_ASPECT_NAME,
+              new OwnershipChangeEventGenerator());
+        }
+        break;
+        case DOCUMENTATION: {
+          aspects.add(GLOSSARY_TERM_INFO_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(entityTypeGlossaryTerm, elementName, GLOSSARY_TERM_INFO_ASPECT_NAME,
+              new GlossaryTermInfoChangeEventGenerator());
+        }
+        break;
+        default:
+          break;
+      }
+      glossaryTermElementAspectRegistry.put(elementName, aspects);
+    }
     entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
   }
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {
@@ -334,8 +360,8 @@ public class TimelineServiceImpl implements TimelineService {
     List<ChangeTransaction> semanticChangeTransactions = new ArrayList<>();
     JsonPatch rawDiff = getRawDiff(previousValue, currentValue);
     for (ChangeCategory element : elementNames) {
-      EntityChangeEventGenerator entityChangeEventGenerator =
-          _entityChangeEventGeneratorFactory.getGenerator(entityType, element, aspectName);
+      EntityChangeEventGenerator entityChangeEventGenerator;
+      entityChangeEventGenerator = _entityChangeEventGeneratorFactory.getGenerator(entityType, element, aspectName);
       if (entityChangeEventGenerator != null) {
         try {
           ChangeTransaction changeTransaction =

@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
     _Aspect as AspectAbstract,
 )
 from datahub.utilities.urn_encoder import UrnEncoder
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -131,22 +132,6 @@ def dataset_key_to_urn(key: DatasetKeyClass) -> str:
     )
 
 
-def make_container_new_urn(guid: str) -> str:
-    return f"urn:dh:container:0:({guid})"
-
-
-def container_new_urn_to_key(dataset_urn: str) -> Optional[ContainerKeyClass]:
-    pattern = r"urn:dh:container:0:\((.*)\)"
-    results = re.search(pattern, dataset_urn)
-    if results is not None:
-        return ContainerKeyClass(guid=results[1])
-    return None
-
-
-# def make_container_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
-#    return f"urn:li:container:({make_data_platform_urn(platform)},{env},{name})"
-
-
 def make_container_urn(guid: str) -> str:
     return f"urn:li:container:{guid}"
 
@@ -179,15 +164,34 @@ def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
 
 
 def make_user_urn(username: str) -> str:
-    return f"urn:li:corpuser:{username}"
+    """
+    Makes a user urn if the input is not a user urn already
+    """
+    return (
+        f"urn:li:corpuser:{username}"
+        if not username.startswith("urn:li:corpuser:")
+        else username
+    )
 
 
 def make_group_urn(groupname: str) -> str:
-    return f"urn:li:corpGroup:{groupname}"
+    """
+    Makes a group urn if the input is not a group urn already
+    """
+    if groupname and groupname.startswith("urn:li:corpGroup:"):
+        return groupname
+    else:
+        return f"urn:li:corpGroup:{groupname}"
 
 
 def make_tag_urn(tag: str) -> str:
-    return f"urn:li:tag:{tag}"
+    """
+    Makes a tag urn if the input is not a tag urn already
+    """
+    if tag and tag.startswith("urn:li:tag:"):
+        return tag
+    else:
+        return f"urn:li:tag:{tag}"
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
@@ -195,13 +199,29 @@ def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
 
 
 def make_term_urn(term: str) -> str:
-    return f"urn:li:glossaryTerm:{term}"
+    """
+    Makes a term urn if the input is not a term urn already
+    """
+    if term and term.startswith("urn:li:glossaryTerm:"):
+        return term
+    else:
+        return f"urn:li:glossaryTerm:{term}"
 
 
 def make_data_flow_urn(
-    orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str,
+    flow_id: str,
+    cluster: str = DEFAULT_FLOW_CLUSTER,
+    platform_instance: Optional[str] = None,
 ) -> str:
-    return f"urn:li:dataFlow:({orchestrator},{flow_id},{cluster})"
+    return str(
+        DataFlowUrn.create_from_ids(
+            orchestrator=orchestrator,
+            flow_id=flow_id,
+            env=cluster,
+            platform_instance=platform_instance,
+        )
+    )
 
 
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
@@ -213,10 +233,14 @@ def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
 
 
 def make_data_job_urn(
-    orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str,
+    flow_id: str,
+    job_id: str,
+    cluster: str = DEFAULT_FLOW_CLUSTER,
+    platform_instance: Optional[str] = None,
 ) -> str:
     return make_data_job_urn_with_flow(
-        make_data_flow_urn(orchestrator, flow_id, cluster), job_id
+        make_data_flow_urn(orchestrator, flow_id, cluster, platform_instance), job_id
     )
 
 

@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
 import { Direction, VizNode, EntitySelectParams, EntityAndType, UpdatedLineages } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
@@ -16,6 +16,7 @@ import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width } f
 import LineageEntityColumns from './LineageEntityColumns';
 import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
 import ManageLineageMenu from './manage/ManageLineageMenu';
+import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -62,6 +63,7 @@ export default function LineageEntityNode({
 }) {
     const { direction } = node;
     const { expandTitles, collapsedColumnsNodes, showColumns, refetchCenterNode } = useContext(LineageExplorerContext);
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const [hasExpanded, setHasExpanded] = useState(false);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
@@ -76,7 +78,13 @@ export default function LineageEntityNode({
             } else {
                 // update non-center node using onExpandClick in useEffect below
                 getAsyncEntityLineage({
-                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode, showColumns },
+                    variables: {
+                        urn: node.data.urn,
+                        separateSiblings: isHideSiblingMode,
+                        showColumns,
+                        startTimeMillis,
+                        endTimeMillis,
+                    },
                 });
                 setTimeout(() => setHasExpanded(false), 0);
             }
@@ -109,12 +117,11 @@ export default function LineageEntityNode({
         [],
     );
 
-    let platformDisplayText = capitalizeFirstLetter(
-        node.data.platform?.properties?.displayName || node.data.platform?.name,
-    );
+    let platformDisplayText =
+        node.data.platform?.properties?.displayName || capitalizeFirstLetterOnly(node.data.platform?.name);
     if (node.data.siblingPlatforms && !isHideSiblingMode) {
         platformDisplayText = node.data.siblingPlatforms
-            .map((platform) => platform.properties?.displayName || platform.name)
+            .map((platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name))
             .join(' & ');
     }
 
@@ -161,7 +168,13 @@ export default function LineageEntityNode({
                             if (node.data.urn && node.data.type) {
                                 // getAsyncEntity(node.data.urn, node.data.type);
                                 getAsyncEntityLineage({
-                                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode, showColumns },
+                                    variables: {
+                                        urn: node.data.urn,
+                                        separateSiblings: isHideSiblingMode,
+                                        showColumns,
+                                        startTimeMillis,
+                                        endTimeMillis,
+                                    },
                                 });
                             }
                         }}
@@ -323,9 +336,8 @@ export default function LineageEntityNode({
                             |{' '}
                         </tspan>
                         <tspan dx=".25em" dy="-2px">
-                            {capitalizeFirstLetter(
-                                node.data.subtype || (node.data.type && entityRegistry.getEntityName(node.data.type)),
-                            )}
+                            {capitalizeFirstLetterOnly(node.data.subtype) ||
+                                (node.data.type && entityRegistry.getEntityName(node.data.type))}
                         </tspan>
                     </UnselectableText>
                     {expandTitles ? (

@@ -9,6 +9,7 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.Status;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.Container;
@@ -136,8 +137,19 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         properties.setQualifiedName(gmsProperties.getQualifiedName());
         dataset.setProperties(properties);
         dataset.setDescription(properties.getDescription());
-        if (gmsProperties.getUri() != null) {
-            dataset.setUri(gmsProperties.getUri().toString());
+        TimeStamp created = gmsProperties.getCreated();
+        if (created != null) {
+            properties.setCreated(created.getTime());
+            if (created.hasActor()) {
+                properties.setCreatedActor(created.getActor().toString());
+            }
+        }
+        TimeStamp lastModified = gmsProperties.getLastModified();
+        if (lastModified != null) {
+            properties.setLastModified(lastModified.getTime());
+            if (lastModified.hasActor()) {
+                properties.setLastModifiedActor(lastModified.getActor().toString());
+            }
         }
     }
 

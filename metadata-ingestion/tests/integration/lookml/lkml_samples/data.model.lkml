@@ -5,6 +5,8 @@ include: "bar.view.lkml"
 include: "nested/*"
 include: "liquid.view.lkml"
 include: "ability.view.lkml"
+include: "dataset_owners.explore.lkml"
+include: "native_derived_table.view.lkml"
 
 explore: aliased_explore {
   from: my_view

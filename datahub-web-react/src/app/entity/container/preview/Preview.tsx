@@ -14,6 +14,7 @@ import {
     GlossaryTerms,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
@@ -44,7 +45,7 @@ export const Preview = ({
 }: {
     urn: string;
     name: string;
-    platformName: string;
+    platformName?: string;
     platformLogo?: string | null;
     platformInstanceId?: string;
     description?: string | null;
@@ -62,7 +63,7 @@ export const Preview = ({
     externalUrl?: string | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const typeName = (subTypes?.typeNames?.length && subTypes?.typeNames[0]) || 'Container';
+    const typeName = capitalizeFirstLetterOnly(subTypes?.typeNames?.[0]) || 'Container';
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Container, urn)}

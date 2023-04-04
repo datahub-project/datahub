@@ -5,7 +5,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Ent
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
@@ -20,13 +20,13 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 export class DomainEntity implements Entity<Domain> {
     type: EntityType = EntityType.Domain;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <FolderOutlined />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderOutlined style={{ fontSize, color: '#B37FEB' }} />;
+            return <FolderOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -39,7 +39,7 @@ export class DomainEntity implements Entity<Domain> {
             <FolderOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );

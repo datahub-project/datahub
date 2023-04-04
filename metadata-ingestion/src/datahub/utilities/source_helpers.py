@@ -1,6 +1,7 @@
-from typing import Callable, Iterable, Optional, Set, Union
+from typing import Callable, Iterable, Optional, Set, TypeVar, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import WorkUnit
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -10,13 +11,18 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
+    TagKeyClass,
 )
+from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
+from datahub.utilities.urns.urn_iter import list_urns
 
 
 def auto_workunit(
     stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]
 ) -> Iterable[MetadataWorkUnit]:
+    """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
+
     for item in stream:
         if isinstance(item, MetadataChangeEventClass):
             yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
@@ -36,7 +42,12 @@ def auto_status_aspect(
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
-        if isinstance(wu.metadata, MetadataChangeEventClass):
+
+        if not wu.is_primary_source:
+            # If this is a non-primary source, we pretend like we've seen the status
+            # aspect so that we don't try to emit a removal for it.
+            status_urns.add(urn)
+        elif isinstance(wu.metadata, MetadataChangeEventClass):
             if any(
                 isinstance(aspect, StatusClass)
                 for aspect in wu.metadata.proposedSnapshot.aspects
@@ -80,9 +91,12 @@ def auto_stale_entity_removal(
     for wu in stream:
         urn = wu.get_urn()
 
-        entity_type = entity_type_fn(wu)
-        if entity_type is not None:
-            stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
+        if wu.is_primary_source:
+            entity_type = entity_type_fn(wu)
+            if entity_type is not None:
+                stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
+        else:
+            stale_entity_removal_handler.add_urn_to_skip(urn)
 
         yield wu
 
@@ -90,10 +104,10 @@ def auto_stale_entity_removal(
     yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
-def auto_workunit_reporter(
-    report: SourceReport,
-    stream: Iterable[MetadataWorkUnit],
-) -> Iterable[MetadataWorkUnit]:
+T = TypeVar("T", bound=WorkUnit)
+
+
+def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterable[T]:
     """
     Calls report.report_workunit() on each workunit.
     """
@@ -101,3 +115,36 @@ def auto_workunit_reporter(
     for wu in stream:
         report.report_workunit(wu)
         yield wu
+
+
+def auto_materialize_referenced_tags(
+    stream: Iterable[MetadataWorkUnit],
+    active: bool = True,
+) -> Iterable[MetadataWorkUnit]:
+    """For all references to tags, emit a tag key aspect to ensure that the tag exists in our backend."""
+
+    if not active:
+        yield from stream
+        return
+
+    referenced_tags = set()
+    tags_with_aspects = set()
+
+    for wu in stream:
+        for urn in list_urns(wu.metadata):
+            if guess_entity_type(urn) == "tag":
+                referenced_tags.add(urn)
+
+        urn = wu.get_urn()
+        if guess_entity_type(urn) == "tag":
+            tags_with_aspects.add(urn)
+
+        yield wu
+
+    for urn in referenced_tags - tags_with_aspects:
+        tag_urn = TagUrn.create_from_string(urn)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
+        ).as_workunit()

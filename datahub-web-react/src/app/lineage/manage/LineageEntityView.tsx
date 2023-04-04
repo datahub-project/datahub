@@ -3,7 +3,8 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Entity } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { getPlatformName } from '../../entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 const EntityWrapper = styled.div<{ shrinkPadding?: boolean }>`
@@ -43,7 +44,7 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
 
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
-    const platformName = genericProps?.platform?.properties?.displayName;
+    const platformName = getPlatformName(genericProps);
 
     return (
         <EntityWrapper shrinkPadding={displaySearchResult}>
@@ -54,7 +55,7 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
                 <span>{platformName}</span>
                 {platformName && <StyledDivider type="vertical" data-testid="divider" />}
                 <span>
-                    {capitalizeFirstLetter(genericProps?.subTypes?.typeNames?.[0]) ||
+                    {capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]) ||
                         entityRegistry.getEntityName(entity.type)}
                 </span>
             </PlatformContent>

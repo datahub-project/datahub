@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple, TypeVar
 
-import aiohttp
 import humanfriendly
 from packaging.version import Version
 from pydantic import BaseModel
@@ -45,6 +44,8 @@ class DataHubVersionStats(BaseModel):
 
 
 async def get_client_version_stats():
+    import aiohttp
+
     current_version_string = __version__
     current_version = Version(current_version_string)
     client_version_stats: ClientVersionStats = ClientVersionStats(
@@ -88,6 +89,8 @@ async def get_client_version_stats():
 
 
 async def get_github_stats():
+    import aiohttp
+
     async with aiohttp.ClientSession(
         headers={"Accept": "application/vnd.github.v3+json"}
     ) as session:
@@ -100,6 +103,8 @@ async def get_github_stats():
 
 
 async def get_server_config(gms_url: str, token: str) -> dict:
+    import aiohttp
+
     async with aiohttp.ClientSession(
         headers={
             "X-RestLi-Protocol-Version": "2.0.0",
@@ -116,6 +121,8 @@ async def get_server_config(gms_url: str, token: str) -> dict:
 async def get_server_version_stats(
     server: Optional[DataHubGraph] = None,
 ) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
+    import aiohttp
+
     server_config = None
     if not server:
         try:
@@ -124,8 +131,7 @@ async def get_server_version_stats(
             server_config = await get_server_config(host, token)
             log.debug(f"server_config:{server_config}")
         except Exception as e:
-            log.debug("Failed to get a valid server", e)
-            pass
+            log.debug(f"Failed to get a valid server: {e}")
     else:
         server_config = server.server_config
 
@@ -224,11 +230,11 @@ def valid_client_version(version: Version) -> bool:
 
 
 def valid_server_version(version: Version) -> bool:
-    """Only version strings like 0.8.x or 0.9.x are valid. 0.1.x is not"""
+    """Only version strings like 0.8.x, 0.9.x or 0.10.x are valid. 0.1.x is not"""
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
 
-    if version.major == 0 and version.minor in [8, 9]:
+    if version.major == 0 and version.minor in [8, 9, 10]:
         return True
 
     return False
@@ -236,7 +242,7 @@ def valid_server_version(version: Version) -> bool:
 
 def is_client_server_compatible(client: VersionStats, server: VersionStats) -> int:
     """
-    -ve implies client is behind server
+    -ve implies server is behind client
     0 implies client and server are aligned
     +ve implies server is ahead of client
     """
@@ -245,7 +251,12 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
     ):
         # we cannot evaluate compatibility, choose True as default
         return 0
-    return server.version.micro - client.version.micro
+    if server.version.major != client.version.major:
+        return server.version.major - client.version.major
+    elif server.version.minor != client.version.minor:
+        return server.version.minor - client.version.minor
+    else:
+        return server.version.micro - client.version.micro
 
 
 def maybe_print_upgrade_message(  # noqa: C901

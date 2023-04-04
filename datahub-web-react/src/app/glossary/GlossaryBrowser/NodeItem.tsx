@@ -6,9 +6,9 @@ import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
-import { useEntityData } from '../../entity/shared/EntityContext';
 import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
+import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
 
 const ItemWrapper = styled.div`
     display: flex;
@@ -73,8 +73,8 @@ function NodeItem(props: Props) {
 
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { entityData } = useEntityData();
-    const { data, loading } = useGetGlossaryNodeQuery({
+    const { entityData, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { data, loading, refetch } = useGetGlossaryNodeQuery({
         variables: { urn: node.urn },
         skip: !areChildrenVisible || shouldHideNode,
     });
@@ -90,6 +90,13 @@ function NodeItem(props: Props) {
             setAreChildrenVisible(false);
         }
     }, [refreshBrowser]);
+
+    useEffect(() => {
+        if (urnsToUpdate.includes(node.urn)) {
+            refetch();
+            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== node.urn));
+        }
+    });
 
     const isOnEntityPage = entityData && entityData.urn === node.urn;
 
@@ -123,7 +130,7 @@ function NodeItem(props: Props) {
                 {areChildrenVisible && <StyledDownOutlined onClick={() => setAreChildrenVisible(false)} />}
                 {!isSelecting && (
                     <NodeLink
-                        to={`/${entityRegistry.getPathName(node.type)}/${node.urn}`}
+                        to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
                         isSelected={entityData?.urn === node.urn}
                     >
                         <StyledFolderOutlined />
