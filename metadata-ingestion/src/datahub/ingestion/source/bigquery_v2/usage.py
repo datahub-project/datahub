@@ -1,10 +1,11 @@
 import itertools
+import json
 import logging
 import textwrap
 import time
 import traceback
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import (
     Any,
@@ -225,124 +226,90 @@ class BigQueryUsageState(Closeable):
         for _, query_event in self.query_events.items_snapshot("NOT is_read"):
             yield AuditEvent(query_event=query_event)
 
+    @staticmethod
+    def usage_statistics_query(top_n: int) -> str:
+        return f"""
+        SELECT a.timestamp, a.resource, a.query_count, b.query_freq, c.user_freq, d.column_freq FROM (
+            SELECT
+                r.timestamp,
+                r.resource,
+                COUNT(q.query) query_count
+            FROM
+                read_events r
+                LEFT JOIN query_events q ON r.name = q.key
+            GROUP BY r.timestamp, r.resource
+        ) a
+        LEFT JOIN (
+            SELECT timestamp, resource, json_group_array(json_array(query, query_freq)) as query_freq FROM (
+                SELECT
+                    r.timestamp,
+                    r.resource,
+                    q.query,
+                    COUNT(r.key) as query_freq,
+                    ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank
+                FROM
+                    read_events r
+                    LEFT JOIN query_events q ON r.name = q.key
+                GROUP BY r.timestamp, r.resource, q.query
+                ORDER BY r.timestamp, r.resource, query_freq DESC, q.query
+            ) WHERE rank <= {top_n}
+            GROUP BY timestamp, resource
+        ) b ON a.timestamp = b.timestamp AND a.resource = b.resource
+        LEFT JOIN (
+            SELECT timestamp, resource, json_group_array(json_array(user, user_freq)) as user_freq FROM (
+                SELECT
+                    r.timestamp,
+                    r.resource,
+                    r.user,
+                    COUNT(r.key) user_freq
+                FROM
+                    read_events r
+                GROUP BY r.timestamp, r.resource, r.user
+                ORDER BY r.timestamp, r.resource, user_freq DESC, r.user
+            )
+            GROUP BY timestamp, resource
+        ) c ON a.timestamp = c.timestamp AND a.resource = c.resource
+        LEFT JOIN (
+            SELECT timestamp, resource, json_group_array(json_array(column, column_freq)) as column_freq FROM (
+                SELECT
+                    r.timestamp,
+                    r.resource,
+                    c.field column,
+                    COUNT(r.key) column_freq
+                FROM
+                    read_events r
+                    INNER JOIN column_accesses c ON r.key = c.read_event
+                GROUP BY r.timestamp, r.resource, c.field
+                ORDER BY r.timestamp, r.resource, column_freq DESC, c.field
+            )
+            GROUP BY timestamp, resource
+        ) d ON a.timestamp = d.timestamp AND a.resource = d.resource
+        ORDER BY a.timestamp, a.resource
+        """
+
     @dataclass
     class UsageStatistic:
         timestamp: str
         resource: str
         query_count: int
-        query_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
-        user_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
-        column_freq: List[Tuple[str, int]] = field(init=False, default_factory=list)
+        query_freq: List[Tuple[str, int]]
+        user_freq: List[Tuple[str, int]]
+        column_freq: List[Tuple[str, int]]
 
     def usage_statistics(self, top_n: int) -> Iterator[UsageStatistic]:
-        query = f"""
-        SELECT
-            r.timestamp,
-            r.resource,
-            COUNT(q.query) query_count,
-            null as query,
-            null as query_freq,
-            null as user,
-            null as user_freq,
-            null as column,
-            null as column_freq
-        FROM
-            read_events r
-            LEFT JOIN query_events q ON r.name = q.key
-        GROUP BY r.timestamp, r.resource
-
-        UNION ALL
-
-        SELECT
-            r.timestamp,
-            r.resource,
-            null as query_count,
-            null as query,
-            null as query_freq,
-            r.user as user,
-            COUNT(r.key) as user_freq,
-            null as column,
-            null as column_freq
-        FROM
-            read_events r
-        GROUP BY r.timestamp, r.resource, r.user
-
-        UNION ALL
-
-        SELECT
-            r.timestamp,
-            r.resource,
-            null as query_count,
-            null as query,
-            null as query_freq,
-            null as user,
-            null as user_freq,
-            c.field as column,
-            COUNT(r.key) as column_freq
-        FROM
-            read_events r
-            INNER JOIN column_accesses c ON r.key = c.read_event
-        GROUP BY r.timestamp, r.resource, c.field
-
-        UNION ALL
-
-        SELECT * FROM (
-            SELECT timestamp, resource, query_count, query, query_freq, user, user_freq, column, column_freq FROM (
-                SELECT
-                    r.timestamp,
-                    r.resource,
-                    null as query_count,
-                    q.query as query,
-                    COUNT(r.key) as query_freq,
-                    ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank,
-                    null as user,
-                    null as user_freq,
-                    null as column,
-                    null as column_freq
-                FROM
-                    read_events r
-                    LEFT JOIN query_events q ON r.name = q.key
-                GROUP BY r.timestamp, r.resource, q.query
-            ) WHERE rank <= {top_n}
-        )
-        ORDER BY
-          timestamp,
-          resource,
-          query_count DESC,
-          query_freq DESC,
-          query,
-          user_freq DESC,
-          user,
-          column_freq DESC,
-          column
-        """
-
+        query = self.usage_statistics_query(top_n)
         rows = self.read_events.sql_query_iterator(
             query, refs=[self.query_events, self.column_accesses]
         )
-
-        curr: Optional[BigQueryUsageState.UsageStatistic] = None
-        for ts, res, query_count, query, q_freq, user, u_freq, column, c_freq in rows:
-            if curr is None:
-                curr = self.UsageStatistic(
-                    timestamp=ts, resource=res, query_count=query_count
-                )
-            elif (curr.timestamp, curr.resource) != (ts, res):
-                yield curr
-                curr = self.UsageStatistic(
-                    timestamp=ts, resource=res, query_count=query_count
-                )
-            else:
-                if query is not None:
-                    curr.query_freq.append((query, q_freq))
-                elif user is not None:
-                    curr.user_freq.append((user, u_freq))
-                elif column is not None:
-                    curr.column_freq.append((column, c_freq))
-                else:
-                    logger.warning(f"Invalid row for bucket {ts}, {res}")
-        if curr:
-            yield curr
+        for row in rows:
+            yield self.UsageStatistic(
+                timestamp=row["timestamp"],
+                resource=row["resource"],
+                query_count=row["query_count"],
+                query_freq=json.loads(row["query_freq"]),
+                user_freq=json.loads(row["user_freq"]),
+                column_freq=json.loads(row["column_freq"]),
+            )
 
 
 class BigQueryUsageExtractor:
