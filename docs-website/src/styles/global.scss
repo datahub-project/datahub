@@ -206,6 +206,27 @@ div[class^="announcementBar"] {
   height: 100%;
 }
 
+.quickstart__content {
+  text-align: center;
+  padding: 2rem 0;
+  height: 100%;
+  margin: 2rem 0;
+  border-radius: var(--ifm-card-border-radius);
+}
+
+.quickstart__title {
+
+}
+
+.quickstart__subtitle {
+  font-size: 1.1rem;
+}
+
+.quickstart__codeblock {
+  text-align: left;
+  padding: 0 20vh;
+  }
+
 .theme-doc-sidebar-menu ul li.saasOnly a.menu__link {
   &:after {
     content: "";

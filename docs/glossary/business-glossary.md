@@ -12,7 +12,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 When working in complex data ecosystems, it is very useful to organize data assets using a shared vocabulary. The Business Glossary feature in DataHub helps you do this, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
 
-Within this document, we'll introduce the core concepts comprising DataHub's Business Glossary feature and show you how to put it to work in your organization. 
+Within this document, we'll introduce the core concepts comprising DataHub's Business Glossary feature and show you how to put it to work in your organization.
 
 ### Terms & Term Groups
 
@@ -80,12 +80,13 @@ Once you've defined your Glossary, you can begin attaching terms to data assets.
 ![](../imgs/glossary/add-term-to-entity.png)
 
 In the modal that pops up you can select the Term you care about in one of two ways:
+
 - Search for the Term by name in the input
 - Navigate through the Glossary dropdown that appears after clicking into the input
 
 ![](../imgs/glossary/add-term-modal.png)
 
-## Managing Glossary with Git 
+## Managing Glossary with Git
 
 In many cases, it may be preferable to manage the Business Glossary in a version-control system like git. This can make
 managing changes across teams easier, by funneling all changes through a change management and review process.
@@ -100,17 +101,16 @@ Check out [our demo site](https://demo.datahubproject.io/glossary) to see an exa
 
 ### GraphQL
 
-* [addTerm](../../graphql/mutations.md#addterm)
-* [addTerms](../../graphql/mutations.md#addterms)
-* [batchAddTerms](../../graphql/mutations.md#batchaddterms)
-* [removeTerm](../../graphql/mutations.md#removeterm)
-* [batchRemoveTerms](../../graphql/mutations.md#batchremoveterms)
-* [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
-* [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
-
-You can easily fetch the Glossary Terms for an entity with a given its URN using the **glossaryTerms** property. Check out [Working with Metadata Entities](../api/graphql/how-to-set-up-graphql.md#querying-for-glossary-terms-of-an-asset) for an example.
+- [addTerm](../../graphql/mutations.md#addterm)
+- [addTerms](../../graphql/mutations.md#addterms)
+- [batchAddTerms](../../graphql/mutations.md#batchaddterms)
+- [removeTerm](../../graphql/mutations.md#removeterm)
+- [batchRemoveTerms](../../graphql/mutations.md#batchremoveterms)
+- [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
+- [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
 
 ## Resources
+
 - [Creating a Business Glossary and Putting it to use in DataHub](https://blog.datahubproject.io/creating-a-business-glossary-and-putting-it-to-use-in-datahub-43a088323c12)
 - [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
 
