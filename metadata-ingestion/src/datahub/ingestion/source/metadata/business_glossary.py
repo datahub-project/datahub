@@ -23,6 +23,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.source_helpers import auto_workunit_reporter
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class DefaultConfig(ConfigModel):
 
 class BusinessGlossarySourceConfig(ConfigModel):
     file: Union[str, pathlib.Path] = Field(
-        description="Path to business glossary file to ingest. This can be in the form of a URL or local file YAML."
+        description="File path or URL to business glossary file to ingest."
     )
     enable_auto_id: bool = Field(
         description="Generate id field from GlossaryNode and GlossaryTerm's name field",
@@ -479,21 +480,20 @@ class BusinessGlossaryFileSource(Source):
         return glossary_cfg
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
         populate_path_vs_id(glossary_config)
         for event in get_mces(
             glossary_config, ingestion_config=self.config, ctx=self.ctx
         ):
             if isinstance(event, models.MetadataChangeEventClass):
-                wu = MetadataWorkUnit(f"{event.proposedSnapshot.urn}", mce=event)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(f"{event.proposedSnapshot.urn}", mce=event)
             elif isinstance(event, MetadataChangeProposalWrapper):
-                wu = MetadataWorkUnit(
-                    id=f"{event.entityType}-{event.aspectName}-{event.entityUrn}",
-                    mcp=event,
-                )
-                yield wu
+                yield event.as_workunit()
 
     def get_report(self):
         return self.report
