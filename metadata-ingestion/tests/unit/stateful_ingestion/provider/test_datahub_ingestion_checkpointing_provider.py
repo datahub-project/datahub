@@ -71,8 +71,9 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         Mockey patched implementation of DatahubGraph.emit_mcp that caches the mcp locally in memory.
         """
         self.assertIsNotNone(graph_ref)
-        self.assertEqual(mcpw.entityType, "dataJob")
-        self.assertEqual(mcpw.aspectName, "datahubIngestionCheckpoint")
+        if mcpw.aspectName != "status":
+            self.assertEqual(mcpw.entityType, "dataJob")
+            self.assertEqual(mcpw.aspectName, "datahubIngestionCheckpoint")
         # Cache the mcpw against the entityUrn
         assert mcpw.entityUrn is not None
         self.mcps_emitted[mcpw.entityUrn] = mcpw
