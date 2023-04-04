@@ -329,9 +329,8 @@ class JsonSchemaTranslator:
         schema: Dict, required: Optional[bool] = None
     ) -> Optional[str]:
         json_props = {}
-        defaults = schema.get("default")
-        if defaults:
-            json_props["default"] = defaults
+        if "default" in schema:
+            json_props["default"] = schema["default"]
         if required is not None:
             json_props["required"] = required
 
