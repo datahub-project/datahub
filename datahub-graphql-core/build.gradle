@@ -56,6 +56,8 @@ graphqlCodegen {
         "$projectDir/src/main/resources/anomaly.graphql".toString(),
         // Integrations not in OSS
         "$projectDir/src/main/resources/integration.graphql".toString(),
+        // Notifications not in OSS
+        "$projectDir/src/main/resources/notifications.graphql".toString(),
         // Subscriptions not in OSS
         "$projectDir/src/main/resources/subscriptions.graphql".toString(),
     ]

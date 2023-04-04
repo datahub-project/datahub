@@ -6,9 +6,6 @@ import com.linkedin.common.Urn
 /**
  * Notification settings for an actor (currently users or groups).
  */
-@Aspect = {
-    "name": "notificationSettings"
-}
 record NotificationSettings {
     /**
     * Actor Urn

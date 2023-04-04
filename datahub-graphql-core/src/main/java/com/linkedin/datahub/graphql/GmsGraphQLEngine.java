@@ -278,6 +278,9 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.group.GetGroupNotificationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.group.UpdateGroupNotificationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.GetUserNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
@@ -966,11 +969,17 @@ public class GmsGraphQLEngine {
             .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
             .dataFetcher("getQuickFilters", new GetQuickFiltersResolver(this.entityClient, this.viewService))
 <<<<<<< HEAD
+<<<<<<< HEAD
             .dataFetcher("dataProduct", getResolver(dataProductType))
             .dataFetcher("listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
             .dataFetcher("listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
             .dataFetcher("browseV2", new BrowseV2Resolver(this.entityClient, this.viewService))
 =======
+=======
+            // Notifications not in OSS
+            .dataFetcher("getUserNotificationSettings", new GetUserNotificationSettingsResolver(this.settingsService))
+            .dataFetcher("getGroupNotificationSettings", new GetGroupNotificationSettingsResolver(this.settingsService))
+>>>>>>> 92236e6601 (add resolvers for getting and updating notification settings)
             // Subscriptions not in OSS
             .dataFetcher("listSubscriptions", new ListSubscriptionsResolver(this.subscriptionService))
 >>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
@@ -1130,6 +1139,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
+            // Notifications not in OSS
+            .dataFetcher("updateGroupNotificationSettings", new UpdateGroupNotificationSettingsResolver(this.settingsService))
             // Subscriptions not in OSS
             .dataFetcher("createSubscription", new CreateSubscriptionResolver(this.subscriptionService))
             .dataFetcher("updateSubscription", new UpdateSubscriptionResolver(this.subscriptionService))

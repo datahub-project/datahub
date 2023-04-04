@@ -1,0 +1,91 @@
+extend type Query {
+    """
+    Get a user's Notification Settings
+    """
+    getUserNotificationSettings: NotificationSettings
+
+    """
+    Get a group's Notification Settings
+    """
+    getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings
+}
+
+extend type Mutation {
+    """
+    Update a user's Notification Settings
+    """
+    updateUserNotificationSettings(input: UpdateUserNotificationSettingsInput!): Boolean
+
+    """
+    Update a user's Notification Settings
+    """
+    updateGroupNotificationSettings(input: UpdateGroupNotificationSettingsInput!): Boolean
+}
+
+input GetGroupNotificationSettingsInput {
+    """
+    The group's Urn
+    """
+    groupUrn: String!
+}
+
+input UpdateUserNotificationSettingsInput {
+    """
+    The user's Slack Notification Settings
+    """
+    slackSettings: SlackNotificationSettingsInput
+}
+
+input UpdateGroupNotificationSettingsInput {
+    """
+    The group's Urn
+    """
+    groupUrn: String!
+
+    """
+    The group's Slack Notification Settings
+    """
+    slackSettings: SlackNotificationSettingsInput
+}
+
+type NotificationSettings {
+    """
+    The actor's Urn
+    """
+    actorUrn: String!
+
+    """
+    The actor's type
+    """
+    actorType: String!
+
+    """
+    The actor's optional Slack Notification Settings
+    """
+    slackSettings: SlackNotificationSettings
+}
+
+type SlackNotificationSettings {
+    """
+    The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
+    """
+    userHandle: String
+
+    """
+    The actor's list of channels to notify. Only filled if the actor is a group.
+    """
+    channels: [String!]
+}
+
+
+input SlackNotificationSettingsInput {
+    """
+    The actor's handle. Only filled if the actor is a user.
+    """
+    userHandle: String
+
+    """
+    The actor's list of channels to notify. Only filled if the actor is a group.
+    """
+    channels: [String!]
+}

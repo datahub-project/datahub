@@ -315,6 +315,7 @@
         "MANAGE_DATA_PRODUCTS",
         "EDIT_MONITORS",
         "EDIT_ENTITY_QUERIES",
+        "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS"
       ],
       "displayName":"Admins - Metadata Policy",

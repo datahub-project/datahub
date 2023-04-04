@@ -1,16 +1,19 @@
 package com.linkedin.metadata.service;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.entity.Aspect;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.event.notification.settings.NotificationSettings;
+import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserViewsSettings;
@@ -20,288 +23,405 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.GlobalViewsSettings;
-import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Assert;
-import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
-
+import static com.linkedin.metadata.entity.AspectUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 public class SettingsServiceTest {
-
+  private static final String USER_URN_STRING = "urn:li:corpuser:testUser";
+  private static final Urn USER_URN = UrnUtils.getUrn(USER_URN_STRING);
+  private static final String GROUP_URN_STRING = "urn:li:corpGroup:testGroup";
+  private static final Urn GROUP_URN = UrnUtils.getUrn(GROUP_URN_STRING);
   private static final Urn TEST_VIEW_URN = UrnUtils.getUrn("urn:li:dataHubView:test");
-  private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
+  private static final String USER_HANDLE = "testUser";
+  private static final List<String> CHANNELS = Collections.singletonList("testChannel");
+  private static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
+  private static final Authentication SYSTEM_AUTHENTICATION =
+      new Authentication(new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID), "");
+
+  private static final SlackNotificationSettings USER_SLACK_NOTIFICATION_SETTINGS =
+      new SlackNotificationSettings().setUserHandle(USER_HANDLE);
+  private static final NotificationSettings USER_NOTIFICATION_SETTINGS = new NotificationSettings()
+      .setActorUrn(USER_URN)
+      .setActorType(com.linkedin.common.ActorType.USER)
+      .setSlackSettings(USER_SLACK_NOTIFICATION_SETTINGS);
+  private static final CorpUserSettings CORP_USER_SETTINGS = new CorpUserSettings()
+      .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
+      .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
+
+  private static final CorpUserSettings UPDATED_CORP_USER_SETTINGS =
+      CORP_USER_SETTINGS.setNotifications(USER_NOTIFICATION_SETTINGS);
+
+  private static final EntityResponse CORP_USER_ENTITY_RESPONSE = createEntityResponseFromAspects(
+      ImmutableMap.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME, CORP_USER_SETTINGS)
+  );
+  private static final SlackNotificationSettings GROUP_SLACK_NOTIFICATION_SETTINGS =
+      new SlackNotificationSettings().setChannels(new StringArray(CHANNELS));
+  private static final NotificationSettings GROUP_NOTIFICATION_SETTINGS = new NotificationSettings()
+      .setActorUrn(GROUP_URN)
+      .setActorType(com.linkedin.common.ActorType.GROUP)
+      .setSlackSettings(GROUP_SLACK_NOTIFICATION_SETTINGS);
+  private static final CorpGroupSettings CORP_GROUP_SETTINGS = new CorpGroupSettings()
+      .setNotifications(GROUP_NOTIFICATION_SETTINGS);
+  private static final CorpGroupSettings UPDATED_CORP_GROUP_SETTINGS = CORP_GROUP_SETTINGS;
+  private static final EntityResponse CORP_GROUP_ENTITY_RESPONSE = createEntityResponseFromAspects(
+      ImmutableMap.of(Constants.CORP_GROUP_SETTINGS_ASPECT_NAME, CORP_GROUP_SETTINGS)
+  );
+  private EntityClient _entityClient;
+  private SettingsService _settingsService;
+
+  @BeforeMethod
+  public void setupTest() {
+    _entityClient = mock(EntityClient.class);
+
+    _settingsService = new SettingsService(_entityClient, SYSTEM_AUTHENTICATION);
+  }
 
   @Test
-  private static void testGetCorpUserSettingsNullSettings() throws Exception {
-    final SettingsService service = new SettingsService(
-        getCorpUserSettingsEntityClientMock(null),
-        Mockito.mock(Authentication.class)
-    );
-    final CorpUserSettings res = service.getCorpUserSettings(TEST_USER_URN, Mockito.mock(Authentication.class));
+  public void testGetCorpUserSettingsMissingActor() throws Exception {
+    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+
+    assertThrows(() -> _settingsService.getCorpUserSettings(USER_URN, SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
+  public void testGetCorpUserSettingsNullSettings() throws Exception {
+    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.getV2(
+        eq(Constants.CORP_USER_ENTITY_NAME),
+        eq(USER_URN),
+        eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME)),
+        eq(SYSTEM_AUTHENTICATION)
+    )).thenReturn(null);
+
+    final CorpUserSettings res = _settingsService.getCorpUserSettings(USER_URN, SYSTEM_AUTHENTICATION);
+    assertNull(res);
+  }
+
+  @Test
+  public void testGetCorpUserSettingsValidSettings() throws Exception {
+    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.getV2(
+        eq(Constants.CORP_USER_ENTITY_NAME),
+        eq(USER_URN),
+        eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME)),
+        eq(SYSTEM_AUTHENTICATION)
+    )).thenReturn(CORP_USER_ENTITY_RESPONSE);
+
+    final CorpUserSettings res =
+        _settingsService.getCorpUserSettings(USER_URN, SYSTEM_AUTHENTICATION);
+    assertEquals(CORP_USER_SETTINGS, res);
+  }
+
+  @Test
+  public void testGetCorpUserSettingsException() throws Exception {
+    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.getV2(
+        eq(Constants.CORP_USER_ENTITY_NAME),
+        eq(USER_URN),
+        eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME)),
+        eq(SYSTEM_AUTHENTICATION)
+    )).thenThrow(new RemoteInvocationException());
+
+    assertThrows(RuntimeException.class, () -> _settingsService.getCorpUserSettings(USER_URN, SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
+  public void testGetCorpGroupSettingsMissingActor() throws Exception {
+    when(_entityClient.exists(eq(GROUP_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+
+    assertThrows(() -> _settingsService.getCorpUserSettings(GROUP_URN, SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
+  public void testGetCorpGroupSettingsNullSettings() throws Exception {
+    when(_entityClient.exists(eq(GROUP_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.getV2(
+        eq(CORP_GROUP_ENTITY_NAME),
+        eq(GROUP_URN),
+        eq(ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME)),
+        eq(SYSTEM_AUTHENTICATION)
+    )).thenReturn(null);
+
+    final CorpGroupSettings res = _settingsService.getCorpGroupSettings(GROUP_URN, SYSTEM_AUTHENTICATION);
     Assert.assertNull(res);
   }
 
   @Test
-  private static void testGetCorpUserSettingsValidSettings() throws Exception {
-    final CorpUserSettings existingSettings = new CorpUserSettings()
-        .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
-        .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
+  public void testGetCorpGroupSettingsValidSettings() throws Exception {
+    when(_entityClient.exists(eq(GROUP_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.getV2(
+        eq(CORP_GROUP_ENTITY_NAME),
+        eq(GROUP_URN),
+        eq(ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME)),
+        eq(SYSTEM_AUTHENTICATION)
+    )).thenReturn(CORP_GROUP_ENTITY_RESPONSE);
 
-    final SettingsService service = new SettingsService(
-        getCorpUserSettingsEntityClientMock(existingSettings),
-        Mockito.mock(Authentication.class)
-    );
-
-    final CorpUserSettings res = service.getCorpUserSettings(TEST_USER_URN, Mockito.mock(Authentication.class));
-    Assert.assertEquals(existingSettings, res);
+    final CorpGroupSettings res = _settingsService.getCorpGroupSettings(GROUP_URN, SYSTEM_AUTHENTICATION);
+    assertEquals(CORP_GROUP_SETTINGS, res);
   }
 
   @Test
-  private static void testGetCorpUserSettingsSettingsException() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
-        Mockito.eq(TEST_USER_URN),
-        Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
+  public void testGetCorpGroupSettingsException() throws Exception {
+    when(_entityClient.exists(eq(GROUP_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.getV2(
+        eq(CORP_GROUP_ENTITY_NAME),
+        eq(GROUP_URN),
+        eq(ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME)),
+        eq(SYSTEM_AUTHENTICATION)
     )).thenThrow(new RemoteInvocationException());
 
-    final SettingsService service = new SettingsService(
-        mockClient,
-        Mockito.mock(Authentication.class)
-    );
-
-    Assert.assertThrows(RuntimeException.class, () -> service.getCorpUserSettings(TEST_USER_URN, Mockito.mock(Authentication.class)));
+    assertThrows(RuntimeException.class, () -> _settingsService.getCorpUserSettings(USER_URN, SYSTEM_AUTHENTICATION));
   }
 
   @Test
-  private static void testUpdateCorpUserSettingsValidSettings() throws Exception {
-
-    final CorpUserSettings newSettings = new CorpUserSettings()
-        .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
-        .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
-
-    final MetadataChangeProposal expectedProposal =  buildUpdateCorpUserSettingsChangeProposal(
-        TEST_USER_URN,
-        newSettings
+  public void testUpdateCorpUserSettingsValidSettings() throws Exception {
+    final MetadataChangeProposal expectedProposal = buildUpdateCorpUserSettingsChangeProposal(
+        USER_URN,
+        UPDATED_CORP_USER_SETTINGS
     );
 
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.ingestProposal(
-        Mockito.eq(expectedProposal),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
-    )).thenReturn(TEST_USER_URN.toString());
+    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.ingestProposal(
+        eq(expectedProposal),
+        any(Authentication.class),
+        eq(false)
+    )).thenReturn(USER_URN.toString());
 
-    final SettingsService service = new SettingsService(
-        mockClient,
-        Mockito.mock(Authentication.class)
-    );
+    _settingsService.updateCorpUserSettings(
+        USER_URN,
+        UPDATED_CORP_USER_SETTINGS,
+        SYSTEM_AUTHENTICATION);
 
-    service.updateCorpUserSettings(
-        TEST_USER_URN,
-        newSettings,
-        Mockito.mock(Authentication.class));
-
-    Mockito.verify(mockClient, Mockito.times(1))
+    verify(_entityClient, times(1))
         .ingestProposal(
-            Mockito.eq(expectedProposal),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false)
+            eq(expectedProposal),
+            any(Authentication.class),
+            eq(true)
         );
   }
 
   @Test
-  private static void testUpdateCorpUserSettingsSettingsException() throws Exception {
-
-    final CorpUserSettings newSettings = new CorpUserSettings()
-        .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
-        .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
-
-    final MetadataChangeProposal expectedProposal =  buildUpdateCorpUserSettingsChangeProposal(
-        TEST_USER_URN,
-        newSettings
+  public void testUpdateCorpUserSettingsException() throws Exception {
+    final MetadataChangeProposal expectedProposal = buildUpdateCorpUserSettingsChangeProposal(
+        USER_URN,
+        UPDATED_CORP_USER_SETTINGS
     );
 
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.ingestProposal(
-        Mockito.eq(expectedProposal),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
+    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.ingestProposal(
+        eq(expectedProposal),
+        any(Authentication.class),
+        eq(true)
     )).thenThrow(new RemoteInvocationException());
 
-    final SettingsService service = new SettingsService(
-        mockClient,
-        Mockito.mock(Authentication.class)
-    );
-
-    Assert.assertThrows(RuntimeException.class, () -> service.updateCorpUserSettings(
-        TEST_USER_URN,
-        newSettings,
-        Mockito.mock(Authentication.class)));
+    assertThrows(RuntimeException.class, () -> _settingsService.updateCorpUserSettings(
+        USER_URN,
+        UPDATED_CORP_USER_SETTINGS,
+        SYSTEM_AUTHENTICATION));
   }
 
   @Test
-  private static void testGetGlobalSettingsNullSettings() throws Exception {
-    final SettingsService service = new SettingsService(
-        getGlobalSettingsEntityClientMock(null),
-        Mockito.mock(Authentication.class)
+  public void testUpdateCorpGroupSettingsValidSettings() throws Exception {
+    final MetadataChangeProposal expectedProposal = buildUpdateCorpGroupSettingsChangeProposal(
+        GROUP_URN,
+        UPDATED_CORP_GROUP_SETTINGS
     );
-    final GlobalSettingsInfo res = service.getGlobalSettings(Mockito.mock(Authentication.class));
+
+    when(_entityClient.exists(eq(GROUP_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.ingestProposal(
+        eq(expectedProposal),
+        any(Authentication.class),
+        eq(true)
+    )).thenReturn(GROUP_URN.toString());
+
+    _settingsService.updateCorpGroupSettings(
+        GROUP_URN,
+        UPDATED_CORP_GROUP_SETTINGS,
+        SYSTEM_AUTHENTICATION);
+
+    verify(_entityClient, times(1))
+        .ingestProposal(
+            eq(expectedProposal),
+            eq(SYSTEM_AUTHENTICATION),
+            eq(true)
+        );
+  }
+
+  @Test
+  public void testUpdateCorpGroupSettingsException() throws Exception {
+    final MetadataChangeProposal expectedProposal = buildUpdateCorpGroupSettingsChangeProposal(
+        GROUP_URN,
+        UPDATED_CORP_GROUP_SETTINGS
+    );
+
+    when(_entityClient.exists(eq(GROUP_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.ingestProposal(
+        eq(expectedProposal),
+        eq(SYSTEM_AUTHENTICATION),
+        eq(true)
+    )).thenThrow(new RemoteInvocationException());
+
+    assertThrows(() -> _settingsService.updateCorpGroupSettings(
+        GROUP_URN,
+        UPDATED_CORP_GROUP_SETTINGS,
+        SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
+  public void testCreateNotificationSettingsUser() {
+    final NotificationSettings notificationSettings =
+        _settingsService.createNotificationSettings(USER_URN);
+    assertEquals(notificationSettings.getActorUrn(), USER_URN);
+    assertEquals(notificationSettings.getActorType(), com.linkedin.common.ActorType.USER);
+  }
+
+  @Test
+  public void testCreateNotificationSettingsGroup() {
+    final NotificationSettings notificationSettings =
+        _settingsService.createNotificationSettings(GROUP_URN);
+    assertEquals(notificationSettings.getActorUrn(), GROUP_URN);
+    assertEquals(notificationSettings.getActorType(), com.linkedin.common.ActorType.GROUP);
+  }
+
+  @Test
+  public void testCreateNotificationSettingsUnsupportedActor() {
+    final Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    assertThrows(() -> _settingsService.createNotificationSettings(datasetUrn));
+  }
+
+  @Test
+  public void testCreateSlackNotificationSettingsNullInputs() {
+    assertThrows(() -> _settingsService.createSlackNotificationSettings(null, null));
+  }
+
+  @Test
+  public void testCreateSlackNotificationSettingsNullUserHandle() {
+    final SlackNotificationSettings slackNotificationSettings =
+        _settingsService.createSlackNotificationSettings(null, CHANNELS);
+    assertFalse(slackNotificationSettings.hasUserHandle());
+    assertTrue(slackNotificationSettings.hasChannels());
+    assertEquals(slackNotificationSettings.getChannels(), CHANNELS);
+  }
+
+  @Test
+  public void testCreateSlackNotificationSettingsNullChannels() {
+    final SlackNotificationSettings slackNotificationSettings =
+        _settingsService.createSlackNotificationSettings(USER_HANDLE, null);
+    assertTrue(slackNotificationSettings.hasUserHandle());
+    assertEquals(slackNotificationSettings.getUserHandle(), USER_HANDLE);
+    assertFalse(slackNotificationSettings.hasChannels());
+  }
+
+  @Test
+  public void testGetGlobalSettingsNullSettings() {
+    final GlobalSettingsInfo res = _settingsService.getGlobalSettings(SYSTEM_AUTHENTICATION);
     Assert.assertNull(res);
   }
 
   @Test
-  private static void testGetGlobalSettingsValidSettings() throws Exception {
+  public void testGetGlobalSettingsValidSettings() throws Exception {
     final GlobalSettingsInfo existingSettings = new GlobalSettingsInfo()
         .setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
+    when(_entityClient.getV2(
+        eq(GLOBAL_SETTINGS_ENTITY_NAME),
+        eq(GLOBAL_SETTINGS_URN),
+        eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
+        any(Authentication.class)
+    )).thenReturn(createEntityResponseFromAspects(
+        ImmutableMap.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME, existingSettings)
+    ));
 
-    final SettingsService service = new SettingsService(
-        getGlobalSettingsEntityClientMock(existingSettings),
-        Mockito.mock(Authentication.class)
-    );
-
-    final GlobalSettingsInfo res = service.getGlobalSettings(Mockito.mock(Authentication.class));
-    Assert.assertEquals(existingSettings, res);
+    final GlobalSettingsInfo res = _settingsService.getGlobalSettings(SYSTEM_AUTHENTICATION);
+    assertEquals(existingSettings, res);
   }
 
   @Test
-  private static void testGetGlobalSettingsSettingsException() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-        Mockito.eq(GLOBAL_SETTINGS_URN),
-        Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
+  public void testGetGlobalSettingsSettingsException() throws Exception {
+    when(_entityClient.getV2(
+        eq(GLOBAL_SETTINGS_ENTITY_NAME),
+        eq(GLOBAL_SETTINGS_URN),
+        eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
+        any(Authentication.class)
     )).thenThrow(new RemoteInvocationException());
 
-    final SettingsService service = new SettingsService(
-        mockClient,
-        Mockito.mock(Authentication.class)
-    );
-
-    Assert.assertThrows(RuntimeException.class, () -> service.getGlobalSettings(Mockito.mock(Authentication.class)));
+    assertThrows(RuntimeException.class, () -> _settingsService.getGlobalSettings(SYSTEM_AUTHENTICATION));
   }
 
   @Test
-  private static void testUpdateGlobalSettingsValidSettings() throws Exception {
-
+  public void testUpdateGlobalSettingsValidSettings() throws Exception {
     final GlobalSettingsInfo newSettings = new GlobalSettingsInfo()
         .setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
 
-    final MetadataChangeProposal expectedProposal =  buildUpdateGlobalSettingsChangeProposal(newSettings);
+    final MetadataChangeProposal expectedProposal = buildUpdateGlobalSettingsChangeProposal(newSettings);
 
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.ingestProposal(
-        Mockito.eq(expectedProposal),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
+    when(_entityClient.ingestProposal(
+        eq(expectedProposal),
+        any(Authentication.class),
+        eq(false)
     )).thenReturn(GLOBAL_SETTINGS_URN.toString());
 
-    final SettingsService service = new SettingsService(
-        mockClient,
-        Mockito.mock(Authentication.class)
-    );
-
-    service.updateGlobalSettings(
+    _settingsService.updateGlobalSettings(
         newSettings,
-        Mockito.mock(Authentication.class));
+        SYSTEM_AUTHENTICATION);
 
-    Mockito.verify(mockClient, Mockito.times(1))
+    verify(_entityClient, times(1))
         .ingestProposal(
-            Mockito.eq(expectedProposal),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false)
+            eq(expectedProposal),
+            any(Authentication.class),
+            eq(false)
         );
   }
 
   @Test
-  private static void testUpdateGlobalSettingsSettingsException() throws Exception {
-
+  public void testUpdateGlobalSettingsSettingsException() throws Exception {
     final GlobalSettingsInfo newSettings = new GlobalSettingsInfo()
         .setViews(new GlobalViewsSettings().setDefaultView(TEST_VIEW_URN));
 
-    final MetadataChangeProposal expectedProposal =  buildUpdateGlobalSettingsChangeProposal(
+    final MetadataChangeProposal expectedProposal = buildUpdateGlobalSettingsChangeProposal(
         newSettings
     );
 
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.ingestProposal(
-        Mockito.eq(expectedProposal),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
+    when(_entityClient.ingestProposal(
+        eq(expectedProposal),
+        any(Authentication.class),
+        eq(false)
     )).thenThrow(new RemoteInvocationException());
 
-    final SettingsService service = new SettingsService(
-        mockClient,
-        Mockito.mock(Authentication.class)
-    );
-
-    Assert.assertThrows(RuntimeException.class, () -> service.updateGlobalSettings(
+    assertThrows(RuntimeException.class, () -> _settingsService.updateGlobalSettings(
         newSettings,
-        Mockito.mock(Authentication.class)));
-  }
-
-  private static EntityClient getCorpUserSettingsEntityClientMock(@Nullable final CorpUserSettings settings)
-      throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-
-    EnvelopedAspectMap aspectMap = settings != null ? new EnvelopedAspectMap(ImmutableMap.of(
-        Constants.CORP_USER_SETTINGS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(settings.data()))
-    )) : new EnvelopedAspectMap();
-
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
-        Mockito.eq(TEST_USER_URN),
-        Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        new EntityResponse()
-            .setEntityName(Constants.CORP_USER_ENTITY_NAME)
-            .setUrn(TEST_USER_URN)
-            .setAspects(aspectMap)
-    );
-    return mockClient;
-  }
-
-  private static EntityClient getGlobalSettingsEntityClientMock(@Nullable final GlobalSettingsInfo settings)
-      throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-
-    EnvelopedAspectMap aspectMap = settings != null ? new EnvelopedAspectMap(ImmutableMap.of(
-        GLOBAL_SETTINGS_INFO_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(settings.data()))
-    )) : new EnvelopedAspectMap();
-
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-        Mockito.eq(GLOBAL_SETTINGS_URN),
-        Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        new EntityResponse()
-            .setEntityName(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)
-            .setUrn(GLOBAL_SETTINGS_URN)
-            .setAspects(aspectMap)
-    );
-    return mockClient;
+        SYSTEM_AUTHENTICATION));
   }
 
   private static MetadataChangeProposal buildUpdateCorpUserSettingsChangeProposal(
-    final Urn urn,
-    final CorpUserSettings newSettings) {
-      final MetadataChangeProposal mcp = new MetadataChangeProposal();
-      mcp.setEntityUrn(urn);
-      mcp.setEntityType(CORP_USER_ENTITY_NAME);
-      mcp.setAspectName(CORP_USER_SETTINGS_ASPECT_NAME);
-      mcp.setChangeType(ChangeType.UPSERT);
-      mcp.setAspect(GenericRecordUtils.serializeAspect(newSettings));
-      return mcp;
+      final Urn urn,
+      final CorpUserSettings newSettings) {
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(CORP_USER_ENTITY_NAME);
+    mcp.setAspectName(CORP_USER_SETTINGS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(newSettings));
+    return mcp;
+  }
+
+  private static MetadataChangeProposal buildUpdateCorpGroupSettingsChangeProposal(
+      final Urn urn,
+      final CorpGroupSettings newSettings) {
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(CORP_GROUP_ENTITY_NAME);
+    mcp.setAspectName(CORP_GROUP_SETTINGS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(newSettings));
+    return mcp;
   }
 
   private static MetadataChangeProposal buildUpdateGlobalSettingsChangeProposal(

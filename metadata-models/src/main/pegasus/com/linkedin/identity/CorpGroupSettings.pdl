@@ -1,0 +1,16 @@
+namespace com.linkedin.identity
+
+import com.linkedin.event.notification.settings.NotificationSettings
+
+/**
+ * Settings that a group can customize through the DataHub UI
+ */
+@Aspect = {
+  "name": "corpGroupSettings"
+}
+record CorpGroupSettings {
+  /**
+   * Notification settings for a group
+   */
+  notifications: optional NotificationSettings
+}
