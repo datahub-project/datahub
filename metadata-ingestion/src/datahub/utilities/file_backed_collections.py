@@ -64,6 +64,7 @@ class ConnectionWrapper:
             filename = pathlib.Path(self._directory.name) / _DEFAULT_FILE_NAME
 
         self.conn = sqlite3.connect(filename, isolation_level=None)
+        self.conn.row_factory = sqlite3.Row
         self.filename = filename
 
         # These settings are optimized for performance.
@@ -314,7 +315,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> List[sqlite3.Row]:
         return self._sql_query(query, params, refs).fetchall()
 
     def sql_query_iterator(
@@ -322,7 +323,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> Iterator[Tuple[Any, ...]]:
+    ) -> Iterator[sqlite3.Row]:
         return self._sql_query(query, params, refs)
 
     def _sql_query(
@@ -422,7 +423,7 @@ class FileBackedList(Generic[_VT]):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> List[sqlite3.Row]:
         return self._dict.sql_query(query, params, refs=refs)
 
     def close(self) -> None:

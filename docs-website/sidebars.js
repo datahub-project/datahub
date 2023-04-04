@@ -86,6 +86,13 @@ module.exports = {
               ],
             },
             {
+              Tableau: [
+                "docs/quick-ingestion-guides/tableau/overview",
+                "docs/quick-ingestion-guides/tableau/setup",
+                "docs/quick-ingestion-guides/tableau/configuration",
+              ],
+            },
+            {
               PowerBI: [
                 "docs/quick-ingestion-guides/powerbi/overview",
                 "docs/quick-ingestion-guides/powerbi/setup",
