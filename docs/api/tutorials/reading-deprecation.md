@@ -84,7 +84,7 @@ Expected Response:
 }
 ```
 
-## Add Tags With Python SDK
+## Read Deprecation With Python SDK
 
 The following code reads the deprecation status of dataset `fct_users_created`.
 
