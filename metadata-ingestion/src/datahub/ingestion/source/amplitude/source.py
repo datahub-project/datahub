@@ -8,7 +8,7 @@ from requests.models import HTTPBasicAuth, HTTPError
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -55,7 +55,7 @@ class AmplitudeProjectConfig(ConfigModel):
     secret_key: pydantic.SecretStr = Field(description="The project API secret key")
 
 
-class AmplitudeConfig(DatasetLineageProviderConfigBase):
+class AmplitudeConfig(ConfigModel):
     connect_uri: str = Field(
         default="https://amplitude.com/api/2", description="Amplitude API endpoint"
     )
@@ -77,7 +77,7 @@ class AmplitudeTaxonomyEndpoints:
 @platform_name("Amplitude")
 @config_class(AmplitudeConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 class AmplitudeSource(Source):
@@ -97,11 +97,11 @@ class AmplitudeSource(Source):
         self.session = requests.session()
         self.endpoints = AmplitudeTaxonomyEndpoints()
 
-    def get_data_platform_instance(self) -> DataPlatformInstanceClass:
-        return DataPlatformInstanceClass(
-            platform=builder.make_data_platform_urn(self.platform),
-            instance=builder.make_dataplatform_instance_urn(self.platform, self.env),
-        )
+    # def get_data_platform_instance(self) -> DataPlatformInstanceClass:
+    #     return DataPlatformInstanceClass(
+    #         platform=builder.make_data_platform_urn(self.platform),
+    #         instance=builder.make_dataplatform_instance_urn(self.platform, self.env),
+    #     )
 
     def build_project_from_config(
         self, config: AmplitudeProjectConfig
@@ -315,7 +315,7 @@ class AmplitudeSource(Source):
             )
             dataset_snapshot = DatasetSnapshot(
                 urn=event_urn,
-                aspects=[self.get_data_platform_instance()],
+                aspects=[]
             )
             dataset_snapshot.aspects.append(event_metadata)
 
@@ -352,7 +352,7 @@ class AmplitudeSource(Source):
         )
         dataset_snapshot = DatasetSnapshot(
             urn=user_prop_urn,
-            aspects=[self.get_data_platform_instance()],
+            aspects=[]
         )
         dataset_snapshot.aspects.append(user_prop_metadata)
 
