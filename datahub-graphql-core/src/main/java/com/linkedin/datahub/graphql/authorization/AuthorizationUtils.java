@@ -1,17 +1,19 @@
 package com.linkedin.datahub.graphql.authorization;
 
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.ResourceSpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
@@ -101,6 +103,16 @@ public class AuthorizationUtils {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
         ImmutableList.of(ALL_PRIVILEGES_GROUP,
             new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(context.getAuthorizer(), context.getActorUrn(), CORP_GROUP_ENTITY_NAME,
+        groupUrnStr, orPrivilegeGroups);
+  }
+
+  public static boolean canManageGroupSubscriptions(@Nonnull String groupUrnStr, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
+        ImmutableList.of(ALL_PRIVILEGES_GROUP,
+            new ConjunctivePrivilegeGroup(
+                ImmutableList.of(PoliciesConfig.MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(context.getAuthorizer(), context.getActorUrn(), CORP_GROUP_ENTITY_NAME,
         groupUrnStr, orPrivilegeGroups);

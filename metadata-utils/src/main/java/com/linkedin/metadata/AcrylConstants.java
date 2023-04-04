@@ -36,6 +36,10 @@ public class AcrylConstants {
   public static final String SLA_SYSTEM_MONITOR_ID = "__system_sla";
   public static final String ACRYL_LOGO_FILE_PATH = "/integrations/static/acryl-slack-icon.png";
 
+  // For subscriptions
+  public static final String SUBSCRIPTION_ENTITY_NAME = "subscription";
+  public static final String SUBSCRIPTION_INFO_ASPECT_NAME = "subscriptionInfo";
+
   private AcrylConstants() {
   }
 }

@@ -313,7 +313,9 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "EDIT_MONITORS"
+        "EDIT_MONITORS",
+        "EDIT_ENTITY_QUERIES",
+        "MANAGE_GROUP_SUBSCRIPTIONS"
       ],
       "displayName":"Admins - Metadata Policy",
       "description":"Admins have all metadata privileges.",

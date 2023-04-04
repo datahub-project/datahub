@@ -4,9 +4,12 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -130,5 +133,47 @@ public class AspectUtils {
     auditStamp.setTime(DateTimeUtils.currentTimeMillis());
     auditStamp.setActor(actor);
     return auditStamp;
+  }
+
+  @Nonnull
+  public static DataMap getDataMapFromEntityResponse(@Nonnull final EntityResponse entityResponse,
+      @Nonnull final String aspectName) {
+    Objects.requireNonNull(entityResponse, "entityResponse must not be null");
+    Objects.requireNonNull(aspectName, "aspectName must not be null");
+    final EnvelopedAspectMap aspects = entityResponse.getAspects();
+    if (!aspects.containsKey(aspectName)) {
+      throw new RuntimeException(String.format("Aspect %s not found in entity response", aspectName));
+    }
+
+    final DataMap dataMap = aspects.get(aspectName).getValue().data();
+    if (dataMap == null) {
+      throw new RuntimeException(String.format("DataMap is null for aspect %s", aspectName));
+    }
+
+    return dataMap;
+  }
+
+  @Nonnull
+  public static Map<Urn, DataMap> getDataMapsFromEntityResponseMap(
+      @Nonnull final Map<Urn, EntityResponse> entityResponseMap, @Nonnull final String aspectName) {
+    Objects.requireNonNull(entityResponseMap, "entityResponseMap must not be null");
+    Objects.requireNonNull(aspectName, "aspectName must not be null");
+    return entityResponseMap.entrySet()
+        .stream()
+        .filter(entry -> entry.getValue() != null && entry.getValue().getAspects().containsKey(aspectName))
+        .collect(
+            Collectors.toMap(Map.Entry::getKey, entry -> getDataMapFromEntityResponse(entry.getValue(), aspectName)));
+  }
+
+  @Nonnull
+  public static EntityResponse createEntityResponseFromAspects(@Nonnull final Map<String, RecordTemplate> aspects) {
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    for (Map.Entry<String, RecordTemplate> entry : aspects.entrySet()) {
+      aspectMap.put(entry.getKey(), new EnvelopedAspect().setValue(new Aspect(entry.getValue().data())));
+    }
+
+    final EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setAspects(aspectMap);
+    return entityResponse;
   }
 }

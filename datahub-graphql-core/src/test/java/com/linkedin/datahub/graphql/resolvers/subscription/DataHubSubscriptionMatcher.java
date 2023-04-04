@@ -1,0 +1,29 @@
+package com.linkedin.datahub.graphql.resolvers.subscription;
+
+import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import java.util.List;
+import org.mockito.ArgumentMatcher;
+
+
+public class DataHubSubscriptionMatcher implements ArgumentMatcher<DataHubSubscription> {
+
+  private final DataHubSubscription _expected;
+
+  public DataHubSubscriptionMatcher(final DataHubSubscription expected) {
+    _expected = expected;
+  }
+
+  @Override
+  public boolean matches(final DataHubSubscription actual) {
+    return _expected.getActorUrn().equals(actual.getActorUrn())
+        && _expected.getSubscriptionUrn().equals(actual.getSubscriptionUrn())
+        && _expected.getEntityUrn().equals(actual.getEntityUrn())
+        && listMatches(_expected.getSubscriptionTypes(), actual.getSubscriptionTypes())
+        && listMatches(_expected.getEntityChangeTypes(), actual.getEntityChangeTypes())
+        && listMatches(_expected.getNotificationConfig().getSinkTypes(), actual.getNotificationConfig().getSinkTypes());
+  }
+
+  private boolean listMatches(final List<?> expected, final List<?> actual) {
+    return expected.containsAll(actual) && actual.containsAll(expected);
+  }
+}

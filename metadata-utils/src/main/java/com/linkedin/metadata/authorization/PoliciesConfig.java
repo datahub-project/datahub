@@ -377,6 +377,10 @@ public class PoliciesConfig {
       "EDIT_GROUP_MEMBERS",
       "Edit Group Members",
       "The ability to add and remove members to a group.");
+  public static final Privilege MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE = Privilege.of(
+      "MANAGE_GROUP_SUBSCRIPTIONS",
+      "Manage Group Subscriptions",
+      "The ability to manage subscriptions for a group.");
 
   // User Privileges
   public static final Privilege EDIT_USER_PROFILE_PRIVILEGE = Privilege.of(

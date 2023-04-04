@@ -2,13 +2,14 @@ package com.linkedin.datahub.graphql;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
-import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.post.PostService;
+import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.role.RoleService;
+import com.datahub.subscription.SubscriptionService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -42,11 +43,14 @@ import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
-import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
+<<<<<<< HEAD
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+=======
+import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
+>>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
@@ -200,11 +204,14 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
+<<<<<<< HEAD
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
+=======
+>>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -223,12 +230,6 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResol
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
@@ -249,6 +250,13 @@ import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.post.CreatePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.DeletePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.ListPostsResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.query.CreateQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.DeleteQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.ListQueriesResolver;
@@ -275,15 +283,18 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsR
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.CreateSubscriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.ListSubscriptionsResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.UpdateSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
+import com.linkedin.datahub.graphql.resolvers.test.EntityTestResultsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.RunTestDefinitionResolver;
 import com.linkedin.datahub.graphql.resolvers.test.RunTestsResolver;
-import com.linkedin.datahub.graphql.resolvers.test.EntityTestResultsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.TestResultsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.test.UpdateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ValidateTestResolver;
@@ -366,14 +377,17 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
+<<<<<<< HEAD
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.MonitorService;
+=======
+import com.linkedin.metadata.service.LineageService;
+>>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -499,6 +513,7 @@ public class GmsGraphQLEngine {
     // SaaS only
     private final AnomalyType anomalyType;
     private final ProposalService proposalService;
+    private final SubscriptionService subscriptionService;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -659,6 +674,7 @@ public class GmsGraphQLEngine {
         this.entitySearchService = args.entitySearchService;
         this.testEngine = args.testEngine;
         this.proposalService = args.proposalService;
+        this.subscriptionService = args.subscriptionService;
     }
 
     /**
@@ -949,10 +965,15 @@ public class GmsGraphQLEngine {
             .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
             .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
             .dataFetcher("getQuickFilters", new GetQuickFiltersResolver(this.entityClient, this.viewService))
+<<<<<<< HEAD
             .dataFetcher("dataProduct", getResolver(dataProductType))
             .dataFetcher("listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
             .dataFetcher("listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
             .dataFetcher("browseV2", new BrowseV2Resolver(this.entityClient, this.viewService))
+=======
+            // Subscriptions not in OSS
+            .dataFetcher("listSubscriptions", new ListSubscriptionsResolver(this.subscriptionService))
+>>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
         );
     }
 
@@ -1109,6 +1130,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
+            // Subscriptions not in OSS
+            .dataFetcher("createSubscription", new CreateSubscriptionResolver(this.subscriptionService))
+            .dataFetcher("updateSubscription", new UpdateSubscriptionResolver(this.subscriptionService))
         );
     }
 

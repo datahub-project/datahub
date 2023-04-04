@@ -1,0 +1,197 @@
+extend type Query {
+    """
+    List an actor's subscriptions
+    """
+    listSubscriptions(input: ListSubscriptionsInput!): ListSubscriptionsResult!
+}
+
+extend type Mutation {
+    """
+    Create a subscription
+    """
+    createSubscription(input: CreateSubscriptionInput!): DataHubSubscription!
+
+    """
+    Update a subscription
+    """
+    updateSubscription(input: UpdateSubscriptionInput!): DataHubSubscription!
+}
+
+input ListSubscriptionsInput {
+    """
+    The actor's Urn.
+    """
+    actorUrn: String!
+}
+
+type ListSubscriptionsResult {
+    """
+    The list of subscriptions.
+    """
+    subscriptions: [DataHubSubscription]!
+}
+
+input CreateSubscriptionInput {
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
+
+    """
+    The subscription's types
+    """
+    subscriptionTypes: [SubscriptionType!]!
+
+    """
+    Change types that trigger a notification for the subscription.
+    """
+    entityChangeTypes: [EntityChangeType!]!
+
+    """
+    Notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfigInput!
+
+    """
+    (Optional) Group urn. Only used for group subscriptions.
+    """
+    groupUrn: String
+}
+
+input UpdateSubscriptionInput {
+    """
+    The subscription urn.
+    """
+    subscriptionUrn: String!
+
+    """
+    (Optional) The subscription's types. Will replace existing types.
+    """
+    subscriptionTypes: [SubscriptionType!]
+
+    """
+    (Optional) Change types that trigger a notification for the subscription. Will replace existing change types.
+    """
+    entityChangeTypes: [EntityChangeType!]
+
+    """
+    (Optional) Notification configuration. Will replace existing notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfigInput
+}
+
+input SubscriptionNotificationConfigInput {
+    """
+    Sink types that notifications for the subscription are sent to.
+    """
+    sinkTypes: [NotificationSinkType!]!
+}
+
+type DataHubSubscription {
+    """
+    The urn of the actor that owns the subscription.
+    """
+    actorUrn: String!
+
+    """
+    The subscription's Urn.
+    """
+    subscriptionUrn: String!
+
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
+
+    """
+    The subscription's types
+    """
+    subscriptionTypes: [SubscriptionType]!
+
+    """
+    Change types that trigger a notification for the subscription.
+    """
+    entityChangeTypes: [EntityChangeType]!
+
+    """
+    Notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfig!
+}
+
+enum SubscriptionType {
+    """
+    Triggered via direct changes on an entity.
+    """
+    ENTITY_CHANGE
+
+    """
+    Triggered via changes on an entity's upstream dependencies.
+    """
+    UPSTREAM_ENTITY_CHANGE
+}
+
+enum EntityChangeType {
+    """.
+    Schema changes
+    """
+    OPERATION_COLUMN_ADDED
+    OPERATION_COLUMN_REMOVED
+    OPERATION_COLUMN_MODIFIED
+
+    """
+    Operational metadata changes.
+    """
+    OPERATION_ROWS_INSERTED
+    OPERATION_ROWS_UPDATED
+    OPERATION_ROWS_REMOVED
+
+    """
+    Assertion run failure.
+    """
+    ASSERTION_FAILED
+
+    """
+    Test failure.
+    """
+    TEST_FAILED
+
+    """
+    Deprecation.
+    """
+    DEPRECATED
+
+    """
+    Ingestion failure.
+    """
+    INGESTION_FAILED
+
+    """
+    Ownership changes. Added or removed.
+    """
+    OWNERSHIP_CHANGE
+
+    """
+    Glossary term changes. Added, removed, or proposed.
+    """
+    GLOSSARY_TERM_CHANGE
+
+    """
+    Tag changes. Added, removed, or proposed.
+    """
+    TAG_CHANGE
+}
+
+type SubscriptionNotificationConfig {
+    """
+    Sink types that notifications for the subscription are sent to.
+    """
+    sinkTypes: [NotificationSinkType]!
+}
+
+enum NotificationSinkType {
+    """
+    Slack
+    """
+    SLACK
+}

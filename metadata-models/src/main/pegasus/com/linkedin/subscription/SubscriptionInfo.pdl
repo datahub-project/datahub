@@ -27,12 +27,15 @@ record SubscriptionInfo {
     actorType: ActorType
 
     /**
-     * The subscription type.
+     * The subscription types.
      */
     @Searchable = {
-        "fieldType": "TEXT"
+        "/*" : {
+            "fieldName": "subscriptionTypes",
+            "fieldType": "TEXT"
+        }
     }
-    type: SubscriptionType
+    types: array[SubscriptionType]
 
     /**
     * Optional entity Urn

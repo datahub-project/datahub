@@ -9,6 +9,7 @@ import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.role.RoleService;
+import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
@@ -89,4 +90,5 @@ public class GmsGraphQLEngineArgs {
     MonitorService monitorService;
     IntegrationsService integrationsService;
     ConnectionService connectionService;
+    SubscriptionService subscriptionService;
 }
