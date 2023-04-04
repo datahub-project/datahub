@@ -1,9 +1,7 @@
 import logging
 import os
 import random
-import sys
 from datetime import timedelta
-from typing import Generator
 
 import humanfriendly
 import psutil

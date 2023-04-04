@@ -102,6 +102,7 @@ def bigquery_audit_metadata_query_template(
     :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
            tables
     :param table_allow_filter: regex used to filter on log events that contain the wanted datasets
+    :param limit: maximum number of events to query for
     :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
     """
     allow_filter = f"""
@@ -504,6 +505,7 @@ class BigQueryUsageExtractor:
         self,
         bigquery_client: BigQueryClient,
         allow_filter: str,
+        limit: Optional[int] = None,
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
             return
@@ -847,7 +849,7 @@ class BigQueryUsageExtractor:
     def _parse_exported_bigquery_audit_metadata(
         self, audit_metadata: BigQueryAuditMetadata
     ) -> Optional[AuditEvent]:
-        event: Optional[Union[QueryEvent, ReadEvent]] = None
+        event: Optional[Union[ReadEvent, QueryEvent]] = None
 
         missing_read_event = ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
             audit_metadata
@@ -885,7 +887,7 @@ class BigQueryUsageExtractor:
     def _get_parsed_bigquery_log_events(
         self, project_id: str, limit: Optional[int] = None
     ) -> Iterable[AuditEvent]:
-        parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
+        parse_fn: Callable[[Any], Optional[AuditEvent]]
         if self.config.use_exported_bigquery_audit_metadata:
             bq_client = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(
@@ -893,6 +895,7 @@ class BigQueryUsageExtractor:
                 allow_filter=self.config.get_table_pattern(
                     self.config.table_pattern.allow
                 ),
+                limit=limit,
             )
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
