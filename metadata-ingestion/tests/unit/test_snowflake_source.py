@@ -239,7 +239,7 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
 
 
 def test_private_key_set_but_auth_not_changed():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         SnowflakeV2Config.parse_obj(
             {
                 "account_id": "acctname",
