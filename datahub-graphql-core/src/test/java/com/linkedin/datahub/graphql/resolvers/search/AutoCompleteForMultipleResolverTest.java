@@ -32,8 +32,6 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 
 public class AutoCompleteForMultipleResolverTest {
@@ -135,7 +133,15 @@ public class AutoCompleteForMultipleResolverTest {
           .setEntities(new AutoCompleteEntityArray())
           .setSuggestions(new StringArray())
     );
-    testAutoCompleteResolverSuccess(mockClient, viewService, Constants.DATASET_ENTITY_NAME, EntityType.DATASET, new DatasetType(mockClient), TEST_VIEW_URN, viewInfo.getDefinition().getFilter());
+    testAutoCompleteResolverSuccess(
+        mockClient,
+        viewService,
+        Constants.DATASET_ENTITY_NAME,
+        EntityType.DATASET,
+        new DatasetType(mockClient),
+        TEST_VIEW_URN,
+        viewInfo.getDefinition().getFilter()
+    );
   }
 
   // test entity type filters with a given view
@@ -158,7 +164,15 @@ public class AutoCompleteForMultipleResolverTest {
     );
 
     // ensure we do hit the entity client for dashboards since dashboards are in our view
-    testAutoCompleteResolverSuccess(mockClient, viewService, Constants.DASHBOARD_ENTITY_NAME, EntityType.DASHBOARD, new DashboardType(mockClient), TEST_VIEW_URN, viewInfo.getDefinition().getFilter());
+    testAutoCompleteResolverSuccess(
+        mockClient,
+        viewService,
+        Constants.DASHBOARD_ENTITY_NAME,
+        EntityType.DASHBOARD,
+        new DashboardType(mockClient),
+        TEST_VIEW_URN,
+        viewInfo.getDefinition().getFilter()
+    );
 
     // if the view has only dashboards, we should not make an auto-complete request on other entity types
     Mockito.verify(mockClient, Mockito.times(0))
