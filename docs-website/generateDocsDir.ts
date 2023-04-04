@@ -120,6 +120,7 @@ function list_markdown_files(): string[] {
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
     /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
+    /^metadata-ingestion\/tests\//,
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
@@ -404,6 +405,37 @@ function markdown_enable_specials(
   contents.content = new_content;
 }
 
+function markdown_process_inline_directives(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content.replace(
+    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
+    (_, inline_file_path: string, show_path_as_comment: string) => {
+      if (!inline_file_path.startsWith("/")) {
+        throw new Error(`inline path must be absolute: ${inline_file_path}`);
+      }
+
+      // console.log(`Inlining ${inline_file_path} into ${filepath}`);
+      const referenced_file = fs.readFileSync(
+        path.join("..", inline_file_path),
+        "utf8"
+      );
+
+      // TODO: Add support for start_after_line and end_before_line arguments
+      // that can be used to limit the inlined content to a specific range of lines.
+      let new_contents = "";
+      if (show_path_as_comment) {
+        new_contents += `# Inlined from ${inline_file_path}\n`;
+      }
+      new_contents += referenced_file;
+
+      return new_contents;
+    }
+  );
+  contents.content = new_content;
+}
+
 function markdown_sanitize_and_linkify(content: string): string {
   // MDX escaping
   content = content.replace(/</g, "&lt;");
@@ -569,6 +601,7 @@ function copy_python_wheels(): void {
     markdown_add_edit_url(contents, filepath);
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
+    markdown_process_inline_directives(contents, filepath);
     //copy_platform_logos();
     // console.log(contents);
 

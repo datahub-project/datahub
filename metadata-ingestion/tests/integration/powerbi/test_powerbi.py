@@ -676,7 +676,6 @@ def test_powerbi_platform_instance_ingest(
 def test_powerbi_ingest_urn_lower_case(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -718,7 +717,6 @@ def test_powerbi_ingest_urn_lower_case(
 def test_override_ownership(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -759,7 +757,6 @@ def test_override_ownership(
 def test_scan_all_workspaces(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)

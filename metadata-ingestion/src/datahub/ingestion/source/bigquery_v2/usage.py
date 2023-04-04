@@ -41,6 +41,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 AggregatedDataset = GenericAggregatedDataset[BigQueryTableRef]
 
+# See https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType
+# https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/audit may be more complete
 OPERATION_STATEMENT_TYPES = {
     "INSERT": OperationTypeClass.INSERT,
     "UPDATE": OperationTypeClass.UPDATE,
@@ -48,8 +50,21 @@ OPERATION_STATEMENT_TYPES = {
     "MERGE": OperationTypeClass.UPDATE,
     "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_EXTERNAL_TABLE": OperationTypeClass.CREATE,
+    "CREATE_SNAPSHOT_TABLE": OperationTypeClass.CREATE,
+    "CREATE_VIEW": OperationTypeClass.CREATE,
+    "CREATE_MATERIALIZED_VIEW": OperationTypeClass.CREATE,
     "CREATE_SCHEMA": OperationTypeClass.CREATE,
     "DROP_TABLE": OperationTypeClass.DROP,
+    "DROP_EXTERNAL_TABLE": OperationTypeClass.DROP,
+    "DROP_SNAPSHOT_TABLE": OperationTypeClass.DROP,
+    "DROP_VIEW": OperationTypeClass.DROP,
+    "DROP_MATERIALIZED_VIEW": OperationTypeClass.DROP,
+    "DROP_SCHEMA": OperationTypeClass.DROP,
+    "ALTER_TABLE": OperationTypeClass.ALTER,
+    "ALTER_VIEW": OperationTypeClass.ALTER,
+    "ALTER_MATERIALIZED_VIEW": OperationTypeClass.ALTER,
+    "ALTER_SCHEMA": OperationTypeClass.ALTER,
 }
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]

@@ -213,7 +213,6 @@ def ingest(pipeline_name, tmp_path, mock_datahub_graph):
 def test_powerbi_stateful_ingestion(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
 ):
-
     register_mock_api_state1(request_mock=requests_mock)
     pipeline1 = ingest("run1", tmp_path, mock_datahub_graph)
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline1)

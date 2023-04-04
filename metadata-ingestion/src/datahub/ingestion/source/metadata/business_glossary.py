@@ -4,19 +4,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Union
 
-import pydantic
 from pydantic import validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import (
-    datahub_guid,
-    get_sys_time,
-    make_group_urn,
-    make_user_urn,
-)
+from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -29,6 +23,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.source_helpers import auto_workunit_reporter
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
@@ -37,10 +32,6 @@ valid_status: models.StatusClass = models.StatusClass(removed=False)
 
 # This needed to map path presents in inherits, contains, values, and related_terms to terms' optional id
 path_vs_id: Dict[str, Optional[str]] = {}
-
-auditStamp = models.AuditStampClass(
-    time=get_sys_time(), actor="urn:li:corpUser:restEmitter"
-)
 
 
 class Owners(ConfigModel):
@@ -93,8 +84,8 @@ class DefaultConfig(ConfigModel):
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
-    file: pydantic.FilePath = Field(
-        description="Path to business glossary file to ingest."
+    file: Union[str, pathlib.Path] = Field(
+        description="File path or URL to business glossary file to ingest."
     )
     enable_auto_id: bool = Field(
         description="Generate id field from GlossaryNode and GlossaryTerm's name field",
@@ -481,27 +472,28 @@ class BusinessGlossaryFileSource(Source):
         config = BusinessGlossarySourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def load_glossary_config(self, file_name: pathlib.Path) -> BusinessGlossaryConfig:
+    def load_glossary_config(
+        self, file_name: Union[str, pathlib.Path]
+    ) -> BusinessGlossaryConfig:
         config = load_config_file(file_name)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
         populate_path_vs_id(glossary_config)
         for event in get_mces(
             glossary_config, ingestion_config=self.config, ctx=self.ctx
         ):
             if isinstance(event, models.MetadataChangeEventClass):
-                wu = MetadataWorkUnit(f"{event.proposedSnapshot.urn}", mce=event)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(f"{event.proposedSnapshot.urn}", mce=event)
             elif isinstance(event, MetadataChangeProposalWrapper):
-                wu = MetadataWorkUnit(
-                    id=f"{event.entityType}-{event.aspectName}-{event.entityUrn}",
-                    mcp=event,
-                )
-                yield wu
+                yield event.as_workunit()
 
     def get_report(self):
         return self.report
