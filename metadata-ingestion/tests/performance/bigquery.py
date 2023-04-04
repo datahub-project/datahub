@@ -2,7 +2,9 @@ import dataclasses
 import random
 import uuid
 from collections import defaultdict
-from typing import Dict, Iterable, List, get_args
+from typing import Dict, Iterable, List
+
+from typing_extensions import get_args
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditEvent,
