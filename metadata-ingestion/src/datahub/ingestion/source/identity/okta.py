@@ -71,7 +71,7 @@ class OktaConfig(ConfigModel):
     # profile. Reference: https://developer.okta.com/docs/reference/api/users/
     okta_profile_to_username_attr: str = Field(
         default="login",
-        description="Which Okta User Profile attribute to use as input to DataHub username mapping.",
+        description="Which Okta User Profile attribute to use as input to DataHub username mapping. Common values used are - login, email.",
     )
     okta_profile_to_username_regex: str = Field(
         default="([^@]+)",
@@ -204,7 +204,11 @@ class OktaSource(Source):
     By default, the 'login' attribute, which contains an email, is parsed to extract the text before the "@" and map that to the DataHub username.
 
     If this is not how you wish to map to DataHub usernames, you can provide a custom mapping using the configurations options detailed below. Namely, `okta_profile_to_username_attr`
-    and `okta_profile_to_username_regex`.
+    and `okta_profile_to_username_regex`. e.g. if you want to map emails to urns then you may use the following configuration:
+    ```yaml
+    okta_profile_to_username_attr: "email"
+    okta_profile_to_username_regex: ".*"
+    ```
 
     #### Profiles
 
