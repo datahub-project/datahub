@@ -199,6 +199,7 @@ module.exports = {
               ? require.resolve("./src/styles/acryl.scss")
               : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
+            require.resolve("./src/styles/config-table.scss"),
           ],
         },
         pages: {
