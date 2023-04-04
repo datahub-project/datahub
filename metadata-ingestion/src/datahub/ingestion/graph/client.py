@@ -306,12 +306,24 @@ class DataHubGraph(DatahubRestEmitter):
                 )
         return None
 
+    def get_entity_raw(
+        self, entity_urn: str, aspects: Optional[List[str]] = None
+    ) -> Dict:
+        endpoint: str = f"{self.config.server}/entitiesV2/{Urn.url_encode(entity_urn)}"
+        if aspects is not None:
+            assert aspects, "if provided, aspects must be a non-empty list"
+            endpoint = f"{endpoint}?aspects=List(" + ",".join(aspects) + ")"
+
+        response = self._session.get(endpoint)
+        response.raise_for_status()
+        return response.json()
+
     def get_aspects_for_entity(
         self,
         entity_urn: str,
         aspects: List[str],
         aspect_types: List[Type[Aspect]],
-    ) -> Optional[Dict[str, Optional[Aspect]]]:
+    ) -> Dict[str, Optional[Aspect]]:
         """
         Get multiple aspects for an entity. To get a single aspect for an entity, use the `get_aspect_v2` method.
         Warning: Do not use this method to determine if an entity exists!
@@ -322,20 +334,14 @@ class DataHubGraph(DatahubRestEmitter):
         :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
         :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
-        :raises HttpError: if the HTTP response is not a 200 or a 404
+        :raises HttpError: if the HTTP response is not a 200
         """
         assert len(aspects) == len(
             aspect_types
         ), f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
-        aspects_list = ",".join(aspects)
-        url: str = f"{self._gms_server}/entitiesV2/{Urn.url_encode(entity_urn)}?aspects=List({aspects_list})"
 
-        response = self._session.get(url)
-        if response.status_code == 404:
-            # not found
-            return None
-        response.raise_for_status()
-        response_json = response.json()
+        # TODO: generate aspects list from type classes
+        response_json = self.get_entity_raw(entity_urn, aspects)
 
         result: Dict[str, Optional[Aspect]] = {}
         for aspect_type in aspect_types:
@@ -452,6 +458,20 @@ class DataHubGraph(DatahubRestEmitter):
             args["urnLike"] = urn_like
         results = self._post_generic(self._get_aspect_count_endpoint(), args)
         return results["value"]
+
+    def execute_graphql(self, query: str, variables: Optional[Dict] = None) -> Dict:
+        url = f"{self.config.server}/api/graphql"
+        body = {
+            "query": query,
+        }
+        if variables:
+            body["variables"] = variables
+
+        result = self._post_generic(url, body)
+        if result.get("errors"):
+            raise GraphError(f"Error executing graphql query: {result['errors']}")
+
+        return result["data"]
 
     class RelationshipDirection(str, Enum):
         INCOMING = "INCOMING"
