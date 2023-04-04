@@ -79,7 +79,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetPropertiesClass,
     MapTypeClass,
     OtherSchemaClass,
@@ -505,10 +504,7 @@ class S3Source(Source):
             self.profiling_times_taken.append(time_taken)
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
             aspect=table_profiler.profile,
         )
         wu = MetadataWorkUnit(

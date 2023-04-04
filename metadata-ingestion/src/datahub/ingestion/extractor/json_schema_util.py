@@ -346,7 +346,6 @@ class JsonSchemaTranslator:
         required: bool = False,
         specific_type: Optional[str] = None,
     ) -> Iterable[SchemaField]:
-
         discriminated_type = (
             specific_type
             or JsonSchemaTranslator._get_discriminated_type_from_schema(schema)
