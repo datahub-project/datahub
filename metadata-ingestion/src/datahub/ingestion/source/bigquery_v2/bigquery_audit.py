@@ -412,18 +412,20 @@ class QueryEvent:
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_string_name(
                 raw_dest_table
-            )
+            ).get_sanitized_table_ref()
         # referencedTables
         raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_tables
             ]
         # referencedViews
         raw_ref_views = query_stats.get("referencedViews")
         if raw_ref_views:
             query_event.referencedViews = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_views
             ]
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
@@ -476,19 +478,21 @@ class QueryEvent:
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_string_name(
                 raw_dest_table
-            )
+            ).get_sanitized_table_ref()
         # statementType
         # referencedTables
         raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_tables
             ]
         # referencedViews
         raw_ref_views = query_stats.get("referencedViews")
         if raw_ref_views:
             query_event.referencedViews = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_views
             ]
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
@@ -603,10 +607,14 @@ class ReadEvent:
         if readReason == "JOB":
             jobName = readInfo.get("jobName")
 
+        resource = BigQueryTableRef.from_string_name(
+            resourceName
+        ).get_sanitized_table_ref()
+
         readEvent = ReadEvent(
             actor_email=user,
             timestamp=row["timestamp"],
-            resource=BigQueryTableRef.from_string_name(resourceName),
+            resource=resource,
             fieldsRead=fields,
             readReason=readReason,
             jobName=jobName,

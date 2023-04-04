@@ -3,7 +3,7 @@ import logging
 import textwrap
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
@@ -18,6 +18,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
     QueryEvent,
+    ReadEvent,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
@@ -87,7 +88,6 @@ timestamp < "{end_time}"
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config = config
         self.report = report
-        self.loaded_project_ids: List[str] = []
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
@@ -154,54 +154,7 @@ timestamp < "{end_time}"
 
         return textwrap.dedent(query)
 
-    def compute_bigquery_lineage_via_gcp_logging(
-        self, project_id: str
-    ) -> Dict[str, Set[LineageEdge]]:
-        logger.info(f"Populating lineage info via GCP audit logs for {project_id}")
-        try:
-            clients: GCPLoggingClient = _make_gcp_logging_client(project_id)
-
-            log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
-                clients
-            )
-            logger.info("Log Entries loaded")
-            parsed_entries: Iterable[QueryEvent] = self._parse_bigquery_log_entries(
-                log_entries
-            )
-            return self._create_lineage_map(parsed_entries)
-        except Exception as e:
-            self.error(
-                logger,
-                "lineage-gcp-logs",
-                f"Failed to get lineage gcp logging for {project_id}. The error message was {e}",
-            )
-            raise e
-
-    def compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-        self,
-    ) -> Dict[str, Set[LineageEdge]]:
-        logger.info("Populating lineage info via exported GCP audit logs")
-        try:
-            # For exported logs we want to submit queries with the credentials project_id.
-            _client: BigQueryClient = get_bigquery_client(self.config)
-            exported_bigquery_audit_metadata: Iterable[
-                BigQueryAuditMetadata
-            ] = self._get_exported_bigquery_audit_metadata(_client)
-            parsed_entries: Iterable[
-                QueryEvent
-            ] = self._parse_exported_bigquery_audit_metadata(
-                exported_bigquery_audit_metadata
-            )
-            return self._create_lineage_map(parsed_entries)
-        except Exception as e:
-            self.error(
-                logger,
-                "lineage-exported-gcp-audit-logs",
-                f"Error: {e}",
-            )
-            raise e
-
-    def compute_bigquery_lineage_via_catalog_lineage_api(
+    def lineage_via_catalog_lineage_api(
         self, project_id: str
     ) -> Dict[str, Set[LineageEdge]]:
         """
@@ -310,9 +263,33 @@ timestamp < "{end_time}"
             )
             raise e
 
+    def _get_parsed_audit_log_events(self, project_id: str) -> Iterable[QueryEvent]:
+        parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
+        if self.config.use_exported_bigquery_audit_metadata:
+            logger.info("Populating lineage info via exported GCP audit logs")
+            bq_client = get_bigquery_client(self.config)
+            entries = self._get_exported_bigquery_audit_metadata(bq_client)
+            parse_fn = self._parse_exported_bigquery_audit_metadata
+        else:
+            logger.info("Populating lineage info via exported GCP audit logs")
+            logging_client = _make_gcp_logging_client(project_id)
+            entries = self._get_bigquery_log_entries(logging_client)
+            parse_fn = self._parse_bigquery_log_entries
+
+        for entry in entries:
+            self.report.num_total_log_entries[project_id] += 1
+            try:
+                event = parse_fn(entry)
+                if event:
+                    self.report.num_parsed_log_entries[project_id] += 1
+                    yield event
+            except Exception as e:
+                logger.warning(f"Unable to parse log entry `{entry}`: {e}")
+                self.report.num_lineage_log_parse_failures[project_id] += 1
+
     def _get_bigquery_log_entries(
         self, client: GCPLoggingClient, limit: Optional[int] = None
-    ) -> Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]]:
+    ) -> Union[Iterable[AuditLogEntry]]:
         self.report.num_total_log_entries[client.project] = 0
         # Add a buffer to start and end time to account for delays in logging events.
         start_time = (self.config.start_time - self.config.max_query_duration).strftime(
@@ -420,67 +397,52 @@ timestamp < "{end_time}"
     # events to also create field level lineage.
     def _parse_bigquery_log_entries(
         self,
-        entries: Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]],
-    ) -> Iterable[QueryEvent]:
-        for entry in entries:
-            event: Optional[QueryEvent] = None
+        entry: AuditLogEntry,
+    ) -> Optional[QueryEvent]:
+        event: Optional[QueryEvent] = None
 
-            missing_entry = QueryEvent.get_missing_key_entry(entry=entry)
-            if missing_entry is None:
-                event = QueryEvent.from_entry(
-                    entry,
-                    debug_include_full_payloads=self.config.debug_include_full_payloads,
-                )
-
-            missing_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry=entry)
-            if event is None and missing_entry_v2 is None:
-                event = QueryEvent.from_entry_v2(
-                    entry, self.config.debug_include_full_payloads
-                )
-
-            if event is None:
-                self.error(
-                    logger,
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"Unable to parse log missing {missing_entry}, missing v2 {missing_entry_v2} for {entry}",
-                )
-            else:
-                self.report.num_parsed_log_entries[event.project_id] = (
-                    self.report.num_parsed_log_entries.get(event.project_id, 0) + 1
-                )
-                yield event
-
-    def _parse_exported_bigquery_audit_metadata(
-        self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
-    ) -> Iterable[QueryEvent]:
-        for audit_metadata in audit_metadata_rows:
-            event: Optional[QueryEvent] = None
-
-            missing_exported_audit = (
-                QueryEvent.get_missing_key_exported_bigquery_audit_metadata(
-                    audit_metadata
-                )
+        missing_entry = QueryEvent.get_missing_key_entry(entry=entry)
+        if missing_entry is None:
+            event = QueryEvent.from_entry(
+                entry,
+                debug_include_full_payloads=self.config.debug_include_full_payloads,
             )
 
-            if missing_exported_audit is None:
-                event = QueryEvent.from_exported_bigquery_audit_metadata(
-                    audit_metadata, self.config.debug_include_full_payloads
-                )
+        missing_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry=entry)
+        if event is None and missing_entry_v2 is None:
+            event = QueryEvent.from_entry_v2(
+                entry, self.config.debug_include_full_payloads
+            )
 
-            if event is None:
-                self.error(
-                    logger,
-                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
-                    f"Unable to parse audit metadata missing {missing_exported_audit} for {audit_metadata}",
-                )
-            else:
-                self.report.num_parsed_audit_entries[event.project_id] = (
-                    self.report.num_parsed_audit_entries.get(event.project_id, 0) + 1
-                )
-                self.report.num_total_audit_entries[event.project_id] = (
-                    self.report.num_total_audit_entries.get(event.project_id, 0) + 1
-                )
-                yield event
+        if event is None:
+            logger.warning(
+                f"Unable to parse log missing {missing_entry}, missing v2 {missing_entry_v2} for {entry}",
+            )
+            return None
+        else:
+            return event
+
+    def _parse_exported_bigquery_audit_metadata(
+        self, audit_metadata: BigQueryAuditMetadata
+    ) -> Optional[QueryEvent]:
+        event: Optional[QueryEvent] = None
+
+        missing_exported_audit = (
+            QueryEvent.get_missing_key_exported_bigquery_audit_metadata(audit_metadata)
+        )
+
+        if missing_exported_audit is None:
+            event = QueryEvent.from_exported_bigquery_audit_metadata(
+                audit_metadata, self.config.debug_include_full_payloads
+            )
+
+        if event is None:
+            logger.warning(
+                f"Unable to parse audit metadata missing {missing_exported_audit} for {audit_metadata}",
+            )
+            return None
+        else:
+            return event
 
     def _create_lineage_map(
         self, entries: Iterable[QueryEvent]
@@ -495,12 +457,7 @@ timestamp < "{end_time}"
             if e.destinationTable is None or not (
                 e.referencedTables or e.referencedViews
             ):
-                self.report.num_skipped_lineage_entries_missing_data[e.project_id] = (
-                    self.report.num_skipped_lineage_entries_missing_data.get(
-                        e.project_id, 0
-                    )
-                    + 1
-                )
+                self.report.num_skipped_lineage_entries_missing_data[e.project_id] += 1
                 continue
 
             if not self.config.dataset_pattern.allowed(
@@ -508,16 +465,10 @@ timestamp < "{end_time}"
             ) or not self.config.table_pattern.allowed(
                 e.destinationTable.table_identifier.get_table_name()
             ):
-                self.report.num_skipped_lineage_entries_not_allowed[e.project_id] = (
-                    self.report.num_skipped_lineage_entries_not_allowed.get(
-                        e.project_id, 0
-                    )
-                    + 1
-                )
+                self.report.num_skipped_lineage_entries_not_allowed[e.project_id] += 1
                 continue
 
             destination_table_str = str(e.destinationTable)
-
             has_table = False
             for ref_table in e.referencedTables:
                 if str(ref_table) != destination_table_str:
@@ -555,12 +506,9 @@ timestamp < "{end_time}"
                     logger.debug(
                         f"Sql Parser failed on query: {e.query}. It won't cause any issue except table/view lineage can't be detected reliably. The error was {ex}."
                     )
-                    self.report.num_lineage_entries_sql_parser_failure[e.project_id] = (
-                        self.report.num_lineage_entries_sql_parser_failure.get(
-                            e.project_id, 0
-                        )
-                        + 1
-                    )
+                    self.report.num_lineage_entries_sql_parser_failure[
+                        e.project_id
+                    ] += 1
                     continue
                 curr_lineage = lineage_map[destination_table_str]
                 new_lineage = set()
@@ -570,10 +518,7 @@ timestamp < "{end_time}"
                         new_lineage.add(lineage)
                 lineage_map[destination_table_str] = new_lineage
             if not (has_table or has_view):
-                self.report.num_skipped_lineage_entries_other[e.project_id] = (
-                    self.report.num_skipped_lineage_entries_other.get(e.project_id, 0)
-                    + 1
-                )
+                self.report.num_skipped_lineage_entries_other[e.project_id] += 1
 
         logger.info("Exiting create lineage map function")
         return lineage_map
@@ -627,40 +572,21 @@ timestamp < "{end_time}"
         return list(parsed_tables)
 
     def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[LineageEdge]]:
-        lineage_extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
-            config=self.config, report=self.report
-        )
         lineage_metadata: Dict[str, Set[LineageEdge]]
         try:
             if self.config.extract_lineage_from_catalog and self.config.include_tables:
-                lineage_metadata = (
-                    lineage_extractor.compute_bigquery_lineage_via_catalog_lineage_api(
-                        project_id
-                    )
-                )
+                lineage_metadata = self.lineage_via_catalog_lineage_api(project_id)
             else:
-                if self.config.use_exported_bigquery_audit_metadata:
-                    # Exported bigquery_audit_metadata should contain every projects' audit metada
-                    if self.loaded_project_ids:
-                        return {}
-                    lineage_metadata = (
-                        lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
-                    )
-                else:
-                    lineage_metadata = (
-                        lineage_extractor.compute_bigquery_lineage_via_gcp_logging(
-                            project_id
-                        )
-                    )
+                events = self._get_parsed_audit_log_events(project_id)
+                lineage_metadata = self._create_lineage_map(events)
         except Exception as e:
             if project_id:
                 self.report.lineage_failed_extraction.append(project_id)
-            logger.error(
-                f"Unable to extract lineage for project {project_id} due to error {e}"
+            self.error(
+                logger,
+                "lineage",
+                f"{project_id}: {e}",
             )
-            lineage_metadata = {}
-
-        if lineage_metadata is None:
             lineage_metadata = {}
 
         self.report.lineage_mem_size[project_id] = humanfriendly.format_size(

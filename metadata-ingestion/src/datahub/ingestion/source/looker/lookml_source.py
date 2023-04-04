@@ -682,6 +682,7 @@ class LookerView:
     absolute_file_path: str
     connection: LookerConnectionDefinition
     sql_table_names: List[str]
+    upstream_explores: List[str]
     fields: List[ViewField]
     raw_file_content: str
     view_details: Optional[ViewProperties] = None
@@ -768,6 +769,11 @@ class LookerView:
                             matched_field.replace('"', "").replace("`", "").lower()
                         )
                         upstream_fields.append(matched_field)
+                else:
+                    # If no SQL is specified, we assume this is referencing an upstream field
+                    # with the same name. This commonly happens for extends and derived tables.
+                    upstream_fields.append(name)
+
             upstream_fields = sorted(list(set(upstream_fields)))
 
             field = ViewField(
@@ -849,27 +855,51 @@ class LookerView:
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
 
-        # also store the view logic and materialization
+        # Prep "default" values for the view, which will be overridden by the logic below.
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
+        sql_table_names: List[str] = []
+        upstream_explores: List[str] = []
 
-        # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
-            fields, sql_table_names = cls._extract_metadata_from_sql_query(
-                reporter,
-                parse_table_names_from_sql,
-                sql_parser_path,
-                view_name,
-                sql_table_name,
-                derived_table,
-                fields,
-                use_external_process=process_isolation_for_sql_parsing,
-            )
+            # Derived tables can either be a SQL query or a LookML explore.
+            # See https://cloud.google.com/looker/docs/derived-tables.
+
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
                 view_lang = VIEW_LANGUAGE_SQL
-            if "explore_source" in derived_table:
-                view_logic = str(derived_table["explore_source"])
+
+                # Parse SQL to extract dependencies.
+                if parse_table_names_from_sql:
+                    (
+                        fields,
+                        sql_table_names,
+                    ) = cls._extract_metadata_from_derived_table_sql(
+                        reporter,
+                        sql_parser_path,
+                        view_name,
+                        sql_table_name,
+                        view_logic,
+                        fields,
+                        use_external_process=process_isolation_for_sql_parsing,
+                    )
+
+            elif "explore_source" in derived_table:
+                # This is called a "native derived table".
+                # See https://cloud.google.com/looker/docs/creating-ndts.
+                explore_source = derived_table["explore_source"]
+
+                # We want this to render the full lkml block
+                # e.g. explore_source: source_name { ... }
+                # As such, we use the full derived_table instead of the explore_source.
+                view_logic = str(lkml.dump(derived_table))[:max_file_snippet_length]
                 view_lang = VIEW_LANGUAGE_LOOKML
+
+                (
+                    fields,
+                    upstream_explores,
+                ) = cls._extract_metadata_from_derived_table_explore(
+                    reporter, view_name, explore_source, fields
+                )
 
             materialized = False
             for k in derived_table:
@@ -881,121 +911,145 @@ class LookerView:
             view_details = ViewProperties(
                 materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
             )
-
-            return LookerView(
-                id=LookerViewId(
-                    project_name=project_name,
-                    model_name=model_name,
-                    view_name=view_name,
-                ),
-                absolute_file_path=looker_viewfile.absolute_file_path,
-                connection=connection,
-                sql_table_names=sql_table_names,
-                fields=fields,
-                raw_file_content=looker_viewfile.raw_file_content,
-                view_details=view_details,
+        else:
+            # If not a derived table, then this view essentially wraps an existing
+            # object in the database. If sql_table_name is set, there is a single
+            # dependency in the view, on the sql_table_name.
+            # Otherwise, default to the view name as per the docs:
+            # https://docs.looker.com/reference/view-params/sql_table_name-for-view
+            sql_table_names = (
+                [view_name] if sql_table_name is None else [sql_table_name]
+            )
+            view_details = ViewProperties(
+                materialized=False,
+                viewLogic=view_logic,
+                viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
-        # If not a derived table, then this view essentially wraps an existing
-        # object in the database. If sql_table_name is set, there is a single
-        # dependency in the view, on the sql_table_name.
-        # Otherwise, default to the view name as per the docs:
-        # https://docs.looker.com/reference/view-params/sql_table_name-for-view
-        sql_table_names = [view_name] if sql_table_name is None else [sql_table_name]
-        output_looker_view = LookerView(
+        return LookerView(
             id=LookerViewId(
                 project_name=project_name, model_name=model_name, view_name=view_name
             ),
             absolute_file_path=looker_viewfile.absolute_file_path,
-            sql_table_names=sql_table_names,
             connection=connection,
+            sql_table_names=sql_table_names,
+            upstream_explores=upstream_explores,
             fields=fields,
             raw_file_content=looker_viewfile.raw_file_content,
-            view_details=ViewProperties(
-                materialized=False,
-                viewLogic=view_logic,
-                viewLanguage=VIEW_LANGUAGE_LOOKML,
-            ),
+            view_details=view_details,
         )
-        return output_looker_view
 
     @classmethod
-    def _extract_metadata_from_sql_query(
-        cls: Type,
+    def _extract_metadata_from_derived_table_sql(
+        cls,
         reporter: LookMLSourceReport,
-        parse_table_names_from_sql: bool,
         sql_parser_path: str,
         view_name: str,
         sql_table_name: Optional[str],
-        derived_table: dict,
+        sql_query: str,
         fields: List[ViewField],
         use_external_process: bool,
     ) -> Tuple[List[ViewField], List[str]]:
         sql_table_names: List[str] = []
-        if parse_table_names_from_sql and "sql" in derived_table:
-            logger.debug(f"Parsing sql from derived table section of view: {view_name}")
-            sql_query = derived_table["sql"]
-            reporter.query_parse_attempts += 1
 
-            # Skip queries that contain liquid variables. We currently don't parse them correctly.
-            # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
-            # TODO: also support ${EXTENDS} and ${TABLE}
-            if "{%" in sql_query:
-                try:
-                    # test if parsing works
-                    sql_info: SQLInfo = cls._get_sql_info(
-                        sql_query, sql_parser_path, use_external_process
-                    )
-                    if not sql_info.table_names:
-                        raise Exception("Failed to find any tables")
-                except Exception:
-                    logger.debug(
-                        f"{view_name}: SQL Parsing didn't return any tables, trying a hail-mary"
-                    )
-                    # A hail-mary simple parse.
-                    for maybe_table_match in re.finditer(
-                        r"FROM\s*([a-zA-Z0-9_.`]+)", sql_query
-                    ):
-                        if maybe_table_match.group(1) not in sql_table_names:
-                            sql_table_names.append(maybe_table_match.group(1))
-                    return fields, sql_table_names
-            # Looker supports sql fragments that omit the SELECT and FROM parts of the query
-            # Add those in if we detect that it is missing
-            if not re.search(r"SELECT\s", sql_query, flags=re.I):
-                # add a SELECT clause at the beginning
-                sql_query = f"SELECT {sql_query}"
-            if not re.search(r"FROM\s", sql_query, flags=re.I):
-                # add a FROM clause at the end
-                sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
-                # Get the list of tables in the query
+        logger.debug(f"Parsing sql from derived table section of view: {view_name}")
+        reporter.query_parse_attempts += 1
+
+        # Skip queries that contain liquid variables. We currently don't parse them correctly.
+        # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
+        # TODO: also support ${EXTENDS} and ${TABLE}
+        if "{%" in sql_query:
             try:
-                sql_info = cls._get_sql_info(
+                # test if parsing works
+                sql_info: SQLInfo = cls._get_sql_info(
                     sql_query, sql_parser_path, use_external_process
                 )
-                sql_table_names = sql_info.table_names
-                column_names = sql_info.column_names
-                if not fields:
-                    # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
-                    fields = [
-                        # set types to unknown for now as our sql parser doesn't give us column types yet
-                        ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
-                        for c in sorted(column_names)
-                    ]
                 if not sql_info.table_names:
-                    reporter.query_parse_failures += 1
-                    reporter.query_parse_failure_views.append(view_name)
-            except Exception as e:
-                reporter.query_parse_failures += 1
-                reporter.report_warning(
-                    f"looker-view-{view_name}",
-                    f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
+                    raise Exception("Failed to find any tables")
+            except Exception:
+                logger.debug(
+                    f"{view_name}: SQL Parsing didn't return any tables, trying a hail-mary"
                 )
+                # A hail-mary simple parse.
+                for maybe_table_match in re.finditer(
+                    r"FROM\s*([a-zA-Z0-9_.`]+)", sql_query
+                ):
+                    if maybe_table_match.group(1) not in sql_table_names:
+                        sql_table_names.append(maybe_table_match.group(1))
+                return fields, sql_table_names
 
-        # remove fields or sql tables that contain liquid variables
-        fields = [f for f in fields if "{%" not in f.name]
+        # Looker supports sql fragments that omit the SELECT and FROM parts of the query
+        # Add those in if we detect that it is missing
+        if not re.search(r"SELECT\s", sql_query, flags=re.I):
+            # add a SELECT clause at the beginning
+            sql_query = f"SELECT {sql_query}"
+        if not re.search(r"FROM\s", sql_query, flags=re.I):
+            # add a FROM clause at the end
+            sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
+            # Get the list of tables in the query
+        try:
+            sql_info = cls._get_sql_info(
+                sql_query, sql_parser_path, use_external_process
+            )
+            sql_table_names = sql_info.table_names
+            column_names = sql_info.column_names
+
+            if not fields:
+                # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
+                fields = [
+                    # set types to unknown for now as our sql parser doesn't give us column types yet
+                    ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
+                    for c in sorted(column_names)
+                ]
+                # remove fields or sql tables that contain liquid variables
+                fields = [f for f in fields if "{%" not in f.name]
+
+            if not sql_info.table_names:
+                reporter.query_parse_failures += 1
+                reporter.query_parse_failure_views.append(view_name)
+        except Exception as e:
+            reporter.query_parse_failures += 1
+            reporter.report_warning(
+                f"looker-view-{view_name}",
+                f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
+            )
+
         sql_table_names = [table for table in sql_table_names if "{%" not in table]
 
         return fields, sql_table_names
+
+    @classmethod
+    def _extract_metadata_from_derived_table_explore(
+        cls,
+        reporter: LookMLSourceReport,
+        view_name: str,
+        explore_source: dict,
+        fields: List[ViewField],
+    ) -> Tuple[List[ViewField], List[str]]:
+        logger.debug(
+            f"Parsing explore_source from derived table section of view: {view_name}"
+        )
+
+        upstream_explores = [explore_source["name"]]
+
+        explore_columns = explore_source.get("columns", [])
+        # TODO: We currently don't support column-level lineage for derived_column.
+        # In order to support it, we'd need to parse the `sql` field of the derived_column.
+
+        # The fields in the view are actually references to the fields in the explore.
+        # As such, we need to perform an extra mapping step to update
+        # the upstream column names.
+        for field in fields:
+            for i, upstream_field in enumerate(field.upstream_fields):
+                # Find the matching column in the explore.
+                for explore_column in explore_columns:
+                    if explore_column["name"] == upstream_field:
+                        field.upstream_fields[i] = explore_column.get(
+                            "field", explore_column["name"]
+                        )
+                        break
+
+        return fields, upstream_explores
 
     @classmethod
     def resolve_extends_view_name(
@@ -1085,7 +1139,10 @@ class LookerManifest:
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Supported using the `connection_to_platform_map`",
+)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -1262,13 +1319,31 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _get_upstream_lineage(
         self, looker_view: LookerView
     ) -> Optional[UpstreamLineage]:
-        upstreams = []
+        # Merge dataset upstreams with sql table upstreams.
+        upstream_dataset_urns = []
+        for upstream_explore in looker_view.upstream_explores:
+            # We're creating a "LookerExplore" just to use the urn generator.
+            upstream_dataset_urn = LookerExplore(
+                name=upstream_explore, model_name=looker_view.id.model_name
+            ).get_explore_urn(self.source_config)
+            upstream_dataset_urns.append(upstream_dataset_urn)
         for sql_table_name in looker_view.sql_table_names:
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
-            upstream_dataset_urn: str = self._construct_datalineage_urn(
+            upstream_dataset_urn = self._construct_datalineage_urn(
                 sql_table_name, looker_view
             )
-            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            upstream_dataset_urns.append(upstream_dataset_urn)
+
+        # Generate the upstream + fine grained lineage objects.
+        upstreams = []
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        for upstream_dataset_urn in upstream_dataset_urns:
+            upstream = UpstreamClass(
+                dataset=upstream_dataset_urn,
+                type=DatasetLineageTypeClass.VIEW,
+            )
+            upstreams.append(upstream)
+
             if self.source_config.extract_column_level_lineage and (
                 looker_view.view_details is not None
                 and looker_view.view_details.viewLanguage
@@ -1293,12 +1368,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                             ],
                         )
                         fine_grained_lineages.append(fine_grained_lineage)
-
-            upstream = UpstreamClass(
-                dataset=upstream_dataset_urn,
-                type=DatasetLineageTypeClass.VIEW,
-            )
-            upstreams.append(upstream)
 
         if upstreams != []:
             return UpstreamLineage(

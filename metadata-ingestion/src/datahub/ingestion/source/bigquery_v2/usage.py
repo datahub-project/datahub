@@ -51,6 +51,9 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+
+# See https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType
+# https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/audit may be more complete
 OPERATION_STATEMENT_TYPES = {
     "INSERT": OperationTypeClass.INSERT,
     "UPDATE": OperationTypeClass.UPDATE,
@@ -58,10 +61,21 @@ OPERATION_STATEMENT_TYPES = {
     "MERGE": OperationTypeClass.UPDATE,
     "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
-    "CREATE_SCHEMA": OperationTypeClass.CREATE,
-    "DROP_TABLE": OperationTypeClass.DROP,
+    "CREATE_EXTERNAL_TABLE": OperationTypeClass.CREATE,
+    "CREATE_SNAPSHOT_TABLE": OperationTypeClass.CREATE,
     "CREATE_VIEW": OperationTypeClass.CREATE,
     "CREATE_MATERIALIZED_VIEW": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+    "DROP_TABLE": OperationTypeClass.DROP,
+    "DROP_EXTERNAL_TABLE": OperationTypeClass.DROP,
+    "DROP_SNAPSHOT_TABLE": OperationTypeClass.DROP,
+    "DROP_VIEW": OperationTypeClass.DROP,
+    "DROP_MATERIALIZED_VIEW": OperationTypeClass.DROP,
+    "DROP_SCHEMA": OperationTypeClass.DROP,
+    "ALTER_TABLE": OperationTypeClass.ALTER,
+    "ALTER_VIEW": OperationTypeClass.ALTER,
+    "ALTER_MATERIALIZED_VIEW": OperationTypeClass.ALTER,
+    "ALTER_SCHEMA": OperationTypeClass.ALTER,
 }
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
@@ -129,7 +143,7 @@ def bigquery_audit_metadata_query_template(
         """
     audit_log_filter_timestamps = """AND (timestamp >= "{start_time}"
         AND timestamp < "{end_time}"
-    );
+    )
     """
     audit_log_filter_query_complete = f"""
     AND (
@@ -518,7 +532,10 @@ class BigQueryUsageExtractor:
             )
 
             query = bigquery_audit_metadata_query_template(
-                dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
+                dataset,
+                self.config.use_date_sharded_audit_log_tables,
+                allow_filter,
+                limit,
             ).format(
                 start_time=start_time,
                 end_time=end_time,
@@ -536,12 +553,14 @@ class BigQueryUsageExtractor:
 
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
-    ) -> Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]:
+    ) -> Iterable[AuditLogEntry]:
+        self.report.total_query_log_entries = 0
+
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
 
         try:
-            list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+            list_entries: Iterable[AuditLogEntry]
             rate_limiter: Optional[RateLimiter] = None
             if self.config.rate_limit:
                 # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
@@ -866,18 +885,18 @@ class BigQueryUsageExtractor:
     def _get_parsed_bigquery_log_events(
         self, project_id: str, limit: Optional[int] = None
     ) -> Iterable[AuditEvent]:
-        parse_fn: Callable[[Any], Optional[AuditEvent]]
+        parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
         if self.config.use_exported_bigquery_audit_metadata:
-            _client: BigQueryClient = BigQueryClient(project=project_id)
+            bq_client = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(
-                bigquery_client=_client,
+                bigquery_client=bq_client,
                 allow_filter=self.config.get_table_pattern(
                     self.config.table_pattern.allow
                 ),
             )
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
-            logging_client: GCPLoggingClient = _make_gcp_logging_client(
+            logging_client = _make_gcp_logging_client(
                 project_id, self.config.extra_client_options
             )
             entries = self._get_bigquery_log_entries_via_gcp_logging(
@@ -892,7 +911,7 @@ class BigQueryUsageExtractor:
                 if event:
                     yield event
             except Exception as e:
-                logger.warning(f"Unable to parse log event `{entry}`: {e}")
+                logger.warning(f"Unable to parse log entry `{entry}`: {e}")
                 log_entry_parse_failures += 1
 
         if log_entry_parse_failures:
