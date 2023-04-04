@@ -5,7 +5,7 @@ run_id: kafka-connect-run
 source:
   type: "kafka-connect"
   config:
-    connect_uri: "http://localhost:58083"    
+    connect_uri: "http://localhost:28083"
     connector_patterns:
       allow:
         - source_mongodb_connector
