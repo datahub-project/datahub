@@ -1,5 +1,7 @@
 from typing import Optional
 
+from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+
 
 class SnowflakeQuery:
     @staticmethod
@@ -120,6 +122,9 @@ class SnowflakeQuery:
 
     @staticmethod
     def get_all_tags_in_database_without_propagation(db_name: str) -> str:
+
+        allowed_object_domains = f"('{SnowflakeObjectDomain.DATABASE}', '{SnowflakeObjectDomain.SCHEMA}', '{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.COLUMN}')"
+
         # https://docs.snowflake.com/en/sql-reference/account-usage/tag_references.html
         return f"""
         SELECT tag_database as "TAG_DATABASE",
@@ -133,7 +138,7 @@ class SnowflakeQuery:
         domain as "DOMAIN"
         FROM snowflake.account_usage.tag_references
         WHERE (object_database = '{db_name}' OR object_name = '{db_name}')
-        AND domain in ('DATABASE', 'SCHEMA', 'TABLE', 'COLUMN')
+        AND lower(domain) in {allowed_object_domains}
         AND object_deleted IS NULL;
         """
 
@@ -148,7 +153,7 @@ class SnowflakeQuery:
         tag_name AS "TAG_NAME",
         tag_value AS "TAG_VALUE",
         column_name AS "COLUMN_NAME"
-        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', 'table'));
+        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
         """
 
     # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
@@ -327,10 +332,7 @@ class SnowflakeQuery:
         WHERE
           referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
         GROUP BY
-            concat(
-                referencing_database, '.', referencing_schema,
-                '.', referencing_object_name
-            )
+            DOWNSTREAM_TABLE_NAME
         """
 
     @staticmethod
@@ -362,7 +364,7 @@ class SnowflakeQuery:
         downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
         downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM external_table_lineage_history
-        WHERE downstream_table_domain = 'Table'
+        WHERE lower(downstream_table_domain) = '{SnowflakeObjectDomain.TABLE}'
         QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1"""
 
     @staticmethod
@@ -389,6 +391,9 @@ class SnowflakeQuery:
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
+
+        allowed_object_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}', '{SnowflakeObjectDomain.VIEW}', '{SnowflakeObjectDomain.MATERIALIZED_VIEW}')"
+
         return f"""
         WITH object_access_history AS
         (
@@ -519,13 +524,8 @@ class SnowflakeQuery:
                 on basic_usage_counts.bucket_start_time = user_usage_counts.bucket_start_time
                 and basic_usage_counts.object_name = user_usage_counts.object_name
         where
-            basic_usage_counts.object_domain in
-            (
-                'Table',
-                'View',
-                'Materialized view',
-                'External table'
-            ) and basic_usage_counts.object_name is not null
+            lower(basic_usage_counts.object_domain) in {allowed_object_domains}
+            and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
             basic_usage_counts.bucket_start_time
@@ -540,34 +540,24 @@ class SnowflakeQuery:
         include_view_lineage: bool = True,
     ) -> str:
         if include_view_lineage:
-            allowed_upstream_table_domains = (
-                "('Table', 'External table', 'View', 'Materialized view')"
-            )
+            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}', '{SnowflakeObjectDomain.VIEW}', '{SnowflakeObjectDomain.MATERIALIZED_VIEW}')"
         else:
-            allowed_upstream_table_domains = "('Table', 'External table')"
+            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}')"
         return f"""
         WITH column_lineage_history AS (
             SELECT
                 r.value : "objectName" :: varchar AS upstream_table_name,
                 r.value : "objectDomain" :: varchar AS upstream_table_domain,
-                -- r.value:"columns" AS upstream_table_columns,
                 w.value : "objectName" :: varchar AS downstream_table_name,
                 w.value : "objectDomain" :: varchar AS downstream_table_domain,
-                -- w.value:"columns" AS downstream_table_columns,
                 wcols.value : "columnName" :: varchar AS downstream_column_name,
-                -- wcols.value:"directSourceColumns" AS direct_upstream_columns,
-                -- wcols.value:"baseSourceColumns" AS base_upstream_columns,
                 wcols_directSources.value : "objectName" as upstream_column_table_name,
                 wcols_directSources.value : "columnName" as upstream_column_name,
                 wcols_directSources.value : "objectDomain" as upstream_column_object_domain,
-                t.query_start_time AS query_start_time
+                t.query_start_time AS query_start_time,
+                t.query_id AS query_id
             FROM
-                (
-                SELECT
-                    *
-                from
-                    snowflake.account_usage.access_history
-                ) t,
+                (SELECT * from snowflake.account_usage.access_history) t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
@@ -579,18 +569,18 @@ class SnowflakeQuery:
                 AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = 'Table'
+                AND lower(upstream_table_domain) in {allowed_upstream_table_domains}
+                AND lower(downstream_table_domain) = '{SnowflakeObjectDomain.TABLE}'
             ),
         table_upstreams AS (
             SELECT
                 downstream_table_name,
                 ANY_VALUE(downstream_table_domain) as downstream_table_domain,
                 ARRAY_UNIQUE_AGG(
-                OBJECT_CONSTRUCT(
-                    'upstream_object_name', upstream_table_name,
-                    'upstream_object_domain', upstream_table_domain
-                )
+                    OBJECT_CONSTRUCT(
+                        'upstream_object_name', upstream_table_name,
+                        'upstream_object_domain', upstream_table_domain
+                    )
                 ) as upstream_tables
             FROM
                 column_lineage_history
@@ -601,12 +591,13 @@ class SnowflakeQuery:
             SELECT
                 downstream_table_name,
                 downstream_column_name,
-                query_start_time,
+                ANY_VALUE(query_start_time),
+                query_id,
                 ARRAY_AGG(
-                OBJECT_CONSTRUCT(
-                    'object_name', upstream_column_table_name,
-                    'object_domain', upstream_column_object_domain,
-                    'column_name', upstream_column_name
+                    OBJECT_CONSTRUCT(
+                        'object_name', upstream_column_table_name,
+                        'object_domain', upstream_column_object_domain,
+                        'column_name', upstream_column_name
                     )
                 ) as upstream_columns_for_job
             FROM
@@ -617,8 +608,8 @@ class SnowflakeQuery:
             GROUP BY
                 downstream_table_name,
                 downstream_column_name,
-                query_start_time -- or query_id
-                ),
+                query_id
+            ),
         column_upstreams AS (
             SELECT
                 downstream_table_name,
@@ -659,11 +650,9 @@ class SnowflakeQuery:
         include_view_lineage: bool = True,
     ) -> str:
         if include_view_lineage:
-            allowed_upstream_table_domains = (
-                "('Table', 'External table', 'View', 'Materialized view')"
-            )
+            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}', '{SnowflakeObjectDomain.VIEW}', '{SnowflakeObjectDomain.MATERIALIZED_VIEW}')"
         else:
-            allowed_upstream_table_domains = "('Table', 'External table')"
+            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}')"
         return f"""
             WITH table_lineage_history AS (
                 SELECT
@@ -684,8 +673,8 @@ class SnowflakeQuery:
                 AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = 'Table'
+                AND lower(upstream_table_domain) in {allowed_upstream_table_domains}
+                AND lower(downstream_table_domain) = '{SnowflakeObjectDomain.TABLE}'
                 )
             SELECT
                 downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
