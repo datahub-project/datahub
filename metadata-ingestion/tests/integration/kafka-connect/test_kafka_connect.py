@@ -20,6 +20,8 @@ from tests.test_helpers.state_helpers import (
 FROZEN_TIME = "2021-10-25 13:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+KAFKA_CONNECT_SERVER = "http://localhost:28083"
+KAFKA_CONNECT_ENDPOINT = f"{KAFKA_CONNECT_SERVER}/connectors"
 
 
 def is_mysql_up(container_name: str, port: int) -> bool:
@@ -60,13 +62,13 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         # avoid some test flakes. How does this work? The "key" is the same between both
         # calls to the docker_compose_runner and the first one sets cleanup=False.
 
-        wait_for_port(docker_services, "test_broker", 59092, timeout=120)
+        wait_for_port(docker_services, "test_broker", 29092, timeout=120)
         wait_for_port(docker_services, "test_connect", 58083, timeout=120)
         docker_services.wait_until_responsive(
             timeout=30,
             pause=1,
             check=lambda: requests.get(
-                "http://localhost:58083/connectors",
+                KAFKA_CONNECT_ENDPOINT,
             ).status_code
             == 200,
         )
@@ -94,7 +96,7 @@ def loaded_kafka_connect(kafka_connect_runner):
 
     # Creating MySQL source with no transformations , only topic prefix
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                         "name": "mysql_source1",
@@ -112,7 +114,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
     # Creating MySQL source with regex router transformations , only topic prefix
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                         "name": "mysql_source2",
@@ -133,7 +135,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
     # Creating MySQL source with regex router transformations , no topic prefix, table whitelist
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                         "name": "mysql_source3",
@@ -155,7 +157,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
     # Creating MySQL source with query , topic prefix
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                         "name": "mysql_source4",
@@ -174,7 +176,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
     # Creating MySQL source with ExtractTopic router transformations - source dataset not added
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                     "name": "mysql_source5",
@@ -196,7 +198,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
     # Creating MySQL sink connector - not added
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                         "name": "mysql_sink",
@@ -215,7 +217,7 @@ def loaded_kafka_connect(kafka_connect_runner):
 
     # Creating Debezium MySQL source connector
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                         "name": "debezium-mysql-connector",
@@ -238,7 +240,7 @@ def loaded_kafka_connect(kafka_connect_runner):
 
     # Creating Postgresql source
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                     "name": "postgres_source",
@@ -257,7 +259,7 @@ def loaded_kafka_connect(kafka_connect_runner):
 
     # Creating Generic source
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
                     "name": "generic_source",
@@ -279,7 +281,7 @@ def loaded_kafka_connect(kafka_connect_runner):
 
     # Creating MongoDB source
     r = requests.post(
-        "http://localhost:58083/connectors",
+        KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data=r"""{
                     "name": "source_mongodb_connector",
@@ -368,7 +370,7 @@ def test_kafka_connect_ingest_stateful(
             "type": "kafka-connect",
             "config": {
                 "platform_instance": "connect-instance-1",
-                "connect_uri": "http://localhost:58083",
+                "connect_uri": KAFKA_CONNECT_SERVER,
                 "connector_patterns": {"allow": [".*"]},
                 "provided_configs": [
                     {
