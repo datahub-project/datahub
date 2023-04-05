@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Dict
+from typing import Dict, List
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
