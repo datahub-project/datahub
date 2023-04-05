@@ -141,7 +141,7 @@ def auto_materialize_referenced_tags(
 
         yield wu
 
-    for urn in referenced_tags - tags_with_aspects:
+    for urn in sorted(referenced_tags - tags_with_aspects):
         tag_urn = TagUrn.create_from_string(urn)
 
         yield MetadataChangeProposalWrapper(
