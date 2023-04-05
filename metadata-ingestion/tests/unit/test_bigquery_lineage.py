@@ -1,4 +1,5 @@
 import datetime
+from time import timezone
 from typing import Dict, List
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -29,8 +30,8 @@ FROM
 """
     view = BigqueryView(
         name="test",
-        created=datetime.datetime.now(),
-        last_altered=datetime.datetime.now(),
+        created=datetime.datetime.now(tz=datetime.timezone.utc),
+        last_altered=datetime.datetime.now(tz=datetime.timezone.utc),
         comment="",
         view_definition=ddl,
     )
@@ -48,8 +49,8 @@ def test_parse_view_lineage_with_two_part_table_name():
     ddl = "CREATE VIEW my_view as select * from some_dataset.sometable as a"
     view = BigqueryView(
         name="test",
-        created=datetime.datetime.now(),
-        last_altered=datetime.datetime.now(),
+        created=datetime.datetime.now(tz=datetime.timezone.utc),
+        last_altered=datetime.datetime.now(tz=datetime.timezone.utc),
         comment="",
         view_definition=ddl,
     )
@@ -67,8 +68,8 @@ def test_one_part_table():
     ddl = "CREATE VIEW my_view as select * from sometable as a"
     view = BigqueryView(
         name="test",
-        created=datetime.datetime.now(),
-        last_altered=datetime.datetime.now(),
+        created=datetime.datetime.now(tz=datetime.timezone.utc),
+        last_altered=datetime.datetime.now(tz=datetime.timezone.utc),
         comment="",
         view_definition=ddl,
     )
@@ -100,13 +101,13 @@ def test_create_statement_with_multiple_table():
     assert "my_project_2.my_dataset_2.sometable2" == tables[1].get_table_name()
 
 
-def test_lineage_tables():
+def test_lineage_with_timestamps():
     config = BigQueryV2Config()
     report = BigQueryV2Report()
     extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(config, report)
     lineage_entries: List[QueryEvent] = [
         QueryEvent(
-            timestamp=datetime.datetime.now(),
+            timestamp=datetime.datetime.now(tz=datetime.timezone.utc),
             actor_email="bla@bla.com",
             query="testQuery",
             statementType="SELECT",
@@ -125,7 +126,7 @@ def test_lineage_tables():
             ),
         ),
         QueryEvent(
-            timestamp=datetime.datetime.now(),
+            timestamp=datetime.datetime.now(tz=datetime.timezone.utc),
             actor_email="bla@bla.com",
             query="testQuery",
             statementType="SELECT",
@@ -143,7 +144,7 @@ def test_lineage_tables():
             ),
         ),
         QueryEvent(
-            timestamp=datetime.datetime.now(),
+            timestamp=datetime.datetime.now(tz=datetime.timezone.utc),
             actor_email="bla@bla.com",
             query="testQuery",
             statementType="SELECT",
