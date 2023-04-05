@@ -106,15 +106,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Nonnull
   @Override
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
-    log.debug(String.format(
-        "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-        entityName, input, postFilters, sortCriterion, from, size));
+                             @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
     return search(entityName, input, postFilters, sortCriterion, from, size, searchFlags, null);
   }
 
   @Nonnull
-  @Override
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     log.debug(String.format(

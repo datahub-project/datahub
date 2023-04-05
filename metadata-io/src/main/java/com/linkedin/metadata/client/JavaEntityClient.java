@@ -304,17 +304,6 @@ public class JavaEntityClient implements EntityClient {
                 _entitySearchService.search(entity, input, filter, sortCriterion, start, count, searchFlags), _entityService);
     }
 
-    /**
-     * Searches for entities matching to a given query and filters across multiple entity types
-     *
-     * @param entities entity types to search (if empty, searches all entities)
-     * @param input search query
-     * @param filter search filters
-     * @param start start offset for search results
-     * @param count max number of search results requested
-     * @return Snapshot key
-     * @throws RemoteInvocationException
-     */
     @Nonnull
     public SearchResult searchAcrossEntities(
         @Nonnull List<String> entities,

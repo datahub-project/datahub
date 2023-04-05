@@ -156,6 +156,11 @@ public interface EntityClient {
   public ListResult list(@Nonnull String entity, @Nullable Map<String, String> requestFilters, int start, int count,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
+//  @Nonnull
+//  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
+//      SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication,
+//      @Nullable SearchFlags searchFlags) throws RemoteInvocationException;
+
   /**
    * Searches for datasets matching to a given query and filters
    *
