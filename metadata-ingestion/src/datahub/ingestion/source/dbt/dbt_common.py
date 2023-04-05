@@ -32,6 +32,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -369,7 +370,7 @@ class DBTNode:
     dbt_name: str
     dbt_file_path: Optional[str]
 
-    node_type: str  # source, model
+    node_type: str  # source, model, snapshot, seed, test, etc
     max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
@@ -1347,19 +1348,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         if not node.node_type:
             return None
-        subtypes: Optional[List[str]]
-        if node.node_type in {"model", "snapshot"}:
-            if node.materialization:
-                subtypes = [node.materialization, "view"]
-            else:
-                subtypes = ["model", "view"]
-        else:
-            subtypes = [node.node_type]
-        subtype_wu = MetadataChangeProposalWrapper(
+
+        subtypes: List[str] = [node.node_type.capitalize()]
+        if node.materialization == "table":
+            subtypes.append(DatasetSubTypes.TABLE)
+        elif node.materialization == "view":
+            subtypes.append(DatasetSubTypes.VIEW)
+
+        return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,
             aspect=SubTypesClass(typeNames=subtypes),
         ).as_workunit()
-        return subtype_wu
 
     def _create_lineage_aspect_for_dbt_node(
         self,
