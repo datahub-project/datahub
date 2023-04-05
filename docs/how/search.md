@@ -122,9 +122,13 @@ If you want to:
   - ```/q editedDescription: *logical* OR description: *logical*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
   - Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.  
 
-- Find a dataset which reside in one of the browsing folders, for instance, the **hive** folder
+- Find a dataset which resides in one of the browsing folders, for instance, the **hive** folder
   - ```/q browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20browsePaths%3A%20%2Ahive%2A)
   - BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/SampleKafkaDataset```, hence the need for wildcards on both ends of the term to return a result. 
+
+- Find a dataset without the **name** field
+  - ```/q -_exists_:name``` [Sample results](https://demo.datahubproject.io/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
+  - the `-` is negating the existence of the field name.
 
 <!--
 ## Additional Resources

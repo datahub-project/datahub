@@ -7,8 +7,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "ephemeral",
-                "view"
+                "Model"
             ]
         }
     },
@@ -187,8 +186,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -365,8 +364,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -585,8 +584,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -721,7 +720,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -890,7 +889,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1077,7 +1076,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1204,7 +1203,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1343,7 +1342,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1490,7 +1489,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1701,7 +1700,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1864,7 +1863,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2048,7 +2047,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2211,7 +2210,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2374,7 +2373,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2537,7 +2536,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2736,27 +2735,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:test_tag",
+    "entityUrn": "urn:li:tag:dbt:int_meta_property",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "dbt:test_tag"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-schemas-dbt-enabled"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:has_pii_test",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "dbt:has_pii_test"
+            "name": "dbt:int_meta_property"
         }
     },
     "systemMetadata": {
@@ -2781,6 +2765,21 @@
 },
 {
     "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:test_tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:test_tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-schemas-dbt-enabled"
+    }
+},
+{
+    "entityType": "tag",
     "entityUrn": "urn:li:tag:dbt:column_tag",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
@@ -2796,12 +2795,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:int_meta_property",
+    "entityUrn": "urn:li:tag:dbt:has_pii_test",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "dbt:int_meta_property"
+            "name": "dbt:has_pii_test"
         }
     },
     "systemMetadata": {
