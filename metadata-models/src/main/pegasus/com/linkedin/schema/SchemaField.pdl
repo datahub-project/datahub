@@ -16,7 +16,7 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldPaths",
     "fieldType": "TEXT",
-    "boostScore": 10.0
+    "boostScore": 5.0
   }
   fieldPath: SchemaFieldPath
 
