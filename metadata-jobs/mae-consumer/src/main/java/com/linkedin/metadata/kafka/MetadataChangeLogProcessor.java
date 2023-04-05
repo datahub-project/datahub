@@ -16,7 +16,9 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -41,17 +43,13 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
+  @Getter
   private final List<MetadataChangeLogHook> hooks;
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
-  public MetadataChangeLogProcessor(
-      @Nonnull final UpdateIndicesHook updateIndicesHook,
-      @Nonnull final IngestionSchedulerHook ingestionSchedulerHook,
-      @Nonnull final EntityChangeEventGeneratorHook entityChangeEventHook,
-      @Nonnull final SiblingAssociationHook siblingAssociationHook
-  ) {
-    this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook, entityChangeEventHook, siblingAssociationHook);
+  public MetadataChangeLogProcessor(List<MetadataChangeLogHook> metadataChangeLogHooks) {
+    this.hooks = metadataChangeLogHooks.stream().filter(MetadataChangeLogHook::isEnabled).collect(Collectors.toList());
     this.hooks.forEach(MetadataChangeLogHook::init);
   }
 
