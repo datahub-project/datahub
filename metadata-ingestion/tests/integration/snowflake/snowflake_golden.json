@@ -100,7 +100,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "OTHER_DB.OTHER_SCHEMA.my_other_tag:other",
+            "name": "my_other_tag: other",
             "description": "Represents the Snowflake tag `OTHER_DB.OTHER_SCHEMA.my_other_tag` with value `other`."
         }
     },
@@ -2806,7 +2806,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.security:pii",
+            "name": "security: pii",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.security` with value `pii`."
         }
     },
@@ -3065,7 +3065,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.my_tag_0:my_value_0",
+            "name": "my_tag_0: my_value_0",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_0` with value `my_value_0`."
         }
     },
@@ -3081,7 +3081,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1",
+            "name": "my_tag_1: my_value_1",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_1` with value `my_value_1`."
         }
     },
@@ -3097,7 +3097,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2",
+            "name": "my_tag_2: my_value_2",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_2` with value `my_value_2`."
         }
     },
@@ -3351,13 +3351,13 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:TEST_DB.TEST_SCHEMA.my_tag_0:my_value_0"
+                    "tag": "urn:li:tag:test_db.test_schema.my_tag_0:my_value_0"
                 },
                 {
-                    "tag": "urn:li:tag:TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"
+                    "tag": "urn:li:tag:test_db.test_schema.my_tag_1:my_value_1"
                 },
                 {
-                    "tag": "urn:li:tag:TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"
+                    "tag": "urn:li:tag:test_db.test_schema.my_tag_2:my_value_2"
                 }
             ]
         }

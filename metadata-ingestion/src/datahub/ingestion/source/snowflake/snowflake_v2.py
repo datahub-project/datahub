@@ -1038,7 +1038,10 @@ class SnowflakeV2Source(
 
         if table.tags:
             tag_associations = [
-                TagAssociation(tag=make_tag_urn(tag.identifier())) for tag in table.tags
+                TagAssociation(
+                    tag=make_tag_urn(self.snowflake_identifier(tag.identifier()))
+                )
+                for tag in table.tags
             ]
             global_tags = GlobalTags(tag_associations)
             yield MetadataChangeProposalWrapper(
@@ -1087,11 +1090,10 @@ class SnowflakeV2Source(
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_key = tag.identifier()
-        tag_urn = make_tag_urn(self.snowflake_identifier(tag_key))
+        tag_urn = make_tag_urn(self.snowflake_identifier(tag.identifier()))
 
         tag_properties_aspect = TagProperties(
-            name=tag_key,
+            name=tag.display_name(),
             description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 
