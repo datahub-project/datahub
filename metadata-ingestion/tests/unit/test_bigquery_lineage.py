@@ -1,9 +1,17 @@
 import datetime
+from typing import List, Dict
 
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    BigQueryTableRef,
+    QueryEvent,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryView
-from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
+from datahub.ingestion.source.bigquery_v2.lineage import (
+    BigqueryLineageExtractor,
+    LineageEdge,
+)
 
 
 def test_parse_view_lineage():
@@ -90,3 +98,79 @@ def test_create_statement_with_multiple_table():
     assert 2 == len(tables)
     assert "my_project_2.my_dataset_2.sometable" == tables[0].get_table_name()
     assert "my_project_2.my_dataset_2.sometable2" == tables[1].get_table_name()
+
+
+def test_lineage_tables():
+    config = BigQueryV2Config()
+    report = BigQueryV2Report()
+    extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(config, report)
+    lineage_entries: List[QueryEvent] = [
+        QueryEvent(
+            timestamp=datetime.datetime.now(),
+            actor_email="bla@bla.com",
+            query="testQuery",
+            statementType="SELECT",
+            project_id="proj_12344",
+            end_time=None,
+            referencedTables=[
+                BigQueryTableRef.from_string_name(
+                    "projects/my_project/datasets/my_dataset/tables/my_source_table1"
+                ),
+                BigQueryTableRef.from_string_name(
+                    "projects/my_project/datasets/my_dataset/tables/my_source_table2"
+                ),
+            ],
+            destinationTable=BigQueryTableRef.from_string_name(
+                "projects/my_project/datasets/my_dataset/tables/my_table"
+            ),
+        ),
+        QueryEvent(
+            timestamp=datetime.datetime.now(),
+            actor_email="bla@bla.com",
+            query="testQuery",
+            statementType="SELECT",
+            project_id="proj_12344",
+            end_time=datetime.datetime.fromtimestamp(
+                1617295943.17321, tz=datetime.timezone.utc
+            ),
+            referencedTables=[
+                BigQueryTableRef.from_string_name(
+                    "projects/my_project/datasets/my_dataset/tables/my_source_table3"
+                ),
+            ],
+            destinationTable=BigQueryTableRef.from_string_name(
+                "projects/my_project/datasets/my_dataset/tables/my_table"
+            ),
+        ),
+        QueryEvent(
+            timestamp=datetime.datetime.now(),
+            actor_email="bla@bla.com",
+            query="testQuery",
+            statementType="SELECT",
+            project_id="proj_12344",
+            referencedViews=[
+                BigQueryTableRef.from_string_name(
+                    "projects/my_project/datasets/my_dataset/tables/my_source_view1"
+                ),
+            ],
+            destinationTable=BigQueryTableRef.from_string_name(
+                "projects/my_project/datasets/my_dataset/tables/my_table"
+            ),
+        ),
+    ]
+
+    bq_table = BigQueryTableRef.from_string_name(
+        "projects/my_project/datasets/my_dataset/tables/my_table"
+    )
+
+    lineage_map: Dict[str, set[LineageEdge]] = extractor._create_lineage_map(
+        iter(lineage_entries)
+    )
+
+    upstream_lineage = extractor.get_lineage_for_table(
+        bq_table=bq_table,
+        lineage_metadata=lineage_map,
+        platform="bigquery",
+    )
+    assert upstream_lineage
+    assert len(upstream_lineage[0].upstreams) == 4
