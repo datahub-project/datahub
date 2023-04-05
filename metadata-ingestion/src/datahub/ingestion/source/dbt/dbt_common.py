@@ -32,6 +32,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -369,7 +370,7 @@ class DBTNode:
     dbt_name: str
     dbt_file_path: Optional[str]
 
-    node_type: str  # source, model
+    node_type: str  # source, model, snapshot, seed, test, etc
     max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
@@ -419,17 +420,16 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     custom_properties = node.meta
 
     # additional node attributes to extract to custom properties
-    node_attributes = [
-        "node_type",
-        "materialization",
-        "dbt_file_path",
-        "catalog_type",
-        "language",
-    ]
+    node_attributes = {
+        "node_type": node.node_type,
+        "materialization": node.materialization,
+        "dbt_file_path": node.dbt_file_path,
+        "catalog_type": node.catalog_type,
+        "language": node.language,
+        "dbt_unique_id": node.dbt_name,
+    }
 
-    for attribute in node_attributes:
-        node_attribute_value = getattr(node, attribute)
-
+    for attribute, node_attribute_value in node_attributes.items():
         if node_attribute_value is not None:
             custom_properties[attribute] = node_attribute_value
 
@@ -1348,19 +1348,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         if not node.node_type:
             return None
-        subtypes: Optional[List[str]]
-        if node.node_type in {"model", "snapshot"}:
-            if node.materialization:
-                subtypes = [node.materialization, "view"]
-            else:
-                subtypes = ["model", "view"]
-        else:
-            subtypes = [node.node_type]
-        subtype_wu = MetadataChangeProposalWrapper(
+
+        subtypes: List[str] = [node.node_type.capitalize()]
+        if node.materialization == "table":
+            subtypes.append(DatasetSubTypes.TABLE)
+        elif node.materialization == "view":
+            subtypes.append(DatasetSubTypes.VIEW)
+
+        return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,
             aspect=SubTypesClass(typeNames=subtypes),
         ).as_workunit()
-        return subtype_wu
 
     def _create_lineage_aspect_for_dbt_node(
         self,

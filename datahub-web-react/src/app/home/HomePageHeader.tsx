@@ -142,11 +142,13 @@ export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const user = useUserContext()?.user;
+    const userContext = useUserContext();
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const { selectedQuickFilter } = useQuickFiltersContext();
+    const { user } = userContext;
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -180,6 +182,7 @@ export const HomePageHeader = () => {
                     input: {
                         query,
                         limit: 10,
+                        viewUrn,
                         ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
@@ -207,6 +210,7 @@ export const HomePageHeader = () => {
                 count: 6,
                 filters: [],
                 orFilters: [],
+                viewUrn,
             },
         },
     });
