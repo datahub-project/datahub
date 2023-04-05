@@ -4,6 +4,21 @@ from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 
 
 class SnowflakeQuery:
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = (
+        "("
+        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
+        f"'{SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize()}',"
+        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
+        f"'{SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize()}'"
+        ")"
+    )
+    ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
+        "("
+        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
+        f"'{SnowflakeObjectDomain.VIEW.capitalize()}'"
+        ")"
+    )
+
     @staticmethod
     def current_account() -> str:
         return "select CURRENT_ACCOUNT()"
@@ -123,7 +138,14 @@ class SnowflakeQuery:
     @staticmethod
     def get_all_tags_in_database_without_propagation(db_name: str) -> str:
 
-        allowed_object_domains = f"('{SnowflakeObjectDomain.DATABASE}', '{SnowflakeObjectDomain.SCHEMA}', '{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.COLUMN}')"
+        allowed_object_domains = (
+            "("
+            f"'{SnowflakeObjectDomain.DATABASE.upper()}',"
+            f"'{SnowflakeObjectDomain.SCHEMA.upper()}',"
+            f"'{SnowflakeObjectDomain.TABLE.upper()}',"
+            f"'{SnowflakeObjectDomain.COLUMN.upper()}',"
+            ")"
+        )
 
         # https://docs.snowflake.com/en/sql-reference/account-usage/tag_references.html
         return f"""
@@ -138,7 +160,7 @@ class SnowflakeQuery:
         domain as "DOMAIN"
         FROM snowflake.account_usage.tag_references
         WHERE (object_database = '{db_name}' OR object_name = '{db_name}')
-        AND lower(domain) in {allowed_object_domains}
+        AND domain in {allowed_object_domains}
         AND object_deleted IS NULL;
         """
 
@@ -364,7 +386,7 @@ class SnowflakeQuery:
         downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
         downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM external_table_lineage_history
-        WHERE lower(downstream_table_domain) = '{SnowflakeObjectDomain.TABLE}'
+        WHERE downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
         QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1"""
 
     @staticmethod
@@ -391,8 +413,6 @@ class SnowflakeQuery:
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
-
-        allowed_object_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}', '{SnowflakeObjectDomain.VIEW}', '{SnowflakeObjectDomain.MATERIALIZED_VIEW}')"
 
         return f"""
         WITH object_access_history AS
@@ -524,7 +544,7 @@ class SnowflakeQuery:
                 on basic_usage_counts.bucket_start_time = user_usage_counts.bucket_start_time
                 and basic_usage_counts.object_name = user_usage_counts.object_name
         where
-            lower(basic_usage_counts.object_domain) in {allowed_object_domains}
+            basic_usage_counts.object_domain in {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}
             and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
@@ -539,10 +559,11 @@ class SnowflakeQuery:
         end_time_millis: int,
         include_view_lineage: bool = True,
     ) -> str:
-        if include_view_lineage:
-            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}', '{SnowflakeObjectDomain.VIEW}', '{SnowflakeObjectDomain.MATERIALIZED_VIEW}')"
-        else:
-            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}')"
+        allowed_upstream_table_domains = (
+            SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
+            if include_view_lineage
+            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
+        )
         return f"""
         WITH column_lineage_history AS (
             SELECT
@@ -569,8 +590,8 @@ class SnowflakeQuery:
                 AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                AND lower(upstream_table_domain) in {allowed_upstream_table_domains}
-                AND lower(downstream_table_domain) = '{SnowflakeObjectDomain.TABLE}'
+                AND upstream_table_domain in {allowed_upstream_table_domains}
+                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
             ),
         column_upstream_jobs AS (
             SELECT
@@ -635,10 +656,11 @@ class SnowflakeQuery:
         end_time_millis: int,
         include_view_lineage: bool = True,
     ) -> str:
-        if include_view_lineage:
-            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}', '{SnowflakeObjectDomain.VIEW}', '{SnowflakeObjectDomain.MATERIALIZED_VIEW}')"
-        else:
-            allowed_upstream_table_domains = f"('{SnowflakeObjectDomain.TABLE}', '{SnowflakeObjectDomain.EXTERNAL_TABLE}')"
+        allowed_upstream_table_domains = (
+            SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
+            if include_view_lineage
+            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
+        )
         return f"""
             WITH table_lineage_history AS (
                 SELECT
@@ -659,8 +681,8 @@ class SnowflakeQuery:
                 AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                AND lower(upstream_table_domain) in {allowed_upstream_table_domains}
-                AND lower(downstream_table_domain) = '{SnowflakeObjectDomain.TABLE}'
+                AND upstream_table_domain in {allowed_upstream_table_domains}
+                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
                 )
             SELECT
                 downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
