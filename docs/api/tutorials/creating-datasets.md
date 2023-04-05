@@ -16,7 +16,7 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 
 ## Create Datasets With GraphQL (Not Supported)
 
-> 🚫 Creating a dataset via GraphQL is currently not supported.
+> 🚫 Creating a dataset via `graphql` is currently not supported.
 > Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information,
 
 ## Create Datasets With Python SDK

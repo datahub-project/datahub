@@ -2,11 +2,11 @@
 
 ## Reading an Entity: Queries
 
-DataHub provides the following GraphQL queries for retrieving entities in your Metadata Graph.
+DataHub provides the following `graphql` queries for retrieving entities in your Metadata Graph.
 
 ### Query
 
-The following GraphQL query retrieves the `urn` and `name` of the `properties` of a specific dataset
+The following `graphql` query retrieves the `urn` and `name` of the `properties` of a specific dataset
 
 ```json
 {
@@ -30,8 +30,8 @@ For more information on, please refer to the following links."
 
 ### Search
 
-To perform full-text search against an Entity of a particular type, use the search(input: `SearchInput!`) GraphQL Query.
-The following GraphQL query searches for datasets that match a specific query term.
+To perform full-text search against an Entity of a particular type, use the search(input: `SearchInput!`) `graphql` Query.
+The following `graphql` query searches for datasets that match a specific query term.
 
 ```json
 {

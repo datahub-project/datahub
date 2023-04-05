@@ -23,7 +23,7 @@ In this example, we will add a description to `user_name `column of a dataset `f
 
 ## Add Description With GraphQL (Not Supported)
 
-> 🚫 Adding Description on Dataset via GraphQL is currently not supported.
+> 🚫 Adding Description on Dataset via `graphql` is currently not supported.
 > Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information,
 
 ## Add Description With Python SDK

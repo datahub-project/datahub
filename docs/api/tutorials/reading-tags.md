@@ -25,13 +25,13 @@ If you want to know how to create tags using APIs & SDKs, please refer to [Creat
 ## Read Tags With GraphQL
 
 :::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+Please note that there are two available endpoints (`:8000`, `:9002`) to access `graphql`.
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
 
 ### GraphQL Explorer
 
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies.
+GraphQL Explorer is the fastest way to experiment with `graphql` without any dependencies.
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json

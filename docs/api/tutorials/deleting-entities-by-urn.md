@@ -23,12 +23,12 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 
 ## Delete Datasets With GraphQL
 
-> 🚫 Hard delete with GraphQL is currently not supported.
+> 🚫 Hard delete with `graphql` is currently not supported.
 > Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
 
 ### GraphQL Explorer
 
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies.
+GraphQL Explorer is the fastest way to experiment with `graphql` without any dependancies.
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json
