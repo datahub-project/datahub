@@ -1382,20 +1382,23 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
 
     # check on browsePaths aspect
     for i in range(0, 10):
-        tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
-            entity_urn=str(
-                DatasetUrn.create_from_ids(
-                    platform_id="elasticsearch",
-                    table_name=f"fooBarIndex{i}",
-                    env="PROD",
-                )
-            ),
-            aspect_name="browsePaths",
-            aspect_field_matcher={
-                "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
-            },
-            file=events_file,
-        ) == 1
+        assert (
+            tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
+                entity_urn=str(
+                    DatasetUrn.create_from_ids(
+                        platform_id="elasticsearch",
+                        table_name=f"fooBarIndex{i}",
+                        env="PROD",
+                    )
+                ),
+                aspect_name="browsePaths",
+                aspect_field_matcher={
+                    "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
+                },
+                file=events_file,
+            )
+            == 1
+        )
 
 
 class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):

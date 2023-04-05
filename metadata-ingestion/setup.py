@@ -409,6 +409,7 @@ base_dev_requirements = {
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
+    "flake8-bugbear>=23.3.23",
     "isort>=5.7.0",
     "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
