@@ -1,5 +1,4 @@
 import datetime
-from time import timezone
 from typing import Dict, List
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
