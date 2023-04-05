@@ -248,7 +248,7 @@ def default_query_results(query):  # noqa: C901
             for op_idx in range(1, NUM_OPS + 1)
         ]
     elif query in (
-        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             1654499820000, 1654586220000, True, True
         ),
     ):
@@ -295,7 +295,7 @@ def default_query_results(query):  # noqa: C901
             for op_idx in range(1, NUM_OPS + 1)
         ]
     elif query in (
-        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             1654499820000, 1654586220000, False, False
         ),
     ):
@@ -320,7 +320,7 @@ def default_query_results(query):  # noqa: C901
     ):
         return []
     elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies(),
+        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
     ]:
         # VIEW_2 has dependency on TABLE_2
         return [
@@ -342,7 +342,7 @@ def default_query_results(query):  # noqa: C901
             1654499820000,
             1654586220000,
         ),
-        snowflake_query.SnowflakeQuery.view_dependencies(),
+        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
     ]:
         return []

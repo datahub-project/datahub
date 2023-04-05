@@ -332,7 +332,7 @@ class SnowflakeLineageExtractor(
             )
 
     def _fetch_upstream_lineages_for_tables(self):
-        query: str = SnowflakeQuery.table_to_table_lineage_history(
+        query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
@@ -432,7 +432,7 @@ class SnowflakeLineageExtractor(
         # NOTE: This query captures only the upstream lineage of a view (with no column lineage).
         # For more details see: https://docs.snowflake.com/en/user-guide/object-dependencies.html#object-dependencies
         # and also https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
-        view_upstream_lineage_query: str = SnowflakeQuery.view_dependencies()
+        view_upstream_lineage_query: str = SnowflakeQuery.view_dependencies_v2()
 
         try:
             for db_row in self.query(view_upstream_lineage_query):

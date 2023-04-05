@@ -53,6 +53,9 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
 )
+from datahub.ingestion.source.snowflake.snowflake_lineage_legacy import (
+    SnowflakeLineageExtractor as SnowflakeLineageLegacyExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -251,9 +254,17 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
+        self.lineage_extractor: Union[
+            SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor
+        ]
         if config.include_table_lineage:
             # For lineage
-            self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
+            if self.config.use_legacy_lineage_method:
+                self.lineage_extractor = SnowflakeLineageLegacyExtractor(
+                    config, self.report
+                )
+            else:
+                self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
 
         if config.include_usage_stats or config.include_operational_stats:
             # For usage stats
