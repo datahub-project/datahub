@@ -97,12 +97,6 @@ class AmplitudeSource(Source):
         self.session = requests.session()
         self.endpoints = AmplitudeTaxonomyEndpoints()
 
-    # def get_data_platform_instance(self) -> DataPlatformInstanceClass:
-    #     return DataPlatformInstanceClass(
-    #         platform=builder.make_data_platform_urn(self.platform),
-    #         instance=builder.make_dataplatform_instance_urn(self.platform, self.env),
-    #     )
-
     def build_project_from_config(
         self, config: AmplitudeProjectConfig
     ) -> Optional[AmplitudeProject]:
