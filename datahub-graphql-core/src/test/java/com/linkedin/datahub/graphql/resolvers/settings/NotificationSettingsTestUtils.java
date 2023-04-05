@@ -41,4 +41,7 @@ public class NotificationSettingsTestUtils {
           .setSlackSettings(GROUP_SLACK_NOTIFICATION_SETTINGS);
   public static final com.linkedin.identity.CorpGroupSettings CORP_GROUP_SETTINGS =
       new com.linkedin.identity.CorpGroupSettings().setNotifications(GROUP_NOTIFICATION_SETTINGS);
+
+  private NotificationSettingsTestUtils() {
+  }
 }

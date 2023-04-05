@@ -2,12 +2,12 @@ extend type Query {
     """
     Get a user's Notification Settings
     """
-    getUserNotificationSettings: NotificationSettings
+    getUserNotificationSettings: NotificationSettings!
 
     """
     Get a group's Notification Settings
     """
-    getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings
+    getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings!
 }
 
 extend type Mutation {
@@ -31,6 +31,11 @@ input GetGroupNotificationSettingsInput {
 
 input UpdateUserNotificationSettingsInput {
     """
+    The user's Email Notification Settings
+    """
+    emailSettings: EmailNotificationSettingsInput
+
+    """
     The user's Slack Notification Settings
     """
     slackSettings: SlackNotificationSettingsInput
@@ -41,6 +46,11 @@ input UpdateGroupNotificationSettingsInput {
     The group's Urn
     """
     groupUrn: String!
+
+    """
+    The group's Email Notification Settings
+    """
+    emailSettings: EmailNotificationSettingsInput
 
     """
     The group's Slack Notification Settings
@@ -65,6 +75,13 @@ type NotificationSettings {
     slackSettings: SlackNotificationSettings
 }
 
+type EmailNotificationSettings {
+    """
+    The actor's email address.
+    """
+    emailAddress: String
+}
+
 type SlackNotificationSettings {
     """
     The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
@@ -75,6 +92,13 @@ type SlackNotificationSettings {
     The actor's list of channels to notify. Only filled if the actor is a group.
     """
     channels: [String!]
+}
+
+input EmailNotificationSettingsInput {
+    """
+    The actor's email address.
+    """
+    emailAddress: String
 }
 
 

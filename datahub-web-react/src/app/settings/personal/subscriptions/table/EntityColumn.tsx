@@ -1,11 +1,10 @@
 import React from 'react';
 import { Image, Tooltip, Typography } from 'antd';
+import { DashboardOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import useGetSourceLogoUrl from '../../../../ingest/source/builder/useGetSourceLogoUrl';
 import { capitalizeFirstLetter } from '../../../../shared/textUtil';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../entity/Entity';
 
 const EntityColumnContainer = styled.div`
     display: flex;
@@ -54,11 +53,9 @@ interface Props {
 }
 
 export function EntityColumn({ record }: Props) {
-    const entityRegistry = useEntityRegistry();
     const platformType = record.platform;
     const iconUrl = useGetSourceLogoUrl(platformType);
     const typeDisplayName = capitalizeFirstLetter(platformType);
-    const typeIcon = entityRegistry.getIcon(record.entityType, 14, IconStyleType.ACCENT);
 
     return (
         <EntityColumnContainer>
@@ -71,7 +68,7 @@ export function EntityColumn({ record }: Props) {
             )}
             <EntityNameContainer>
                 <EntityTypeContainer>
-                    {typeIcon}
+                    <DashboardOutlined />
                     <EntityTypeText>{record.entityType}</EntityTypeText>
                 </EntityTypeContainer>
                 <EntityNameText>{record.entityName}</EntityNameText>

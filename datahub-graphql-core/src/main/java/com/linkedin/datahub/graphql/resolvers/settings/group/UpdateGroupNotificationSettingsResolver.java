@@ -50,8 +50,8 @@ public class UpdateGroupNotificationSettingsResolver implements DataFetcher<Comp
 
           final SlackNotificationSettings slackNotificationSettings =
               _settingsService.createSlackNotificationSettings(slackInput.getUserHandle(), slackInput.getChannels());
-          final NotificationSettings notificationSettings = corpGroupSettings.hasNotifications() ?
-              corpGroupSettings.getNotifications() : _settingsService.createNotificationSettings(groupUrn);
+          final NotificationSettings notificationSettings = corpGroupSettings.hasNotifications()
+              ? corpGroupSettings.getNotifications() : _settingsService.createNotificationSettings(groupUrn);
           notificationSettings.setSlackSettings(slackNotificationSettings);
           corpGroupSettings.setNotifications(notificationSettings);
 

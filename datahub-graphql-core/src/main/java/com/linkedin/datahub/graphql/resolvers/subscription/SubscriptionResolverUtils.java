@@ -1,19 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.subscription;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
-import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.subscription.EntityChangeTypeArray;
-import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
-import com.linkedin.util.Pair;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -43,5 +37,8 @@ public class SubscriptionResolverUtils {
             .stream()
             .map(sinkType -> NotificationSinkType.valueOf(sinkType.toString()))
             .collect(Collectors.toCollection(NotificationSinkTypeArray::new)));
+  }
+
+  private SubscriptionResolverUtils() {
   }
 }

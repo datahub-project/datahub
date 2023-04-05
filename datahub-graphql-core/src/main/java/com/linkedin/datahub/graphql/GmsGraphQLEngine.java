@@ -44,13 +44,10 @@ import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
-<<<<<<< HEAD
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
-=======
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
->>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
@@ -204,14 +201,11 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
-<<<<<<< HEAD
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
-=======
->>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -380,14 +374,11 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
-<<<<<<< HEAD
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.MonitorService;
-=======
 import com.linkedin.metadata.service.LineageService;
->>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
@@ -770,6 +761,10 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(ANOMALY_SCHEMA_FILE))
             // Integrations not in OSS
             .addSchema(fileBasedSchema(INTEGRATIONS_SCHEMA_FILE))
+            // Notifications not in OSS
+            .addSchema(fileBasedSchema(NOTIFICATIONS_SCHEMA_FILE))
+            // Subscriptions not in OSS
+            .addSchema(fileBasedSchema(SUBSCRIPTIONS_SCHEMA_FILE))
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
             .configureRuntimeWiring(this::configureRuntimeWiring);

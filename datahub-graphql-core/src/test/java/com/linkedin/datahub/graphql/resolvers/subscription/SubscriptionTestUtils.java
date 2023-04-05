@@ -92,4 +92,7 @@ public class SubscriptionTestUtils {
 
     return mappedSubscription2;
   }
+
+  private SubscriptionTestUtils() {
+  }
 }

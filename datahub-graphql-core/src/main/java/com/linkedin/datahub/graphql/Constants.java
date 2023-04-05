@@ -24,6 +24,8 @@ public class Constants {
     public static final String STEPS_SCHEMA_FILE = "step.graphql";
     public static final String LINEAGE_SCHEMA_FILE = "lineage.graphql";
     public static final String ANOMALY_SCHEMA_FILE = "anomaly.graphql";
+    public static final String NOTIFICATIONS_SCHEMA_FILE = "notifications.graphql";
+    public static final String SUBSCRIPTIONS_SCHEMA_FILE = "subscriptions.graphql";
     public static final String BROWSE_PATH_DELIMITER = "/";
     public static final String BROWSE_PATH_V2_DELIMITER = "␟";
     public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";

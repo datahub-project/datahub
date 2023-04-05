@@ -12,7 +12,6 @@ import com.linkedin.subscription.EntityChangeTypeArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
-import com.linkedin.util.Pair;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;

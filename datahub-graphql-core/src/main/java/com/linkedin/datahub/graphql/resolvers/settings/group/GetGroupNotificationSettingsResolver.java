@@ -15,7 +15,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
@@ -37,7 +36,10 @@ public class GetGroupNotificationSettingsResolver implements DataFetcher<Complet
         final Urn groupUrn = UrnUtils.getUrn(groupUrnString);
         final CorpGroupSettings groupSettings = _settingsService.getCorpGroupSettings(groupUrn, authentication);
         if (groupSettings == null || !groupSettings.hasNotifications()) {
-          return null;
+          final NotificationSettings result = new NotificationSettings();
+          result.setActorUrn(groupUrnString);
+          result.setActorType("GROUP");
+          return result;
         }
 
         return NotificationSettingsMapper.map(groupSettings.getNotifications());

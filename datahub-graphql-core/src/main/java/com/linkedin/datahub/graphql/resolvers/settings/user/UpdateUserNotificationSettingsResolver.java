@@ -43,9 +43,8 @@ public class UpdateUserNotificationSettingsResolver implements DataFetcher<Compl
 
           final SlackNotificationSettings slackNotificationSettings =
               _settingsService.createSlackNotificationSettings(slackInput.getUserHandle(), slackInput.getChannels());
-          final NotificationSettings notificationSettings = corpUserSettings.hasNotifications() ?
-              corpUserSettings.getNotifications()
-              : _settingsService.createNotificationSettings(userUrn);
+          final NotificationSettings notificationSettings = corpUserSettings.hasNotifications()
+              ? corpUserSettings.getNotifications() : _settingsService.createNotificationSettings(userUrn);
           notificationSettings.setSlackSettings(slackNotificationSettings);
           corpUserSettings.setNotifications(notificationSettings);
 

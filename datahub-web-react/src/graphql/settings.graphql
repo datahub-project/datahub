@@ -1,3 +1,31 @@
+query getUserNotificationSettings {
+    getUserNotificationSettings {
+        actorUrn
+        actorType
+        slackSettings {
+            userHandle
+        }
+    }
+}
+
+query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
+    getGroupNotificationSettings(input: $input) {
+        actorUrn
+        actorType
+        slackSettings {
+            channels
+        }
+    }
+}
+
+mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsInput!) {
+    updateUserNotificationSettings(input: $input)
+}
+
+mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettingsInput!) {
+    updateGroupNotificationSettings(input: $input)
+}
+
 query getGlobalSettings {
     globalSettings {
         integrationSettings {

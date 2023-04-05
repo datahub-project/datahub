@@ -48,8 +48,8 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
       return false;
     }
 
-    if (actualChannels != null && expectedChannels != null &&
-        (!actualChannels.containsAll(expectedChannels) || !expectedChannels.containsAll(actualChannels))) {
+    if (actualChannels != null && expectedChannels != null && (!actualChannels.containsAll(expectedChannels)
+        || !expectedChannels.containsAll(actualChannels))) {
       return false;
     }
 

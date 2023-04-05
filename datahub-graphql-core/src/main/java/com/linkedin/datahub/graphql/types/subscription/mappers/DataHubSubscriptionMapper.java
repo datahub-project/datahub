@@ -36,23 +36,23 @@ public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, Sub
         .collect(Collectors.toList());
     result.setSubscriptionTypes(subscriptionTypes);
 
-    final String entityUrnString = subscriptionInfo.hasEntityUrn() ?
-        subscriptionInfo.getEntityUrn().toString() : UNKNOWN_ENTITY_TYPE;
+    final String entityUrnString =
+        subscriptionInfo.hasEntityUrn() ? subscriptionInfo.getEntityUrn().toString() : UNKNOWN_ENTITY_TYPE;
     result.setEntityUrn(entityUrnString);
 
-    final List<EntityChangeType> entityChangeTypes = subscriptionInfo.hasEntityChangeTypes() ?
-        subscriptionInfo.getEntityChangeTypes()
+    final List<EntityChangeType> entityChangeTypes =
+        subscriptionInfo.hasEntityChangeTypes() ? subscriptionInfo.getEntityChangeTypes()
             .stream()
             .map(type -> EntityChangeType.valueOf(type.toString()))
             .collect(Collectors.toList()) : Collections.emptyList();
     result.setEntityChangeTypes(entityChangeTypes);
 
     final SubscriptionNotificationConfig notificationConfig = new SubscriptionNotificationConfig();
-    final List<NotificationSinkType> notificationSinkTypes = subscriptionInfo.hasNotificationConfig() ?
-        subscriptionInfo.getNotificationConfig().getSinkTypes()
-            .stream()
-            .map(type -> NotificationSinkType.valueOf(type.toString()))
-            .collect(Collectors.toList()) : Collections.emptyList();
+    final List<NotificationSinkType> notificationSinkTypes = subscriptionInfo.hasNotificationConfig()
+        ? subscriptionInfo.getNotificationConfig().getSinkTypes()
+        .stream()
+        .map(type -> NotificationSinkType.valueOf(type.toString()))
+        .collect(Collectors.toList()) : Collections.emptyList();
     notificationConfig.setSinkTypes(notificationSinkTypes);
     result.setNotificationConfig(notificationConfig);
 

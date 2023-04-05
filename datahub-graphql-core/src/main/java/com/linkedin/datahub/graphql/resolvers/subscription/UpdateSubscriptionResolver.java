@@ -35,8 +35,8 @@ public class UpdateSubscriptionResolver implements DataFetcher<CompletableFuture
     final UpdateSubscriptionInput input = bindArgument(environment.getArgument("input"), UpdateSubscriptionInput.class);
     return CompletableFuture.supplyAsync(() -> {
       try {
-        final SubscriptionTypeArray subscriptionTypes = input.getSubscriptionTypes() == null ?
-            null : mapSubscriptionTypes(input.getSubscriptionTypes());
+        final SubscriptionTypeArray subscriptionTypes =
+            input.getSubscriptionTypes() == null ? null : mapSubscriptionTypes(input.getSubscriptionTypes());
         final EntityChangeTypeArray entityChangeTypes =
             input.getEntityChangeTypes() == null ? null : mapEntityChangeTypes(input.getEntityChangeTypes());
         final SubscriptionNotificationConfig notificationConfig =
@@ -48,8 +48,8 @@ public class UpdateSubscriptionResolver implements DataFetcher<CompletableFuture
         final SubscriptionInfo subscriptionInfo =
             _subscriptionService.getSubscriptionInfo(subscriptionUrn, authentication);
         final Urn actorUrn = subscriptionInfo.getActorUrn();
-        if (actorUrn.getEntityType().equals(CORP_GROUP_ENTITY_NAME) &&
-            !canManageGroupSubscriptions(actorUrn.toString(), context)) {
+        if (actorUrn.getEntityType().equals(CORP_GROUP_ENTITY_NAME) && !canManageGroupSubscriptions(actorUrn.toString(),
+            context)) {
           throw new RuntimeException(
               String.format("Unauthorized to update subscription for group %s", actorUrn));
         }
