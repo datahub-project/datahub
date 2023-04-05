@@ -85,6 +85,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/snowflake/configuration",
               ],
             },
+            {
+              Tableau: [
+                "docs/quick-ingestion-guides/tableau/overview",
+                "docs/quick-ingestion-guides/tableau/setup",
+                "docs/quick-ingestion-guides/tableau/configuration",
+              ],
+            },
           ],
         },
       ],

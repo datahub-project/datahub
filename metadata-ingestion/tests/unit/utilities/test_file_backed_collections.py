@@ -257,21 +257,19 @@ def test_shared_connection() -> None:
             f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
         )
         assert type(iterator) == sqlite3.Cursor
-        assert list(iterator) == [("a", 15), ("b", 11)]
+        assert [tuple(r) for r in iterator] == [("a", 15), ("b", 11)]
 
         # Test joining between the two tables.
-        assert (
-            cache2.sql_query(
-                f"""
-                SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
-                LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
-                GROUP BY cache2.y
-                ORDER BY cache2.y
-                """,
-                refs=[cache1],
-            )
-            == [("a", 45), ("b", 55)]
+        rows = cache2.sql_query(
+            f"""
+                        SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
+                        LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
+                        GROUP BY cache2.y
+                        ORDER BY cache2.y
+                        """,
+            refs=[cache1],
         )
+        assert [tuple(row) for row in rows] == [("a", 45), ("b", 55)]
 
         assert list(cache2.items_snapshot('y = "a"')) == [
             ("ref-a-1", Pair(7, "a")),

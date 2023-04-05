@@ -7,8 +7,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "ephemeral",
-                "view"
+                "Model"
             ]
         }
     },
@@ -151,8 +150,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -312,8 +311,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -532,8 +531,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -668,7 +667,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -834,7 +833,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1021,7 +1020,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1148,7 +1147,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1287,7 +1286,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1431,7 +1430,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1642,7 +1641,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1805,7 +1804,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1986,7 +1985,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2149,7 +2148,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2312,7 +2311,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2511,12 +2510,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:test_tag",
+    "entityUrn": "urn:li:tag:dbt:column_tag",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "dbt:test_tag"
+            "name": "dbt:column_tag"
         }
     },
     "systemMetadata": {
@@ -2526,12 +2525,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:column_tag",
+    "entityUrn": "urn:li:tag:dbt:test_tag",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "dbt:column_tag"
+            "name": "dbt:test_tag"
         }
     },
     "systemMetadata": {
