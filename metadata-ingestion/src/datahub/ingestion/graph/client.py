@@ -461,7 +461,7 @@ class DataHubGraph(DatahubRestEmitter):
 
     def execute_graphql(self, query: str, variables: Optional[Dict] = None) -> Dict:
         url = f"{self.config.server}/api/graphql"
-        body = {
+        body: Dict = {
             "query": query,
         }
         if variables:
