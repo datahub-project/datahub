@@ -21,9 +21,6 @@ public class NotificationSettingsMapper
       @Nonnull final com.linkedin.event.notification.settings.NotificationSettings notificationSettings) {
     final NotificationSettings result = new NotificationSettings();
 
-    result.setActorUrn(notificationSettings.getActorUrn().toString());
-    result.setActorType(notificationSettings.getActorType().toString());
-
     if (notificationSettings.hasSlackSettings()) {
       result.setSlackSettings(mapSlackSettings(notificationSettings.getSlackSettings()));
     }

@@ -1,6 +1,5 @@
 namespace com.linkedin.subscription
 
-import com.linkedin.common.ActorType
 import com.linkedin.common.Urn
 
 /**
@@ -17,14 +16,6 @@ record SubscriptionInfo {
         "fieldType": "URN"
     }
     actorUrn: Urn
-
-    /**
-     * Actor type
-     */
-    @Searchable = {
-        "fieldType": "TEXT"
-    }
-    actorType: ActorType
 
     /**
      * The subscription types.

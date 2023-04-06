@@ -4,6 +4,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateSubscriptionInput;
 import graphql.schema.DataFetchingEnvironment;
@@ -12,6 +14,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsTestUtils.SLACK_USER_HANDLE;
+import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.USER_URN_STRING;
 import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -42,6 +46,12 @@ public class UpdateSubscriptionResolverTest {
 
     final SubscriptionNotificationConfigInput notificationConfigInput = new SubscriptionNotificationConfigInput();
     notificationConfigInput.setSinkTypes(NOTIFICATION_SINK_GRAPHQL_TYPES);
+    final NotificationSettingsInput notificationSettings = new NotificationSettingsInput();
+    final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
+    slackSettings.setUserHandle(SLACK_USER_HANDLE);
+    notificationSettings.setSlackSettings(slackSettings);
+    notificationConfigInput.setNotificationSettings(notificationSettings);
+
     input.setNotificationConfig(notificationConfigInput);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 

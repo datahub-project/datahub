@@ -30,15 +30,12 @@ public class GetUserNotificationSettingsResolver implements DataFetcher<Completa
       try {
         final Urn userUrn = UrnUtils.getUrn(userUrnString);
         final CorpUserSettings userSettings = _settingsService.getCorpUserSettings(userUrn, authentication);
-        if (userSettings == null || !userSettings.hasNotifications()) {
-          final NotificationSettings result = new NotificationSettings();
-          result.setActorUrn(userUrnString);
-          result.setActorType("USER");
-          return result;
+        if (userSettings == null || !userSettings.hasNotificationSettings()) {
+          return null;
         }
 
         final com.linkedin.event.notification.settings.NotificationSettings notificationSettings =
-            userSettings.getNotifications();
+            userSettings.getNotificationSettings();
         return NotificationSettingsMapper.map(notificationSettings);
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to get notification settings for user %s", userUrnString), e);

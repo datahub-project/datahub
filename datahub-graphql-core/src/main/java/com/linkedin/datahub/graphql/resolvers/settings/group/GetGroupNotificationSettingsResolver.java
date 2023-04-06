@@ -35,14 +35,11 @@ public class GetGroupNotificationSettingsResolver implements DataFetcher<Complet
       try {
         final Urn groupUrn = UrnUtils.getUrn(groupUrnString);
         final CorpGroupSettings groupSettings = _settingsService.getCorpGroupSettings(groupUrn, authentication);
-        if (groupSettings == null || !groupSettings.hasNotifications()) {
-          final NotificationSettings result = new NotificationSettings();
-          result.setActorUrn(groupUrnString);
-          result.setActorType("GROUP");
-          return result;
+        if (groupSettings == null || !groupSettings.hasNotificationSettings()) {
+          return null;
         }
 
-        return NotificationSettingsMapper.map(groupSettings.getNotifications());
+        return NotificationSettingsMapper.map(groupSettings.getNotificationSettings());
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to get notification settings for group %s", groupUrnString),
             e);

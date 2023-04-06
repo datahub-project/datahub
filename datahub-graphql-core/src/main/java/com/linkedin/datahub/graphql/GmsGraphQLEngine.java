@@ -763,8 +763,6 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(INTEGRATIONS_SCHEMA_FILE))
             // Notifications not in OSS
             .addSchema(fileBasedSchema(NOTIFICATIONS_SCHEMA_FILE))
-            // Subscriptions not in OSS
-            .addSchema(fileBasedSchema(SUBSCRIPTIONS_SCHEMA_FILE))
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
             .configureRuntimeWiring(this::configureRuntimeWiring);

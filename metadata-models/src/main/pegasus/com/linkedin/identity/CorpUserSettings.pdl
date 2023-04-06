@@ -22,5 +22,5 @@ record CorpUserSettings {
   /**
    * Notification settings for a user
    */
-  notifications: optional NotificationSettings
+  notificationSettings: optional NotificationSettings
 }

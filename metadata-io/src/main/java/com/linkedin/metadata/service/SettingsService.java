@@ -176,26 +176,6 @@ public class SettingsService extends BaseService {
   }
 
   @Nonnull
-  public NotificationSettings createNotificationSettings(@Nonnull final Urn actorUrn) {
-    final String entityType = actorUrn.getEntityType();
-    ActorType actorType;
-    switch (entityType) {
-      case CORP_USER_ENTITY_NAME:
-        actorType = ActorType.USER;
-        break;
-      case CORP_GROUP_ENTITY_NAME:
-        actorType = ActorType.GROUP;
-        break;
-      default:
-        throw new RuntimeException(String.format("Invalid actor type %s", entityType));
-    }
-    final NotificationSettings notificationSettings =
-        new NotificationSettings().setActorUrn(actorUrn).setActorType(actorType);
-
-    return notificationSettings;
-  }
-
-  @Nonnull
   public SlackNotificationSettings createSlackNotificationSettings(@Nullable String userHandle,
       @Nullable List<String> channels) {
     if (userHandle == null && channels == null) {

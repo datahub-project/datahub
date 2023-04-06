@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
+import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
@@ -28,8 +29,18 @@ public class SubscriptionTestUtils {
       ImmutableList.of(NotificationSinkType.SLACK);
   public static final NotificationSinkTypeArray NOTIFICATION_SINK_TYPES =
       new NotificationSinkTypeArray(com.linkedin.event.notification.NotificationSinkType.SLACK);
+
+  public static final String SLACK_USER_HANDLE = "testUser";
+  public static final com.linkedin.event.notification.settings.SlackNotificationSettings
+      USER_SLACK_NOTIFICATION_SETTINGS =
+      new com.linkedin.event.notification.settings.SlackNotificationSettings().setUserHandle(SLACK_USER_HANDLE);
+  public static final com.linkedin.event.notification.settings.NotificationSettings USER_NOTIFICATION_SETTINGS =
+      new com.linkedin.event.notification.settings.NotificationSettings().setSlackSettings(
+          USER_SLACK_NOTIFICATION_SETTINGS);
   public static final com.linkedin.subscription.SubscriptionNotificationConfig NOTIFICATION_CONFIG =
-      new com.linkedin.subscription.SubscriptionNotificationConfig().setSinkTypes(NOTIFICATION_SINK_TYPES);
+      new com.linkedin.subscription.SubscriptionNotificationConfig()
+          .setSinkTypes(NOTIFICATION_SINK_TYPES)
+          .setNotificationSettings(USER_NOTIFICATION_SETTINGS);
   public static final List<SubscriptionType> SUBSCRIPTION_GRAPHQL_TYPES_1 =
       ImmutableList.of(SubscriptionType.ENTITY_CHANGE, SubscriptionType.UPSTREAM_ENTITY_CHANGE);
   public static final SubscriptionTypeArray SUBSCRIPTION_TYPES_1 =
@@ -41,7 +52,6 @@ public class SubscriptionTestUtils {
       new EntityChangeTypeArray(com.linkedin.subscription.EntityChangeType.DEPRECATED,
           com.linkedin.subscription.EntityChangeType.ASSERTION_FAILED);
   public static final SubscriptionInfo SUBSCRIPTION_INFO_1 = new SubscriptionInfo().setActorUrn(USER_URN)
-      .setActorType(com.linkedin.common.ActorType.USER)
       .setTypes(SUBSCRIPTION_TYPES_1)
       .setEntityUrn(ENTITY_URN_1)
       .setEntityChangeTypes(ENTITY_CHANGE_TYPES_1)
@@ -54,7 +64,6 @@ public class SubscriptionTestUtils {
       new EntityChangeTypeArray(com.linkedin.subscription.EntityChangeType.GLOSSARY_TERM_CHANGE,
           com.linkedin.subscription.EntityChangeType.TAG_CHANGE);
   public static final SubscriptionInfo SUBSCRIPTION_INFO_2 = new SubscriptionInfo().setActorUrn(USER_URN)
-      .setActorType(com.linkedin.common.ActorType.USER)
       .setTypes(SUBSCRIPTION_TYPES_2)
       .setEntityUrn(ENTITY_URN_2)
       .setEntityChangeTypes(ENTITY_CHANGE_TYPES_2)
@@ -63,6 +72,14 @@ public class SubscriptionTestUtils {
   public static SubscriptionNotificationConfig getMappedNotificationConfig() {
     final SubscriptionNotificationConfig notificationConfig = new SubscriptionNotificationConfig();
     notificationConfig.setSinkTypes(NOTIFICATION_SINK_GRAPHQL_TYPES);
+
+    final NotificationSettings notificationSettings = new NotificationSettings();
+    final com.linkedin.datahub.graphql.generated.SlackNotificationSettings slackNotificationSettings =
+        new com.linkedin.datahub.graphql.generated.SlackNotificationSettings();
+    slackNotificationSettings.setUserHandle(SLACK_USER_HANDLE);
+    notificationSettings.setSlackSettings(slackNotificationSettings);
+    notificationConfig.setNotificationSettings(notificationSettings);
+
     return notificationConfig;
   }
 

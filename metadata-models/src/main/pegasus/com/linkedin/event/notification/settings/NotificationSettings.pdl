@@ -4,25 +4,9 @@ import com.linkedin.common.ActorType
 import com.linkedin.common.Urn
 
 /**
- * Notification settings for an actor (currently users or groups).
+ * Notification settings for an actor or subscription.
  */
 record NotificationSettings {
-    /**
-    * Actor Urn
-    */
-    @Searchable = {
-        "fieldType": "URN"
-    }
-    actorUrn: Urn
-
-    /**
-     * Actor type
-     */
-    @Searchable = {
-        "fieldType": "TEXT"
-    }
-    actorType: ActorType
-
     /**
      * Slack Notification Settings
      */

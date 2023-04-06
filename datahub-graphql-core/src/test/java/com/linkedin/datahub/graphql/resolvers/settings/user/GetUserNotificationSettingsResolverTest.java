@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.settings.user;
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
-import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
 import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatcher;
 import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetchingEnvironment;
@@ -17,7 +16,6 @@ import static org.testng.Assert.*;
 
 
 public class GetUserNotificationSettingsResolverTest {
-  private NotificationSettings _mappedNotificationSettings;
   private SettingsService _settingsService;
   private GetUserNotificationSettingsResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
@@ -34,14 +32,6 @@ public class GetUserNotificationSettingsResolverTest {
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
 
-    final SlackNotificationSettings mappedSlackNotificationSettings = new SlackNotificationSettings();
-    mappedSlackNotificationSettings.setUserHandle(SLACK_USER_HANDLE);
-
-    _mappedNotificationSettings = new NotificationSettings();
-    _mappedNotificationSettings.setActorUrn(USER_URN_STRING);
-    _mappedNotificationSettings.setActorType("USER");
-    _mappedNotificationSettings.setSlackSettings(mappedSlackNotificationSettings);
-
     _resolver = new GetUserNotificationSettingsResolver(_settingsService);
   }
 
@@ -57,7 +47,7 @@ public class GetUserNotificationSettingsResolverTest {
     when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication))).thenReturn(CORP_USER_SETTINGS);
 
     final NotificationSettings result = _resolver.get(_dataFetchingEnvironment).join();
-    final NotificationSettingsMatcher matcher = new NotificationSettingsMatcher(_mappedNotificationSettings);
+    final NotificationSettingsMatcher matcher = new NotificationSettingsMatcher(getMappedUserNotificationSettings());
     assertTrue(matcher.matches(result));
   }
 }

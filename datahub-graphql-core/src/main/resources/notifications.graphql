@@ -2,24 +2,39 @@ extend type Query {
     """
     Get a user's Notification Settings
     """
-    getUserNotificationSettings: NotificationSettings!
+    getUserNotificationSettings: NotificationSettings
 
     """
     Get a group's Notification Settings
     """
-    getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings!
+    getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings
+
+    """
+    List an actor's subscriptions
+    """
+    listSubscriptions(input: ListSubscriptionsInput!): ListSubscriptionsResult!
 }
 
 extend type Mutation {
     """
     Update a user's Notification Settings
     """
-    updateUserNotificationSettings(input: UpdateUserNotificationSettingsInput!): Boolean
+    updateUserNotificationSettings(input: UpdateUserNotificationSettingsInput!): NotificationSettings!
 
     """
     Update a user's Notification Settings
     """
-    updateGroupNotificationSettings(input: UpdateGroupNotificationSettingsInput!): Boolean
+    updateGroupNotificationSettings(input: UpdateGroupNotificationSettingsInput!): NotificationSettings!
+
+    """
+    Create a subscription
+    """
+    createSubscription(input: CreateSubscriptionInput!): DataHubSubscription!
+
+    """
+    Update a subscription
+    """
+    updateSubscription(input: UpdateSubscriptionInput!): DataHubSubscription!
 }
 
 input GetGroupNotificationSettingsInput {
@@ -29,16 +44,25 @@ input GetGroupNotificationSettingsInput {
     groupUrn: String!
 }
 
+input ListSubscriptionsInput {
+    """
+    The actor's Urn.
+    """
+    actorUrn: String!
+}
+
+type ListSubscriptionsResult {
+    """
+    The list of subscriptions.
+    """
+    subscriptions: [DataHubSubscription]!
+}
+
 input UpdateUserNotificationSettingsInput {
     """
-    The user's Email Notification Settings
+    The user's Notification Settings
     """
-    emailSettings: EmailNotificationSettingsInput
-
-    """
-    The user's Slack Notification Settings
-    """
-    slackSettings: SlackNotificationSettingsInput
+    notificationSettings: NotificationSettingsInput!
 }
 
 input UpdateGroupNotificationSettingsInput {
@@ -48,38 +72,35 @@ input UpdateGroupNotificationSettingsInput {
     groupUrn: String!
 
     """
-    The group's Email Notification Settings
+    The group's Notification Settings
     """
-    emailSettings: EmailNotificationSettingsInput
+    notificationSettings: NotificationSettingsInput!
+}
 
+input NotificationSettingsInput {
     """
-    The group's Slack Notification Settings
+    (Optional) Slack Notification Settings
     """
     slackSettings: SlackNotificationSettingsInput
 }
 
 type NotificationSettings {
     """
-    The actor's Urn
-    """
-    actorUrn: String!
-
-    """
-    The actor's type
-    """
-    actorType: String!
-
-    """
-    The actor's optional Slack Notification Settings
+    (Optional) Slack Notification Settings
     """
     slackSettings: SlackNotificationSettings
 }
 
-type EmailNotificationSettings {
+input SlackNotificationSettingsInput {
     """
-    The actor's email address.
+    The actor's handle. Only filled if the actor is a user.
     """
-    emailAddress: String
+    userHandle: String
+
+    """
+    The actor's list of channels to notify. Only filled if the actor is a group.
+    """
+    channels: [String!]
 }
 
 type SlackNotificationSettings {
@@ -94,22 +115,179 @@ type SlackNotificationSettings {
     channels: [String!]
 }
 
-input EmailNotificationSettingsInput {
+input CreateSubscriptionInput {
     """
-    The actor's email address.
+    The urn of the entity that the subscription is for.
     """
-    emailAddress: String
+    entityUrn: String!
+
+    """
+    The subscription's types
+    """
+    subscriptionTypes: [SubscriptionType!]!
+
+    """
+    Change types that trigger a notification for the subscription.
+    """
+    entityChangeTypes: [EntityChangeType!]!
+
+    """
+    Notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfigInput!
+
+    """
+    (Optional) Group urn. Only used for group subscriptions.
+    """
+    groupUrn: String
+}
+
+input UpdateSubscriptionInput {
+    """
+    The subscription urn.
+    """
+    subscriptionUrn: String!
+
+    """
+    (Optional) The subscription's types. Will replace existing types.
+    """
+    subscriptionTypes: [SubscriptionType]
+
+    """
+    (Optional) Change types that trigger a notification for the subscription. Will replace existing change types.
+    """
+    entityChangeTypes: [EntityChangeType]
+
+    """
+    (Optional) Notification configuration. Will replace existing notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfigInput
+}
+
+input SubscriptionNotificationConfigInput {
+    """
+    Sink types that notifications for the subscription are sent to.
+    """
+    sinkTypes: [NotificationSinkType!]!
+
+    """
+    The subscription's Notification Settings.
+    """
+    notificationSettings: NotificationSettingsInput
 }
 
 
-input SlackNotificationSettingsInput {
+
+type DataHubSubscription {
     """
-    The actor's handle. Only filled if the actor is a user.
+    The urn of the actor that owns the subscription.
     """
-    userHandle: String
+    actorUrn: String!
 
     """
-    The actor's list of channels to notify. Only filled if the actor is a group.
+    The subscription's Urn.
     """
-    channels: [String!]
+    subscriptionUrn: String!
+
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
+
+    """
+    The subscription's types
+    """
+    subscriptionTypes: [SubscriptionType]!
+
+    """
+    Change types that trigger a notification for the subscription.
+    """
+    entityChangeTypes: [EntityChangeType]!
+
+    """
+    Notification configuration.
+    """
+    notificationConfig: SubscriptionNotificationConfig!
+}
+
+enum SubscriptionType {
+    """
+    Triggered via direct changes on an entity.
+    """
+    ENTITY_CHANGE
+
+    """
+    Triggered via changes on an entity's upstream dependencies.
+    """
+    UPSTREAM_ENTITY_CHANGE
+}
+
+enum EntityChangeType {
+    """.
+    Schema changes
+    """
+    OPERATION_COLUMN_ADDED
+    OPERATION_COLUMN_REMOVED
+    OPERATION_COLUMN_MODIFIED
+
+    """
+    Operational metadata changes.
+    """
+    OPERATION_ROWS_INSERTED
+    OPERATION_ROWS_UPDATED
+    OPERATION_ROWS_REMOVED
+
+    """
+    Assertion run failure.
+    """
+    ASSERTION_FAILED
+
+    """
+    Test failure.
+    """
+    TEST_FAILED
+
+    """
+    Deprecation.
+    """
+    DEPRECATED
+
+    """
+    Ingestion failure.
+    """
+    INGESTION_FAILED
+
+    """
+    Ownership changes. Added or removed.
+    """
+    OWNERSHIP_CHANGE
+
+    """
+    Glossary term changes. Added, removed, or proposed.
+    """
+    GLOSSARY_TERM_CHANGE
+
+    """
+    Tag changes. Added, removed, or proposed.
+    """
+    TAG_CHANGE
+}
+
+type SubscriptionNotificationConfig {
+    """
+    Sink types that notifications for the subscription are sent to.
+    """
+    sinkTypes: [NotificationSinkType]!
+
+    """
+    (Optional) The subscription's Notification Settings.
+    """
+    notificationSettings: NotificationSettings
+}
+
+enum NotificationSinkType {
+    """
+    Slack
+    """
+    SLACK
 }

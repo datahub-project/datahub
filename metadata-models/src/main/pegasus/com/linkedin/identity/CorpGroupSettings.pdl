@@ -12,5 +12,5 @@ record CorpGroupSettings {
   /**
    * Notification settings for a group
    */
-  notifications: optional NotificationSettings
+  notificationSettings: optional NotificationSettings
 }

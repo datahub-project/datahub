@@ -4,7 +4,6 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GetGroupNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
-import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
 import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatcher;
 import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetchingEnvironment;
@@ -18,7 +17,6 @@ import static org.testng.Assert.*;
 
 
 public class GetGroupNotificationSettingsResolverTest {
-  private NotificationSettings _mappedNotificationSettings;
   private SettingsService _settingsService;
   private GetGroupNotificationSettingsResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
@@ -39,14 +37,6 @@ public class GetGroupNotificationSettingsResolverTest {
     input.setGroupUrn(GROUP_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
-    final SlackNotificationSettings mappedSlackNotificationSettings = new SlackNotificationSettings();
-    mappedSlackNotificationSettings.setChannels(SLACK_CHANNELS);
-
-    _mappedNotificationSettings = new NotificationSettings();
-    _mappedNotificationSettings.setActorUrn(GROUP_URN_STRING);
-    _mappedNotificationSettings.setActorType("GROUP");
-    _mappedNotificationSettings.setSlackSettings(mappedSlackNotificationSettings);
-
     _resolver = new GetGroupNotificationSettingsResolver(_settingsService);
   }
 
@@ -62,7 +52,7 @@ public class GetGroupNotificationSettingsResolverTest {
     when(_settingsService.getCorpGroupSettings(eq(GROUP_URN), eq(_authentication))).thenReturn(CORP_GROUP_SETTINGS);
 
     final NotificationSettings result = _resolver.get(_dataFetchingEnvironment).join();
-    final NotificationSettingsMatcher matcher = new NotificationSettingsMatcher(_mappedNotificationSettings);
+    final NotificationSettingsMatcher matcher = new NotificationSettingsMatcher(getMappedGroupNotificationSettings());
     assertTrue(matcher.matches(result));
   }
 }

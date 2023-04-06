@@ -2,7 +2,6 @@ package com.datahub.subscription;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.ActorType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
@@ -33,7 +32,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.AcrylConstants.*;
-import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
@@ -57,25 +55,11 @@ public class SubscriptionService {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
-      final String entityType = actorUrn.getEntityType();
-      ActorType actorType;
-      switch (entityType) {
-        case CORP_USER_ENTITY_NAME:
-          actorType = ActorType.USER;
-          break;
-        case CORP_GROUP_ENTITY_NAME:
-          actorType = ActorType.GROUP;
-          break;
-        default:
-          throw new RuntimeException(String.format("Invalid actor type %s", entityType));
-      }
-
       final String subscriptionID = UUID.randomUUID().toString();
       final SubscriptionKey subscriptionKey = new SubscriptionKey().setId(subscriptionID);
 
       final SubscriptionInfo subscriptionInfo = new SubscriptionInfo().setActorUrn(actorUrn)
           .setEntityUrn(entityUrn)
-          .setActorType(actorType)
           .setTypes(subscriptionTypes)
           .setEntityChangeTypes(entityChangeTypes)
           .setNotificationConfig(notificationConfig);

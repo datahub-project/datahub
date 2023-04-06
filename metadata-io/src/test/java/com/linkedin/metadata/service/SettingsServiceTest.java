@@ -49,15 +49,13 @@ public class SettingsServiceTest {
   private static final SlackNotificationSettings USER_SLACK_NOTIFICATION_SETTINGS =
       new SlackNotificationSettings().setUserHandle(USER_HANDLE);
   private static final NotificationSettings USER_NOTIFICATION_SETTINGS = new NotificationSettings()
-      .setActorUrn(USER_URN)
-      .setActorType(com.linkedin.common.ActorType.USER)
       .setSlackSettings(USER_SLACK_NOTIFICATION_SETTINGS);
   private static final CorpUserSettings CORP_USER_SETTINGS = new CorpUserSettings()
       .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
       .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
 
   private static final CorpUserSettings UPDATED_CORP_USER_SETTINGS =
-      CORP_USER_SETTINGS.setNotifications(USER_NOTIFICATION_SETTINGS);
+      CORP_USER_SETTINGS.setNotificationSettings(USER_NOTIFICATION_SETTINGS);
 
   private static final EntityResponse CORP_USER_ENTITY_RESPONSE = createEntityResponseFromAspects(
       ImmutableMap.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME, CORP_USER_SETTINGS)
@@ -65,11 +63,9 @@ public class SettingsServiceTest {
   private static final SlackNotificationSettings GROUP_SLACK_NOTIFICATION_SETTINGS =
       new SlackNotificationSettings().setChannels(new StringArray(CHANNELS));
   private static final NotificationSettings GROUP_NOTIFICATION_SETTINGS = new NotificationSettings()
-      .setActorUrn(GROUP_URN)
-      .setActorType(com.linkedin.common.ActorType.GROUP)
       .setSlackSettings(GROUP_SLACK_NOTIFICATION_SETTINGS);
   private static final CorpGroupSettings CORP_GROUP_SETTINGS = new CorpGroupSettings()
-      .setNotifications(GROUP_NOTIFICATION_SETTINGS);
+      .setNotificationSettings(GROUP_NOTIFICATION_SETTINGS);
   private static final CorpGroupSettings UPDATED_CORP_GROUP_SETTINGS = CORP_GROUP_SETTINGS;
   private static final EntityResponse CORP_GROUP_ENTITY_RESPONSE = createEntityResponseFromAspects(
       ImmutableMap.of(Constants.CORP_GROUP_SETTINGS_ASPECT_NAME, CORP_GROUP_SETTINGS)
@@ -273,28 +269,6 @@ public class SettingsServiceTest {
         GROUP_URN,
         UPDATED_CORP_GROUP_SETTINGS,
         SYSTEM_AUTHENTICATION));
-  }
-
-  @Test
-  public void testCreateNotificationSettingsUser() {
-    final NotificationSettings notificationSettings =
-        _settingsService.createNotificationSettings(USER_URN);
-    assertEquals(notificationSettings.getActorUrn(), USER_URN);
-    assertEquals(notificationSettings.getActorType(), com.linkedin.common.ActorType.USER);
-  }
-
-  @Test
-  public void testCreateNotificationSettingsGroup() {
-    final NotificationSettings notificationSettings =
-        _settingsService.createNotificationSettings(GROUP_URN);
-    assertEquals(notificationSettings.getActorUrn(), GROUP_URN);
-    assertEquals(notificationSettings.getActorType(), com.linkedin.common.ActorType.GROUP);
-  }
-
-  @Test
-  public void testCreateNotificationSettingsUnsupportedActor() {
-    final Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
-    assertThrows(() -> _settingsService.createNotificationSettings(datasetUrn));
   }
 
   @Test

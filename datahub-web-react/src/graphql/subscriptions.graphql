@@ -1,0 +1,36 @@
+query listSubscriptions($input: ListSubscriptionsInput!) {
+    listSubscriptions(input: $input) {
+        subscriptions {
+            ...subscriptionFields
+        }
+    }
+}
+
+mutation createSubscription($input: CreateSubscriptionInput!) {
+    createSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
+mutation updateSubscription($input: UpdateSubscriptionInput!) {
+    updateSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
+fragment subscriptionFields on DataHubSubscription {
+    actorUrn
+    subscriptionUrn
+    entityUrn
+    subscriptionTypes
+    entityChangeTypes
+    notificationConfig {
+        sinkTypes
+        notificationSettings {
+            slackSettings {
+                userHandle
+                channels
+            }
+        }
+    }
+}

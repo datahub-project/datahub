@@ -16,8 +16,7 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
 
   @Override
   public boolean matches(@Nonnull final NotificationSettings actual) {
-    return _expected.getActorUrn().equals(actual.getActorUrn()) && _expected.getActorType()
-        .equals(actual.getActorType()) && slackSettingsMatches(actual);
+    return slackSettingsMatches(actual);
   }
 
   public boolean slackSettingsMatches(@Nonnull final NotificationSettings actual) {

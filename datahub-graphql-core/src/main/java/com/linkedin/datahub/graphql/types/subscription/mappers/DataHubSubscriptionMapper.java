@@ -3,15 +3,18 @@ package com.linkedin.datahub.graphql.types.subscription.mappers;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
+import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.subscription.SubscriptionInfo;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
 
 public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, SubscriptionInfo>, DataHubSubscription> {
@@ -47,14 +50,29 @@ public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, Sub
             .collect(Collectors.toList()) : Collections.emptyList();
     result.setEntityChangeTypes(entityChangeTypes);
 
-    final SubscriptionNotificationConfig notificationConfig = new SubscriptionNotificationConfig();
-    final List<NotificationSinkType> notificationSinkTypes = subscriptionInfo.hasNotificationConfig()
-        ? subscriptionInfo.getNotificationConfig().getSinkTypes()
+    if (subscriptionInfo.hasNotificationConfig()) {
+      final SubscriptionNotificationConfig notificationConfig =
+          mapNotificationConfig(subscriptionInfo.getNotificationConfig());
+      result.setNotificationConfig(notificationConfig);
+    }
+
+    return result;
+  }
+
+  private SubscriptionNotificationConfig mapNotificationConfig(
+      @Nonnull final com.linkedin.subscription.SubscriptionNotificationConfig notificationConfig) {
+    final SubscriptionNotificationConfig result = new SubscriptionNotificationConfig();
+    final List<NotificationSinkType> sinkTypes = notificationConfig.getSinkTypes()
         .stream()
-        .map(type -> NotificationSinkType.valueOf(type.toString()))
-        .collect(Collectors.toList()) : Collections.emptyList();
-    notificationConfig.setSinkTypes(notificationSinkTypes);
-    result.setNotificationConfig(notificationConfig);
+        .map(sinkType -> NotificationSinkType.valueOf(sinkType.toString()))
+        .collect(Collectors.toList());
+    result.setSinkTypes(sinkTypes);
+
+    if (notificationConfig.hasNotificationSettings()) {
+      final NotificationSettings notificationSettings =
+          NotificationSettingsMapper.map(notificationConfig.getNotificationSettings());
+      result.setNotificationSettings(notificationSettings);
+    }
 
     return result;
   }

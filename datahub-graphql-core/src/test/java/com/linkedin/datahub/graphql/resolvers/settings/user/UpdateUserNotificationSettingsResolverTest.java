@@ -1,11 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.settings.user;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.common.ActorType;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateUserNotificationSettingsInput;
-import com.linkedin.event.notification.settings.NotificationSettings;
+import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatcher;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetchingEnvironment;
@@ -38,9 +38,11 @@ public class UpdateUserNotificationSettingsResolverTest {
     when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
 
     final UpdateUserNotificationSettingsInput input = new UpdateUserNotificationSettingsInput();
+    final NotificationSettingsInput notificationSettings = new NotificationSettingsInput();
     final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
     slackSettings.setUserHandle(SLACK_USER_HANDLE);
-    input.setSlackSettings(slackSettings);
+    notificationSettings.setSlackSettings(slackSettings);
+    input.setNotificationSettings(notificationSettings);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
     _resolver = new UpdateUserNotificationSettingsResolver(_settingsService);
@@ -72,10 +74,9 @@ public class UpdateUserNotificationSettingsResolverTest {
     when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication))).thenReturn(null);
     when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull())).thenReturn(
         USER_SLACK_NOTIFICATION_SETTINGS);
-    when(_settingsService.createNotificationSettings(eq(USER_URN)))
-        .thenReturn(new NotificationSettings().setActorUrn(USER_URN).setActorType(ActorType.USER));
 
-    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+    final NotificationSettingsMatcher matcher = new NotificationSettingsMatcher(getMappedUserNotificationSettings());
+    assertTrue(matcher.matches(_resolver.get(_dataFetchingEnvironment).join()));
     verify(_settingsService, times(1)).updateCorpUserSettings(
         eq(USER_URN),
         eq(UPDATED_CORP_USER_SETTINGS),
@@ -89,8 +90,8 @@ public class UpdateUserNotificationSettingsResolverTest {
     when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull())).thenReturn(
         USER_SLACK_NOTIFICATION_SETTINGS);
 
-    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    verify(_settingsService, never()).createNotificationSettings(eq(USER_URN));
+    final NotificationSettingsMatcher matcher = new NotificationSettingsMatcher(getMappedUserNotificationSettings());
+    assertTrue(matcher.matches(_resolver.get(_dataFetchingEnvironment).join()));
     verify(_settingsService, times(1)).updateCorpUserSettings(
         eq(USER_URN),
         eq(UPDATED_CORP_USER_SETTINGS),

@@ -21,6 +21,7 @@ schema:
     - '../datahub-graphql-core/src/main/resources/integration.graphql' # Acryl SaaS only.
     - '../datahub-graphql-core/src/main/resources/notifications.graphql' # Acryl SaaS only.
     - '../datahub-graphql-core/src/main/resources/subscriptions.graphql' # Acryl SaaS only.
+    - '../datahub-graphql-core/src/main/resources/notifications.graphql' # Acryl SaaS only.
 config:
     scalars:
         Long: number
