@@ -11,6 +11,11 @@ dl.py {
     background-color: rgba(255, 255, 255, 0.03);
   }
 
+  code {
+    border: none;
+    background: none;
+  }
+
   p {
     margin-bottom: 0;
   }
@@ -68,8 +73,6 @@ dl.py {
   }
 
   em.sig-param {
-    margin-left: 0.5em;
-
     span.default_value {
       color: #66b327;
     }
