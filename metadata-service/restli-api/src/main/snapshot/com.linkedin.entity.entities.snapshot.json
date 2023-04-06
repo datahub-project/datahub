@@ -786,7 +786,7 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "POC", "TEST", "QA", "UAT", "OAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
@@ -797,7 +797,9 @@
       "QA" : "Designates quality assurance fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
-      "UAT" : "Designates user acceptance testing fabrics"
+      "UAT" : "Designates user acceptance testing fabrics",
+      "OAT" : "Designates operational acceptance testing fabrics",
+      "POC" : "Designates proof of concept fabrics"
     }
   }, {
     "type" : "record",
