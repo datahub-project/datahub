@@ -3,6 +3,8 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import datetime
 import logging
+from datetime import timezone
+
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -338,9 +340,13 @@ class UnityCatalogApiProxy:
             properties=obj.get("properties", {}),
             owner=obj["owner"],
             generation=obj["generation"],
-            created_at=datetime.datetime.utcfromtimestamp(obj["created_at"] / 1000),
+            created_at=datetime.datetime.fromtimestamp(
+                obj["created_at"] / 1000, tz=timezone.utc
+            ),
             created_by=obj["created_by"],
-            updated_at=datetime.datetime.utcfromtimestamp(obj["updated_at"] / 1000)
+            updated_at=datetime.datetime.fromtimestamp(
+                obj["updated_at"] / 1000, tz=timezone.utc
+            )
             if "updated_at" in obj
             else None,
             updated_by=obj.get("updated_by", None),

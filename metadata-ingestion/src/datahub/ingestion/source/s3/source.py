@@ -4,7 +4,7 @@ import os
 import pathlib
 import re
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydeequ
@@ -463,7 +463,7 @@ class S3Source(Source):
         with PerfTimer() as timer:
             # init PySpark analysis object
             logger.debug(
-                f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now(tz=timezone.utc).strftime('%d/%m/%Y %H:%M:%S')}"
             )
             table_profiler = _SingleTableProfiler(
                 table,
@@ -474,7 +474,7 @@ class S3Source(Source):
             )
 
             logger.debug(
-                f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now(tz=timezone.utc).strftime('%d/%m/%Y %H:%M:%S')}"
             )
             # instead of computing each profile individually, we run them all in a single analyzer.run() call
             # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
@@ -483,7 +483,7 @@ class S3Source(Source):
 
             # compute the profiles
             logger.debug(
-                f"Profiling {table_data.full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: computing profiles {datetime.now(tz=timezone.utc).strftime('%d/%m/%Y %H:%M:%S')}"
             )
             analysis_result = table_profiler.analyzer.run()
             analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
@@ -491,7 +491,7 @@ class S3Source(Source):
             )
 
             logger.debug(
-                f"Profiling {table_data.full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: extracting profiles {datetime.now(tz=timezone.utc).strftime('%d/%m/%Y %H:%M:%S')}"
             )
             table_profiler.extract_table_profiles(analysis_metrics)
 
@@ -710,16 +710,16 @@ class S3Source(Source):
         prefix = self.get_prefix(path_spec.include)
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")
-            yield prefix, datetime.utcfromtimestamp(
-                os.path.getmtime(prefix)
+            yield prefix, datetime.fromtimestamp(
+                os.path.getmtime(prefix), tz=timezone.utc
             ), os.path.getsize(prefix)
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
                 for file in sorted(files):
                     full_path = os.path.join(root, file)
-                    yield full_path, datetime.utcfromtimestamp(
-                        os.path.getmtime(full_path)
+                    yield full_path, datetime.fromtimestamp(
+                        os.path.getmtime(full_path), tz=timezone.utc
                     ), os.path.getsize(full_path)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:

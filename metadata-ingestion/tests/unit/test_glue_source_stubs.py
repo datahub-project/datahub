@@ -8,7 +8,9 @@ get_databases_response = {
     "DatabaseList": [
         {
             "Name": "flights-database",
-            "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+            "CreateTime": datetime.datetime(
+                2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+            ).replace(tzinfo=None),
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
@@ -21,7 +23,9 @@ get_databases_response = {
         },
         {
             "Name": "test-database",
-            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "CreateTime": datetime.datetime(
+                2021, 6, 1, 14, 55, 2, tzinfo=datetime.timezone.utc
+            ).replace(tzinfo=None),
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
@@ -43,9 +47,15 @@ tables_1 = [
         "Name": "avro",
         "DatabaseName": "flights-database",
         "Owner": "owner",
-        "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "CreateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
+        "LastAccessTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
         "Retention": 0,
         "StorageDescriptor": {
             "Columns": [
@@ -112,9 +122,15 @@ tables_2 = [
         "Name": "test_jsons_markers",
         "DatabaseName": "test-database",
         "Owner": "owner",
-        "CreateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
-        "UpdateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
-        "LastAccessTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
+        "CreateTime": datetime.datetime(
+            2021, 6, 2, 12, 6, 59, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 2, 12, 6, 59, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
+        "LastAccessTime": datetime.datetime(
+            2021, 6, 2, 12, 6, 59, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
         "Retention": 0,
         "StorageDescriptor": {
             "Columns": [
@@ -170,9 +186,15 @@ tables_2 = [
         "Name": "test_parquet",
         "DatabaseName": "test-database",
         "Owner": "owner",
-        "CreateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
-        "UpdateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
-        "LastAccessTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "CreateTime": datetime.datetime(
+            2021, 6, 1, 16, 14, 53, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 1, 16, 14, 53, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
+        "LastAccessTime": datetime.datetime(
+            2021, 6, 1, 16, 14, 53, tzinfo=datetime.timezone.utc
+        ).replace(tzinfo=None),
         "Retention": 0,
         "StorageDescriptor": {
             "Columns": [
@@ -232,8 +254,12 @@ get_jobs_response = {
             "Name": "test-job-1",
             "Description": "The first test job",
             "Role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
-            "CreatedOn": datetime.datetime(2021, 6, 10, 16, 51, 25, 690000),
-            "LastModifiedOn": datetime.datetime(2021, 6, 10, 16, 55, 35, 307000),
+            "CreatedOn": datetime.datetime(
+                2021, 6, 10, 16, 51, 25, 690000, tzinfo=datetime.timezone.utc
+            ).replace(tzinfo=None),
+            "LastModifiedOn": datetime.datetime(
+                2021, 6, 10, 16, 55, 35, 307000, tzinfo=datetime.timezone.utc
+            ).replace(tzinfo=None),
             "ExecutionProperty": {"MaxConcurrentRuns": 1},
             "Command": {
                 "Name": "glueetl",
@@ -264,8 +290,12 @@ get_jobs_response = {
             "Name": "test-job-2",
             "Description": "The second test job",
             "Role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
-            "CreatedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
-            "LastModifiedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
+            "CreatedOn": datetime.datetime(
+                2021, 6, 10, 16, 58, 32, 469000, tzinfo=datetime.timezone.utc
+            ).replace(tzinfo=None),
+            "LastModifiedOn": datetime.datetime(
+                2021, 6, 10, 16, 58, 32, 469000, tzinfo=datetime.timezone.utc
+            ).replace(tzinfo=None),
             "ExecutionProperty": {"MaxConcurrentRuns": 1},
             "Command": {
                 "Name": "glueetl",

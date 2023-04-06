@@ -5,7 +5,7 @@ from within an Airflow DAG. Note that the DB connection configuration is
 embedded within the code.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.operators.python import PythonVirtualenvOperator
@@ -44,7 +44,7 @@ with DAG(
         "owner": "airflow",
     },
     description="An example DAG which ingests metadata from MySQL to DataHub",
-    start_date=datetime(2022, 1, 1),
+    start_date=datetime(2022, 1, 1, tzinfo=timezone.utc),
     schedule_interval=timedelta(days=1),
     catchup=False,
 ) as dag:

@@ -81,7 +81,7 @@ class GenericProfiler:
         ]
         for request in table_level_profile_requests:
             profile = DatasetProfile(
-                timestampMillis=int(datetime.now().timestamp() * 1000),
+                timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
                 columnCount=request.table.column_count,
                 rowCount=request.table.rows_count,
                 sizeInBytes=request.table.size_in_bytes,

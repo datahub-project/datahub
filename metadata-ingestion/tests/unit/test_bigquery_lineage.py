@@ -86,8 +86,8 @@ def test_create_statement_with_multiple_table():
     ddl = "CREATE VIEW my_view as select * from my_project_2.my_dataset_2.sometable union select * from my_project_2.my_dataset_2.sometable2 as a"
     view = BigqueryView(
         name="test",
-        created=datetime.datetime.now(),
-        last_altered=datetime.datetime.now(),
+        created=datetime.datetime.now(tz=datetime.timezone.utc),
+        last_altered=datetime.datetime.now(tz=datetime.timezone.utc),
         comment="",
         view_definition=ddl,
     )

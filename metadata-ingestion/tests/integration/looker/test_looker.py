@@ -1,6 +1,6 @@
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, cast
 from unittest import mock
 
@@ -131,8 +131,8 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
         mocked_client.dashboard.return_value = Dashboard(
             id="1",
             title="foo",
-            created_at=datetime.utcfromtimestamp(time.time()),
-            updated_at=datetime.utcfromtimestamp(time.time()),
+            created_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
+            updated_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -188,8 +188,8 @@ def setup_mock_dashboard(mocked_client):
     mocked_client.dashboard.return_value = Dashboard(
         id="1",
         title="foo",
-        created_at=datetime.utcfromtimestamp(time.time()),
-        updated_at=datetime.utcfromtimestamp(time.time()),
+        created_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
+        updated_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
         description="lorem ipsum",
         dashboard_elements=[
             DashboardElement(
@@ -212,8 +212,8 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
     mocked_client.dashboard.return_value = Dashboard(
         id="11",
         title="foo",
-        created_at=datetime.utcfromtimestamp(time.time()),
-        updated_at=datetime.utcfromtimestamp(time.time()),
+        created_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
+        updated_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
         description="lorem ipsum",
         dashboard_elements=[
             DashboardElement(
@@ -246,12 +246,12 @@ def setup_mock_dashboard_with_usage(mocked_client):
     mocked_client.dashboard.return_value = Dashboard(
         id="1",
         title="foo",
-        created_at=datetime.utcfromtimestamp(time.time()),
-        updated_at=datetime.utcfromtimestamp(time.time()),
+        created_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
+        updated_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
         description="lorem ipsum",
         favorite_count=5,
         view_count=25,
-        last_viewed_at=datetime.utcfromtimestamp(time.time()),
+        last_viewed_at=datetime.fromtimestamp(time.time(), tz=timezone.utc),
         dashboard_elements=[
             DashboardElement(
                 id="2",

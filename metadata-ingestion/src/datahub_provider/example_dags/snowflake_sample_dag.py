@@ -5,7 +5,7 @@ from within an Airflow DAG. In contrast to the MySQL example, this DAG
 pulls the DB connection configuration from Airflow's connection store.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.hooks.base import BaseHook
@@ -54,7 +54,7 @@ with DAG(
         "owner": "airflow",
     },
     description="An example DAG which ingests metadata from Snowflake to DataHub",
-    start_date=datetime(2022, 1, 1),
+    start_date=datetime(2022, 1, 1, tzinfo=timezone.utc),
     schedule_interval=timedelta(days=1),
     catchup=False,
 ) as dag:

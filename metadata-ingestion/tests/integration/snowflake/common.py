@@ -34,7 +34,7 @@ def default_query_results(query):  # noqa: C901
         return [
             {
                 "name": "TEST_DB",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "comment": "Comment for TEST_DB",
             }
         ]
@@ -42,8 +42,8 @@ def default_query_results(query):  # noqa: C901
         return [
             {
                 "DATABASE_NAME": "TEST_DB",
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "COMMENT": "Comment for TEST_DB",
             }
         ]
@@ -51,14 +51,14 @@ def default_query_results(query):  # noqa: C901
         return [
             {
                 "SCHEMA_NAME": "TEST_SCHEMA",
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
             },
             {
                 "SCHEMA_NAME": "TEST2_SCHEMA",
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
             },
         ]
@@ -71,8 +71,8 @@ def default_query_results(query):  # noqa: C901
             {
                 "TABLE_SCHEMA": "TEST_SCHEMA",
                 "TABLE_NAME": "TABLE_{}".format(tbl_idx),
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "BYTES": 1024,
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
@@ -85,7 +85,7 @@ def default_query_results(query):  # noqa: C901
             {
                 "schema_name": "TEST_SCHEMA",
                 "name": "VIEW_{}".format(view_idx),
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "comment": "Comment for View",
                 "text": None,
             }
@@ -132,8 +132,8 @@ def default_query_results(query):  # noqa: C901
     elif query == SnowflakeQuery.get_access_history_date_range():
         return [
             {
-                "MIN_TIME": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "MAX_TIME": datetime(2022, 6, 7, 7, 17, 0, 0),
+                "MIN_TIME": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "MAX_TIME": datetime(2022, 6, 7, 7, 17, 0, 0, tzinfo=timezone.utc),
             }
         ]
     elif query == snowflake_query.SnowflakeQuery.operational_data_for_time_window(
@@ -142,9 +142,9 @@ def default_query_results(query):  # noqa: C901
     ):
         return [
             {
-                "QUERY_START_TIME": datetime(2022, 6, 2, 4, 41, 1, 367000).replace(
-                    tzinfo=timezone.utc
-                ),
+                "QUERY_START_TIME": datetime(
+                    2022, 6, 2, 4, 41, 1, 367000, tzinfo=timezone.utc
+                ).replace(tzinfo=timezone.utc),
                 "QUERY_TEXT": "create or replace table TABLE_{}  as select * from TABLE_2 left join TABLE_3 using COL_1 left join TABLE 4 using COL2".format(
                     op_idx
                 ),

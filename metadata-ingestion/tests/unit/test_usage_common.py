@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
@@ -32,7 +32,7 @@ def _simple_urn_builder(resource):
 def test_add_one_query_without_columns():
     test_email = "test_email@test.com"
     test_query = "select * from test"
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
 
@@ -52,7 +52,7 @@ def test_add_one_query_without_columns():
 def test_add_one_query_with_ignored_user():
     test_email = "test_email@test.com"
     test_query = "select * from test"
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
     user_email_pattern = AllowDenyPattern(deny=list(["test_email@test.com"]))
@@ -79,7 +79,7 @@ def test_multiple_query_with_ignored_user():
     test_email2 = "test_email2@test.com"
     test_query = "select * from test"
     test_query2 = "select * from test2"
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
     user_email_pattern = AllowDenyPattern(deny=list(["test_email@test.com"]))
@@ -120,7 +120,7 @@ def test_multiple_query_without_columns():
     test_email2 = "test_email2@test.com"
     test_query = "select * from test"
     test_query2 = "select * from test2"
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
 
@@ -152,7 +152,7 @@ def test_multiple_query_without_columns():
 def test_make_usage_workunit():
     test_email = "test_email@test.com"
     test_query = "select * from test"
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
 
@@ -182,7 +182,7 @@ def test_query_formatting():
     test_email = "test_email@test.com"
     test_query = "select * from foo where id in (select id from bar);"
     formatted_test_query: str = "SELECT *\n  FROM foo\n WHERE id in (\n        SELECT id\n          FROM bar\n       );"
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
 
@@ -214,7 +214,7 @@ def test_query_trimming():
     test_query: str = "select * from test where a > 10 and b > 20 order by a asc"
     top_n_queries: int = 10
     total_budget_for_query_list: int = 200
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
 
@@ -254,7 +254,7 @@ def test_top_n_queries_validator_fails():
 def test_make_usage_workunit_include_top_n_queries():
     test_email = "test_email@test.com"
     test_query = "select * from test"
-    event_time = datetime(2020, 1, 1)
+    event_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
 

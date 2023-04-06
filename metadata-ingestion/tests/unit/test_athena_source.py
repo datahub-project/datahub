@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
@@ -86,8 +86,8 @@ def test_athena_get_table_properties():
         "TableMetadata": {
             "Name": "test",
             "TableType": "testType",
-            "CreateTime": datetime.now(),
-            "LastAccessTime": datetime.now(),
+            "CreateTime": datetime.now(timezone.utc).replace(tzinfo=None),
+            "LastAccessTime": datetime.now(timezone.utc).replace(tzinfo=None),
             "PartitionKeys": [
                 {"Name": "testKey", "Type": "string", "Comment": "testComment"}
             ],

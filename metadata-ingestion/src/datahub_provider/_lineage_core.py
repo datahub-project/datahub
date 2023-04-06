@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Dict, List
 
 import datahub.emitter.mce_builder as builder
@@ -107,6 +107,6 @@ def send_lineage_to_datahub(
             dag_run=dag_run,
             datajob=datajob,
             result=InstanceRunResult.SUCCESS,
-            end_timestamp_millis=int(datetime.utcnow().timestamp() * 1000),
+            end_timestamp_millis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
         )
         operator.log.info(f"Emitted from Lineage: {dpi}")

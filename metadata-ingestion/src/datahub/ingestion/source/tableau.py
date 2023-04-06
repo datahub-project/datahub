@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -1621,7 +1621,7 @@ class TableauSource(StatefulIngestionSourceBase):
         usage_stat: UsageStat,
     ) -> ChartUsageStatisticsClass:
         return ChartUsageStatisticsClass(
-            timestampMillis=round(datetime.now().timestamp() * 1000),
+            timestampMillis=round(datetime.now(tz=timezone.utc).timestamp() * 1000),
             viewsCount=usage_stat.view_count,
         )
 
@@ -1684,8 +1684,12 @@ class TableauSource(StatefulIngestionSourceBase):
         creator: Optional[str] = None
         if workbook is not None and workbook.get(tableau_constant.OWNER) is not None:
             creator = workbook[tableau_constant.OWNER].get(tableau_constant.USERNAME)
-        created_at = sheet.get(tableau_constant.CREATED_AT, datetime.now())
-        updated_at = sheet.get(tableau_constant.UPDATED_AT, datetime.now())
+        created_at = sheet.get(
+            tableau_constant.CREATED_AT, datetime.now(tz=timezone.utc)
+        )
+        updated_at = sheet.get(
+            tableau_constant.UPDATED_AT, datetime.now(tz=timezone.utc)
+        )
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
         if sheet.get(tableau_constant.PATH):
@@ -1922,7 +1926,7 @@ class TableauSource(StatefulIngestionSourceBase):
         usage_stat: UsageStat,
     ) -> DashboardUsageStatisticsClass:
         return DashboardUsageStatisticsClass(
-            timestampMillis=round(datetime.now().timestamp() * 1000),
+            timestampMillis=round(datetime.now(tz=timezone.utc).timestamp() * 1000),
             # favoritesCount=looker_dashboard.favorite_count,  It is available in REST API response,
             # however not exposed by tableau python library
             viewsCount=usage_stat.view_count,
@@ -2010,8 +2014,12 @@ class TableauSource(StatefulIngestionSourceBase):
         creator: Optional[str] = None
         if workbook is not None and workbook.get(tableau_constant.OWNER) is not None:
             creator = workbook[tableau_constant.OWNER].get(tableau_constant.USERNAME)
-        created_at = dashboard.get(tableau_constant.CREATED_AT, datetime.now())
-        updated_at = dashboard.get(tableau_constant.UPDATED_AT, datetime.now())
+        created_at = dashboard.get(
+            tableau_constant.CREATED_AT, datetime.now(tz=timezone.utc)
+        )
+        updated_at = dashboard.get(
+            tableau_constant.UPDATED_AT, datetime.now(tz=timezone.utc)
+        )
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
         site_part = f"/site/{self.config.site}" if self.config.site else ""

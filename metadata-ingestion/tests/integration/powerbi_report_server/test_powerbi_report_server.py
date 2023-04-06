@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import mock
 
 from freezegun import freeze_time
@@ -37,9 +37,13 @@ def register_mock_api(request_mock):
                         "Hidden": False,
                         "Size": 1010101,
                         "ModifiedBy": "TEST_USER",
-                        "ModifiedDate": str(datetime.now()),
+                        "ModifiedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "CreatedBy": "TEST_USER",
-                        "CreatedDate": str(datetime.now()),
+                        "CreatedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "ParentFolderId": "47495172-89ab-455f-a446-fffd3cf239ca",
                         "IsFavorite": False,
                         "ContentType": None,
@@ -66,9 +70,13 @@ def register_mock_api(request_mock):
                         "Hidden": False,
                         "Size": 1010101,
                         "ModifiedBy": "TEST_USER",
-                        "ModifiedDate": str(datetime.now()),
+                        "ModifiedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "CreatedBy": "TEST_USER",
-                        "CreatedDate": str(datetime.now()),
+                        "CreatedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "ParentFolderId": "47495172-89ab-455f-a446-fffd3cf239cb",
                         "IsFavorite": False,
                         "ContentType": None,
@@ -97,9 +105,13 @@ def register_mock_api(request_mock):
                         "Hidden": False,
                         "Size": 1010101,
                         "ModifiedBy": "TEST_USER",
-                        "ModifiedDate": str(datetime.now()),
+                        "ModifiedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "CreatedBy": "TEST_USER",
-                        "CreatedDate": str(datetime.now()),
+                        "CreatedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "ParentFolderId": "47495172-89ab-455f-a446-fffd3cf239cc",
                         "IsFavorite": False,
                         "ContentType": None,
@@ -126,9 +138,13 @@ def register_mock_api(request_mock):
                         "Hidden": False,
                         "Size": 1010101,
                         "ModifiedBy": "TEST_USER",
-                        "ModifiedDate": str(datetime.now()),
+                        "ModifiedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "CreatedBy": "TEST_USER",
-                        "CreatedDate": str(datetime.now()),
+                        "CreatedDate": str(
+                            datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        ),
                         "ParentFolderId": "47495172-89ab-455f-a446-fffd3cf239cd",
                         "IsFavorite": False,
                         "ContentType": None,

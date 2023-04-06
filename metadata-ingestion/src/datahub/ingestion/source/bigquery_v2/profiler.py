@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
@@ -61,11 +61,13 @@ class BigqueryProfiler(GenericProfiler):
             (delta, format) = partition_range_map[len(partition_id)]
             duration = delta
             if not partition_datetime:
-                partition_datetime = datetime.strptime(partition_id, format)
+                partition_datetime = datetime.strptime(partition_id, format).replace(
+                    tzinfo=timezone.utc
+                )
             else:
                 partition_datetime = datetime.strptime(
                     partition_datetime.strftime(format), format
-                )
+                ).replace(tzinfo=timezone.utc)
 
         else:
             raise ValueError(

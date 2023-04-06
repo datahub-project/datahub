@@ -1,3 +1,5 @@
+from datetime import timezone
+
 from datahub_provider._airflow_compat import AIRFLOW_PATCHED
 
 import datetime
@@ -214,7 +216,9 @@ def test_entities():
 )
 @mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.make_emitter")
 def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
-    DEFAULT_DATE = datetime.datetime(2020, 5, 17)
+    DEFAULT_DATE = datetime.datetime(2020, 5, 17, tzinfo=timezone.utc).replace(
+        tzinfo=None
+    )
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
     # Using autospec on xcom_pull and xcom_push methods fails on Python 3.6.
@@ -267,7 +271,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             )
 
         ti.dag_run = dag_run  # type: ignore
-        ti.start_date = datetime.datetime.utcnow()
+        ti.start_date = datetime.datetime.now(tz=timezone.utc)
         ti.execution_date = DEFAULT_DATE
 
         ctx1 = {

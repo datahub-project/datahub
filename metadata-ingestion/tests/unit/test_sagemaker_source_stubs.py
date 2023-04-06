@@ -6,19 +6,25 @@ list_feature_groups_response = {
         {
             "FeatureGroupName": "test-2",
             "FeatureGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-2",
-            "CreationTime": datetime(2021, 6, 24, 9, 48, 37, 35000),
+            "CreationTime": datetime(
+                2021, 6, 24, 9, 48, 37, 35000, tzinfo=timezone.utc
+            ).replace(tzinfo=None),
             "FeatureGroupStatus": "Created",
         },
         {
             "FeatureGroupName": "test-1",
             "FeatureGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-1",
-            "CreationTime": datetime(2021, 6, 23, 13, 58, 10, 264000),
+            "CreationTime": datetime(
+                2021, 6, 23, 13, 58, 10, 264000, tzinfo=timezone.utc
+            ).replace(tzinfo=None),
             "FeatureGroupStatus": "Created",
         },
         {
             "FeatureGroupName": "test",
             "FeatureGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test",
-            "CreationTime": datetime(2021, 6, 14, 11, 3, 0, 803000),
+            "CreationTime": datetime(
+                2021, 6, 14, 11, 3, 0, 803000, tzinfo=timezone.utc
+            ).replace(tzinfo=None),
             "FeatureGroupStatus": "Created",
         },
     ],
@@ -34,7 +40,9 @@ describe_feature_group_response_1 = {
         {"FeatureName": "some-feature-2", "FeatureType": "Integral"},
         {"FeatureName": "some-feature-3", "FeatureType": "Fractional"},
     ],
-    "CreationTime": datetime(2021, 6, 24, 9, 48, 37, 35000),
+    "CreationTime": datetime(
+        2021, 6, 24, 9, 48, 37, 35000, tzinfo=timezone.utc
+    ).replace(tzinfo=None),
     "OnlineStoreConfig": {"EnableOnlineStore": True},
     "OfflineStoreConfig": {
         "S3StorageConfig": {
@@ -64,7 +72,9 @@ describe_feature_group_response_2 = {
         {"FeatureName": "height", "FeatureType": "Fractional"},
         {"FeatureName": "time", "FeatureType": "String"},
     ],
-    "CreationTime": datetime(2021, 6, 23, 13, 58, 10, 264000),
+    "CreationTime": datetime(
+        2021, 6, 23, 13, 58, 10, 264000, tzinfo=timezone.utc
+    ).replace(tzinfo=None),
     "OnlineStoreConfig": {"EnableOnlineStore": True},
     "FeatureGroupStatus": "Created",
     "Description": "First test feature group",
@@ -88,7 +98,8 @@ describe_feature_group_response_3 = {
         3,
         0,
         803000,
-    ),
+        tzinfo=timezone.utc,
+    ).replace(tzinfo=None),
     "OnlineStoreConfig": {"EnableOnlineStore": True},
     "FeatureGroupStatus": "Created",
     "NextToken": "",

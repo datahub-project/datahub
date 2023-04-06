@@ -5,7 +5,7 @@ import pathlib
 import re
 import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import lkml
@@ -1519,7 +1519,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if not self.source_config.base_folder:
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
-                start_time = datetime.now()
+                start_time = datetime.now(tz=timezone.utc)
                 git_clone = GitClone(tmp_dir)
                 # github info deploy key is always populated
                 assert self.source_config.git_info.deploy_key
@@ -1529,7 +1529,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                     repo_url=self.source_config.git_info.repo_ssh_locator,
                     branch=self.source_config.git_info.branch_for_clone,
                 )
-                self.reporter.git_clone_latency = datetime.now() - start_time
+                self.reporter.git_clone_latency = (
+                    datetime.now(tz=timezone.utc) - start_time
+                )
                 self.source_config.base_folder = checkout_dir.resolve()
 
             self.base_projects_folder[

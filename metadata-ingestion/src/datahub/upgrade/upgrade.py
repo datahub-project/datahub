@@ -67,13 +67,13 @@ async def get_client_version_stats():
                 if current_version_info:
                     current_version_date = datetime.strptime(
                         current_version_info[0].get("upload_time"), "%Y-%m-%dT%H:%M:%S"
-                    )
+                    ).replace(tzinfo=timezone.utc)
                 latest_release_info = releases.get(latest_cli_release_string)
                 latest_version_date = None
                 if latest_release_info:
                     latest_version_date = datetime.strptime(
                         latest_release_info[0].get("upload_time"), "%Y-%m-%dT%H:%M:%S"
-                    )
+                    ).replace(tzinfo=timezone.utc)
                 client_version_stats = ClientVersionStats(
                     current=VersionStats(
                         version=current_version, release_date=current_version_date
