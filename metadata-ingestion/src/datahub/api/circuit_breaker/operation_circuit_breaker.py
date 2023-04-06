@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from pydantic import Field
@@ -61,7 +61,7 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
         """
 
         start_time_millis: int = int(
-            (datetime.now() - self.config.time_delta).timestamp() * 1000
+            (datetime.now(tz=timezone.utc) - self.config.time_delta).timestamp() * 1000
         )
         operations = self.operation_api.query_operations(
             urn,

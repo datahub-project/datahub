@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     DefaultDict,
@@ -187,7 +187,9 @@ class ModelProcessor:
             aspects=[
                 MLModelDeploymentPropertiesClass(
                     createdAt=int(
-                        endpoint_details.get("CreationTime", datetime.now()).timestamp()
+                        endpoint_details.get(
+                            "CreationTime", datetime.now(tz=timezone.utc)
+                        ).timestamp()
                         * 1000
                     ),
                     status=self.get_endpoint_status(
@@ -273,7 +275,9 @@ class ModelProcessor:
             aspects=[
                 MLModelGroupPropertiesClass(
                     createdAt=int(
-                        group_details.get("CreationTime", datetime.now()).timestamp()
+                        group_details.get(
+                            "CreationTime", datetime.now(tz=timezone.utc)
+                        ).timestamp()
                         * 1000
                     ),
                     description=group_details.get("ModelPackageGroupDescription"),
@@ -445,7 +449,9 @@ class ModelProcessor:
             aspects=[
                 MLModelPropertiesClass(
                     date=int(
-                        model_details.get("CreationTime", datetime.now()).timestamp()
+                        model_details.get(
+                            "CreationTime", datetime.now(tz=timezone.utc)
+                        ).timestamp()
                         * 1000
                     ),
                     deployments=[

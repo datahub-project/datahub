@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, tzinfo, timezone
 from typing import Any, Dict, Optional
 
 from datahub.configuration.common import ConfigurationError
@@ -84,7 +84,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             logger.debug(
                 f"The last committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
                 f" job_name:'{job_name}' found with start_time:"
-                f" {datetime.fromtimestamp(latest_checkpoint.timestampMillis/1000, tz=datetime.timezone.utc)}"
+                f" {datetime.fromtimestamp(latest_checkpoint.timestampMillis/1000, tz=timezone.utc)}"
             )
             return latest_checkpoint
         else:

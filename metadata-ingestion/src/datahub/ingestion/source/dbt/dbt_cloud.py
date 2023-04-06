@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from json import JSONDecodeError
 from typing import Dict, List, Optional, Tuple
 
@@ -357,7 +357,9 @@ class DBTCloudSource(DBTSourceBase):
             if not node["skip"]:
                 test_result = DBTTestResult(
                     invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                    execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                    execution_time=datetime.now(
+                        tz=timezone.utc
+                    ),  # TODO: dbt Cloud doesn't expose this.
                     status=node["status"],
                     native_results={
                         key: str(node[key])

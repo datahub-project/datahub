@@ -250,13 +250,13 @@ class GenericFileSource(TestableSource):
         if path_parsed.scheme not in ("file", ""):  # A remote file
             try:
                 response = requests.get(path)
-                parse_start_time = datetime.datetime.now()
+                parse_start_time = datetime.datetime.now(tz=datetime.timezone.utc)
                 data = response.json()
             except Exception as e:
                 raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
             if not isinstance(data, list):
                 data = [data]
-            parse_end_time = datetime.datetime.now()
+            parse_end_time = datetime.datetime.now(tz=datetime.timezone.utc)
             self.report.add_parse_time(parse_end_time - parse_start_time)
             self.report.current_file_size = len(response.content)
             self.report.current_file_elements_read = 0
@@ -278,15 +278,17 @@ class GenericFileSource(TestableSource):
 
             if file_read_mode == FileReadMode.BATCH:
                 with open(path, "r") as f:
-                    parse_start_time = datetime.datetime.now()
+                    parse_start_time = datetime.datetime.now(tz=datetime.timezone.utc)
                     obj_list = json.load(f)
-                    parse_end_time = datetime.datetime.now()
+                    parse_end_time = datetime.datetime.now(tz=datetime.timezone.utc)
                     self.report.add_parse_time(parse_end_time - parse_start_time)
                 if not isinstance(obj_list, list):
                     obj_list = [obj_list]
-                count_start_time = datetime.datetime.now()
+                count_start_time = datetime.datetime.now(tz=datetime.timezone.utc)
                 self.report.current_file_num_elements = len(obj_list)
-                self.report.add_count_time(datetime.datetime.now() - count_start_time)
+                self.report.add_count_time(
+                    datetime.datetime.now(tz=datetime.timezone.utc) - count_start_time
+                )
                 self.report.current_file_elements_read = 0
                 for i, obj in enumerate(obj_list):
                     yield i, obj
@@ -294,26 +296,26 @@ class GenericFileSource(TestableSource):
             else:
                 self.fp = open(path, "rb")
                 if self.config.count_all_before_starting:
-                    count_start_time = datetime.datetime.now()
+                    count_start_time = datetime.datetime.now(tz=datetime.timezone.utc)
                     parse_stream = ijson.parse(self.fp, use_float=True)
                     total_elements = 0
                     for row in ijson.items(parse_stream, "item", use_float=True):
                         total_elements += 1
-                    count_end_time = datetime.datetime.now()
+                    count_end_time = datetime.datetime.now(tz=datetime.timezone.utc)
                     self.report.add_count_time(count_end_time - count_start_time)
                     self.report.current_file_num_elements = total_elements
                 self.report.current_file_elements_read = 0
                 self.fp.seek(0)
-                parse_start_time = datetime.datetime.now()
+                parse_start_time = datetime.datetime.now(tz=datetime.timezone.utc)
                 parse_stream = ijson.parse(self.fp, use_float=True)
                 rows_yielded = 0
                 for row in ijson.items(parse_stream, "item", use_float=True):
-                    parse_end_time = datetime.datetime.now()
+                    parse_end_time = datetime.datetime.now(tz=datetime.timezone.utc)
                     self.report.add_parse_time(parse_end_time - parse_start_time)
                     rows_yielded += 1
                     self.report.current_file_elements_read += 1
                     yield rows_yielded, row
-                    parse_start_time = datetime.datetime.now()
+                    parse_start_time = datetime.datetime.now(tz=datetime.timezone.utc)
 
         self.report.files_completed.append(path)
         self.report.num_files_completed += 1
@@ -341,9 +343,12 @@ class GenericFileSource(TestableSource):
     ]:
         for i, obj in self._iterate_file(path):
             try:
-                deserialize_start_time = datetime.datetime.now()
+                deserialize_start_time = datetime.datetime.now(tz=datetime.timezone.utc)
                 item = _from_obj_for_file(obj)
-                deserialize_duration = datetime.datetime.now() - deserialize_start_time
+                deserialize_duration = (
+                    datetime.datetime.now(tz=datetime.timezone.utc)
+                    - deserialize_start_time
+                )
                 self.report.add_deserialize_time(deserialize_duration)
                 yield i, item
             except Exception as e:

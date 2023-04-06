@@ -82,11 +82,11 @@ class SourceReport(Report):
         self.failures[key] = failures
 
     def __post_init__(self) -> None:
-        self.start_time = datetime.datetime.now()
+        self.start_time = datetime.datetime.now(tz=datetime.timezone.utc)
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
 
     def compute_stats(self) -> None:
-        duration = datetime.datetime.now() - self.start_time
+        duration = datetime.datetime.now(tz=datetime.timezone.utc) - self.start_time
         workunits_produced = self.events_produced
         if duration.total_seconds() > 0:
             self.events_produced_per_sec: int = int(

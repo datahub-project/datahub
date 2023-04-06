@@ -1,5 +1,3 @@
-from datetime import timezone
-
 from datahub_provider._airflow_compat import AIRFLOW_PATCHED
 
 import datetime
@@ -7,6 +5,7 @@ import json
 import os
 import sys
 from contextlib import contextmanager
+from datetime import timezone
 from typing import Iterator
 from unittest import mock
 from unittest.mock import Mock

@@ -791,7 +791,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         datetime.datetime,
         datetime.datetime,
     ]:
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(tz=datetime.timezone.utc)
         events: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = []
         looker_explore = self.explore_registry.get_explore(model, explore)
         if looker_explore is not None:
@@ -805,7 +805,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 or events
             )
 
-        return events, f"{model}:{explore}", start_time, datetime.datetime.now()
+        return (
+            events,
+            f"{model}:{explore}",
+            start_time,
+            datetime.datetime.now(tz=datetime.timezone.utc),
+        )
 
     def _extract_event_urn(
         self, event: Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
@@ -1101,11 +1106,17 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         datetime.datetime,
         datetime.datetime,
     ]:
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(tz=datetime.timezone.utc)
         assert dashboard_id is not None
         if not self.source_config.dashboard_pattern.allowed(dashboard_id):
             self.reporter.report_dashboards_dropped(dashboard_id)
-            return [], None, dashboard_id, start_time, datetime.datetime.now()
+            return (
+                [],
+                None,
+                dashboard_id,
+                start_time,
+                datetime.datetime.now(tz=datetime.timezone.utc),
+            )
         try:
             dashboard_object: Dashboard = self.looker_api.dashboard(
                 dashboard_id=dashboard_id,
@@ -1117,7 +1128,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 dashboard_id,
                 f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
             )
-            return [], None, dashboard_id, start_time, datetime.datetime.now()
+            return (
+                [],
+                None,
+                dashboard_id,
+                start_time,
+                datetime.datetime.now(tz=datetime.timezone.utc),
+            )
 
         if self.source_config.skip_personal_folders:
             if dashboard_object.folder is not None and (
@@ -1128,7 +1145,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     dashboard_id, "Dropped due to being a personal folder"
                 )
                 self.reporter.report_dashboards_dropped(dashboard_id)
-                return [], None, dashboard_id, start_time, datetime.datetime.now()
+                return (
+                    [],
+                    None,
+                    dashboard_id,
+                    start_time,
+                    datetime.datetime.now(tz=datetime.timezone.utc),
+                )
 
         looker_dashboard = self._get_looker_dashboard(dashboard_object, self.looker_api)
         mces = self._make_dashboard_and_chart_mces(looker_dashboard)
@@ -1152,7 +1175,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             dashboard_object,
             dashboard_id,
             start_time,
-            datetime.datetime.now(),
+            datetime.datetime.now(tz=datetime.timezone.utc),
         )
 
     def extract_usage_stat(

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Iterable, Union, cast
 
 from iceberg.api import types as IcebergTypes
@@ -196,13 +196,14 @@ class IcebergProfiler:
                     microsecond_unix_ts = value
                 else:
                     microsecond_unix_ts = value
-                return datetime.fromtimestamp(microsecond_unix_ts / 1000000.0).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
+                return datetime.fromtimestamp(
+                    microsecond_unix_ts / 1000000.0, tz=timezone.utc
+                ).strftime("%Y-%m-%d %H:%M:%S")
             elif value_type.type_id == TypeID.DATE:
-                return (datetime(1970, 1, 1, 0, 0) + timedelta(value - 1)).strftime(
-                    "%Y-%m-%d"
-                )
+                return (
+                    datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc)
+                    + timedelta(value - 1)
+                ).strftime("%Y-%m-%d")
             return str(value)
         except Exception as e:
             self.report.report_warning(

@@ -3,7 +3,7 @@ import logging
 import re
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import auto
 from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -486,7 +486,7 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
             dataset=dep,
             type=DatasetLineageTypeClass.TRANSFORMED,
         )
-        uc.auditStamp.time = int(datetime.utcnow().timestamp() * 1000)
+        uc.auditStamp.time = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
         ucl.append(uc)
 
     return UpstreamLineage(upstreams=ucl)

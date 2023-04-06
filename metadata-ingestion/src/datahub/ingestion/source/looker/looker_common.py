@@ -1017,12 +1017,17 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     def report_stage_start(self, stage_name: str) -> None:
         self.stage_latency.append(
-            StageLatency(name=stage_name, start_time=datetime.datetime.now())
+            StageLatency(
+                name=stage_name,
+                start_time=datetime.datetime.now(tz=datetime.timezone.utc),
+            )
         )
 
     def report_stage_end(self, stage_name: str) -> None:
         if self.stage_latency[-1].name == stage_name:
-            self.stage_latency[-1].end_time = datetime.datetime.now()
+            self.stage_latency[-1].end_time = datetime.datetime.now(
+                tz=datetime.timezone.utc
+            )
 
     def compute_stats(self) -> None:
         if self.total_dashboards:

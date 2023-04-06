@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Counter, Dict, List, Optional
 
 import pydantic
@@ -89,5 +89,7 @@ class BigQueryV2Report(ProfilingSqlReport):
         else:
             self.timer = PerfTimer()
 
-        self.current_project_status = f"{project}: {stage} at {datetime.now()}"
+        self.current_project_status = (
+            f"{project}: {stage} at {datetime.now(tz=timezone.utc)}"
+        )
         self.timer.start()

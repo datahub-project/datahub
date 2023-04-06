@@ -1,6 +1,7 @@
 import datetime
 import logging
 import uuid
+from datetime import timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field, root_validator, validator
@@ -62,7 +63,9 @@ class PipelineConfig(ConfigModel):
         if v == DEFAULT_RUN_ID:
             if "source" in values and hasattr(values["source"], "type"):
                 source_type = values["source"].type
-                current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+                current_time = datetime.datetime.now(tz=timezone.utc).strftime(
+                    "%Y_%m_%d-%H_%M_%S"
+                )
                 return f"{source_type}-{current_time}"
 
             return str(uuid.uuid1())  # default run_id if we cannot infer a source type

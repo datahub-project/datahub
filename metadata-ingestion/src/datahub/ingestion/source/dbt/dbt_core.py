@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -342,7 +342,7 @@ def load_test_results(
 
         execution_timestamp_parsed = datetime.strptime(
             execution_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ"
-        )
+        ).replace(tzinfo=timezone.utc)
 
         test_result = DBTTestResult(
             invocation_id=dbt_metadata.invocation_id,

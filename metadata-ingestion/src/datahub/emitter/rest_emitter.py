@@ -180,7 +180,7 @@ class DataHubRestEmitter(Closeable):
         #      more careful consideration.
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> Tuple[datetime.datetime, datetime.datetime]:
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(tz=datetime.timezone.utc)
         try:
             if isinstance(item, UsageAggregation):
                 self.emit_usage(item)
@@ -197,7 +197,7 @@ class DataHubRestEmitter(Closeable):
         else:
             if callback:
                 callback(None, "success")  # type: ignore
-            return start_time, datetime.datetime.now()
+            return start_time, datetime.datetime.now(tz=datetime.timezone.utc)
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         url = f"{self._gms_server}/entities?action=ingest"

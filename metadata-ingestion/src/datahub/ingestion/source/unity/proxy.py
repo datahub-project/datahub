@@ -3,9 +3,8 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import datetime
 import logging
-from datetime import timezone
-
 from dataclasses import dataclass, field
+from datetime import timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from databricks_cli.sdk.api_client import ApiClient

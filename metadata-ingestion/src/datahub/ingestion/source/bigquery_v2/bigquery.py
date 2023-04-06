@@ -377,8 +377,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             test_report.basic_connectivity = BigqueryV2Source.connectivity_test(client)
 
-            connection_conf.start_time = datetime.now()
-            connection_conf.end_time = datetime.now() + timedelta(minutes=1)
+            connection_conf.start_time = datetime.now(tz=timezone.utc)
+            connection_conf.end_time = datetime.now(tz=timezone.utc) + timedelta(
+                minutes=1
+            )
 
             report: BigQueryV2Report = BigQueryV2Report()
             project_ids: List[str] = []

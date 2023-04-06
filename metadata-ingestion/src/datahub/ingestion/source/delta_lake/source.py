@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Iterable, List
 
 from deltalake import DeltaTable
@@ -182,7 +182,7 @@ class DeltaLakeSource(Source):
                 aspect=operation_aspect,
             )
             operational_wu = MetadataWorkUnit(
-                id=f"{datetime.fromtimestamp(last_updated_timestamp / 1000).isoformat()}-operation-aspect-{dataset_urn}",
+                id=f"{datetime.fromtimestamp(last_updated_timestamp / 1000, tz=timezone.utc).isoformat()}-operation-aspect-{dataset_urn}",
                 mcp=mcp,
             )
             self.report.report_workunit(operational_wu)

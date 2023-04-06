@@ -196,7 +196,7 @@ timestamp < "{end_time}"
             )
 
             lineage_map: Dict[str, Set[LineageEdge]] = {}
-            curr_date = datetime.now()
+            curr_date = datetime.now(tz=timezone.utc)
             for table in project_tables:
                 logger.info("Creating lineage map for table %s", table)
                 upstreams = []

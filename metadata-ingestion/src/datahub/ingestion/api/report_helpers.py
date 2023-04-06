@@ -10,7 +10,11 @@ def format_datetime_relative(some_val: datetime) -> str:
     tz_aware = (
         some_val.tzinfo is not None and some_val.tzinfo.utcoffset(some_val) is not None
     )
-    now = datetime.now(timezone.utc) if tz_aware else datetime.now()
+    now = (
+        datetime.now(timezone.utc)
+        if tz_aware
+        else datetime.now(timezone.utc).replace(tzinfo=None)
+    )
     diff = now - some_val
     if abs(diff) < timedelta(seconds=1):
         # the timestamps are close enough that printing a duration isn't useful

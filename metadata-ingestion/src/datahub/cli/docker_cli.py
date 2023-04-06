@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import timezone
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -728,13 +729,15 @@ def quickstart(
     # Start it up! (with retries)
     click.echo("\nStarting up DataHub...")
     max_wait_time = datetime.timedelta(minutes=8)
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(tz=timezone.utc)
     sleep_interval = datetime.timedelta(seconds=2)
     up_interval = datetime.timedelta(seconds=30)
     up_attempts = 0
-    while (datetime.datetime.now() - start_time) < max_wait_time:
+    while (datetime.datetime.now(tz=timezone.utc) - start_time) < max_wait_time:
         # Attempt to run docker compose up every `up_interval`.
-        if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
+        if (
+            datetime.datetime.now(tz=timezone.utc) - start_time
+        ) > up_attempts * up_interval:
             if up_attempts > 0:
                 click.echo()
             subprocess.run(

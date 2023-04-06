@@ -4,7 +4,7 @@ import os
 import os.path
 import sys
 import typing
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import click
@@ -268,14 +268,14 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 
 
 def format_aspect_summaries(summaries: list) -> typing.List[typing.List[str]]:
-    local_timezone = datetime.now().astimezone().tzinfo
+    local_timezone = datetime.now(tz=timezone.utc).astimezone().tzinfo
     return [
         [
             row.get("urn"),
             row.get("aspectName"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            datetime.fromtimestamp(
+                row.get("timestamp") / 1000, tz=local_timezone
+            ).strftime("%Y-%m-%d %H:%M:%S")
             + f" ({local_timezone})",
         ]
         for row in summaries

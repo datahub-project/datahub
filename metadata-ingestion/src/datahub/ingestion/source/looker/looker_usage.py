@@ -274,7 +274,7 @@ class BaseStatGenerator(ABC):
 
         # We first resolve all the users using a threadpool to warm up the cache
         user_ids = set([self._get_user_identifier(row) for row in user_wise_rows])
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(tz=datetime.timezone.utc)
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
         ) as async_executor:
@@ -288,7 +288,9 @@ class BaseStatGenerator(ABC):
                 logger.debug("User result: %s", future.result())
                 del user_futures[future]
 
-        user_resolution_latency = datetime.datetime.now() - start_time
+        user_resolution_latency = (
+            datetime.datetime.now(tz=datetime.timezone.utc) - start_time
+        )
         logger.debug(
             f"Resolved {len(user_ids)} in {user_resolution_latency.total_seconds()} seconds"
         )
@@ -341,11 +343,11 @@ class BaseStatGenerator(ABC):
     def _execute_query(self, query: LookerQuery, query_name: str) -> List[Dict]:
         rows = []
         try:
-            start_time = datetime.datetime.now()
+            start_time = datetime.datetime.now(tz=datetime.timezone.utc)
             rows = self.config.looker_api_wrapper.execute_query(
                 write_query=query.to_write_query()
             )
-            end_time = datetime.datetime.now()
+            end_time = datetime.datetime.now(tz=datetime.timezone.utc)
 
             logger.debug(
                 f"{self.get_stats_generator_name()}: Retrieved {len(rows)} rows in {(end_time - start_time).total_seconds()} seconds"
@@ -473,7 +475,9 @@ class DashboardStatGenerator(BaseStatGenerator):
         if looker_dashboard.view_count:
             self.report.dashboards_with_activity.add(str(looker_dashboard.id))
         return DashboardUsageStatisticsClass(
-            timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
+            timestampMillis=round(
+                datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000
+            ),
             favoritesCount=looker_dashboard.favorite_count,
             viewsCount=looker_dashboard.view_count,
             lastViewedAt=looker_dashboard.last_viewed_at,
@@ -592,7 +596,9 @@ class LookStatGenerator(BaseStatGenerator):
             self.report.charts_with_activity.add(looker_look.id)
 
         return ChartUsageStatisticsClass(
-            timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
+            timestampMillis=round(
+                datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000
+            ),
             viewsCount=looker_look.view_count,
         )
 

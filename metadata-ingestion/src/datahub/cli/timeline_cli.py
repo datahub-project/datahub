@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 import click
@@ -185,7 +185,7 @@ def timeline(
     if isinstance(timeline, list) and not verbose:
         for change_txn in timeline:
             change_instant = str(
-                datetime.fromtimestamp(change_txn["timestamp"] // 1000)
+                datetime.fromtimestamp(change_txn["timestamp"] // 1000, tz=timezone.utc)
             )
             change_color = (
                 "green"

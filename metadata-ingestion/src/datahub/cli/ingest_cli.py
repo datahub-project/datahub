@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import click
@@ -262,14 +262,16 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
     response = session.post(url, data=payload)
 
     rows = parse_restli_response(response)
-    local_timezone = datetime.now().astimezone().tzinfo
+    local_timezone = datetime.now(tz=timezone.utc).astimezone().tzinfo
 
     structured_rows = [
         [
             row.get("runId"),
             row.get("rows"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
+            datetime.fromtimestamp(
+                row.get("timestamp") / 1000, tz=local_timezone
+            ).strftime(
+                "%Y-%m-%d %H:%M:%S",
             )
             + f" ({local_timezone})",
         ]
@@ -382,7 +384,7 @@ def rollback(
             )
 
     if unsafe_entity_count > 0:
-        now = datetime.now()
+        now = datetime.now(tz=timezone.utc)
         current_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
         try:

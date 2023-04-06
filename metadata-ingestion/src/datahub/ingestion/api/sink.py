@@ -32,7 +32,7 @@ class SinkReport(Report):
 
     def compute_stats(self) -> None:
         super().compute_stats()
-        self.current_time = datetime.datetime.now()
+        self.current_time = datetime.datetime.now(tz=datetime.timezone.utc)
         if self.start_time:
             self.total_duration_in_seconds = round(
                 (self.current_time - self.start_time).total_seconds(), 2
