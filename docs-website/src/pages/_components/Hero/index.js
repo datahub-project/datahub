@@ -32,17 +32,17 @@ const Hero = ({}) => {
               DataHub's extensible metadata platform enables data discovery, data observability and federated governance that helps tame the
               complexity of your data ecosystem.
             </p>
-            <Link className="button button--primary button--lg" to={useBaseUrl("docs/")}>
+            <Link className="button button--primary button--md" to={useBaseUrl("docs/")}>
               Get Started →
             </Link>
-            <Link className="button button--secondary button--outline button--lg" to="https://slack.datahubproject.io">
+            <Link className="button button--secondary button--md" to="https://slack.datahubproject.io">
               Join our Slack
             </Link>
           </div>
         </div>
         <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
         <div className="quickstart__content">
-          <h1 className="quickstart__title">Start DataHub Now</h1>
+          <h1 className="quickstart__title">Get Started Now</h1>
           <p className="quickstart__subtitle">Run the following command to get started with DataHub.</p>
           <div className="quickstart__codeblock">
             <CodeBlock className={"language-shell"}>
@@ -54,7 +54,7 @@ const Hero = ({}) => {
           <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
             DataHub Quickstart Guide
           </Link>
-          <Link className="button button--secondary button--outline button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
+          <Link className="button button--secondary button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
             Deploying With Kubernetes
           </Link>
         </div>
