@@ -11,6 +11,8 @@ Custom properties can also be used to enable advanced search and discovery capab
 
 There may be situations where it is more appropriate to replace existing custom properties on a dataset, rather than simply adding new ones.
 
+Adding and removing specific properties is supported through patch semantics while full replaces can be done using the standard upsert APIs.
+
 
 ### Goal Of This Guide
 This guide will show you how to add or replace custom properties on dataset `fct_users_deleted`.
@@ -28,14 +30,6 @@ In this guide, we will be using data from sample ingestion.
 
 In this example, we will add some custom properties `cluster_name` and `retention_time` to the dataset `fct_users_deleted`.
 
-## Add Custom Properties With GraphQL (Not Supported)
-> 🚫 Adding Custom Properties on Dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
-
-## Replace Custom Properties With GraphQL (Not Supported)
-> 🚫 Replacing Custom Properties on Dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
-
 ## Add Custom Properties With Java SDK
 The following code adds custom properties `cluster_name` and `retention_time` to a dataset named `fct_users_deleted` without affecting existing properties.
 
@@ -43,117 +37,32 @@ The following code adds custom properties `cluster_name` and `retention_time` to
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomProperties.java }}
 ```
 
-For more information, please refer to [dataset_add_documentation.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_documentation.py)
+## Replace Custom Properties With Java SDK
+The following code replaces the current custom properties to a dataset named `fct_users_deleted` with `cluster_name` and `retention_time`. Note, since this
+is utilizing the upsert API this will do a full replace of the Dataset Properties aspect and will not retain other fields unless specified. To just modify custom properties
+you can use the above example and combine it with delete requests for unwanted properties.
 
-## Add Custom Properties With Python SDK
-Following code add a description and link to a dataset named `fct_users_deleted`.
-For more information, please refer to [dataset_add_documentation.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_documentation.py)
-
-```python
-import logging
-import time
-
-from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
-# read-modify-write requires access to the DataHubGraph (RestEmitter is not enough)
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    EditableDatasetPropertiesClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
-)
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-
-# Inputs -> owner, ownership_type, dataset
-documentation_to_add = "This table contains information on users deleted on a single day. This description is updated via PythonSDK."
-link_to_add = "https://en.wikipedia.org/wiki/Fact_table"
-link_description = "This is the definition of what fact table means"
-dataset_urn = make_dataset_urn(platform="hive", name="fct_users_deleted", env="PROD")
-
-# Some helpful variables to fill out objects later
-now = int(time.time() * 1000)  # milliseconds since epoch
-current_timestamp = AuditStampClass(time=now, actor="urn:li:corpuser:ingestion")
-institutional_memory_element = InstitutionalMemoryMetadataClass(
-    url=link_to_add,
-    description=link_description,
-    createStamp=current_timestamp,
-)
-
-
-# First we get the current owners
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(config=DatahubClientConfig(server=gms_endpoint))
-
-current_editable_properties = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=EditableDatasetPropertiesClass
-)
-
-need_write = False
-if current_editable_properties:
-    if documentation_to_add != current_editable_properties.description:
-        current_editable_properties.description = documentation_to_add
-        need_write = True
-else:
-    # create a brand new editable dataset properties aspect
-    current_editable_properties = EditableDatasetPropertiesClass(
-        created=current_timestamp, description=documentation_to_add
-    )
-    need_write = True
-
-if need_write:
-    event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-        entityUrn=dataset_urn,
-        aspect=current_editable_properties,
-    )
-    graph.emit(event)
-    log.info(f"Documentation added to dataset {dataset_urn}")
-
-else:
-    log.info("Documentation already exists and is identical, omitting write")
-
-
-current_institutional_memory = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=InstitutionalMemoryClass
-)
-
-need_write = False
-
-if current_institutional_memory:
-    if link_to_add not in [x.url for x in current_institutional_memory.elements]:
-        current_institutional_memory.elements.append(institutional_memory_element)
-        need_write = True
-else:
-    # create a brand new institutional memory aspect
-    current_institutional_memory = InstitutionalMemoryClass(
-        elements=[institutional_memory_element]
-    )
-    need_write = True
-
-if need_write:
-    event = MetadataChangeProposalWrapper(
-        entityUrn=dataset_urn,
-        aspect=current_institutional_memory,
-    )
-    graph.emit(event)
-    log.info(f"Link {link_to_add} added to dataset {dataset_urn}")
-
-else:
-    log.info(f"Link {link_to_add} already exists and is identical, omitting write")
+```java
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesReplace.java }}
 ```
 
-We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
+## Add Custom Properties With Python SDK
+> 🚫 Adding Custom Properties on Dataset via the Python SDK using patch semantics is currently not supported.
 
+## Replace Custom Properties With Python SDK
+Replacing the custom properties can be done in a similar way to [dataset_add_documentation.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_documentation.py)
+just modify description with a custom properties map.
+ 
+
+> ## Add Custom Properties With GraphQL (Not Supported)
+> 🚫 Adding Custom Properties on Dataset via GraphQL is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
+
+## Replace Custom Properties With GraphQL (Not Supported)
+> 🚫 Replacing Custom Properties on Dataset via GraphQL is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
 
 ## Expected Outcomes
-You can now see the description is added to `fct_users_deleted`. 
-
-![dataset-description-added](../../imgs/apis/tutorials/dataset-description-added.png)
+The custom properties are added to `fct_users_deleted` and you are able to search by these properties.
+To do so you can type `/q customProperties:cluster_name=datahubproject.acryl.io` into the search bar in the UI.
 

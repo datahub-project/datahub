@@ -24,7 +24,7 @@ dependencies {
 
   implementation project(path: ':li-utils')
   implementation project(path: ':metadata-models')
-  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+  compile project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
   implementation externalDependency.httpAsyncClient
 
   // Tests need a concrete log4j available. Providing it here
