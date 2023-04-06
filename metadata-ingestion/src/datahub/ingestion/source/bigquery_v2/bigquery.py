@@ -4,7 +4,7 @@ import os
 import re
 import traceback
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud import bigquery
@@ -684,7 +684,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 lineage[view] = {
                     LineageEdge(
                         table=table,
-                        auditStamp=datetime.now(),
+                        auditStamp=datetime.now(timezone.utc),
                         type=DatasetLineageTypeClass.VIEW,
                     )
                     for table in upstream_tables
