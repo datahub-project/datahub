@@ -2,7 +2,7 @@ import collections
 import logging
 import textwrap
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import humanfriendly
@@ -330,7 +330,6 @@ timestamp < "{end_time}"
     def _get_exported_bigquery_audit_metadata(
         self, bigquery_client: BigQueryClient, limit: Optional[int] = None
     ) -> Iterable[BigQueryAuditMetadata]:
-
         if self.config.bigquery_audit_metadata_datasets is None:
             self.error(
                 logger, "audit-metadata", "bigquery_audit_metadata_datasets not set"
@@ -458,7 +457,9 @@ timestamp < "{end_time}"
                     lineage_map[destination_table_str].add(
                         LineageEdge(
                             table=str(ref_table),
-                            auditStamp=e.end_time if e.end_time else datetime.now(),
+                            auditStamp=e.end_time
+                            if e.end_time
+                            else datetime.now(tz=timezone.utc),
                         )
                     )
                     has_table = True
@@ -468,7 +469,9 @@ timestamp < "{end_time}"
                     lineage_map[destination_table_str].add(
                         LineageEdge(
                             table=str(ref_view),
-                            auditStamp=e.end_time if e.end_time else datetime.now(),
+                            auditStamp=e.end_time
+                            if e.end_time
+                            else datetime.now(tz=timezone.utc),
                         )
                     )
                     has_view = True

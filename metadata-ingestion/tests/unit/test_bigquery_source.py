@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, Optional, cast
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from google.cloud.bigquery.table import Row, TableListItem
@@ -424,7 +424,7 @@ def create_row(d: Dict[str, Any]) -> Row:
 
 
 @pytest.fixture
-def bigquery_view_1():
+def bigquery_view_1() -> BigqueryView:
     now = datetime.now(tz=timezone.utc)
     return BigqueryView(
         name="table1",
@@ -437,7 +437,7 @@ def bigquery_view_1():
 
 
 @pytest.fixture
-def bigquery_view_2():
+def bigquery_view_2() -> BigqueryView:
     now = datetime.now(tz=timezone.utc)
     return BigqueryView(
         name="table2",
@@ -454,13 +454,17 @@ def bigquery_view_2():
 )
 @patch("google.cloud.bigquery.client.Client")
 def test_get_views_for_dataset(
-    client_mock, query_mock, bigquery_view_1, bigquery_view_2
-):
+    client_mock: Mock,
+    query_mock: Mock,
+    bigquery_view_1: BigqueryView,
+    bigquery_view_2: BigqueryView,
+) -> None:
+    assert bigquery_view_1.last_altered
     row1 = create_row(
         dict(
             table_name=bigquery_view_1.name,
             created=bigquery_view_1.created,
-            last_altered=bigquery_view_1.last_altered,
+            last_altered=bigquery_view_1.last_altered.timestamp() * 1000,
             comment=bigquery_view_1.comment,
             view_definition=bigquery_view_1.view_definition,
             table_type="VIEW",
