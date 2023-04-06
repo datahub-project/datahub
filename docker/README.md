@@ -23,7 +23,7 @@ You can easily download and run all these images and their dependencies with our
 
 DataHub Docker Images:
 
-Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to leagcy reasons. Please use `head` or tags specific for versions like `v0.8.40`. For production we recommend using version specific tags not `head`.
+Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. Please use `head` or tags specific for versions like `v0.8.40`. For production we recommend using version specific tags not `head`.
 
 * [linkedin/datahub-ingestion](https://hub.docker.com/r/linkedin/datahub-ingestion/) - This contains the Python CLI. If you are looking for docker image for every minor CLI release you can find them under [acryldata/datahub-ingestion](https://hub.docker.com/r/acryldata/datahub-ingestion/).
 * [linkedin/datahub-gms](https://hub.docker.com/repository/docker/linkedin/datahub-gms/).

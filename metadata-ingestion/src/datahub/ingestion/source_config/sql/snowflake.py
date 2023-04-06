@@ -179,6 +179,14 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(VALID_AUTH_TYPES.keys())}"
             )
+        if (
+            values.get("private_key") is not None
+            or values.get("private_key_path") is not None
+        ) and v != "KEY_PAIR_AUTHENTICATOR":
+            raise ValueError(
+                f"Either `private_key` and `private_key_path` is set but `authentication_type` is {v}. "
+                f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
+            )
         if v == "KEY_PAIR_AUTHENTICATOR":
             # If we are using key pair auth, we need the private key path and password to be set
             if (

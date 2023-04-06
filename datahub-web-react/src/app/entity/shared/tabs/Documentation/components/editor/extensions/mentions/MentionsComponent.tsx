@@ -7,6 +7,7 @@ import { Positioner, selectionPositioner } from 'remirror/extensions';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../../../graphql/search.generated';
 import { MentionsDropdown } from './MentionsDropdown';
 import { useDataHubMentions } from './useDataHubMentions';
+import { useUserContext } from '../../../../../../../../context/useUserContext';
 
 const Container = styled.div`
     position: relative;
@@ -19,15 +20,17 @@ const StyledEmpty = styled(Empty)`
 `;
 
 export const MentionsComponent = () => {
+    const userContext = useUserContext();
     const [getAutoComplete, { data: autocompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const { active, range, filter: query } = useDataHubMentions({});
     const [suggestions, setSuggestions] = useState<any[]>([]);
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     useEffect(() => {
         if (query) {
-            getAutoComplete({ variables: { input: { query } } });
+            getAutoComplete({ variables: { input: { query, viewUrn } } });
         }
-    }, [getAutoComplete, query]);
+    }, [getAutoComplete, query, viewUrn]);
     useDebounce(() => setSuggestions(autocompleteData?.autoCompleteForMultiple?.suggestions || []), 250, [
         autocompleteData,
     ]);
