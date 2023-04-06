@@ -1,9 +1,15 @@
 // Styles for Sphinx Python SDK generated docs
-$borderRadius: 4px;
+$borderRadius: 3px;
 
 dl.py {
   margin-bottom: calc(var(--ifm-spacing-vertical) * 2);
   font-size: 14px;
+  border-left: $borderRadius solid var(--ifm-hr-border-color);
+  border-radius: $borderRadius;
+  background-color: rgba(0, 0, 0, 0.02);
+  html[data-theme="dark"] & {
+    background-color: rgba(255, 255, 255, 0.03);
+  }
 
   p {
     margin-bottom: 0;
@@ -13,12 +19,20 @@ dl.py {
     margin-bottom: var(--ifm-spacing-vertical);
   }
 
+  // The parameter name:
+  em.sig-param > span:first-child {
+    font-weight: bold;
+  }
+
+  > dd:not(:empty) {
+    padding-bottom: var(--ifm-spacing-vertical);
+  }
+
   dt.sig {
     box-sizing: border-box;
     font-size: 0.9rem;
     padding: var(--ifm-spacing-vertical);
     border-radius: $borderRadius;
-    border-left: $borderRadius solid var(--ifm-hr-border-color);
     font-family: var(--ifm-font-family-monospace);
 
     background-color: rgba(0, 0, 0, 0.03);
@@ -110,31 +124,6 @@ dl.py {
           }
         }
       }
-    }
-  }
-
-  // The parameter name:
-  em.sig-param > span:first-child {
-    font-weight: bold;
-  }
-
-  &.class,
-  &.function,
-  &.attribute,
-  &.method {
-    border-left: $borderRadius solid var(--ifm-hr-border-color);
-    border-radius: $borderRadius;
-    background-color: rgba(0, 0, 0, 0.02);
-    html[data-theme="dark"] & {
-      background-color: rgba(255, 255, 255, 0.03);
-    }
-
-    > dd:not(:empty) {
-      padding-bottom: var(--ifm-spacing-vertical);
-    }
-
-    dt.sig {
-      border: none;
     }
   }
 }
