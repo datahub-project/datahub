@@ -459,11 +459,12 @@ def test_get_views_for_dataset(
     bigquery_view_1: BigqueryView,
     bigquery_view_2: BigqueryView,
 ) -> None:
+    assert bigquery_view_1.last_altered
     row1 = create_row(
         dict(
             table_name=bigquery_view_1.name,
             created=bigquery_view_1.created,
-            last_altered=bigquery_view_1.last_altered,
+            last_altered=bigquery_view_1.last_altered.timestamp() * 1000,
             comment=bigquery_view_1.comment,
             view_definition=bigquery_view_1.view_definition,
             table_type="VIEW",
