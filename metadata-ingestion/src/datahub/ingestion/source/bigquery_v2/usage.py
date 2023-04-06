@@ -239,47 +239,47 @@ class BigQueryUsageState(Closeable):
             GROUP BY r.timestamp, r.resource
         ) a
         LEFT JOIN (
-            SELECT timestamp, resource, json_group_array(json_array(query, query_freq)) as query_freq FROM (
+            SELECT timestamp, resource, json_group_array(json_array(query, query_count)) as query_freq FROM (
                 SELECT
                     r.timestamp,
                     r.resource,
                     q.query,
-                    COUNT(r.key) as query_freq,
+                    COUNT(r.key) as query_count,
                     ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank
                 FROM
                     read_events r
                     LEFT JOIN query_events q ON r.name = q.key
                 GROUP BY r.timestamp, r.resource, q.query
-                ORDER BY r.timestamp, r.resource, query_freq DESC, q.query
+                ORDER BY r.timestamp, r.resource, query_count DESC, q.query
             ) WHERE rank <= {top_n}
             GROUP BY timestamp, resource
         ) b ON a.timestamp = b.timestamp AND a.resource = b.resource
         LEFT JOIN (
-            SELECT timestamp, resource, json_group_array(json_array(user, user_freq)) as user_freq FROM (
+            SELECT timestamp, resource, json_group_array(json_array(user, user_count)) as user_freq FROM (
                 SELECT
                     r.timestamp,
                     r.resource,
                     r.user,
-                    COUNT(r.key) user_freq
+                    COUNT(r.key) user_count
                 FROM
                     read_events r
                 GROUP BY r.timestamp, r.resource, r.user
-                ORDER BY r.timestamp, r.resource, user_freq DESC, r.user
+                ORDER BY r.timestamp, r.resource, user_count DESC, r.user
             )
             GROUP BY timestamp, resource
         ) c ON a.timestamp = c.timestamp AND a.resource = c.resource
         LEFT JOIN (
-            SELECT timestamp, resource, json_group_array(json_array(column, column_freq)) as column_freq FROM (
+            SELECT timestamp, resource, json_group_array(json_array(column, column_count)) as column_freq FROM (
                 SELECT
                     r.timestamp,
                     r.resource,
                     c.field column,
-                    COUNT(r.key) column_freq
+                    COUNT(r.key) column_count
                 FROM
                     read_events r
                     INNER JOIN column_accesses c ON r.key = c.read_event
                 GROUP BY r.timestamp, r.resource, c.field
-                ORDER BY r.timestamp, r.resource, column_freq DESC, c.field
+                ORDER BY r.timestamp, r.resource, column_count DESC, c.field
             )
             GROUP BY timestamp, resource
         ) d ON a.timestamp = d.timestamp AND a.resource = d.resource
@@ -349,12 +349,14 @@ class BigQueryUsageExtractor:
                 self._ingest_events(events, table_refs, usage_state)
 
                 if self.config.usage.include_operational_stats:
-                    yield from self._generate_operational_workunits(usage_state)
+                    yield from self._generate_operational_workunits(
+                        usage_state, table_refs
+                    )
 
                 yield from self._generate_usage_workunits(usage_state)
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
-            self.report.report_failure("usage-ingestion", str(e))
+            self.report.report_warning("usage-ingestion", str(e))
 
     def _ingest_events(
         self,
@@ -373,16 +375,18 @@ class BigQueryUsageExtractor:
                 logger.warning(
                     f"Unable to store usage event {audit_event}", exc_info=True
                 )
-                self._report_exception("usage-store-event", e)
+                self._report_error("store-event", e)
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
     def _generate_operational_workunits(
-        self, usage_state: BigQueryUsageState
+        self, usage_state: BigQueryUsageState, table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
         self.report.set_project_state("All", "Usage Extraction Operational Stats")
         for audit_event in usage_state.standalone_events():
             try:
-                operational_wu = self._create_operation_workunit(audit_event)
+                operational_wu = self._create_operation_workunit(
+                    audit_event, table_refs
+                )
                 if operational_wu:
                     yield operational_wu
                     self.report.num_operational_stats_workunits_emitted += 1
@@ -391,7 +395,7 @@ class BigQueryUsageExtractor:
                     f"Unable to generate operation workunit for event {audit_event}",
                     exc_info=True,
                 )
-                self._report_exception("usage-operation-workunit", e)
+                self._report_error("operation-workunit", e)
 
     def _generate_usage_workunits(
         self, usage_state: BigQueryUsageState
@@ -422,7 +426,7 @@ class BigQueryUsageExtractor:
                     f"Unable to generate usage workunit for bucket {entry.timestamp}, {entry.resource}",
                     exc_info=True,
                 )
-                self._report_exception("usage-statistics-workunit", e)
+                self._report_error("statistics-workunit", e)
 
     def _get_usage_events(self, project_id: str) -> Iterable[AuditEvent]:
         with PerfTimer() as timer:
@@ -435,7 +439,7 @@ class BigQueryUsageExtractor:
                     exc_info=True,
                 )
                 self.report.usage_failed_extraction.append(project_id)
-                self.report.report_failure(f"usage-extraction-{project_id}", str(e))
+                self.report.report_warning(f"usage-extraction-{project_id}", str(e))
 
             self.report.usage_extraction_sec[project_id] = round(
                 timer.elapsed_seconds(), 2
@@ -453,7 +457,8 @@ class BigQueryUsageExtractor:
         ):
             resource = event.read_event.resource
             if str(resource) not in table_refs:
-                logger.debug(f"Skipping non existing {resource} from usage")
+                logger.debug(f"Skipping non-existent {resource} from usage")
+                self.report.num_usage_resources_dropped += 1
                 return False
             elif resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
                 logger.debug(f"Dropping temporary table {resource}")
@@ -678,7 +683,7 @@ class BigQueryUsageExtractor:
             return None
 
     def _create_operation_workunit(
-        self, event: AuditEvent
+        self, event: AuditEvent, table_refs: Collection[str]
     ) -> Optional[MetadataWorkUnit]:
         if not event.read_event and not event.query_event:
             return None
@@ -687,7 +692,14 @@ class BigQueryUsageExtractor:
         if destination_table is None:
             return None
 
-        if not self._is_table_allowed(destination_table):
+        if (
+            not self._is_table_allowed(destination_table)
+            or str(destination_table) not in table_refs
+        ):
+            logger.debug(
+                f"Filtering out operation {event.query_event}: invalid destination {destination_table}."
+            )
+            self.report.num_usage_operations_dropped += 1
             return None
 
         operational_meta = self._extract_operational_meta(event)
@@ -869,12 +881,20 @@ class BigQueryUsageExtractor:
                 if event:
                     yield event
             except Exception as e:
-                logger.warning(f"Unable to parse log entry `{entry}`", exc_info=True)
-                self._report_exception(f"usage-log-parse-{project_id}", e)
+                logger.warning(
+                    f"Unable to parse log entry `{entry}` for project {project_id}",
+                    exc_info=True,
+                )
+                self._report_error(
+                    f"log-parse-{project_id}", e, group="usage-log-parse"
+                )
 
-    def _report_exception(self, label: str, e: Exception) -> None:
-        self.report.num_usage_failures[label] += 1
-        self.report.report_failure(label, str(e))
+    def _report_error(
+        self, label: str, e: Exception, group: Optional[str] = None
+    ) -> None:
+        """Report an error that does not constitute a major failure."""
+        self.report.usage_error_count[label] += 1
+        self.report.report_warning(group or f"usage-{label}", str(e))
 
     def test_capability(self, project_id: str) -> None:
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):

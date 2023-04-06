@@ -41,7 +41,10 @@ class BigQueryV2Report(ProfilingSqlReport):
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
-    num_usage_failures: Dict[str, int] = field(default_factory=int_top_k_dict)
+    usage_error_count: Dict[str, int] = field(default_factory=int_top_k_dict)
+    num_usage_resources_dropped: int = 0
+    num_usage_operations_dropped: int = 0
+    operation_dropped: LossyList[str] = field(default_factory=LossyList)
     usage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
     num_project_datasets_to_scan: Dict[str, int] = field(default_factory=TopKDict)
     metadata_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
