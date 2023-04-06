@@ -50,11 +50,11 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
-from datahub.ingestion.source.snowflake.snowflake_lineage import (
-    SnowflakeLineageExtractor,
-)
 from datahub.ingestion.source.snowflake.snowflake_lineage_legacy import (
     SnowflakeLineageExtractor as SnowflakeLineageLegacyExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
+    SnowflakeLineageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report

@@ -248,6 +248,45 @@ def default_query_results(query):  # noqa: C901
             for op_idx in range(1, NUM_OPS + 1)
         ]
     elif query in (
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+            1654499820000,
+            1654586220000,
+        ),
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+            1654499820000, 1654586220000, False
+        ),
+    ):
+        return [
+            {
+                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                "UPSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                "UPSTREAM_TABLE_COLUMNS": json.dumps(
+                    [
+                        {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                ),
+                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
+                    [
+                        {
+                            "columnId": 0,
+                            "columnName": "COL_{}".format(col_idx),
+                            "directSources": [
+                                {
+                                    "columnName": "COL_{}".format(col_idx),
+                                    "objectDomain": "Table",
+                                    "objectId": 0,
+                                    "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                                }
+                            ],
+                        }
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                ),
+            }
+            for op_idx in range(1, NUM_OPS + 1)
+        ]
+    elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             1654499820000, 1654586220000, True, True
         ),
@@ -320,6 +359,17 @@ def default_query_results(query):  # noqa: C901
     ):
         return []
     elif query in [
+        snowflake_query.SnowflakeQuery.view_dependencies(),
+    ]:
+        return [
+            {
+                "REFERENCED_OBJECT_DOMAIN": "table",
+                "REFERENCING_OBJECT_DOMAIN": "view",
+                "DOWNSTREAM_VIEW": "TEST_DB.TEST_SCHEMA.VIEW_2",
+                "VIEW_UPSTREAM": "TEST_DB.TEST_SCHEMA.TABLE_2",
+            }
+        ]
+    elif query in [
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),
     ]:
         # VIEW_2 has dependency on TABLE_2
@@ -338,11 +388,52 @@ def default_query_results(query):  # noqa: C901
             }
         ]
     elif query in [
+        snowflake_query.SnowflakeQuery.view_lineage_history(
+            1654499820000,
+            1654586220000,
+        ),
+        snowflake_query.SnowflakeQuery.view_lineage_history(
+            1654499820000, 1654586220000, False
+        ),
+    ]:
+        return [
+            {
+                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
+                "VIEW_NAME": "TEST_DB.TEST_SCHEMA.VIEW_1",
+                "VIEW_DOMAIN": "VIEW",
+                "VIEW_COLUMNS": json.dumps(
+                    [
+                        {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                ),
+                "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
+                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
+                    [
+                        {
+                            "columnId": 0,
+                            "columnName": "COL_{}".format(col_idx),
+                            "directSources": [
+                                {
+                                    "columnName": "COL_{}".format(col_idx),
+                                    "objectDomain": "Table",
+                                    "objectId": 0,
+                                    "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                                }
+                            ],
+                        }
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                ),
+            }
+        ]
+    elif query in [
         snowflake_query.SnowflakeQuery.external_table_lineage_history(
             1654499820000,
             1654586220000,
         ),
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),
+        snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
     ]:
         return []
