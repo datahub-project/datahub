@@ -487,7 +487,11 @@ class BigQueryDataDictionary:
             BigqueryView(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.get("last_altered", table.created),
+                last_altered=datetime.fromtimestamp(
+                    table.get("last_altered") / 1000, tz=timezone.utc
+                )
+                if table.get("last_altered") is not None
+                else table.created,
                 comment=table.comment,
                 view_definition=table.view_definition,
                 materialized=table.table_type == BigqueryTableType.MATERIALIZED_VIEW,
