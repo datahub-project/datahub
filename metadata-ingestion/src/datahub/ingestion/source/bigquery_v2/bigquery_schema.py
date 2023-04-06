@@ -426,7 +426,7 @@ class BigQueryDataDictionary:
             )
 
         for table in cur:
-            try:  # Calculating table.expires has failed -- too large to convert to int
+            try:
                 yield BigQueryDataDictionary._make_bigquery_table(
                     table, tables.get(table.table_name)
                 )
@@ -504,7 +504,7 @@ class BigQueryDataDictionary:
             )
 
         for table in cur:
-            try:  # Calculating table.expires has failed -- too large to convert to int
+            try:
                 yield BigQueryDataDictionary._make_bigquery_view(table)
             except Exception as e:
                 view_name = f"{project_id}.{dataset_name}.{table.table_name}"

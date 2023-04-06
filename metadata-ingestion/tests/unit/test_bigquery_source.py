@@ -330,7 +330,7 @@ def test_table_processing_logic(client_mock, data_dictionary_mock):
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    list(
+    _ = list(
         source.get_tables_for_dataset(
             conn=client_mock, project_id="test-project", dataset_name="test-dataset"
         )
@@ -402,7 +402,7 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    list(
+    _ = list(
         source.get_tables_for_dataset(
             conn=client_mock, project_id="test-project", dataset_name="test-dataset"
         )
