@@ -449,7 +449,7 @@ class BigQueryDataDictionary:
         # Some properties we want to capture are only available from the TableListItem
         # we get from an earlier query of the list of tables.
         try:
-            expiration = getattr(table_basic, "expires", None)
+            expiration = table_basic.expires if table_basic else None
         except OverflowError:
             expiration = None
 
