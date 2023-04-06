@@ -1,6 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { DataPlatform, Entity, EntityType, FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import {
+    AggregationMetadata,
+    DataPlatform,
+    Entity,
+    EntityType,
+    FacetFilterInput,
+    FacetMetadata,
+} from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
 import { ENTITY_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
@@ -81,4 +88,33 @@ export function getNumActiveFiltersForGroupOfFilters(activeFilters: FacetFilterI
         numActiveFilters += getNumActiveFiltersForFilter(activeFilters, filter);
     });
     return numActiveFilters;
+}
+
+// combine existing aggs from search response with new aggregateAcrossEntities response
+export function combineAggregations(
+    filterField: string,
+    originalAggs: AggregationMetadata[],
+    newFacets?: FacetMetadata[] | null,
+) {
+    const combinedAggregations = [...originalAggs];
+    if (newFacets) {
+        const newAggregations = newFacets.find((facet) => facet.field === filterField)?.aggregations;
+        newAggregations?.forEach((agg) => {
+            // only add the new aggregations if it is not already in the original to avoid dupes
+            if (!originalAggs.find((existingAgg) => existingAgg.value === agg.value)) {
+                combinedAggregations.push(agg);
+            }
+        });
+    }
+    return combinedAggregations;
+}
+
+// filter out any aggregations with a count of 0 unless it's already selected and in activeFilters
+export function filterEmptyAggregations(aggregations: AggregationMetadata[], activeFilters: FacetFilterInput[]) {
+    return aggregations.filter((agg) => {
+        if (agg.count === 0) {
+            return activeFilters.find((activeFilter) => activeFilter.values?.includes(agg.value));
+        }
+        return true;
+    });
 }

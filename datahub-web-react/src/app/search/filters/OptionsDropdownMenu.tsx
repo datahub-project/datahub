@@ -1,3 +1,4 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -31,17 +32,34 @@ const ScrollableContent = styled.div`
     overflow: auto;
 `;
 
+const LoadingWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    padding: 9px;
+
+    svg {
+        height: 16px;
+        width: 16px;
+    }
+`;
+
 interface Props {
     menu: React.ReactNode;
     updateFilters: () => void;
+    isLoading: boolean;
     alignRight?: boolean;
 }
 
-export default function OptionsDropdownMenu({ menu, updateFilters, alignRight }: Props) {
+export default function OptionsDropdownMenu({ menu, updateFilters, isLoading, alignRight }: Props) {
     return (
         <DropdownMenu alignRight={alignRight}>
             <ScrollableContent>
                 {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}
+                {isLoading && (
+                    <LoadingWrapper>
+                        <LoadingOutlined />
+                    </LoadingWrapper>
+                )}
             </ScrollableContent>
             <StyledButton type="text" onClick={updateFilters}>
                 Update

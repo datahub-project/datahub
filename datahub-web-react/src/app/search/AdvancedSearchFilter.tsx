@@ -24,7 +24,7 @@ const FilterContainer = styled.div<{ isCompact: boolean }>`
     border-radius: 10px;
     border: 1px solid ${ANTD_GRAY[4]};
     padding: ${(props) => (props.isCompact ? '0 4px' : '4px')};
-    margin: ${(props) => (props.isCompact ? '0 4px 4px 4px' : '4px')};
+    margin: ${(props) => (props.isCompact ? '2px 4px 2px 4px' : '4px')};
     :hover {
         cursor: pointer;
         background: ${ANTD_GRAY[2]};
@@ -83,7 +83,9 @@ export const AdvancedSearchFilter = ({
                         <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
                         <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
                     </FieldFilterSelect>
-                    {!loading && isCompact && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} isCompact />}
+                    {!loading && isCompact && (
+                        <AdvancedSearchFilterValuesSection filter={filter} facet={facet} isCompact />
+                    )}
                     {!disabled && (
                         <CloseSpan
                             role="button"

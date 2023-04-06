@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import * as QueryString from 'query-string';
-import { useHistory, useLocation, useParams } from 'react-router';
-import { useEntityRegistry } from '../useEntityRegistry';
+import { useHistory } from 'react-router';
 import { FacetFilterInput } from '../../types.generated';
-import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
@@ -12,38 +9,22 @@ import { SearchCfg } from '../../conf';
 import { UnionType } from './utils/constants';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
-import { generateOrFilters } from './utils/generateOrFilters';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
-import { useUserContext } from '../context/useUserContext';
 import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 import SearchFilters from './filters/SearchFilters';
-
-type SearchPageParams = {
-    type?: string;
-};
+import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 
 /**
  * A search results page.
  */
 export const SearchPage = () => {
     const history = useHistory();
-    const location = useLocation();
-    const userContext = useUserContext();
-
-    const entityRegistry = useEntityRegistry();
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
-    const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
-    const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
-    const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
-    const viewUrn = userContext.localState?.selectedViewUrn;
-
-    const filters: Array<FacetFilterInput> = useFilters(params);
+    const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -62,7 +43,7 @@ export const SearchPage = () => {
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [],
-                orFilters: generateOrFilters(unionType, filters),
+                orFilters,
                 viewUrn,
             },
         },
@@ -85,7 +66,7 @@ export const SearchPage = () => {
                 types: [],
                 query,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: generateOrFilters(unionType, filters),
+                orFilters,
                 scrollId: null,
             },
         },

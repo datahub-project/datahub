@@ -12,6 +12,8 @@ import {
     PlatformIcon,
     getNumActiveFiltersForFilter,
     getNumActiveFiltersForGroupOfFilters,
+    combineAggregations,
+    filterEmptyAggregations,
 } from '../utils';
 
 describe('filter utils - getNewFilters', () => {
@@ -214,5 +216,73 @@ describe('filter utils - getNumActiveFiltersForGroupOfFilters', () => {
         ];
 
         expect(getNumActiveFiltersForGroupOfFilters(activeFilters, filters)).toBe(0);
+    });
+});
+
+describe('filter utils - combineAggregations', () => {
+    const originalAggs = [
+        { value: 'aditya', count: 10 },
+        { value: 'maggie', count: 5 },
+        { value: 'brittanie', count: 500 },
+    ];
+
+    it('should combine aggregations given some original aggregations, a list of new facets, and a filter field', () => {
+        const newFacets = [
+            {
+                field: 'platform',
+                aggregations: [{ value: 'dbt', count: 15 }],
+            },
+            {
+                field: 'owners',
+                aggregations: [
+                    { value: 'chris', count: 15 },
+                    { value: 'john', count: 20 },
+                ],
+            },
+        ];
+
+        const combinedAggregations = combineAggregations('owners', originalAggs, newFacets);
+
+        expect(combinedAggregations).toMatchObject([
+            { value: 'aditya', count: 10 },
+            { value: 'maggie', count: 5 },
+            { value: 'brittanie', count: 500 },
+            { value: 'chris', count: 15 },
+            { value: 'john', count: 20 },
+        ]);
+    });
+
+    it('should return the original aggs when newFacets are not provided', () => {
+        const combinedAggregations = combineAggregations('owners', originalAggs);
+
+        expect(combinedAggregations).toMatchObject([
+            { value: 'aditya', count: 10 },
+            { value: 'maggie', count: 5 },
+            { value: 'brittanie', count: 500 },
+        ]);
+    });
+});
+
+describe('filter utils - filterEmptyAggregations', () => {
+    const originalAggs = [
+        { value: 'aditya', count: 10 },
+        { value: 'maggie', count: 5 },
+        { value: 'brittanie', count: 0 },
+        { value: 'john', count: 0 },
+    ];
+
+    it('should filter out empty aggregations unless they are in activeFilters', () => {
+        const activeFilters = [
+            { field: 'owners', values: ['chris', 'john'] },
+            { field: 'platform', values: ['dbt'] },
+        ];
+
+        const filteredAggregations = filterEmptyAggregations(originalAggs, activeFilters);
+
+        expect(filteredAggregations).toMatchObject([
+            { value: 'aditya', count: 10 },
+            { value: 'maggie', count: 5 },
+            { value: 'john', count: 0 },
+        ]);
     });
 });

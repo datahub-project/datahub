@@ -31,11 +31,12 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, activeFilters, onChangeFilters }: Props) {
-    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters } = useSearchFilterDropdown({
-        filter,
-        activeFilters,
-        onChangeFilters,
-    });
+    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters, areFiltersLoading } =
+        useSearchFilterDropdown({
+            filter,
+            activeFilters,
+            onChangeFilters,
+        });
 
     return (
         <Dropdown
@@ -43,7 +44,14 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
             menu={{ items: filterOptions }}
             open={isMenuOpen}
             onOpenChange={(open) => updateIsMenuOpen(open)}
-            dropdownRender={(menu) => <OptionsDropdownMenu menu={menu} updateFilters={updateFilters} alignRight />}
+            dropdownRender={(menu) => (
+                <OptionsDropdownMenu
+                    menu={menu}
+                    updateFilters={updateFilters}
+                    isLoading={areFiltersLoading}
+                    alignRight
+                />
+            )}
         >
             <OptionWrapper
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}

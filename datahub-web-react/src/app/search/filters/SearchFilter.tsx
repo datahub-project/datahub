@@ -44,11 +44,12 @@ interface Props {
 }
 
 export default function SearchFilter({ filter, activeFilters, onChangeFilters }: Props) {
-    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters } = useSearchFilterDropdown({
-        filter,
-        activeFilters,
-        onChangeFilters,
-    });
+    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters, areFiltersLoading } =
+        useSearchFilterDropdown({
+            filter,
+            activeFilters,
+            onChangeFilters,
+        });
 
     return (
         <Dropdown
@@ -56,7 +57,9 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             menu={{ items: filterOptions }}
             open={isMenuOpen}
             onOpenChange={(open) => updateIsMenuOpen(open)}
-            dropdownRender={(menu) => <OptionsDropdownMenu menu={menu} updateFilters={updateFilters} />}
+            dropdownRender={(menu) => (
+                <OptionsDropdownMenu menu={menu} updateFilters={updateFilters} isLoading={areFiltersLoading} />
+            )}
         >
             <DropdownLabel onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
                 {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
