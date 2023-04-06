@@ -1,4 +1,3 @@
-import itertools
 import json
 import logging
 import textwrap
@@ -336,9 +335,7 @@ class BigQueryUsageExtractor:
     def run(
         self, projects: Iterable[str], table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
-        events = itertools.chain.from_iterable(
-            self._get_usage_events(project) for project in projects
-        )
+        events = self._get_usage_events(projects)
         yield from self._run(events, table_refs)
 
     def _run(
@@ -428,22 +425,28 @@ class BigQueryUsageExtractor:
                 )
                 self._report_error("statistics-workunit", e)
 
-    def _get_usage_events(self, project_id: str) -> Iterable[AuditEvent]:
-        with PerfTimer() as timer:
-            try:
-                self.report.set_project_state(project_id, "Usage Extraction Ingestion")
-                yield from self._get_parsed_bigquery_log_events(project_id)
-            except Exception as e:
-                logger.error(
-                    f"Error getting usage events for project {project_id}",
-                    exc_info=True,
-                )
-                self.report.usage_failed_extraction.append(project_id)
-                self.report.report_warning(f"usage-extraction-{project_id}", str(e))
+    def _get_usage_events(self, projects: Iterable[str]) -> Iterable[AuditEvent]:
+        if self.config.use_exported_bigquery_audit_metadata:
+            projects = ["*"]  # project_id not used when using exported metadata
 
-            self.report.usage_extraction_sec[project_id] = round(
-                timer.elapsed_seconds(), 2
-            )
+        for project_id in projects:
+            with PerfTimer() as timer:
+                try:
+                    self.report.set_project_state(
+                        project_id, "Usage Extraction Ingestion"
+                    )
+                    yield from self._get_parsed_bigquery_log_events(project_id)
+                except Exception as e:
+                    logger.error(
+                        f"Error getting usage events for project {project_id}",
+                        exc_info=True,
+                    )
+                    self.report.usage_failed_extraction.append(project_id)
+                    self.report.report_warning(f"usage-extraction-{project_id}", str(e))
+
+                self.report.usage_extraction_sec[project_id] = round(
+                    timer.elapsed_seconds(), 2
+                )
 
     def _store_usage_event(
         self,
@@ -857,7 +860,7 @@ class BigQueryUsageExtractor:
     ) -> Iterable[AuditEvent]:
         parse_fn: Callable[[Any], Optional[AuditEvent]]
         if self.config.use_exported_bigquery_audit_metadata:
-            bq_client = BigQueryClient(project=project_id)
+            bq_client = BigQueryClient()
             entries = self._get_exported_bigquery_audit_metadata(
                 bigquery_client=bq_client,
                 allow_filter=self.config.get_table_pattern(
