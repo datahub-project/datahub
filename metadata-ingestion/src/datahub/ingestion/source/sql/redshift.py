@@ -129,6 +129,14 @@ class RedshiftConfig(
     DatasetLineageProviderConfigBase,
     DatasetS3LineageProviderConfigBase,
 ):
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database_alias:
+            return f"{self.database_alias}.{regular}"
+        if self.database:
+            return f"{self.database}.{regular}"
+        return regular
+
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
     # because it has better caching behavior. In particular, it queries
@@ -569,14 +577,14 @@ class RedshiftSource(SQLAlchemySource):
         for db_row in db_engine.execute("select version()"):
             self.report.saas_version = db_row[0]
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         try:
             self.inspect_version()
         except Exception as e:
             self.report.report_failure("version", f"Error: {e}")
             return
 
-        for wu in super().get_workunits():
+        for wu in super().get_workunits_internal():
             yield wu
             if (
                 isinstance(wu, SqlWorkUnit)
