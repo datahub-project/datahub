@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
@@ -163,7 +163,7 @@ def test_lineage_with_timestamps():
         "projects/my_project/datasets/my_dataset/tables/my_table"
     )
 
-    lineage_map: Dict[str, set[LineageEdge]] = extractor._create_lineage_map(
+    lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
         iter(lineage_entries)
     )
 
