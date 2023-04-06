@@ -22,7 +22,7 @@ entities:
       - testResults
       - siblings
       - embed
-      - containerPaths
+      - containerPath
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -37,7 +37,7 @@ entities:
       - domains
       - deprecation
       - versionInfo
-      - containerPaths
+      - containerPath
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -45,7 +45,7 @@ entities:
       - domains
       - deprecation
       - versionInfo
-      - containerPaths
+      - containerPath
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -64,7 +64,7 @@ entities:
       - inputFields
       - chartUsageStatistics
       - embed
-      - containerPaths
+      - containerPath
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -75,7 +75,7 @@ entities:
       - inputFields
       - subTypes
       - embed
-      - containerPaths
+      - containerPath
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -92,7 +92,7 @@ entities:
       - domains
       - subTypes
       - dataPlatformInstance
-      - containerPaths
+      - containerPath
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -141,7 +141,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
-      - containerPaths
+      - containerPath
   - name: tag
     keyAspect: tagKey
     aspects:
@@ -212,7 +212,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
-      - containerPaths
+      - containerPath
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -220,7 +220,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
-      - containerPaths
+      - containerPath
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -228,7 +228,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
-      - containerPaths
+      - containerPath
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -236,7 +236,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
-      - containerPaths
+      - containerPath
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
