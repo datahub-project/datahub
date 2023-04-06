@@ -364,7 +364,7 @@ paths:
     def test_get_endpoints_openapi30(self) -> None:
         """extracting 'get' type endpoints from swagger 3.0 file"""
         sw_file_raw = yaml.safe_load(self.openapi30)
-        url_endpoints = get_endpoints(sw_file_raw)
+        url_endpoints = get_endpoints(sw_file_raw, False)
 
         self.assertEqual(len(url_endpoints), 2)
         d4k = {"data": "", "tags": "", "description": ""}
@@ -373,7 +373,7 @@ paths:
     def test_get_endpoints_openapi20(self) -> None:
         """extracting 'get' type endpoints from swagger 2.0 file"""
         sw_file_raw = yaml.safe_load(self.openapi20)
-        url_endpoints = get_endpoints(sw_file_raw)
+        url_endpoints = get_endpoints(sw_file_raw, False)
 
         self.assertEqual(len(url_endpoints), 2)
         d4k = {"data": "", "tags": "", "description": ""}

@@ -13,6 +13,7 @@ source:
       /accounts/groupname/{name}: ['test']
       /accounts/username/{name}: ['test']
     ignore_endpoints: [/ignore/this, /ignore/that, /also/that_other]  # optional, the endpoints to ignore
+    get_operations_only: false # optional, by default accepts all supported methods (not only GET, but also POST, PUT and PATCH)
 
 sink:
   type: "datahub-rest"
