@@ -451,6 +451,7 @@ class BigQueryDataDictionary:
         try:
             expiration = table_basic.expires if table_basic else None
         except OverflowError:
+            logger.info(f"Invalid expiration time for table {table.table_name}.")
             expiration = None
 
         _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
