@@ -11,6 +11,11 @@ enum FabricType {
   DEV
   
   /**
+   * Designates proof of concept fabrics
+   */
+  POC
+  
+  /**
    * Designates testing fabrics
    */
   TEST
@@ -24,6 +29,11 @@ enum FabricType {
    * Designates user acceptance testing fabrics
    */
   UAT
+  
+  /**
+   * Designates operational acceptance testing fabrics
+   */
+  OAT
 
   /**
    * Designates early-integration fabrics
