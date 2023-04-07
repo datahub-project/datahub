@@ -1,6 +1,6 @@
 import json
-import re
 import logging
+import re
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import requests
