@@ -71,18 +71,21 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private final RestliEntityClient _entityClient;
   private final EntitySearchService _searchService;
   private final Authentication _systemAuthentication;
+  private final boolean _isEnabled;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final RestliEntityClient entityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull final Authentication systemAuthentication
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled
   ) {
     _entityRegistry = entityRegistry;
     _entityClient = entityClient;
     _searchService = searchService;
     _systemAuthentication = systemAuthentication;
+    _isEnabled = isEnabled;
   }
 
   @Value("${siblings.enabled:false}")
@@ -95,6 +98,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @Override
   public void init() {
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return _isEnabled;
   }
 
   @Override
