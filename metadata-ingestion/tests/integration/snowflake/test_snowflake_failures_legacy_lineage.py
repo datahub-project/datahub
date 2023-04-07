@@ -39,7 +39,7 @@ def query_permission_response_override(fn, override_for_query, response):
 
 
 @fixture(scope="function")
-def snowflake_pipeline_config(tmp_path):
+def snowflake_pipeline_legacy_lineage_config(tmp_path):
     output_file = tmp_path / "snowflake_test_events_permission_error.json"
     config = PipelineConfig(
         source=SourceConfig(
@@ -55,7 +55,7 @@ def snowflake_pipeline_config(tmp_path):
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_view_lineage=False,
                 include_usage_stats=False,
-                use_legacy_lineage_method=False,
+                use_legacy_lineage_method=True,
                 start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
                     tzinfo=timezone.utc
                 ),
@@ -70,7 +70,7 @@ def snowflake_pipeline_config(tmp_path):
 @freeze_time(FROZEN_TIME)
 def test_snowflake_missing_role_access_causes_pipeline_failure(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         # Snowflake connection fails role not granted error
@@ -78,7 +78,7 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
             "250001 (08001): Failed to connect to DB: abc12345.ap-south-1.snowflakecomputing.com:443. Role 'TEST_ROLE' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC"
         )
 
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         assert "permission-error" in pipeline.source.get_report().failures.keys()
 
@@ -86,7 +86,7 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
 @freeze_time(FROZEN_TIME)
 def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -100,7 +100,7 @@ def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
             [SnowflakeQuery.current_warehouse()],
             [(None,)],
         )
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         assert "permission-error" in pipeline.source.get_report().failures.keys()
 
@@ -108,7 +108,7 @@ def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
 @freeze_time(FROZEN_TIME)
 def test_snowflake_no_databases_with_access_causes_pipeline_failure(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -122,7 +122,7 @@ def test_snowflake_no_databases_with_access_causes_pipeline_failure(
             [SnowflakeQuery.get_databases("TEST_DB")],
             "Database 'TEST_DB' does not exist or not authorized.",
         )
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         assert "permission-error" in pipeline.source.get_report().failures.keys()
 
@@ -130,7 +130,7 @@ def test_snowflake_no_databases_with_access_causes_pipeline_failure(
 @freeze_time(FROZEN_TIME)
 def test_snowflake_no_tables_causes_pipeline_failure(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -150,7 +150,7 @@ def test_snowflake_no_tables_causes_pipeline_failure(
             [],
         )
 
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         assert "permission-error" in pipeline.source.get_report().failures.keys()
 
@@ -158,7 +158,7 @@ def test_snowflake_no_tables_causes_pipeline_failure(
 @freeze_time(FROZEN_TIME)
 def test_snowflake_list_columns_error_causes_pipeline_warning(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -177,7 +177,7 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
             ],
             "Database 'TEST_DB' does not exist or not authorized.",
         )
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         pipeline.raise_from_status()  # pipeline should not fail
         assert (
@@ -189,7 +189,7 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
 @freeze_time(FROZEN_TIME)
 def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -203,7 +203,7 @@ def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
             [SnowflakeQuery.show_primary_keys_for_schema("TEST_SCHEMA", "TEST_DB")],
             "Insufficient privileges to operate on TEST_DB",
         )
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         pipeline.raise_from_status()  # pipeline should not fail
         assert (
@@ -215,7 +215,7 @@ def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
 @freeze_time(FROZEN_TIME)
 def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -227,13 +227,13 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
         sf_cursor.execute.side_effect = query_permission_error_override(
             default_query_results,
             [
-                snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-                    1654499820000, 1654586220000, False, True
-                )
+                snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+                    1654499820000, 1654586220000, True
+                ),
             ],
             "Database 'SNOWFLAKE' does not exist or not authorized.",
         )
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         assert (
             "lineage-permission-error" in pipeline.source.get_report().failures.keys()
@@ -243,7 +243,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
 @freeze_time(FROZEN_TIME)
 def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failure(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -257,7 +257,7 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
             [snowflake_query.SnowflakeQuery.get_access_history_date_range()],
             "Database 'SNOWFLAKE' does not exist or not authorized.",
         )
-        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline = Pipeline(snowflake_pipeline_legacy_lineage_config)
         pipeline.run()
         assert "usage-permission-error" in pipeline.source.get_report().failures.keys()
 
@@ -265,7 +265,7 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
 @freeze_time(FROZEN_TIME)
 def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warning(
     pytestconfig,
-    snowflake_pipeline_config,
+    snowflake_pipeline_legacy_lineage_config,
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -276,11 +276,11 @@ def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warni
         # Error in getting view lineage
         sf_cursor.execute.side_effect = query_permission_error_override(
             default_query_results,
-            [snowflake_query.SnowflakeQuery.view_dependencies_v2()],
+            [snowflake_query.SnowflakeQuery.view_dependencies()],
             "Unexpected Error",
         )
 
-        snowflake_pipeline_config1 = snowflake_pipeline_config.copy()
+        snowflake_pipeline_config1 = snowflake_pipeline_legacy_lineage_config.copy()
         cast(
             SnowflakeV2Config,
             cast(PipelineConfig, snowflake_pipeline_config1).source.config,
