@@ -85,6 +85,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
+  private final boolean _isEnabled;
 
   @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
   private boolean _graphDiffMode;
@@ -108,13 +109,20 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       EntityRegistry entityRegistry,
-      SearchDocumentTransformer searchDocumentTransformer) {
+      SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull @Value("${updateIndices.enabled:true}") Boolean isEnabled) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
+    _isEnabled = isEnabled;
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return _isEnabled;
   }
 
   @Override

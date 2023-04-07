@@ -59,13 +59,13 @@ Update succeeded for urn urn:li:corpuser:datahub.
 
 ### Upsert Group
 
-Save this `group.yaml` as a local file. Note that the group includes a list of users who are admins (these will be marked as owners) and members.
+Save this `group.yaml` as a local file. Note that the group includes a list of users who are owners and members.
 Within these lists, you can refer to the users by their ids or their urns, and can additionally specify their metadata inline within the group description itself. See the example below to understand how this works and feel free to make modifications to this file locally to see the effects of your changes in your local DataHub instance.
 
 ```yaml
 id: foogroup@acryl.io
 display_name: Foo Group
-admins:
+owners:
   - datahub
 members:
   - bar@acryl.io # refer to a user either by id or by urn
@@ -94,33 +94,7 @@ The following code creates a user named `The Bar` with urn `urn:li:corpuser:bar@
 You can refer to the full code in [upsert_user.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/upsert_user.py).
 
 ```python
-import logging
-
-from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-user_email = "bar@acryl.io"
-
-user: CorpUser = CorpUser(
-    id=user_email,
-    display_name="The Bar",
-    email=user_email,
-    title="Software Engineer",
-    first_name="The",
-    last_name="Bar",
-    full_name="The Bar",
-)
-
-# Create graph client
-datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
-for event in user.generate_mcp(
-    generation_config=CorpUserGenerationConfig(override_editable=False)
-):
-    datahub_graph.emit(event)
-log.info(f"Upserted user {user.urn}")
+{{ inline /metadata-ingestion/examples/library/upsert_user.py show_path_as_comment }}
 ```
 
 ### Upsert Group
@@ -129,43 +103,7 @@ The following code creates a group called `Foo Group` with group `urn:li:corpgro
 You can refer to the full code in [upsert_group.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/upsert_group.py).
 
 ```python
-import logging
-
-from datahub.api.entities.corpgroup.corpgroup import (
-    CorpGroup,
-    CorpGroupGenerationConfig,
-)
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.utilities.urns.corpuser_urn import CorpuserUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-group_email = "foogroup@acryl.io"
-group = CorpGroup(
-    id=group_email,
-    admins=[str(CorpuserUrn.create_from_id("datahub"))],
-    members=[
-        str(CorpuserUrn.create_from_id("bar@acryl.io")),
-        str(CorpuserUrn.create_from_id("joe@acryl.io")),
-    ],
-    groups=[],
-    display_name="Foo Group",
-    email=group_email,
-    description="Software engineering team",
-    slack="@foogroup",
-)
-
-# Create graph client
-datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
-
-for event in group.generate_mcp(
-    generation_config=CorpGroupGenerationConfig(
-        override_editable=False, datahub_graph=datahub_graph
-    )
-):
-    datahub_graph.emit(event)
-log.info(f"Upserted group {group.urn}")
+{{ inline /metadata-ingestion/examples/library/upsert_group.py show_path_as_comment }}
 ```
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.

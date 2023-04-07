@@ -174,7 +174,6 @@ function get_slug(filepath: string): string {
 
 const hardcoded_titles = {
   "README.md": "Introduction",
-  "docs/demo.md": "See DataHub in Action",
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
@@ -416,7 +415,7 @@ function markdown_process_inline_directives(
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
 
-      console.log(`Inlining ${inline_file_path} into ${filepath}`);
+      // console.log(`Inlining ${inline_file_path} into ${filepath}`);
       const referenced_file = fs.readFileSync(
         path.join("..", inline_file_path),
         "utf8"

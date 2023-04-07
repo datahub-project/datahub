@@ -16,6 +16,11 @@ module.exports = {
         "docs/features",
         "docs/what-is-datahub/datahub-concepts",
         {
+          type: "link",
+          label: "See Datahub In Action",
+          href: "https://demo.datahubproject.io/",
+        },
+        {
           Architecture: [
             "docs/architecture/architecture",
             "docs/components",
@@ -23,7 +28,6 @@ module.exports = {
             "docs/architecture/metadata-serving",
           ],
         },
-        "docs/demo", // rename this to "DataHub Demo"
         "docs/saas",
       ],
     },
@@ -83,6 +87,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/snowflake/overview",
                 "docs/quick-ingestion-guides/snowflake/setup",
                 "docs/quick-ingestion-guides/snowflake/configuration",
+              ],
+            },
+            {
+              Tableau: [
+                "docs/quick-ingestion-guides/tableau/overview",
+                "docs/quick-ingestion-guides/tableau/setup",
+                "docs/quick-ingestion-guides/tableau/configuration",
               ],
             },
           ],

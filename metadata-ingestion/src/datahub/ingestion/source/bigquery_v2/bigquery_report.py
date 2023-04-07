@@ -10,7 +10,7 @@ import pydantic
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.stats_collections import TopKDict
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -19,30 +19,32 @@ logger: logging.Logger = logging.getLogger(__name__)
 class BigQueryV2Report(ProfilingSqlReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
     num_skipped_lineage_entries_not_allowed: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
     num_lineage_entries_sql_parser_failure: TopKDict[str, int] = field(
-        default_factory=TopKDict
-    )
-    num_lineage_entries_sql_parser_success: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
     num_skipped_lineage_entries_other: TopKDict[str, int] = field(
-        default_factory=TopKDict
+        default_factory=int_top_k_dict
     )
-    num_total_log_entries: TopKDict[str, int] = field(default_factory=TopKDict)
-    num_parsed_log_entries: TopKDict[str, int] = field(default_factory=TopKDict)
-    num_total_audit_entries: TopKDict[str, int] = field(default_factory=TopKDict)
-    num_parsed_audit_entries: TopKDict[str, int] = field(default_factory=TopKDict)
+    num_total_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_parsed_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_lineage_log_parse_failures: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
     bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
     lineage_metadata_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
+    usage_error_count: Dict[str, int] = field(default_factory=int_top_k_dict)
+    num_usage_resources_dropped: int = 0
+    num_usage_operations_dropped: int = 0
+    operation_dropped: LossyList[str] = field(default_factory=LossyList)
     usage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
     num_project_datasets_to_scan: Dict[str, int] = field(default_factory=TopKDict)
     metadata_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
@@ -62,14 +64,13 @@ class BigQueryV2Report(ProfilingSqlReport):
     invalid_partition_ids: Dict[str, str] = field(default_factory=TopKDict)
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
-    num_usage_workunits_emitted: Optional[int] = None
-    query_log_delay: Optional[int] = None
-    total_query_log_entries: Optional[int] = None
-    num_read_events: Optional[int] = None
-    num_query_events: Optional[int] = None
-    num_filtered_read_events: Optional[int] = None
-    num_filtered_query_events: Optional[int] = None
-    num_operational_stats_workunits_emitted: Optional[int] = None
+    num_usage_workunits_emitted: int = 0
+    total_query_log_entries: int = 0
+    num_read_events: int = 0
+    num_query_events: int = 0
+    num_filtered_read_events: int = 0
+    num_filtered_query_events: int = 0
+    num_operational_stats_workunits_emitted: int = 0
     read_reasons_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
