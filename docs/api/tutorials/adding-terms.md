@@ -1,55 +1,58 @@
 # Adding Terms On Datasets/Columns
 
-## Why Would You Add Terms? 
+## Why Would You Add Terms?
+
 The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary within the orgarnization, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
 
-Fore more information about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
+For more information about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
 
 ### Goal Of This Guide
-This guide will show you how to add a `CustomerAccount` term to `user_name` column of a dataset named `fct_users_created`.
-Also, we will cover how to add a term to a dataset itself. 
 
+This guide will show you how to add a `CustomerAccount` term to `user_name` column of a dataset named `fct_users_created`.
+Also, we will cover how to add a term to a dataset itself.
 
 ## Pre-requisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed information, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 :::note
-Before adding terms, you need to ensure the targeted dataset and the term are already present in your datahub. 
-If you attempt to manipulate entities that do not exist, your operation will fail. 
+Before adding terms, you need to ensure the targeted dataset and the term are already present in your datahub.
+If you attempt to manipulate entities that do not exist, your operation will fail.
 In this guide, we will be using data from a sample ingestion.
 If you want to know how to create entities using APIs & SDKs, please refer to [Creating Terms](/docs/api/tutorials/creating-terms.md) and [Creating Datasets](/docs/api/tutorials/creating-datasets.md).
 :::
 
-
 ## Add Terms With GraphQL
 
 :::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+Please note that there are two available endpoints (`:8000`, `:9002`) to access `graphql`.
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
 
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+
+GraphQL Explorer is the fastest way to experiment with `graphql` without any dependancies.
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```python
 mutation addTerms {
     addTerms(
-      input: { 
-        termUrns: ["urn:li:glossaryTerm:CustomerAccount"], 
+      input: {
+        termUrns: ["urn:li:glossaryTerm:CustomerAccount"],
         resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
         subResourceType:DATASET_FIELD,
         subResource:"user_name"})
 }
 ```
 
-Note that you can also add a term on a dataset if you don't specify `subResourceType` and `subResource`. 
+Note that you can also add a term on a dataset if you don't specify `subResourceType` and `subResource`.
+
 ```json
 mutation addTerms {
     addTerms(
-      input: { 
-        termUrns: ["urn:li:glossaryTerm:CustomerAccount"], 
+      input: {
+        termUrns: ["urn:li:glossaryTerm:CustomerAccount"],
         resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
       }
   )
@@ -57,6 +60,7 @@ mutation addTerms {
 ```
 
 If you see the following response, the operation was successful:
+
 ```python
 {
   "data": {
@@ -68,7 +72,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Access Token Management](/docs/api/graphql/token-management.md).
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -81,15 +85,13 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 Expected Response:
 
 ```json
-{"data":{"addTerms":true},"extensions":{}}
+{ "data": { "addTerms": true }, "extensions": {} }
 ```
-
 
 ## Add Terms With Python SDK
 
 Following codes add a glossary term named `CustomerAccount` to a column `user_name` of a hive dataset named `fct_users_created`.
 You can refer to a full code in [dataset_add_column_term.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_term.py).
-
 
 ```python
 # inlined from metadata-ingestion/examples/library/dataset_add_column_term.py
@@ -202,8 +204,7 @@ else:
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
 ## Expected Outcomes
-You can now see the term `CustomerAccount` has been added to `user_name` column. 
-![term-added](../../imgs/apis/tutorials/term-created.png)
 
+You can now see the term `CustomerAccount` has been added to `user_name` column.
+![term-added](../../imgs/apis/tutorials/term-created.png)
