@@ -41,7 +41,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Repor
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
-    _make_gcp_logging_client,
+    _make_gcp_logging_client, get_bigquery_client,
 )
 from datahub.ingestion.source.usage.usage_common import make_usage_workunit
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
@@ -860,7 +860,7 @@ class BigQueryUsageExtractor:
     ) -> Iterable[AuditEvent]:
         parse_fn: Callable[[Any], Optional[AuditEvent]]
         if self.config.use_exported_bigquery_audit_metadata:
-            bq_client = BigQueryClient()
+            bq_client = get_bigquery_client(self.config)
             entries = self._get_exported_bigquery_audit_metadata(
                 bigquery_client=bq_client,
                 allow_filter=self.config.get_table_pattern(
