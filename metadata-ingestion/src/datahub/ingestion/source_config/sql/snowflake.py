@@ -15,10 +15,10 @@ from snowflake.connector.network import (
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
-    ConfigurationError,
     OauthConfiguration,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
@@ -134,13 +134,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default="DEFAULT_AUTHENTICATOR",
         description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
     )
-    host_port: Optional[str] = pydantic.Field(
-        default=None, description="DEPRECATED: Snowflake account. e.g. abc48144"
-    )  # Deprecated
-    account_id: Optional[str] = pydantic.Field(
-        default=None,
+    account_id: str = pydantic.Field(
         description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",
-    )  # Once host_port is removed this will be made mandatory
+    )
     warehouse: Optional[str] = pydantic.Field(
         default=None, description="Snowflake warehouse."
     )
@@ -167,34 +163,14 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         assert self.account_id
         return self.account_id
 
-    @pydantic.root_validator
-    def one_of_host_port_or_account_id_is_required(cls, values):
-        host_port = values.get("host_port")
-        if host_port is not None:
-            logger.warning(
-                "snowflake's `host_port` option has been deprecated; use account_id instead"
-            )
-            host_port = remove_protocol(host_port)
-            host_port = remove_trailing_slashes(host_port)
-            host_port = remove_suffix(host_port, SNOWFLAKE_HOST_SUFFIX)
-            values["host_port"] = host_port
-        account_id: Optional[str] = values.get("account_id")
-        if account_id is None:
-            if host_port is None:
-                raise ConfigurationError(
-                    "One of account_id (recommended) or host_port (deprecated) is required"
-                )
-            else:
-                values["account_id"] = host_port
-        else:
-            account_id = remove_protocol(account_id)
-            account_id = remove_trailing_slashes(account_id)
-            account_id = remove_suffix(account_id, SNOWFLAKE_HOST_SUFFIX)
-            if account_id != values["account_id"]:
-                logger.info(f"Using {account_id} as `account_id`.")
-                values["account_id"] = account_id
+    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
 
-        return values
+    @pydantic.validator("account_id")
+    def validate_account_id(cls, account_id: str) -> str:
+        account_id = remove_protocol(account_id)
+        account_id = remove_trailing_slashes(account_id)
+        account_id = remove_suffix(account_id, SNOWFLAKE_HOST_SUFFIX)
+        return account_id
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, field):
@@ -202,6 +178,14 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(VALID_AUTH_TYPES.keys())}"
+            )
+        if (
+            values.get("private_key") is not None
+            or values.get("private_key_path") is not None
+        ) and v != "KEY_PAIR_AUTHENTICATOR":
+            raise ValueError(
+                f"Either `private_key` and `private_key_path` is set but `authentication_type` is {v}. "
+                f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
             )
         if v == "KEY_PAIR_AUTHENTICATOR":
             # If we are using key pair auth, we need the private key path and password to be set

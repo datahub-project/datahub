@@ -25,8 +25,6 @@ class SnowflakeReport(BaseSnowflakeReport, ProfilingSqlReport):
 
     cleaned_account_id: str = ""
     run_ingestion: bool = False
-    provision_role_done: bool = False
-    provision_role_success: bool = False
 
     # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
     saas_version: Optional[str] = None

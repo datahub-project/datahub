@@ -23,7 +23,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 class SQLAlchemyConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     options: dict = pydantic.Field(
         default_factory=dict,
-        description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
+        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
     )
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
@@ -100,7 +100,8 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     database: Optional[str] = Field(default=None, description="database (catalog)")
 
     database_alias: Optional[str] = Field(
-        default=None, description="Alias to apply to database when ingesting."
+        default=None,
+        description="[Deprecated] Alias to apply to database when ingesting.",
     )
     scheme: str = Field(description="scheme")
     sqlalchemy_uri: Optional[str] = Field(
@@ -110,11 +111,12 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
 
     _database_alias_deprecation = pydantic_field_deprecated(
         "database_alias",
-        new_field="platform_instance",
         message="database_alias is deprecated. Use platform_instance instead.",
     )
 
-    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
@@ -123,7 +125,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
             self.host_port,
-            self.database,
+            self.database or database,
             uri_opts=uri_opts,
         )
 

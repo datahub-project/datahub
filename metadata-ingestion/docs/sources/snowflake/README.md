@@ -1,4 +1,4 @@
-## Snowflake Ingestion through the UI
+### Snowflake Ingestion through the UI
 
 The following video shows you how to ingest Snowflake metadata through the UI.
 
