@@ -39,6 +39,9 @@ class SnowflakeTag:
     name: str
     value: str
 
+    def display_name(self) -> str:
+        return f"{self.name}: {self.value}"
+
     def identifier(self) -> str:
         return f"{self._id_prefix_as_str()}:{self.value}"
 
