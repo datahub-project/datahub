@@ -1296,13 +1296,15 @@ class LookMLSource(StatefulIngestionSourceBase):
         if connection in self.source_config.connection_to_platform_map:
             return self.source_config.connection_to_platform_map[connection]
         elif self.looker_client:
-            looker_connection: Optional[DBConnection] = None
             try:
-                looker_connection = self.looker_client.connection(connection)
+                looker_connection: DBConnection = self.looker_client.connection(
+                    connection
+                )
             except SDKError:
-                logger.error(f"Failed to retrieve connection {connection} from Looker")
-
-            if looker_connection:
+                logger.error(
+                    f"Failed to retrieve connection {connection} from Looker. This usually happens when the credentials provided are not admin credentials."
+                )
+            else:
                 try:
                     connection_def: LookerConnectionDefinition = (
                         LookerConnectionDefinition.from_looker_connection(
