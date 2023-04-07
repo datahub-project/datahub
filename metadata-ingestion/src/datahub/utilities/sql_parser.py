@@ -2,7 +2,6 @@ import contextlib
 import logging
 import multiprocessing
 import re
-import sys
 import traceback
 from multiprocessing import Process, Queue
 from typing import Any, List, Optional, Tuple, Type
@@ -80,24 +79,23 @@ def sql_lineage_parser_impl_func_wrapper(
     :param use_raw_names: Parameter used to ignore sqllineage's default lowercasing.
     :return: None.
     """
-    exception_details: Optional[Tuple[Optional[Type[BaseException]], str]] = None
+    exception_details: Optional[Tuple[Type[BaseException], str]] = None
     tables: List[str] = []
     columns: List[str] = []
     try:
         parser = SqlLineageSQLParserImpl(sql_query, use_raw_names)
         tables = parser.get_tables()
         columns = parser.get_columns()
-    except BaseException:
-        exc_info = sys.exc_info()
-        exc_msg: str = str(exc_info[1]) + "".join(traceback.format_tb(exc_info[2]))
-        exception_details = (exc_info[0], exc_msg)
+    except BaseException as e:
+        exc_msg = traceback.format_exc()
+        exception_details = (e, exc_msg)
         logger.debug(exc_msg)
-    finally:
-        if queue is not None:
-            queue.put((tables, columns, exception_details))
-            return None
-        else:
-            return (tables, columns, exception_details)
+
+    if queue is not None:
+        queue.put((tables, columns, exception_details))
+        return None
+    else:
+        return (tables, columns, exception_details)
 
 
 class SqlLineageSQLParser(SQLParser):
