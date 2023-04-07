@@ -530,6 +530,7 @@ class LookerViewFile:
         reporter: LookMLSourceReport,
     ) -> "LookerViewFile":
         logger.debug(f"Loading view file at {absolute_file_path}")
+        logger.debug(f"view file dict = {looker_view_file_dict}")
         includes = looker_view_file_dict.get("includes", [])
         resolved_path = str(pathlib.Path(absolute_file_path).resolve())
         seen_so_far = set()
@@ -1136,6 +1137,12 @@ class LookerManifest:
     remote_dependencies: List[LookerRemoteDependency]
 
 
+@dataclass
+class LookerRefinement:
+    original_view: Optional[LookerView]
+    refinement_views: List[LookerView]
+
+
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -1651,6 +1658,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         # So this set is used to prevent creating duplicate events
         processed_view_map: Dict[str, Set[str]] = {}
         view_connection_map: Dict[str, Tuple[str, str]] = {}
+        view_refinement_map: Dict[str, LookerRefinement] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
@@ -1784,6 +1792,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     ] = (model_name, model.connection)
                                     # first time we are discovering this view
                                     mce = self._build_dataset_mce(maybe_looker_view)
+                                    self.add_refinement(view_refinement_map, maybe_looker_view)
                                     workunit = MetadataWorkUnit(
                                         id=f"lookml-view-{maybe_looker_view.id}",
                                         mce=mce,
@@ -1823,6 +1832,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     str(maybe_looker_view.id)
                                 )
 
+        process_refinement(view_refinement_map)
+
         if (
             self.source_config.tag_measures_and_dimensions
             and self.reporter.events_produced != 0
@@ -1834,6 +1845,29 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
                 self.reporter.report_workunit(workunit)
                 yield workunit
+
+    def process_refinement(self, view_refinement_map: Dict[str, LookerRefinement]) -> None:
+        logger.debug(f"view_refinement_map = {view_refinement_map}")
+
+    @staticmethod
+    def add_refinement(view_refinement_map: Dict[str, LookerRefinement], looker_view: LookerView) -> None:
+        refinement_prefix: str = "+"
+        is_refinement: bool = looker_view.id.view_name.startswith(refinement_prefix)
+        view_name_without_prefix: str = looker_view.id.view_name.strip(refinement_prefix)
+        looker_refinement: LookerRefinement = view_refinement_map.get(view_name_without_prefix)
+        # Create new instance
+        if looker_refinement is None:
+            view_refinement_map[view_name_without_prefix] = LookerRefinement(
+                original_view=None,
+                refinement_views=[]
+            )
+        # Append to refinement list
+        if is_refinement:
+            view_refinement_map[view_name_without_prefix].refinement_views.append(looker_view)
+        else:
+            view_refinement_map[view_name_without_prefix].original_view = looker_view
+
+
 
     def get_report(self):
         return self.reporter
