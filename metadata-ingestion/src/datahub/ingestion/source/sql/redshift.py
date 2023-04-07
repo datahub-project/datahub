@@ -695,6 +695,7 @@ class RedshiftSource(SQLAlchemySource):
         db_alias = self.config.database_alias
         if db_alias:
             db_name = db_alias
+        assert db_name
         return db_name
 
     def _get_s3_path(self, path: str) -> str:

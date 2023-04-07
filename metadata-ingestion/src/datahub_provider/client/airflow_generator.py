@@ -77,7 +77,9 @@ class AirflowGenerator:
             subdags = [
                 x for x in dag.parent_dag.task_dict.values() if x.subdag is not None
             ]
-            matched_subdags = [x for x in subdags if x.subdag.dag_id == dag.dag_id]
+            matched_subdags = [
+                x for x in subdags if x.subdag and x.subdag.dag_id == dag.dag_id
+            ]
 
             # id of the task containing the subdag
             subdag_task_id = matched_subdags[0].task_id

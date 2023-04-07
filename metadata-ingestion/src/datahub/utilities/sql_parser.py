@@ -4,7 +4,7 @@ import multiprocessing
 import re
 import traceback
 from multiprocessing import Process, Queue
-from typing import Any, List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
 from datahub.utilities.sql_parser_base import SQLParser
@@ -79,7 +79,7 @@ def sql_lineage_parser_impl_func_wrapper(
     :param use_raw_names: Parameter used to ignore sqllineage's default lowercasing.
     :return: None.
     """
-    exception_details: Optional[Tuple[Type[BaseException], str]] = None
+    exception_details: Optional[Tuple[BaseException, str]] = None
     tables: List[str] = []
     columns: List[str] = []
     try:

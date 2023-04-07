@@ -2,7 +2,7 @@ import logging
 import os
 import platform
 import sys
-from typing import Optional
+from typing import ContextManager, Optional
 
 import click
 
@@ -31,7 +31,7 @@ from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
 
 logger = logging.getLogger(__name__)
-_logging_configured = None
+_logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
 
@@ -97,8 +97,11 @@ def datahub(
     # clean it up before those error handlers are processed.
     # So why is this ok? Because we're leaking a context manager, this will
     # still get cleaned up automatically when the memory is reclaimed, which is
-    # worse-case at program exit.
+    # worse-case at program exit. In a slightly better case, the context manager's
+    # exit call will be triggered by the finally clause of the main() function.
     global _logging_configured
+    if _logging_configured is not None:
+        _logging_configured.__exit__(None, None, None)
     _logging_configured = None  # see if we can force python to GC this
     _logging_configured = configure_logging(debug=debug, log_file=log_file)
     _logging_configured.__enter__()
@@ -201,3 +204,6 @@ def main(**kwargs):
         if gms_config:
             logger.debug(f"GMS config {gms_config}")
         sys.exit(1)
+    finally:
+        if _logging_configured:
+            _logging_configured.__exit__(None, None, None)

@@ -29,7 +29,7 @@ FROZEN_TIME = "2021-12-07 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
-test_resources_dir = None
+test_resources_dir = pathlib.Path(__file__).parent
 
 config_source_default = {
     "username": "username",
@@ -67,9 +67,6 @@ def enable_logging():
 
 
 def read_response(pytestconfig, file_name):
-    test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/tableau"
-    )
     response_json_path = f"{test_resources_dir}/setup/{file_name}"
     with open(response_json_path) as file:
         data = json.loads(file.read())
@@ -154,9 +151,6 @@ def tableau_ingest_common(
     sign_out_side_effect=lambda: None,
     pipeline_name="tableau-test-pipeline",
 ):
-    test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/tableau"
-    )
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
