@@ -4,7 +4,7 @@
 
 The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary within the orgarnization, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
 
-For moreinformation about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
+For more information about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
 
 ### Goal Of This Guide
 
