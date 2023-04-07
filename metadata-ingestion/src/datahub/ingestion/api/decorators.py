@@ -17,7 +17,7 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
         # add a get_config_class method
         cls.get_config_class = lambda: config_cls
         if not hasattr(cls, "create") or (
-            cls.create.__func__ == Source.create.__func__
+            cls.create.__func__ == Source.create.__func__  # type: ignore
         ):
             # add the create method only if it has not been overridden from the base Source.create method
             cls.create = classmethod(default_create)
