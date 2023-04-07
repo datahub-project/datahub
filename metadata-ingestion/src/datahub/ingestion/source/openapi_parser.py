@@ -1,6 +1,6 @@
 import json
 import re
-import warnings
+import logging
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import requests
@@ -13,6 +13,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
+
+logger = logging.getLogger(__name__)
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -162,7 +164,7 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
                                 ex_field
                             ][0]
                     else:
-                        warnings.warn(
+                        logger.warning(
                             f"Field in swagger file does not give consistent data --- {p_k}"
                         )
                 elif "text/csv" in res_cont.keys():
@@ -296,12 +298,12 @@ def extract_fields(
     dict_data = json.loads(response.content)
     if isinstance(dict_data, str):
         # no sense
-        warnings.warn(f"Empty data --- {dataset_name}")
+        logger.warning(f"Empty data --- {dataset_name}")
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
         if len(dict_data) == 0:
-            warnings.warn(f"Empty data --- {dataset_name}")
+            logger.warning(f"Empty data --- {dataset_name}")
             return [], {}
         # so we take the fields of the first element,
         # if it's a dict
@@ -330,7 +332,7 @@ def extract_fields(
             else:
                 return [], {}  # it's empty!
         else:
-            warnings.warn(f"Unable to get the attributes --- {dataset_name}")
+            logger.warning(f"Unable to get the attributes --- {dataset_name}")
             return [], {}
 
 

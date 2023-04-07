@@ -80,8 +80,11 @@ from datahub.utilities.urns.urn import Urn
 
 def make_generic_dataset(
     entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-    aspects: List[Any] = [models.StatusClass(removed=False)],
+    aspects: Optional[List[Any]] = None,
 ) -> models.MetadataChangeEventClass:
+    if aspects is None:
+        # Default to a status aspect if none is provided.
+        aspects = [models.StatusClass(removed=False)]
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn=entity_urn,
