@@ -691,8 +691,8 @@ class RedshiftSource(SQLAlchemySource):
         return sources
 
     def get_db_name(self, inspector: Optional[Inspector] = None) -> str:
-        db_name = getattr(self.config, "database")
-        db_alias = getattr(self.config, "database_alias")
+        db_name = self.config.database
+        db_alias = self.config.database_alias
         if db_alias:
             db_name = db_alias
         return db_name

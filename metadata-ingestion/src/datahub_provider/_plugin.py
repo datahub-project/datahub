@@ -335,7 +335,7 @@ def _wrap_task_policy(policy):
         policy(task)
         task_policy(task)
 
-    setattr(custom_task_policy, "_task_policy_patched_by", "datahub_plugin")
+    custom_task_policy._task_policy_patched_by = "datahub_plugin"
     return custom_task_policy
 
 
