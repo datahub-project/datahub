@@ -16,6 +16,11 @@ module.exports = {
         "docs/features",
         "docs/what-is-datahub/datahub-concepts",
         {
+          type: "link",
+          label: "See Datahub In Action",
+          href: "https://demo.datahubproject.io/",
+        },
+        {
           Architecture: [
             "docs/architecture/architecture",
             "docs/components",
@@ -23,7 +28,6 @@ module.exports = {
             "docs/architecture/metadata-serving",
           ],
         },
-        "docs/demo", // rename this to "DataHub Demo"
         "docs/saas",
       ],
     },
