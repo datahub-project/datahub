@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable, Union
 
 from pydantic.class_validators import validator
 from pydantic.fields import Field
@@ -21,9 +21,9 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    register_custom_type,
+    register_custom_type, SqlWorkUnit,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig, SQLAlchemyConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NullTypeClass,
@@ -33,6 +33,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from ingestion.api.workunit import MetadataWorkUnit
+from ingestion.source.delta_lake import DeltaLakeSource
+from ingestion.source.delta_lake.config import DeltaLakeSourceConfig
+from ingestion.source.delta_lake.delta_lake_utils import read_delta_table
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,8 @@ try:
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
     from pyhive.sqlalchemy_hive import _type_map
     from sqlalchemy import types, util
-    from sqlalchemy.engine import reflection
+    from sqlalchemy.engine import reflection, Inspector
+
 
     @reflection.cache  # type: ignore
     def dbapi_get_columns_patched(self, connection, table_name, schema=None, **kw):
@@ -103,6 +108,13 @@ class HiveConfig(BasicSQLAlchemyConfig):
         description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.",
     )
 
+    include_delta_lake_table_metadata = Field(
+        default=False,
+        description="",
+    )
+
+    delta_lake_config: Optional[DeltaLakeSourceConfig] = Field()
+
     @validator("host_port")
     def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
@@ -128,6 +140,9 @@ class HiveSource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "hive")
+        if config.include_delta_lake_table_metadata:
+            self.delta_lake_config: DeltaLakeSourceConfig = config.delta_lake_config
+            self.delta_lake_source: DeltaLakeSource = DeltaLakeSource(config.delta_lake_config, ctx)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -174,3 +189,31 @@ class HiveSource(SQLAlchemySource):
             return new_fields
 
         return fields
+
+    def _process_table(
+            self,
+            dataset_name: str,
+            inspector: Inspector,
+            schema: str,
+            table: str,
+            sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        description, properties, location_urn = self.get_table_properties(
+            inspector, schema, table
+        )
+        if self.include_delta_lake_table_metadata:
+            # Spark puts a property to table on hive metadata server as "spark.sql.sources.provider=delta"
+            # If the table is written by spark with delta lake format
+            data_format_key = next(filter(lambda key: key.endswith('spark.sql.sources.provider'), properties), None)
+            if properties[data_format_key] == 'delta':
+                table_path_key = next(filter(lambda key: key.endswith('path'), properties), None)
+                table_path = properties[table_path_key]
+                if table_path:
+                    delta_table = read_delta_table(table_path, self.source_config)
+                    if delta_table:
+                        logger.debug(f"Delta table found at: {table_path}")
+                        for wu in self.delta_lake_source.ingest_table(delta_table, table_path):
+                            yield wu
+                        return
+
+        super()._process_table(dataset_name, inspector, schema, table, sql_config)
