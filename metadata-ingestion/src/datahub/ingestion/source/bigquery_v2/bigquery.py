@@ -308,7 +308,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     tables={},
                     with_data_read_permission=config.profiling.enabled,
                 )
-                if len(tables) == 0:
+                if len(list(tables)) == 0:
                     return CapabilityReport(
                         capable=False,
                         failure_reason=f"Tables query did not return any table. It is either empty or no tables in project {project_id}.{result[0].name}",
@@ -759,8 +759,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         if self.config.include_tables:
-            db_tables[dataset_name] = self.get_tables_for_dataset(
-                conn, project_id, dataset_name
+            db_tables[dataset_name] = list(
+                self.get_tables_for_dataset(conn, project_id, dataset_name)
             )
 
             for table in db_tables[dataset_name]:
@@ -773,8 +773,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.include_views:
-            db_views[dataset_name] = BigQueryDataDictionary.get_views_for_dataset(
-                conn, project_id, dataset_name, self.config.profiling.enabled
+            db_views[dataset_name] = list(
+                BigQueryDataDictionary.get_views_for_dataset(
+                    conn, project_id, dataset_name, self.config.profiling.enabled
+                )
             )
 
             for view in db_views[dataset_name]:
@@ -1178,12 +1180,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client,
         project_id: str,
         dataset_name: str,
-    ) -> List[BigqueryTable]:
-        bigquery_tables: Optional[List[BigqueryTable]] = []
-
+    ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
-            bigquery_tables = []
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
@@ -1203,33 +1202,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             for table_item in table_items.keys():
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
-                    bigquery_tables.extend(
-                        BigQueryDataDictionary.get_tables_for_dataset(
-                            conn,
-                            project_id,
-                            dataset_name,
-                            items_to_get,
-                            with_data_read_permission=self.config.profiling.enabled,
-                        )
-                    )
-                    items_to_get.clear()
-
-            if items_to_get:
-                bigquery_tables.extend(
-                    BigQueryDataDictionary.get_tables_for_dataset(
+                    yield from BigQueryDataDictionary.get_tables_for_dataset(
                         conn,
                         project_id,
                         dataset_name,
                         items_to_get,
                         with_data_read_permission=self.config.profiling.enabled,
                     )
+                    items_to_get.clear()
+
+            if items_to_get:
+                yield from BigQueryDataDictionary.get_tables_for_dataset(
+                    conn,
+                    project_id,
+                    dataset_name,
+                    items_to_get,
+                    with_data_read_permission=self.config.profiling.enabled,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
             timer.elapsed_seconds(), 2
         )
-
-        return bigquery_tables
 
     def get_core_table_details(
         self, conn: bigquery.Client, dataset_name: str, project_id: str
@@ -1297,7 +1290,3 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
-
-    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")

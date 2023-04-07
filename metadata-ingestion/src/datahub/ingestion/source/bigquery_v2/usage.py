@@ -245,7 +245,7 @@ class BigQueryUsageExtractor:
             logger.warning(
                 f"Encountered exception retrieving AuditLogEntries for project {client.project} - {e}"
             )
-            self.report.report_failure(
+            self.report.report_warning(
                 "lineage-extraction",
                 f"{client.project} - unable to retrieve log entries {e}",
             )
@@ -346,7 +346,7 @@ class BigQueryUsageExtractor:
             logger.warning(
                 f"Encountered exception retrieving AuditLogEntires for project {client.project} - {e}"
             )
-            self.report.report_failure(
+            self.report.report_warning(
                 "usage-extraction",
                 f"{client.project} - unable to retrive log entrires {e}",
             )
