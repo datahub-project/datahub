@@ -21,81 +21,62 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 
 ## Create Datasets With Python SDK
 
-The following code creates a hive dataset named `realestate_db.sales` with three fields.
-You can refer to the complete code in [dataset_schema.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_schema.py).
+The following code creates a Hive dataset named realestate_db.sales with three fields and a URN of urn:li:dataset:(urn:li:dataPlatform:hive,realestate_db.sales,PROD):
 
 ```python
-# inlined from metadata-ingestion/examples/library/dataset_schema.py
-# Imports for urn construction utility methods
-from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DateTypeClass,
-    OtherSchemaClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
-)
-
-event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityUrn=make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD"),
-    aspect=SchemaMetadataClass(
-        schemaName="customer",  # not used
-        platform=make_data_platform_urn("hive"),  # important <- platform must be an urn
-        version=0,  # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
-        hash="",  # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
-        platformSchema=OtherSchemaClass(rawSchema="__insert raw schema here__"),
-        lastModified=AuditStampClass(
-            time=1640692800000, actor="urn:li:corpuser:ingestion"
-        ),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="address.zipcode",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="VARCHAR(50)",  # use this to provide the type of the field in the source system's vernacular
-                description="This is the zipcode of the address. Specified using extended form and limited to addresses in the United States",
-                lastModified=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
-                ),
-            ),
-            SchemaFieldClass(
-                fieldPath="address.street",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="VARCHAR(100)",
-                description="Street corresponding to the address",
-                lastModified=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
-                ),
-            ),
-            SchemaFieldClass(
-                fieldPath="last_sold_date",
-                type=SchemaFieldDataTypeClass(type=DateTypeClass()),
-                nativeDataType="Date",
-                description="Date of the last sale date for this property",
-                created=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
-                ),
-                lastModified=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
-                ),
-            ),
-        ],
-    ),
-)
-
-# Create rest emitter
-rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-rest_emitter.emit(event)
-
+{{ inline /metadata-ingestion/examples/library/dataset_schema.py show_path_as_comment }}
 ```
 
+Note that the `name` property of `make_dataset_urn` sets the display name of the dataset.
+
+After creating the dataset, you can perform various manipulations, such as adding lineage and custom properties. 
+Here are some steps to start with, but for more detailed guidance, please refer to the [What's Next](/docs/api/tutorials/creating-datasets.md#whats-next) section.
+
+### Add Lineage
+The following code creates a lineage from `fct_users_deleted` to `realestate_db.sales`:
+
+```python
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+
+# Construct a lineage object.
+lineage_mce = builder.make_lineage_mce(
+    [
+        builder.make_dataset_urn("hive", "fct_users_deleted"), # Upstream
+    ],
+    builder.make_dataset_urn("hive", "realestate_db.sales"), # Downstream
+)
+
+# Create an emitter to the GMS REST API.
+emitter = DatahubRestEmitter("http://localhost:8080")
+
+# Emit metadata!
+emitter.emit_mce(lineage_mce)
+```
+For more information on adding lineages, please refer to [how to add lineage on a dataset using PythonSDK](/docs/api/tutorials/adding-lineage.md#add-lineage-with-python-sdk).
+
+### Add custom properties
+You can also set custom properties using the following code:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_custom_properties.py show_path_as_comment }}
+```
+
+Note that this code checks the existing custom properties of the target dataset and updates them. 
+If you want to overwrite the current ones, you can simply comment out this part:
+
+```python
+if graph.get_aspect(entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass):
+    existing_custom_properties = graph.get_aspect(entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass).customProperties
+    custom_properties_to_add.update(existing_custom_properties)
+```
+
+This will create custom properties like the ones shown below as an outcome.
+
+![custom-properties-added](../../imgs/apis/tutorials/custom-properties-added.png)
+
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md).
 
 ## Expected Outcomes
 
