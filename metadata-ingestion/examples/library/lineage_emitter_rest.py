@@ -4,9 +4,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 # Construct a lineage object.
 lineage_mce = builder.make_lineage_mce(
     [
-        builder.make_dataset_urn("hive", "fct_users_deleted"), # Upstream
+        builder.make_dataset_urn("hive", "fct_users_deleted"),  # Upstream
     ],
-    builder.make_dataset_urn("hive", "logging_events"), # Downstream
+    builder.make_dataset_urn("hive", "logging_events"),  # Downstream
 )
 
 # Create an emitter to the GMS REST API.
