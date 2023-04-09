@@ -50,15 +50,3 @@ task integrationTest(type: Exec, dependsOn: [build, ':docker:quickstart'] ) {
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
 }
-
-ext {
-   datasetCustomPropertiesClass = "io.datahubproject.examples.DatasetCustomProperties"
-}
-
-
-task runDatasetCustomProperties(type: JavaExec) {
-    group = "Execution"
-    description = "Run the Dataset Custom Properties example with JavaExecTask"
-    classpath = sourceSets.main.runtimeClasspath
-    main = datasetCustomPropertiesClass
-}

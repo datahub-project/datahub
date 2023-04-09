@@ -6,7 +6,7 @@ import lombok.Getter;
 public enum PatchOperationType {
   ADD("add"),
   REMOVE("remove");
-
+  
   @Getter
   private final String value;
 

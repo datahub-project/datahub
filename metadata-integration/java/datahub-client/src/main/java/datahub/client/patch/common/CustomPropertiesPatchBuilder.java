@@ -22,13 +22,28 @@ public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuild
     this.parent = parentBuilder;
   }
 
+  /**
+   * Add a property to a custom properties field
+   * @param key
+   * @param value
+   * @return
+   */
   public CustomPropertiesPatchBuilder<T> addProperty(String key, String value) {
     operations.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), CUSTOM_PROPERTIES_BASE_PATH + key,
         instance.textNode(value)));
     return this;
   }
 
-  public CustomPropertiesPatchBuilder<T> removeProperty(String key, String value) {
+  /**
+   * Remove a property from a custom properties field. If the property doesn't exist, this is a no-op.
+   * @param key
+   * @return
+   */
+  public CustomPropertiesPatchBuilder<T> removeProperty(String key) {
+    return removeProperty(key, null);
+  }
+
+  private CustomPropertiesPatchBuilder<T> removeProperty(String key, String value) {
     operations.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), CUSTOM_PROPERTIES_BASE_PATH + key,
         instance.textNode(value)));
     return this;
