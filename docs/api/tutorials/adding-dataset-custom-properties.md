@@ -1,21 +1,17 @@
-# Adding or Replacing Custom Properties on Datasets
+# Modifying Custom Properties on Datasets
 
-## Why Would You Add or Replace Custom Properties to Datasets? 
-Adding custom properties to datasets can help to provide additional information about the data that is not readily available in the standard metadata fields. Custom properties can be used to describe specific attributes of the data, such as the units of measurement used, the date range covered, or the geographical region the data pertains to. This can be particularly helpful when working with large and complex datasets, where additional context can help to ensure that the data is being used correctly and effectively.
+## Why Would You Use Custom Properties on Datasets? 
+Custom properties to datasets can help to provide additional information about the data that is not readily available in the standard metadata fields. Custom properties can be used to describe specific attributes of the data, such as the units of measurement used, the date range covered, or the geographical region the data pertains to. This can be particularly helpful when working with large and complex datasets, where additional context can help to ensure that the data is being used correctly and effectively.
 
 DataHub models custom properties of a Dataset as a map of key-value pairs of strings.
 
 Custom properties can also be used to enable advanced search and discovery capabilities, by allowing users to filter and sort datasets based on specific attributes. This can help users to quickly find and access the data they need, without having to manually review large numbers of datasets.
 
-### When to Add or Replace
-
-There may be situations where it is more appropriate to replace existing custom properties on a dataset, rather than simply adding new ones.
-
-Adding and removing specific properties is supported through patch semantics while full replaces can be done using the standard upsert APIs.
-
-
 ### Goal Of This Guide
-This guide will show you how to add or replace custom properties on dataset `fct_users_deleted`.
+This guide will show you how to add, remove or replace custom properties on a dataset `fct_users_deleted`. Here's what each operation means:
+- Add: Add custom properties to a dataset without affecting existing properties
+- Remove: Removing specific properties from the dataset without affecting other properties
+- Replace: Completely replacing the entire property map without affecting other fields that are located in the same aspect. e.g. `DatasetProperties` aspect contains `customProperties` as well as other fields like `name` and `description`.
 
 
 ## Prerequisites
@@ -30,39 +26,129 @@ In this guide, we will be using data from sample ingestion.
 
 In this example, we will add some custom properties `cluster_name` and `retention_time` to the dataset `fct_users_deleted`.
 
+After you have ingested sample data, the dataset `fct_users_deleted` should have a custom properties section with `encoding` set to `utf-8`.
+
+![dataset-properties-before](../../imgs/apis/tutorials/dataset-properties-before.png)
+
+
+```shell
+datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)" --aspect datasetProperties
+{
+  "datasetProperties": {
+    "customProperties": {
+      "encoding": "utf-8"
+    },
+    "description": "table containing all the users deleted on a single day",
+    "tags": []
+  }
+}
+```
+
+
+## Add Custom Properties With GraphQL (Not Supported)
+> 🚫 Adding Custom Properties on Dataset via GraphQL is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
+
+## Replace Custom Properties With GraphQL (Not Supported)
+> 🚫 Replacing Custom Properties on Dataset via GraphQL is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
+
 ## Add Custom Properties With Java SDK
 The following code adds custom properties `cluster_name` and `retention_time` to a dataset named `fct_users_deleted` without affecting existing properties.
 
 ```java
-{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomProperties.java }}
-```
-
-## Replace Custom Properties With Java SDK
-The following code replaces the current custom properties to a dataset named `fct_users_deleted` with `cluster_name` and `retention_time`. Note, since this
-is utilizing the upsert API this will do a full replace of the Dataset Properties aspect and will not retain other fields unless specified. To just modify custom properties
-you can use the above example and combine it with delete requests for unwanted properties.
-
-```java
-{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesReplace.java }}
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAdd.java }}
 ```
 
 ## Add Custom Properties With Python SDK
 > 🚫 Adding Custom Properties on Dataset via the Python SDK using patch semantics is currently not supported.
 
+## Expected Outcome of Adding Custom Properties
+You can now see the two new properties are added to `fct_users_deleted` and the previous property `encoding` is unchanged. 
+
+![dataset-properties-added](../../imgs/apis/tutorials/dataset-properties-added.png)
+
+
+We can also verify this operation by programmatically checking the `datasetProperties` aspect after running this code using the `datahub` cli.
+
+```shell
+datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)" --aspect datasetProperties
+{
+  "datasetProperties": {
+    "customProperties": {
+      "encoding": "utf-8",
+      "cluster_name": "datahubproject.acryl.io",
+      "retention_time": "2 years"
+    },
+    "description": "table containing all the users deleted on a single day",
+    "tags": []
+  }
+}
+```
+
+## Add and Remove Custom Properties With Java SDK
+The following code shows you how can add and remove custom properties in the same call. In the following code, we add custom property `cluster_name` and remove property `retention_time` from a dataset named `fct_users_deleted` without affecting existing properties.
+
+```java
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java }}
+```
+
+## Add and Remove Custom Properties With Python SDK
+> 🚫 Adding and Removing Custom Properties on Dataset via the Python SDK using patch semantics is currently not supported.
+
+
+## Expected Outcome of Add and Remove Operations on Custom Properties
+
+You can now see the `cluster_name` property is added to `fct_users_deleted` and the `retention_time` property is removed.
+
+![dataset-properties-added-removed](../../imgs/apis/tutorials/dataset-properties-added-removed.png)
+
+
+We can also verify this operation programmatically by checking the `datasetProperties` aspect using the `datahub` cli.
+
+```shell
+datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)" --aspect datasetProperties
+{
+  "datasetProperties": {
+    "customProperties": {
+      "encoding": "utf-8",
+      "cluster_name": "datahubproject.acryl.io"
+    },
+    "description": "table containing all the users deleted on a single day",
+    "tags": []
+  }
+}
+```
+
+## Replace Custom Properties With Java SDK
+The following code replaces the current custom properties with a new properties map that includes only the properties `cluster_name` and `retention_time`. After running this code, the previous `encoding` property will be removed.
+
+```java
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesReplace.java }}
+```
+
+
 ## Replace Custom Properties With Python SDK
-Replacing the custom properties can be done in a similar way to [dataset_add_documentation.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_documentation.py)
-just modify description with a custom properties map.
- 
+> 🚫 Adding and Removing Custom Properties on Dataset via the Python SDK using patch semantics is currently not supported.
 
-> ## Add Custom Properties With GraphQL (Not Supported)
-> 🚫 Adding Custom Properties on Dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
+## Expected Outcome of Replacing Custom Properties
 
-## Replace Custom Properties With GraphQL (Not Supported)
-> 🚫 Replacing Custom Properties on Dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
+You can now see the `cluster_name` and `retention_time` properties are added to `fct_users_deleted` but the previous `encoding` property is no longer present.
 
-## Expected Outcomes
-The custom properties are added to `fct_users_deleted` and you are able to search by these properties.
-To do so you can type `/q customProperties:cluster_name=datahubproject.acryl.io` into the search bar in the UI.
+![dataset-properties-replaced](../../imgs/apis/tutorials/dataset-properties-replaced.png)
 
+We can also verify this operation programmatically by checking the `datasetProperties` aspect using the `datahub` cli.
+
+```shell
+datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)" --aspect datasetProperties
+{
+  "datasetProperties": {
+    "customProperties": {
+      "cluster_name": "datahubproject.acryl.io",
+      "retention_time": "2 years"
+    },
+    "description": "table containing all the users deleted on a single day",
+    "tags": []
+  }
+}
+```

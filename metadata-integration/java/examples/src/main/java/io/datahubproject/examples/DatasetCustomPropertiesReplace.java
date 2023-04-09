@@ -14,9 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-class DatasetCustomPropertiesSet {
+class DatasetCustomPropertiesReplace {
 
-  private DatasetCustomPropertiesSet() {
+  private DatasetCustomPropertiesReplace() {
 
   }
 
