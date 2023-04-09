@@ -57,7 +57,7 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PR
 The following code adds custom properties `cluster_name` and `retention_time` to a dataset named `fct_users_deleted` without affecting existing properties.
 
 ```java
-{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAdd.java }}
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAdd.java show_path_as_comment }}
 ```
 
 ## Add Custom Properties With Python SDK
@@ -90,7 +90,7 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PR
 The following code shows you how can add and remove custom properties in the same call. In the following code, we add custom property `cluster_name` and remove property `retention_time` from a dataset named `fct_users_deleted` without affecting existing properties.
 
 ```java
-{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java }}
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java show_path_as_comment }}
 ```
 
 ## Add and Remove Custom Properties With Python SDK
@@ -124,7 +124,7 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PR
 The following code replaces the current custom properties with a new properties map that includes only the properties `cluster_name` and `retention_time`. After running this code, the previous `encoding` property will be removed.
 
 ```java
-{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesReplace.java }}
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesReplace.java show_path_as_comment }}
 ```
 
 
