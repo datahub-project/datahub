@@ -1,30 +1,24 @@
 import time
 import uuid
-from typing import Optional
+from typing import Dict, Optional
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-    make_tag_urn,
-    make_term_urn,
-    make_user_urn,
-)
+from datahub.emitter.mce_builder import (make_dataset_urn, make_tag_urn,
+                                         make_term_urn, make_user_urn)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DatasetLineageTypeClass,
-    EditableSchemaFieldInfoClass,
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
-    GlossaryTermAssociationClass,
-    GlossaryTermsClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    TagAssociationClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-)
+from datahub.metadata.schema_classes import (AuditStampClass,
+                                             DatasetLineageTypeClass,
+                                             DatasetPropertiesClass,
+                                             EditableSchemaFieldInfoClass,
+                                             EditableSchemaMetadataClass,
+                                             GlobalTagsClass,
+                                             GlossaryTermAssociationClass,
+                                             GlossaryTermsClass, OwnerClass,
+                                             OwnershipClass,
+                                             OwnershipTypeClass,
+                                             TagAssociationClass,
+                                             UpstreamClass,
+                                             UpstreamLineageClass)
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
@@ -387,3 +381,136 @@ def test_field_tags_patch(wait_for_healthchecks):
         assert field_info
         assert field_info.description == "This is a test field"
         assert len(field_info.globalTags.tags) == 0
+
+
+def get_custom_properties(
+    graph: DataHubGraph, dataset_urn: str
+) -> Optional[Dict[str, str]]:
+    dataset_properties = graph.get_aspect(
+        entity_urn=dataset_urn,
+        aspect_type=DatasetPropertiesClass,
+    )
+    assert dataset_properties
+    return dataset_properties.customProperties
+
+
+def test_custom_properties_patch(wait_for_healthchecks):
+
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
+
+    base_property_map = {"base_property": "base_property_value"}
+
+    orig_dataset_properties = DatasetPropertiesClass(
+        customProperties=base_property_map,
+        name="test dataset",
+        description="base description",
+    )
+    mcpw = MetadataChangeProposalWrapper(
+        entityUrn=dataset_urn, aspect=orig_dataset_properties
+    )
+
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        graph.emit(mcpw)
+        # assert custom properties looks as expected
+        custom_properties = get_custom_properties(graph, dataset_urn)
+        assert custom_properties
+        for k, v in base_property_map.items():
+            assert custom_properties[k] == v
+
+        new_properties = {
+            "test_property": "test_value",
+            "test_property1": "test_value1",
+        }
+
+        custom_properties_builder = DatasetPatchBuilder(
+            dataset_urn
+        ).custom_properties_patch_builder()
+        for k, v in new_properties.items():
+            custom_properties_builder.add_property(k, v)
+
+        for patch_mcp in custom_properties_builder.build():
+            graph.emit_mcp(patch_mcp)
+
+        custom_properties = get_custom_properties(graph, dataset_urn)
+
+        assert custom_properties is not None
+        for k, v in new_properties.items():
+            assert custom_properties[k] == v
+
+        # ensure exising properties were not touched
+        for k, v in base_property_map.items():
+            assert custom_properties[k] == v
+
+        # Remove property
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .custom_properties_patch_builder()
+            .remove_property("test_property")
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+
+        custom_properties = get_custom_properties(graph, dataset_urn)
+
+        assert custom_properties is not None
+        assert "test_property" not in custom_properties
+        assert custom_properties["test_property1"] == "test_value1"
+
+        # ensure exising properties were not touched
+        for k, v in base_property_map.items():
+            assert custom_properties[k] == v
+
+        # Replace custom properties
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .set_custom_properties(new_properties)
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+
+        custom_properties = get_custom_properties(graph, dataset_urn)
+
+        assert custom_properties is not None
+        for k in base_property_map:
+            assert k not in custom_properties
+        for k, v in new_properties.items():
+            assert custom_properties[k] == v
+
+        dataset_properties: Optional[DatasetPropertiesClass] = graph.get_aspect(
+            dataset_urn, DatasetPropertiesClass
+        )
+
+        assert dataset_properties
+        assert dataset_properties.name == orig_dataset_properties.name
+        assert dataset_properties.description == orig_dataset_properties.description
+
+        # Patch custom properties along with name
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .set_description("This is a new description")
+            .custom_properties_patch_builder()
+            .add_property("test_description_property", "test_description_value")
+            .parent()
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+
+        dataset_properties: Optional[DatasetPropertiesClass] = graph.get_aspect(
+            dataset_urn, DatasetPropertiesClass
+        )
+
+        assert dataset_properties
+        assert dataset_properties.name == orig_dataset_properties.name
+        assert dataset_properties.description == "This is a new description"
+
+        custom_properties = get_custom_properties(graph, dataset_urn)
+
+        assert custom_properties is not None
+        for k, v in new_properties.items():
+            assert custom_properties[k] == v
+
+        assert (
+            custom_properties["test_description_property"] == "test_description_value"
+        )

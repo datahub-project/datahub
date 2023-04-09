@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass as Tag,
     UpstreamClass as Upstream,
 )
+from datahub.specific.custom_properties import CustomPropertiesPatchBuilder
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -170,4 +171,37 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             system_metadata=self.system_metadata,
             audit_header=self.audit_header,
             editable=editable,
+        )
+
+    def set_description(self, description: str) -> "DatasetPatchBuilder":
+        self._add_patch(
+            "datasetProperties", "replace", path="/description", value=description
+        )
+        return self
+
+    def set_custom_properties(
+        self, custom_properties: Dict[str, str]
+    ) -> "DatasetPatchBuilder":
+        self._add_patch(
+            "datasetProperties",
+            "replace",
+            path="/customProperties",
+            value=custom_properties,
+        )
+        return self
+
+    def custom_properties_patch_builder(
+        self,
+    ) -> "CustomPropertiesPatchBuilder['DatasetPatchBuilder']":
+        """
+        Get a builder that can perform patches against custom properties in the dataset
+        """
+
+        return CustomPropertiesPatchBuilder(
+            self,
+            self.urn,
+            "dataset",
+            "datasetProperties",
+            self.system_metadata,
+            self.audit_header,
         )
