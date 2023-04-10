@@ -140,6 +140,7 @@ fragment autoCompleteFields on Entity {
         name
         properties {
             name
+            colorHex
         }
     }
     ... on MLFeatureTable {
@@ -699,6 +700,7 @@ fragment searchResultFields on Entity {
         name
         properties {
             name
+            colorHex
         }
         description
     }
@@ -719,6 +721,7 @@ fragment facetFields on FacetMetadata {
             ... on Tag {
                 name
                 properties {
+                    name
                     colorHex
                 }
             }
