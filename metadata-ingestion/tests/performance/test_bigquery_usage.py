@@ -34,7 +34,7 @@ def test_bigquery_usage(report_log_level_info):
     report.set_project_state("All", "Seed Data Generation")
     seed_metadata = generate_data(
         num_containers=100,
-        num_tables=250,
+        num_tables=2500,
         num_views=100,
         time_range=timedelta(days=1),
     )
@@ -55,7 +55,7 @@ def test_bigquery_usage(report_log_level_info):
 
     queries = generate_queries(
         seed_metadata,
-        num_selects=10000,
+        num_selects=30000,
         num_operations=20000,
         num_users=10,
     )
@@ -65,8 +65,8 @@ def test_bigquery_usage(report_log_level_info):
 
     report.set_project_state("All", "Event Ingestion")
     with PerfTimer() as timer:
-        assert usage_extractor, table_refs  # TODO: Replace with call to usage extractor
-        num_workunits = sum(1 for _ in [])
+        workunits = usage_extractor._run(events, table_refs)
+        num_workunits = sum(1 for _ in workunits)
         report.set_project_state("All", "Done")
         print(f"Workunits Generated: {num_workunits}")
         print(f"Seconds Elapsed: {timer.elapsed_seconds():.2f} seconds")

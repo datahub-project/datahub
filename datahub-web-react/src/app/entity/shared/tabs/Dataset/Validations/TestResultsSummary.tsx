@@ -42,7 +42,7 @@ const SUCCESS_COLOR_HEX = '#52C41A';
 const FAILURE_COLOR_HEX = '#F5222D';
 
 const getSummaryIcon = (summary: TestsSummary) => {
-    if (summary.failing === 0) {
+    if (summary.total === 0) {
         return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {

@@ -59,12 +59,7 @@ def convert_html_to_md(html_file: pathlib.Path) -> str:
 title: {title}
 ---\n\n"""
 
-    styles = """
-import './basic.css';
-
-\n"""
-
-    return md_meta + styles + bs4_to_mdx(article)
+    return md_meta + bs4_to_mdx(article)
 
 
 def main():
@@ -78,12 +73,6 @@ def main():
         outfile.write_text(md)
 
         print(f"Generated {outfile}")
-
-    css = SPHINX_ROOT_DIR / "basic.css"
-    outfile = DOCS_OUTPUT_DIR.joinpath(css.name)
-    outfile.write_bytes(css.read_bytes())
-    print(f"Copied {css} to {outfile}")
-
 
 if __name__ == "__main__":
     main()

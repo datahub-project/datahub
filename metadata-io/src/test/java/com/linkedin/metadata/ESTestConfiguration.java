@@ -56,7 +56,7 @@ public class ESTestConfiguration {
 
         PartialConfiguration partialConfiguration = new PartialConfiguration();
         partialConfiguration.setFactor(0.4f);
-        partialConfiguration.setUrnFactor(0.7f);
+        partialConfiguration.setUrnFactor(0.5f);
 
         searchConfiguration.setExactMatch(exactMatchConfiguration);
         searchConfiguration.setPartial(partialConfiguration);

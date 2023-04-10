@@ -7,8 +7,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -213,8 +213,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -438,8 +438,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -574,8 +574,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -722,8 +722,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -870,7 +870,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "seed"
+                "Seed"
             ]
         }
     },
@@ -984,7 +984,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "seed"
+                "Seed"
             ]
         }
     },
@@ -1110,7 +1110,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "seed"
+                "Seed"
             ]
         }
     },
