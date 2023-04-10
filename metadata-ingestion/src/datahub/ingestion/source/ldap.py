@@ -133,6 +133,16 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=20, description="Size of each page to fetch when extracting metadata."
     )
 
+    manager_filter_enabled: bool = Field(
+        default=True,
+        description="Use LDAP extractor filter to search managers.",
+    )
+
+    manager_pagination_enabled: bool = Field(
+        default=True,
+        description="Use pagination while search for managers (enabled by default).",
+    )
+
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
@@ -297,11 +307,19 @@ class LDAPSource(StatefulIngestionSourceBase):
         if self.config.user_attrs_map["managerUrn"] in attrs:
             try:
                 m_cn = attrs[self.config.user_attrs_map["managerUrn"]][0].decode()
+                if self.config.manager_filter_enabled:
+                    manager_filter = self.config.filter
+                else:
+                    manager_filter = None
+                if self.config.manager_pagination_enabled:
+                    ctrls = [self.lc]
+                else:
+                    ctrls = None
                 manager_msgid = self.ldap_client.search_ext(
                     m_cn,
                     ldap.SCOPE_BASE,
-                    self.config.filter,
-                    serverctrls=[self.lc],
+                    manager_filter,
+                    serverctrls=ctrls,
                 )
                 result = self.ldap_client.result3(manager_msgid)
                 if result[1]:
