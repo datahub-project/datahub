@@ -237,6 +237,11 @@ class LookMLSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
+    process_refinement: bool = Field(
+        True,
+        description="When enabled, metadata from refinement views are added into the original view and original view "
+        "is emitted again into DataHub",
+    )
 
     @validator("connection_to_platform_map", pre=True)
     def convert_string_to_connection_def(cls, conn_map):
@@ -1138,7 +1143,7 @@ class LookerManifest:
 
 
 @dataclass
-class LookerRefinement:
+class RefinementContainer:
     original_view: Optional[LookerView]
     refinement_views: List[LookerView]
 
@@ -1175,6 +1180,8 @@ class LookMLSource(StatefulIngestionSourceBase):
     # This is populated during the git clone step.
     base_projects_folder: Dict[str, pathlib.Path] = {}
     remote_projects_git_info: Dict[str, GitInfo] = {}
+
+    REFINEMENT_PREFIX = "+"
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -1660,7 +1667,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         # So this set is used to prevent creating duplicate events
         processed_view_map: Dict[str, Set[str]] = {}
         view_connection_map: Dict[str, Tuple[str, str]] = {}
-        view_refinement_map: Dict[str, LookerRefinement] = {}
+        view_refinement_map: Dict[str, RefinementContainer] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
@@ -1743,6 +1750,33 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
+                        if self.is_refinement_view(raw_view["name"]):
+                            # Add refinement view to map and skip processing
+                            self.add_refinement(
+                                view_refinement_map,
+                                LookerView.from_looker_dict(
+                                    include.project
+                                    if include.project != _BASE_PROJECT_NAME
+                                    else project_name,
+                                    model_name,
+                                    raw_view,
+                                    connectionDefinition,
+                                    looker_viewfile,
+                                    viewfile_loader,
+                                    self.reporter,
+                                    self.source_config.max_file_snippet_length,
+                                    self.source_config.parse_table_names_from_sql,
+                                    self.source_config.sql_parser,
+                                    self.source_config.extract_column_level_lineage,
+                                    self.source_config.populate_sql_logic_for_missing_descriptions,
+                                    process_isolation_for_sql_parsing=self.source_config.process_isolation_for_sql_parsing,
+                                ),
+                            )
+                            logger.debug(
+                                f"Refinement view {raw_view['name']} added in view_refinement_map"
+                            )
+                            continue
+
                         if (
                             self.source_config.emit_reachable_views_only
                             and ProjectInclude(_BASE_PROJECT_NAME, raw_view["name"])
@@ -1794,7 +1828,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     ] = (model_name, model.connection)
                                     # first time we are discovering this view
                                     mce = self._build_dataset_mce(maybe_looker_view)
-                                    self.add_refinement(view_refinement_map, maybe_looker_view)
+                                    self.add_refinement(
+                                        view_refinement_map, maybe_looker_view
+                                    )
                                     workunit = MetadataWorkUnit(
                                         id=f"lookml-view-{maybe_looker_view.id}",
                                         mce=mce,
@@ -1834,8 +1870,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     str(maybe_looker_view.id)
                                 )
 
-        process_refinement(view_refinement_map)
-
         if (
             self.source_config.tag_measures_and_dimensions
             and self.reporter.events_produced != 0
@@ -1848,28 +1882,68 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.reporter.report_workunit(workunit)
                 yield workunit
 
-    def process_refinement(self, view_refinement_map: Dict[str, LookerRefinement]) -> None:
-        logger.debug(f"view_refinement_map = {view_refinement_map}")
+        yield from self.process_refinement(view_refinement_map)
 
-    @staticmethod
-    def add_refinement(view_refinement_map: Dict[str, LookerRefinement], looker_view: LookerView) -> None:
-        refinement_prefix: str = "+"
-        is_refinement: bool = looker_view.id.view_name.startswith(refinement_prefix)
-        view_name_without_prefix: str = looker_view.id.view_name.strip(refinement_prefix)
-        looker_refinement: LookerRefinement = view_refinement_map.get(view_name_without_prefix)
+    def process_refinement(
+        self, view_refinement_map: Dict[str, RefinementContainer]
+    ) -> Iterable[MetadataWorkUnit]:  # noqa: C901:
+        if self.source_config.process_refinement is False:
+            # skip processing refinement
+            return
+
+        for view_key in view_refinement_map:
+            refinement_container = view_refinement_map[view_key]
+
+            if refinement_container.original_view is None:
+                continue
+            if len(refinement_container.refinement_views) == 0:
+                continue
+            for view in refinement_container.refinement_views:
+                # Add refinement view fields to original view fields
+                refinement_container.original_view.fields.extend(view.fields)
+
+            logger.debug(
+                f"Processing refinement for view = {refinement_container.original_view.id}"
+            )
+
+            mce = self._build_dataset_mce(refinement_container.original_view)
+            yield MetadataWorkUnit(
+                id=f"lookml-view-{refinement_container.original_view.id}",
+                mce=mce,
+            )
+
+    def is_refinement_view(self, view_name: str) -> bool:
+        return view_name.startswith(self.REFINEMENT_PREFIX)
+
+    def add_refinement(
+        self,
+        view_refinement_map: Dict[str, RefinementContainer],
+        looker_view: Optional[LookerView],
+    ) -> None:
+        if self.source_config.process_refinement is False or looker_view is None:
+            # skip processing if flag is false
+            return
+
+        is_refinement: bool = self.is_refinement_view(looker_view.id.view_name)
+        view_urn: str = looker_view.id.get_strip_urn(self.source_config)
+        refinement_container: Optional[RefinementContainer] = view_refinement_map.get(
+            view_urn
+        )
         # Create new instance
-        if looker_refinement is None:
-            view_refinement_map[view_name_without_prefix] = LookerRefinement(
-                original_view=None,
-                refinement_views=[]
+        if refinement_container is None:
+            view_refinement_map[view_urn] = RefinementContainer(
+                original_view=None, refinement_views=[]
             )
         # Append to refinement list
         if is_refinement:
-            view_refinement_map[view_name_without_prefix].refinement_views.append(looker_view)
+            # Append only if it is not already exist in refinement_views
+            if looker_view.id.get_strip_urn(self.source_config) not in [
+                lv.id.get_strip_urn(self.source_config)
+                for lv in view_refinement_map[view_urn].refinement_views
+            ]:
+                view_refinement_map[view_urn].refinement_views.append(looker_view)
         else:
-            view_refinement_map[view_name_without_prefix].original_view = looker_view
-
-
+            view_refinement_map[view_urn].original_view = looker_view
 
     def get_report(self):
         return self.reporter
