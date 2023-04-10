@@ -103,7 +103,8 @@ public class UpdateIndicesHookTest {
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         registry,
-        _searchDocumentTransformer
+        _searchDocumentTransformer,
+        true
     );
   }
 
@@ -157,7 +158,8 @@ public class UpdateIndicesHookTest {
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         mockEntityRegistry,
-        _searchDocumentTransformer
+        _searchDocumentTransformer,
+        true
     );
 
     _updateIndicesHook.invoke(event);
