@@ -34,6 +34,31 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
+def get_default_recipe(output_file_path, base_folder_path):
+    return {
+        "run_id": "lookml-test",
+        "source": {
+            "type": "lookml",
+            "config": {
+                "base_folder": base_folder_path,
+                "connection_to_platform_map": {"my_connection": "conn"},
+                "parse_table_names_from_sql": True,
+                "tag_measures_and_dimensions": False,
+                "project_name": "lkml_samples",
+                "model_pattern": {"deny": ["data2"]},
+                "emit_reachable_views_only": False,
+                "process_refinement": False,
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{output_file_path}",
+            },
+        },
+    }
+
+
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with previous form of config with new flags turned off"""
@@ -43,28 +68,11 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     # Note this config below is known to create "bad" lineage since the config author has not provided enough information
     # to resolve relative table names (which are not fully qualified)
     # We keep this check just to validate that ingestion doesn't croak on this config
+
     pipeline = Pipeline.create(
-        {
-            "run_id": "lookml-test",
-            "source": {
-                "type": "lookml",
-                "config": {
-                    "base_folder": str(test_resources_dir / "lkml_samples"),
-                    "connection_to_platform_map": {"my_connection": "conn"},
-                    "parse_table_names_from_sql": True,
-                    "tag_measures_and_dimensions": False,
-                    "project_name": "lkml_samples",
-                    "model_pattern": {"deny": ["data2"]},
-                    "emit_reachable_views_only": False,
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/{mce_out_file}",
-                },
-            },
-        }
+        get_default_recipe(
+            f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
+        )
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -74,6 +82,32 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=test_resources_dir / mce_out_file,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
+    """Test backwards compatibility with previous form of config with new flags turned off"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "refinement_mces_output.json"
+
+    # Note this config below is known to create "bad" lineage since the config author has not provided enough information
+    # to resolve relative table names (which are not fully qualified)
+    # We keep this check just to validate that ingestion doesn't croak on this config
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
+    )
+    new_recipe["source"]["config"]["process_refinement"] = True
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "refinements_ingestion_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
     )
 
 
@@ -100,6 +134,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "emit_reachable_views_only": False,
+                    "process_refinement": False,
                 },
             },
             "sink": {
@@ -144,6 +179,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data"]},
                     "emit_reachable_views_only": False,
+                    "process_refinement": False,
                 },
             },
             "sink": {
@@ -190,6 +226,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "emit_reachable_views_only": False,
+                    "process_refinement": False,
                 },
             },
             "sink": {
@@ -269,6 +306,7 @@ def ingestion_test(
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
                         "emit_reachable_views_only": False,
+                        "process_refinement": False,
                     },
                 },
                 "sink": {
@@ -313,6 +351,7 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "sql_parser": "bad.sql.Parser",
                     "emit_reachable_views_only": False,
+                    "process_refinement": False,
                 },
             },
             "sink": {
@@ -360,6 +399,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
+                    "process_refinement": False,
                 },
             },
             "sink": {
@@ -412,6 +452,7 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "emit_reachable_views_only": True,
+                    "process_refinement": False,
                 },
             },
             "sink": {
@@ -473,6 +514,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
+                    "process_refinement": False,
                 },
             },
             "sink": {
@@ -523,6 +565,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
                 "emit_reachable_views_only": False,
+                "process_refinement": False,
                 "stateful_ingestion": {
                     "enabled": True,
                     "remove_stale_metadata": True,
