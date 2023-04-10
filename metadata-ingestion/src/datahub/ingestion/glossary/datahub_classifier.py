@@ -75,6 +75,11 @@ class DataHubClassifierConfig(ConfigModel):
         init=False,
         description="The confidence threshold above which the prediction is considered as a proposal",
     )
+    language: str = Field(
+        default="english",
+        init=False,
+        description="The language used by spacy",
+    )
     info_types: Optional[List[str]] = Field(
         default=None,
         init=False,
@@ -123,6 +128,7 @@ class DataHubClassifier(Classifier):
         columns = predict_infotypes(
             columns,
             self.config.confidence_level_threshold,
+            self.config.language,
             {k: v.dict() for k, v in self.config.info_types_config.items()},
             self.config.info_types,
         )
