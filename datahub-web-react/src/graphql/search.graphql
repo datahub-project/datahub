@@ -856,15 +856,7 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-<<<<<<< HEAD
 query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
-=======
-query searchAcrossLineage(
-    $input: SearchAcrossLineageInput!
-    $includeAssertions: Boolean = false
-    $includeIncidents: Boolean = false
-) {
->>>>>>> 48e6501a76... Fix tag display name
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
     }
