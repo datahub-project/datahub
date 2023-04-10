@@ -143,7 +143,7 @@ class SnowflakeQuery:
             f"'{SnowflakeObjectDomain.DATABASE.upper()}',"
             f"'{SnowflakeObjectDomain.SCHEMA.upper()}',"
             f"'{SnowflakeObjectDomain.TABLE.upper()}',"
-            f"'{SnowflakeObjectDomain.COLUMN.upper()}',"
+            f"'{SnowflakeObjectDomain.COLUMN.upper()}'"
             ")"
         )
 
