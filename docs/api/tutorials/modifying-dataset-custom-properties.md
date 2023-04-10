@@ -18,8 +18,8 @@ This guide will show you how to add, remove or replace custom properties on a da
 
 
 ## Prerequisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 :::note
 Before adding custom properties, you need to ensure the target dataset is already present in your DataHub instance. 
