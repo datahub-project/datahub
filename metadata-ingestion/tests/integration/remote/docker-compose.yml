@@ -1,0 +1,11 @@
+# This spins up a simple web server that hosts the files of ./content in http://127.0.0.1/<file>
+version: '3.4'
+services:
+  apache:
+    image: httpd:latest
+    container_name: file-server
+    ports:
+    - '80:80'
+    volumes:
+    - ./content:/usr/local/apache2/htdocs
+    hostname: somehost.example.com

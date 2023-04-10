@@ -47,8 +47,6 @@ class DbtTestConfig:
         self.output_path = f"{tmp_path}/{self.output_file}"
 
         self.golden_path = f"{test_resources_dir}/{self.golden_file}"
-
-        self.source_config_modifiers.setdefault("incremental_lineage", True)
         self.source_config = dict(
             {
                 "manifest_path": self.manifest_path,
@@ -178,6 +176,11 @@ class DbtTestConfig:
                         "operation": "add_tag",
                         "config": {"tag": "sensitive"},
                     },
+                    "maturity": {
+                        "match": ".*",
+                        "operation": "add_term",
+                        "config": {"term": "maturity_{{ $match }}"},
+                    },
                 },
                 "entities_enabled": {
                     "test_definitions": "NO",
@@ -254,7 +257,6 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
                     ),
                     # this is just here to avoid needing to access datahub server
                     write_semantics="OVERRIDE",
-                    incremental_lineage=True,
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),

@@ -69,7 +69,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     FineGrainedLineageClass,
@@ -540,7 +539,6 @@ class LookerExplore:
         reporter: "LookMLSourceReport",
         model_explores_map: Dict[str, dict],
     ) -> "LookerExplore":
-
         view_names: Set[str] = set()
         joins = None
         assert "name" in dict, "Explore doesn't have a name field, this isn't allowed"
@@ -891,10 +889,7 @@ class LookerExplore:
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_snapshot.urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.LOOKER_EXPLORE]),
         )
 
@@ -1067,12 +1062,13 @@ class LookerUser:
         )
 
     def get_urn(self, strip_user_ids_from_email: bool) -> Optional[str]:
-        if self.email is None:
+        user = self.email
+        if user and strip_user_ids_from_email:
+            user = user.split("@")[0]
+
+        if not user:
             return None
-        if strip_user_ids_from_email:
-            return builder.make_user_urn(self.email.split("@")[0])
-        else:
-            return builder.make_user_urn(self.email)
+        return builder.make_user_urn(user)
 
 
 @dataclass
@@ -1171,7 +1167,7 @@ class LookerUserRegistry:
         logger.debug(f"Will get user {id_}")
 
         raw_user: Optional[User] = self.looker_api_wrapper.get_user(
-            id_, user_fields=self.fields
+            str(id_), user_fields=self.fields
         )
         if raw_user is None:
             return None

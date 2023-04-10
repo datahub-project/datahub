@@ -35,6 +35,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -86,20 +88,17 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
     // https://datahubspace.slack.com/archives/C029A3M079U/p1646288772126639
     final Map<String, String> facetFilters = Collections.emptyMap();
     final SearchResult searchResult = _entityClient.search(NOTEBOOK_ENTITY_NAME, query, facetFilters, start, count,
-            context.getAuthentication(), true, null);
+            context.getAuthentication(), new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
 
   @Override
   public AutoCompleteResults autoComplete(@Nonnull String query,
       @Nullable String field,
-      @Nullable List<FacetFilterInput> filters,
+      @Nullable Filter filters,
       int limit,
       @Nonnull final QueryContext context) throws Exception {
-    // Put empty map here according to
-    // https://datahubspace.slack.com/archives/C029A3M079U/p1646288772126639
-    final Map<String, String> facetFilters = Collections.emptyMap();
-    final AutoCompleteResult result = _entityClient.autoComplete(NOTEBOOK_ENTITY_NAME, query, facetFilters, limit, context.getAuthentication());
+    final AutoCompleteResult result = _entityClient.autoComplete(NOTEBOOK_ENTITY_NAME, query, filters, limit, context.getAuthentication());
     return AutoCompleteResultsMapper.map(result);
   }
 

@@ -2,7 +2,6 @@ import React from 'react';
 import { LineageDirection } from '../../../../../types.generated';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
 import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
-import { getDefaultLineageEndTime, getDefaultLineageStartTime } from '../../../../lineage/utils/lineageUtils';
 
 type Props = {
     urn: string;
@@ -10,6 +9,8 @@ type Props = {
     shouldRefetch?: boolean;
     startTimeMillis?: number;
     endTimeMillis?: number;
+    skipCache?: boolean;
+    setSkipCache?: (skipCache: boolean) => void;
     resetShouldRefetch?: () => void;
 };
 
@@ -19,10 +20,12 @@ export const ImpactAnalysis = ({
     startTimeMillis,
     endTimeMillis,
     shouldRefetch,
+    skipCache,
+    setSkipCache,
     resetShouldRefetch,
 }: Props) => {
-    const finalStartTimeMillis = (startTimeMillis === undefined && getDefaultLineageStartTime()) || startTimeMillis;
-    const finalEndTimeMillis = (endTimeMillis === undefined && getDefaultLineageEndTime()) || endTimeMillis;
+    const finalStartTimeMillis = startTimeMillis || undefined;
+    const finalEndTimeMillis = endTimeMillis || undefined;
     return (
         <EmbeddedListSearchSection
             useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
@@ -30,6 +33,8 @@ export const ImpactAnalysis = ({
                 direction,
                 startTimeMillis: finalStartTimeMillis,
                 endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
             })}
             defaultShowFilters
             defaultFilters={[{ field: 'degree', values: ['1'] }]}

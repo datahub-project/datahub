@@ -24,12 +24,20 @@ public class SearchFlagsInputMapper implements ModelMapper<SearchFlags, com.link
     com.linkedin.metadata.query.SearchFlags result = new com.linkedin.metadata.query.SearchFlags();
     if (searchFlags.getFulltext() != null) {
       result.setFulltext(searchFlags.getFulltext());
+    } else {
+      result.setFulltext(true);
     }
     if (searchFlags.getSkipCache() != null) {
       result.setSkipCache(searchFlags.getSkipCache());
     }
     if (searchFlags.getMaxAggValues() != null) {
       result.setMaxAggValues(searchFlags.getMaxAggValues());
+    }
+    if (searchFlags.getSkipHighlighting() != null) {
+      result.setSkipHighlighting(searchFlags.getSkipHighlighting());
+    }
+    if (searchFlags.getSkipAggregates() != null) {
+      result.setSkipAggregates(searchFlags.getSkipAggregates());
     }
     return result;
   }

@@ -142,11 +142,11 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nullable Filter requestFilters,
         @Nonnull int limit,
         @Nullable String field,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-      return _cachingEntitySearchService.autoComplete(entityType, query, field, newFilter(requestFilters), limit, null);
+      return _cachingEntitySearchService.autoComplete(entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit, null);
     }
 
     /**
@@ -162,10 +162,10 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nullable Filter requestFilters,
         @Nonnull int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _cachingEntitySearchService.autoComplete(entityType, query, "", newFilter(requestFilters), limit, null);
+        return _cachingEntitySearchService.autoComplete(entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit, null);
     }
 
     /**
@@ -246,17 +246,11 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public SearchResult search(@Nonnull String entity, @Nonnull String input,
         @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication,
-        @Nullable Boolean fulltext, @Nullable SearchFlags searchFlags)
+        @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
 
-        if (Optional.ofNullable(fulltext).orElse(false)
-            || (searchFlags != null && Boolean.TRUE.equals(searchFlags.isFulltext()))) {
-            return ValidationUtils.validateSearchResult(
-                    _entitySearchService.fullTextSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
-        } else {
-            return ValidationUtils.validateSearchResult(
-                    _entitySearchService.structuredSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
-        }
+        return ValidationUtils.validateSearchResult(_entitySearchService.search(entity, input, newFilter(requestFilters),
+                null, start, count, searchFlags), _entityService);
     }
 
     /**
@@ -304,19 +298,10 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull Authentication authentication,
-        @Nullable Boolean fulltext,
         @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
-        if (Optional.ofNullable(fulltext).orElse(false)
-            || (searchFlags != null && Boolean.TRUE.equals(searchFlags.isFulltext()))) {
-            return ValidationUtils.validateSearchResult(
-                    _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count),
-                    _entityService);
-        } else {
-            return ValidationUtils.validateSearchResult(
-                    _entitySearchService.structuredSearch(entity, input, filter, sortCriterion, start, count),
-                    _entityService);
-        }
+        return ValidationUtils.validateSearchResult(
+                _entitySearchService.search(entity, input, filter, sortCriterion, start, count, searchFlags), _entityService);
     }
 
     /**
@@ -364,10 +349,9 @@ public class JavaEntityClient implements EntityClient {
         @Nullable SortCriterion sortCriterion, int start, int count, @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                sortCriterion, start, count, null, null, finalFlags), _entityService);
+                sortCriterion, start, count, null, null, searchFlags), _entityService);
     }
 
     @Nonnull
@@ -378,10 +362,9 @@ public class JavaEntityClient implements EntityClient {
             @Nullable Long endTimeMillis, @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                        sortCriterion, start, count, startTimeMillis, endTimeMillis, finalFlags),
+                        sortCriterion, start, count, startTimeMillis, endTimeMillis, searchFlags),
                 _entityService);
     }
 
@@ -476,7 +459,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
         @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-        @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+        @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
       GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
       response.setEntityName(entity);

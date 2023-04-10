@@ -68,7 +68,6 @@ def gen_schema_container(
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
-
     domain_urn: Optional[str] = None
     if domain_registry:
         assert domain_config
@@ -166,7 +165,6 @@ def add_table_to_schema_container(
     parent_container_key: PlatformKey,
     report: Optional[SourceReport] = None,
 ) -> Iterable[MetadataWorkUnit]:
-
     container_workunits = add_dataset_to_container(
         container_key=parent_container_key,
         dataset_urn=dataset_urn,
@@ -182,7 +180,7 @@ def get_domain_wu(
     entity_urn: str,
     domain_config: Dict[str, AllowDenyPattern],
     domain_registry: DomainRegistry,
-    report: SourceReport,
+    report: Optional[SourceReport] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn = gen_domain_urn(dataset_name, domain_config, domain_registry)
     if domain_urn:
@@ -191,7 +189,8 @@ def get_domain_wu(
             domain_urn=domain_urn,
         )
         for wu in wus:
-            report.report_workunit(wu)
+            if report:
+                report.report_workunit(wu)
             yield wu
 
 

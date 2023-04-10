@@ -24,6 +24,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -52,7 +53,8 @@ public class SiblingAssociationHookTest {
     _mockEntityClient = Mockito.mock(RestliEntityClient.class);
     _mockSearchService = Mockito.mock(EntitySearchService.class);
     _mockAuthentication = Mockito.mock(Authentication.class);
-    _siblingAssociationHook = new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, _mockAuthentication);
+    _siblingAssociationHook = new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, _mockAuthentication,
+        true);
     _siblingAssociationHook.setEnabled(true);
   }
 
@@ -252,8 +254,9 @@ public class SiblingAssociationHookTest {
     returnSearchResult.setEntities(returnEntityArray);
 
     Mockito.when(
-        _mockSearchService.structuredSearch(
-            anyString(), anyString(), any(), any(), anyInt(), anyInt()
+        _mockSearchService.search(
+            anyString(), anyString(), any(), any(), anyInt(), anyInt(), eq(new SearchFlags().setFulltext(false)
+                        .setSkipAggregates(true).setSkipHighlighting(true))
         )).thenReturn(returnSearchResult);
 
     MetadataChangeLog event = new MetadataChangeLog();

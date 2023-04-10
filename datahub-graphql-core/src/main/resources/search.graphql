@@ -111,6 +111,16 @@ input  SearchFlags {
   Structured or unstructured fulltext query
   """
   fulltext: Boolean
+
+  """
+  Whether to skip highlighting
+  """
+  skipHighlighting: Boolean
+
+  """
+  Whether to skip aggregates/facets
+  """
+  skipAggregates: Boolean
 }
 
 """
@@ -490,6 +500,11 @@ type SearchAcrossLineageResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+
+  """
+  Optional freshness characteristics of this query (cached, staleness etc.)
+  """
+  freshness: FreshnessStats
 }
 
 """
@@ -661,6 +676,12 @@ input AutoCompleteInput {
   Faceted filters applied to autocomplete results
   """
   filters: [FacetFilterInput!]
+
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -692,6 +713,16 @@ input AutoCompleteMultipleInput {
   Faceted filters applied to autocomplete results
   """
   filters: [FacetFilterInput!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
 }
 
 """
@@ -908,4 +939,77 @@ type FacetFilter {
   If the filter should or should not be matched
   """
   negated: Boolean
+}
+
+"""
+Input for getting Quick Filters
+"""
+input GetQuickFiltersInput {
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+}
+
+"""
+The result object when fetching quick filters
+"""
+type GetQuickFiltersResult {
+  """
+  The list of quick filters to render in the UI
+  """
+  quickFilters: [QuickFilter]!
+}
+
+"""
+A quick filter in search and auto-complete
+"""
+type QuickFilter {
+  """
+  Name of field to filter by
+  """
+  field: String!
+
+  """
+  Value to filter on
+  """
+  value: String!
+
+  """
+  Entity that the value maps to if any
+  """
+  entity: Entity
+}
+
+"""
+Freshness stats for a query result. 
+Captures whether the query was served out of a cache, what the staleness was, etc.
+"""
+type FreshnessStats {
+  """
+  Whether a cache was used to respond to this query
+  """
+  cached: Boolean
+
+  """
+  The latest timestamp in millis of the system that was used to respond to this query
+  In case a cache was consulted, this reflects the freshness of the cache
+  In case an index was consulted, this reflects the freshness of the index
+  """
+  systemFreshness: [SystemFreshness]
+  
+}
+
+type SystemFreshness {
+  """
+  Name of the system
+  """
+  systemName: String!
+
+  """
+  The latest timestamp in millis of the system that was used to respond to this query
+  In case a cache was consulted, this reflects the freshness of the cache
+  In case an index was consulted, this reflects the freshness of the index
+  """
+  freshnessMillis: Long!
 }

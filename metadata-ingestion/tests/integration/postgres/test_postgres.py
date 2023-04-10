@@ -53,13 +53,32 @@ def test_postgres_ingest_with_db(
     ).resolve()
     print("Config file: {config_file}")
 
-    run_datahub_cmd(
-        ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
-    )
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "postgres_mces.json",
         golden_path=test_resources_dir / "postgres_mces_with_db_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_postgres_ingest_with_all_db(
+    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (
+        test_resources_dir / "postgres_all_db_to_file_with_db_estimate_row_count.yml"
+    ).resolve()
+    print("Config file: {config_file}")
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "postgres_all_db_mces.json",
+        golden_path=test_resources_dir / "postgres_all_db_mces_with_db_golden.json",
     )

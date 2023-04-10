@@ -28,6 +28,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -103,17 +105,17 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
                                 @Nonnull final QueryContext context) throws Exception {
         final SearchResult
             searchResult = _entityClient.search("corpGroup", query, Collections.emptyMap(), start, count,
-            context.getAuthentication(), true, null);
+            context.getAuthentication(), new SearchFlags().setFulltext(true));
         return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
     public AutoCompleteResults autoComplete(@Nonnull String query,
                                             @Nullable String field,
-                                            @Nullable List<FacetFilterInput> filters,
+                                            @Nullable Filter filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        final AutoCompleteResult result = _entityClient.autoComplete("corpGroup", query, Collections.emptyMap(), limit,
+        final AutoCompleteResult result = _entityClient.autoComplete("corpGroup", query, filters, limit,
             context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }

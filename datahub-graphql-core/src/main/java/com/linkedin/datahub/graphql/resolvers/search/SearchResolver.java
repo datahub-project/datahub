@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
 
 /**
@@ -24,7 +25,12 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 @Slf4j
 @RequiredArgsConstructor
 public class SearchResolver implements DataFetcher<CompletableFuture<SearchResults>> {
-
+  private static final SearchFlags SEARCH_RESOLVER_DEFAULTS = new SearchFlags()
+          .setFulltext(true)
+          .setMaxAggValues(20)
+          .setSkipCache(false)
+          .setSkipAggregates(false)
+          .setSkipHighlighting(false);
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
@@ -40,26 +46,29 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    final SearchFlags searchFlags;
+    com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+    if (inputFlags != null) {
+      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+    } else {
+      searchFlags = applyDefaultSearchFlags(null, sanitizedQuery, SEARCH_RESOLVER_DEFAULTS);
+    }
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        log.debug("Executing search. entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}", input.getType(),
-            input.getQuery(), input.getFilters(), input.getOrFilters(), start, count);
-        SearchFlags searchFlags = null;
-        com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
-        if (inputFlags != null) {
-          searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
-        }
+        log.debug("Executing search. entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}, searchFlags: {}",
+                input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count, searchFlags);
+
         return UrnSearchResultsMapper.map(
             _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters(),
                     input.getOrFilters()), null, start, count, ResolverUtils.getAuthentication(environment),
-                false, searchFlags));
+                    searchFlags));
       } catch (Exception e) {
-        log.error("Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}",
-            input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count);
+        log.error("Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}, searchFlags: {}",
+            input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count, searchFlags);
         throw new RuntimeException(
-            "Failed to execute search: " + String.format("entity type %s, query %s, filters: %s, orFilters: %s, start: %s, count: %s",
-                input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count), e);
+            "Failed to execute search: " + String.format("entity type %s, query %s, filters: %s, orFilters: %s, start: %s, count: %s, searchFlags: %s",
+                input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count, searchFlags), e);
       }
     });
   }

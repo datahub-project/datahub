@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -48,7 +49,7 @@ public class PolicyFetcher {
     // First fetch all policy urns from start - start + count
     SearchResult result =
         _entityClient.search(POLICY_ENTITY_NAME, query, null, POLICY_SORT_CRITERION, start, count, authentication,
-            true, null);
+            new SearchFlags().setFulltext(true));
     List<Urn> policyUrns = result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
     if (policyUrns.isEmpty()) {

@@ -29,7 +29,7 @@
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
   --ifm-hr-border-color: #e3e3e3;
-
+  --ifm-hr-background-color: #e3e3e3;
   /* More Colors */
   --ifm-hero-background-color: var(--ifm-background-color);
   --ifm-background-surface-color: #fafafa;
@@ -205,6 +205,29 @@ div[class^="announcementBar"] {
   padding: 2rem 0;
   height: 100%;
 }
+
+.quickstart__content {
+  text-align: center;
+  padding: 2rem 0;
+  height: 100%;
+  margin: 2rem 0;
+  background: #34394d;
+  border-radius: var(--ifm-card-border-radius);
+}
+
+.quickstart__title {
+  color: #fafafa;
+}
+
+.quickstart__subtitle {
+  font-size: 1.1rem;
+  color: gray;
+}
+
+.quickstart__codeblock {
+  text-align: left;
+  padding: 0 20vh;
+  }
 
 .theme-doc-sidebar-menu ul li.saasOnly a.menu__link {
   &:after {

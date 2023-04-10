@@ -37,6 +37,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -135,18 +137,17 @@ public class DataFlowType implements SearchableEntityType<DataFlow, String>, Bro
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search("dataFlow", query, facetFilters, start, count,
-                context.getAuthentication(), true, null);
+                context.getAuthentication(), new SearchFlags().setFulltext(true));
         return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
     public AutoCompleteResults autoComplete(@Nonnull String query,
                                             @Nullable String field,
-                                            @Nullable List<FacetFilterInput> filters,
+                                            @Nullable Filter filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("dataFlow", query, facetFilters, limit, context.getAuthentication());
+        final AutoCompleteResult result = _entityClient.autoComplete("dataFlow", query, filters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 

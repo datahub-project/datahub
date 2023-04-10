@@ -237,13 +237,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nullable String field,
+      @Nullable Filter requestFilters, @Nonnull int limit, @Nullable String field,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionAutocomplete()
         .entityParam(entityType)
         .queryParam(query)
         .fieldParam(field)
-        .filterParam(newFilter(requestFilters))
+        .filterParam(filterOrDefaultEmptyFilter(requestFilters))
         .limitParam(limit);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
@@ -259,12 +259,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nonnull final Authentication authentication)
+      @Nullable Filter requestFilters, @Nonnull int limit, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionAutocomplete()
         .entityParam(entityType)
         .queryParam(query)
-        .filterParam(newFilter(requestFilters))
+        .filterParam(filterOrDefaultEmptyFilter(requestFilters))
         .limitParam(limit);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
@@ -336,7 +336,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Override
   public SearchResult search(@Nonnull String entity, @Nonnull String input,
       @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull final Authentication authentication,
-      @Nullable Boolean fulltext, @Nullable SearchFlags searchFlags)
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
@@ -344,8 +344,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .inputParam(input)
         .filterParam(newFilter(requestFilters))
         .startParam(start)
-        .countParam(count)
-        .fulltextParam(fulltext);
+        .fulltextParam(searchFlags != null ? searchFlags.isFulltext() : null)
+        .countParam(count);
     if (searchFlags != null) {
       requestBuilder.searchFlagsParam(searchFlags);
     }
@@ -389,15 +389,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Override
   public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
       SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication,
-      @Nullable Boolean fulltext, @Nullable SearchFlags searchFlags)
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
         .entityParam(entity)
         .inputParam(input)
         .startParam(start)
-        .countParam(count)
-        .fulltextParam(fulltext);
+        .countParam(count);
 
     if (filter != null) {
       requestBuilder.filterParam(filter);
@@ -409,6 +408,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     if (searchFlags != null) {
       requestBuilder.searchFlagsParam(searchFlags);
+      requestBuilder.fulltextParam(searchFlags.isFulltext());
     }
 
     return sendClientRequest(requestBuilder, authentication).getEntity();
@@ -714,7 +714,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
       @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+      @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
 
     AspectsDoGetTimeseriesAspectValuesRequestBuilder requestBuilder =
@@ -835,5 +835,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public static Criterion newCriterion(@Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
     return new Criterion().setField(field).setValue(value).setCondition(condition);
+  }
+
+  @Nonnull
+  public static Filter filterOrDefaultEmptyFilter(@Nullable Filter filter) {
+    return filter != null ? filter : new Filter().setOr(new ConjunctiveCriterionArray());
   }
 }

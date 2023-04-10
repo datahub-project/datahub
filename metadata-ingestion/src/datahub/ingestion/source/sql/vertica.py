@@ -401,7 +401,6 @@ class VerticaSource(SQLAlchemySource):
         try:
             # table_tags = self.get_extra_tags(inspector, schema, "projection")
             for projection in inspector.get_projection_names(schema):  # type: ignore
-
                 schema, projection = self.standardize_schema_table_names(
                     schema=schema, entity=projection
                 )
@@ -431,7 +430,6 @@ class VerticaSource(SQLAlchemySource):
                         f"{schema}.{projection}", f"Ingestion error: {ex}"
                     )
                 if sql_config.include_projection_lineage:  # type: ignore
-
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
                             self.platform,
@@ -655,9 +653,7 @@ class VerticaSource(SQLAlchemySource):
         """
         models_seen: Set[str] = set()
         try:
-
             for models in inspector.get_models_names(schema):  # type: ignore
-
                 schema, models = self.standardize_schema_table_names(
                     schema=schema, entity=models
                 )
@@ -843,9 +839,7 @@ class VerticaSource(SQLAlchemySource):
         """
         oauth_seen: Set[str] = set()
         try:
-
             for oauth in inspector.get_Oauth_names(schema):  # type: ignore
-
                 schema, oauth = self.standardize_schema_table_names(
                     schema=schema, entity=oauth
                 )
@@ -989,7 +983,6 @@ class VerticaSource(SQLAlchemySource):
         # this method and provide a location.
         location: Optional[str] = None
         try:
-
             table_info: dict = inspector.get_oauth_comment(model, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
@@ -1025,7 +1018,6 @@ class VerticaSource(SQLAlchemySource):
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
         for projection in inspector.get_projection_names(schema):  # type: ignore
-
             schema, projection = self.standardize_schema_table_names(
                 schema=schema, entity=projection
             )
@@ -1089,7 +1081,6 @@ class VerticaSource(SQLAlchemySource):
     def _get_upstream_lineage_info(
         self, dataset_urn: str, view: str
     ) -> Optional[_Aspect]:
-
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
@@ -1120,7 +1111,6 @@ class VerticaSource(SQLAlchemySource):
             upstream_tables.append(upstream_table)
 
         if upstream_tables:
-
             logger.debug(
                 f" lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
             )
@@ -1173,11 +1163,9 @@ class VerticaSource(SQLAlchemySource):
         try:
             self.view_lineage_map = defaultdict(list)
             for db_row_key in engine.execute(view_downstream_query):
-
                 downstream = f"{db_row_key['table_schema']}.{db_row_key['table_name']}"
 
                 for db_row_value in engine.execute(view_upstream_lineage_query):
-
                     upstream = f"{db_row_value['reference_table_schema']}.{db_row_value['reference_table_name']}"
 
                     view_upstream: str = upstream
@@ -1204,7 +1192,6 @@ class VerticaSource(SQLAlchemySource):
     def _get_upstream_lineage_info_projection(
         self, dataset_urn: str, projection: str
     ) -> Optional[_Aspect]:
-
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
@@ -1235,7 +1222,6 @@ class VerticaSource(SQLAlchemySource):
             upstream_tables.append(upstream_table)
 
         if upstream_tables:
-
             logger.debug(
                 f"lineage of Projection '{dataset_name}': {[u.dataset for u in upstream_tables]}"
             )
