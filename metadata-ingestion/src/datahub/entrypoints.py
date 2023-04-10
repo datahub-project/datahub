@@ -205,5 +205,7 @@ def main(**kwargs):
             logger.debug(f"GMS config {gms_config}")
         sys.exit(1)
     finally:
+        global _logging_configured
         if _logging_configured:
             _logging_configured.__exit__(None, None, None)
+            _logging_configured = None
