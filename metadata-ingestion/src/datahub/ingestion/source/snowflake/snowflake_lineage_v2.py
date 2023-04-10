@@ -13,7 +13,6 @@ from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.snowflake.constants import (
     LINEAGE_PERMISSION_ERROR,
     SnowflakeEdition,
-    SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -93,7 +92,7 @@ class SnowflakeLineageExtractor(
         if self.connection is None:
             return
 
-        self._populate_external_lineage_map()
+        self._populate_external_lineage_map(discovered_tables)
 
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
@@ -246,7 +245,7 @@ class SnowflakeLineageExtractor(
 
         return upstreams, fine_upstreams
 
-    def _populate_external_lineage_map(self) -> None:
+    def _populate_external_lineage_map(self, discovered_tables: List[str]) -> None:
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
@@ -255,9 +254,9 @@ class SnowflakeLineageExtractor(
                     "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
                 )  # See Edition Note above for why
             else:
-                self._populate_external_lineage_from_access_history()
+                self._populate_external_lineage_from_access_history(discovered_tables)
 
-            self._populate_external_lineage_from_show_query()
+            self._populate_external_lineage_from_show_query(discovered_tables)
 
             logger.info(
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges."
@@ -269,7 +268,7 @@ class SnowflakeLineageExtractor(
 
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_show_query(self):
+    def _populate_external_lineage_from_show_query(self, discovered_tables):
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
             for db_row in self.query(external_tables_query):
@@ -277,9 +276,7 @@ class SnowflakeLineageExtractor(
                     db_row["name"], db_row["schema_name"], db_row["database_name"]
                 )
 
-                if not self._is_dataset_pattern_allowed(
-                    key, SnowflakeObjectDomain.TABLE
-                ):
+                if key not in discovered_tables:
                     continue
                 self._external_lineage_map[key].add(db_row["location"])
                 logger.debug(
@@ -295,7 +292,9 @@ class SnowflakeLineageExtractor(
 
     # Handles the case where a table is populated from an external location via copy.
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-    def _populate_external_lineage_from_access_history(self):
+    def _populate_external_lineage_from_access_history(
+        self, discovered_tables: List[str]
+    ) -> None:
         query: str = SnowflakeQuery.external_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
@@ -305,7 +304,7 @@ class SnowflakeLineageExtractor(
 
         try:
             for db_row in self.query(query):
-                self._process_external_lineage_result_row(db_row)
+                self._process_external_lineage_result_row(db_row, discovered_tables)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get external lineage. Please grant imported privileges on SNOWFLAKE database. "
@@ -317,12 +316,12 @@ class SnowflakeLineageExtractor(
                     f"Populating table external lineage from Snowflake failed due to error {e}.",
                 )
 
-    def _process_external_lineage_result_row(self, db_row):
+    def _process_external_lineage_result_row(self, db_row, discovered_tables):
         # key is the down-stream table name
         key: str = self.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
-        if not self._is_dataset_pattern_allowed(key, SnowflakeObjectDomain.TABLE):
+        if key not in discovered_tables:
             return
 
         if db_row["UPSTREAM_LOCATIONS"] is not None:
