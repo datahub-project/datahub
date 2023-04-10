@@ -30,11 +30,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetUserUsageCounts,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import TimeWindowSize
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 
@@ -369,9 +365,6 @@ class SnowflakeUsageExtractor(
                     operationType=operation_type,
                 )
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    aspectName="operation",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dataset_urn,
                     aspect=operation_aspect,
                 )

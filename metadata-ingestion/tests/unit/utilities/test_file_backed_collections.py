@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import pathlib
+import sqlite3
 from dataclasses import dataclass
 from typing import Counter, Dict
 
@@ -25,6 +26,8 @@ def test_file_dict() -> None:
 
     assert len(cache) == 100
     assert sorted(cache) == sorted([f"key-{i}" for i in range(100)])
+    assert sorted(cache.items()) == sorted([(f"key-{i}", i) for i in range(100)])
+    assert sorted(cache.values()) == sorted([i for i in range(100)])
 
     # Force eviction of everything.
     cache.flush()
@@ -140,7 +143,7 @@ def test_custom_serde() -> None:
 
     assert cache["second"] == second
     assert cache["first"] == first
-    assert serializer_calls == 4  # Items written to cache on every access
+    assert serializer_calls == 2
     assert deserializer_calls == 2
 
 
@@ -161,6 +164,7 @@ def test_file_dict_stores_counter() -> None:
                 cache[str(i)][str(j)] += 100
                 in_memory_counters[i][str(j)] += 100
             cache[str(i)][str(j)] += j
+            cache.mark_dirty(str(i))
             in_memory_counters[i][str(j)] += j
 
     for i in range(n):
@@ -174,43 +178,64 @@ class Pair:
     y: str
 
 
-def test_custom_column() -> None:
+@pytest.mark.parametrize("cache_max_size", [0, 1, 10])
+def test_custom_column(cache_max_size: int) -> None:
     cache = FileBackedDict[Pair](
         extra_columns={
             "x": lambda m: m.x,
         },
+        cache_max_size=cache_max_size,
     )
 
     cache["first"] = Pair(3, "a")
     cache["second"] = Pair(100, "b")
+    cache["third"] = Pair(27, "c")
+    cache["fourth"] = Pair(100, "d")
 
     # Verify that the extra column is present and has the correct values.
-    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 103
+    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 230
 
     # Verify that the extra column is updated when the value is updated.
-    cache["first"] = Pair(4, "c")
-    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 104
+    cache["first"] = Pair(4, "e")
+    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 231
 
     # Test param binding.
     assert (
         cache.sql_query(
             f"SELECT sum(x) FROM {cache.tablename} WHERE x < ?", params=(50,)
         )[0][0]
-        == 4
+        == 31
     )
+
+    assert sorted(list(cache.items())) == [
+        ("first", Pair(4, "e")),
+        ("fourth", Pair(100, "d")),
+        ("second", Pair(100, "b")),
+        ("third", Pair(27, "c")),
+    ]
+    assert sorted(list(cache.items_snapshot())) == [
+        ("first", Pair(4, "e")),
+        ("fourth", Pair(100, "d")),
+        ("second", Pair(100, "b")),
+        ("third", Pair(27, "c")),
+    ]
+    assert sorted(list(cache.items_snapshot("x < 50"))) == [
+        ("first", Pair(4, "e")),
+        ("third", Pair(27, "c")),
+    ]
 
 
 def test_shared_connection() -> None:
     with ConnectionWrapper() as connection:
         cache1 = FileBackedDict[int](
-            connection=connection,
+            shared_connection=connection,
             tablename="cache1",
             extra_columns={
                 "v": lambda v: v,
             },
         )
         cache2 = FileBackedDict[Pair](
-            connection=connection,
+            shared_connection=connection,
             tablename="cache2",
             extra_columns={
                 "x": lambda m: m.x,
@@ -227,24 +252,30 @@ def test_shared_connection() -> None:
         assert len(cache1) == 2
         assert len(cache2) == 3
 
-        # Test advanced SQL queries.
-        assert cache2.sql_query(
+        # Test advanced SQL queries and sql_query_iterator.
+        iterator = cache2.sql_query_iterator(
             f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
-        ) == [("a", 15), ("b", 11)]
+        )
+        assert type(iterator) == sqlite3.Cursor
+        assert [tuple(r) for r in iterator] == [("a", 15), ("b", 11)]
 
         # Test joining between the two tables.
-        assert (
-            cache2.sql_query(
-                f"""
-                SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
-                LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
-                GROUP BY cache2.y
-                ORDER BY cache2.y
-                """,
-                refs=[cache1],
-            )
-            == [("a", 45), ("b", 55)]
+        rows = cache2.sql_query(
+            f"""
+                        SELECT cache2.y, sum(cache2.x * cache1.v) FROM {cache2.tablename} cache2
+                        LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
+                        GROUP BY cache2.y
+                        ORDER BY cache2.y
+                        """,
+            refs=[cache1],
         )
+        assert [tuple(row) for row in rows] == [("a", 45), ("b", 55)]
+
+        assert list(cache2.items_snapshot('y = "a"')) == [
+            ("ref-a-1", Pair(7, "a")),
+            ("ref-a-2", Pair(8, "a")),
+        ]
+
         cache2.close()
 
         # Check can still use cache1

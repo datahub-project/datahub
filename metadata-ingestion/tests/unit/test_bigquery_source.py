@@ -2,8 +2,8 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, cast
-from unittest.mock import patch
+from typing import Any, Dict, Optional, cast
+from unittest.mock import Mock, patch
 
 import pytest
 from google.cloud.bigquery.table import Row, TableListItem
@@ -18,7 +18,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQueryDataDictionary,
     BigqueryProject,
-    BigqueryTableType,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
@@ -331,8 +330,10 @@ def test_table_processing_logic(client_mock, data_dictionary_mock):
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    _ = source.get_tables_for_dataset(
-        conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+    _ = list(
+        source.get_tables_for_dataset(
+            conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+        )
     )
 
     assert data_dictionary_mock.call_count == 1
@@ -401,8 +402,10 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    _ = source.get_tables_for_dataset(
-        conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+    _ = list(
+        source.get_tables_for_dataset(
+            conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+        )
     )
 
     assert data_dictionary_mock.call_count == 1
@@ -425,7 +428,7 @@ def create_row(d: Dict[str, Any]) -> Row:
 
 
 @pytest.fixture
-def bigquery_view_1():
+def bigquery_view_1() -> BigqueryView:
     now = datetime.now(tz=timezone.utc)
     return BigqueryView(
         name="table1",
@@ -438,7 +441,7 @@ def bigquery_view_1():
 
 
 @pytest.fixture
-def bigquery_view_2():
+def bigquery_view_2() -> BigqueryView:
     now = datetime.now(tz=timezone.utc)
     return BigqueryView(
         name="table2",
@@ -455,16 +458,20 @@ def bigquery_view_2():
 )
 @patch("google.cloud.bigquery.client.Client")
 def test_get_views_for_dataset(
-    client_mock, query_mock, bigquery_view_1, bigquery_view_2
-):
+    client_mock: Mock,
+    query_mock: Mock,
+    bigquery_view_1: BigqueryView,
+    bigquery_view_2: BigqueryView,
+) -> None:
+    assert bigquery_view_1.last_altered
     row1 = create_row(
         dict(
             table_name=bigquery_view_1.name,
             created=bigquery_view_1.created,
-            last_altered=bigquery_view_1.last_altered,
+            last_altered=bigquery_view_1.last_altered.timestamp() * 1000,
             comment=bigquery_view_1.comment,
             view_definition=bigquery_view_1.view_definition,
-            table_type=BigqueryTableType.VIEW,
+            table_type="VIEW",
         )
     )
     row2 = create_row(  # Materialized view, no last_altered
@@ -473,7 +480,7 @@ def test_get_views_for_dataset(
             created=bigquery_view_2.created,
             comment=bigquery_view_2.comment,
             view_definition=bigquery_view_2.view_definition,
-            table_type=BigqueryTableType.MATERIALIZED_VIEW,
+            table_type="MATERIALIZED VIEW",
         )
     )
     query_mock.return_value = [row1, row2]
@@ -484,7 +491,7 @@ def test_get_views_for_dataset(
         dataset_name="test-dataset",
         has_data_read=False,
     )
-    assert views == [bigquery_view_1, bigquery_view_2]
+    assert list(views) == [bigquery_view_1, bigquery_view_2]
 
 
 @patch.object(BigqueryV2Source, "gen_dataset_workunits", lambda *args, **kwargs: [])
@@ -519,3 +526,101 @@ def test_gen_view_dataset_workunits(bigquery_view_1, bigquery_view_2):
         viewLanguage="SQL",
         viewLogic=bigquery_view_2.view_definition,
     )
+
+
+@pytest.mark.parametrize(
+    "table_name, expected_table_prefix, expected_shard",
+    [
+        # Cases with Fully qualified name as input
+        ("project.dataset.table", "project.dataset.table", None),
+        ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
+        ("project.dataset.table_2023", "project.dataset.table_2023", None),
+        # incorrectly handled special case where dataset itself is a sharded table if full name is specified
+        ("project.dataset.20231215", "project.dataset.20231215", None),
+        # Cases with Just the table name as input
+        ("table", "table", None),
+        ("table20231215", "table20231215", None),
+        ("table_20231215", "table", "20231215"),
+        ("table_1624046611000_name", "table_1624046611000_name", None),
+        ("table_1624046611000", "table_1624046611000", None),
+        # Special case where dataset itself is a sharded table
+        ("20231215", None, "20231215"),
+    ],
+)
+def test_get_table_and_shard_default(
+    table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
+) -> None:
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
+        "((.+)[_$])?(\\d{8})$",
+    ):
+        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+            expected_table_prefix,
+            expected_shard,
+        )
+
+
+@pytest.mark.parametrize(
+    "table_name, expected_table_prefix, expected_shard",
+    [
+        # Cases with Fully qualified name as input
+        ("project.dataset.table", "project.dataset.table", None),
+        ("project.dataset.table_20231215", "project.dataset.table", "20231215"),
+        ("project.dataset.table_2023", "project.dataset.table", "2023"),
+        # incorrectly handled special case where dataset itself is a sharded table if full name is specified
+        ("project.dataset.20231215", "project.dataset.20231215", None),
+        ("project.dataset.2023", "project.dataset.2023", None),
+        # Cases with Just the table name as input
+        ("table", "table", None),
+        ("table20231215", "table20231215", None),
+        ("table_20231215", "table", "20231215"),
+        ("table_2023", "table", "2023"),
+        ("table_1624046611000_name", "table_1624046611000_name", None),
+        ("table_1624046611000", "table_1624046611000", None),
+        ("table_1624046611", "table", "1624046611"),
+        # Special case where dataset itself is a sharded table
+        ("20231215", None, "20231215"),
+        ("2023", None, "2023"),
+    ],
+)
+def test_get_table_and_shard_custom_shard_pattern(
+    table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
+) -> None:
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
+        "((.+)[_$])?(\\d{4,10})$",
+    ):
+        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+            expected_table_prefix,
+            expected_shard,
+        )
+
+
+@pytest.mark.parametrize(
+    "full_table_name, datahub_full_table_name",
+    [
+        ("project.dataset.table", "project.dataset.table"),
+        ("project.dataset.table_20231215", "project.dataset.table"),
+        ("project.dataset.table@1624046611000", "project.dataset.table"),
+        (
+            "project.dataset.table_1624046611000_name",
+            "project.dataset.table_1624046611000_name",
+        ),
+        ("project.dataset.table_1624046611000", "project.dataset.table_1624046611000"),
+        ("project.dataset.table20231215", "project.dataset.table20231215"),
+        ("project.dataset.table_*", "project.dataset.table"),
+        ("project.dataset.table_2023*", "project.dataset.table"),
+        ("project.dataset.table_202301*", "project.dataset.table"),
+        # Special case where dataset itself is a sharded table
+        ("project.dataset.20230112", "project.dataset.dataset"),
+    ],
+)
+def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> None:
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX",
+        "",
+    ):
+        assert (
+            BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
+            == datahub_full_table_name
+        )

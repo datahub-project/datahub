@@ -129,6 +129,14 @@ class RedshiftConfig(
     DatasetLineageProviderConfigBase,
     DatasetS3LineageProviderConfigBase,
 ):
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database_alias:
+            return f"{self.database_alias}.{regular}"
+        if self.database:
+            return f"{self.database}.{regular}"
+        return regular
+
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
     # because it has better caching behavior. In particular, it queries
@@ -569,14 +577,14 @@ class RedshiftSource(SQLAlchemySource):
         for db_row in db_engine.execute("select version()"):
             self.report.saas_version = db_row[0]
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         try:
             self.inspect_version()
         except Exception as e:
             self.report.report_failure("version", f"Error: {e}")
             return
 
-        for wu in super().get_workunits():
+        for wu in super().get_workunits_internal():
             yield wu
             if (
                 isinstance(wu, SqlWorkUnit)
@@ -846,7 +854,7 @@ class RedshiftSource(SQLAlchemySource):
                 distinct cluster,
                 target_schema,
                 target_table,
-                username,
+                username as username,
                 source_schema,
                 source_table
             from
@@ -868,7 +876,7 @@ class RedshiftSource(SQLAlchemySource):
                     ) as target_tables
             join ( (
                 select
-                    pu.usename::varchar(40) as username,
+                    sui.usename as username,
                     ss.tbl as source_table_id,
                     sti.schema as source_schema,
                     sti.table as source_table,
@@ -886,12 +894,12 @@ class RedshiftSource(SQLAlchemySource):
                 ) ss
                 join SVV_TABLE_INFO sti on
                     sti.table_id = ss.tbl
-                left join pg_user pu on
-                    pu.usesysid = ss.userid
                 left join stl_query sq on
                     ss.query = sq.query
+                left join svl_user_info sui on
+                    sq.userid = sui.usesysid
                 where
-                    pu.usename <> 'rdsdb')
+                    sui.usename <> 'rdsdb')
             ) as source_tables
                     using (query)
             where
@@ -975,21 +983,21 @@ class RedshiftSource(SQLAlchemySource):
                 sti.schema as target_schema,
                 sti.table as target_table,
                 sti.database as cluster,
-                usename as username,
+                sui.usename as username,
                 querytxt,
                 si.starttime as starttime
             from
                 stl_insert as si
             join SVV_TABLE_INFO sti on
                 sti.table_id = tbl
-            left join pg_user pu on
-                pu.usesysid = si.userid
+            left join svl_user_info sui on
+                si.userid = sui.usesysid
             left join stl_query sq on
                 si.query = sq.query
             left join stl_load_commits slc on
                 slc.query = si.query
             where
-                pu.usename <> 'rdsdb'
+                sui.usename <> 'rdsdb'
                 and sq.aborted = 0
                 and slc.query IS NULL
                 and cluster = '{db_name}'

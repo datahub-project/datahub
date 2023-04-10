@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from datahub.configuration.common import ConfigurationError, OauthConfiguration
+from datahub.configuration.common import OauthConfiguration
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
@@ -18,7 +18,7 @@ from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
 
 def test_snowflake_source_throws_error_on_account_id_missing():
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ValidationError):
         SnowflakeV2Config.parse_obj(
             {
                 "username": "user",
@@ -236,6 +236,16 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
         CLIENT_PREFETCH_THREADS: 10,
         CLIENT_SESSION_KEEP_ALIVE: True,
     }
+
+
+def test_private_key_set_but_auth_not_changed():
+    with pytest.raises(ValidationError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "acctname",
+                "private_key_path": "/a/random/path",
+            }
+        )
 
 
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():

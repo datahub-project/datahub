@@ -79,7 +79,6 @@ def test_quickstart_forced_not_a_version_tag():
 
 
 def test_quickstart_get_older_version():
-
     execution_plan = example_version_mapper.get_quickstart_execution_plan("v0.9.6")
     expected = QuickstartExecutionPlan(
         docker_tag="v0.9.6.1",

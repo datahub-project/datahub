@@ -23,8 +23,8 @@ from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase,
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
@@ -84,7 +84,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
@@ -106,7 +105,7 @@ class LookerDashboardSourceConfig(
     LookerAPIConfig,
     LookerCommonConfig,
     StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
+    EnvConfigMixin,
 ):
     _removed_github_info = pydantic_removed_field("github_info")
 
@@ -146,7 +145,7 @@ class LookerDashboardSourceConfig(
         description="Optional URL to use when constructing external URLs to Looker if the `base_url` is not the correct one to use. For example, `https://looker-public.company.com`. If not provided, the external base URL will default to `base_url`.",
     )
     extract_usage_history: bool = Field(
-        False,
+        True,
         description="Whether to ingest usage statistics for dashboards. Setting this to True will query looker system activity explores to fetch historical dashboard usage.",
     )
     # TODO - stateful ingestion to autodetect usage history interval
@@ -168,23 +167,18 @@ class LookerDashboardSourceConfig(
     ) -> Optional[str]:
         return v or values.get("base_url")
 
-    @validator("platform_instance")
-    def platform_instance_not_supported(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            raise ConfigurationError("Looker Source doesn't support platform instances")
-        return v
-
 
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Not supported", supported=False)
 @capability(
     SourceCapability.OWNERSHIP, "Enabled by default, configured using `extract_owners`"
 )
 @capability(
-    SourceCapability.USAGE_STATS, "Can be enabled using `extract_usage_history`"
+    SourceCapability.USAGE_STATS,
+    "Enabled by default, configured using `extract_usage_history`",
 )
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
@@ -824,7 +818,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
-
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events = []
         for element in looker_dashboard.dashboard_elements:
@@ -1080,10 +1073,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         input_fields_aspect = InputFieldsClass(fields=all_fields)
 
         return MetadataChangeProposalWrapper(
-            entityType="dashboard",
             entityUrn=dashboard_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="inputFields",
             aspect=input_fields_aspect,
         )
 
@@ -1098,10 +1088,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         return MetadataChangeProposalWrapper(
-            entityType="chart",
             entityUrn=chart_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="inputFields",
             aspect=input_fields_aspect,
         )
 
