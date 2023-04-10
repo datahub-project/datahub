@@ -21,10 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    query_log_delay: Optional[PositiveInt] = Field(
-        default=None,
-        description="To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least query_log_delay additional events to be processed before attempting to resolve BigQuery job information from the logs. If query_log_delay is None, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage.",
-    )
+    _query_log_delay_removed = pydantic_removed_field("query_log_delay")
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
@@ -192,6 +189,12 @@ class BigQueryV2Config(
         hidden_from_docs=True,
         default=False,
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
+    )
+
+    file_backed_cache_size: int = Field(
+        hidden_from_docs=True,
+        default=200,
+        description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
     def __init__(self, **data: Any):

@@ -50,7 +50,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
-from datahub.ingestion.source.snowflake.snowflake_lineage import (
+from datahub.ingestion.source.snowflake.snowflake_lineage_legacy import (
+    SnowflakeLineageExtractor as SnowflakeLineageLegacyExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
@@ -251,9 +254,17 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
+        self.lineage_extractor: Union[
+            SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor
+        ]
         if config.include_table_lineage:
             # For lineage
-            self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
+            if self.config.use_legacy_lineage_method:
+                self.lineage_extractor = SnowflakeLineageLegacyExtractor(
+                    config, self.report
+                )
+            else:
+                self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
 
         if config.include_usage_stats or config.include_operational_stats:
             # For usage stats
@@ -1038,7 +1049,10 @@ class SnowflakeV2Source(
 
         if table.tags:
             tag_associations = [
-                TagAssociation(tag=make_tag_urn(tag.identifier())) for tag in table.tags
+                TagAssociation(
+                    tag=make_tag_urn(self.snowflake_identifier(tag.identifier()))
+                )
+                for tag in table.tags
             ]
             global_tags = GlobalTags(tag_associations)
             yield MetadataChangeProposalWrapper(
@@ -1087,11 +1101,10 @@ class SnowflakeV2Source(
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_key = tag.identifier()
-        tag_urn = make_tag_urn(self.snowflake_identifier(tag_key))
+        tag_urn = make_tag_urn(self.snowflake_identifier(tag.identifier()))
 
         tag_properties_aspect = TagProperties(
-            name=tag_key,
+            name=tag.display_name(),
             description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 

@@ -1,0 +1,124 @@
+// Styles for Sphinx Python SDK generated docs
+$borderRadius: 5px;
+
+dl.py {
+  margin-bottom: calc(var(--ifm-spacing-vertical) * 2);
+  font-size: 14px;
+  border: 1px solid var(--ifm-hr-border-color);
+  border-radius: $borderRadius;
+
+  code {
+    border: none;
+    background: none;
+  }
+
+  p {
+    margin-bottom: 0;
+  }
+
+  dl {
+    margin-bottom: var(--ifm-spacing-vertical);
+  }
+
+  // The parameter name:
+  em.sig-param > span:first-child {
+    font-weight: bold;
+  }
+
+  > dd:not(:empty) {
+    padding-bottom: var(--ifm-spacing-vertical);
+  }
+
+  dt.sig {
+    box-sizing: border-box;
+    font-size: 0.9rem;
+    padding: var(--ifm-spacing-vertical);
+    border-radius: $borderRadius;
+    font-family: var(--ifm-font-family-monospace);
+    background-color: var(--ifm-background-surface-color);
+  }
+
+  > dd {
+    &:not(:empty) {
+      padding-top: calc(var(--ifm-spacing-vertical) / 2);
+      margin-top: 0;
+      margin-left: var(--ifm-spacing-horizontal);
+      margin-right: var(--ifm-spacing-horizontal);
+    }
+  }
+
+  // e.g. `class`, or `def`
+  em.property {
+    color: var(--ifm-font-color-base);
+    font-weight: bold;
+  }
+
+  // e.g. `MyClass`
+  span.sig-name {
+    color: #2774b3;
+    font-weight: bold;
+  }
+
+  // e.g classmethod
+  em.property {
+    color: #66b327;
+  }
+
+  em.sig-param {
+    span.default_value {
+      color: #66b327;
+    }
+  }
+
+  span.sig-return {
+    span.sig-return-typehint {
+      color: var(--ifm-font-color-base);
+
+      pre {
+        color: var(--ifm-font-color-base);
+      }
+    }
+  }
+
+  dl.field-list {
+    padding-top: calc(var(--ifm-spacing-vertical) / 2);
+    display: grid;
+    grid-template-columns: fit-content(30%) auto;
+    &:not(:first-child) {
+      border-top: 1px solid var(--ifm-hr-border-color);
+    }
+
+    dt {
+      margin-right: 0.5em;
+    }
+
+    dd {
+      font-family: var(--ifm-font-family-monospace);
+    }
+
+    dt,
+    dd {
+      margin-left: 0;
+      padding-left: 0;
+
+      &:not(:first-of-type) {
+        border-top: 1px solid var(--ifm-hr-border-color);
+        padding-top: var(--ifm-spacing-vertical);
+      }
+      &:not(:last-of-type) {
+        padding-bottom: var(--ifm-spacing-vertical);
+      }
+
+      ul {
+        list-style-type: none;
+        padding-left: 0;
+        li {
+          p {
+            margin: 0;
+            padding: 0;
+          }
+        }
+      }
+    }
+  }
+}
