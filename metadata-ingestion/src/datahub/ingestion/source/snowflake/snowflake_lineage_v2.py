@@ -109,19 +109,31 @@ class SnowflakeLineageExtractor(
             f"Upstream lineage detected for {self.report.num_tables_with_upstreams} tables.",
         )
 
-        yield from self.get_table_external_upstream_workunits()
+        if self._external_lineage_map:  # Some external lineage is yet to be emitted
+            yield from self.get_table_external_upstream_workunits(discovered_tables)
+            logger.info(
+                f"Only upstream external lineage detected for {self.report.num_tables_with_external_upstreams_only} tables.",
+            )
 
-    def get_table_external_upstream_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if self._external_lineage_map:
-            for (
-                dataset_name,
-                external_lineage,
-            ) in self._external_lineage_map.items():
-                upstreams = self.get_external_upstreams(external_lineage)
-                if upstreams:
-                    yield self._create_upstream_lineage_workunit(
-                        dataset_name, upstreams
-                    )
+    def get_table_external_upstream_workunits(
+        self, discovered_tables: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        for (
+            dataset_name,
+            external_lineage,
+        ) in self._external_lineage_map.items():
+            if (
+                dataset_name not in discovered_tables
+                or not self._is_dataset_pattern_allowed(
+                    dataset_name,
+                    SnowflakeObjectDomain.TABLE,
+                )
+            ):
+                continue
+            upstreams = self.get_external_upstreams(external_lineage)
+            if upstreams:
+                self.report.num_tables_with_external_upstreams_only += 1
+                yield self._create_upstream_lineage_workunit(dataset_name, upstreams)
 
     def get_table_upstream_workunits(
         self, discovered_tables: List[str]
@@ -144,20 +156,28 @@ class SnowflakeLineageExtractor(
             )
 
     def _build_upstream_lineage_workunits_from_query_result(
-        self, discovered_assets, results, report_upstream_for_view=False
+        self, discovered_assets, results, upstream_for_view=False
     ):
         for db_row in results:
             dataset_name = self.get_dataset_identifier_from_qualified_name(
                 db_row["DOWNSTREAM_TABLE_NAME"]
             )
-            if dataset_name not in discovered_assets:
+            if (
+                dataset_name not in discovered_assets
+                or not self._is_dataset_pattern_allowed(
+                    dataset_name,
+                    SnowflakeObjectDomain.VIEW
+                    if upstream_for_view
+                    else SnowflakeObjectDomain.TABLE,
+                )
+            ):
                 continue
             (
                 upstreams,
                 fine_upstreams,
             ) = self.get_upstreams_from_query_result_row(dataset_name, db_row)
             if upstreams:
-                if report_upstream_for_view:
+                if upstream_for_view:
                     self.report.num_views_with_upstreams += 1
                 else:
                     self.report.num_tables_with_upstreams += 1
@@ -179,7 +199,7 @@ class SnowflakeLineageExtractor(
             return
 
         yield from self._build_upstream_lineage_workunits_from_query_result(
-            discovered_views, results, report_upstream_for_view=True
+            discovered_views, results, upstream_for_view=True
         )
 
     def _create_upstream_lineage_workunit(
