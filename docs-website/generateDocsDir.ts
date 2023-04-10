@@ -174,7 +174,6 @@ function get_slug(filepath: string): string {
 
 const hardcoded_titles = {
   "README.md": "Introduction",
-  "docs/demo.md": "See DataHub in Action",
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",

@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 _TestTableRef = str
 
 _TestAggregatedDataset = GenericAggregatedDataset[_TestTableRef]
+USAGE_ASPECT_NAME = DatasetUsageStatisticsClass.get_aspect_name()
 
 
 def _simple_urn_builder(resource):
@@ -170,7 +171,10 @@ def test_make_usage_workunit():
         include_top_n_queries=True,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -201,7 +205,10 @@ def test_query_formatting():
         format_sql_queries=True,
         include_top_n_queries=True,
     )
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -233,7 +240,10 @@ def test_query_trimming():
         total_budget_for_query_list=total_budget_for_query_list,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -272,7 +282,10 @@ def test_make_usage_workunit_include_top_n_queries():
         include_top_n_queries=False,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1

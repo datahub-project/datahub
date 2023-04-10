@@ -1,19 +1,21 @@
 # Adding Description on Columns
 
-## Why Would You Add Description on Columns? 
+## Why Would You Add Description on Columns?
+
 Adding column descriptions(documentation) to a dataset can provide crucial context for understanding the data and its variables. This can aid in data exploration, cleaning, and analysis, as well as ensure that others can understand the data if it is shared or used in collaboration. Additionally, column descriptions can help prevent errors and misunderstandings by clearly defining the meaning and units of measurement for each variable.
 
 ### Goal Of This Guide
+
 This guide will show you how to add a description to `user_name `column of a dataset `fct_users_deleted`.
 
-
 ## Prerequisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 :::note
-Before adding a description, you need to ensure the targeted dataset is already present in your datahub. 
-If you attempt to manipulate entities that do not exist, your operation will fail. 
+Before adding a description, you need to ensure the targeted dataset is already present in your datahub.
+If you attempt to manipulate entities that do not exist, your operation will fail.
 In this guide, we will be using data from sample ingestion.
 :::
 
@@ -22,12 +24,13 @@ In this example, we will add a description to `user_name `column of a dataset `f
 ## Add Description With GraphQL
 
 :::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+Please note that there are two available endpoints (`:8000`, `:9002`) to access `graphql`.
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
 
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies. 
+
+GraphQL Explorer is the fastest way to experiment with `graphql` without any dependencies.
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json
@@ -43,7 +46,7 @@ mutation updateDescription {
 }
 ```
 
-Note that you can use general markdown in `description`. For example, you can do the following. 
+Note that you can use general markdown in `description`. For example, you can do the following.
 
 ```json
 mutation updateDescription {
@@ -51,7 +54,7 @@ mutation updateDescription {
     input: {
       description: """
       ### User Name
-      The `user_name` column is a primary key column that contains the name of the user who was deleted. 
+      The `user_name` column is a primary key column that contains the name of the user who was deleted.
       """,
       resourceUrn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
       subResource: "user_name",
@@ -61,11 +64,11 @@ mutation updateDescription {
 }
 ```
 
-`updateDescription` currently only supports Dataset Schema Fields, Containers. 
-For more information about the `updateDescription` mutation, please refer to [updateLineage](https://datahubproject.io/docs/graphql/mutations/#updateDescription). 
-
+`updateDescription` currently only supports Dataset Schema Fields, Containers.
+For more information about the `updateDescription` mutation, please refer to [updateLineage](https://datahubproject.io/docs/graphql/mutations/#updateDescription).
 
 If you see the following response, the operation was successful:
+
 ```python
 {
   "data": {
@@ -77,7 +80,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Access Token Management](/docs/api/graphql/token-management.md).
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -86,13 +89,15 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Content-Type: application/json' \
 --data-raw '{ "query": "mutation updateDescription { updateDescription ( input: { description: \"Name of the user who was deleted. This description is updated via GrpahQL.\", resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\", subResource: \"user_name\", subResourceType:DATASET_FIELD }) }", "variables":{}}'
 ```
+
 Expected Response:
+
 ```json
-{"data":{"updateDescription":true},"extensions":{}}
+{ "data": { "updateDescription": true }, "extensions": {} }
 ```
 
-
 ## Add Description With Python SDK
+
 Following code add a description to `user_name `column of a dataset `fct_users_deleted`.
 
 ```python
@@ -109,7 +114,7 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     InstitutionalMemoryClass,
-    EditableSchemaMetadataClass, 
+    EditableSchemaMetadataClass,
     EditableSchemaFieldInfoClass,
 )
 
@@ -192,9 +197,8 @@ need_write = False
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
 ## Expected Outcomes
-You can now see column description is added to `user_name` column of `fct_users_deleted`. 
+
+You can now see column description is added to `user_name` column of `fct_users_deleted`.
 
 ![column-description-added](../../imgs/apis/tutorials/column-description-added.png)
-
