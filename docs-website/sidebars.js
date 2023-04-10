@@ -433,7 +433,19 @@ module.exports = {
         },
       ],
     },
-
+    {
+      "Getting Started: APIs & SDKs": [
+        "docs/api/tutorials/tags",
+        "docs/api/tutorials/terms",
+        "docs/api/tutorials/owners",
+        "docs/api/tutorials/domains",
+        "docs/api/tutorials/datasets",
+        "docs/api/tutorials/lineage",
+        "docs/api/tutorials/deprecation",
+        "docs/api/tutorials/descriptions",
+        "docs/api/tutorials/users-and-groups",
+      ],
+    },
     {
       Tools: [
         "docs/cli",
