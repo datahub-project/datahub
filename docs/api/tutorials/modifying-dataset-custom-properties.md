@@ -1,3 +1,6 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Modifying Custom Properties on Datasets
 
 ## Why Would You Use Custom Properties on Datasets? 
@@ -44,28 +47,30 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PR
 }
 ```
 
+## Add Custom Properties programmatically
+The following code adds custom properties `cluster_name` and `retention_time` to a dataset named `fct_users_deleted` without affecting existing properties.
 
-## Add Custom Properties With GraphQL (Not Supported)
+<Tabs>
+<TabItem value="graphql" label="GraphQL">
+
 > 🚫 Adding Custom Properties on Dataset via GraphQL is currently not supported.
 > Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
 
-## Replace Custom Properties With GraphQL (Not Supported)
-> 🚫 Replacing Custom Properties on Dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
-
-## Add Custom Properties With Java SDK
-The following code adds custom properties `cluster_name` and `retention_time` to a dataset named `fct_users_deleted` without affecting existing properties.
+</TabItem>
+<TabItem value="java" label="Java">
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAdd.java show_path_as_comment }}
 ```
 
-## Add Custom Properties With Python SDK
-The following code adds custom properties `cluster_name` and `retention_time` to a dataset named `fct_users_deleted` without affecting existing properties.
+</TabItem>
+<TabItem value="python" label="Python" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_properties.py show_path_as_comment }}
 ```
+</TabItem>
+</Tabs>
 
 ## Expected Outcome of Adding Custom Properties
 You can now see the two new properties are added to `fct_users_deleted` and the previous property `encoding` is unchanged. 
@@ -90,19 +95,31 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PR
 }
 ```
 
-## Add and Remove Custom Properties With Java SDK
+## Add and Remove Custom Properties programmatically
 The following code shows you how can add and remove custom properties in the same call. In the following code, we add custom property `cluster_name` and remove property `retention_time` from a dataset named `fct_users_deleted` without affecting existing properties.
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL">
+
+> 🚫 Adding and Removing Custom Properties on Dataset via GraphQL is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
+
+</TabItem>
+<TabItem value="java" label="Java">
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java show_path_as_comment }}
 ```
 
-## Add and Remove Custom Properties With Python SDK
-The following code shows you how can add and remove custom properties in the same call. In the following code, we add custom property `cluster_name` and remove property `retention_time` from a dataset named `fct_users_deleted` without affecting existing properties.
+</TabItem>
+<TabItem value="python" label="Python" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_remove_properties.py show_path_as_comment }}
 ```
+
+</TabItem>
+</Tabs>
 
 
 ## Expected Outcome of Add and Remove Operations on Custom Properties
@@ -128,20 +145,32 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PR
 }
 ```
 
-## Replace Custom Properties With Java SDK
+## Replace Custom Properties programmatically
 The following code replaces the current custom properties with a new properties map that includes only the properties `cluster_name` and `retention_time`. After running this code, the previous `encoding` property will be removed.
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL">
+
+> 🚫 Replacing Custom Properties on Dataset via GraphQL is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
+
+</TabItem>
+<TabItem value="java" label="Java">
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesReplace.java show_path_as_comment }}
 ```
 
-
-## Replace Custom Properties With Python SDK
-The following code replaces the current custom properties with a new properties map that includes only the properties `cluster_name` and `retention_time`. After running this code, the previous `encoding` property will be removed.
+</TabItem>
+<TabItem value="python" label="Python" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_replace_properties.py show_path_as_comment }}
 ```
+
+</TabItem>
+</Tabs>
+
 
 ## Expected Outcome of Replacing Custom Properties
 
