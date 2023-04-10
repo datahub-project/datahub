@@ -331,7 +331,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Lineage capability test for project {project_id}"))
+                logger.info(f"Lineage capability test for project {project_id}")
                 lineage_extractor.test_capability(project_id)
             except Exception as e:
                 return CapabilityReport(
@@ -350,7 +350,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         usage_extractor = BigQueryUsageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Usage capability test for project {project_id}"))
+                logger.info(f"Usage capability test for project {project_id}")
                 failures_before_test = len(report.failures)
                 usage_extractor.test_capability(project_id)
                 if failures_before_test != len(report.failures):
@@ -519,27 +519,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
-        if self.config.include_table_lineage:
-            if (
-                self.config.store_last_lineage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
+        if self._should_ingest_usage():
+            yield from self.usage_extractor.run(
+                [p.id for p in projects], self.table_refs
+            )
 
-            if self.config.store_last_lineage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
+        if self._should_ingest_lineage():
             for project in projects:
                 self.report.set_project_state(project.id, "Lineage Extraction")
                 yield from self.generate_lineage(project.id)
@@ -554,6 +539,49 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
         )
+
+    def _should_ingest_usage(self) -> bool:
+        if not self.config.include_usage_statistics:
+            return False
+
+        if self.config.store_last_usage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return False
+            else:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+        return True
+
+    def _should_ingest_lineage(self) -> bool:
+        if not self.config.include_table_lineage:
+            return False
+
+        if self.config.store_last_lineage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                # Skip this run
+                self.report.report_warning(
+                    "lineage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return False
+            else:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+        return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
         if self.config.project_ids or self.config.project_id:
@@ -641,31 +669,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.include_usage_statistics:
-            if (
-                self.config.store_last_usage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_usage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
-            self.report.set_project_state(project_id, "Usage Extraction")
-            yield from self.generate_usage_statistics(
-                project_id, db_tables=db_tables, db_views=db_views
-            )
-
         if self.config.profiling.enabled:
             logger.info(f"Starting profiling project {project_id}")
             self.report.set_project_state(project_id, "Profiling")
@@ -709,32 +712,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             if lineage_info:
                 yield from self.gen_lineage(dataset_urn, lineage_info)
-
-    def generate_usage_statistics(
-        self,
-        project_id: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate usage for {project_id}")
-        tables: Dict[str, List[str]] = defaultdict()
-        for dataset in db_tables.keys():
-            tables[dataset] = [
-                BigqueryTableIdentifier(
-                    project_id, dataset, table.name
-                ).get_table_name()
-                for table in db_tables[dataset]
-            ]
-        for dataset in db_views.keys():
-            tables[dataset].extend(
-                [
-                    BigqueryTableIdentifier(
-                        project_id, dataset, view.name
-                    ).get_table_name()
-                    for view in db_views[dataset]
-                ]
-            )
-        yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
 
     def _process_schema(
         self,
@@ -815,7 +792,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
             self.table_refs.add(str(BigQueryTableRef(table_identifier)))
         table.column_count = len(columns)
 

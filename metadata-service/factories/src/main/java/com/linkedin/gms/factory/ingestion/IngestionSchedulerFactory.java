@@ -17,7 +17,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 
-@Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class, ConfigurationProvider.class})
+@Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IngestionSchedulerFactory {
 
