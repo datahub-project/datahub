@@ -61,7 +61,11 @@ The following code adds custom properties `cluster_name` and `retention_time` to
 ```
 
 ## Add Custom Properties With Python SDK
-> 🚫 Adding Custom Properties on Dataset via the Python SDK using patch semantics is currently not supported.
+The following code adds custom properties `cluster_name` and `retention_time` to a dataset named `fct_users_deleted` without affecting existing properties.
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_properties.py show_path_as_comment }}
+```
 
 ## Expected Outcome of Adding Custom Properties
 You can now see the two new properties are added to `fct_users_deleted` and the previous property `encoding` is unchanged. 
@@ -94,7 +98,11 @@ The following code shows you how can add and remove custom properties in the sam
 ```
 
 ## Add and Remove Custom Properties With Python SDK
-> 🚫 Adding and Removing Custom Properties on Dataset via the Python SDK using patch semantics is currently not supported.
+The following code shows you how can add and remove custom properties in the same call. In the following code, we add custom property `cluster_name` and remove property `retention_time` from a dataset named `fct_users_deleted` without affecting existing properties.
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_remove_properties.py show_path_as_comment }}
+```
 
 
 ## Expected Outcome of Add and Remove Operations on Custom Properties
@@ -129,7 +137,11 @@ The following code replaces the current custom properties with a new properties 
 
 
 ## Replace Custom Properties With Python SDK
-> 🚫 Adding and Removing Custom Properties on Dataset via the Python SDK using patch semantics is currently not supported.
+The following code replaces the current custom properties with a new properties map that includes only the properties `cluster_name` and `retention_time`. After running this code, the previous `encoding` property will be removed.
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_replace_properties.py show_path_as_comment }}
+```
 
 ## Expected Outcome of Replacing Custom Properties
 
