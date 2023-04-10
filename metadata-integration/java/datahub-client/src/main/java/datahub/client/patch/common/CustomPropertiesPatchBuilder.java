@@ -40,12 +40,7 @@ public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuild
    * @return
    */
   public CustomPropertiesPatchBuilder<T> removeProperty(String key) {
-    return removeProperty(key, null);
-  }
-
-  private CustomPropertiesPatchBuilder<T> removeProperty(String key, String value) {
-    operations.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), CUSTOM_PROPERTIES_BASE_PATH + key,
-        instance.textNode(value)));
+    operations.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), CUSTOM_PROPERTIES_BASE_PATH + key, null));
     return this;
   }
 
