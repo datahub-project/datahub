@@ -14,6 +14,7 @@ source_registry.register_alias(
     lambda: warnings.warn(
         "source type snowflake-beta is deprecated, use snowflake instead",
         ConfigurationWarning,
+        stacklevel=3,
     ),
 )
 source_registry.register_alias(
@@ -22,6 +23,7 @@ source_registry.register_alias(
     lambda: warnings.warn(
         "source type bigquery-beta is deprecated, use bigquery instead",
         ConfigurationWarning,
+        stacklevel=3,
     ),
 )
 

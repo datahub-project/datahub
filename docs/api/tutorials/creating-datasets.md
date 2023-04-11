@@ -1,26 +1,29 @@
 # Creating Datasets
 
-## Why Would You Create Datasets? 
+## Why Would You Create Datasets?
+
 The dataset entity is one the most important entities in the metadata model. They represent collections of data that are typically represented as Tables or Views in a database (e.g. BigQuery, Snowflake, Redshift etc.), Streams in a stream-processing environment (Kafka, Pulsar etc.), bundles of data found as Files or Folders in data lake systems (S3, ADLS, etc.).
 For more information about datasets, refer to [Dataset](/docs/generated/metamodel/entities/dataset.md).
 
 ### Goal Of This Guide
+
 This guide will show you how to create a dataset named `realestate_db.sales` with three columns.
 
 ## Prerequisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 ## Create Datasets With GraphQL (Not Supported)
 
-> 🚫 Creating a dataset via GraphQL is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information, 
-
+> 🚫 Creating a dataset via `graphql` is currently not supported.
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information,
 
 ## Create Datasets With Python SDK
 
-The following code creates a hive dataset named `realestate_db.sales` with three fields. 
+The following code creates a hive dataset named `realestate_db.sales` with three fields.
 You can refer to the complete code in [dataset_schema.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_schema.py).
+
 ```python
 # inlined from metadata-ingestion/examples/library/dataset_schema.py
 # Imports for urn construction utility methods
@@ -94,20 +97,17 @@ rest_emitter.emit(event)
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
 ## Expected Outcomes
+
 You can now see `realestate_db.sales` dataset has been created.
 
 ![dataset-created](../../imgs/apis/tutorials/dataset-created.png)
 
 ## What's Next?
 
-Now that you created a dataset, how about enriching it? Here are some guides that you can check out. 
+Now that you created a dataset, how about enriching it? Here are some guides that you can check out.
 
-* [how to add a tag on a dataset](/docs/api/tutorials/adding-tags.md). 
-* [how to add a term on a dataset](/docs/api/tutorials/adding-terms.md). 
-* [how to add owner on a dataset](/docs/api/tutorials/adding-ownerships.md). 
-* [how to add lineage on a dataset](/docs/api/tutorials/adding-lineage.md). 
-
-
-
+- [how to add a tag on a dataset](/docs/api/tutorials/adding-tags.md).
+- [how to add a term on a dataset](/docs/api/tutorials/adding-terms.md).
+- [how to add owner on a dataset](/docs/api/tutorials/adding-ownerships.md).
+- [how to add lineage on a dataset](/docs/api/tutorials/adding-lineage.md).
