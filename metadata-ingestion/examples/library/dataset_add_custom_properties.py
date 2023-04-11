@@ -24,10 +24,11 @@ gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(config=DatahubClientConfig(server=gms_endpoint))
 
 # check if there are existing custom properties. If you want to overwrite the current ones, you can comment out this part.
-if graph.get_aspect(entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass):
-    existing_custom_properties = graph.get_aspect(
-        entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass
-    ).customProperties
+dataset_properties_class = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass
+)
+if dataset_properties_class:
+    existing_custom_properties = dataset_properties_class.customProperties
     custom_properties_to_add.update(existing_custom_properties)
 
 custom_properties_class = DatasetPropertiesClass(

@@ -29,10 +29,11 @@ The following code creates a Hive dataset named realestate_db.sales with three f
 
 Note that the `name` property of `make_dataset_urn` sets the display name of the dataset.
 
-After creating the dataset, you can perform various manipulations, such as adding lineage and custom properties. 
+After creating the dataset, you can perform various manipulations, such as adding lineage and custom properties.
 Here are some steps to start with, but for more detailed guidance, please refer to the [What's Next](/docs/api/tutorials/creating-datasets.md#whats-next) section.
 
 ### Add Lineage
+
 The following code creates a lineage from `fct_users_deleted` to `realestate_db.sales`:
 
 ```python
@@ -53,21 +54,26 @@ emitter = DatahubRestEmitter("http://localhost:8080")
 # Emit metadata!
 emitter.emit_mce(lineage_mce)
 ```
+
 For more information on adding lineages, please refer to [how to add lineage on a dataset using PythonSDK](/docs/api/tutorials/adding-lineage.md#add-lineage-with-python-sdk).
 
 ### Add custom properties
+
 You can also set custom properties using the following code:
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_custom_properties.py show_path_as_comment }}
 ```
 
-Note that this code checks the existing custom properties of the target dataset and updates them. 
+Note that this code checks the existing custom properties of the target dataset and updates them.
 If you want to overwrite the current ones, you can simply comment out this part:
 
 ```python
-if graph.get_aspect(entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass):
-    existing_custom_properties = graph.get_aspect(entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass).customProperties
+dataset_properties_class = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass
+)
+if dataset_properties_class:
+    existing_custom_properties = dataset_properties_class.customProperties
     custom_properties_to_add.update(existing_custom_properties)
 ```
 
