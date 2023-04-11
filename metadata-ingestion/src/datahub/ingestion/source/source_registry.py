@@ -33,6 +33,7 @@ source_registry.register_alias(
     lambda: warnings.warn(
         "source type redshift-usage is deprecated, use redshift source instead as usage was merged into the main source",
         ConfigurationWarning,
+        stacklevel=3,
     ),
 )
 
