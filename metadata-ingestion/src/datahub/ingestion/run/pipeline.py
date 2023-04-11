@@ -36,7 +36,10 @@ from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
-from datahub.utilities.global_warning_util import get_global_warnings
+from datahub.utilities.global_warning_util import (
+    clear_global_warnings,
+    get_global_warnings,
+)
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
@@ -389,6 +392,8 @@ class Pipeline:
             logger.error("Caught error", exc_info=e)
             raise
         finally:
+            clear_global_warnings()
+
             if callback and hasattr(callback, "close"):
                 callback.close()  # type: ignore
 
