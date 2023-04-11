@@ -173,7 +173,7 @@ class SnowflakeUsageExtractor(
             )
             if dataset_identifier not in discovered_datasets:
                 logger.debug(
-                    f"Skipping usage for table {dataset_identifier}, as table schema is not accessible"
+                    f"Skipping usage for table {dataset_identifier}, as table schema is not accessible or not allowed by recipe."
                 )
                 continue
 
