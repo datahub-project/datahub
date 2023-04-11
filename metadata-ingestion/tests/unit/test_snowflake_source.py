@@ -86,20 +86,6 @@ def test_snowflake_throws_error_on_encoded_oauth_private_key_missing_if_use_cert
         )
 
 
-def test_account_id_is_added_when_host_port_is_present():
-    config = SnowflakeV2Config.parse_obj(
-        {
-            "username": "user",
-            "password": "password",
-            "host_port": "acctname",
-            "database_pattern": {"allow": {"^demo$"}},
-            "warehouse": "COMPUTE_WH",
-            "role": "sysadmin",
-        }
-    )
-    assert config.account_id == "acctname"
-
-
 def test_account_id_with_snowflake_host_suffix():
     config = SnowflakeV2Config.parse_obj(
         {
@@ -177,8 +163,8 @@ def test_options_contain_connect_args():
     config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
+            "account_id": "acctname",
             "password": "password",
-            "host_port": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
@@ -225,7 +211,7 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
@@ -253,7 +239,7 @@ def test_snowflake_config_with_connect_args_overrides_base_connect_args():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
