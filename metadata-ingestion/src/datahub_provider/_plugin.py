@@ -335,7 +335,8 @@ def _wrap_task_policy(policy):
         policy(task)
         task_policy(task)
 
-    setattr(custom_task_policy, "_task_policy_patched_by", "datahub_plugin")
+    # Add a flag to the policy to indicate that we've patched it.
+    custom_task_policy._task_policy_patched_by = "datahub_plugin"  # type: ignore[attr-defined]
     return custom_task_policy
 
 

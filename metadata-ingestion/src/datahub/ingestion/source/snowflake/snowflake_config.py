@@ -80,6 +80,11 @@ class SnowflakeV2Config(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
+    use_legacy_lineage_method: bool = Field(
+        default=True,
+        description="Whether to use the legacy lineage computation method. If set to False, ingestion uses new optimised lineage extraction method that requires less ingestion process memory.",
+    )
+
     @validator("include_column_lineage")
     def validate_include_column_lineage(cls, v, values):
         if not values.get("include_table_lineage") and v:

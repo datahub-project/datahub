@@ -111,7 +111,7 @@ def test_account_id_with_snowflake_host_suffix():
             "role": "sysadmin",
         }
     )
-    config.account_id == "acctname"
+    assert config.account_id == "acctname"
 
 
 def test_snowflake_uri_default_authentication():
@@ -236,6 +236,16 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
         CLIENT_PREFETCH_THREADS: 10,
         CLIENT_SESSION_KEEP_ALIVE: True,
     }
+
+
+def test_private_key_set_but_auth_not_changed():
+    with pytest.raises(ValidationError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "acctname",
+                "private_key_path": "/a/random/path",
+            }
+        )
 
 
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():

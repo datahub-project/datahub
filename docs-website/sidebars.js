@@ -16,6 +16,11 @@ module.exports = {
         "docs/features",
         "docs/what-is-datahub/datahub-concepts",
         {
+          type: "link",
+          label: "See Datahub In Action",
+          href: "https://demo.datahubproject.io/",
+        },
+        {
           Architecture: [
             "docs/architecture/architecture",
             "docs/components",
@@ -23,7 +28,6 @@ module.exports = {
             "docs/architecture/metadata-serving",
           ],
         },
-        "docs/demo", // rename this to "DataHub Demo"
         "docs/saas",
       ],
     },
@@ -345,13 +349,13 @@ module.exports = {
               Guides: [
                 {
                   type: "doc",
-                  label: "Getting Started",
-                  id: "docs/api/graphql/getting-started",
+                  label: "How To Set Up GraphQL",
+                  id: "docs/api/graphql/how-to-set-up-graphql",
                 },
                 {
                   type: "doc",
-                  label: "Working with Metadata Entities",
-                  id: "docs/api/graphql/querying-entities",
+                  label: "Getting Started With GraphQL",
+                  id: "docs/api/graphql/getting-started",
                 },
                 {
                   type: "doc",
@@ -399,27 +403,37 @@ module.exports = {
                 "docs/api/tutorials/creating-tags",
                 "docs/api/tutorials/creating-terms",
                 "docs/api/tutorials/creating-users-and-groups",
+                "docs/api/tutorials/creating-domain",
+              ],
+            },
+            {
+              "Reading Entities": [
+                "docs/api/tutorials/reading-tags",
+                "docs/api/tutorials/reading-terms",
+                "docs/api/tutorials/reading-domains",
+                "docs/api/tutorials/reading-owners",
+                "docs/api/tutorials/reading-deprecation",
               ],
             },
             {
               "Enriching Entities": [
                 "docs/api/tutorials/adding-tags",
                 "docs/api/tutorials/adding-terms",
+                "docs/api/tutorials/adding-domain",
                 "docs/api/tutorials/adding-ownerships",
                 "docs/api/tutorials/adding-dataset-description",
                 "docs/api/tutorials/adding-column-description",
                 "docs/api/tutorials/adding-lineage",
+                "docs/api/tutorials/update-deprecation",
               ],
             },
             {
               "Deleting Entities": [
+                "docs/api/tutorials/removing-tags",
+                "docs/api/tutorials/removing-terms",
+                "docs/api/tutorials/removing-owners",
+                "docs/api/tutorials/removing-domains",
                 "docs/api/tutorials/deleting-entities-by-urn",
-              ],
-            },
-            {
-              Reference: [
-                "docs/api/tutorials/references/generate-access-token",
-                "docs/api/tutorials/references/prepare-datahub",
               ],
             },
           ],

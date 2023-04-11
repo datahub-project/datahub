@@ -54,7 +54,7 @@ module.exports = {
           position: "right",
         },
         {
-          to: "docs/demo",
+          to: "https://demo.datahubproject.io/",
           label: "Demo",
           position: "right",
         },
@@ -139,7 +139,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              to: "docs/demo",
+              to: "https://demo.datahubproject.io/",
             },
             {
               label: "Roadmap",
@@ -199,6 +199,7 @@ module.exports = {
               ? require.resolve("./src/styles/acryl.scss")
               : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
+            require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
           ],
         },
