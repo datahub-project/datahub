@@ -131,3 +131,10 @@ class RedshiftConfig(
                 "email_domain" in values and values["email_domain"]
             ), "email_domain needs to be set if usage is enabled"
         return values
+
+    @root_validator(pre=True)
+    def check_database_or_database_alias_set(cls, values):
+        assert values.get("database") or values.get(
+            "database_alias"
+        ), "either database or database_alias must be set"
+        return values

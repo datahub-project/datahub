@@ -4,6 +4,9 @@ redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
 def get_db_name(config: RedshiftConfig) -> str:
-    db_name = getattr(config, "database")
-    db_alias = getattr(config, "database_alias")
-    return db_alias or db_name
+    db_name = config.database
+    db_alias = config.database_alias
+
+    db_name = db_alias or db_name
+    assert db_name is not None, "database name or alias must be specified"
+    return db_name
