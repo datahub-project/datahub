@@ -34,9 +34,8 @@ dataset_urn = make_dataset_urn(platform="hive", name="fct_users_created", env="P
 with get_emitter() as emitter:
     for patch_mcp in (
         DatasetPatchBuilder(dataset_urn)
-        .custom_properties_patch_builder()
-        .add_property("cluster_name", "datahubproject.acryl.io")
-        .add_property("retention_time", "2 years")
+        .add_custom_property("cluster_name", "datahubproject.acryl.io")
+        .add_custom_property("retention_time", "2 years")
         .build()
     ):
         emitter.emit(patch_mcp)

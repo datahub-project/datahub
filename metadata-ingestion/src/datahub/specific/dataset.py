@@ -85,6 +85,9 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         super().__init__(
             urn, "dataset", system_metadata=system_metadata, audit_header=audit_header
         )
+        self.custom_properties_patch_builder = CustomPropertiesPatchBuilder(
+            self, "datasetProperties"
+        )
 
     def add_owner(self, owner: Owner) -> "DatasetPatchBuilder":
         self._add_patch(
@@ -190,18 +193,10 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         )
         return self
 
-    def custom_properties_patch_builder(
-        self,
-    ) -> "CustomPropertiesPatchBuilder['DatasetPatchBuilder']":
-        """
-        Get a builder that can perform patches against custom properties in the dataset
-        """
+    def add_custom_property(self, key: str, value: str) -> "DatasetPatchBuilder":
+        self.custom_properties_patch_builder.add_property(key, value)
+        return self
 
-        return CustomPropertiesPatchBuilder(
-            self,
-            self.urn,
-            "dataset",
-            "datasetProperties",
-            self.system_metadata,
-            self.audit_header,
-        )
+    def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
+        self.custom_properties_patch_builder.remove_property(key)
+        return self

@@ -1,31 +1,16 @@
-from typing import Generic, Iterable, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
-from datahub.metadata.schema_classes import (
-    KafkaAuditHeaderClass,
-    MetadataChangeProposalClass,
-    SystemMetadataClass,
-)
 
 T = TypeVar("T", bound=MetadataPatchProposal)
 
 
-class CustomPropertiesPatchBuilder(Generic[T], MetadataPatchProposal):
+class CustomPropertiesPatchBuilder(Generic[T]):
     def __init__(
         self,
         parent: T,
-        entity_urn: str,
-        entity_type: str,
         aspect_name: str,
-        system_metadata: Optional[SystemMetadataClass] = None,
-        audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
-        super().__init__(
-            entity_urn,
-            entity_type,
-            system_metadata=system_metadata,
-            audit_header=audit_header,
-        )
         self.aspect_name = aspect_name
         self._parent = parent
         self.aspect_field = "customProperties"
@@ -50,6 +35,3 @@ class CustomPropertiesPatchBuilder(Generic[T], MetadataPatchProposal):
             value={},
         )
         return self
-
-    def build(self) -> Iterable[MetadataChangeProposalClass]:
-        return self._parent.build()

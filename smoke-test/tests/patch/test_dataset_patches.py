@@ -424,13 +424,13 @@ def test_custom_properties_patch(wait_for_healthchecks):
             "test_property1": "test_value1",
         }
 
-        custom_properties_builder = DatasetPatchBuilder(
+        dataset_patch_builder = DatasetPatchBuilder(
             dataset_urn
-        ).custom_properties_patch_builder()
+        )
         for k, v in new_properties.items():
-            custom_properties_builder.add_property(k, v)
+            dataset_patch_builder.add_custom_property(k, v)
 
-        for patch_mcp in custom_properties_builder.build():
+        for patch_mcp in dataset_patch_builder.build():
             graph.emit_mcp(patch_mcp)
 
         custom_properties = get_custom_properties(graph, dataset_urn)
@@ -446,8 +446,7 @@ def test_custom_properties_patch(wait_for_healthchecks):
         # Remove property
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .custom_properties_patch_builder()
-            .remove_property("test_property")
+            .remove_custom_property("test_property")
             .build()
         ):
             graph.emit_mcp(patch_mcp)
@@ -490,9 +489,7 @@ def test_custom_properties_patch(wait_for_healthchecks):
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
             .set_description("This is a new description")
-            .custom_properties_patch_builder()
-            .add_property("test_description_property", "test_description_value")
-            .parent()
+            .add_custom_property("test_description_property", "test_description_value")
             .build()
         ):
             graph.emit_mcp(patch_mcp)
