@@ -17,11 +17,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source import SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -152,7 +153,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="PowerBI Stateful Ingestion Config."
+        default=None, description="Azure AD Stateful Ingestion Config."
     )
 
 
@@ -174,6 +175,9 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
 class AzureADSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

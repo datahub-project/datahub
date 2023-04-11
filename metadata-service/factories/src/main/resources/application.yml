@@ -247,6 +247,11 @@ metadataTests:
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
+updateIndices:
+  enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
+ingestionScheduler:
+  enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
+
 
 bootstrap:
   upgradeDefaultBrowsePaths:
