@@ -112,8 +112,6 @@ class SnowflakeLineageExtractor(
             dataset_name,
             external_lineage,
         ) in self._external_lineage_map.items():
-            if dataset_name not in discovered_tables:
-                continue
             upstreams = self.get_external_upstreams(external_lineage)
             if upstreams:
                 self.report.num_tables_with_external_upstreams_only += 1
