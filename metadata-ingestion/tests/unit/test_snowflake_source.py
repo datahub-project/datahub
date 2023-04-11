@@ -111,7 +111,7 @@ def test_account_id_with_snowflake_host_suffix():
             "role": "sysadmin",
         }
     )
-    config.account_id == "acctname"
+    assert config.account_id == "acctname"
 
 
 def test_snowflake_uri_default_authentication():

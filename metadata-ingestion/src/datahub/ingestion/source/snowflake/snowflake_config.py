@@ -5,6 +5,7 @@ from typing import Dict, Optional, cast
 from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.glossary.classifier import ClassificationConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
@@ -13,7 +14,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
     SnowflakeConfig,
-    SnowflakeProvisionRoleConfig,
 )
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 
@@ -51,14 +51,8 @@ class SnowflakeV2Config(
         description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role.",
     )
 
-    check_role_grants: bool = Field(
-        default=False,
-        description="Not supported",
-    )
-
-    provision_role: Optional[SnowflakeProvisionRoleConfig] = Field(
-        default=None, description="Not supported"
-    )
+    _check_role_grants_removed = pydantic_removed_field("check_role_grants")
+    _provision_role_removed = pydantic_removed_field("provision_role")
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
@@ -80,6 +74,11 @@ class SnowflakeV2Config(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
+    use_legacy_lineage_method: bool = Field(
+        default=True,
+        description="Whether to use the legacy lineage computation method. If set to False, ingestion uses new optimised lineage extraction method that requires less ingestion process memory.",
+    )
+
     @validator("include_column_lineage")
     def validate_include_column_lineage(cls, v, values):
         if not values.get("include_table_lineage") and v:
@@ -95,18 +94,6 @@ class SnowflakeV2Config(
 
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("provision_role")
-        if value is not None and value.enabled:
-            raise ValueError(
-                "Provision role is currently not supported. Set `provision_role.enabled` to False."
-            )
-
-        value = values.get("check_role_grants")
-        if value is not None and value:
-            raise ValueError(
-                "Check role grants is not supported. Set `check_role_grants` to False.",
-            )
-
         value = values.get("include_read_operational_stats")
         if value is not None and value:
             raise ValueError(
