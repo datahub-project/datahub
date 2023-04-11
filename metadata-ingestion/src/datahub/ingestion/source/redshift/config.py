@@ -85,7 +85,6 @@ class RedshiftConfig(
 
     _database_alias_deprecation = pydantic_field_deprecated(
         "database_alias",
-        new_field="platform_instance",
         message="database_alias is deprecated. Use platform_instance instead.",
     )
 
@@ -132,7 +131,7 @@ class RedshiftConfig(
             ), "email_domain needs to be set if usage is enabled"
         return values
 
-    @root_validator(pre=True)
+    @root_validator()
     def check_database_or_database_alias_set(cls, values):
         assert values.get("database") or values.get(
             "database_alias"
