@@ -56,10 +56,8 @@ def snowflake_pipeline_legacy_lineage_config(tmp_path):
                 include_view_lineage=False,
                 include_usage_stats=False,
                 use_legacy_lineage_method=True,
-                start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
-                    tzinfo=timezone.utc
-                ),
-                end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
+                start_time=datetime(2022, 6, 6, 7, 17, 0, 0, tzinfo=timezone.utc),
+                end_time=datetime(2022, 6, 7, 7, 17, 0, 0, tzinfo=timezone.utc),
             ),
         ),
         sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),

@@ -1,5 +1,5 @@
 # Imports for urn construction utility methods
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from datahub.emitter.mce_builder import make_dashboard_urn, make_user_urn
@@ -30,7 +30,10 @@ usage_day_1: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
     entityUrn=make_dashboard_urn("looker", "dashboards.999999"),
     aspect=DashboardUsageStatisticsClass(
         timestampMillis=round(
-            datetime.strptime("2022-02-09", "%Y-%m-%d").timestamp() * 1000
+            datetime.strptime("2022-02-09", "%Y-%m-%d")
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
+            * 1000
         ),
         eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
         uniqueUserCount=2,
@@ -44,14 +47,17 @@ absolute_usage_as_of_day_1: MetadataChangeProposalWrapper = (
         entityUrn=make_dashboard_urn("looker", "dashboards.999999"),
         aspect=DashboardUsageStatisticsClass(
             timestampMillis=round(
-                datetime.strptime("2022-02-09", "%Y-%m-%d").timestamp() * 1000
+                datetime.strptime("2022-02-09", "%Y-%m-%d")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
+                * 1000
             ),
             favoritesCount=100,
             viewsCount=25,
             lastViewedAt=round(
-                datetime.strptime(
-                    "2022-02-09 04:45:30", "%Y-%m-%d %H:%M:%S"
-                ).timestamp()
+                datetime.strptime("2022-02-09 04:45:30", "%Y-%m-%d %H:%M:%S")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
                 * 1000
             ),
         ),
@@ -73,7 +79,10 @@ usage_day_2: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
     entityUrn=make_dashboard_urn("looker", "dashboards.999999"),
     aspect=DashboardUsageStatisticsClass(
         timestampMillis=round(
-            datetime.strptime("2022-02-10", "%Y-%m-%d").timestamp() * 1000
+            datetime.strptime("2022-02-10", "%Y-%m-%d")
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
+            * 1000
         ),
         eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
         uniqueUserCount=2,
@@ -87,14 +96,17 @@ absolute_usage_as_of_day_2: MetadataChangeProposalWrapper = (
         entityUrn=make_dashboard_urn("looker", "dashboards.999999"),
         aspect=DashboardUsageStatisticsClass(
             timestampMillis=round(
-                datetime.strptime("2022-02-10", "%Y-%m-%d").timestamp() * 1000
+                datetime.strptime("2022-02-10", "%Y-%m-%d")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
+                * 1000
             ),
             favoritesCount=100,
             viewsCount=27,
             lastViewedAt=round(
-                datetime.strptime(
-                    "2022-02-10 10:45:30", "%Y-%m-%d %H:%M:%S"
-                ).timestamp()
+                datetime.strptime("2022-02-10 10:45:30", "%Y-%m-%d %H:%M:%S")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
                 * 1000
             ),
         ),
@@ -113,7 +125,10 @@ usage_day_3: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
     entityUrn=make_dashboard_urn("looker", "dashboards.999999"),
     aspect=DashboardUsageStatisticsClass(
         timestampMillis=round(
-            datetime.strptime("2022-02-11", "%Y-%m-%d").timestamp() * 1000
+            datetime.strptime("2022-02-11", "%Y-%m-%d")
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
+            * 1000
         ),
         eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
         uniqueUserCount=1,
@@ -127,14 +142,17 @@ absolute_usage_as_of_day_3: MetadataChangeProposalWrapper = (
         entityUrn=make_dashboard_urn("looker", "dashboards.999999"),
         aspect=DashboardUsageStatisticsClass(
             timestampMillis=round(
-                datetime.strptime("2022-02-11", "%Y-%m-%d").timestamp() * 1000
+                datetime.strptime("2022-02-11", "%Y-%m-%d")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
+                * 1000
             ),
             favoritesCount=102,
             viewsCount=30,
             lastViewedAt=round(
-                datetime.strptime(
-                    "2022-02-11 02:45:30", "%Y-%m-%d %H:%M:%S"
-                ).timestamp()
+                datetime.strptime("2022-02-11 02:45:30", "%Y-%m-%d %H:%M:%S")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
                 * 1000
             ),
         ),
