@@ -90,7 +90,7 @@ timestamp < "{end_time}"
         self.report = report
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
+        self.report.report_warning(key, reason)
         log.error(f"{key} => {reason}")
 
     @staticmethod

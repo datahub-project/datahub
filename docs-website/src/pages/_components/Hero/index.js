@@ -6,6 +6,7 @@ import Image from "@theme/IdealImage";
 import { useColorMode } from "@docusaurus/theme-common";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
+import CodeBlock from "@theme/CodeBlock";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
@@ -31,15 +32,32 @@ const Hero = ({}) => {
               DataHub's extensible metadata platform enables data discovery, data observability and federated governance that helps tame the
               complexity of your data ecosystem.
             </p>
-            <Link className="button button--primary button--lg" to={useBaseUrl("docs/")}>
+            <Link className="button button--primary button--md" to={useBaseUrl("docs/")}>
               Get Started →
             </Link>
-            <Link className="button button--secondary button--outline button--lg" to="https://slack.datahubproject.io">
+            <Link className="button button--secondary button--md" to="https://slack.datahubproject.io">
               Join our Slack
             </Link>
           </div>
         </div>
         <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
+        <div className="quickstart__content">
+          <h1 className="quickstart__title">Get Started Now</h1>
+          <p className="quickstart__subtitle">Run the following command to get started with DataHub.</p>
+          <div className="quickstart__codeblock">
+            <CodeBlock className={"language-shell"}>
+              python3 -m pip install --upgrade pip wheel setuptools <br />
+              python3 -m pip install --upgrade acryl-datahub <br />
+              datahub docker quickstart
+            </CodeBlock>
+          </div>
+          <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
+            DataHub Quickstart Guide
+          </Link>
+          <Link className="button button--secondary button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
+            Deploying With Kubernetes
+          </Link>
+        </div>
         <div className={clsx("card", styles.quickLinks)}>
           <div className={styles.quickLinksLabel}>
             <QuestionCircleOutlined />
