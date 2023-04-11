@@ -15,9 +15,11 @@ FROM base as prod-install
 COPY ./datahub-frontend.zip /
 RUN unzip datahub-frontend.zip && rm datahub-frontend.zip
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
-RUN wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.18.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
-    && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.17.2/jmx_prometheus_javaagent-0.17.2.jar -O jmx_prometheus_javaagent.jar
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
+
+ENV JMX_VERSION=0.18.0
+RUN wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
+    && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
