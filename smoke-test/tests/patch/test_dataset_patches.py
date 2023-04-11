@@ -234,10 +234,9 @@ def test_dataset_terms_patch(wait_for_healthchecks):
 def get_field_info(
     graph: DataHubGraph, dataset_urn: str, field_path: str
 ) -> Optional[EditableSchemaFieldInfoClass]:
-    schema_metadata = graph.get_aspect_v2(
+    schema_metadata = graph.get_aspect(
         entity_urn=dataset_urn,
         aspect_type=EditableSchemaMetadataClass,
-        aspect="editableSchemaMetadata",
     )
     assert schema_metadata
     field_info = [
@@ -277,8 +276,9 @@ def test_field_terms_patch(wait_for_healthchecks):
         )
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch_builder(field_path)
+            .for_field(field_path)
             .add_term(new_term)
+            .parent()
             .build()
         ):
             graph.emit_mcp(patch_mcp)
@@ -293,8 +293,9 @@ def test_field_terms_patch(wait_for_healthchecks):
 
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch_builder(field_path)
+            .for_field(field_path)
             .remove_term(new_term.urn)
+            .parent()
             .build()
         ):
             graph.emit_mcp(patch_mcp)
@@ -336,8 +337,9 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch_builder(field_path)
+            .for_field(field_path)
             .add_tag(new_tag)
+            .parent()
             .build()
         ):
             graph.emit_mcp(patch_mcp)
@@ -353,8 +355,9 @@ def test_field_tags_patch(wait_for_healthchecks):
         # Add the same tag again and verify that it doesn't get added
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch_builder(field_path)
+            .for_field(field_path)
             .add_tag(new_tag)
+            .parent()
             .build()
         ):
             graph.emit_mcp(patch_mcp)
@@ -369,8 +372,9 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch_builder(field_path)
+            .for_field(field_path)
             .remove_tag(new_tag.tag)
+            .parent()
             .build()
         ):
             graph.emit_mcp(patch_mcp)

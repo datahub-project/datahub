@@ -5,7 +5,7 @@ from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 T = TypeVar("T", bound=MetadataPatchProposal)
 
 
-class CustomPropertiesPatchBuilder(Generic[T]):
+class CustomPropertiesPatchHelper(Generic[T]):
     def __init__(
         self,
         parent: T,
@@ -18,7 +18,7 @@ class CustomPropertiesPatchBuilder(Generic[T]):
     def parent(self) -> T:
         return self._parent
 
-    def add_property(self, key: str, value: str) -> "CustomPropertiesPatchBuilder":
+    def add_property(self, key: str, value: str) -> "CustomPropertiesPatchHelper":
         self._parent._add_patch(
             self.aspect_name,
             "add",
@@ -27,7 +27,7 @@ class CustomPropertiesPatchBuilder(Generic[T]):
         )
         return self
 
-    def remove_property(self, key: str) -> "CustomPropertiesPatchBuilder":
+    def remove_property(self, key: str) -> "CustomPropertiesPatchHelper":
         self._parent._add_patch(
             self.aspect_name,
             "remove",
