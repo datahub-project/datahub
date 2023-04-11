@@ -119,7 +119,7 @@ project.ext.externalDependency = [
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
-    'jettison': 'org.codehaus.jettison:jettison:1.5.2',
+    'jettison': 'org.codehaus.jettison:jettison:1.5.4',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
