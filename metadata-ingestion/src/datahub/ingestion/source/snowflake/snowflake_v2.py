@@ -1378,7 +1378,6 @@ class SnowflakeV2Source(
         if not self.report.ignore_start_time_lineage:
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
-        self.report.check_role_grants = self.config.check_role_grants
         self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
