@@ -32,8 +32,6 @@ class SnowflakeReport(BaseSnowflakeReport, ProfilingSqlReport):
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
     role: str = ""
-    check_role_grants: Optional[bool] = None
-    role_grants: List[str] = field(default_factory=list)
 
     profile_if_updated_since: Optional[datetime] = None
     profile_candidates: Dict[str, List[str]] = field(default_factory=dict)
