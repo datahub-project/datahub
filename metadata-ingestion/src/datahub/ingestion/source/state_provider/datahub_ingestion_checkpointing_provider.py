@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, tzinfo, timezone
+from datetime import datetime, timezone, tzinfo
 from typing import Any, Dict, Optional
 
 from datahub.configuration.common import ConfigurationError
