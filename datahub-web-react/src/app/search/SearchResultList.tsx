@@ -11,6 +11,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { SearchResult } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { EntityAndType } from '../entity/shared/types';
+import { useAppConfig } from '../useAppConfig';
 
 const ResultList = styled(List)`
     &&& {
@@ -36,6 +37,18 @@ const NoDataContainer = styled.div`
 const ThinDivider = styled(Divider)`
     margin-top: 16px;
     margin-bottom: 16px;
+`;
+
+const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+    ${(props) =>
+        props.showUpdatedStyles &&
+        `    
+        background-color: white;
+        border-radius: 5px;
+        margin: 0 auto 8px auto;
+        padding: 8px 16px;
+        max-width: 1200px;
+    `}
 `;
 
 const SiblingResultContainer = styled.div`
@@ -65,9 +78,11 @@ export const SearchResultList = ({
     selectedEntities,
     setSelectedEntities,
 }: Props) => {
+    const appConfig = useAppConfig();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+    const { showUpdatedSearchFilters } = appConfig.config.featureFlags;
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
@@ -116,7 +131,7 @@ export const SearchResultList = ({
                     ),
                 }}
                 renderItem={(item, index) => (
-                    <>
+                    <ResultWrapper showUpdatedStyles={showUpdatedSearchFilters}>
                         <ListItem
                             isSelectMode={isSelectMode}
                             onClick={() => onClickResult(item, index)}
@@ -144,8 +159,8 @@ export const SearchResultList = ({
                                 />
                             </SiblingResultContainer>
                         )}
-                        <ThinDivider />
-                    </>
+                        {!showUpdatedSearchFilters && <ThinDivider />}
+                    </ResultWrapper>
                 )}
             />
         </>

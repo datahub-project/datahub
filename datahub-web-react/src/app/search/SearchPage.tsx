@@ -18,11 +18,13 @@ import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloa
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 import SearchFilters from './filters/SearchFilters';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
+import { useAppConfig } from '../useAppConfig';
 
 /**
  * A search results page.
  */
 export const SearchPage = () => {
+    const appConfig = useAppConfig();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
 
@@ -135,16 +137,20 @@ export const SearchPage = () => {
         }
     }, [isSelectMode]);
 
+    const { showUpdatedSearchFilters } = appConfig.config.featureFlags;
+
     return (
         <>
             {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
-            <SearchFilters
-                availableFilters={data?.searchAcrossEntities?.facets || []}
-                activeFilters={filters}
-                unionType={unionType}
-                onChangeFilters={onChangeFilters}
-                onChangeUnionType={onChangeUnionType}
-            />
+            {showUpdatedSearchFilters && (
+                <SearchFilters
+                    availableFilters={data?.searchAcrossEntities?.facets || []}
+                    activeFilters={filters}
+                    unionType={unionType}
+                    onChangeFilters={onChangeFilters}
+                    onChangeUnionType={onChangeUnionType}
+                />
+            )}
             <SearchResults
                 unionType={unionType}
                 downloadSearchResults={downloadSearchResults}

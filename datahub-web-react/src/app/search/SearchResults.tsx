@@ -19,6 +19,8 @@ import { generateOrFilters } from './utils/generateOrFilters';
 import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { useAppConfig } from '../useAppConfig';
 
 const SearchBody = styled.div`
     display: flex;
@@ -26,10 +28,17 @@ const SearchBody = styled.div`
     min-height: calc(100vh - 60px);
 `;
 
-const ResultContainer = styled.div`
+const ResultContainer = styled.div<{ displayUpdatedStyles: boolean }>`
     flex: 1;
     margin-bottom: 20px;
-    max-width: calc(100% - 260px);
+    ${(props) =>
+        props.displayUpdatedStyles
+            ? `
+        background-color: ${ANTD_GRAY[2]};
+    `
+            : `
+        max-width: calc(100% - 260px);
+    `}
 `;
 
 const PaginationControlContainer = styled.div`
@@ -115,6 +124,7 @@ export const SearchResults = ({
     onChangeSelectAll,
     refetch,
 }: Props) => {
+    const appConfig = useAppConfig();
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
@@ -125,22 +135,26 @@ export const SearchResults = ({
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
+    const { showUpdatedSearchFilters } = appConfig.config.featureFlags;
+
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <div>
                 <SearchBody>
-                    <div id={SEARCH_RESULTS_FILTERS_ID}>
-                        <SearchFiltersSection
-                            filters={filters}
-                            selectedFilters={selectedFilters}
-                            unionType={unionType}
-                            loading={loading}
-                            onChangeFilters={onChangeFilters}
-                            onChangeUnionType={onChangeUnionType}
-                        />
-                    </div>
-                    <ResultContainer>
+                    {!showUpdatedSearchFilters && (
+                        <div id={SEARCH_RESULTS_FILTERS_ID}>
+                            <SearchFiltersSection
+                                filters={filters}
+                                selectedFilters={selectedFilters}
+                                unionType={unionType}
+                                loading={loading}
+                                onChangeFilters={onChangeFilters}
+                                onChangeUnionType={onChangeUnionType}
+                            />
+                        </div>
+                    )}
+                    <ResultContainer displayUpdatedStyles={showUpdatedSearchFilters}>
                         <PaginationInfoContainer>
                             <>
                                 <Typography.Text>
