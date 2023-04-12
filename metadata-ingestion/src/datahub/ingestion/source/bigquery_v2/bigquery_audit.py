@@ -122,11 +122,8 @@ class BigqueryTableIdentifier:
             - removes wildcard part (table_yyyy* -> table)
             - remove time decorator (table@1624046611000 -> table)
         """
-        shortened_table_name = self.table
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
-        shortened_table_name = re.sub(
-            self._BIGQUERY_WILDCARD_REGEX, "", shortened_table_name
-        )
+        shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
 
         matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
@@ -160,9 +157,7 @@ class BigqueryTableIdentifier:
             f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
         )
         if self.is_sharded_table():
-            table_name = (
-                f"{table_name}{BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX}"
-            )
+            table_name += BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX
         return table_name
 
     def is_sharded_table(self) -> bool:
@@ -205,7 +200,7 @@ class BigQueryTableRef:
                 raise ValueError(f"invalid BigQuery table reference dict: {spec}")
 
         return cls(
-            # spec dict always has to have projectId, datasetId, tableId otherwise it is an ivalid spec
+            # spec dict always has to have projectId, datasetId, tableId otherwise it is an invalid spec
             BigqueryTableIdentifier(
                 spec["projectId"], spec["datasetId"], spec["tableId"]
             )
