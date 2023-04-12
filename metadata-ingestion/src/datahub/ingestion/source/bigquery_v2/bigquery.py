@@ -793,7 +793,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return
 
         if self.config.include_table_lineage or self.config.include_usage_statistics:
-            self.table_refs.add(str(BigQueryTableRef(table_identifier)))
+            self.table_refs.add(
+                str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+            )
         table.column_count = len(columns)
 
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
@@ -839,8 +841,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage:
-            table_ref = str(BigQueryTableRef(table_identifier))
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
+            table_ref = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
             self.table_refs.add(table_ref)
             if self.config.lineage_parse_view_ddl:
                 upstream_tables = self.lineage_extractor.parse_view_lineage(
