@@ -24,7 +24,7 @@ import org.springframework.context.annotation.PropertySource;
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@Import({EntityRegistryFactory.class, SettingsBuilderFactory.class, ConfigurationProvider.class})
+@Import({EntityRegistryFactory.class, SettingsBuilderFactory.class})
 public class ElasticSearchServiceFactory {
   @Autowired
   @Qualifier("baseElasticSearchComponents")

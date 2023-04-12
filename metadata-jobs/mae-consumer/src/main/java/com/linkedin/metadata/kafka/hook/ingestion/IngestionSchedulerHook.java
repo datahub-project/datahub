@@ -18,6 +18,7 @@ import javax.annotation.Nonnull;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
@@ -34,14 +35,22 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
   private final EntityRegistry _entityRegistry;
   private final IngestionScheduler _scheduler;
+  private final boolean _isEnabled;
 
   @Autowired
   public IngestionSchedulerHook(
       @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final IngestionScheduler scheduler
+      @Nonnull final IngestionScheduler scheduler,
+      @Nonnull @Value("${ingestionScheduler.enabled:true}") Boolean isEnabled
   ) {
     _entityRegistry = entityRegistry;
     _scheduler = scheduler;
+    _isEnabled = isEnabled;
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return _isEnabled;
   }
 
   @Override

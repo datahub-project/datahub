@@ -43,6 +43,8 @@ dependencies {
 
     testCompile externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
+
+    testImplementation externalDependency.springBootTest
 }
 
 task avroSchemaSources(type: Copy) {

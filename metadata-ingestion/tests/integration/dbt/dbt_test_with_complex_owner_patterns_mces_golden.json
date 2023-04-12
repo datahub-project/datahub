@@ -7,8 +7,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "ephemeral",
-                "view"
+                "Model"
             ]
         }
     },
@@ -151,8 +150,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -312,8 +311,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -532,8 +531,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table"
             ]
         }
     },
@@ -668,7 +667,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -834,7 +833,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1021,7 +1020,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1148,7 +1147,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1287,7 +1286,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1431,7 +1430,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1642,7 +1641,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1805,7 +1804,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1986,7 +1985,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2149,7 +2148,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2312,7 +2311,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2473,7 +2472,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.dbt_postgres.an-aliased-view-for-monthly-billing%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -2487,7 +2486,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.dbt_postgres.an-aliased-view-for-payments%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -2501,23 +2500,8 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.dbt_postgres.payments_by_customer_by_month%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-complex-owner-patterns"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:test_tag",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "dbt:test_tag"
-        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2532,6 +2516,21 @@
     "aspect": {
         "json": {
             "name": "dbt:column_tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-complex-owner-patterns"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:test_tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:test_tag"
         }
     },
     "systemMetadata": {

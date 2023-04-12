@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+from urllib.parse import quote
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -113,7 +114,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             "upstreamLineage",
             "add",
-            path=f"/upstreams/{upstream.dataset}",
+            path=f"/upstreams/{quote(upstream.dataset, safe='')}",
             value=upstream,
         )
         return self
