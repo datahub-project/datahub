@@ -178,7 +178,7 @@ def test_options_contain_connect_args():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
@@ -194,7 +194,7 @@ def test_snowflake_config_with_view_lineage_no_table_lineage_throws_error():
             {
                 "username": "user",
                 "password": "password",
-                "host_port": "acctname",
+                "account_id": "acctname",
                 "database_pattern": {"allow": {"^demo$"}},
                 "warehouse": "COMPUTE_WH",
                 "role": "sysadmin",
@@ -210,7 +210,7 @@ def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
             {
                 "username": "user",
                 "password": "password",
-                "host_port": "acctname",
+                "account_id": "acctname",
                 "database_pattern": {"allow": {"^demo$"}},
                 "warehouse": "COMPUTE_WH",
                 "role": "sysadmin",
@@ -225,7 +225,7 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
@@ -253,7 +253,7 @@ def test_snowflake_config_with_connect_args_overrides_base_connect_args():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
