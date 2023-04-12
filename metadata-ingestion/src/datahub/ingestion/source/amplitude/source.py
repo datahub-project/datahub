@@ -126,7 +126,7 @@ class AmplitudeSource(Source):
                 data=data,
                 auth=HTTPBasicAuth(
                     api_key.get_secret_value(), secret_key.get_secret_value()
-                )
+                ),
             )
             response.raise_for_status()
             return response.json()
@@ -307,10 +307,7 @@ class AmplitudeSource(Source):
             event_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform, name=event.event_type, platform_instance=None
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=event_urn,
-                aspects=[]
-            )
+            dataset_snapshot = DatasetSnapshot(urn=event_urn, aspects=[])
             dataset_snapshot.aspects.append(event_metadata)
 
             # dataset properties
@@ -344,10 +341,7 @@ class AmplitudeSource(Source):
             name=f"{project.name}_user_properties",
             platform_instance=None,
         )
-        dataset_snapshot = DatasetSnapshot(
-            urn=user_prop_urn,
-            aspects=[]
-        )
+        dataset_snapshot = DatasetSnapshot(urn=user_prop_urn, aspects=[])
         dataset_snapshot.aspects.append(user_prop_metadata)
 
         # dataset properties
