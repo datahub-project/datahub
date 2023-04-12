@@ -6,6 +6,7 @@ from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.glossary.classifier import ClassificationConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
@@ -53,6 +54,10 @@ class SnowflakeV2Config(
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
     _provision_role_removed = pydantic_removed_field("provision_role")
+
+    # FIXME: This validator already exists in one of the parent classes, but for some reason it
+    # does not have any effect there. As such, we have to re-add it here.
+    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
