@@ -36,17 +36,17 @@ public class SearchDocumentTransformer {
   private final int maxObjectKeys;
 
   // Maximum customProperties value length
-  private final int maxFieldValueLength;
+  private final int maxValueLength;
 
   public Optional<String> transformSnapshot(final RecordTemplate snapshot, final EntitySpec entitySpec,
       final Boolean forDelete) {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
-        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchableFieldSpecs, maxFieldValueLength).entrySet()
+        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchableFieldSpecs, maxValueLength).entrySet()
                 // Delete expects urn to be preserved
                 .stream().filter(entry -> !forDelete || !"urn".equals(entry.getKey().getSearchableAnnotation().getFieldName()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
-        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchScoreFieldSpecs, maxFieldValueLength);
+        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchScoreFieldSpecs, maxValueLength);
     if (extractedSearchableFields.isEmpty() && extractedSearchScoreFields.isEmpty()) {
       return Optional.empty();
     }
@@ -63,9 +63,9 @@ public class SearchDocumentTransformer {
       final AspectSpec aspectSpec,
       final Boolean forDelete) {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
-        FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxFieldValueLength);
+        FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
     final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
-        FieldExtractor.extractFields(aspect, aspectSpec.getSearchScoreFieldSpecs(), maxFieldValueLength);
+        FieldExtractor.extractFields(aspect, aspectSpec.getSearchScoreFieldSpecs(), maxValueLength);
     if (extractedSearchableFields.isEmpty() && extractedSearchScoreFields.isEmpty()) {
       return Optional.empty();
     }
