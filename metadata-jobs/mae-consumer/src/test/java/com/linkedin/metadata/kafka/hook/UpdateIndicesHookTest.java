@@ -90,7 +90,7 @@ public class UpdateIndicesHookTest {
     _mockEntitySearchService = Mockito.mock(EntitySearchService.class);
     _mockTimeseriesAspectService = Mockito.mock(TimeseriesAspectService.class);
     _mockSystemMetadataService = Mockito.mock(SystemMetadataService.class);
-    _searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000);
+    _searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
     _mockDataHubUpgradeKafkaListener = Mockito.mock(DataHubUpgradeKafkaListener.class);
     _mockConfigurationProvider = Mockito.mock(ConfigurationProvider.class);
     ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();

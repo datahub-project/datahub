@@ -17,8 +17,11 @@ public class SearchDocumentTransformerFactory {
   @Value("${elasticsearch.index.maxObjectKeys}")
   private int maxObjectKeys;
 
+  @Value("${elasticsearch.index.maxFieldValue}")
+  private int maxFieldValue;
+
   @Bean("searchDocumentTransformer")
   protected SearchDocumentTransformer getInstance() {
-    return new SearchDocumentTransformer(maxArrayLength, maxObjectKeys);
+    return new SearchDocumentTransformer(maxArrayLength, maxObjectKeys, maxFieldValue);
   }
 }
