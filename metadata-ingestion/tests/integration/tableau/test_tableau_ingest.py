@@ -14,11 +14,16 @@ from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.tableau import TableauSource
+from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     make_table_urn,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    UpstreamLineage,
+)
+from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
@@ -682,4 +687,38 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         sign_out_side_effect=ConnectionError,
         pipeline_name="test_tableau_signout_timeout",
+    )
+
+
+def test_tableau_unsupported_csql(mock_datahub_graph):
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    context.graph = mock_datahub_graph
+    config = TableauConfig.parse_obj(config_source_default.copy())
+    config.extract_lineage_from_unsupported_custom_sql_queries = True
+    config.lineage_overrides = TableauLineageOverrides(
+        database_override_map={"production database": "prod"}
+    )
+    source = TableauSource(config=config, ctx=context)
+    lineage = source._create_lineage_from_unsupported_csql(
+        csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
+        csql={
+            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+            "isUnsupportedCustomSql": "true",
+            "database": {"name": "production database", "connectionType": "bigquery"},
+        },
+    )
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
+
+    assert mcp.aspect == UpstreamLineage(
+        upstreams=[
+            UpstreamClass(
+                dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,prod.invent_dw.userdetail,PROD)",
+                type=DatasetLineageType.TRANSFORMED,
+            )
+        ]
+    )
+    assert (
+        mcp.entityUrn
+        == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
     )
