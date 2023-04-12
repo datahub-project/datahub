@@ -574,6 +574,8 @@ def get_entity(
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
         )
+
+    # TODO: Replace with DataHubGraph.get_entity_raw.
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
     if aspect and len(aspect):
