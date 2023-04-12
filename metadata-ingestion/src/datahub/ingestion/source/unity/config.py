@@ -51,7 +51,7 @@ class UnityCatalogSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigM
     )
 
     include_table_ownership: bool = pydantic.Field(
-        default=True,
+        default=False,
         description="Option to enable/disable table ownership generation.",
     )
 
