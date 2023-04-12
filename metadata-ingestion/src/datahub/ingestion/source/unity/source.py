@@ -88,6 +88,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(
+    SourceCapability.OWNERSHIP, "Supported via the `include_table_ownership` config"
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
