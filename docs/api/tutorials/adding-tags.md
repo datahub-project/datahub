@@ -1,62 +1,67 @@
 # Adding Tags On Datasets/Columns
 
-## Why Would You Add Tags? 
+## Why Would You Add Tags?
+
 Tags are informal, loosely controlled labels that help in search & discovery. They can be added to datasets, dataset schemas, or containers, for an easy way to label or categorize entities – without having to associate them to a broader business glossary or vocabulary.
 
-Fore more information about tags, refer to [About DataHub Tags](/docs/tags.md).
+For more information about tags, refer to [About DataHub Tags](/docs/tags.md).
 
 ### Goal Of This Guide
+
 This guide will show you how to add a `CustomerAccount` tag to the `user_name` column of a dataset called `fct_users_created`.
 Additionally, we will cover how to add a tag to the dataset itself.
 
 ## Prerequisites
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/api/tutorials/references/prepare-datahub.md).
+
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
+For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
 :::note
-Before adding tags, you need to ensure the targeted dataset and the tag are already present in your datahub. 
-If you attempt to manipulate entities that do not exist, your operation will fail. 
-In this guide, we will be using data from a sample ingestion. 
+Before adding tags, you need to ensure the targeted dataset and the tag are already present in your datahub.
+If you attempt to manipulate entities that do not exist, your operation will fail.
+In this guide, we will be using data from a sample ingestion.
 If you want to know how to create tags using APIs & SDKs, please refer to [Creating Tags](/docs/api/tutorials/creating-tags.md) and [Creating Datasets](/docs/api/tutorials/creating-datasets.md).
 .
 :::
 
-
 ## Add Tags With GraphQL
 
 :::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+Please note that there are two available endpoints (`:8000`, `:9002`) to access `graphql`.
 For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
 :::
+
 ### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+
+GraphQL Explorer is the fastest way to experiment with `graphql` without any dependancies.
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json
 mutation addTags {
     addTags(
-      input: { 
-        tagUrns: ["urn:li:tag:Legacy"], 
+      input: {
+        tagUrns: ["urn:li:tag:Legacy"],
         resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
         subResourceType:DATASET_FIELD,
         subResource:"user_name"})
 }
 ```
 
-Note that you can also add a tag on a dataset if you don't specify `subResourceType` and `subResource`. 
+Note that you can also add a tag on a dataset if you don't specify `subResourceType` and `subResource`.
+
 ```json
 mutation addTags {
     addTags(
-      input: { 
-        tagUrns: ["urn:li:tag:Legacy"], 
+      input: {
+        tagUrns: ["urn:li:tag:Legacy"],
         resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
       }
     )
 }
 ```
 
-
 If you see the following response, the operation was successful:
+
 ```python
 {
   "data": {
@@ -66,10 +71,9 @@ If you see the following response, the operation was successful:
 }
 ```
 
-
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/api/tutorials/references/generate-access-token.md). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Access Token Management](/docs/api/graphql/token-management.md).
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -78,16 +82,18 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Content-Type: application/json' \
 --data-raw '{ "query": "mutation addTags { addTags(input: { tagUrns: [\"urn:li:tag:Legacy\"], resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\" }) }", "variables":{}}'
 ```
-Expected Response:
-```json
-{"data":{"addTags":true},"extensions":{}}
-```
 
+Expected Response:
+
+```json
+{ "data": { "addTags": true }, "extensions": {} }
+```
 
 ## Add Tags With Python SDK
 
 The following code adds a tag named `Legacy` to the column `user_name` of the hive dataset `fct_users_created`.
 You can refer to the full code in [dataset_add_column_tag.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_tag.py).
+
 ```python
 # inlined from metadata-ingestion/examples/library/dataset_add_column_tag.py
 import logging
@@ -197,9 +203,8 @@ else:
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
 ## Expected Outcomes
-You can now see `CustomerAccount` tag has been added to `user_name` column. 
+
+You can now see `CustomerAccount` tag has been added to `user_name` column.
 
 ![tag-added](../../imgs/apis/tutorials/tag-added.png)
-

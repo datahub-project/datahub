@@ -417,4 +417,4 @@ class DBTCloudSource(DBTSourceBase):
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
-        return f"https://cloud.getdbt.com/next/accounts/{self.config.account_id}/projects/{self.config.project_id}/develop"
+        return f"https://cloud.getdbt.com/develop/{self.config.account_id}/projects/{self.config.project_id}"

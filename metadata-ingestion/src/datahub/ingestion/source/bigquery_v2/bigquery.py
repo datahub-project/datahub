@@ -4,7 +4,7 @@ import os
 import re
 import traceback
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud import bigquery
@@ -308,7 +308,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     tables={},
                     with_data_read_permission=config.profiling.enabled,
                 )
-                if len(tables) == 0:
+                if len(list(tables)) == 0:
                     return CapabilityReport(
                         capable=False,
                         failure_reason=f"Tables query did not return any table. It is either empty or no tables in project {project_id}.{result[0].name}",
@@ -331,7 +331,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Lineage capability test for project {project_id}"))
+                logger.info(f"Lineage capability test for project {project_id}")
                 lineage_extractor.test_capability(project_id)
             except Exception as e:
                 return CapabilityReport(
@@ -350,7 +350,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         usage_extractor = BigQueryUsageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Usage capability test for project {project_id}"))
+                logger.info(f"Usage capability test for project {project_id}")
                 failures_before_test = len(report.failures)
                 usage_extractor.test_capability(project_id)
                 if failures_before_test != len(report.failures):
@@ -519,27 +519,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
-        if self.config.include_table_lineage:
-            if (
-                self.config.store_last_lineage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
+        if self._should_ingest_usage():
+            yield from self.usage_extractor.run(
+                [p.id for p in projects], self.table_refs
+            )
 
-            if self.config.store_last_lineage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
+        if self._should_ingest_lineage():
             for project in projects:
                 self.report.set_project_state(project.id, "Lineage Extraction")
                 yield from self.generate_lineage(project.id)
@@ -554,6 +539,49 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
         )
+
+    def _should_ingest_usage(self) -> bool:
+        if not self.config.include_usage_statistics:
+            return False
+
+        if self.config.store_last_usage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return False
+            else:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+        return True
+
+    def _should_ingest_lineage(self) -> bool:
+        if not self.config.include_table_lineage:
+            return False
+
+        if self.config.store_last_lineage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                # Skip this run
+                self.report.report_warning(
+                    "lineage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return False
+            else:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+        return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
         if self.config.project_ids or self.config.project_id:
@@ -641,31 +669,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.include_usage_statistics:
-            if (
-                self.config.store_last_usage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_usage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
-            self.report.set_project_state(project_id, "Usage Extraction")
-            yield from self.generate_usage_statistics(
-                project_id, db_tables=db_tables, db_views=db_views
-            )
-
         if self.config.profiling.enabled:
             logger.info(f"Starting profiling project {project_id}")
             self.report.set_project_state(project_id, "Profiling")
@@ -684,7 +687,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 lineage[view] = {
                     LineageEdge(
                         table=table,
-                        auditStamp=datetime.now(),
+                        auditStamp=datetime.now(timezone.utc),
                         type=DatasetLineageTypeClass.VIEW,
                     )
                     for table in upstream_tables
@@ -710,32 +713,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             if lineage_info:
                 yield from self.gen_lineage(dataset_urn, lineage_info)
 
-    def generate_usage_statistics(
-        self,
-        project_id: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate usage for {project_id}")
-        tables: Dict[str, List[str]] = defaultdict()
-        for dataset in db_tables.keys():
-            tables[dataset] = [
-                BigqueryTableIdentifier(
-                    project_id, dataset, table.name
-                ).get_table_name()
-                for table in db_tables[dataset]
-            ]
-        for dataset in db_views.keys():
-            tables[dataset].extend(
-                [
-                    BigqueryTableIdentifier(
-                        project_id, dataset, view.name
-                    ).get_table_name()
-                    for view in db_views[dataset]
-                ]
-            )
-        yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
-
     def _process_schema(
         self,
         conn: bigquery.Client,
@@ -759,8 +736,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         if self.config.include_tables:
-            db_tables[dataset_name] = self.get_tables_for_dataset(
-                conn, project_id, dataset_name
+            db_tables[dataset_name] = list(
+                self.get_tables_for_dataset(conn, project_id, dataset_name)
             )
 
             for table in db_tables[dataset_name]:
@@ -773,8 +750,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.include_views:
-            db_views[dataset_name] = BigQueryDataDictionary.get_views_for_dataset(
-                conn, project_id, dataset_name, self.config.profiling.enabled
+            db_views[dataset_name] = list(
+                BigQueryDataDictionary.get_views_for_dataset(
+                    conn, project_id, dataset_name, self.config.profiling.enabled
+                )
             )
 
             for view in db_views[dataset_name]:
@@ -813,8 +792,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage:
-            self.table_refs.add(str(BigQueryTableRef(table_identifier)))
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
+            self.table_refs.add(
+                str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+            )
         table.column_count = len(columns)
 
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
@@ -860,8 +841,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage:
-            table_ref = str(BigQueryTableRef(table_identifier))
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
+            table_ref = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
             self.table_refs.add(table_ref)
             if self.config.lineage_parse_view_ddl:
                 upstream_tables = self.lineage_extractor.parse_view_lineage(
@@ -1178,12 +1161,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client,
         project_id: str,
         dataset_name: str,
-    ) -> List[BigqueryTable]:
-        bigquery_tables: Optional[List[BigqueryTable]] = []
-
+    ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
-            bigquery_tables = []
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
@@ -1203,33 +1183,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             for table_item in table_items.keys():
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
-                    bigquery_tables.extend(
-                        BigQueryDataDictionary.get_tables_for_dataset(
-                            conn,
-                            project_id,
-                            dataset_name,
-                            items_to_get,
-                            with_data_read_permission=self.config.profiling.enabled,
-                        )
-                    )
-                    items_to_get.clear()
-
-            if items_to_get:
-                bigquery_tables.extend(
-                    BigQueryDataDictionary.get_tables_for_dataset(
+                    yield from BigQueryDataDictionary.get_tables_for_dataset(
                         conn,
                         project_id,
                         dataset_name,
                         items_to_get,
                         with_data_read_permission=self.config.profiling.enabled,
                     )
+                    items_to_get.clear()
+
+            if items_to_get:
+                yield from BigQueryDataDictionary.get_tables_for_dataset(
+                    conn,
+                    project_id,
+                    dataset_name,
+                    items_to_get,
+                    with_data_read_permission=self.config.profiling.enabled,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
             timer.elapsed_seconds(), 2
         )
-
-        return bigquery_tables
 
     def get_core_table_details(
         self, conn: bigquery.Client, dataset_name: str, project_id: str
@@ -1297,7 +1271,3 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
-
-    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
