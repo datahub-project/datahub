@@ -96,6 +96,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/tableau/configuration",
               ],
             },
+            {
+              PowerBI: [
+                "docs/quick-ingestion-guides/powerbi/overview",
+                "docs/quick-ingestion-guides/powerbi/setup",
+                "docs/quick-ingestion-guides/powerbi/configuration",
+              ],
+            },
           ],
         },
       ],
@@ -502,7 +509,6 @@ module.exports = {
             "docker/datahub-upgrade/README",
             "docs/advanced/no-code-modeling",
             "datahub-web-react/src/app/analytics/README",
-            "docs/advanced/es-7-upgrade",
             "docs/how/migrating-graph-service-implementation",
             "docs/advanced/field-path-spec-v2",
             "metadata-ingestion/adding-source",
@@ -607,6 +613,7 @@ module.exports = {
 
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_5",
             "docs/managed-datahub/release-notes/v_0_2_4",
             "docs/managed-datahub/release-notes/v_0_2_3",
             "docs/managed-datahub/release-notes/v_0_2_2",
