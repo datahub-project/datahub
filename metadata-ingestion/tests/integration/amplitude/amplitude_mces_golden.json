@@ -89,12 +89,6 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:Amplitude,test_event,PROD)",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:Amplitude",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:Amplitude,PROD)"
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "test_event",
                         "platform": "urn:li:dataPlatform:Amplitude",
@@ -220,12 +214,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:Amplitude,Amplitude Test Project_user_properties,PROD)",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:Amplitude",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:Amplitude,PROD)"
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "user_properties",
