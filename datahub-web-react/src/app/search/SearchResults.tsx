@@ -38,11 +38,12 @@ const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
 `;
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+    display: flex;
+    flex: 1;
+
     ${(props) =>
         props.showUpdatedStyles &&
         `
-        display: flex;
-        flex:1;
         overflow: hidden;
     `}
 `;
