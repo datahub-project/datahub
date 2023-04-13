@@ -37,6 +37,16 @@ const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     `}
 `;
 
+const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+    ${(props) =>
+        props.showUpdatedStyles &&
+        `
+        display: flex;
+        flex:1;
+        overflow: hidden;
+    `}
+`;
+
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
