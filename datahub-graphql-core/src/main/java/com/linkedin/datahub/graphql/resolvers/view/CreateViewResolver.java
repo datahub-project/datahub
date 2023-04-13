@@ -60,19 +60,21 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
   }
 
   private DataHubView createView(@Nonnull final Urn urn, @Nonnull final CreateViewInput input) {
-    return new DataHubView(
-        urn.toString(),
-        com.linkedin.datahub.graphql.generated.EntityType.DATAHUB_VIEW,
-        input.getViewType(),
-        input.getName(),
-        input.getDescription(),
-        new DataHubViewDefinition(
+    return new DataHubView.Builder()
+        .setUrn(urn.toString())
+        .setType(com.linkedin.datahub.graphql.generated.EntityType.DATAHUB_VIEW)
+        .setViewType(input.getViewType())
+        .setName(input.getName())
+        .setDescription(input.getDescription())
+        .setDefinition(new DataHubViewDefinition(
             input.getDefinition().getEntityTypes(),
             new DataHubViewFilter(
                 input.getDefinition().getFilter().getOperator(),
                 input.getDefinition().getFilter().getFilters().stream().map(filterInput ->
-                    new FacetFilter(filterInput.getField(), filterInput.getCondition(), filterInput.getValues(),
-                        filterInput.getNegated()))
-                    .collect(Collectors.toList()))));
+                        new FacetFilter(filterInput.getField(), filterInput.getCondition(),
+                            filterInput.getValues(),
+                            filterInput.getNegated()))
+                    .collect(Collectors.toList()))))
+        .build();
   }
 }
