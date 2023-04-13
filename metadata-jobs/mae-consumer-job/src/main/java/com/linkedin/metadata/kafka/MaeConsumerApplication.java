@@ -20,7 +20,8 @@ import org.springframework.context.annotation.FilterType;
         "com.linkedin.gms.factory.kafka",
         "com.linkedin.metadata.boot.kafka",
         "com.linkedin.metadata.kafka",
-        "com.linkedin.metadata.dao.producer"
+        "com.linkedin.metadata.dao.producer",
+        "com.linkedin.gms.factory.config"
 },
     excludeFilters = {@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = ScheduledAnalyticsFactory.class),
 @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SiblingGraphServiceFactory.class)}

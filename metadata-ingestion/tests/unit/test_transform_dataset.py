@@ -80,8 +80,11 @@ from datahub.utilities.urns.urn import Urn
 
 def make_generic_dataset(
     entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-    aspects: List[Any] = [models.StatusClass(removed=False)],
+    aspects: Optional[List[Any]] = None,
 ) -> models.MetadataChangeEventClass:
+    if aspects is None:
+        # Default to a status aspect if none is provided.
+        aspects = [models.StatusClass(removed=False)]
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn=entity_urn,
@@ -1382,20 +1385,23 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
 
     # check on browsePaths aspect
     for i in range(0, 10):
-        tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
-            entity_urn=str(
-                DatasetUrn.create_from_ids(
-                    platform_id="elasticsearch",
-                    table_name=f"fooBarIndex{i}",
-                    env="PROD",
-                )
-            ),
-            aspect_name="browsePaths",
-            aspect_field_matcher={
-                "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
-            },
-            file=events_file,
-        ) == 1
+        assert (
+            tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
+                entity_urn=str(
+                    DatasetUrn.create_from_ids(
+                        platform_id="elasticsearch",
+                        table_name=f"fooBarIndex{i}",
+                        env="PROD",
+                    )
+                ),
+                aspect_name="browsePaths",
+                aspect_field_matcher={
+                    "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
+                },
+                file=events_file,
+            )
+            == 1
+        )
 
 
 class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):
@@ -2139,7 +2145,7 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                                 urn=builder.make_term_urn("pii")
                             )
                         ],
-                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
                     nativeDataType="VARCHAR(100)",
@@ -2153,7 +2159,7 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                                 urn=builder.make_term_urn("pii")
                             )
                         ],
-                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
                     nativeDataType="VARCHAR(100)",

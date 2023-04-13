@@ -38,10 +38,8 @@ jobs:
           python-version: "3.7"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Gradle build
-        run: ./gradlew build -x check -x docs-website:build -x test
       - name: Smoke test
-        run: ./gradlew metadata-integration:java:spark-lineage:integrationTest
+        run: ./gradlew :metadata-integration:java:spark-lineage:integrationTest --max-workers=2
       - uses: actions/upload-artifact@v3
         if: always()
         with:

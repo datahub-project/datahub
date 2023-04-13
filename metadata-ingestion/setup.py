@@ -37,7 +37,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.8",
+    "avro-gen3==0.7.10",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -288,7 +288,12 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast": {"feast~=0.29.0", "flask-openid>=1.3.0"},
+    "feast": {
+        "feast~=0.29.0",
+        "flask-openid>=1.3.0",
+        # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
+        "typeguard<3",
+    },
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -332,8 +337,9 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata", sqllineage_lib},
-    "redshift": sql_common | redshift_common,
-    "redshift-usage": sql_common | usage_common | redshift_common,
+    "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
+    "redshift-legacy": sql_common | redshift_common,
+    "redshift-usage-legacy": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
@@ -348,7 +354,7 @@ plugins: Dict[str, Set[str]] = {
         "great_expectations",
         "greenlet",
     },
-    "tableau": {"tableauserverclient>=0.17.0"},
+    "tableau": {"tableauserverclient>=0.17.0", sqllineage_lib},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
@@ -402,8 +408,9 @@ base_dev_requirements = {
     # We should make an effort to keep it up to date.
     "black==22.12.0",
     "coverage>=5.1",
-    "flake8>=3.8.3",
+    "flake8>=3.8.3",  # DEPRECATION: Once we drop Python 3.7, we can pin to 6.x.
     "flake8-tidy-imports>=4.3.0",
+    "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
     "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -446,7 +453,8 @@ base_dev_requirements = {
             "presto",
             "redash",
             "redshift",
-            "redshift-usage",
+            "redshift-legacy",
+            "redshift-usage-legacy",
             "s3",
             "snowflake",
             "tableau",
@@ -535,8 +543,9 @@ entry_points = {
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
-        "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
-        "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
+        "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "redshift-legacy = datahub.ingestion.source.sql.redshift:RedshiftSource",
+        "redshift-usage-legacy = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",

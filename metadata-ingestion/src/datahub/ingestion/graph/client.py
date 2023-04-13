@@ -12,6 +12,7 @@ from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
+from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -45,7 +46,7 @@ class DatahubClientConfig(ConfigModel):
     retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
-    max_threads: int = 1
+    max_threads: int = 15
     disable_ssl_verification: bool = False
 
 
@@ -126,15 +127,21 @@ class DataHubGraph(DatahubRestEmitter):
         """
         Get an aspect for an entity.
 
-        :param str entity_urn: The urn of the entity
-        :param Type[Aspect] aspect_type: The type class of the aspect being requested (e.g. datahub.metadata.schema_classes.DatasetProperties)
+        :param entity_urn: The urn of the entity
+        :param aspect_type: The type class of the aspect being requested (e.g. datahub.metadata.schema_classes.DatasetProperties)
         :param version: The version of the aspect to retrieve. The default of 0 means latest. Versions > 0 go from oldest to newest, so 1 is the oldest.
         :return: the Aspect as a dictionary if present, None if no aspect was found (HTTP status 404)
 
+        :raises TypeError: if the aspect type is a timeseries aspect
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
 
         aspect = aspect_type.ASPECT_NAME
+        if aspect in TIMESERIES_ASPECT_MAP:
+            raise TypeError(
+                'Cannot get a timeseries aspect using "get_aspect". Use "get_latest_timeseries_value" instead.'
+            )
+
         url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
         response = self._session.get(url)
         if response.status_code == 404:
@@ -144,9 +151,7 @@ class DataHubGraph(DatahubRestEmitter):
         response_json = response.json()
 
         # Figure out what field to look in.
-        record_schema: RecordSchema = aspect_type.__getattribute__(
-            aspect_type, "RECORD_SCHEMA"
-        )
+        record_schema: RecordSchema = aspect_type.RECORD_SCHEMA
         aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
 
         # Deserialize the aspect json into the aspect type.
@@ -301,12 +306,24 @@ class DataHubGraph(DatahubRestEmitter):
                 )
         return None
 
+    def get_entity_raw(
+        self, entity_urn: str, aspects: Optional[List[str]] = None
+    ) -> Dict:
+        endpoint: str = f"{self.config.server}/entitiesV2/{Urn.url_encode(entity_urn)}"
+        if aspects is not None:
+            assert aspects, "if provided, aspects must be a non-empty list"
+            endpoint = f"{endpoint}?aspects=List(" + ",".join(aspects) + ")"
+
+        response = self._session.get(endpoint)
+        response.raise_for_status()
+        return response.json()
+
     def get_aspects_for_entity(
         self,
         entity_urn: str,
         aspects: List[str],
         aspect_types: List[Type[Aspect]],
-    ) -> Optional[Dict[str, Optional[Aspect]]]:
+    ) -> Dict[str, Optional[Aspect]]:
         """
         Get multiple aspects for an entity. To get a single aspect for an entity, use the `get_aspect_v2` method.
         Warning: Do not use this method to determine if an entity exists!
@@ -317,33 +334,20 @@ class DataHubGraph(DatahubRestEmitter):
         :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
         :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
-        :rtype: Optional[Dict[str, Optional[Aspect]]]
-        :raises HttpError: if the HTTP response is not a 200 or a 404
+        :raises HttpError: if the HTTP response is not a 200
         """
         assert len(aspects) == len(
             aspect_types
         ), f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
-        aspects_list = ",".join(aspects)
-        url: str = f"{self._gms_server}/entitiesV2/{Urn.url_encode(entity_urn)}?aspects=List({aspects_list})"
 
-        response = self._session.get(url)
-        if response.status_code == 404:
-            # not found
-            return None
-        response.raise_for_status()
-        response_json = response.json()
+        # TODO: generate aspects list from type classes
+        response_json = self.get_entity_raw(entity_urn, aspects)
 
         result: Dict[str, Optional[Aspect]] = {}
         for aspect_type in aspect_types:
-            record_schema: RecordSchema = aspect_type.__getattribute__(
-                aspect_type, "RECORD_SCHEMA"
-            )
-            if not record_schema:
-                logger.warning(
-                    f"Failed to infer type name of the aspect from the aspect type class {aspect_type}. Continuing, but this will fail."
-                )
-            else:
-                aspect_type_name = record_schema.props["Aspect"]["name"]
+            record_schema = aspect_type.RECORD_SCHEMA
+            aspect_type_name = record_schema.props["Aspect"]["name"]
+
             aspect_json = response_json.get("aspects", {}).get(aspect_type_name)
             if aspect_json:
                 # need to apply a transform to the response to match rest.li and avro serialization
@@ -454,6 +458,20 @@ class DataHubGraph(DatahubRestEmitter):
             args["urnLike"] = urn_like
         results = self._post_generic(self._get_aspect_count_endpoint(), args)
         return results["value"]
+
+    def execute_graphql(self, query: str, variables: Optional[Dict] = None) -> Dict:
+        url = f"{self.config.server}/api/graphql"
+        body: Dict = {
+            "query": query,
+        }
+        if variables:
+            body["variables"] = variables
+
+        result = self._post_generic(url, body)
+        if result.get("errors"):
+            raise GraphError(f"Error executing graphql query: {result['errors']}")
+
+        return result["data"]
 
     class RelationshipDirection(str, Enum):
         INCOMING = "INCOMING"

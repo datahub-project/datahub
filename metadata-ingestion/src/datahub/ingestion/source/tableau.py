@@ -11,6 +11,7 @@ import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import ConnectionError
+from sqllineage.runner import LineageRunner
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -119,6 +120,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     SubTypesClass,
+    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
@@ -323,6 +325,11 @@ class TableauConfig(
     extract_project_hierarchy: bool = Field(
         default=True,
         description="Whether to extract entire project hierarchy for nested projects.",
+    )
+
+    extract_lineage_from_unsupported_custom_sql_queries: bool = Field(
+        default=False,
+        description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -1140,11 +1147,19 @@ class TableauSource(StatefulIngestionSourceBase):
                         yield wu
                 project = self._get_project_browse_path_name(datasource)
 
-                # lineage from custom sql -> datasets/tables #
                 tables = csql.get(tableau_constant.TABLES, [])
-                yield from self._create_lineage_to_upstream_tables(
-                    csql_urn, tables, datasource
-                )
+
+                if tables:
+                    # lineage from custom sql -> datasets/tables #
+                    yield from self._create_lineage_to_upstream_tables(
+                        csql_urn, tables, datasource
+                    )
+                elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
+                    # custom sql tables may contain unsupported sql, causing incomplete lineage
+                    # we extract the lineage from the raw queries
+                    yield from self._create_lineage_from_unsupported_csql(
+                        csql_urn, csql
+                    )
 
             #  Schema Metadata
             columns = csql.get(tableau_constant.COLUMNS, [])
@@ -1313,6 +1328,44 @@ class TableauSource(StatefulIngestionSourceBase):
         )
 
         if upstream_tables:
+            upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+            yield self.get_metadata_change_proposal(
+                csql_urn,
+                aspect_name=tableau_constant.UPSTREAM_LINEAGE,
+                aspect=upstream_lineage,
+            )
+
+    def _create_lineage_from_unsupported_csql(
+        self, csql_urn: str, csql: dict
+    ) -> Iterable[MetadataWorkUnit]:
+        database = csql.get(tableau_constant.DATABASE) or {}
+        if (
+            csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
+            and tableau_constant.NAME in database
+            and tableau_constant.CONNECTION_TYPE in database
+        ):
+            upstream_tables = []
+            parser = LineageRunner(csql.get(tableau_constant.QUERY))
+
+            for table in parser.source_tables:
+                split_table = str(table).split(".")
+                if len(split_table) == 2:
+                    datset = make_table_urn(
+                        env=self.config.env,
+                        upstream_db=database.get(tableau_constant.NAME),
+                        connection_type=database.get(
+                            tableau_constant.CONNECTION_TYPE, ""
+                        ),
+                        schema=split_table[0],
+                        full_name=split_table[1],
+                        platform_instance_map=self.config.platform_instance_map,
+                        lineage_overrides=self.config.lineage_overrides,
+                    )
+                    upstream_tables.append(
+                        UpstreamClass(
+                            type=DatasetLineageType.TRANSFORMED, dataset=datset
+                        )
+                    )
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
             yield self.get_metadata_change_proposal(
                 csql_urn,
@@ -1673,7 +1726,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def emit_sheets_as_charts(
         self, sheet: dict, workbook: Optional[Dict]
     ) -> Iterable[MetadataWorkUnit]:
-
         sheet_urn: str = builder.make_chart_urn(
             self.platform, sheet[tableau_constant.ID], self.config.platform_instance
         )
@@ -1748,7 +1800,6 @@ class TableauSource(StatefulIngestionSourceBase):
             and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
-
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
@@ -1966,29 +2017,11 @@ class TableauSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     @staticmethod
-    def new_mcp(
-        entity_urn: str,
-        aspect_name: str,
-        aspect: builder.Aspect,
-        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
-    ) -> MetadataChangeProposalWrapper:
-        """
-        Create MCP
-        """
-        return MetadataChangeProposalWrapper(
-            changeType=change_type,
-            entityUrn=entity_urn,
-            aspectName=aspect_name,
-            aspect=aspect,
-        )
-
-    @staticmethod
     def new_embed_aspect_mcp(
         entity_urn: str, embed_url: str
     ) -> MetadataChangeProposalWrapper:
-        return TableauSource.new_mcp(
-            entity_urn=entity_urn,
-            aspect_name=EmbedClass.ASPECT_NAME,
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
             aspect=EmbedClass(renderUrl=embed_url),
         )
 
@@ -2083,7 +2116,6 @@ class TableauSource(StatefulIngestionSourceBase):
             and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
-
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
@@ -2264,6 +2296,3 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
-
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.config.platform_instance or self.platform

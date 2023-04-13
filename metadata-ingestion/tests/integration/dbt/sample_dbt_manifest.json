@@ -7573,9 +7573,9 @@
       "depends_on": {
         "macros": [],
         "nodes": [
+          "source.sample_dbt.pagila.customer",
           "source.sample_dbt.pagila.city",
           "source.sample_dbt.pagila.address",
-          "source.sample_dbt.pagila.customer",
           "snapshot.sample_dbt.customer_snapshot"
         ]
       },
@@ -7612,15 +7612,15 @@
       "sources": [
         [
           "pagila",
+          "customer"
+        ],
+        [
+          "pagila",
           "city"
         ],
         [
           "pagila",
           "address"
-        ],
-        [
-          "pagila",
-          "customer"
         ]
       ],
       "tags": [],
@@ -7786,12 +7786,12 @@
       "depends_on": {
         "macros": [],
         "nodes": [
-          "source.sample_dbt.pagila.payment_p2020_01",
-          "source.sample_dbt.pagila.payment_p2020_06",
           "source.sample_dbt.pagila.payment_p2020_03",
+          "source.sample_dbt.pagila.payment_p2020_06",
+          "source.sample_dbt.pagila.payment_p2020_01",
           "source.sample_dbt.pagila.payment_p2020_04",
-          "source.sample_dbt.pagila.payment_p2020_05",
-          "source.sample_dbt.pagila.payment_p2020_02"
+          "source.sample_dbt.pagila.payment_p2020_02",
+          "source.sample_dbt.pagila.payment_p2020_05"
         ]
       },
       "description": "",
@@ -7823,7 +7823,7 @@
       "sources": [
         [
           "pagila",
-          "payment_p2020_01"
+          "payment_p2020_03"
         ],
         [
           "pagila",
@@ -7831,7 +7831,7 @@
         ],
         [
           "pagila",
-          "payment_p2020_03"
+          "payment_p2020_01"
         ],
         [
           "pagila",
@@ -7839,11 +7839,11 @@
         ],
         [
           "pagila",
-          "payment_p2020_05"
+          "payment_p2020_02"
         ],
         [
           "pagila",
-          "payment_p2020_02"
+          "payment_p2020_05"
         ]
       ],
       "tags": [],
@@ -7882,6 +7882,7 @@
           "description": "description for customer_id from dbt",
           "meta": {
             "is_sensitive": true,
+            "maturity": "beta",
             "terms": "pii, customer_id"
           },
           "name": "customer_id",

@@ -24,31 +24,31 @@ from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
+_DEFAULT_READ_TIMEOUT_SEC = (
+    30  # Any ingest call taking longer than 30 seconds should be abandoned
+)
+_DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
+    429,
+    502,
+    503,
+    504,
+]
+_DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
+_DEFAULT_RETRY_MAX_TIMES = int(
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+)
+
 
 class DataHubRestEmitter(Closeable):
-    DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
-    DEFAULT_READ_TIMEOUT_SEC = (
-        30  # Any ingest call taking longer than 30 seconds should be abandoned
-    )
-    DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
-        429,
-        502,
-        503,
-        504,
-    ]
-    DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
-    DEFAULT_RETRY_MAX_TIMES = int(
-        os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
-    )
-
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
-    _connect_timeout_sec: float = DEFAULT_CONNECT_TIMEOUT_SEC
-    _read_timeout_sec: float = DEFAULT_READ_TIMEOUT_SEC
-    _retry_status_codes: List[int] = DEFAULT_RETRY_STATUS_CODES
-    _retry_methods: List[str] = DEFAULT_RETRY_METHODS
-    _retry_max_times: int = DEFAULT_RETRY_MAX_TIMES
+    _connect_timeout_sec: float = _DEFAULT_CONNECT_TIMEOUT_SEC
+    _read_timeout_sec: float = _DEFAULT_READ_TIMEOUT_SEC
+    _retry_status_codes: List[int] = _DEFAULT_RETRY_STATUS_CODES
+    _retry_methods: List[str] = _DEFAULT_RETRY_METHODS
+    _retry_max_times: int = _DEFAULT_RETRY_MAX_TIMES
 
     def __init__(
         self,
@@ -284,7 +284,5 @@ class DataHubRestEmitter(Closeable):
         self._session.close()
 
 
-class DatahubRestEmitter(DataHubRestEmitter):
-    """This class exists as a pass-through for backwards compatibility"""
-
-    pass
+"""This class exists as a pass-through for backwards compatibility"""
+DatahubRestEmitter = DataHubRestEmitter

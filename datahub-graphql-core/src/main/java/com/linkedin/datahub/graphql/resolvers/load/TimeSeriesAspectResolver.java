@@ -98,7 +98,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
                 maybeLimit, null, buildFilters(maybeFilters), context.getAuthentication());
 
         // Step 2: Bind profiles into GraphQL strong types.
-        return aspects.stream().map(_aspectMapper::apply).collect(Collectors.toList());
+        return aspects.stream().map(_aspectMapper).collect(Collectors.toList());
       } catch (RemoteInvocationException e) {
         throw new RuntimeException("Failed to retrieve aspects from GMS", e);
       }

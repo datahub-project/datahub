@@ -11,7 +11,7 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Dict, List, Optional
 
 import click
 import click_spinner
@@ -22,6 +22,7 @@ from requests_file import FileAdapter
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
+    DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
     DockerComposeVersionError,
     check_docker_quickstart,
@@ -85,18 +86,6 @@ def docker() -> None:
     """Helper commands for setting up and interacting with a local
     DataHub instance using Docker."""
     pass
-
-
-def _print_issue_list_and_exit(
-    issues: List[str], header: str, footer: Optional[str] = None
-) -> NoReturn:
-    click.secho(header, fg="bright_red")
-    for issue in issues:
-        click.echo(f"- {issue}")
-    if footer:
-        click.echo()
-        click.echo(footer)
-    sys.exit(1)
 
 
 @docker.command()
@@ -699,12 +688,18 @@ def quickstart(
     # Pull and possibly build the latest containers.
     try:
         if pull_images:
-            click.echo(
-                "Pulling docker images...This may take a while depending on your network bandwidth."
+            click.echo("\nPulling docker images... ")
+            click.secho(
+                "This may take a while depending on your network bandwidth.", dim=True
             )
-            with click_spinner.spinner():
+
+            # docker compose v2 seems to spam the stderr when used in a non-interactive environment.
+            # As such, we'll only use the quiet flag if we're in an interactive environment.
+            # If we're in quiet mode, then we'll show a spinner instead.
+            quiet = not sys.stderr.isatty()
+            with click_spinner.spinner(disable=not quiet):
                 subprocess.run(
-                    [*base_command, "pull", "-q"],
+                    [*base_command, "pull", *(("-q",) if quiet else ())],
                     check=True,
                     env=_docker_subprocess_env(),
                 )
@@ -731,6 +726,7 @@ def quickstart(
         logger.info("Finished building docker images!")
 
     # Start it up! (with retries)
+    click.echo("\nStarting up DataHub...")
     max_wait_time = datetime.timedelta(minutes=8)
     start_time = datetime.datetime.now()
     sleep_interval = datetime.timedelta(seconds=2)
@@ -739,7 +735,8 @@ def quickstart(
     while (datetime.datetime.now() - start_time) < max_wait_time:
         # Attempt to run docker compose up every `up_interval`.
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
-            click.echo()
+            if up_attempts > 0:
+                click.echo()
             subprocess.run(
                 base_command + ["up", "-d", "--remove-orphans"],
                 env=_docker_subprocess_env(),
@@ -840,7 +837,7 @@ def download_compose_files(
     ) as tmp_file:
         path = pathlib.Path(tmp_file.name)
         quickstart_compose_file_list.append(path)
-        click.echo(f"Fetching docker-compose file {github_file} from GitHub")
+        logger.info(f"Fetching docker-compose file {github_file} from GitHub")
         # Download the quickstart docker-compose file from GitHub.
         quickstart_download_response = request_session.get(github_file)
         quickstart_download_response.raise_for_status()
@@ -996,8 +993,11 @@ def nuke(keep_data: bool) -> None:
             click.echo("Skipping deleting data volumes in the datahub project")
         else:
             click.echo("Removing volumes in the datahub project")
-            for volume in client.volumes.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
-                volume.remove(force=True)
+            for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [
+                DATAHUB_COMPOSE_PROJECT_FILTER
+            ]:
+                for volume in client.volumes.list(filters=filter):
+                    volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):

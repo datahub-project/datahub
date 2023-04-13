@@ -2,6 +2,7 @@ package com.linkedin.metadata;
 
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -53,7 +54,12 @@ public class ESTestConfiguration {
         exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
         exactMatchConfiguration.setEnableStructured(true);
 
+        PartialConfiguration partialConfiguration = new PartialConfiguration();
+        partialConfiguration.setFactor(0.4f);
+        partialConfiguration.setUrnFactor(0.5f);
+
         searchConfiguration.setExactMatch(exactMatchConfiguration);
+        searchConfiguration.setPartial(partialConfiguration);
         return searchConfiguration;
     }
 

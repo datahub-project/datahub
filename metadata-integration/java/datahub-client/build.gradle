@@ -126,6 +126,8 @@ shadowJar {
   relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
   relocate 'common.message', 'datahub.shaded.common.message'
   relocate 'org.glassfish', 'datahub.shaded.org.glassfish'
+  relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
+
   finalizedBy checkShadowJar
 }
 

@@ -2,7 +2,7 @@ import logging
 import os
 import platform
 import sys
-from typing import Optional
+from typing import ContextManager, Optional
 
 import click
 
@@ -20,6 +20,8 @@ from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.specific.group_cli import group
+from datahub.cli.specific.user_cli import user
 from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
@@ -29,7 +31,7 @@ from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
 
 logger = logging.getLogger(__name__)
-_logging_configured = None
+_logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
 
@@ -95,8 +97,11 @@ def datahub(
     # clean it up before those error handlers are processed.
     # So why is this ok? Because we're leaking a context manager, this will
     # still get cleaned up automatically when the memory is reclaimed, which is
-    # worse-case at program exit.
+    # worse-case at program exit. In a slightly better case, the context manager's
+    # exit call will be triggered by the finally clause of the main() function.
     global _logging_configured
+    if _logging_configured is not None:
+        _logging_configured.__exit__(None, None, None)
     _logging_configured = None  # see if we can force python to GC this
     _logging_configured = configure_logging(debug=debug, log_file=log_file)
     _logging_configured.__enter__()
@@ -147,6 +152,8 @@ datahub.add_command(state)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
+datahub.add_command(user)
+datahub.add_command(group)
 
 try:
     from datahub.cli.lite_cli import lite
@@ -197,3 +204,8 @@ def main(**kwargs):
         if gms_config:
             logger.debug(f"GMS config {gms_config}")
         sys.exit(1)
+    finally:
+        global _logging_configured
+        if _logging_configured:
+            _logging_configured.__exit__(None, None, None)
+            _logging_configured = None

@@ -7,6 +7,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -57,6 +58,9 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DomainsClass,
     MySqlDDLClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SchemaFieldClass,
     SchemaMetadataClass,
     SubTypesClass,
@@ -83,6 +87,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP, "Supported via the `include_table_ownership` config"
+)
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
@@ -159,9 +166,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict, ctx):
         config = UnityCatalogSourceConfig.parse_obj(config_dict)
         return cls(ctx=ctx, config=config)
-
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.config.platform_instance or self.platform
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
@@ -257,6 +261,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+        ownership = self._create_table_ownership_aspect(table)
+
         if self.config.include_column_lineage:
             self.unity_catalog_api_proxy.get_column_lineage(table)
             lineage = self._generate_column_lineage_aspect(dataset_urn, table)
@@ -274,6 +280,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     sub_type,
                     schema_metadata,
                     domain,
+                    ownership,
                     lineage,
                 ],
             )
@@ -458,6 +465,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=table.comment,
             customProperties=custom_properties,
         )
+
+    def _create_table_ownership_aspect(
+        self, table: proxy.Table
+    ) -> Optional[OwnershipClass]:
+        if self.config.include_table_ownership and table.owner:
+            return OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=make_user_urn(table.owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+            )
+        return None
 
     def _create_table_sub_type_aspect(self, table: proxy.Table) -> SubTypesClass:
         return SubTypesClass(

@@ -3,16 +3,20 @@ import json
 import logging
 import os.path
 import pathlib
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import auto
 from io import BufferedReader
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from urllib import parse
 
 import ijson
+import requests
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigEnum, ConfigModel
+from datahub.configuration.common import ConfigEnum, ConfigModel, ConfigurationError
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -34,6 +38,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +50,12 @@ class FileReadMode(ConfigEnum):
 
 
 class FileSourceConfig(ConfigModel):
-    filename: Optional[str] = Field(
-        None, description="[deprecated in favor of `path`] The file to ingest."
+    _filename = pydantic_field_deprecated(
+        "filename",
+        message="filename is deprecated. Use path instead.",
     )
-    path: pathlib.Path = Field(
-        description="Path to folder or file to ingest. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
+    path: str = Field(
+        description="File path to folder or file to ingest, or URL to a remote file. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
     )
     file_extension: str = Field(
         ".json",
@@ -100,8 +106,8 @@ class FileSourceReport(SourceReport):
     total_parse_time_in_seconds: float = 0
     total_count_time_in_seconds: float = 0
     total_deserialize_time_in_seconds: float = 0
-    aspect_counts: Dict[str, int] = field(default_factory=dict)
-    entity_type_counts: Dict[str, int] = field(default_factory=dict)
+    aspect_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    entity_type_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
     def add_deserialize_time(self, delta: datetime.timedelta) -> None:
         self.total_deserialize_time_in_seconds += round(delta.total_seconds(), 2)
@@ -178,38 +184,45 @@ class GenericFileSource(TestableSource):
         return cls(ctx, config)
 
     def get_filenames(self) -> Iterable[str]:
-        if self.config.path.is_file():
+        path_parsed = parse.urlparse(str(self.config.path))
+        if path_parsed.scheme in ("file", ""):
+            path = pathlib.Path(self.config.path)
+            if path.is_file():
+                self.report.total_num_files = 1
+                return [str(path)]
+            elif path.is_dir():
+                files_and_stats = [
+                    (str(x), os.path.getsize(x))
+                    for x in path.glob(f"*{self.config.file_extension}")
+                    if x.is_file()
+                ]
+                self.report.total_num_files = len(files_and_stats)
+                self.report.total_bytes_on_disk = sum([y for (x, y) in files_and_stats])
+                return [x for (x, y) in files_and_stats]
+            else:
+                raise Exception(f"Failed to process {path}")
+        else:
             self.report.total_num_files = 1
             return [str(self.config.path)]
-        elif self.config.path.is_dir():
-            files_and_stats = [
-                (str(x), os.path.getsize(x))
-                for x in list(self.config.path.glob(f"*{self.config.file_extension}"))
-                if x.is_file()
-            ]
-            self.report.total_num_files = len(files_and_stats)
-            self.report.total_bytes_on_disk = sum([y for (x, y) in files_and_stats])
-            return [x for (x, y) in files_and_stats]
-        raise Exception(f"Failed to process {self.config.path}")
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
                 id = f"file://{f}:{i}"
-                wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
                 if isinstance(obj, UsageAggregationClass):
-                    wu = UsageStatsWorkUnit(id, obj)
+                    yield UsageStatsWorkUnit(id, obj)
                 elif isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
-                    self.report.entity_type_counts[obj.entityType] = (
-                        self.report.entity_type_counts.get(obj.entityType, 0) + 1
-                    )
+                    self.report.entity_type_counts[obj.entityType] += 1
                     if obj.aspectName is not None:
                         cur_aspect_name = str(obj.aspectName)
-                        self.report.aspect_counts[cur_aspect_name] = (
-                            self.report.aspect_counts.get(cur_aspect_name, 0) + 1
-                        )
+                        self.report.aspect_counts[cur_aspect_name] += 1
                         if (
                             self.config.aspect is not None
                             and cur_aspect_name != self.config.aspect
@@ -217,13 +230,11 @@ class GenericFileSource(TestableSource):
                             continue
 
                     if isinstance(obj, MetadataChangeProposalWrapper):
-                        wu = MetadataWorkUnit(id, mcp=obj)
+                        yield MetadataWorkUnit(id, mcp=obj)
                     else:
-                        wu = MetadataWorkUnit(id, mcp_raw=obj)
+                        yield MetadataWorkUnit(id, mcp_raw=obj)
                 else:
-                    wu = MetadataWorkUnit(id, mce=obj)
-                self.report.report_workunit(wu)
-                yield wu
+                    yield MetadataWorkUnit(id, mce=obj)
 
     def get_report(self):
         return self.report
@@ -235,56 +246,74 @@ class GenericFileSource(TestableSource):
 
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
         self.report.current_file_name = path
-        self.report.current_file_size = os.path.getsize(path)
-        if self.config.read_mode == FileReadMode.AUTO:
-            file_read_mode = (
-                FileReadMode.BATCH
-                if self.report.current_file_size
-                < self.config._minsize_for_streaming_mode_in_bytes
-                else FileReadMode.STREAM
-            )
-            logger.info(f"Reading file {path} in {file_read_mode} mode")
-        else:
-            file_read_mode = self.config.read_mode
-
-        if file_read_mode == FileReadMode.BATCH:
-            with open(path, "r") as f:
+        path_parsed = parse.urlparse(path)
+        if path_parsed.scheme not in ("file", ""):  # A remote file
+            try:
+                response = requests.get(path)
                 parse_start_time = datetime.datetime.now()
-                obj_list = json.load(f)
-                parse_end_time = datetime.datetime.now()
-                self.report.add_parse_time(parse_end_time - parse_start_time)
-            if not isinstance(obj_list, list):
-                obj_list = [obj_list]
-            count_start_time = datetime.datetime.now()
-            self.report.current_file_num_elements = len(obj_list)
-            self.report.add_count_time(datetime.datetime.now() - count_start_time)
+                data = response.json()
+            except Exception as e:
+                raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
+            if not isinstance(data, list):
+                data = [data]
+            parse_end_time = datetime.datetime.now()
+            self.report.add_parse_time(parse_end_time - parse_start_time)
+            self.report.current_file_size = len(response.content)
             self.report.current_file_elements_read = 0
-            for i, obj in enumerate(obj_list):
+            for i, obj in enumerate(data):
                 yield i, obj
                 self.report.current_file_elements_read += 1
         else:
-            self.fp = open(path, "rb")
-            if self.config.count_all_before_starting:
+            self.report.current_file_size = os.path.getsize(path)
+            if self.config.read_mode == FileReadMode.AUTO:
+                file_read_mode = (
+                    FileReadMode.BATCH
+                    if self.report.current_file_size
+                    < self.config._minsize_for_streaming_mode_in_bytes
+                    else FileReadMode.STREAM
+                )
+                logger.info(f"Reading file {path} in {file_read_mode} mode")
+            else:
+                file_read_mode = self.config.read_mode
+
+            if file_read_mode == FileReadMode.BATCH:
+                with open(path, "r") as f:
+                    parse_start_time = datetime.datetime.now()
+                    obj_list = json.load(f)
+                    parse_end_time = datetime.datetime.now()
+                    self.report.add_parse_time(parse_end_time - parse_start_time)
+                if not isinstance(obj_list, list):
+                    obj_list = [obj_list]
                 count_start_time = datetime.datetime.now()
-                parse_stream = ijson.parse(self.fp, use_float=True)
-                total_elements = 0
-                for row in ijson.items(parse_stream, "item", use_float=True):
-                    total_elements += 1
-                count_end_time = datetime.datetime.now()
-                self.report.add_count_time(count_end_time - count_start_time)
-                self.report.current_file_num_elements = total_elements
-            self.report.current_file_elements_read = 0
-            self.fp.seek(0)
-            parse_start_time = datetime.datetime.now()
-            parse_stream = ijson.parse(self.fp, use_float=True)
-            rows_yielded = 0
-            for row in ijson.items(parse_stream, "item", use_float=True):
-                parse_end_time = datetime.datetime.now()
-                self.report.add_parse_time(parse_end_time - parse_start_time)
-                rows_yielded += 1
-                self.report.current_file_elements_read += 1
-                yield rows_yielded, row
+                self.report.current_file_num_elements = len(obj_list)
+                self.report.add_count_time(datetime.datetime.now() - count_start_time)
+                self.report.current_file_elements_read = 0
+                for i, obj in enumerate(obj_list):
+                    yield i, obj
+                    self.report.current_file_elements_read += 1
+            else:
+                self.fp = open(path, "rb")
+                if self.config.count_all_before_starting:
+                    count_start_time = datetime.datetime.now()
+                    parse_stream = ijson.parse(self.fp, use_float=True)
+                    total_elements = 0
+                    for row in ijson.items(parse_stream, "item", use_float=True):
+                        total_elements += 1
+                    count_end_time = datetime.datetime.now()
+                    self.report.add_count_time(count_end_time - count_start_time)
+                    self.report.current_file_num_elements = total_elements
+                self.report.current_file_elements_read = 0
+                self.fp.seek(0)
                 parse_start_time = datetime.datetime.now()
+                parse_stream = ijson.parse(self.fp, use_float=True)
+                rows_yielded = 0
+                for row in ijson.items(parse_stream, "item", use_float=True):
+                    parse_end_time = datetime.datetime.now()
+                    self.report.add_parse_time(parse_end_time - parse_start_time)
+                    rows_yielded += 1
+                    self.report.current_file_elements_read += 1
+                    yield rows_yielded, row
+                    parse_start_time = datetime.datetime.now()
 
         self.report.files_completed.append(path)
         self.report.num_files_completed += 1

@@ -69,8 +69,9 @@ public class GMSQualificationStep implements UpgradeStep {
     return (context) -> {
       String gmsHost = System.getenv("DATAHUB_GMS_HOST") == null ? "localhost" : System.getenv("DATAHUB_GMS_HOST");
       String gmsPort = System.getenv("DATAHUB_GMS_PORT") == null ? "8080" : System.getenv("DATAHUB_GMS_PORT");
+      String gmsProtocol = System.getenv("DATAHUB_GMS_PROTOCOL") == null ? "http" : System.getenv("DATAHUB_GMS_PROTOCOL");
       try {
-        String spec = String.format("http://%s:%s/config", gmsHost, gmsPort);
+        String spec = String.format("%s://%s:%s/config", gmsProtocol, gmsHost, gmsPort);
 
         URLConnection gmsConnection = new URL(spec).openConnection();
         InputStream response = gmsConnection.getInputStream();
@@ -92,8 +93,9 @@ public class GMSQualificationStep implements UpgradeStep {
       } catch (Exception e) {
         e.printStackTrace();
         context.report().addLine(String.format("ERROR: Cannot connect to GMS"
-                + "at host %s port %s. Make sure GMS is on the latest version "
+                + "at %s://host %s port %s. Make sure GMS is on the latest version "
                 + "and is running at that host before starting the migration.",
+            gmsProtocol,
             gmsHost,
             gmsPort));
         return new DefaultUpgradeStepResult(

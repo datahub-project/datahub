@@ -79,6 +79,7 @@ import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
+import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
@@ -204,6 +205,7 @@ import com.linkedin.datahub.graphql.resolvers.role.GetInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
+import com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
@@ -686,7 +688,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("searchAcrossLineage", new SearchAcrossLineageResolver(this.entityClient))
             .dataFetcher("scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
             .dataFetcher("autoComplete", new AutoCompleteResolver(searchableTypes))
-            .dataFetcher("autoCompleteForMultiple", new AutoCompleteForMultipleResolver(searchableTypes))
+            .dataFetcher("autoCompleteForMultiple", new AutoCompleteForMultipleResolver(searchableTypes, this.viewService))
             .dataFetcher("browse", new BrowseResolver(browsableTypes))
             .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
             .dataFetcher("dataset", getResolver(datasetType))
@@ -743,6 +745,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listGlobalViews", new ListGlobalViewsResolver(this.entityClient))
             .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
             .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
+            .dataFetcher("getQuickFilters", new GetQuickFiltersResolver(this.entityClient, this.viewService))
         );
     }
 
@@ -965,6 +968,10 @@ public class GmsGraphQLEngine {
                     (env) -> ((ListTestsResult) env.getSource()).getTests().stream()
                         .map(Test::getUrn)
                         .collect(Collectors.toList())))
+            )
+            .type("QuickFilter", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
+                    (env) -> ((QuickFilter) env.getSource()).getEntity()))
             );
     }
 

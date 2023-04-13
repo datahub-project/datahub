@@ -30,7 +30,7 @@ dependencies {
 }
 
 bootJar {
-    mainClassName = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
+    mainClass = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
     archiveFileName = "${project.name}.jar"
 }
 

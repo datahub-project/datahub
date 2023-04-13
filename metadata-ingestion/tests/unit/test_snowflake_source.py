@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from datahub.configuration.common import ConfigurationError, OauthConfiguration
+from datahub.configuration.common import OauthConfiguration
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
@@ -11,11 +11,14 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeCloudProvider,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
+    SnowflakeObjectAccessEntry,
+)
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
 
 def test_snowflake_source_throws_error_on_account_id_missing():
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ValidationError):
         SnowflakeV2Config.parse_obj(
             {
                 "username": "user",
@@ -108,7 +111,7 @@ def test_account_id_with_snowflake_host_suffix():
             "role": "sysadmin",
         }
     )
-    config.account_id == "acctname"
+    assert config.account_id == "acctname"
 
 
 def test_snowflake_uri_default_authentication():
@@ -175,7 +178,7 @@ def test_options_contain_connect_args():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
@@ -191,7 +194,7 @@ def test_snowflake_config_with_view_lineage_no_table_lineage_throws_error():
             {
                 "username": "user",
                 "password": "password",
-                "host_port": "acctname",
+                "account_id": "acctname",
                 "database_pattern": {"allow": {"^demo$"}},
                 "warehouse": "COMPUTE_WH",
                 "role": "sysadmin",
@@ -207,7 +210,7 @@ def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
             {
                 "username": "user",
                 "password": "password",
-                "host_port": "acctname",
+                "account_id": "acctname",
                 "database_pattern": {"allow": {"^demo$"}},
                 "warehouse": "COMPUTE_WH",
                 "role": "sysadmin",
@@ -222,7 +225,7 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
@@ -235,12 +238,22 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
     }
 
 
+def test_private_key_set_but_auth_not_changed():
+    with pytest.raises(ValidationError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "acctname",
+                "private_key_path": "/a/random/path",
+            }
+        )
+
+
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():
     config: SnowflakeV2Config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
+            "account_id": "acctname",
             "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
@@ -546,3 +559,16 @@ def test_unknown_cloud_region_from_snowflake_region_id():
             "somecloud_someregion"
         )
     assert "Unknown snowflake region" in str(e)
+
+
+def test_snowflake_object_access_entry_missing_object_id():
+    SnowflakeObjectAccessEntry(
+        **{
+            "columns": [
+                {"columnName": "A"},
+                {"columnName": "B"},
+            ],
+            "objectDomain": "View",
+            "objectName": "SOME.OBJECT.NAME",
+        }
+    )

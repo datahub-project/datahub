@@ -223,6 +223,7 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                 "config": {
                     "workspace_url": "https://dummy.cloud.databricks.com",
                     "token": "fake",
+                    "include_table_ownership": True,
                 },
             },
             "sink": {

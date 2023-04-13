@@ -11,7 +11,10 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap"],
+  staticDirectories: ["static", "genStatic"],
+  stylesheets: [
+    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
+  ],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
@@ -31,8 +34,12 @@ module.exports = {
       title: null,
       logo: {
         alt: "DataHub Logo",
-        src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
-        srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
+        src: `img/${
+          isSaas ? "acryl" : "datahub"
+        }-logo-color-light-horizontal.svg`,
+        srcDark: `img/${
+          isSaas ? "acryl" : "datahub"
+        }-logo-color-dark-horizontal.svg`,
       },
       items: [
         {
@@ -42,18 +49,18 @@ module.exports = {
           position: "right",
         },
         {
-          to: "docs/demo",
+          href: "/integrations",
+          label: "Integrations",
+          position: "right",
+        },
+        {
+          to: "https://demo.datahubproject.io/",
           label: "Demo",
           position: "right",
         },
         {
           href: "https://blog.datahubproject.io/",
           label: "Blog",
-          position: "right",
-        },
-        {
-          href: "https://feature-requests.datahubproject.io/",
-          label: "Feature Requests",
           position: "right",
         },
         {
@@ -132,7 +139,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              to: "docs/demo",
+              to: "https://demo.datahubproject.io/",
             },
             {
               label: "Roadmap",
@@ -188,15 +195,26 @@ module.exports = {
         blog: false,
         theme: {
           customCss: [
-            isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
+            isSaas
+              ? require.resolve("./src/styles/acryl.scss")
+              : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
+            require.resolve("./src/styles/sphinx.scss"),
+            require.resolve("./src/styles/config-table.scss"),
           ],
+        },
+        pages: {
+          path: "src/pages",
+          mdxPageComponent: "@theme/MDXPage",
         },
       },
     ],
   ],
   plugins: [
-    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
+    [
+      "@docusaurus/plugin-ideal-image",
+      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
+    ],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",

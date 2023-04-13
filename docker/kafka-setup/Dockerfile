@@ -2,7 +2,7 @@
 FROM confluentinc/cp-base-new@sha256:ac4e0f9bcaecdab728740529f37452231fa40760fcf561759fc3b219f46d2cc9 as confluent_base
 
 ARG MAVEN_REPO="https://repo1.maven.org/maven2"
-ARG SNAKEYAML_VERSION="1.33"
+ARG SNAKEYAML_VERSION="2.0"
 
 RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
     && wget -P /usr/share/java/cp-base-new $MAVEN_REPO/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar

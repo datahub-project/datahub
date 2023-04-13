@@ -99,10 +99,11 @@ class DataResolverBase(ABC):
     ) -> Optional[PowerBIDataset]:
         pass
 
+    @abstractmethod
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
-    ) -> Optional[Dict[str, str]]:
-        return None
+    ) -> Dict[str, str]:
+        pass
 
     @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
@@ -167,6 +168,7 @@ class DataResolverBase(ABC):
                 id=instance.get(Constant.ID),
                 isReadOnly=instance.get(Constant.IS_READ_ONLY),
                 displayName=instance.get(Constant.DISPLAY_NAME),
+                description=instance.get(Constant.DESCRIPTION, str()),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
@@ -249,7 +251,7 @@ class DataResolverBase(ABC):
                 name=raw_instance.get(Constant.NAME),
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION),
+                description=raw_instance.get(Constant.DESCRIPTION, str()),
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),
@@ -273,7 +275,6 @@ class DataResolverBase(ABC):
         return reports[0]
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
-
         """
         Get the list of tiles from PowerBi for the given workspace identifier
 
@@ -400,7 +401,7 @@ class RegularAPIResolver(DataResolverBase):
 
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
-    ) -> Optional[Dict[str, str]]:
+    ) -> Dict[str, str]:
         dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
             Constant.DATASET_GET
         ]
@@ -419,16 +420,14 @@ class RegularAPIResolver(DataResolverBase):
         params_response.raise_for_status()
         params_dict = params_response.json()
 
-        params_values: Optional[List] = params_dict.get(Constant.VALUE)
-        if params_values:
-            logger.debug(f"dataset {dataset_id} parameters = {params_values}")
-            return {
-                value[Constant.NAME]: value[Constant.CURRENT_VALUE]
-                for value in params_values
-            }
-        else:
-            logger.debug(f"dataset {dataset_id} has no parameters")
-            return {}
+        params_values: List[dict] = params_dict.get(Constant.VALUE, [])
+
+        logger.debug(f"dataset {dataset_id} parameters = {params_values}")
+
+        return {
+            value[Constant.NAME]: value[Constant.CURRENT_VALUE]
+            for value in params_values
+        }
 
     def get_groups_endpoint(self) -> str:
         return DataResolverBase.BASE_URL
@@ -492,7 +491,6 @@ class RegularAPIResolver(DataResolverBase):
 
 
 class AdminAPIResolver(DataResolverBase):
-
     # Admin access endpoints
     API_ENDPOINTS = {
         Constant.DASHBOARD_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/dashboards",
@@ -740,3 +738,9 @@ class AdminAPIResolver(DataResolverBase):
 
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
+
+    def get_dataset_parameters(
+        self, workspace_id: str, dataset_id: str
+    ) -> Dict[str, str]:
+        logger.debug("Get dataset parameter is unsupported in Admin API")
+        return {}

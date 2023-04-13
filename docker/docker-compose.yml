@@ -29,7 +29,7 @@ services:
       - broker:/var/lib/kafka/data/
 
   elasticsearch:
-    image: elasticsearch:7.10.2
+    image: elasticsearch:7.10.1
     env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch

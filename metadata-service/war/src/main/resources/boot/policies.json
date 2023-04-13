@@ -98,10 +98,11 @@
         "MANAGE_DOMAINS",
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
-        "MANAGE_TAGS"
+        "MANAGE_TAGS",
+        "MANAGE_GLOBAL_VIEWS"
       ],
-      "displayName":"All Users - All Platform Privileges (EXCEPT MANAGE POLICIES)",
-      "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
+      "displayName":"All Users - Base Platform Privileges",
+      "description":"Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
       "state":"ACTIVE",
       "type":"PLATFORM",
       "editable":true
