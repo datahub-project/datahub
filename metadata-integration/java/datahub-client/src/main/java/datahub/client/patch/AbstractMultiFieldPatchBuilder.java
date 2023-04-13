@@ -10,7 +10,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.http.entity.ContentType;
 
