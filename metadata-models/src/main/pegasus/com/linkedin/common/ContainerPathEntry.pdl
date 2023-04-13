@@ -5,7 +5,7 @@ namespace com.linkedin.common
  */
 record ContainerPathEntry {
   /**
-   * The ID of the container path entry - what gets stored in the index, URL encoded
+   * The ID of the container path entry. This is what gets stored in the index after URL encoding.
    * If there's an urn associated with this entry, id and urn will be the same
    */
   id: string
