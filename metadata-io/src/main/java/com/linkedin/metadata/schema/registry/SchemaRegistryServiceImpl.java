@@ -3,7 +3,7 @@ package com.linkedin.metadata.schema.registry;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.linkedin.mxe.TopicConvention;
-import com.linkedin.pegasus2avro.dataset.DatasetLineageType;
+import com.linkedin.pegasus2avro.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent;
 import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal;
 import com.linkedin.pegasus2avro.mxe.MetadataAuditEvent;
@@ -31,7 +31,7 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     MCE_TOPIC(MetadataChangeEvent.getClassSchema()),
     FMCE_TOPIC(FailedMetadataChangeEvent.getClassSchema()),
     MAE_TOPIC(MetadataAuditEvent.getClassSchema()),
-    DUHE_TOPIC(DatasetLineageType.getClassSchema());
+    DUHE_TOPIC(DataHubUpgradeHistoryEvent.getClassSchema());
 
     @Getter
     private final Schema schema;
