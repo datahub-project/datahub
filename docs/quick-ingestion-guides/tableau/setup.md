@@ -14,7 +14,7 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
    B. Navigate to `Users`.
 
    <p align="center">
-      <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-navigation-window.png"/>
+      <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-user-navigation-window.png"/>
    </p>
 
    C. **For New User**: Follow below steps to grant permission for new user.
@@ -22,13 +22,13 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
       -  Click `Add Users` -> `Add Users by Email`
 
          <p align="center">
-         <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-add-user.png"/>
+         <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-add-user.png"/>
          </p>
 
       -  Fill `Enter email addresses`, set `Site role` to `Site Administrator Explorer` and Click `Add Users`
 
          <p align="center">
-         <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-new-user-site-role.png"/>
+         <img width="75%" alt="Navigate to the Users tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-new-user-site-role.png"/>
          </p>
 
    D. **For Existing User:**  Follow below steps to grant permission for existing user.
@@ -36,13 +36,13 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
       -  Select a user and click `Actions` -> `Site Role`
 
          <p align="center">
-         <img width="75%" alt="Actions Site Role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-list.png"/>
+         <img width="75%" alt="Actions Site Role" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-user-list.png"/>
          </p>
 
       -  Change user role to `Site Administrator Explorer`
 
          <p align="center">
-         <img width="75%" alt="tableau site role" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-site-role.png"/>
+         <img width="75%" alt="tableau site role" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-site-role.png"/>
          </p>
 
 
