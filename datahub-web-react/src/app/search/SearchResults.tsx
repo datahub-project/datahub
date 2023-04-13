@@ -23,11 +23,12 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+    display: flex;
+    flex: 1;
+
     ${(props) =>
         props.showUpdatedStyles &&
         `
-        display: flex;
-        flex:1;
         overflow: hidden;
     `}
 `;
