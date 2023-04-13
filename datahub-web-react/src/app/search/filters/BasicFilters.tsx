@@ -4,8 +4,10 @@ import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ORIGIN_FILTER_NAME } from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
+import { SORTED_FILTERS } from './constants';
 import MoreFilters from './MoreFilters';
 import SearchFilter from './SearchFilter';
+import { sortFacets } from './utils';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 
@@ -44,10 +46,9 @@ interface Props {
 
 export default function BasicFilters({ availableFilters, activeFilters, onChangeFilters, showAdvancedFilters }: Props) {
     // only want Environment filter if there's 2 or more envs
-    // TODO: sort on what we deem as priority order once we solidify that
-    const filters = availableFilters?.filter((f) =>
-        f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true,
-    );
+    const filters = availableFilters
+        ?.filter((f) => (f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true))
+        .sort((facetA, facetB) => sortFacets(facetA, facetB, SORTED_FILTERS));
     // if there will only be one filter in the "More Filters" dropdown, show that filter instead
     const shouldShowMoreDropdown = filters && filters.length > NUM_VISIBLE_FILTER_DROPDOWNS + 1;
     const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;

@@ -22,15 +22,27 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 
+const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+    ${(props) =>
+        props.showUpdatedStyles &&
+        `
+        display: flex;
+        flex:1;
+        overflow: hidden;
+    `}
+`;
+
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
-    min-height: calc(100vh - 60px);
+    min-height: 100%;
+    flex: 1;
+    overflow: auto;
 `;
 
 const ResultContainer = styled.div<{ displayUpdatedStyles: boolean }>`
     flex: 1;
-    margin-bottom: 20px;
+    overflow: auto;
     ${(props) =>
         props.displayUpdatedStyles
             ? `
@@ -140,7 +152,7 @@ export const SearchResults = ({
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <div>
+            <SearchResultsWrapper showUpdatedStyles={showUpdatedSearchFilters}>
                 <SearchBody>
                     {!showSearchFiltersV2 && (
                         <div id={SEARCH_RESULTS_FILTERS_ID}>
@@ -226,7 +238,7 @@ export const SearchResults = ({
                             ))}
                     </ResultContainer>
                 </SearchBody>
-            </div>
+            </SearchResultsWrapper>
         </>
     );
 };

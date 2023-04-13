@@ -7,6 +7,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
+import { getFilterDropdownIcon } from './utils';
 
 export const DropdownLabel = styled(Button)<{ isActive: boolean }>`
     font-size: 14px;
@@ -33,8 +34,19 @@ export const DropdownMenu = styled.div<{ padding?: string }>`
     box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
     overflow: hidden;
     min-width: 200px;
+    max-width: 240px;
 
     ${(props) => props.padding !== undefined && `padding: ${props.padding};`}
+`;
+
+export const IconWrapper = styled.div`
+    margin-right: 8px;
+    display: flex;
+
+    svg {
+        height: 14px;
+        width: 14px;
+    }
 `;
 
 interface Props {
@@ -62,6 +74,7 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             )}
         >
             <DropdownLabel onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
+                <IconWrapper>{getFilterDropdownIcon(filter.field)}</IconWrapper>
                 {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </DropdownLabel>

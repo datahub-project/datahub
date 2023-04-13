@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
+import { sortFacets } from './filters/utils';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
 import { ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME } from './utils/constants';
 

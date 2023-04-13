@@ -1,3 +1,12 @@
+import Icon from '@ant-design/icons/lib/components/Icon';
+import {
+    BookOutlined,
+    DatabaseOutlined,
+    FileOutlined,
+    FolderOutlined,
+    TagOutlined,
+    UserOutlined,
+} from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 import {
@@ -9,9 +18,19 @@ import {
     FacetMetadata,
 } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
-import { ENTITY_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
+import {
+    CONTAINER_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    ENTITY_FILTER_NAME,
+    GLOSSARY_TERMS_FILTER_NAME,
+    OWNERS_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+    TAGS_FILTER_NAME,
+    TYPE_NAMES_FILTER_NAME,
+} from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ReactComponent as DomainsIcon } from '../../../images/domain.svg';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
@@ -117,4 +136,33 @@ export function filterEmptyAggregations(aggregations: AggregationMetadata[], act
         }
         return true;
     });
+}
+
+export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedFacetFields: string[]) {
+    if (sortedFacetFields.indexOf(facetA.field) === -1) return 1;
+    if (sortedFacetFields.indexOf(facetB.field) === -1) return -1;
+    return sortedFacetFields.indexOf(facetA.field) - sortedFacetFields.indexOf(facetB.field);
+}
+
+export function getFilterDropdownIcon(field: string) {
+    switch (field) {
+        case PLATFORM_FILTER_NAME:
+            return <DatabaseOutlined />;
+        case ENTITY_FILTER_NAME:
+            return <FileOutlined />;
+        case TYPE_NAMES_FILTER_NAME:
+            return <FileOutlined />;
+        case GLOSSARY_TERMS_FILTER_NAME:
+            return <BookOutlined />;
+        case TAGS_FILTER_NAME:
+            return <TagOutlined />;
+        case OWNERS_FILTER_NAME:
+            return <UserOutlined />;
+        case CONTAINER_FILTER_NAME:
+            return <FolderOutlined />;
+        case DOMAINS_FILTER_NAME:
+            return <Icon component={DomainsIcon} />;
+        default:
+            return null;
+    }
 }

@@ -7,6 +7,8 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
+import { IconWrapper } from './SearchFilter';
+import { getFilterDropdownIcon } from './utils';
 
 const OptionWrapper = styled.div<{ isActive: boolean; isOpen: boolean }>`
     padding: 5px 12px;
@@ -22,6 +24,11 @@ const OptionWrapper = styled.div<{ isActive: boolean; isOpen: boolean }>`
 
     ${(props) => props.isActive && `color: ${props.theme.styles['primary-color']};`}
     ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
+`;
+
+const IconNameWrapper = styled.span`
+    display: flex;
+    align-items: center;
 `;
 
 interface Props {
@@ -58,7 +65,10 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                 isActive={!!numActiveFilters}
                 isOpen={isMenuOpen}
             >
-                {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                <IconNameWrapper>
+                    <IconWrapper>{getFilterDropdownIcon(filter.field)}</IconWrapper>
+                    {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                </IconNameWrapper>
                 <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
             </OptionWrapper>
         </Dropdown>

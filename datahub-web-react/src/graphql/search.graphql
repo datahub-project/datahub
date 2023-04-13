@@ -743,6 +743,9 @@ fragment facetFields on FacetMetadata {
                 properties {
                     name
                 }
+                parentNodes {
+                    ...parentNodesFields
+                }
             }
             ... on DataPlatform {
                 ...platformFields
