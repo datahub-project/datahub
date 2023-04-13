@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@AllArgsConstructor
 @RequestMapping("/check")
 @Tag(name = "HealthCheck", description = "An API for checking health of GMS and its clients.")
 public class HealthCheckController {
@@ -64,8 +63,7 @@ public class HealthCheckController {
         // Couldn't get a response, fill in the string from the exception message
         responseString = e.getMessage();
       }
-    } finally {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseString);
     }
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseString);
   }
 }
