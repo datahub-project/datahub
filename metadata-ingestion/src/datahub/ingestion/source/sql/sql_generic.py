@@ -30,7 +30,7 @@ class BaseColumn:
 class BaseTable:
     name: str
     comment: Optional[str]
-    created: datetime
+    created: Optional[datetime]
     last_altered: Optional[datetime]
     size_in_bytes: Optional[int]
     rows_count: Optional[int]
