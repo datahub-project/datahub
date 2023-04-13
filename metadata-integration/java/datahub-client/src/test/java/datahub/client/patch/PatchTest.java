@@ -1,6 +1,5 @@
 package datahub.client.patch;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.OwnershipType;
@@ -27,8 +26,6 @@ import datahub.client.rest.RestEmitterConfig;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import org.junit.Ignore;
@@ -49,10 +46,29 @@ public class PatchTest {
   public void testLocalUpstream() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
-      MetadataChangeProposal upstreamPatch = new UpstreamLineagePatchBuilder().op(PatchOperationType.ADD)
+      MetadataChangeProposal upstreamPatch = new UpstreamLineagePatchBuilder()
           .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
-          .dataset(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
-          .lineageType(DatasetLineageType.TRANSFORMED).build();
+          .addUpstream(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
+              DatasetLineageType.TRANSFORMED)
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalUpstreamRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal upstreamPatch = new UpstreamLineagePatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
+          .removeUpstream(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
+          .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
 
       System.out.println(response.get().getResponseContent());
@@ -69,10 +85,28 @@ public class PatchTest {
     try {
       TagAssociation tagAssociation = new TagAssociation();
       tagAssociation.setTag(new TagUrn("Legacy"));
-      MetadataChangeProposal fieldTagPatch = new EditableSchemaMetadataPatchBuilder("field_foo")
+      MetadataChangeProposal fieldTagPatch = new EditableSchemaMetadataPatchBuilder()
           .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
-          .op(PatchOperationType.ADD)
-          .tag(tagAssociation)
+          .addTag(tagAssociation, "field_foo")
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(fieldTagPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalEditableSchemaMetadataTagRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      TagUrn urn = new TagUrn("Legacy");
+      MetadataChangeProposal fieldTagPatch = new EditableSchemaMetadataPatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
+          .removeTag(urn, "field_foo")
           .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(fieldTagPatch);
 
@@ -91,10 +125,29 @@ public class PatchTest {
 
       GlossaryTermAssociation termAssociation = new GlossaryTermAssociation();
       termAssociation.setUrn(new GlossaryTermUrn("CustomerAccount"));
-      MetadataChangeProposal fieldTermPatch = new EditableSchemaMetadataPatchBuilder("field_foo")
+      MetadataChangeProposal fieldTermPatch = new EditableSchemaMetadataPatchBuilder()
           .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
-          .op(PatchOperationType.ADD)
-          .glossaryTerm(termAssociation)
+          .addGlossaryTerm(termAssociation, "field_foo")
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(fieldTermPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalEditableSchemaMetadataTermRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+
+      GlossaryTermUrn urn = new GlossaryTermUrn("CustomerAccount");
+      MetadataChangeProposal fieldTermPatch = new EditableSchemaMetadataPatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
+          .removeGlossaryTerm(urn, "field_foo")
           .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(fieldTermPatch);
 
@@ -116,9 +169,57 @@ public class PatchTest {
       DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("hive"), "SampleHiveDataset", FabricType.PROD);
       MetadataChangeProposal ownershipPatch = new OwnershipPatchBuilder()
           .urn(datasetUrn)
-          .op(PatchOperationType.ADD)
-          .owner(new CorpuserUrn("gdoe"))
-          .ownershipType(OwnershipType.DATAOWNER)
+          .addOwner(new CorpuserUrn("gdoe"), OwnershipType.TECHNICAL_OWNER)
+          .build();
+      System.out.println(ownershipPatch.toString());
+      Future<MetadataWriteResponse> response = fileEmitter.emit(ownershipPatch);
+      response.get();
+      response = restEmitter.emit(ownershipPatch);
+      System.out.println(response.get().getResponseContent());
+      fileEmitter.close();
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalOwnershipRemove() {
+    FileEmitter fileEmitter = new FileEmitter(FileEmitterConfig.builder()
+        .fileName("test_mcp.json").build());
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+
+      DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("hive"), "SampleHiveDataset", FabricType.PROD);
+      MetadataChangeProposal ownershipPatch = new OwnershipPatchBuilder()
+          .urn(datasetUrn)
+          .removeOwner(new CorpuserUrn("gdoe"))
+          .build();
+      System.out.println(ownershipPatch.toString());
+      Future<MetadataWriteResponse> response = fileEmitter.emit(ownershipPatch);
+      response.get();
+      response = restEmitter.emit(ownershipPatch);
+      System.out.println(response.get().getResponseContent());
+      fileEmitter.close();
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalOwnershipRemoveType() {
+    FileEmitter fileEmitter = new FileEmitter(FileEmitterConfig.builder()
+        .fileName("test_mcp.json").build());
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+
+      DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("hive"), "SampleHiveDataset", FabricType.PROD);
+      MetadataChangeProposal ownershipPatch = new OwnershipPatchBuilder()
+          .urn(datasetUrn)
+          .removeOwnershipType(new CorpuserUrn("gdoe"), OwnershipType.TECHNICAL_OWNER)
           .build();
       System.out.println(ownershipPatch.toString());
       Future<MetadataWriteResponse> response = fileEmitter.emit(ownershipPatch);
@@ -137,20 +238,33 @@ public class PatchTest {
   public void testLocalDataJobInfo() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
-
-      Map<String, String> customProperties = new HashMap<>();
-      customProperties.put("prop1", "propVal1");
-      customProperties.put("prop2", "propVal2");
       MetadataChangeProposal jobInfoToPatch = new DataJobInfoPatchBuilder()
           .urn(UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId)"))
-          .op(PatchOperationType.ADD)
-          .description("something")
-          .name("name")
-          .type("type")
-          .customPropertiesPatchBuilder()
-          .addProperty("prop1", "propVal1")
-          .addProperty("prop2", "propVal2")
-          .getParent()
+          .setDescription("something")
+          .setName("name")
+          .setType("type")
+          .addCustomProperty("prop1", "propVal1")
+          .addCustomProperty("prop2", "propVal2")
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(jobInfoToPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDataJobInfoRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal jobInfoToPatch = new DataJobInfoPatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId)"))
+          .setDescription(null)
+          .removeCustomProperty("prop1")
+          .removeCustomProperty("prop2")
           .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(jobInfoToPatch);
 
@@ -170,16 +284,33 @@ public class PatchTest {
       DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("hive"), "SampleHiveDataset", FabricType.PROD);
       MetadataChangeProposal datasetPropertiesToPatch = new DatasetPropertiesPatchBuilder()
           .urn(datasetUrn)
-          .op(PatchOperationType.ADD)
-          .description("something")
-          .name("name")
-          .customPropertiesPatchBuilder()
-          .addProperty("prop1", "propVal1")
-          .addProperty("prop2", "propVal2")
-          .getParent()
-          // Note: This tags field is deprecated and unused, tag updates should be done through GlobalTags.
-          // Included only for completion's sake
-          .tags(ImmutableList.of("tag1", "tag2"))
+          .setDescription("something")
+          .setName("name")
+          .addCustomProperty("prop1", "propVal1")
+          .addCustomProperty("prop2", "propVal2")
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(datasetPropertiesToPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDatasetPropertiesRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+
+      DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("hive"), "SampleHiveDataset", FabricType.PROD);
+      MetadataChangeProposal datasetPropertiesToPatch = new DatasetPropertiesPatchBuilder()
+          .urn(datasetUrn)
+          .setDescription(null)
+          .setName(null)
+          .removeCustomProperty("prop1")
+          .removeCustomProperty("prop2")
           .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(datasetPropertiesToPatch);
 
@@ -197,14 +328,32 @@ public class PatchTest {
     try {
       MetadataChangeProposal flowInfoToPatch = new DataFlowInfoPatchBuilder()
           .urn(UrnUtils.getUrn("urn:li:dataFlow:(orchestrator,flowId,cluster)"))
-          .op(PatchOperationType.ADD)
-          .description("something")
-          .name("name")
-          .project("project")
-          .customPropertiesPatchBuilder()
-          .addProperty("prop1", "propVal1")
-          .addProperty("prop2", "propVal2")
-          .getParent()
+          .setDescription("something")
+          .setName("name")
+          .setProject("project")
+          .addCustomProperty("prop1", "propVal1")
+          .addCustomProperty("prop2", "propVal2")
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(flowInfoToPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDataFlowInfoRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal flowInfoToPatch = new DataFlowInfoPatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataFlow:(orchestrator,flowId,cluster)"))
+          .setDescription(null)
+          .setProject(null)
+          .removeCustomProperty("prop1")
+          .removeCustomProperty("prop2")
           .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(flowInfoToPatch);
 

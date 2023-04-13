@@ -1,7 +1,8 @@
 package datahub.client.patch.subtypesupport;
 
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
-import datahub.client.patch.common.CustomPropertiesPatchBuilder;
+import java.util.Map;
+import javax.annotation.Nonnull;
 
 
 /**
@@ -10,8 +11,24 @@ import datahub.client.patch.common.CustomPropertiesPatchBuilder;
 public interface CustomPropertiesPatchBuilderSupport<T extends AbstractMultiFieldPatchBuilder<T>> {
 
   /**
-   * Overrides the default patch builder for an aspect to specifically target the custom properties field.
-   * This allows setting of individual properties without overriding the entire map.
+   * Adds a custom property
+   * @param key
+   * @param value
+   * @return
    */
-  CustomPropertiesPatchBuilder<T> customPropertiesPatchBuilder();
+  T addCustomProperty(@Nonnull String key, @Nonnull String value);
+
+  /**
+   * Removes a custom property
+   * @param key
+   * @return
+   */
+  T removeCustomProperty(@Nonnull String key);
+
+  /**
+   * Fully replace the custom properties
+   * @param properties
+   * @return
+   */
+  T replaceCustomProperties(Map<String, String> properties);
 }

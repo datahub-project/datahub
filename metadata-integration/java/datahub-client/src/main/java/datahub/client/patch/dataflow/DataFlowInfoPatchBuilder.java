@@ -4,12 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.TimeStamp;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
+import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.subtypesupport.CustomPropertiesPatchBuilderSupport;
 import datahub.client.patch.common.CustomPropertiesPatchBuilder;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
-import lombok.Getter;
+import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
@@ -28,80 +29,65 @@ public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Dat
   public static final String LAST_MODIFIED_KEY = "lastModified";
   public static final String TIME_KEY = "time";
   public static final String ACTOR_KEY = "actor";
-  public static final String CUSTOM_PROPERTIES_KEY = "customProperties";
 
-  private String name = null;
-  private String description = null;
-  private String project = null;
-  private TimeStamp created = null;
-  private TimeStamp lastModified = null;
-  @Getter
-  private CustomPropertiesPatchBuilder<DataFlowInfoPatchBuilder> customPropertiesPatchBuilder;
+  private CustomPropertiesPatchBuilder<DataFlowInfoPatchBuilder> customPropertiesPatchBuilder = new CustomPropertiesPatchBuilder<>(this);
 
-  public DataFlowInfoPatchBuilder name(String name) {
-    this.name = name;
+  public DataFlowInfoPatchBuilder setName(@Nonnull String name) {
+    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + NAME_KEY, instance.textNode(name)));
     return this;
   }
 
-  public DataFlowInfoPatchBuilder description(String description) {
-    this.description = description;
-    return this;
-  }
-
-  public DataFlowInfoPatchBuilder project(String project) {
-    this.project = project;
-    return this;
-  }
-
-  public DataFlowInfoPatchBuilder created(TimeStamp created) {
-    this.created = created;
-    return this;
-  }
-
-  public DataFlowInfoPatchBuilder lastModified(TimeStamp lastModified) {
-    this.lastModified = lastModified;
-    return this;
-  }
-
-  @Override
-  protected Stream<Object> getRequiredProperties() {
-    return Stream.of(this.targetEntityUrn, this.op);
-  }
-
-  @Override
-  protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
-    List<ImmutableTriple<String, String, JsonNode>> triples = new ArrayList<>();
-
-    if (name != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + NAME_KEY, instance.textNode(name)));
+  public DataFlowInfoPatchBuilder setDescription(@Nullable String description) {
+    if (description == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + DESCRIPTION_KEY, null));
+    } else {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + DESCRIPTION_KEY,
+          instance.textNode(description)));
     }
-    if (description != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + DESCRIPTION_KEY, instance.textNode(description)));
+    return this;
+  }
+
+  public DataFlowInfoPatchBuilder setProject(@Nullable String project) {
+    if (project == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + PROJECT_KEY, null));
+    } else {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + PROJECT_KEY, instance.textNode(project)));
     }
-    if (project != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + PROJECT_KEY, instance.textNode(project)));
-    }
-    if (created != null) {
+    return this;
+  }
+
+  public DataFlowInfoPatchBuilder setCreated(@Nullable TimeStamp created) {
+
+    if (created == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + CREATED_KEY, null));
+    } else {
       ObjectNode createdNode = instance.objectNode();
       createdNode.put(TIME_KEY, created.getTime());
       if (created.getActor() != null) {
         createdNode.put(ACTOR_KEY, created.getActor().toString());
       }
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + CREATED_KEY, createdNode));
+      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + CREATED_KEY, createdNode));
     }
-    if (lastModified != null) {
-      ObjectNode lastModifiedNode = instance.objectNode();
-      lastModifiedNode.put(TIME_KEY, lastModified.getTime());
-      if (lastModified.getActor() != null) {
-        lastModifiedNode.put(ACTOR_KEY, lastModified.getActor().toString());
-      }
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + LAST_MODIFIED_KEY, lastModifiedNode));
-    }
-    if (customPropertiesPatchBuilder != null) {
-      triples.addAll(customPropertiesPatchBuilder.getSubPaths());
-    }
+    return this;
+  }
 
-    return triples;
+  public DataFlowInfoPatchBuilder setLastModified(@Nullable TimeStamp lastModified) {
+    if (lastModified == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + LAST_MODIFIED_KEY, null));
+    }
+    ObjectNode lastModifiedNode = instance.objectNode();
+    lastModifiedNode.put(TIME_KEY, lastModified.getTime());
+    if (lastModified.getActor() != null) {
+      lastModifiedNode.put(ACTOR_KEY, lastModified.getActor().toString());
+    }
+    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + LAST_MODIFIED_KEY, lastModifiedNode));
+    return this;
+  }
+
+  @Override
+  protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
+    pathValues.addAll(customPropertiesPatchBuilder.getSubPaths());
+    return pathValues;
   }
 
   @Override
@@ -115,8 +101,20 @@ public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Dat
   }
 
   @Override
-  public CustomPropertiesPatchBuilder<DataFlowInfoPatchBuilder> customPropertiesPatchBuilder() {
-    customPropertiesPatchBuilder = new CustomPropertiesPatchBuilder<>(this);
-    return customPropertiesPatchBuilder;
+  public DataFlowInfoPatchBuilder addCustomProperty(@Nonnull String key, @Nonnull String value) {
+    customPropertiesPatchBuilder.addProperty(key, value);
+    return this;
+  }
+
+  @Override
+  public DataFlowInfoPatchBuilder removeCustomProperty(@Nonnull String key) {
+    customPropertiesPatchBuilder.removeProperty(key);
+    return this;
+  }
+
+  @Override
+  public DataFlowInfoPatchBuilder replaceCustomProperties(Map<String, String> properties) {
+    customPropertiesPatchBuilder.replaceProperties(properties);
+    return this;
   }
 }

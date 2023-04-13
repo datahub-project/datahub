@@ -5,12 +5,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.DataFlowUrn;
 import datahub.client.patch.AbstractMultiFieldPatchBuilder;
+import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.common.CustomPropertiesPatchBuilder;
 import datahub.client.patch.subtypesupport.CustomPropertiesPatchBuilderSupport;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
-import lombok.Getter;
+import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
@@ -32,87 +33,74 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
   public static final String TYPE_KEY = "type";
   public static final String CUSTOM_PROPERTIES_KEY = "customProperties";
 
-  private String name = null;
-  private String description = null;
-  private String type = null;
-  private DataFlowUrn flowUrn = null;
-  private TimeStamp created = null;
-  private TimeStamp lastModified = null;
-  @Getter
-  private CustomPropertiesPatchBuilder<DataJobInfoPatchBuilder> customPropertiesPatchBuilder;
+  private CustomPropertiesPatchBuilder<DataJobInfoPatchBuilder> customPropertiesPatchBuilder =
+      new CustomPropertiesPatchBuilder<>(this);
 
-  public DataJobInfoPatchBuilder name(String name) {
-    this.name = name;
+  public DataJobInfoPatchBuilder setName(@Nonnull String name) {
+    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + NAME_KEY, instance.textNode(name)));
     return this;
   }
 
-  public DataJobInfoPatchBuilder description(String description) {
-    this.description = description;
-    return this;
-  }
-
-  public DataJobInfoPatchBuilder type(String type) {
-    this.type = type;
-    return this;
-  }
-
-  public DataJobInfoPatchBuilder flowUrn(DataFlowUrn flowUrn) {
-    this.flowUrn = flowUrn;
-    return this;
-  }
-
-  public DataJobInfoPatchBuilder created(TimeStamp created) {
-    this.created = created;
-    return this;
-  }
-
-  public DataJobInfoPatchBuilder lastModified(TimeStamp lastModified) {
-    this.lastModified = lastModified;
-    return this;
-  }
-
-  @Override
-  protected Stream<Object> getRequiredProperties() {
-    return Stream.of(this.targetEntityUrn, this.op);
-  }
-
-  @Override
-  protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
-    List<ImmutableTriple<String, String, JsonNode>> triples = new ArrayList<>();
-
-    if (name != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + NAME_KEY, instance.textNode(name)));
+  public DataJobInfoPatchBuilder setDescription(@Nullable String description) {
+    if (description == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + DESCRIPTION_KEY, null));
+    } else {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + DESCRIPTION_KEY,
+          instance.textNode(description)));
     }
-    if (description != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + DESCRIPTION_KEY, instance.textNode(description)));
+    return this;
+  }
+
+
+  public DataJobInfoPatchBuilder setType(@Nonnull String type) {
+    ObjectNode union = instance.objectNode();
+    union.set("string", instance.textNode(type));
+    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + TYPE_KEY, union));
+    return this;
+  }
+
+  public DataJobInfoPatchBuilder setFlowUrn(@Nullable DataFlowUrn flowUrn) {
+    if (flowUrn == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + FLOW_URN_KEY, null));
+    } else {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + FLOW_URN_KEY,
+          instance.textNode(flowUrn.toString())));
     }
-    if (flowUrn != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + FLOW_URN_KEY, instance.textNode(flowUrn.toString())));
-    }
-    if (type != null) {
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + TYPE_KEY, instance.objectNode().put("string", type)));
-    }
-    if (created != null) {
+    return this;
+  }
+
+  public DataJobInfoPatchBuilder setCreated(@Nullable TimeStamp created) {
+    if (created == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + CREATED_KEY, null));
+    } else {
       ObjectNode createdNode = instance.objectNode();
       createdNode.put(TIME_KEY, created.getTime());
       if (created.getActor() != null) {
         createdNode.put(ACTOR_KEY, created.getActor().toString());
       }
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + CREATED_KEY, createdNode));
+      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + CREATED_KEY, createdNode));
     }
-    if (lastModified != null) {
+    return this;
+  }
+
+  public DataJobInfoPatchBuilder setLastModified(@Nullable TimeStamp lastModified) {
+    if (lastModified == null) {
+      pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + LAST_MODIFIED_KEY, null));
+    } else {
       ObjectNode lastModifiedNode = instance.objectNode();
       lastModifiedNode.put(TIME_KEY, lastModified.getTime());
       if (lastModified.getActor() != null) {
         lastModifiedNode.put(ACTOR_KEY, lastModified.getActor().toString());
       }
-      triples.add(ImmutableTriple.of(this.op, BASE_PATH + LAST_MODIFIED_KEY, lastModifiedNode));
+      pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + LAST_MODIFIED_KEY, lastModifiedNode));
     }
-    if (customPropertiesPatchBuilder != null) {
-      triples.addAll(customPropertiesPatchBuilder.getSubPaths());
-    }
+    return this;
+  }
 
-    return triples;
+  @Override
+  protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
+    pathValues.addAll(customPropertiesPatchBuilder.getSubPaths());
+    return pathValues;
   }
 
   @Override
@@ -126,8 +114,20 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
   }
 
   @Override
-  public CustomPropertiesPatchBuilder<DataJobInfoPatchBuilder> customPropertiesPatchBuilder() {
-    customPropertiesPatchBuilder = new CustomPropertiesPatchBuilder<>(this);
-    return customPropertiesPatchBuilder;
+  public DataJobInfoPatchBuilder addCustomProperty(@Nonnull String key, @Nonnull String value) {
+    customPropertiesPatchBuilder.addProperty(key, value);
+    return this;
+  }
+
+  @Override
+  public DataJobInfoPatchBuilder removeCustomProperty(@Nonnull String key) {
+    customPropertiesPatchBuilder.removeProperty(key);
+    return this;
+  }
+
+  @Override
+  public DataJobInfoPatchBuilder replaceCustomProperties(Map<String, String> properties) {
+    customPropertiesPatchBuilder.replaceProperties(properties);
+    return this;
   }
 }
