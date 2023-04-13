@@ -292,7 +292,7 @@ def get_schema_metadata(
     columns: List[dict],
     pk_constraints: Optional[dict] = None,
     foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
-    canonical_schema: List[SchemaField] = [],
+    canonical_schema: Optional[List[SchemaField]] = None,
 ) -> SchemaMetadata:
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
@@ -300,7 +300,7 @@ def get_schema_metadata(
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
-        fields=canonical_schema,
+        fields=canonical_schema or [],
     )
     if foreign_keys is not None and foreign_keys != []:
         schema_metadata.foreignKeys = foreign_keys
