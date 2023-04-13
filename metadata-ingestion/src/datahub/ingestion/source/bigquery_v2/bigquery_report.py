@@ -79,18 +79,18 @@ class BigQueryV2Report(ProfilingSqlReport):
     )
     current_project_status: Optional[str] = None
 
-    timer: Optional[PerfTimer] = field(
+    _timer: Optional[PerfTimer] = field(
         default=None, init=False, repr=False, compare=False
     )
 
     def set_project_state(self, project: str, stage: str) -> None:
-        if self.timer:
+        if self._timer:
             logger.info(
                 f"Time spent in stage <{self.current_project_status}>: "
-                f"{self.timer.elapsed_seconds():.2f} seconds"
+                f"{self._timer.elapsed_seconds():.2f} seconds"
             )
         else:
-            self.timer = PerfTimer()
+            self._timer = PerfTimer()
 
         self.current_project_status = f"{project}: {stage} at {datetime.now()}"
-        self.timer.start()
+        self._timer.start()
