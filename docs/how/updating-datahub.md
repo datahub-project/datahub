@@ -13,6 +13,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+- The docker image and script for updating from Elasticsearch 6 to 7 is no longer being maintained and will be removed from the `/contrib` section of
+the repository. Please refer to older releases if needed.
 
 ### Other notable Changes
 
