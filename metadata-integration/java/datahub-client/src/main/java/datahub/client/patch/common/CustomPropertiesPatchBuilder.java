@@ -51,7 +51,7 @@ public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuild
    * @param properties
    * @return
    */
-  public CustomPropertiesPatchBuilder<T> replaceProperties(Map<String, String> properties) {
+  public CustomPropertiesPatchBuilder<T> setProperties(Map<String, String> properties) {
     ObjectNode propertiesNode = instance.objectNode();
     properties.forEach((key, value) -> propertiesNode.set(key, instance.textNode(value)));
     operations.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), CUSTOM_PROPERTIES_BASE_PATH, propertiesNode));

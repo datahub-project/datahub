@@ -96,8 +96,8 @@ public class DatasetPropertiesPatchBuilder extends AbstractMultiFieldPatchBuilde
   }
 
   @Override
-  public DatasetPropertiesPatchBuilder replaceCustomProperties(Map<String, String> properties) {
-    customPropertiesPatchBuilder.replaceProperties(properties);
+  public DatasetPropertiesPatchBuilder setCustomProperties(Map<String, String> properties) {
+    customPropertiesPatchBuilder.setProperties(properties);
     return this;
   }
 

@@ -113,8 +113,8 @@ public class DataFlowInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Dat
   }
 
   @Override
-  public DataFlowInfoPatchBuilder replaceCustomProperties(Map<String, String> properties) {
-    customPropertiesPatchBuilder.replaceProperties(properties);
+  public DataFlowInfoPatchBuilder setCustomProperties(Map<String, String> properties) {
+    customPropertiesPatchBuilder.setProperties(properties);
     return this;
   }
 }

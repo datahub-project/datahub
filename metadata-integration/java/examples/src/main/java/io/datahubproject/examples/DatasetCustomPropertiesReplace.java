@@ -31,7 +31,7 @@ class DatasetCustomPropertiesReplace {
     customPropsMap.put("retention_time", "2 years");
     MetadataChangeProposal datasetPropertiesProposal = new DatasetPropertiesPatchBuilder()
         .urn(UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD"))
-        .replaceCustomProperties(customPropsMap)
+        .setCustomProperties(customPropsMap)
         .build();
 
     String token = "";

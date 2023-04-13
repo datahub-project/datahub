@@ -30,5 +30,5 @@ public interface CustomPropertiesPatchBuilderSupport<T extends AbstractMultiFiel
    * @param properties
    * @return
    */
-  T replaceCustomProperties(Map<String, String> properties);
+  T setCustomProperties(Map<String, String> properties);
 }

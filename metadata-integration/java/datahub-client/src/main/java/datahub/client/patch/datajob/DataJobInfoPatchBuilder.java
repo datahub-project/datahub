@@ -126,8 +126,8 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
   }
 
   @Override
-  public DataJobInfoPatchBuilder replaceCustomProperties(Map<String, String> properties) {
-    customPropertiesPatchBuilder.replaceProperties(properties);
+  public DataJobInfoPatchBuilder setCustomProperties(Map<String, String> properties) {
+    customPropertiesPatchBuilder.setProperties(properties);
     return this;
   }
 }

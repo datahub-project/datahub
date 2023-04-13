@@ -29,7 +29,6 @@ class DatasetCustomPropertiesAddRemove {
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
       MetadataChangeProposal datasetPropertiesProposal = new DatasetPropertiesPatchBuilder()
           .urn(UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD"))
-          // the operation type doesn't matter here, what matters are addProperty / removeProperty calls below
           .addCustomProperty("cluster_name", "datahubproject.acryl.io")
           .removeCustomProperty("retention_time")
           .build();
