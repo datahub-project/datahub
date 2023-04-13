@@ -3,7 +3,6 @@ package io.datahubproject.examples;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.MetadataWriteResponse;
-import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.dataset.DatasetPropertiesPatchBuilder;
 import datahub.client.rest.RestEmitter;
 import java.io.IOException;
@@ -31,11 +30,8 @@ class DatasetCustomPropertiesAddRemove {
       MetadataChangeProposal datasetPropertiesProposal = new DatasetPropertiesPatchBuilder()
           .urn(UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD"))
           // the operation type doesn't matter here, what matters are addProperty / removeProperty calls below
-          .op(PatchOperationType.ADD)
-          .customPropertiesPatchBuilder()
-          .addProperty("cluster_name", "datahubproject.acryl.io")
-          .removeProperty("retention_time")
-          .getParent()
+          .addCustomProperty("cluster_name", "datahubproject.acryl.io")
+          .removeCustomProperty("retention_time")
           .build();
 
       String token = "";

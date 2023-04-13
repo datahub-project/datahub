@@ -3,7 +3,6 @@ package io.datahubproject.examples;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.MetadataWriteResponse;
-import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.dataset.DatasetPropertiesPatchBuilder;
 import datahub.client.rest.RestEmitter;
 import java.io.IOException;
@@ -32,8 +31,7 @@ class DatasetCustomPropertiesReplace {
     customPropsMap.put("retention_time", "2 years");
     MetadataChangeProposal datasetPropertiesProposal = new DatasetPropertiesPatchBuilder()
         .urn(UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD"))
-        .op(PatchOperationType.ADD)
-        .customProperties(customPropsMap)
+        .replaceCustomProperties(customPropsMap)
         .build();
 
     String token = "";

@@ -2,7 +2,6 @@ package io.datahubproject.examples;
 
 import com.linkedin.common.urn.UrnUtils;
 import datahub.client.MetadataWriteResponse;
-import datahub.client.patch.PatchOperationType;
 import datahub.client.patch.dataset.DatasetPropertiesPatchBuilder;
 import datahub.client.rest.RestEmitter;
 import java.io.IOException;
@@ -29,11 +28,8 @@ class DatasetCustomPropertiesAdd {
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
       MetadataChangeProposal datasetPropertiesProposal = new DatasetPropertiesPatchBuilder()
           .urn(UrnUtils.toDatasetUrn("hive", "fct_users_deleted", "PROD"))
-          .op(PatchOperationType.ADD)
-          .customPropertiesPatchBuilder()
-          .addProperty("cluster_name", "datahubproject.acryl.io")
-          .addProperty("retention_time", "2 years")
-          .getParent()
+          .addCustomProperty("cluster_name", "datahubproject.acryl.io")
+          .addCustomProperty("retention_time", "2 years")
           .build();
 
       String token = "";
