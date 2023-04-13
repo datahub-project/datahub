@@ -1884,6 +1884,23 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         yield from self.process_refinement(view_refinement_map)
 
+    @staticmethod
+    def merge_list(original_fields: List[ViewField], refined_fields: List[ViewField]):
+        new_field_list: List[ViewField] = []
+        refined_field_map: Dict[str, ViewField] = {field.name: field for field in refined_fields}
+        for field in original_fields:
+            if refined_field_map.get(field.name) is not None:
+                # refined field has precedence over original field
+                new_field_list.append(refined_field_map[field.name])
+                del refined_field_map[field.name]
+            else:
+                new_field_list.append(field)
+
+        # add remaining refined fields
+        new_field_list.extend(refined_field_map.values())
+
+        return new_field_list
+
     def process_refinement(
         self, view_refinement_map: Dict[str, RefinementContainer]
     ) -> Iterable[MetadataWorkUnit]:  # noqa: C901:
@@ -1900,7 +1917,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                 continue
             for view in refinement_container.refinement_views:
                 # Add refinement view fields to original view fields
-                refinement_container.original_view.fields.extend(view.fields)
+                refinement_container.original_view.fields = self.merge_list(
+                    refinement_container.original_view.fields,
+                    view.fields
+                )
 
             logger.debug(
                 f"Processing refinement for view = {refinement_container.original_view.id}"

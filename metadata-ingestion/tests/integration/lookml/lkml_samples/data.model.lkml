@@ -8,6 +8,7 @@ include: "ability.view.lkml"
 include: "dataset_owners.explore.lkml"
 include: "native_derived_table.view.lkml"
 include: "owners_refinement.view.lkml"
+include: "flights.view.lkml"
 
 explore: aliased_explore {
   from: my_view
