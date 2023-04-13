@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import platform
+import shutil
 import sys
 import time
 from dataclasses import dataclass
@@ -137,7 +138,7 @@ class CliReport(Report):
             self.peak_memory_usage = humanfriendly.format_size(self._peak_memory_usage)
         self.mem_info = humanfriendly.format_size(mem_usage)
 
-        disk_usage = psutil.disk_usage("/")
+        disk_usage = shutil.disk_usage("/")
         if self._peak_disk_usage < disk_usage.used:
             self._peak_disk_usage = disk_usage.used
             self.peak_disk_usage = humanfriendly.format_size(self._peak_disk_usage)
