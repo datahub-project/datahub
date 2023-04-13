@@ -545,7 +545,7 @@ public class EntityService {
 
   private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
     RecordTemplateValidator.validate(aspect, validationResult -> {
-      throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
+      throw new IllegalArgumentException("Invalid format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
           + validationResult.getMessages());
     }, validator);
   }
@@ -1034,6 +1034,7 @@ public class EntityService {
     if (!isNoOp || _alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
+      // Uses new data map to prevent side effects on original
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
       metadataChangeLog.setEntityUrn(entityUrn);
       metadataChangeLog.setCreated(auditStamp);
