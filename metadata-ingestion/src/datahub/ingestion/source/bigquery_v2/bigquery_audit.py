@@ -13,12 +13,16 @@ from datahub.utilities.parsing_util import (
     get_first_missing_key_any,
 )
 
+BQ_FILTER_REGEX_ALLOW_TEMPLATE = "BQ_FILTER_REGEX_ALLOW_TEMPLATE"
+BQ_FILTER_REGEX_DENY_TEMPLATE = "BQ_FILTER_REGEX_DENY_TEMPLATE"
+BQ_FILTER_RULE_TEMPLATE = "BQ_FILTER_RULE_TEMPLATE"
+
 BQ_AUDIT_V2 = {
-    "BQ_FILTER_REGEX_ALLOW_TEMPLATE": """protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_allow_pattern}"
+    BQ_FILTER_REGEX_ALLOW_TEMPLATE: """protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_allow_pattern}"
 """.strip(
         "\t \n"
     ),
-    "BQ_FILTER_REGEX_DENY_TEMPLATE": """
+    BQ_FILTER_REGEX_DENY_TEMPLATE: """
     {logical_operator}
             NOT (
                 protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_deny_pattern}"
@@ -26,7 +30,7 @@ BQ_AUDIT_V2 = {
 """.strip(
         "\t \n"
     ),
-    "BQ_FILTER_RULE_TEMPLATE": """
+    BQ_FILTER_RULE_TEMPLATE: """
 resource.type=("bigquery_project" OR "bigquery_dataset")
 AND
 (
