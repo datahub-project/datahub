@@ -330,8 +330,10 @@ def test_table_processing_logic(client_mock, data_dictionary_mock):
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    _ = source.get_tables_for_dataset(
-        conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+    _ = list(
+        source.get_tables_for_dataset(
+            conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+        )
     )
 
     assert data_dictionary_mock.call_count == 1
@@ -400,8 +402,10 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    _ = source.get_tables_for_dataset(
-        conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+    _ = list(
+        source.get_tables_for_dataset(
+            conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+        )
     )
 
     assert data_dictionary_mock.call_count == 1
@@ -487,7 +491,7 @@ def test_get_views_for_dataset(
         dataset_name="test-dataset",
         has_data_read=False,
     )
-    assert views == [bigquery_view_1, bigquery_view_2]
+    assert list(views) == [bigquery_view_1, bigquery_view_2]
 
 
 @patch.object(BigqueryV2Source, "gen_dataset_workunits", lambda *args, **kwargs: [])
