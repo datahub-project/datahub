@@ -72,20 +72,35 @@ public class AspectUtils {
 
   private static MetadataChangeProposal getProposalFromAspect(String aspectName, RecordTemplate aspect,
       MetadataChangeProposal original) {
-    try {
-      MetadataChangeProposal proposal = original.copy();
-      GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
-      // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an UPSERT
-      if (ChangeType.PATCH.equals(proposal.getChangeType())) {
-        proposal.setChangeType(ChangeType.UPSERT);
-      }
-      proposal.setAspect(genericAspect);
-      proposal.setAspectName(aspectName);
-      return proposal;
-    } catch (CloneNotSupportedException e) {
-      log.error("Issue while generating additional proposals corresponding to the input proposal", e);
+    MetadataChangeProposal proposal = new MetadataChangeProposal();
+    GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
+    // Set net new fields
+    proposal.setAspect(genericAspect);
+    proposal.setAspectName(aspectName);
+
+    // Set fields determined from original
+    // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an UPSERT
+    proposal.setChangeType(original.getChangeType());
+    if (ChangeType.PATCH.equals(proposal.getChangeType())) {
+      proposal.setChangeType(ChangeType.UPSERT);
     }
-    return null;
+
+    if (original.getSystemMetadata() != null) {
+      proposal.setSystemMetadata(original.getSystemMetadata());
+    }
+    if (original.getEntityUrn() != null) {
+      proposal.setEntityUrn(original.getEntityUrn());
+    }
+    if (original.getEntityKeyAspect() != null) {
+      proposal.setEntityKeyAspect(original.getEntityKeyAspect());
+    }
+    if (original.getAuditHeader() != null) {
+      proposal.setAuditHeader(original.getAuditHeader());
+    }
+    
+    proposal.setEntityType(original.getEntityType());
+
+    return proposal;
   }
 
   public static MetadataChangeProposal buildMetadataChangeProposal(
