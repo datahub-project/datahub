@@ -1,12 +1,14 @@
-import { Button, Divider } from 'antd';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { ORIGIN_FILTER_NAME } from '../utils/constants';
+import { ORIGIN_FILTER_NAME, UnionType } from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
 import { SORTED_FILTERS } from './constants';
 import MoreFilters from './MoreFilters';
+import SaveViewButton from './SaveViewButton';
 import SearchFilter from './SearchFilter';
+import { TextButton } from './styledComponents';
 import { sortFacets } from './utils';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
@@ -22,19 +24,13 @@ export const FlexSpacer = styled.div`
     justify-content: space-between;
 `;
 
-export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${(props) => props.theme.styles['primary-color']};
-    padding: 0px 6px;
-    margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
-    ${(props) => props.height !== undefined && `height: ${props.height}px;`}
-
-    &:hover {
-        background-color: white;
-    }
-`;
-
 const StyledDivider = styled(Divider)`
     margin: 8px 0 0 0;
+`;
+
+export const FilterButtonsWrapper = styled.div`
+    display: flex;
+    flex-wrap: nowrap;
 `;
 
 interface Props {
@@ -78,9 +74,14 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
                         />
                     )}
                 </FlexWrapper>
-                <TextButton type="text" onClick={showAdvancedFilters} marginTop={0}>
-                    Advanced Filters
-                </TextButton>
+                <FilterButtonsWrapper>
+                    {activeFilters.length > 0 && (
+                        <SaveViewButton activeFilters={activeFilters} unionType={UnionType.AND} />
+                    )}
+                    <TextButton type="text" onClick={showAdvancedFilters} marginTop={0}>
+                        Advanced Filters
+                    </TextButton>
+                </FilterButtonsWrapper>
             </FlexSpacer>
             {activeFilters.length > 0 && (
                 <>

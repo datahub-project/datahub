@@ -8,7 +8,9 @@ import { AdvancedSearchFilter } from '../AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from '../AdvancedSearchFilterOverallUnionTypeSelect';
 import useAdvancedSearchSelectFilters from '../useAdvancedSearchSelectFilters';
 import { UnionType } from '../utils/constants';
-import { FlexSpacer, FlexWrapper, TextButton } from './BasicFilters';
+import { FilterButtonsWrapper, FlexSpacer, FlexWrapper } from './BasicFilters';
+import SaveViewButton from './SaveViewButton';
+import { TextButton } from './styledComponents';
 
 const AnyAllToggle = styled.div`
     font-weight: 700;
@@ -88,9 +90,12 @@ export default function AdvancedFilters({
                     ))}
                     {!activeFilters.length && <EmptyStateSection>No filters applied.</EmptyStateSection>}
                 </FlexWrapper>
-                <TextButton disabled={onlyShowAdvancedFilters} type="text" onClick={showBasicFilters} marginTop={0}>
-                    Basic Filters
-                </TextButton>
+                <FilterButtonsWrapper>
+                    {activeFilters.length > 0 && <SaveViewButton activeFilters={activeFilters} unionType={unionType} />}
+                    <TextButton disabled={onlyShowAdvancedFilters} type="text" onClick={showBasicFilters} marginTop={0}>
+                        Basic Filters
+                    </TextButton>
+                </FilterButtonsWrapper>
             </FlexSpacer>
             {filterField && (
                 <AdvancedFilterSelectValueModal
