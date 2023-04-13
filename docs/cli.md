@@ -139,37 +139,20 @@ For example the following command gets the ownership aspect from the dataset `ur
 ```shell-session
 $ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --aspect ownership
 {
-  "value": {
-    "com.linkedin.metadata.snapshot.DatasetSnapshot": {
-      "aspects": [
-        {
-          "com.linkedin.metadata.key.DatasetKey": {
-            "name": "SampleHiveDataset",
-            "origin": "PROD",
-            "platform": "urn:li:dataPlatform:hive"
-          }
+  "ownership": {
+    "lastModified": {
+      "actor": "urn:li:corpuser:jdoe",
+      "time": 1680210917580
+    },
+    "owners": [
+      {
+        "owner": "urn:li:corpuser:jdoe",
+        "source": {
+          "type": "SERVICE"
         },
-        {
-          "com.linkedin.common.Ownership": {
-            "lastModified": {
-              "actor": "urn:li:corpuser:jdoe",
-              "time": 1581407189000
-            },
-            "owners": [
-              {
-                "owner": "urn:li:corpuser:jdoe",
-                "type": "DATAOWNER"
-              },
-              {
-                "owner": "urn:li:corpuser:datahub",
-                "type": "DATAOWNER"
-              }
-            ]
-          }
-        }
-      ],
-      "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
-    }
+        "type": "NONE"
+      }
+    ]
   }
 }
 ```

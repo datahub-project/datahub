@@ -34,6 +34,10 @@ public class FieldExtractor {
 
   // Extract the value of each field in the field specs from the input record
   public static <T extends FieldSpec> Map<T, List<Object>> extractFields(@Nonnull RecordTemplate record, List<T> fieldSpecs) {
+    return extractFields(record, fieldSpecs, MAX_VALUE_LENGTH);
+  }
+
+  public static <T extends FieldSpec> Map<T, List<Object>> extractFields(@Nonnull RecordTemplate record, List<T> fieldSpecs, int maxValueLength) {
     final Map<T, List<Object>> extractedFields = new HashMap<>();
     for (T fieldSpec : fieldSpecs) {
       Optional<Object> value = RecordUtils.getFieldValue(record, fieldSpec.getPath());
@@ -48,7 +52,7 @@ public class FieldExtractor {
             extractedFields.put(fieldSpec, ((Map<?, ?>) value.get()).entrySet()
                 .stream()
                 .map(entry -> new Pair<>(entry.getKey().toString(), entry.getValue().toString()))
-                .filter(entry -> entry.getValue().length() < MAX_VALUE_LENGTH)
+                .filter(entry -> entry.getValue().length() < maxValueLength)
                 .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .collect(Collectors.toList()));
           } else {
@@ -68,13 +72,13 @@ public class FieldExtractor {
   }
 
   public static <T extends FieldSpec> Map<T, List<Object>> extractFieldsFromSnapshot(RecordTemplate snapshot,
-      EntitySpec entitySpec, Function<AspectSpec, List<T>> getFieldSpecsFunc) {
+      EntitySpec entitySpec, Function<AspectSpec, List<T>> getFieldSpecsFunc, int maxValueLength) {
     final Map<String, RecordTemplate> aspects = AspectExtractor.extractAspectRecords(snapshot);
     final Map<T, List<Object>> extractedFields = new HashMap<>();
     aspects.keySet()
         .stream()
         .map(aspectName -> FieldExtractor.extractFields(aspects.get(aspectName),
-            getFieldSpecsFunc.apply(entitySpec.getAspectSpec(aspectName))))
+            getFieldSpecsFunc.apply(entitySpec.getAspectSpec(aspectName)), maxValueLength))
         .forEach(extractedFields::putAll);
     return extractedFields;
   }
