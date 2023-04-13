@@ -44,6 +44,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
             activeFilters,
             onChangeFilters,
         });
+    const filterIcon = getFilterDropdownIcon(filter.field);
 
     return (
         <Dropdown
@@ -66,7 +67,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                 isOpen={isMenuOpen}
             >
                 <IconNameWrapper>
-                    <IconWrapper>{getFilterDropdownIcon(filter.field)}</IconWrapper>
+                    {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
                     {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 </IconNameWrapper>
                 <RightOutlined style={{ fontSize: '12px', height: '12px' }} />

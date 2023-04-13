@@ -62,6 +62,7 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             activeFilters,
             onChangeFilters,
         });
+    const filterIcon = getFilterDropdownIcon(filter.field);
 
     return (
         <Dropdown
@@ -74,7 +75,7 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             )}
         >
             <DropdownLabel onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
-                <IconWrapper>{getFilterDropdownIcon(filter.field)}</IconWrapper>
+                {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
                 {capitalizeFirstLetterOnly(filter.displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </DropdownLabel>
