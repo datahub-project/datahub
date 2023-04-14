@@ -64,6 +64,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     SubTypesClass,
+    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -454,16 +455,27 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         custom_properties["created_by"] = table.created_by
         custom_properties["created_at"] = str(table.created_at)
         if table.properties:
-            custom_properties["properties"] = str(table.properties)
+            custom_properties.update({k: str(v) for k, v in table.properties.items()})
         custom_properties["table_id"] = table.table_id
         custom_properties["owner"] = table.owner
         custom_properties["updated_by"] = table.updated_by
         custom_properties["updated_at"] = str(table.updated_at)
 
+        created = TimeStampClass(
+            int(table.created_at.timestamp()), make_user_urn(table.created_by)
+        )
+        last_modified = created
+        if table.updated_at and table.updated_by is not None:
+            last_modified = TimeStampClass(
+                int(table.updated_at.timestamp()), make_user_urn(table.updated_by)
+            )
+
         return DatasetPropertiesClass(
             name=table.name,
             description=table.comment,
             customProperties=custom_properties,
+            created=created,
+            lastModified=last_modified,
         )
 
     def _create_table_ownership_aspect(

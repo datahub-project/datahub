@@ -135,7 +135,7 @@ def _default_deserializer(value: Any) -> Any:
 
 
 @dataclass(eq=False)
-class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
+class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     """
     A dict-like object that stores its data in a temporary SQLite database.
     This is useful for storing large amounts of data that don't fit in memory.

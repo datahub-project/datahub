@@ -261,13 +261,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -487,13 +498,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -713,13 +735,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -1022,13 +1055,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -1248,13 +1292,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -1474,13 +1529,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -1783,13 +1849,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -2009,13 +2086,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
@@ -2235,13 +2323,24 @@
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
                 "created_at": "2022-10-19 13:21:38.688000",
-                "properties": "{'delta.lastCommitTimestamp': '1666185711000', 'delta.lastUpdateVersion': '1', 'delta.minReaderVersion': '1', 'delta.minWriterVersion': '2'}",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "created": {
+                "time": 1666185698,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
             "tags": []
         }
     },
