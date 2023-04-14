@@ -516,7 +516,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_dropped(project_id.id)
                 continue
             logger.info(f"Processing project: {project_id.id}")
-            self.report.set_project_state(project_id.id, "Metadata Extraction")
+            self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
         if self._should_ingest_usage():
@@ -526,7 +526,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self._should_ingest_lineage():
             for project in projects:
-                self.report.set_project_state(project.id, "Lineage Extraction")
+                self.report.set_ingestion_stage(project.id, "Lineage Extraction")
                 yield from self.generate_lineage(project.id)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -671,7 +671,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.profiling.enabled:
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_project_state(project_id, "Profiling")
+            self.report.set_ingestion_stage(project_id, "Profiling")
             yield from self.profiler.get_workunits(
                 project_id=project_id,
                 tables=db_tables,
