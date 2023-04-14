@@ -132,7 +132,7 @@ def generate_queries(
     for i in range(num_operations):
         modified_table = random.choice(seed_metadata.tables)
         n_col = len(modified_table.columns)
-        num_columns_modified = NormalDistribution(n_col, n_col / 2)
+        num_columns_modified = NormalDistribution(n_col / 2, n_col / 2)
         upstream_tables = _sample_list(all_tables, upstream_tables_per_operation)
 
         all_columns = [
@@ -147,13 +147,14 @@ def generate_queries(
             timestamp=_random_time_between(
                 seed_metadata.start_time, seed_metadata.end_time
             ),
-            fields_accessed=_sample_list(all_columns, num_columns_modified),
+            # Can have no field accesses, e.g. on a standard INSERT
+            fields_accessed=_sample_list(all_columns, num_columns_modified, 0),
             object_modified=modified_table,
         )
 
 
-def _sample_list(lst: List[T], dist: NormalDistribution) -> List[T]:
-    return random.sample(lst, min(dist.sample_with_floor(), len(lst)))
+def _sample_list(lst: List[T], dist: NormalDistribution, floor: int = 1) -> List[T]:
+    return random.sample(lst, min(dist.sample_with_floor(floor), len(lst)))
 
 
 def _random_time_between(start: datetime, end: datetime) -> datetime:

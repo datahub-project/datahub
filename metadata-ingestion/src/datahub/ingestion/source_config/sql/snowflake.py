@@ -12,11 +12,7 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigModel,
-    OauthConfiguration,
-)
+from datahub.configuration.common import AllowDenyPattern, OauthConfiguration
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.snowflake.constants import (
@@ -46,59 +42,6 @@ VALID_AUTH_TYPES: Dict[str, str] = {
 }
 
 SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
-
-
-class SnowflakeProvisionRoleConfig(ConfigModel):
-    enabled: bool = pydantic.Field(
-        default=False,
-        description="Whether provisioning of Snowflake role (used for ingestion) is enabled or not.",
-    )
-
-    # Can be used by account admin to test what sql statements will be run
-    dry_run: bool = pydantic.Field(
-        default=False,
-        description="If provision_role is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands.",
-    )
-
-    # Setting this to True is helpful in case you want a clean role without any extra privileges
-    # Not set to True by default because multiple parallel
-    #   snowflake ingestions can be dependent on single role
-    drop_role_if_exists: bool = pydantic.Field(
-        default=False,
-        description="Useful during testing to ensure you have a clean slate role. Not recommended for production use cases.",
-    )
-
-    # When Account admin is testing they might not want to actually do the ingestion
-    # Set this to False in case the account admin would want to
-    #   create role
-    #   grant role to user in main config
-    #   run ingestion as the user in main config
-    run_ingestion: bool = pydantic.Field(
-        default=False,
-        description="If system admins wish to skip actual ingestion of metadata during testing of the provisioning of role.",
-    )
-
-    admin_role: Optional[str] = pydantic.Field(
-        default="accountadmin",
-        description="The Snowflake role of admin user used for provisioning of the role specified by role config. System admins can audit the open source code and decide to use a different role.",
-    )
-
-    admin_username: str = pydantic.Field(
-        description="The username to be used for provisioning of role."
-    )
-
-    admin_password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None,
-        exclude=True,
-        description="The password to be used for provisioning of role.",
-    )
-
-    @pydantic.validator("admin_username", always=True)
-    def username_not_empty(cls, v, values, **kwargs):
-        v_str: str = str(v)
-        if not v_str.strip():
-            raise ValueError("username is empty")
-        return v
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
@@ -154,10 +97,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
     )
-    check_role_grants: bool = pydantic.Field(
-        default=False,
-        description="If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.",
-    )
 
     def get_account(self) -> str:
         assert self.account_id
@@ -178,6 +117,14 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(VALID_AUTH_TYPES.keys())}"
+            )
+        if (
+            values.get("private_key") is not None
+            or values.get("private_key_path") is not None
+        ) and v != "KEY_PAIR_AUTHENTICATOR":
+            raise ValueError(
+                f"Either `private_key` and `private_key_path` is set but `authentication_type` is {v}. "
+                f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
             )
         if v == "KEY_PAIR_AUTHENTICATOR":
             # If we are using key pair auth, we need the private key path and password to be set
@@ -330,7 +277,6 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
-    provision_role: Optional[SnowflakeProvisionRoleConfig] = None
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
 
