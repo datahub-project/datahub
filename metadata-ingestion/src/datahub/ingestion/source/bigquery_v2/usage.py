@@ -323,6 +323,16 @@ class BigQueryUsageState(Closeable):
                 column_freq=json.loads(row["column_freq"]),
             )
 
+    def report_disk_usage(self, report: BigQueryV2Report) -> None:
+        report.usage_state_size = str(
+            {
+                "main": humanfriendly.format_size(os.path.getsize(self.conn.filename)),
+                "queries": humanfriendly.format_size(
+                    os.path.getsize(self.queries._conn.filename)
+                ),
+            }
+        )
+
 
 class BigQueryUsageExtractor:
     """
@@ -361,6 +371,7 @@ class BigQueryUsageExtractor:
             with BigQueryUsageState(self.config) as usage_state:
                 self._ingest_events(events, table_refs, usage_state)
                 usage_state.create_indexes()
+                usage_state.report_disk_usage(self.report)
 
                 if self.config.usage.include_operational_stats:
                     yield from self._generate_operational_workunits(
@@ -368,16 +379,7 @@ class BigQueryUsageExtractor:
                     )
 
                 yield from self._generate_usage_workunits(usage_state)
-                self.report.usage_state_size = str(
-                    {
-                        "main": humanfriendly.format_size(
-                            os.path.getsize(usage_state.conn.filename)
-                        ),
-                        "queries": humanfriendly.format_size(
-                            os.path.getsize(usage_state.queries._conn.filename)
-                        ),
-                    }
-                )
+                usage_state.report_disk_usage(self.report)
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-ingestion", str(e))
