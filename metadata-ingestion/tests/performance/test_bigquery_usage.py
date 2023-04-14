@@ -6,7 +6,6 @@ from typing import Iterable, Tuple
 
 import humanfriendly
 import psutil
-import pytest
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
@@ -15,7 +14,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryV2Report,
-    logger as report_logger,
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.utilities.perf_timer import PerfTimer
@@ -26,16 +24,8 @@ from tests.performance.data_generation import (
     generate_queries,
 )
 
-pytestmark = pytest.mark.performance
 
-
-@pytest.fixture(autouse=True)
-def report_log_level_info(caplog):
-    with caplog.at_level(logging.INFO, logger=report_logger.name):
-        yield
-
-
-def test_bigquery_usage(report_log_level_info):
+def run_test():
     report = BigQueryV2Report()
     report.set_ingestion_stage("All", "Seed Data Generation")
     seed_metadata = generate_data(
@@ -86,7 +76,6 @@ def test_bigquery_usage(report_log_level_info):
 
     print(
         f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
-        "\n(warning: if this runs too fast, this value may be large... maybe garbage collection didn't run fast enough?)"
     )
     print(f"Disk Used: {report.usage_state_size}")
     print(f"Hash collisions: {report.num_usage_query_hash_collisions}")
@@ -105,3 +94,10 @@ def workunit_sink(workunits: Iterable[MetadataWorkUnit]) -> Tuple[int, int]:
     )
 
     return i, peak_memory_usage
+
+
+if __name__ == "__main__":
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(logging.StreamHandler())
+    run_test()
