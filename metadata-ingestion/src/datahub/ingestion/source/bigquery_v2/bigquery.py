@@ -750,18 +750,20 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
         elif self.config.include_table_lineage or self.config.include_usage_statistics:
             # Need table_refs to calculate lineage and usage
-            for table in conn.list_tables(f"{project_id}.{dataset_name}"):
+            for table_item in conn.list_tables(f"{project_id}.{dataset_name}"):
                 ref = BigQueryTableRef(
                     BigqueryTableIdentifier(
                         project_id=project_id,
                         dataset=dataset_name,
-                        table=table.table_id,
+                        table=table_item.table_id,
                     )
                 )
                 try:
                     self.table_refs.add(str(ref.get_sanitized_table_ref()))
                 except Exception as e:
-                    logger.warning(f"Could not create table ref for {table.path}: {e}")
+                    logger.warning(
+                        f"Could not create table ref for {table_item.path}: {e}"
+                    )
 
         if self.config.include_views:
             db_views[dataset_name] = list(
