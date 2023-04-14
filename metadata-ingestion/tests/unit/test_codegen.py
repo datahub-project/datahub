@@ -1,4 +1,5 @@
 import os
+import pathlib
 import typing
 from typing import List, Type
 
@@ -17,6 +18,9 @@ from datahub.metadata.schema_classes import (
 )
 
 _UPDATE_ENTITY_REGISTRY = os.getenv("UPDATE_ENTITY_REGISTRY", "false").lower() == "true"
+ENTITY_REGISTRY_PATH = pathlib.Path(
+    "../metadata-models/src/main/resources/entity-registry.yml"
+)
 
 
 def test_class_filter() -> None:
@@ -78,27 +82,25 @@ def test_urn_annotation():
 
 
 def _add_to_registry(entity: str, aspect: str) -> None:
-    import pathlib
-
     from ruamel.yaml import YAML
-
-    registry = pathlib.Path("../metadata-models/src/main/resources/entity-registry.yml")
 
     yaml = YAML()
 
-    doc = yaml.load(registry)
+    doc = yaml.load(ENTITY_REGISTRY_PATH)
 
     for entry in doc["entities"]:
         if entry["name"] == entity:
             entry["aspects"].append(aspect)
             break
     else:
-        raise ValueError(f'could not find entity "{entity}" in registry')
+        raise ValueError(
+            f'could not find entity "{entity}" in entity registry at {ENTITY_REGISTRY_PATH}'
+        )
 
     # Prevent line wrapping + preserve indentation.
     yaml.width = 2**20  # type: ignore[assignment]
     yaml.indent(mapping=2, sequence=4, offset=2)
-    yaml.dump(doc, registry)
+    yaml.dump(doc, ENTITY_REGISTRY_PATH)
 
 
 def test_entity_registry_completeness():
@@ -145,4 +147,6 @@ def test_entity_registry_completeness():
                     print(error)
                     errors.append(error)
 
-    assert not errors
+    assert (
+        not errors
+    ), f'To fix these errors, run "UPDATE_ENTITY_REGISTRY=true pytest {__file__}"'
