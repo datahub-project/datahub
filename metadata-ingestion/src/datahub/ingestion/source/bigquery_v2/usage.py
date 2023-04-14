@@ -218,7 +218,7 @@ class BigQueryUsageState(Closeable):
                 COUNT(q.query) query_count
             FROM
                 read_events r
-                LEFT JOIN query_events q ON r.name = q.key
+                INNER JOIN query_events q ON r.name = q.key
             GROUP BY r.timestamp, r.resource
         ) a
         LEFT JOIN (
@@ -231,7 +231,7 @@ class BigQueryUsageState(Closeable):
                     ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank
                 FROM
                     read_events r
-                    LEFT JOIN query_events q ON r.name = q.key
+                    INNER JOIN query_events q ON r.name = q.key
                 GROUP BY r.timestamp, r.resource, q.query
                 ORDER BY r.timestamp, r.resource, query_count DESC, q.query
             ) WHERE rank <= {top_n}
@@ -513,7 +513,6 @@ class BigQueryUsageExtractor:
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
     ) -> Iterable[AuditLogEntry]:
-        self.report.total_query_log_entries = 0
 
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
