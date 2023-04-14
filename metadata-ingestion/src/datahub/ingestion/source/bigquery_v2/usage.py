@@ -47,7 +47,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
     _make_gcp_logging_client,
     get_bigquery_client,
 )
-from datahub.ingestion.source.usage.usage_common import make_usage_workunit
+from datahub.ingestion.source.usage.usage_common import (
+    TOTAL_BUDGET_FOR_QUERY_LIST,
+    make_usage_workunit,
+)
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
@@ -83,7 +86,7 @@ OPERATION_STATEMENT_TYPES = {
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
 STRING_ENCODING = "utf-8"
-MAX_QUERY_LENGTH = 30000
+MAX_QUERY_LENGTH = TOTAL_BUDGET_FOR_QUERY_LIST
 
 
 @dataclass(frozen=True, order=True)

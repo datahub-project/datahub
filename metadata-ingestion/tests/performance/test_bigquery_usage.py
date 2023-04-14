@@ -12,9 +12,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryUsageConfig,
     BigQueryV2Config,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_report import (
-    BigQueryV2Report,
-)
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.utilities.perf_timer import PerfTimer
 from tests.performance.bigquery import generate_events, ref_from_table
