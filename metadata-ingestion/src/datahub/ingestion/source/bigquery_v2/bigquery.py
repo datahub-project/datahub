@@ -727,13 +727,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_name, project_id, bigquery_dataset.labels
         )
 
-        columns = BigQueryDataDictionary.get_columns_for_dataset(
-            conn,
-            project_id=project_id,
-            dataset_name=dataset_name,
-            column_limit=self.config.column_limit,
-            run_optimized_column_query=self.config.run_optimized_column_query,
-        )
+        columns = None
+        if self.config.include_tables or self.config.include_views:
+            columns = BigQueryDataDictionary.get_columns_for_dataset(
+                conn,
+                project_id=project_id,
+                dataset_name=dataset_name,
+                column_limit=self.config.column_limit,
+                run_optimized_column_query=self.config.run_optimized_column_query,
+            )
 
         if self.config.include_tables:
             db_tables[dataset_name] = list(
