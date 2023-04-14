@@ -559,29 +559,6 @@ def get_sorted_entity_names(
     return sorted_entities
 
 
-def preprocess_markdown(markdown_contents: str) -> str:
-    inline_pattern = re.compile(r"{{ inline (.*) }}")
-    pos = 0
-    content_swap_register = {}
-    while inline_pattern.search(markdown_contents, pos=pos):
-        match = inline_pattern.search(markdown_contents, pos=pos)
-        assert match
-        file_name = match.group(1)
-        with open(file_name, "r") as fp:
-            inline_content = fp.read()
-            content_swap_register[match.span()] = inline_content
-        pos = match.span()[1]
-    processed_markdown = ""
-    cursor = 0
-    for (start, end) in content_swap_register:
-        processed_markdown += (
-            markdown_contents[cursor:start] + content_swap_register[(start, end)]
-        )
-        cursor = end
-    processed_markdown += markdown_contents[cursor:]
-    return processed_markdown
-
-
 @click.command()
 @click.argument("schemas_root", type=click.Path(exists=True), required=True)
 @click.option("--registry", type=click.Path(exists=True), required=True)
@@ -616,8 +593,7 @@ def generate(
                 entity_name = m.group(1)
                 with open(path, "r") as doc_file:
                     file_contents = doc_file.read()
-                    final_markdown = preprocess_markdown(file_contents)
-                    entity_extra_docs[entity_name] = final_markdown
+                    entity_extra_docs[entity_name] = file_contents
 
     # registry file
     load_registry_file(registry)

@@ -672,7 +672,6 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     def _create_edges_from_data_platform_instance(
         self, data_platform_instance_urn: Urn
     ) -> None:
-
         data_platform_urn = DataPlatformUrn.create_from_string(
             data_platform_instance_urn.get_entity_id()[0]
         )
@@ -719,7 +718,6 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     def post_update_hook(
         self, entity_urn: str, aspect_name: str, aspect: _Aspect
     ) -> None:
-
         if isinstance(aspect, DatasetPropertiesClass):
             dp: DatasetPropertiesClass = aspect
             if dp.name:

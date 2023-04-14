@@ -13,6 +13,13 @@ fragment autoCompleteFields on Entity {
             name
             qualifiedName
         }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+        ...datasetStatsFields
     }
     ... on CorpUser {
         username
@@ -43,6 +50,12 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         chartId
@@ -54,6 +67,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
     }
     ... on DataFlow {
@@ -116,11 +132,15 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Tag {
         name
         properties {
             name
+            colorHex
         }
     }
     ... on MLFeatureTable {
@@ -185,6 +205,38 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
             suggestions
             entities {
                 ...autoCompleteFields
+            }
+        }
+    }
+}
+
+fragment datasetStatsFields on Dataset {
+    lastProfile: datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        sizeInBytes
+        timestampMillis
+    }
+    lastOperation: operations(limit: 1) {
+        lastUpdatedTimestamp
+        timestampMillis
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
             }
         }
     }
@@ -257,35 +309,7 @@ fragment searchResultFields on Entity {
                 }
             }
         }
-        lastProfile: datasetProfiles(limit: 1) {
-            rowCount
-            columnCount
-            sizeInBytes
-            timestampMillis
-        }
-        lastOperation: operations(limit: 1) {
-            lastUpdatedTimestamp
-            timestampMillis
-        }
-        statsSummary {
-            queryCountLast30Days
-            uniqueUserCountLast30Days
-            topUsersLast30Days {
-                urn
-                type
-                username
-                properties {
-                    displayName
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableProperties {
-                    displayName
-                    pictureLink
-                }
-            }
-        }
+        ...datasetStatsFields
     }
     ... on CorpUser {
         username
@@ -676,6 +700,7 @@ fragment searchResultFields on Entity {
         name
         properties {
             name
+            colorHex
         }
         description
     }
@@ -696,6 +721,7 @@ fragment facetFields on FacetMetadata {
             ... on Tag {
                 name
                 properties {
+                    name
                     colorHex
                 }
             }

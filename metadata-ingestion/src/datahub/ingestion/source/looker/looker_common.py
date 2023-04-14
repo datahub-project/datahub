@@ -69,7 +69,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     FineGrainedLineageClass,
@@ -143,7 +142,8 @@ class NamingPattern(ConfigModel):
 
     def replace_variables(self, values: Union[Dict[str, Optional[str]], object]) -> str:
         if not isinstance(values, dict):
-            assert dataclasses.is_dataclass(values)
+            # Check that this is a dataclass instance (not a dataclass type).
+            assert dataclasses.is_dataclass(values) and not isinstance(values, type)
             values = dataclasses.asdict(values)
         values = {k: v for k, v in values.items() if v is not None}
         return self.pattern.format(**values)
@@ -540,7 +540,6 @@ class LookerExplore:
         reporter: "LookMLSourceReport",
         model_explores_map: Dict[str, dict],
     ) -> "LookerExplore":
-
         view_names: Set[str] = set()
         joins = None
         assert "name" in dict, "Explore doesn't have a name field, this isn't allowed"
@@ -891,10 +890,7 @@ class LookerExplore:
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_snapshot.urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.LOOKER_EXPLORE]),
         )
 

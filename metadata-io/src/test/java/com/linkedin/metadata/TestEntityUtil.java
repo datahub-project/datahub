@@ -40,8 +40,10 @@ public class TestEntityUtil {
         ImmutableList.of(new SimpleNestedRecord2().setNestedArrayStringField("nestedArray1"),
             new SimpleNestedRecord2().setNestedArrayStringField("nestedArray2")
                 .setNestedArrayArrayField(new StringArray(ImmutableList.of("testNestedArray1", "testNestedArray2"))))));
-    testEntityInfo.setCustomProperties(new StringMap(ImmutableMap.of("key1", "value1", "key2", "value2")));
-    testEntityInfo.setEsObjectField(new StringMap(ImmutableMap.of("key1", "value1", "key2", "value2")));
+    testEntityInfo.setCustomProperties(new StringMap(ImmutableMap.of("key1", "value1", "key2", "value2",
+            "shortValue", "123", "longValue", "0123456789")));
+    testEntityInfo.setEsObjectField(new StringMap(ImmutableMap.of("key1", "value1", "key2", "value2",
+            "shortValue", "123", "longValue", "0123456789")));
     return testEntityInfo;
   }
 

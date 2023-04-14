@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import platform
+import shutil
 import sys
 import time
 from dataclasses import dataclass
@@ -36,7 +37,10 @@ from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
-from datahub.utilities.global_warning_util import get_global_warnings
+from datahub.utilities.global_warning_util import (
+    clear_global_warnings,
+    get_global_warnings,
+)
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
@@ -125,14 +129,30 @@ class CliReport(Report):
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
     _peak_memory_usage: int = 0
+    _peak_disk_usage: int = 0
 
     def compute_stats(self) -> None:
-        mem_usage = psutil.Process(os.getpid()).memory_info().rss
-        if self._peak_memory_usage < mem_usage:
-            self._peak_memory_usage = mem_usage
-            self.peak_memory_usage = humanfriendly.format_size(self._peak_memory_usage)
+        try:
+            mem_usage = psutil.Process(os.getpid()).memory_info().rss
+            if self._peak_memory_usage < mem_usage:
+                self._peak_memory_usage = mem_usage
+                self.peak_memory_usage = humanfriendly.format_size(
+                    self._peak_memory_usage
+                )
+            self.mem_info = humanfriendly.format_size(mem_usage)
 
-        self.mem_info = humanfriendly.format_size(mem_usage)
+            disk_usage = shutil.disk_usage("/")
+            if self._peak_disk_usage < disk_usage.used:
+                self._peak_disk_usage = disk_usage.used
+                self.peak_disk_usage = humanfriendly.format_size(self._peak_disk_usage)
+            self.disk_info = {
+                "total": humanfriendly.format_size(disk_usage.total),
+                "used": humanfriendly.format_size(disk_usage.used),
+                "free": humanfriendly.format_size(disk_usage.free),
+            }
+        except Exception as e:
+            logger.warning(f"Failed to compute report memory usage: {e}")
+
         return super().compute_stats()
 
 
@@ -389,6 +409,8 @@ class Pipeline:
             logger.error("Caught error", exc_info=e)
             raise
         finally:
+            clear_global_warnings()
+
             if callback and hasattr(callback, "close"):
                 callback.close()  # type: ignore
 

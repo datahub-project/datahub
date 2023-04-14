@@ -26,7 +26,7 @@ public class IngestionSchedulerHookTest {
     EntityRegistry registry = new ConfigEntityRegistry(
         IngestionSchedulerHookTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     IngestionScheduler mockScheduler = Mockito.mock(IngestionScheduler.class);
-    _ingestionSchedulerHook = new IngestionSchedulerHook(registry, mockScheduler);
+    _ingestionSchedulerHook = new IngestionSchedulerHook(registry, mockScheduler, true);
   }
 
   @Test
@@ -78,7 +78,7 @@ public class IngestionSchedulerHookTest {
     event.setAspectName(SECRET_VALUE_ASPECT_NAME);
     event.setChangeType(ChangeType.UPSERT);
     _ingestionSchedulerHook.invoke(event);
-    Mockito.verifyZeroInteractions(_ingestionSchedulerHook.scheduler());
+    Mockito.verifyNoInteractions(_ingestionSchedulerHook.scheduler());
   }
 }
 

@@ -1,5 +1,4 @@
-# TODO: Remove to common
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -18,7 +17,9 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
@@ -68,7 +69,6 @@ def gen_schema_container(
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
-
     domain_urn: Optional[str] = None
     if domain_registry:
         assert domain_config
@@ -166,7 +166,6 @@ def add_table_to_schema_container(
     parent_container_key: PlatformKey,
     report: Optional[SourceReport] = None,
 ) -> Iterable[MetadataWorkUnit]:
-
     container_workunits = add_dataset_to_container(
         container_key=parent_container_key,
         dataset_urn=dataset_urn,
@@ -212,3 +211,36 @@ def get_dataplatform_instance_aspect(
         ).as_workunit()
     else:
         return None
+
+
+def gen_lineage(
+    dataset_urn: str,
+    lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
+    incremental_lineage: bool = True,
+) -> Iterable[MetadataWorkUnit]:
+    if lineage_info is None:
+        return
+
+    upstream_lineage, upstream_column_props = lineage_info
+    if upstream_lineage is not None:
+        if incremental_lineage:
+            patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(urn=dataset_urn)
+            for upstream in upstream_lineage.upstreams:
+                patch_builder.add_upstream_lineage(upstream)
+
+            lineage_workunits = [
+                MetadataWorkUnit(
+                    id=f"upstreamLineage-for-{dataset_urn}",
+                    mcp_raw=mcp,
+                )
+                for mcp in patch_builder.build()
+            ]
+        else:
+            lineage_workunits = [
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=upstream_lineage
+                ).as_workunit()
+            ]
+
+        for wu in lineage_workunits:
+            yield wu

@@ -4,7 +4,10 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleResults;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResultForEntity;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +16,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 
 public class AutocompleteUtils {
@@ -26,16 +31,22 @@ public class AutocompleteUtils {
       List<SearchableEntityType<?, ?>> entities,
       String sanitizedQuery,
       AutoCompleteMultipleInput input,
-      DataFetchingEnvironment environment
+      DataFetchingEnvironment environment,
+      @Nullable DataHubViewInfo view
   ) {
     final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
 
     final List<CompletableFuture<AutoCompleteResultForEntity>> autoCompletesFuture = entities.stream().map(entity -> CompletableFuture.supplyAsync(() -> {
+      final Filter filter = ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+      final Filter finalFilter = view != null
+          ? SearchUtils.combineFilters(filter, view.getDefinition().getFilter())
+          : filter;
+
       try {
         final AutoCompleteResults searchResult = entity.autoComplete(
             sanitizedQuery,
             input.getField(),
-            input.getFilters(),
+            finalFilter,
             limit,
             environment.getContext()
         );
@@ -49,7 +60,7 @@ public class AutocompleteUtils {
             + String.format("field %s, query %s, filters: %s, limit: %s",
             input.getField(),
             input.getQuery(),
-            input.getFilters(),
+            filter,
             input.getLimit()), e);
         return new AutoCompleteResultForEntity(entity.type(), Collections.emptyList(), Collections.emptyList());
       }

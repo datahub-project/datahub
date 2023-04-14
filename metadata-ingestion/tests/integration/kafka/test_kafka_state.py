@@ -17,7 +17,7 @@ from tests.test_helpers.state_helpers import (
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
-KAFKA_PORT = 59092
+KAFKA_PORT = 29092
 KAFKA_BOOTSTRAP_SERVER = f"localhost:{KAFKA_PORT}"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"

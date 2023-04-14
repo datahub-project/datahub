@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple, Union
 
 from dateutil import parser
 
@@ -122,11 +122,8 @@ class BigqueryTableIdentifier:
             - removes wildcard part (table_yyyy* -> table)
             - remove time decorator (table@1624046611000 -> table)
         """
-        shortened_table_name = self.table
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
-        shortened_table_name = re.sub(
-            self._BIGQUERY_WILDCARD_REGEX, "", shortened_table_name
-        )
+        shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
 
         matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
@@ -160,9 +157,7 @@ class BigqueryTableIdentifier:
             f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
         )
         if self.is_sharded_table():
-            table_name = (
-                f"{table_name}{BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX}"
-            )
+            table_name += BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX
         return table_name
 
     def is_sharded_table(self) -> bool:
@@ -205,7 +200,7 @@ class BigQueryTableRef:
                 raise ValueError(f"invalid BigQuery table reference dict: {spec}")
 
         return cls(
-            # spec dict always has to have projectId, datasetId, tableId otherwise it is an ivalid spec
+            # spec dict always has to have projectId, datasetId, tableId otherwise it is an invalid spec
             BigqueryTableIdentifier(
                 spec["projectId"], spec["datasetId"], spec["tableId"]
             )
@@ -336,7 +331,7 @@ class QueryEvent:
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_spec_obj(
                 raw_dest_table
-            )
+            ).get_sanitized_table_ref()
         # statementType
         # referencedTables
         job_stats: Dict = job["jobStatistics"]
@@ -346,13 +341,15 @@ class QueryEvent:
         raw_ref_tables = job_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
-                BigQueryTableRef.from_spec_obj(spec) for spec in raw_ref_tables
+                BigQueryTableRef.from_spec_obj(spec).get_sanitized_table_ref()
+                for spec in raw_ref_tables
             ]
         # referencedViews
         raw_ref_views = job_stats.get("referencedViews")
         if raw_ref_views:
             query_event.referencedViews = [
-                BigQueryTableRef.from_spec_obj(spec) for spec in raw_ref_views
+                BigQueryTableRef.from_spec_obj(spec).get_sanitized_table_ref()
+                for spec in raw_ref_views
             ]
         # payload
         query_event.payload = entry.payload if debug_include_full_payloads else None
@@ -415,18 +412,20 @@ class QueryEvent:
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_string_name(
                 raw_dest_table
-            )
+            ).get_sanitized_table_ref()
         # referencedTables
         raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_tables
             ]
         # referencedViews
         raw_ref_views = query_stats.get("referencedViews")
         if raw_ref_views:
             query_event.referencedViews = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_views
             ]
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
@@ -479,19 +478,21 @@ class QueryEvent:
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_string_name(
                 raw_dest_table
-            )
+            ).get_sanitized_table_ref()
         # statementType
         # referencedTables
         raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_tables
             ]
         # referencedViews
         raw_ref_views = query_stats.get("referencedViews")
         if raw_ref_views:
             query_event.referencedViews = [
-                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+                BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
+                for spec in raw_ref_views
             ]
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
@@ -568,10 +569,14 @@ class ReadEvent:
         if readReason == "JOB":
             jobName = readInfo.get("jobName")
 
+        resource = BigQueryTableRef.from_string_name(
+            resourceName
+        ).get_sanitized_table_ref()
+
         readEvent = ReadEvent(
             actor_email=user,
             timestamp=entry.timestamp,
-            resource=BigQueryTableRef.from_string_name(resourceName),
+            resource=resource,
             fieldsRead=fields,
             readReason=readReason,
             jobName=jobName,
@@ -602,10 +607,14 @@ class ReadEvent:
         if readReason == "JOB":
             jobName = readInfo.get("jobName")
 
+        resource = BigQueryTableRef.from_string_name(
+            resourceName
+        ).get_sanitized_table_ref()
+
         readEvent = ReadEvent(
             actor_email=user,
             timestamp=row["timestamp"],
-            resource=BigQueryTableRef.from_string_name(resourceName),
+            resource=resource,
             fieldsRead=fields,
             readReason=readReason,
             jobName=jobName,
@@ -623,3 +632,12 @@ class ReadEvent:
 class AuditEvent:
     read_event: Optional[ReadEvent] = None
     query_event: Optional[QueryEvent] = None
+
+    @classmethod
+    def create(cls, event: Union[ReadEvent, QueryEvent]) -> "AuditEvent":
+        if isinstance(event, QueryEvent):
+            return AuditEvent(query_event=event)
+        elif isinstance(event, ReadEvent):
+            return AuditEvent(read_event=event)
+        else:
+            raise TypeError(f"Cannot create AuditEvent: {event}")

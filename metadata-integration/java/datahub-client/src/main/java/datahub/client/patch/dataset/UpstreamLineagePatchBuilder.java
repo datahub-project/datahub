@@ -1,19 +1,20 @@
 package datahub.client.patch.dataset;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataset.DatasetLineageType;
-import datahub.client.patch.AbstractPatchBuilder;
-import java.util.stream.Stream;
+import datahub.client.patch.AbstractMultiFieldPatchBuilder;
+import datahub.client.patch.PatchOperationType;
+import javax.annotation.Nonnull;
 import lombok.ToString;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
 import static com.linkedin.metadata.Constants.*;
 
 
 @ToString
-public class UpstreamLineagePatchBuilder extends AbstractPatchBuilder<UpstreamLineagePatchBuilder> {
+public class UpstreamLineagePatchBuilder extends AbstractMultiFieldPatchBuilder<UpstreamLineagePatchBuilder> {
 
   private static final String PATH_START = "/upstreams/";
   private static final String DATASET_KEY = "dataset";
@@ -22,47 +23,31 @@ public class UpstreamLineagePatchBuilder extends AbstractPatchBuilder<UpstreamLi
   private static final String ACTOR_KEY = "actor";
   private static final String TYPE_KEY = "type";
 
-  private DatasetUrn dataset = null;
-  private DatasetLineageType lineageType = null;
-
-  public UpstreamLineagePatchBuilder dataset(DatasetUrn datasetUrn) {
-    this.dataset = datasetUrn;
-    return this;
-  }
-
-  public UpstreamLineagePatchBuilder lineageType(DatasetLineageType lineageType) {
-    this.lineageType = lineageType;
-    return this;
-  }
-
-  @Override
-  protected Stream<Object> getRequiredProperties() {
-    return Stream.of(dataset, this.op, this.targetEntityUrn);
-  }
-
-  @Override
-  protected String getPath() {
-    return PATH_START + dataset;
-  }
-
-  @Override
-  protected JsonNode getValue() {
+  public UpstreamLineagePatchBuilder addUpstream(@Nonnull DatasetUrn datasetUrn, @Nonnull DatasetLineageType lineageType) {
     ObjectNode value = instance.objectNode();
     ObjectNode auditStamp = instance.objectNode();
-    auditStamp.put(TIME_KEY, 0)
+    auditStamp.put(TIME_KEY, System.currentTimeMillis())
         .put(ACTOR_KEY, UNKNOWN_ACTOR);
-    value.put(DATASET_KEY, dataset.toString())
+    value.put(DATASET_KEY, datasetUrn.toString())
+        .put(TYPE_KEY, lineageType.toString())
         .set(AUDIT_STAMP_KEY, auditStamp);
 
-    if (lineageType != null) {
-        value.put(TYPE_KEY, lineageType.toString());
-    }
+    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), PATH_START + datasetUrn, value));
+    return this;
+  }
 
-    return value;
+  public UpstreamLineagePatchBuilder removeUpstream(@Nonnull DatasetUrn datasetUrn) {
+    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), PATH_START + datasetUrn, null));
+    return this;
   }
 
   @Override
   protected String getAspectName() {
     return UPSTREAM_LINEAGE_ASPECT_NAME;
+  }
+
+  @Override
+  protected String getEntityType() {
+    return DATASET_ENTITY_NAME;
   }
 }
