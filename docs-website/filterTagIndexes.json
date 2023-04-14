@@ -12,6 +12,17 @@
       }
     },
     {
+      "Path": "docs/generated/ingestion/sources/amplitude",
+      "imgPath": "img/logos/platforms/amplitude.png",
+      "Title": "Amplitude",
+      "Description": "Amplitude helps you build better products by turning your user data into meaningful insights.",
+      "tags": {
+        "Platform Type": "Digital Analytics Platform",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/athena",
       "imgPath": "img/logos/platforms/athena.svg",
       "Title": "Athena",
