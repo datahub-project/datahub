@@ -288,9 +288,9 @@ class BigQueryUsageState(Closeable):
                 timestamp=row["timestamp"],
                 resource=row["resource"],
                 query_count=row["query_count"],
-                query_freq=json.loads(row["query_freq"]),
-                user_freq=json.loads(row["user_freq"]),
-                column_freq=json.loads(row["column_freq"]),
+                query_freq=json.loads(row["query_freq"] or []),
+                user_freq=json.loads(row["user_freq"] or []),
+                column_freq=json.loads(row["column_freq"] or []),
             )
 
 
