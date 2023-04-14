@@ -144,7 +144,7 @@ assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [build, ':docker:quickstart'] ) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart'] ) {
     environment "RUN_QUICKSTART", "false"
     commandLine "spark-smoke-test/smoke.sh"
 }
