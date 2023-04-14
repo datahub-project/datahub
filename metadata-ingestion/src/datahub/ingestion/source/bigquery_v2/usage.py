@@ -83,6 +83,7 @@ OPERATION_STATEMENT_TYPES = {
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
 STRING_ENCODING = "utf-8"
+MAX_QUERY_LENGTH = 30000
 
 
 @dataclass(frozen=True, order=True)
@@ -178,7 +179,7 @@ class BigQueryUsageState(Closeable):
             },
             cache_max_size=config.file_backed_cache_size,
             # Evict entire cache to reduce db calls.
-            cache_eviction_batch_size=config.file_backed_cache_size + 1,
+            cache_eviction_batch_size=max(int(config.file_backed_cache_size * 0.9), 1),
             delay_index_creation=True,
             should_compress_value=True,
         )
@@ -191,7 +192,7 @@ class BigQueryUsageState(Closeable):
                 "is_read": lambda e: int(e.statementType in READ_STATEMENT_TYPES),
             },
             cache_max_size=config.file_backed_cache_size,
-            cache_eviction_batch_size=config.file_backed_cache_size + 1,
+            cache_eviction_batch_size=max(int(config.file_backed_cache_size * 0.9), 1),
             delay_index_creation=True,
             should_compress_value=True,
         )
@@ -201,7 +202,7 @@ class BigQueryUsageState(Closeable):
             tablename="column_accesses",
             extra_columns={"read_event": lambda p: p[0], "field": lambda p: p[1]},
             cache_max_size=config.file_backed_cache_size,
-            cache_eviction_batch_size=config.file_backed_cache_size + 1,
+            cache_eviction_batch_size=max(int(config.file_backed_cache_size * 0.9), 1),
             delay_index_creation=True,
         )
         self.queries = FileBackedDict[str](cache_max_size=config.file_backed_cache_size)
@@ -508,7 +509,7 @@ class BigQueryUsageExtractor:
                 usage_state.column_accesses[str(uuid.uuid4())] = key, field_read
             return True
         elif event.query_event and event.query_event.job_name:
-            query = event.query_event.query
+            query = event.query_event.query[:MAX_QUERY_LENGTH]
             query_hash = hashlib.md5(query.encode(STRING_ENCODING)).hexdigest()
             if usage_state.queries.get(query_hash, query) != query:
                 key = str(uuid.uuid4())
