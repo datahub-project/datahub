@@ -78,7 +78,7 @@ public class IngestionSchedulerHookTest {
     event.setAspectName(SECRET_VALUE_ASPECT_NAME);
     event.setChangeType(ChangeType.UPSERT);
     _ingestionSchedulerHook.invoke(event);
-    Mockito.verifyZeroInteractions(_ingestionSchedulerHook.scheduler());
+    Mockito.verifyNoInteractions(_ingestionSchedulerHook.scheduler());
   }
 }
 
