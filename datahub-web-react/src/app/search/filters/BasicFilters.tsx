@@ -2,6 +2,7 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import { useUserContext } from '../../context/useUserContext';
 import { ORIGIN_FILTER_NAME, UnionType } from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
 import { SORTED_FILTERS } from './constants';
@@ -41,6 +42,9 @@ interface Props {
 }
 
 export default function BasicFilters({ availableFilters, activeFilters, onChangeFilters, showAdvancedFilters }: Props) {
+    const userContext = useUserContext();
+    const selectedViewUrn = userContext?.localState?.selectedViewUrn;
+    const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
     // only want Environment filter if there's 2 or more envs
     const filters = availableFilters
         ?.filter((f) => (f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true))
@@ -75,9 +79,7 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
                     )}
                 </FlexWrapper>
                 <FilterButtonsWrapper>
-                    {activeFilters.length > 0 && (
-                        <SaveViewButton activeFilters={activeFilters} unionType={UnionType.AND} />
-                    )}
+                    {showSaveViewButton && <SaveViewButton activeFilters={activeFilters} unionType={UnionType.AND} />}
                     <TextButton type="text" onClick={showAdvancedFilters} marginTop={0}>
                         Advanced Filters
                     </TextButton>

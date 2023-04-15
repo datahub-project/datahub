@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import { useUserContext } from '../../context/useUserContext';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { AdvancedFilterSelectValueModal } from '../AdvancedFilterSelectValueModal';
 import { AdvancedSearchAddFilterSelect } from '../AdvancedSearchAddFilterSelect';
@@ -45,6 +46,9 @@ export default function AdvancedFilters({
     const { filterField, setFilterField, onFilterFieldSelect, onSelectValueFromModal } = useAdvancedSearchSelectFilters(
         { selectedFilters: activeFilters, onFilterSelect: onChangeFilters },
     );
+    const userContext = useUserContext();
+    const selectedViewUrn = userContext?.localState?.selectedViewUrn;
+    const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
 
     return (
         <>
@@ -91,7 +95,7 @@ export default function AdvancedFilters({
                     {!activeFilters.length && <EmptyStateSection>No filters applied.</EmptyStateSection>}
                 </FlexWrapper>
                 <FilterButtonsWrapper>
-                    {activeFilters.length > 0 && <SaveViewButton activeFilters={activeFilters} unionType={unionType} />}
+                    {showSaveViewButton && <SaveViewButton activeFilters={activeFilters} unionType={unionType} />}
                     <TextButton disabled={onlyShowAdvancedFilters} type="text" onClick={showBasicFilters} marginTop={0}>
                         Basic Filters
                     </TextButton>
