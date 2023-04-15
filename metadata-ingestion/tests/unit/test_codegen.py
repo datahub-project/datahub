@@ -1,13 +1,25 @@
+import os
+import pathlib
+import typing
+from typing import List, Type
+
 import pytest
+import typing_inspect
 
 from datahub.metadata.schema_classes import (
     ASPECT_CLASSES,
     KEY_ASPECTS,
     FineGrainedLineageClass,
+    MetadataChangeEventClass,
     OwnershipClass,
     TelemetryKeyClass,
     UpstreamClass,
     _Aspect,
+)
+
+_UPDATE_ENTITY_REGISTRY = os.getenv("UPDATE_ENTITY_REGISTRY", "false").lower() == "true"
+ENTITY_REGISTRY_PATH = pathlib.Path(
+    "../metadata-models/src/main/resources/entity-registry.yml"
 )
 
 
@@ -67,3 +79,74 @@ def test_urn_annotation():
     assert FineGrainedLineageClass.RECORD_SCHEMA.fields_dict["upstreams"].get_prop(
         "urn_is_array"
     )
+
+
+def _add_to_registry(entity: str, aspect: str) -> None:
+    from ruamel.yaml import YAML
+
+    yaml = YAML()
+
+    doc = yaml.load(ENTITY_REGISTRY_PATH)
+
+    for entry in doc["entities"]:
+        if entry["name"] == entity:
+            entry["aspects"].append(aspect)
+            break
+    else:
+        raise ValueError(
+            f'could not find entity "{entity}" in entity registry at {ENTITY_REGISTRY_PATH}'
+        )
+
+    # Prevent line wrapping + preserve indentation.
+    yaml.width = 2**20  # type: ignore[assignment]
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    yaml.dump(doc, ENTITY_REGISTRY_PATH)
+
+
+def test_entity_registry_completeness():
+    # The snapshot classes can have aspects that the entity registry doesn't know about.
+    # This ensures that we don't have any of those cases.
+
+    errors: List[str] = []
+
+    snapshot_classes: List[Type] = typing_inspect.get_args(
+        typing.get_type_hints(MetadataChangeEventClass.__init__)["proposedSnapshot"]
+    )
+
+    lowercase_entity_type_map = {name.lower(): name for name in KEY_ASPECTS}
+
+    for snapshot_class in snapshot_classes:
+        lowercase_entity_type: str = snapshot_class.__name__.replace(
+            "SnapshotClass", ""
+        ).lower()
+        entity_type = lowercase_entity_type_map[lowercase_entity_type]
+
+        key_aspect = KEY_ASPECTS[entity_type]
+        supported_aspect_names = set(key_aspect.get_aspect_info()["entityAspects"])
+
+        snapshot_aspect_types: List[Type[_Aspect]] = typing_inspect.get_args(
+            typing_inspect.get_args(
+                typing.get_type_hints(snapshot_class.__init__)["aspects"]
+            )[0]
+        )
+
+        # print(f"Entity type: {entity_type}")
+        # print(f"Supported aspects: {supported_aspect_names}")
+        # print(f"Snapshot aspects: {snapshot_aspect_types}")
+
+        for aspect_type in snapshot_aspect_types:
+            if aspect_type == key_aspect:
+                continue
+
+            aspect_name = aspect_type.ASPECT_NAME
+            if aspect_name not in supported_aspect_names:
+                if _UPDATE_ENTITY_REGISTRY:
+                    _add_to_registry(entity_type, aspect_name)
+                else:
+                    error = f"entity {entity_type}: aspect {aspect_name} is missing from the entity registry"
+                    print(error)
+                    errors.append(error)
+
+    assert (
+        not errors
+    ), f'To fix these errors, run "UPDATE_ENTITY_REGISTRY=true pytest {__file__}"'
