@@ -8,14 +8,16 @@ on:
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/spark-lineage/**"
+      - "metadata-integration/java/spark-lineage"
+      - ".github/workflows/spark-smoke-test.yml"
   pull_request:
     branches:
       - master
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/spark-lineage/**"
+      - "metadata-integration/java/spark-lineage"
+      - ".github/workflows/spark-smoke-test.yml"
   release:
     types: [published, edited]
 
