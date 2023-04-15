@@ -1,3 +1,4 @@
+import collections
 import json
 import re
 from pathlib import Path
@@ -358,6 +359,15 @@ def generate(
         ):
             raise ValueError(
                 f'Entity key {entity.keyAspect} is used by {aspect["Aspect"]["keyForEntity"]} and {entity.name}'
+            )
+
+        # Also require that the aspect list is deduplicated.
+        duplicate_aspects = collections.Counter(entity.aspects) - collections.Counter(
+            set(entity.aspects)
+        )
+        if duplicate_aspects:
+            raise ValueError(
+                f"Entity {entity.name} has duplicate aspects: {duplicate_aspects}"
             )
 
         aspect["Aspect"]["keyForEntity"] = entity.name
