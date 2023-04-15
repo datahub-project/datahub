@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Counter, Dict, List, Optional
 
 import pydantic
@@ -70,6 +70,7 @@ class BigQueryV2Report(ProfilingSqlReport):
     num_query_events: int = 0
     num_filtered_read_events: int = 0
     num_filtered_query_events: int = 0
+    num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
     read_reasons_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
@@ -77,20 +78,24 @@ class BigQueryV2Report(ProfilingSqlReport):
     operation_types_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
-    current_project_status: Optional[str] = None
+    usage_state_size: Optional[str] = None
+    ingestion_stage: Optional[str] = None
+    ingestion_stage_durations: Dict[str, str] = field(default_factory=TopKDict)
 
-    timer: Optional[PerfTimer] = field(
+    _timer: Optional[PerfTimer] = field(
         default=None, init=False, repr=False, compare=False
     )
 
-    def set_project_state(self, project: str, stage: str) -> None:
-        if self.timer:
+    def set_ingestion_stage(self, project: str, stage: str) -> None:
+        if self._timer:
+            elapsed = f"{self._timer.elapsed_seconds():.2f}"
             logger.info(
-                f"Time spent in stage <{self.current_project_status}>: "
-                f"{self.timer.elapsed_seconds():.2f} seconds"
+                f"Time spent in stage <{self.ingestion_stage}>: {elapsed} seconds"
             )
+            if self.ingestion_stage:
+                self.ingestion_stage_durations[self.ingestion_stage] = elapsed
         else:
-            self.timer = PerfTimer()
+            self._timer = PerfTimer()
 
-        self.current_project_status = f"{project}: {stage} at {datetime.now()}"
-        self.timer.start()
+        self.ingestion_stage = f"{project}: {stage} at {datetime.now(timezone.utc)}"
+        self._timer.start()

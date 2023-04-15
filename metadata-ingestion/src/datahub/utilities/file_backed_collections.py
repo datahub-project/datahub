@@ -1,4 +1,5 @@
 import collections
+import gzip
 import logging
 import pathlib
 import pickle
@@ -153,8 +154,11 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
 
     cache_max_size: int = _DEFAULT_MEMORY_CACHE_MAX_SIZE
     cache_eviction_batch_size: int = _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE
+    delay_index_creation: bool = False
+    should_compress_value: bool = False
 
     _conn: ConnectionWrapper = field(init=False, repr=False)
+    indexes_created: bool = field(init=False, default=False)
 
     # To improve performance, we maintain an in-memory LRU cache using an OrderedDict.
     # Maintains a dirty bit marking whether the value has been modified since it was persisted.
@@ -190,12 +194,24 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             )"""
         )
 
-        # The key column will automatically be indexed, but we need indexes
-        # for the extra columns.
+        if not self.delay_index_creation:
+            self.create_indexes()
+
+        if self.should_compress_value:
+            serializer = self.serializer
+            self.serializer = lambda value: gzip.compress(serializer(value))  # type: ignore
+            deserializer = self.deserializer
+            self.deserializer = lambda value: deserializer(gzip.decompress(value))
+
+    def create_indexes(self) -> None:
+        if self.indexes_created:
+            return
+        # The key column will automatically be indexed, but we need indexes for the extra columns.
         for column_name in self.extra_columns.keys():
             self._conn.execute(
                 f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
+        self.indexes_created = True
 
     def _add_to_cache(self, key: str, value: _VT, dirty: bool) -> None:
         self._active_object_cache[key] = value, dirty
@@ -377,7 +393,7 @@ class FileBackedList(Generic[_VT]):
         cache_eviction_batch_size: Optional[int] = None,
     ) -> None:
         self._len = 0
-        self._dict = FileBackedDict(
+        self._dict = FileBackedDict[_VT](
             shared_connection=connection,
             serializer=serializer,
             deserializer=deserializer,

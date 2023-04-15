@@ -408,6 +408,7 @@ base_dev_requirements = {
     # We should make an effort to keep it up to date.
     "black==22.12.0",
     "coverage>=5.1",
+    "faker>=18.4.0",
     "flake8>=3.8.3",  # DEPRECATION: Once we drop Python 3.7, we can pin to 6.x.
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
