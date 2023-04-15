@@ -1,5 +1,5 @@
 import React from 'react';
-import { dataPlatform, dataset1, glossaryTerm1 } from '../../../../Mocks';
+import { dataPlatform, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
 import { EntityType } from '../../../../types.generated';
 import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
 import { IconStyleType } from '../../../entity/Entity';
@@ -14,6 +14,8 @@ import {
     getNumActiveFiltersForGroupOfFilters,
     combineAggregations,
     filterEmptyAggregations,
+    getFilterOptions,
+    filterOptionsWithSearch,
 } from '../utils';
 
 describe('filter utils - getNewFilters', () => {
@@ -72,19 +74,20 @@ describe('filter utils - getNewFilters', () => {
 });
 
 describe('filter utils - isFilterOptionSelected', () => {
+    const selectedFilterOptions = [
+        { value: 'one', field: 'test' },
+        { value: 'two', field: 'test' },
+    ];
     it('should return true if the given filter value exists in the list', () => {
-        const selectedFilterValues = ['one', 'two'];
-        expect(isFilterOptionSelected(selectedFilterValues, 'two')).toBe(true);
+        expect(isFilterOptionSelected(selectedFilterOptions, 'two')).toBe(true);
     });
 
     it('should return false if the given filter value does not exist in the list', () => {
-        const selectedFilterValues = ['one', 'two'];
-        expect(isFilterOptionSelected(selectedFilterValues, 'testing123')).toBe(false);
+        expect(isFilterOptionSelected(selectedFilterOptions, 'testing123')).toBe(false);
     });
 
     it('should return false if the given filter value does not exist in the list, even if values are similar', () => {
-        const selectedFilterValues = ['one', 'two'];
-        expect(isFilterOptionSelected(selectedFilterValues, 'tw')).toBe(false);
+        expect(isFilterOptionSelected(selectedFilterOptions, 'tw')).toBe(false);
     });
 });
 
@@ -284,5 +287,65 @@ describe('filter utils - filterEmptyAggregations', () => {
             { value: 'maggie', count: 5 },
             { value: 'john', count: 0 },
         ]);
+    });
+});
+
+describe('filter utils - getFilterOptions', () => {
+    const originalAggs = [
+        { value: 'aditya', count: 10 },
+        { value: 'maggie', count: 5 },
+        { value: 'brittanie', count: 0 },
+        { value: 'john', count: 0 },
+    ];
+    const selectedFilterOptions = [
+        { value: 'aditya', field: 'owners' },
+        { value: 'chris', field: 'owners' },
+    ];
+
+    it('should convert aggregations into filterOptions while adding missing filterOptions to the beginning', () => {
+        const filterOptions = getFilterOptions('glossaryTerms', originalAggs, selectedFilterOptions);
+
+        expect(filterOptions).toMatchObject([
+            { value: 'chris' },
+            { value: 'aditya', count: 10 },
+            { value: 'maggie', count: 5 },
+            { value: 'brittanie', count: 0 },
+            { value: 'john', count: 0 },
+        ]);
+    });
+
+    it('should add auto complete results to the returned list', () => {
+        const autoCompleteResults = {
+            autoCompleteForMultiple: { suggestions: [{ type: EntityType.CorpUser, entities: [user1] }] },
+        };
+        const filterOptions = getFilterOptions(
+            'owners',
+            originalAggs,
+            selectedFilterOptions,
+            autoCompleteResults as any,
+        );
+
+        expect(filterOptions).toMatchObject([
+            { value: 'chris', field: 'owners' },
+            { value: 'aditya', count: 10, field: 'owners' },
+            { value: 'maggie', count: 5, field: 'owners' },
+            { value: 'brittanie', count: 0, field: 'owners' },
+            { value: 'john', count: 0, field: 'owners' },
+            { value: user1.urn, entity: user1, field: 'owners' },
+        ]);
+    });
+});
+
+describe('filter utils - filterOptionsWithSearch', () => {
+    it('should return true if the name includes the search query', () => {
+        expect(filterOptionsWithSearch('test', 'testing123')).toBe(true);
+    });
+
+    it('should return false if the name includes the search query', () => {
+        expect(filterOptionsWithSearch('test', 'hello')).toBe(false);
+    });
+
+    it('should return true if there is no search query', () => {
+        expect(filterOptionsWithSearch('', 'hello')).toBe(true);
     });
 });
