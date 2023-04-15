@@ -218,7 +218,7 @@ class BigQueryUsageState(Closeable):
                 COUNT(q.query) query_count
             FROM
                 read_events r
-                LEFT JOIN query_events q ON r.name = q.key
+                INNER JOIN query_events q ON r.name = q.key
             GROUP BY r.timestamp, r.resource
         ) a
         LEFT JOIN (
@@ -231,7 +231,7 @@ class BigQueryUsageState(Closeable):
                     ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank
                 FROM
                     read_events r
-                    LEFT JOIN query_events q ON r.name = q.key
+                    INNER JOIN query_events q ON r.name = q.key
                 GROUP BY r.timestamp, r.resource, q.query
                 ORDER BY r.timestamp, r.resource, query_count DESC, q.query
             ) WHERE rank <= {top_n}
@@ -288,9 +288,9 @@ class BigQueryUsageState(Closeable):
                 timestamp=row["timestamp"],
                 resource=row["resource"],
                 query_count=row["query_count"],
-                query_freq=json.loads(row["query_freq"]),
-                user_freq=json.loads(row["user_freq"]),
-                column_freq=json.loads(row["column_freq"]),
+                query_freq=json.loads(row["query_freq"] or "[]"),
+                user_freq=json.loads(row["user_freq"] or "[]"),
+                column_freq=json.loads(row["column_freq"] or "[]"),
             )
 
 
@@ -444,7 +444,7 @@ class BigQueryUsageExtractor:
         ):
             resource = event.read_event.resource
             if str(resource) not in table_refs:
-                logger.info(f"Skipping non-existent {resource} from usage")
+                logger.debug(f"Skipping non-existent {resource} from usage")
                 self.report.num_usage_resources_dropped += 1
                 self.report.report_dropped(str(resource))
                 return False
@@ -513,7 +513,6 @@ class BigQueryUsageExtractor:
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
     ) -> Iterable[AuditLogEntry]:
-        self.report.total_query_log_entries = 0
 
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
