@@ -59,7 +59,7 @@ Get started with our Rest.li API
 DataHub supports several APIs, each with its own unique usage and format.
 Here's an overview of what each API can do.
 
-> Last Updated : Mar 21 2023
+> Last Updated : Apr 9 2023
 
 | Feature                                                 | GraphQL                                                        | Python SDK                                                      | OpenAPI |
 | ------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- | ------- |
@@ -76,6 +76,7 @@ Here's an overview of what each API can do.
 | Add column level(Fine Grained) lineage                  | 🚫                                                             | ✅                                                              | ✅      |
 | Add documentation(description) to a column of a dataset | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md) | ✅ [[Guide]](/docs/api/tutorials/adding-column-description.md)  | ✅      |
 | Add documentation(description) to a dataset             | 🚫                                                             | ✅ [[Guide]](/docs/api/tutorials/adding-dataset-description.md) | ✅      |
+| Add / Remove / Replace custom properties on a dataset   | 🚫 [[Guide]](/docs/api/tutorials/modifying-dataset-custom-properties.md)               | ✅ [[Guide]](/docs/api/tutorials/modifying-dataset-custom-properties.md)              | ✅       |
 | Delete a dataset (Soft delete)                          | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)  | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)   | ✅      |
 | Delete a dataset (Hard delele)                          | 🚫                                                             | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)   | ✅      |
 | Search a dataset                                        | ✅                                                             | ✅                                                              | ✅      |
