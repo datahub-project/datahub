@@ -396,8 +396,8 @@ def test_usage_counts_multiple_buckets_and_resources(
                 totalSqlQueries=4,
                 topSqlQueries=[
                     query_table_1_a().text,
-                    query_table_1_b().text,
                     query_tables_1_and_2().text,
+                    query_table_1_b().text,
                 ],
                 uniqueUserCount=2,
                 userCounts=[
@@ -471,7 +471,7 @@ def test_usage_counts_multiple_buckets_and_resources(
                     unit=BucketDuration.DAY, multiple=1
                 ),
                 totalSqlQueries=2,
-                topSqlQueries=[query_table_2().text, query_tables_1_and_2().text],
+                topSqlQueries=[query_tables_1_and_2().text, query_table_2().text],
                 uniqueUserCount=1,
                 userCounts=[
                     DatasetUserUsageCountsClass(
@@ -614,6 +614,7 @@ def test_operational_stats(
             seed_metadata,
             num_selects=10,
             num_operations=20,
+            num_unique_queries=10,
             num_users=3,
         )
     )
