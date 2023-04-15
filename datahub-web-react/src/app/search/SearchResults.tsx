@@ -153,7 +153,7 @@ export const SearchResults = ({
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <SearchResultsWrapper showUpdatedStyles={showUpdatedSearchFilters}>
+            <SearchResultsWrapper showUpdatedStyles={showSearchFiltersV2}>
                 <SearchBody>
                     {!showSearchFiltersV2 && (
                         <div id={SEARCH_RESULTS_FILTERS_ID}>
