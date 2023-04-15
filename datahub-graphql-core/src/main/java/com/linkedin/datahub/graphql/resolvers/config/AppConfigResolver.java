@@ -149,7 +149,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final FeatureFlagsConfig featureFlagsConfig = new FeatureFlagsConfig();
     featureFlagsConfig.setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled());
-    featureFlagsConfig.setShowUpdatedSearchFilters(_featureFlags.isShowUpdatedSearchFilters());
+    featureFlagsConfig.setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2());
     appConfig.setFeatureFlags(featureFlagsConfig);
 
     return CompletableFuture.completedFuture(appConfig);

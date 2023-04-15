@@ -137,12 +137,12 @@ export const SearchPage = () => {
         }
     }, [isSelectMode]);
 
-    const { showUpdatedSearchFilters } = appConfig.config.featureFlags;
+    const { showSearchFiltersV2 } = appConfig.config.featureFlags;
 
     return (
         <>
             {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
-            {showUpdatedSearchFilters && (
+            {showSearchFiltersV2 && (
                 <SearchFilters
                     availableFilters={data?.searchAcrossEntities?.facets || []}
                     activeFilters={filters}

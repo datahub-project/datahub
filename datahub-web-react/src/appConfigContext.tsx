@@ -39,7 +39,7 @@ export const DEFAULT_APP_CONFIG = {
     },
     featureFlags: {
         readOnlyModeEnabled: false,
-        showUpdatedSearchFilters: true,
+        showSearchFiltersV2: true,
     },
 };
 

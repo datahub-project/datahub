@@ -381,9 +381,9 @@ type FeatureFlagsConfig {
   readOnlyModeEnabled: Boolean!
 
   """
-  Whether the updated search filters should be shown or the default filter side-panel
+  Whether search filters V2 should be shown or the default filter side-panel
   """
-  showUpdatedSearchFilters: Boolean!
+  showSearchFiltersV2: Boolean!
 }
 
 """

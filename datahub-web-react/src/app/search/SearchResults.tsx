@@ -135,14 +135,14 @@ export const SearchResults = ({
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
-    const { showUpdatedSearchFilters } = appConfig.config.featureFlags;
+    const { showSearchFiltersV2 } = appConfig.config.featureFlags;
 
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <div>
                 <SearchBody>
-                    {!showUpdatedSearchFilters && (
+                    {!showSearchFiltersV2 && (
                         <div id={SEARCH_RESULTS_FILTERS_ID}>
                             <SearchFiltersSection
                                 filters={filters}
@@ -154,7 +154,7 @@ export const SearchResults = ({
                             />
                         </div>
                     )}
-                    <ResultContainer displayUpdatedStyles={showUpdatedSearchFilters}>
+                    <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
                         <PaginationInfoContainer>
                             <>
                                 <Typography.Text>

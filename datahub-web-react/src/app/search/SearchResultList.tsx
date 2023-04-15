@@ -82,7 +82,7 @@ export const SearchResultList = ({
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
-    const { showUpdatedSearchFilters } = appConfig.config.featureFlags;
+    const { showSearchFiltersV2 } = appConfig.config.featureFlags;
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
@@ -131,7 +131,7 @@ export const SearchResultList = ({
                     ),
                 }}
                 renderItem={(item, index) => (
-                    <ResultWrapper showUpdatedStyles={showUpdatedSearchFilters}>
+                    <ResultWrapper showUpdatedStyles={showSearchFiltersV2}>
                         <ListItem
                             isSelectMode={isSelectMode}
                             onClick={() => onClickResult(item, index)}
@@ -159,7 +159,7 @@ export const SearchResultList = ({
                                 />
                             </SiblingResultContainer>
                         )}
-                        {!showUpdatedSearchFilters && <ThinDivider />}
+                        {!showSearchFiltersV2 && <ThinDivider />}
                     </ResultWrapper>
                 )}
             />
