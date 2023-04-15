@@ -17,7 +17,7 @@ on:
       - "metadata-integration/java/datahub-client/**"
       - "metadata-integration/java/spark-lineage"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
