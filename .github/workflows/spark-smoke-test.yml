@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Smoke test
-        run: ./gradlew :metadata-integration:java:spark-lineage:integrationTest --max-workers=2
+        run: ./gradlew :metadata-integration:java:spark-lineage:integrationTest
       - uses: actions/upload-artifact@v3
         if: always()
         with:
