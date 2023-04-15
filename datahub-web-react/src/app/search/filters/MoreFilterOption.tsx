@@ -9,6 +9,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { IconWrapper } from './SearchFilter';
 import { getFilterDropdownIcon } from './utils';
+import { MIN_OPTIONS_FOR_FILTER_SEARCH_BAR } from './constants';
 
 const OptionWrapper = styled.div<{ isActive: boolean; isOpen: boolean }>`
     padding: 5px 12px;
@@ -38,12 +39,20 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, activeFilters, onChangeFilters }: Props) {
-    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters, areFiltersLoading } =
-        useSearchFilterDropdown({
-            filter,
-            activeFilters,
-            onChangeFilters,
-        });
+    const {
+        isMenuOpen,
+        updateIsMenuOpen,
+        updateFilters,
+        filterOptions,
+        numActiveFilters,
+        areFiltersLoading,
+        searchQuery,
+        updateSearchQuery,
+    } = useSearchFilterDropdown({
+        filter,
+        activeFilters,
+        onChangeFilters,
+    });
     const filterIcon = getFilterDropdownIcon(filter.field);
 
     return (
@@ -56,7 +65,11 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                 <OptionsDropdownMenu
                     menu={menu}
                     updateFilters={updateFilters}
+                    showSearch={filterOptions.length > MIN_OPTIONS_FOR_FILTER_SEARCH_BAR || !!searchQuery}
+                    searchQuery={searchQuery}
+                    updateSearchQuery={updateSearchQuery}
                     isLoading={areFiltersLoading}
+                    searchPlaceholder={filter.displayName || ''}
                     alignRight
                 />
             )}

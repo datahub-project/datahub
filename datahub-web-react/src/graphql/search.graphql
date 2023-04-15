@@ -108,6 +108,9 @@ fragment autoCompleteFields on Entity {
         properties {
             name
         }
+        parentNodes {
+            ...parentNodesFields
+        }
     }
     ... on GlossaryNode {
         properties {

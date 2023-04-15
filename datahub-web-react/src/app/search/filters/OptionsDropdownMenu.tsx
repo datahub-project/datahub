@@ -2,6 +2,8 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { SearchBar } from '../SearchBar';
 
 const StyledButton = styled(Button)`
     width: 100%;
@@ -47,13 +49,48 @@ interface Props {
     menu: React.ReactNode;
     updateFilters: () => void;
     isLoading: boolean;
+    showSearch: boolean;
+    searchQuery: string;
+    updateSearchQuery: (query: string) => void;
     alignRight?: boolean;
+    searchPlaceholder?: string;
 }
 
-export default function OptionsDropdownMenu({ menu, updateFilters, isLoading, alignRight }: Props) {
+export default function OptionsDropdownMenu({
+    menu,
+    updateFilters,
+    isLoading,
+    showSearch,
+    searchQuery,
+    updateSearchQuery,
+    alignRight,
+    searchPlaceholder,
+}: Props) {
+    const entityRegistry = useEntityRegistry();
+
     return (
         <DropdownMenu alignRight={alignRight}>
             <ScrollableContent>
+                {showSearch && (
+                    <SearchBar
+                        initialQuery={searchQuery}
+                        placeholderText={searchPlaceholder || ''}
+                        suggestions={[]}
+                        hideRecommendations
+                        style={{
+                            padding: 12,
+                            paddingBottom: 5,
+                        }}
+                        inputStyle={{
+                            height: 30,
+                            fontSize: 12,
+                            borderRadius: 8,
+                        }}
+                        onSearch={() => null}
+                        onQueryChange={(q) => updateSearchQuery(q)}
+                        entityRegistry={entityRegistry}
+                    />
+                )}
                 {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}
                 {isLoading && (
                     <LoadingWrapper>

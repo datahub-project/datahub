@@ -1,6 +1,6 @@
 import { Entity } from '../../../types.generated';
 
-export interface FilterFields {
+export interface FilterOptionType {
     field: string;
     value: string;
     count?: number;

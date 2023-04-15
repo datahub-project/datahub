@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { MIN_OPTIONS_FOR_FILTER_SEARCH_BAR } from './constants';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { getFilterDropdownIcon } from './utils';
@@ -56,12 +57,20 @@ interface Props {
 }
 
 export default function SearchFilter({ filter, activeFilters, onChangeFilters }: Props) {
-    const { isMenuOpen, updateIsMenuOpen, updateFilters, filterOptions, numActiveFilters, areFiltersLoading } =
-        useSearchFilterDropdown({
-            filter,
-            activeFilters,
-            onChangeFilters,
-        });
+    const {
+        isMenuOpen,
+        updateIsMenuOpen,
+        updateFilters,
+        filterOptions,
+        numActiveFilters,
+        areFiltersLoading,
+        searchQuery,
+        updateSearchQuery,
+    } = useSearchFilterDropdown({
+        filter,
+        activeFilters,
+        onChangeFilters,
+    });
     const filterIcon = getFilterDropdownIcon(filter.field);
 
     return (
@@ -71,7 +80,15 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             open={isMenuOpen}
             onOpenChange={(open) => updateIsMenuOpen(open)}
             dropdownRender={(menu) => (
-                <OptionsDropdownMenu menu={menu} updateFilters={updateFilters} isLoading={areFiltersLoading} />
+                <OptionsDropdownMenu
+                    menu={menu}
+                    updateFilters={updateFilters}
+                    showSearch={filterOptions.length > MIN_OPTIONS_FOR_FILTER_SEARCH_BAR || !!searchQuery}
+                    searchQuery={searchQuery}
+                    updateSearchQuery={updateSearchQuery}
+                    isLoading={areFiltersLoading}
+                    searchPlaceholder={filter.displayName || ''}
+                />
             )}
         >
             <DropdownLabel onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>

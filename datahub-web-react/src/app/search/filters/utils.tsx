@@ -31,6 +31,9 @@ import {
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { ReactComponent as DomainsIcon } from '../../../images/domain.svg';
+import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
+import { FACETS_TO_ENTITY_TYPES } from './constants';
+import { FilterOptionType } from './types';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
@@ -47,8 +50,8 @@ export function getNewFilters(filterField: string, activeFilters: FacetFilterInp
     return newFilters;
 }
 
-export function isFilterOptionSelected(selectedFilterValues: string[], filterValue: string) {
-    return !!selectedFilterValues.find((value) => value === filterValue);
+export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
+    return !!selectedFilterOptions.find((option) => option.value === filterValue);
 }
 
 export function getFilterEntity(filterField: string, filterValue: string, availableFilters: FacetMetadata[] | null) {
@@ -165,4 +168,41 @@ export function getFilterDropdownIcon(field: string) {
         default:
             return null;
     }
+}
+
+// maps aggregations and auto complete results to FilterOptionType[] and adds selected filter options if not already there
+export function getFilterOptions(
+    filterField: string,
+    aggregations: AggregationMetadata[],
+    selectedFilterOptions: FilterOptionType[],
+    autoCompleteResults?: GetAutoCompleteMultipleResultsQuery,
+) {
+    const aggregationFilterOptions = aggregations.map((agg) => ({ field: filterField, ...agg }));
+
+    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions.find((suggestion) =>
+        FACETS_TO_ENTITY_TYPES[filterField]?.includes(suggestion.type),
+    );
+    const searchFilterOptions = searchResults?.entities
+        .filter((entity) => !aggregations.find((agg) => agg.value === entity.urn))
+        .map((entity) => ({ field: filterField, value: entity.urn, entity }));
+
+    let filterOptions: FilterOptionType[] = searchFilterOptions
+        ? [...aggregationFilterOptions, ...searchFilterOptions]
+        : aggregationFilterOptions;
+
+    // if a selected filter option is not in this list (because search results have changed) then insert at the beginning of the list
+    selectedFilterOptions.forEach((selectedOption) => {
+        if (!filterOptions.find((option) => option.value === selectedOption.value)) {
+            filterOptions = [selectedOption, ...filterOptions];
+        }
+    });
+
+    return filterOptions;
+}
+
+export function filterOptionsWithSearch(searchQuery: string, name: string) {
+    if (searchQuery) {
+        return name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase());
+    }
+    return true;
 }

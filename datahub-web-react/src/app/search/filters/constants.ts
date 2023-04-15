@@ -1,3 +1,4 @@
+import { EntityType } from '../../../types.generated';
 import {
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
@@ -21,3 +22,13 @@ export const SORTED_FILTERS = [
     TAGS_FILTER_NAME,
     CONTAINER_FILTER_NAME,
 ];
+
+export const MIN_OPTIONS_FOR_FILTER_SEARCH_BAR = 5;
+
+export const FACETS_TO_ENTITY_TYPES = {
+    [DOMAINS_FILTER_NAME]: [EntityType.Domain],
+    [GLOSSARY_TERMS_FILTER_NAME]: [EntityType.GlossaryTerm],
+    [OWNERS_FILTER_NAME]: [EntityType.CorpUser, EntityType.CorpGroup],
+    [TAGS_FILTER_NAME]: [EntityType.Tag],
+    [CONTAINER_FILTER_NAME]: [EntityType.Container],
+};

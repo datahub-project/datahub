@@ -1,7 +1,7 @@
 import { Checkbox } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { FilterFields } from './types';
+import { FilterOptionType } from './types';
 import { EntityType, GlossaryNode, GlossaryTerm, Tag } from '../../../types.generated';
 import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -55,13 +55,13 @@ const LabelCountWrapper = styled.span`
 `;
 
 interface Props {
-    filterFields: FilterFields;
-    selectedFilterValues: string[];
-    setSelectedFilterValues: (filterValues: string[]) => void;
+    filterOption: FilterOptionType;
+    selectedFilterOptions: FilterOptionType[];
+    setSelectedFilterOptions: (filterValues: FilterOptionType[]) => void;
 }
 
-export default function FilterOption({ filterFields, selectedFilterValues, setSelectedFilterValues }: Props) {
-    const { field, value, count, entity } = filterFields;
+export default function FilterOption({ filterOption, selectedFilterOptions, setSelectedFilterOptions }: Props) {
+    const { field, value, count, entity } = filterOption;
     const entityRegistry = useEntityRegistry();
     const { icon, label } = getFilterIconAndLabel(field, value, entityRegistry, entity || null, 14);
     const shouldShowIcon = field === PLATFORM_FILTER_NAME && icon !== null;
@@ -71,16 +71,16 @@ export default function FilterOption({ filterFields, selectedFilterValues, setSe
     const parentNodes: GlossaryNode[] = isGlossaryTerm ? (entity as GlossaryTerm).parentNodes?.nodes || [] : [];
 
     function updateFilterValues() {
-        if (isFilterOptionSelected(selectedFilterValues, value)) {
-            setSelectedFilterValues(selectedFilterValues.filter((v) => v !== value));
+        if (isFilterOptionSelected(selectedFilterOptions, value)) {
+            setSelectedFilterOptions(selectedFilterOptions.filter((option) => option.value !== value));
         } else {
-            setSelectedFilterValues([...selectedFilterValues, value]);
+            setSelectedFilterOptions([...selectedFilterOptions, filterOption]);
         }
     }
 
     return (
         <FilterOptionWrapper centerAlign={parentNodes.length > 0}>
-            <StyledCheckbox checked={isFilterOptionSelected(selectedFilterValues, value)} onClick={updateFilterValues}>
+            <StyledCheckbox checked={isFilterOptionSelected(selectedFilterOptions, value)} onClick={updateFilterValues}>
                 {isGlossaryTerm && <ParentNodes glossaryTerm={entity as GlossaryTerm} />}
                 <CheckboxContent>
                     {shouldShowIcon && <>{icon}</>}
