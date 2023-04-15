@@ -8,14 +8,14 @@ on:
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/spark-lineage"
+      - "metadata-integration/java/spark-lineage/**"
   pull_request:
     branches:
       - master
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/spark-lineage"
+      - "metadata-integration/java/spark-lineage/**"
   release:
     types: [published, edited]
 
