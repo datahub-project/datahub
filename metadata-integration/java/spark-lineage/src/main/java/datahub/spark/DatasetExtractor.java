@@ -254,7 +254,7 @@ public class DatasetExtractor {
     }
   }
 
-  private static FabricType getCommonFabricType(Config datahubConfig) {
+  public static FabricType getCommonFabricType(Config datahubConfig) {
     String fabricTypeString = datahubConfig.hasPath(DATASET_ENV_KEY)
         ? datahubConfig.getString(DATASET_ENV_KEY).toUpperCase()
         : "PROD";
@@ -268,12 +268,12 @@ public class DatasetExtractor {
     return fabricType;
   }
 
-  private static String getCommonPlatformInstance(Config datahubConfig) {
+  public static String getCommonPlatformInstance(Config datahubConfig) {
     return datahubConfig.hasPath(DATASET_PLATFORM_INSTANCE_KEY) ? datahubConfig.getString(DATASET_PLATFORM_INSTANCE_KEY)
         : null;
   }
 
-  private static String getTableHivePlatformAlias(Config datahubConfig) {
+  public static String getTableHivePlatformAlias(Config datahubConfig) {
    return datahubConfig.hasPath(TABLE_HIVE_PLATFORM_ALIAS) ? datahubConfig.getString(TABLE_HIVE_PLATFORM_ALIAS)
        : "hive";
   }

@@ -1,5 +1,6 @@
 package datahub.spark;
 
+import com.linkedin.common.FabricType;
 import datahub.spark.consumer.impl.CoalesceJobsEmitter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -16,6 +17,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import datahub.spark.model.dataset.CatalogTableDataset;
+import org.apache.kyuubi.plugin.lineage.helper.SparkSQLLineageParseHelper;
+import org.apache.kyuubi.plugin.lineage.events.Lineage;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkEnv;
@@ -47,6 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.util.JsonProtocol;
 import org.json4s.jackson.JsonMethods$;
 import scala.collection.JavaConversions;
+import scala.collection.JavaConverters;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
 
@@ -75,12 +80,15 @@ public class DatahubSparkListener extends SparkListener {
 
     private final SparkListenerSQLExecutionStart sqlStart;
     private final SparkContext ctx;
+    private final SparkSQLLineageParseHelper lineageParseHelper;
     private final LogicalPlan plan;
 
-    public SqlStartTask(SparkListenerSQLExecutionStart sqlStart, LogicalPlan plan, SparkContext ctx) {
+    public SqlStartTask(SparkListenerSQLExecutionStart sqlStart, LogicalPlan plan, SparkSession sess) {
       this.sqlStart = sqlStart;
       this.plan = plan;
-      this.ctx = ctx;
+      this.ctx = sess.sparkContext();
+
+      this.lineageParseHelper = new SparkSQLLineageParseHelper(sess);
 
       String jsonPlan = (plan != null) ? plan.toJSON() : null;
       String sqlStartJson =
@@ -128,6 +136,19 @@ public class DatahubSparkListener extends SparkListener {
         public Void apply(LogicalPlan plan) {
           log.debug("CHILD " + plan.getClass() + "\n" + plan + "\n-------------\n");
           Optional<? extends Collection<SparkDataset>> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
+          if(!inputDS.isPresent()){
+            Lineage kyuubi_Lineage= lineageParseHelper.transformToLineage(sqlStart.executionId(), plan).get();
+            Iterable<String> inputTables = JavaConverters.asJavaCollection(kyuubi_Lineage.inputTables());
+            Config datahubconfig = LineageUtils.parseSparkConfig();
+            FabricType ftype = DatasetExtractor.getCommonFabricType(datahubconfig);
+            String hivePlatformAlias = DatasetExtractor.getTableHivePlatformAlias(datahubconfig);
+            String platformInstance = DatasetExtractor.getCommonPlatformInstance(datahubconfig);
+            //
+            for(String st : inputTables){
+              lineage.addSource(new CatalogTableDataset(st, platformInstance, hivePlatformAlias, ftype));
+            }
+
+          }
           inputDS.ifPresent(x -> x.forEach(y -> lineage.addSource(y)));
           allInners.addAll(JavaConversions.asJavaCollection(plan.innerChildren()));
           return null;
@@ -347,7 +368,7 @@ public class DatahubSparkListener extends SparkListener {
     SparkSession sess = queryExec.sparkSession();
     SparkContext ctx = sess.sparkContext();
     checkOrCreateApplicationSetup(ctx);
-    (new SqlStartTask(sqlStart, plan, ctx)).run();
+    (new SqlStartTask(sqlStart, plan, sess)).run();
   }
 
   private List<LineageConsumer> consumers() {
