@@ -291,7 +291,7 @@ class LookMLSourceConfig(
         cls, v: Optional[pydantic.DirectoryPath], values: Dict[str, Any]
     ) -> Optional[pydantic.DirectoryPath]:
         if v is None:
-            git_info: Optional[GitInfo] = values.get("git_info", None)
+            git_info: Optional[GitInfo] = values.get("git_info")
             if git_info and git_info.deploy_key:
                 # We have git_info populated correctly, base folder is not needed
                 pass
@@ -347,7 +347,7 @@ class LookerModel:
     def from_looker_dict(
         looker_model_dict: dict,
         base_project_name: str,
-        base_folder: str,
+        root_project_name: Optional[str],
         base_projects_folders: Dict[str, pathlib.Path],
         path: str,
         reporter: LookMLSourceReport,
@@ -358,7 +358,7 @@ class LookerModel:
         resolved_includes = LookerModel.resolve_includes(
             includes,
             base_project_name,
-            base_folder,
+            root_project_name,
             base_projects_folders,
             path,
             reporter,
@@ -396,7 +396,7 @@ class LookerModel:
     def resolve_includes(
         includes: List[str],
         project_name: str,
-        base_folder: str,
+        root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         path: str,
         reporter: LookMLSourceReport,
@@ -408,9 +408,9 @@ class LookerModel:
         For rules on how LookML ``include`` statements are written, see
             https://docs.looker.com/data-modeling/getting-started/ide-folders#wildcard_examples
         """
+
         resolved = []
         for inc in includes:
-            resolved_project_name = project_name
             # Filter out dashboards - we get those through the looker source.
             if (
                 inc.endswith(".dashboard")
@@ -420,14 +420,16 @@ class LookerModel:
                 logger.debug(f"include '{inc}' is a dashboard, skipping it")
                 continue
 
+            resolved_project_name = project_name
+            resolved_project_folder = str(base_projects_folder[project_name])
+
             # Massage the looker include into a valid glob wildcard expression
             if inc.startswith("//"):
                 # remote include, let's see if we have the project checked out locally
                 (remote_project, project_local_path) = inc[2:].split("/", maxsplit=1)
                 if remote_project in base_projects_folder:
-                    glob_expr = (
-                        f"{base_projects_folder[remote_project]}/{project_local_path}"
-                    )
+                    resolved_project_folder = str(base_projects_folder[remote_project])
+                    glob_expr = f"{resolved_project_folder}/{project_local_path}"
                     resolved_project_name = remote_project
                 else:
                     logger.warning(
@@ -435,7 +437,29 @@ class LookerModel:
                     )
                     continue
             elif inc.startswith("/"):
-                glob_expr = f"{base_folder}{inc}"
+                glob_expr = f"{resolved_project_folder}{inc}"
+
+                # The include path is sometimes '/{project_name}/{path_within_project}'
+                # instead of '//{project_name}/{path_within_project}' or '/{path_within_project}'.
+                #
+                # TODO: I can't seem to find any documentation on this pattern, but we definitely
+                # have seen it in the wild. Example from Mozilla's public looker-hub repo:
+                # https://github.com/mozilla/looker-hub/blob/f491ca51ce1add87c338e6723fd49bc6ae4015ca/fenix/explores/activation.explore.lkml#L7
+                # As such, we try to handle it but are as defensive as possible.
+
+                non_base_project_name = project_name
+                if project_name == _BASE_PROJECT_NAME and root_project_name is not None:
+                    non_base_project_name = root_project_name
+                if non_base_project_name != _BASE_PROJECT_NAME and inc.startswith(
+                    f"/{non_base_project_name}/"
+                ):
+                    # This might be a local include. Let's make sure that '/{project_name}' doesn't
+                    # exist as normal include in the project.
+                    if not pathlib.Path(
+                        f"{resolved_project_folder}/{non_base_project_name}"
+                    ).exists():
+                        path_within_project = pathlib.Path(*pathlib.Path(inc).parts[2:])
+                        glob_expr = f"{resolved_project_folder}/{path_within_project}"
             else:
                 # Need to handle a relative path.
                 glob_expr = str(pathlib.Path(path).parent / inc)
@@ -489,7 +513,7 @@ class LookerModel:
                                 LookerModel.resolve_includes(
                                     parsed["includes"],
                                     resolved_project_name,
-                                    base_folder,
+                                    root_project_name,
                                     base_projects_folder,
                                     included_file,
                                     reporter,
@@ -529,7 +553,7 @@ class LookerViewFile:
         absolute_file_path: str,
         looker_view_file_dict: dict,
         project_name: str,
-        base_folder: str,
+        root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         raw_file_content: str,
         reporter: LookMLSourceReport,
@@ -543,7 +567,7 @@ class LookerViewFile:
         resolved_includes = LookerModel.resolve_includes(
             includes,
             project_name,
-            base_folder,
+            root_project_name,
             base_projects_folder,
             absolute_file_path,
             reporter,
@@ -578,12 +602,12 @@ class LookerViewFileLoader:
 
     def __init__(
         self,
-        base_folder: str,
+        root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
     ) -> None:
         self.viewfile_cache: Dict[str, LookerViewFile] = {}
-        self._base_folder = base_folder
+        self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
 
@@ -623,7 +647,7 @@ class LookerViewFileLoader:
                     absolute_file_path=path,
                     looker_view_file_dict=parsed,
                     project_name=project_name,
-                    base_folder=self._base_folder,
+                    root_project_name=self._root_project_name,
                     base_projects_folder=self._base_projects_folder,
                     raw_file_content=raw_file_content,
                     reporter=reporter,
@@ -1212,7 +1236,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             looker_model = LookerModel.from_looker_dict(
                 parsed,
                 _BASE_PROJECT_NAME,
-                str(self.source_config.base_folder),
+                self.source_config.project_name,
                 self.base_projects_folder,
                 path,
                 self.reporter,
@@ -1394,12 +1418,9 @@ class LookMLSource(StatefulIngestionSourceBase):
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
         assert self.source_config.base_folder  # this is always filled out
-        if looker_view.id.project_name == _BASE_PROJECT_NAME:
-            base_folder = self.source_config.base_folder
-        else:
-            base_folder = self.base_projects_folder.get(
-                looker_view.id.project_name, self.source_config.base_folder
-            )
+        base_folder = self.base_projects_folder.get(
+            looker_view.id.project_name, self.source_config.base_folder
+        )
         try:
             file_path = str(
                 pathlib.Path(looker_view.absolute_file_path).relative_to(
@@ -1549,6 +1570,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.base_projects_folder[
                 _BASE_PROJECT_NAME
             ] = self.source_config.base_folder
+
             visited_projects: Set[str] = set()
 
             # We clone everything that we're pointed at.
@@ -1606,6 +1628,20 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         manifest = self.get_manifest_if_present(project_path)
         if manifest:
+            # Special case handling if the root project has a name in the manifest file.
+            if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+                if (
+                    self.source_config.project_name is not None
+                    and manifest.project_name != self.source_config.project_name
+                ):
+                    logger.warning(
+                        f"The project name in the manifest file '{manifest.project_name}'"
+                        f"does not match the configured project name '{self.source_config.project_name}'. "
+                        "This can lead to failures in LookML include resolution and lineage generation."
+                    )
+                elif self.source_config.project_name is None:
+                    self.source_config.project_name = manifest.project_name
+
             # Clone the remote project dependencies.
             for remote_project in manifest.remote_dependencies:
                 if remote_project.name in project_visited:
@@ -1658,7 +1694,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         assert self.source_config.base_folder
 
         viewfile_loader = LookerViewFileLoader(
-            str(self.source_config.base_folder),
+            self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
         )

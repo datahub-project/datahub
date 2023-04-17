@@ -17,7 +17,7 @@ on:
       - "metadata-integration/java/datahub-client/**"
       - "metadata-integration/java/spark-lineage"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Smoke test
-        run: ./gradlew :metadata-integration:java:spark-lineage:integrationTest
+        run: ./gradlew :metadata-integration:java:spark-lineage:integrationTest --max-workers=2
       - uses: actions/upload-artifact@v3
         if: always()
         with:

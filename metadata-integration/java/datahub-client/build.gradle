@@ -124,6 +124,7 @@ shadowJar {
   relocate 'org.I0Itec.zkclient', 'datahub.shaded.org.I0Itec.zkclient'
   relocate 'net.jpountz', 'datahub.shaded.net.jpountz'
   relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
+  relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
  
   finalizedBy checkShadowJar
 }
