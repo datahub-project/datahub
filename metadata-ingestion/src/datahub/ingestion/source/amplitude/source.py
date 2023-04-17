@@ -8,7 +8,6 @@ from requests.models import HTTPBasicAuth, HTTPError
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -41,10 +40,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaFieldDataType,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import (
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-)
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 from datahub.utilities import config_clean
 
 
