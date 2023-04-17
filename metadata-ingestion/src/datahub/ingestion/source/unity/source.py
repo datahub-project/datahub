@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -58,6 +59,8 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DomainsClass,
     MySqlDDLClass,
+    OperationClass,
+    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -255,6 +258,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         sub_type = self._create_table_sub_type_aspect(table)
         schema_metadata = self._create_schema_metadata_aspect(table)
+        operation = self._create_table_operation_aspect(table)
 
         domain = self._get_domain_aspect(
             dataset_name=str(
@@ -280,6 +284,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     view_props,
                     sub_type,
                     schema_metadata,
+                    operation,
                     domain,
                     ownership,
                     lineage,
@@ -462,12 +467,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         custom_properties["updated_at"] = str(table.updated_at)
 
         created = TimeStampClass(
-            int(table.created_at.timestamp()), make_user_urn(table.created_by)
+            int(table.created_at.timestamp() * 1000), make_user_urn(table.created_by)
         )
         last_modified = created
         if table.updated_at and table.updated_by is not None:
             last_modified = TimeStampClass(
-                int(table.updated_at.timestamp()), make_user_urn(table.updated_by)
+                int(table.updated_at.timestamp() * 1000),
+                make_user_urn(table.updated_by),
             )
 
         return DatasetPropertiesClass(
@@ -477,6 +483,35 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             created=created,
             lastModified=last_modified,
         )
+
+    def _create_table_operation_aspect(self, table: proxy.Table) -> OperationClass:
+        """Produce an operation aspect for a table.
+
+        If a last updated time is present, we produce an update operation.
+        Otherwise, we produce a create operation. We do this in addition to
+        setting the last updated time in the dataset properties aspect, as
+        the UI is currently missing the ability to display the last updated
+        from the properties aspect.
+        """
+
+        reported_time = int(time.time() * 1000)
+
+        operation = OperationClass(
+            timestampMillis=reported_time,
+            lastUpdatedTimestamp=int(table.created_at.timestamp() * 1000),
+            actor=make_user_urn(table.created_by),
+            operationType=OperationTypeClass.CREATE,
+        )
+
+        if table.updated_at and table.updated_by is not None:
+            operation = OperationClass(
+                timestampMillis=reported_time,
+                lastUpdatedTimestamp=int(table.updated_at.timestamp() * 1000),
+                actor=make_user_urn(table.updated_by),
+                operationType=OperationTypeClass.UPDATE,
+            )
+
+        return operation
 
     def _create_table_ownership_aspect(
         self, table: proxy.Table
