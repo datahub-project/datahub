@@ -1,0 +1,126 @@
+.markpromptButton {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 1001;
+  width: 60px;
+  height: 60px;
+  padding: 0.75rem;
+  svg {
+    width: 100%;
+    height: auto;
+    fill: currentColor;
+  }
+}
+
+.markpromptModal {
+  max-width: 560px;
+  border-radius: 6px;
+  position: fixed;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, 0%);
+  background: var(--docsearch-modal-background);
+  z-index: 1003;
+  margin: 60px auto auto;
+  padding: 0;
+  max-height: 100%;
+  > p {
+    font-size: smaller;
+    padding: 1rem 1rem 0;
+  }
+
+  hr {
+    margin: 0.5rem 0;
+  }
+}
+
+.markprompt {
+  padding: 1rem 1rem;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  svg {
+    width: 4rem;
+    margin: 1rem auto;
+    height: auto;
+    fill: var(--ifm-color-primary);
+  }
+  input {
+    height: var(--docsearch-searchbox-height);
+    margin: 0;
+    padding: 0 var(--docsearch-spacing);
+    position: relative;
+    width: 100%;
+    border: none;
+    background: var(--docsearch-searchbox-focus-background);
+    border-radius: 4px;
+    box-shadow: var(--docsearch-searchbox-shadow);
+    color: var(--docsearch-text-color);
+    font-size: 1.2em;
+    outline: none;
+  }
+}
+
+:global {
+  .ReactModal__Overlay {
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 1002;
+  }
+  .caret {
+    & :local {
+      animation: caret 0.75s infinite;
+    }
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--ifm-color-primary);
+    margin-top: 1rem;
+  }
+  .prompt-answer {
+    overflow-y: auto;
+    max-height: 50vh;
+
+    &:not(:empty) {
+      padding: 0.5rem 0;
+    }
+    .caret {
+      margin-top: 0;
+    }
+    &.prompt-answer-done {
+      .caret {
+        display: none;
+      }
+    }
+    &.prompt-answer-loading {
+      padding: 0.5rem 0;
+      .caret:not(:last-child),
+      code .caret {
+        display: none;
+      }
+      :last-child.caret {
+        display: inline-block;
+      }
+    }
+    + div {
+      font-size: 12px;
+      > div > div > div {
+        display: inline-block;
+        padding: 0.25em 0.5em;
+        margin: 0 0.5em 0.5em 0;
+        border: 1px solid var(--ifm-hr-background-color);
+        border-radius: 4px;
+      }
+    }
+  }
+}
+
+@keyframes caret {
+  0% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}

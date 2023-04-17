@@ -18,6 +18,7 @@ module.exports = {
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
+    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY
   },
   themeConfig: {
     ...(!isSaas && {
