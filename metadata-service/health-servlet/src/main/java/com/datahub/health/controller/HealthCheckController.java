@@ -4,7 +4,6 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.concurrent.TimeUnit;
-import lombok.AllArgsConstructor;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -29,7 +28,7 @@ public class HealthCheckController {
   private RestHighLevelClient elasticClient;
   private Supplier<ResponseEntity<String>> memoizedSupplier;
 
-  public HealthCheckController () {
+  public HealthCheckController() {
     this.memoizedSupplier = Suppliers.memoizeWithExpiration(
         this::getElasticHealth, 5, TimeUnit.SECONDS);
   }
