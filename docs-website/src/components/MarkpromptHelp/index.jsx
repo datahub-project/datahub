@@ -17,7 +17,7 @@ const MarkpromptModal = () => {
   const { siteConfig = {} } = context;
 
   const [showModal, hideModal] = useModal(() => (
-    <Modal isOpen onRequestClose={hideModal} className={clsx(styles.markpromptModal, "shadow--tl")}>
+    <Modal isOpen onRequestClose={hideModal} className={clsx(styles.markpromptModal, "shadow--tl")} ariaHideApp={false}>
       <>
         <div className={clsx(styles.markprompt)}>
           <BotIcon />
