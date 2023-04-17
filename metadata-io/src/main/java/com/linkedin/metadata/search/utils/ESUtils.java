@@ -273,9 +273,8 @@ public class ESUtils {
       return QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(criterion.getField())).queryName(fieldName);
     } else if (condition == Condition.EXISTS) {
       return QueryBuilders.boolQuery().must(QueryBuilders.existsQuery(criterion.getField())).queryName(fieldName);
-    }
     // TODO: Support multi-match on the following operators (using new 'values' field)
-    else if (condition == Condition.GREATER_THAN) {
+    } else if (condition == Condition.GREATER_THAN) {
       return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim()).queryName(fieldName);
     } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
       return QueryBuilders.rangeQuery(criterion.getField()).gte(criterion.getValue().trim()).queryName(fieldName);
