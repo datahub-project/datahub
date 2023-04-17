@@ -693,7 +693,7 @@ class SnowflakeQuery:
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
-                lateral flatten(input => wcols.value : "directSourceColumns", outer => true) wcols_directSources
+                lateral flatten(input => wcols.value : "directSources", outer => true) wcols_directSources
             WHERE
                 r.value : "objectId" IS NOT NULL
                 AND w.value : "objectId" IS NOT NULL
