@@ -55,7 +55,7 @@ public class ESUtilsTest {
         + "    \"_name\" : \"myTestField\"\n"
         + "  }\n"
         + "}";
-    Assert.assertEquals(result.toString(), expected) ;
+    Assert.assertEquals(result.toString(), expected);
 
     final Criterion timeseriesField = new Criterion()
       .setField("myTestField")
@@ -75,7 +75,7 @@ public class ESUtilsTest {
         + "    \"_name\" : \"myTestField\"\n"
         + "  }\n"
         + "}";
-    Assert.assertEquals(result.toString(), expected) ;
+    Assert.assertEquals(result.toString(), expected);
 
   }
 
@@ -102,7 +102,7 @@ public class ESUtilsTest {
         + "    \"_name\" : \"myTestField\"\n"
         + "  }\n"
         + "}";
-    Assert.assertEquals(result.toString(), expected) ;
+    Assert.assertEquals(result.toString(), expected);
 
     // No diff in the timeseries field case for this condition.
     final Criterion timeseriesField = new Criterion()
@@ -151,7 +151,7 @@ public class ESUtilsTest {
         + "    \"_name\" : \"myTestField\"\n"
         + "  }\n"
         + "}";
-    Assert.assertEquals(result.toString(), expected) ;
+    Assert.assertEquals(result.toString(), expected);
 
     // No diff in the timeseries case for this condition
     final Criterion timeseriesField = new Criterion()
@@ -216,7 +216,7 @@ public class ESUtilsTest {
         + "    \"boost\" : 1.0\n"
         + "  }\n"
         + "}";
-    Assert.assertEquals(result.toString(), expected) ;
+    Assert.assertEquals(result.toString(), expected);
 
     final Criterion timeseriesField = new Criterion()
         .setField(FIELD_TO_EXPAND)
