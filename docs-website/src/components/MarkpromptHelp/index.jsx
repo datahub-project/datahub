@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { Markprompt } from "markprompt";
 import clsx from "clsx";
@@ -34,10 +34,6 @@ const MarkpromptModal = () => {
       </>
     </Modal>
   ));
-
-  useEffect(() => {
-    showModal();
-  }, []);
 
   return (
     <div>
