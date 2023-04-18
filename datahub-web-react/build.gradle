@@ -73,6 +73,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
 }
 
 task yarnQuickBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  environment = [NODE_OPTIONS: "--max-old-space-size=3072"]
   args = ['run', 'build']
 }
 
