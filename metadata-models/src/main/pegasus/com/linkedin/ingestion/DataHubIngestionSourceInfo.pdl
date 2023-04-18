@@ -21,6 +21,9 @@ record DataHubIngestionSourceInfo {
   /**
    * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
    */
+  @Searchable = {
+   "fieldType": "TEXT"
+  }
   type: string
 
   /**
