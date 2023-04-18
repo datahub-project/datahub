@@ -225,24 +225,6 @@ class LookerViewId:
             env=config.env,
         )
 
-    def get_strip_urn(self, config: LookerCommonConfig, strip_char: str = "+") -> str:
-        """
-        "+" will be removed from view name while constructing the urn for refinements
-        """
-        named_pattern_mapping = self.get_mapping(config)
-        named_pattern_mapping.name = named_pattern_mapping.name.strip(strip_char)
-
-        dataset_name = config.view_naming_pattern.replace_variables(
-            named_pattern_mapping
-        )
-
-        return builder.make_dataset_urn_with_platform_instance(
-            platform=config.platform_name,
-            name=dataset_name,
-            platform_instance=config.platform_instance,
-            env=config.env,
-        )
-
     def get_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.view_browse_pattern.replace_variables(
             self.get_mapping(config)
