@@ -810,9 +810,9 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         entity {
             ...searchResultFields
             ... on Dataset {
-                assertions @include(if: $includeAssertions) {
+                assertions(start: 0, count: 1000) @include(if: $includeAssertions) {
                     assertions {
-                        runEvents(limit: 1) {
+                        runEvents(status: COMPLETE, limit: 1) {
                             total
                             failed
                             succeeded
