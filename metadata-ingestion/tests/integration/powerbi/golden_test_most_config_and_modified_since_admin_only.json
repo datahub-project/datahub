@@ -69,6 +69,23 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Sql.Database(\"localhost\", \"library\"),\n dbo_book_issue = Source{[Schema=\"dbo\",Item=\"book_issue\"]}[Data]\n in dbo_book_issue",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
@@ -105,7 +122,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "expression": "let\n    Source = Sql.Database(\"localhost\", \"library\"),\n dbo_book_issue = Source{[Schema=\"dbo\",Item=\"book_issue\"]}[Data]\n in dbo_book_issue",
                 "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed"
             },
             "externalUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed/details",
@@ -142,7 +158,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table"
+                "PowerBI Dataset Table",
+                "View"
             ]
         }
     },
@@ -213,6 +230,23 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Sql.Database(\"AUPRDWHDB\", \"COMMOPSDB\", [Query=\"select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,'-',''))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,'-',''))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION\", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #\"Changed Type\" = Table.TransformColumnTypes(Source,{{\"mth_date\", type date}}),\n    #\"Added Custom\" = Table.AddColumn(#\"Changed Type\", \"Month\", each Date.Month([mth_date])),\n    #\"Added Custom1\" = Table.AddColumn(#\"Added Custom\", \"TPV Opening\", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #\"Added Custom1\"",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
@@ -249,7 +283,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "expression": "let\n    Source = Sql.Database(\"AUPRDWHDB\", \"COMMOPSDB\", [Query=\"select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,'-',''))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,'-',''))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION\", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #\"Changed Type\" = Table.TransformColumnTypes(Source,{{\"mth_date\", type date}}),\n    #\"Added Custom\" = Table.AddColumn(#\"Changed Type\", \"Month\", each Date.Month([mth_date])),\n    #\"Added Custom1\" = Table.AddColumn(#\"Added Custom\", \"TPV Opening\", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #\"Added Custom1\"",
                 "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed"
             },
             "externalUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed/details",
@@ -286,7 +319,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table"
+                "PowerBI Dataset Table",
+                "View"
             ]
         }
     },
@@ -346,6 +380,23 @@
                     "tag": "urn:li:tag:Certified"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.revenue,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Sql.Database(\"database.sql.net\", \"analytics\", [Query=\"select * from analytics.sales_revenue\"])\nin\n    Source",
+            "viewLanguage": "m_query"
         }
     },
     "systemMetadata": {
@@ -445,7 +496,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "expression": "let\n    Source = Sql.Database(\"database.sql.net\", \"analytics\", [Query=\"select * from analytics.sales_revenue\"])\nin\n    Source",
                 "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed"
             },
             "externalUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed/details",
@@ -482,7 +532,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table"
+                "PowerBI Dataset Table",
+                "View"
             ]
         }
     },
