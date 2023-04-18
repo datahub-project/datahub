@@ -142,11 +142,11 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nullable Filter requestFilters,
         @Nonnull int limit,
         @Nullable String field,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-      return _cachingEntitySearchService.autoComplete(entityType, query, field, newFilter(requestFilters), limit, null);
+      return _cachingEntitySearchService.autoComplete(entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit, null);
     }
 
     /**
@@ -162,10 +162,10 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nullable Filter requestFilters,
         @Nonnull int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _cachingEntitySearchService.autoComplete(entityType, query, "", newFilter(requestFilters), limit, null);
+        return _cachingEntitySearchService.autoComplete(entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit, null);
     }
 
     /**
@@ -459,7 +459,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
         @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-        @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+        @Nullable Filter filter, @Nullable SortCriterion sort, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
       GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
       response.setEntityName(entity);
@@ -473,15 +473,12 @@ public class JavaEntityClient implements EntityClient {
       if (limit != null) {
         response.setLimit(limit);
       }
-      if (getLatestValue != null) {
-        response.setGetLatestValue(getLatestValue);
-      }
       if (filter != null) {
         response.setFilter(filter);
       }
       response.setValues(new EnvelopedAspectArray(
           _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis,
-              endTimeMillis, limit, getLatestValue, filter)));
+              endTimeMillis, limit, filter, sort)));
       return response.getValues();
     }
 

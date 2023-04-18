@@ -441,7 +441,6 @@ def test_native_query_disabled():
 
 @pytest.mark.integration
 def test_multi_source_table():
-
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[12],  # 1st index has the native query
         name="virtual_order_table",

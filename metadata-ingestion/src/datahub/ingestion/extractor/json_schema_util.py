@@ -329,9 +329,8 @@ class JsonSchemaTranslator:
         schema: Dict, required: Optional[bool] = None
     ) -> Optional[str]:
         json_props = {}
-        defaults = schema.get("default")
-        if defaults:
-            json_props["default"] = defaults
+        if "default" in schema:
+            json_props["default"] = schema["default"]
         if required is not None:
             json_props["required"] = required
 
@@ -346,7 +345,6 @@ class JsonSchemaTranslator:
         required: bool = False,
         specific_type: Optional[str] = None,
     ) -> Iterable[SchemaField]:
-
         discriminated_type = (
             specific_type
             or JsonSchemaTranslator._get_discriminated_type_from_schema(schema)

@@ -12,13 +12,15 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
+import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
+import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
 import { useUserContext } from '../context/useUserContext';
 
 const Background = styled.div`
@@ -140,10 +142,13 @@ export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const user = useUserContext()?.user;
+    const userContext = useUserContext();
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+    const { selectedQuickFilter } = useQuickFiltersContext();
+    const { user } = userContext;
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -151,7 +156,7 @@ export const HomePageHeader = () => {
         }
     }, [suggestionsData]);
 
-    const onSearch = (query: string, type?: EntityType) => {
+    const onSearch = (query: string, type?: EntityType, filters?: FacetFilterInput[]) => {
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -159,11 +164,14 @@ export const HomePageHeader = () => {
             type: EventType.HomePageSearchEvent,
             query,
             pageNumber: 1,
+            selectedQuickFilterTypes: selectedQuickFilter ? [selectedQuickFilter.field] : undefined,
+            selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
         navigateToSearchUrl({
             type,
             query,
             history,
+            filters,
         });
     };
 
@@ -174,6 +182,8 @@ export const HomePageHeader = () => {
                     input: {
                         query,
                         limit: 10,
+                        viewUrn,
+                        ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
             });
@@ -200,6 +210,7 @@ export const HomePageHeader = () => {
                 count: 6,
                 filters: [],
                 orFilters: [],
+                viewUrn,
             },
         },
     });
@@ -258,6 +269,7 @@ export const HomePageHeader = () => {
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
+                        showQuickFilters
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>

@@ -41,6 +41,7 @@ graphqlCodegen {
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"
     generateApis = true
+    generateParameterizedFieldsResolvers = false
     modelValidationAnnotation = "@javax.annotation.Nonnull"
     customTypesMapping = [
             Long: "Long",

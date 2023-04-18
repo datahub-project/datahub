@@ -236,7 +236,8 @@ class PowerBiDashboardSourceConfig(
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
-        "dataset_type_mapping", "server_to_platform_instance"
+        "dataset_type_mapping",
+        message="dataset_type_mapping is deprecated, use server_to_platform_instance instead",
     )
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")

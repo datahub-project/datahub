@@ -59,6 +59,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                         "base_url": "https://looker.company.com",
                         "client_id": "foo",
                         "client_secret": "bar",
+                        "extract_usage_history": False,
                     },
                 },
                 "sink": {
@@ -99,6 +100,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
                         "base_url": "https://looker.company.com",
                         "client_id": "foo",
                         "client_secret": "bar",
+                        "extract_usage_history": False,
                     },
                 },
                 "sink": {
@@ -159,6 +161,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
                         "base_url": "https://looker.company.com",
                         "client_id": "foo",
                         "client_secret": "bar",
+                        "extract_usage_history": False,
                     },
                 },
                 "sink": {
@@ -500,6 +503,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
                         "client_id": "foo",
                         "client_secret": "bar",
                         "chart_pattern": {"allow": ["2"]},
+                        "extract_usage_history": False,
                     },
                 },
                 "sink": {
@@ -608,6 +612,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
                     "base_url": "https://looker.company.com",
                     "client_id": "foo",
                     "client_secret": "bar",
+                    "extract_usage_history": False,
                     "stateful_ingestion": {
                         "enabled": True,
                         "remove_stale_metadata": True,

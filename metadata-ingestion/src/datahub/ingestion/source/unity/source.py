@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -7,6 +8,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -57,9 +59,15 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DomainsClass,
     MySqlDDLClass,
+    OperationClass,
+    OperationTypeClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SchemaFieldClass,
     SchemaMetadataClass,
     SubTypesClass,
+    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -83,6 +91,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP, "Supported via the `include_table_ownership` config"
+)
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
@@ -247,12 +258,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         sub_type = self._create_table_sub_type_aspect(table)
         schema_metadata = self._create_schema_metadata_aspect(table)
+        operation = self._create_table_operation_aspect(table)
 
         domain = self._get_domain_aspect(
             dataset_name=str(
                 f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
             )
         )
+
+        ownership = self._create_table_ownership_aspect(table)
 
         if self.config.include_column_lineage:
             self.unity_catalog_api_proxy.get_column_lineage(table)
@@ -270,7 +284,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     view_props,
                     sub_type,
                     schema_metadata,
+                    operation,
                     domain,
+                    ownership,
                     lineage,
                 ],
             )
@@ -444,17 +460,72 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         custom_properties["created_by"] = table.created_by
         custom_properties["created_at"] = str(table.created_at)
         if table.properties:
-            custom_properties["properties"] = str(table.properties)
+            custom_properties.update({k: str(v) for k, v in table.properties.items()})
         custom_properties["table_id"] = table.table_id
         custom_properties["owner"] = table.owner
         custom_properties["updated_by"] = table.updated_by
         custom_properties["updated_at"] = str(table.updated_at)
 
+        created = TimeStampClass(
+            int(table.created_at.timestamp() * 1000), make_user_urn(table.created_by)
+        )
+        last_modified = created
+        if table.updated_at and table.updated_by is not None:
+            last_modified = TimeStampClass(
+                int(table.updated_at.timestamp() * 1000),
+                make_user_urn(table.updated_by),
+            )
+
         return DatasetPropertiesClass(
             name=table.name,
             description=table.comment,
             customProperties=custom_properties,
+            created=created,
+            lastModified=last_modified,
         )
+
+    def _create_table_operation_aspect(self, table: proxy.Table) -> OperationClass:
+        """Produce an operation aspect for a table.
+
+        If a last updated time is present, we produce an update operation.
+        Otherwise, we produce a create operation. We do this in addition to
+        setting the last updated time in the dataset properties aspect, as
+        the UI is currently missing the ability to display the last updated
+        from the properties aspect.
+        """
+
+        reported_time = int(time.time() * 1000)
+
+        operation = OperationClass(
+            timestampMillis=reported_time,
+            lastUpdatedTimestamp=int(table.created_at.timestamp() * 1000),
+            actor=make_user_urn(table.created_by),
+            operationType=OperationTypeClass.CREATE,
+        )
+
+        if table.updated_at and table.updated_by is not None:
+            operation = OperationClass(
+                timestampMillis=reported_time,
+                lastUpdatedTimestamp=int(table.updated_at.timestamp() * 1000),
+                actor=make_user_urn(table.updated_by),
+                operationType=OperationTypeClass.UPDATE,
+            )
+
+        return operation
+
+    def _create_table_ownership_aspect(
+        self, table: proxy.Table
+    ) -> Optional[OwnershipClass]:
+        if self.config.include_table_ownership and table.owner:
+            return OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=make_user_urn(table.owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+            )
+        return None
 
     def _create_table_sub_type_aspect(self, table: proxy.Table) -> SubTypesClass:
         return SubTypesClass(

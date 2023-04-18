@@ -365,9 +365,9 @@ def assert_for_each_entity(
     if success:
         print(f"Succeeded on assertion for urns {success}")
     if failures:
-        assert (
-            False
-        ), f"Failed to find aspect_name {aspect_name} for urns {json.dumps(failures, indent=2)}"
+        raise AssertionError(
+            f"Failed to find aspect_name {aspect_name} for urns {json.dumps(failures, indent=2)}"
+        )
 
     return len(success)
 

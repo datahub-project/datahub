@@ -5,14 +5,17 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
-- #7016 Add `add_database_name_to_urn` flag to Oracle source which ensure that Dataset urns have the DB name as a prefix to prevent collision (.e.g. {database}.{schema}.{table}). ONLY breaking if you set this flag to true, otherwise behavior remains the same. 
-- The Airflow plugin no longer includes the DataHub Kafka emitter by default.  Use `pip install acryl-datahub-airflow-plugin[datahub-kafka]` for Kafka support.
-- The Airflow lineage backend no longer includes the DataHub Kafka emitter by default.  Use `pip install acryl-datahub[airflow,datahub-kafka]` for Kafka support.
 
+- #7016 Add `add_database_name_to_urn` flag to Oracle source which ensure that Dataset urns have the DB name as a prefix to prevent collision (.e.g. {database}.{schema}.{table}). ONLY breaking if you set this flag to true, otherwise behavior remains the same.
+- The Airflow plugin no longer includes the DataHub Kafka emitter by default. Use `pip install acryl-datahub-airflow-plugin[datahub-kafka]` for Kafka support.
+- The Airflow lineage backend no longer includes the DataHub Kafka emitter by default. Use `pip install acryl-datahub[airflow,datahub-kafka]` for Kafka support.
+- Java SDK PatchBuilders have been modified in a backwards incompatible way to align more with the Python SDK and support more use cases. Any application utilizing the Java SDK for patch building may be affected on upgrading this dependency.
 
 ### Potential Downtime
 
 ### Deprecations
+- The docker image and script for updating from Elasticsearch 6 to 7 is no longer being maintained and will be removed from the `/contrib` section of
+the repository. Please refer to older releases if needed.
 
 ### Other notable Changes
 
@@ -21,7 +24,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #7103 This should only impact users who have configured explicit non-default names for DataHub's Kafka topics. The environment variables used to configure Kafka topics for DataHub used in the `kafka-setup` docker image have been updated to be in-line with other DataHub components, for more info see our docs on [Configuring Kafka in DataHub
-](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
+  ](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
+- #6906 The Redshift source has been reworked and now also includes usage capabilities. The old Redshift source was renamed to `redshift-legacy`. The `redshift-usage` source has also been renamed to `redshift-usage-legacy` will be removed in the future.
 
 ### Potential Downtime
 
@@ -45,9 +49,11 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 ### Potential Downtime
 
 ### Deprecations
-#6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed.
+
+- #6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed
 
 ### Other notable Changes
+
 - If anyone faces issues with login please clear your cookies. Some security updates are part of this release. That may cause login issues until cookies are cleared.
 
 ## 0.9.4 / 0.9.5
@@ -151,7 +157,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 ### Breaking Changes
 
 - Browse Paths have been upgraded to a new format to align more closely with the intention of the feature.
-  Learn more about the changes, including steps on upgrading, here: https://datahubproject.io/docs/advanced/browse-paths-upgrade
+  Learn more about the changes, including steps on upgrading, here: <https://datahubproject.io/docs/advanced/browse-paths-upgrade>
 - The dbt ingestion source's `disable_dbt_node_creation` and `load_schema` options have been removed. They were no longer necessary due to the recently added sibling entities functionality.
 - The `snowflake` source now uses newer faster implementation (earlier `snowflake-beta`). Config properties `provision_role` and `check_role_grants` are not supported. Older `snowflake` and `snowflake-usage` are available as `snowflake-legacy` and `snowflake-usage-legacy` sources respectively.
 
@@ -290,4 +296,5 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 - #4644 `host_port` option of `snowflake` and `snowflake-usage` sources deprecated as the name was confusing. Use `account_id` option instead.
 
 ### Other notable Changes
+
 - #4760 `check_role_grants` option was added in `snowflake` to disable checking roles in `snowflake` as some people were reporting long run times when checking roles.

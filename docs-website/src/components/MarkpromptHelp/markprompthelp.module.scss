@@ -1,0 +1,141 @@
+.markpromptButton {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 1001;
+  width: 60px;
+  height: 60px;
+  padding: 0.75rem;
+  svg {
+    width: 100%;
+    height: auto;
+    fill: currentColor;
+  }
+}
+
+.markpromptModal {
+  border-radius: 6px;
+  position: fixed;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, 0%);
+  background: var(--ifm-background-color);
+  z-index: 1003;
+  margin: 60px auto auto;
+  padding: 0;
+
+  width: 100%;
+  @media (min-width: 768px) {
+    max-width: 560px;
+  }
+  > p {
+    font-size: smaller;
+    padding: 1rem 1rem 0;
+  }
+
+  hr {
+    margin: 0;
+  }
+}
+
+.markprompt {
+  padding: 1rem 1rem 0;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  svg {
+    width: 4rem;
+    margin: 1rem auto;
+    height: auto;
+    fill: var(--ifm-color-primary);
+  }
+  input {
+    height: var(--docsearch-searchbox-height);
+    margin: 0;
+    padding: 0 var(--docsearch-spacing);
+    position: relative;
+    width: 100%;
+    border: none;
+    background: var(--docsearch-searchbox-focus-background);
+    border-radius: 4px;
+    box-shadow: var(--docsearch-searchbox-shadow);
+    color: var(--docsearch-text-color);
+    font-size: 1.2em;
+    outline: none;
+  }
+}
+
+:global {
+  .ReactModal__Overlay {
+    z-index: 1002;
+    background: rgba(111, 111, 111, 0.7) !important;
+
+    [data-theme="dark"] & {
+      background: rgba(71, 71, 71, 0.7) !important;
+    }
+  }
+  .caret {
+    & :local {
+      animation: caret 0.75s infinite;
+    }
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--ifm-color-primary);
+    margin-top: 1rem;
+  }
+
+  .overflow-y-auto {
+    overflow-y: auto;
+    max-height: calc(100vh - 350px);
+  }
+  .prompt-answer {
+    padding: 0.5rem 0;
+
+    .caret {
+      margin-top: 0;
+    }
+    &.prompt-answer-done {
+      .caret {
+        display: none;
+      }
+    }
+    &.prompt-answer-loading {
+      padding: 0.5rem 0;
+      .caret:not(:last-child),
+      code .caret {
+        display: none !important;
+      }
+      :last-child.caret {
+        display: inline-block;
+      }
+    }
+    + div > div {
+      font-size: 12px;
+      font-weight: bold;
+      &:not(empty) {
+        border-top: 1px solid var(--ifm-hr-background-color);
+        padding: 1rem 0;
+      }
+
+      > div > div {
+        font-weight: normal;
+        display: inline-block;
+        padding: 0.25em 0.5em;
+        margin: 0.5em 0.5em 0 0;
+        border: 1px solid var(--ifm-hr-background-color);
+        border-radius: 4px;
+      }
+    }
+  }
+}
+
+@keyframes caret {
+  0% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
