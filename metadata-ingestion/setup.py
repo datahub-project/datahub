@@ -125,9 +125,9 @@ sqllineage_lib = {
     "sqllineage==1.3.6",
     # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
     # As per https://github.com/reata/sqllineage/issues/361
-    # and https://github.com/reata/sqllineage/pull/360,
-    # sqllineage has compat issues with sqlparse 0.4.3 and 0.4.4.
-    "sqlparse==0.4.2",
+    # and https://github.com/reata/sqllineage/pull/360
+    # sqllineage has compat issues with sqlparse 0.4.4.
+    "sqlparse==0.4.1",
 }
 
 aws_common = {
