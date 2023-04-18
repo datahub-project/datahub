@@ -21,6 +21,7 @@ public interface TimeseriesAspectService {
    */
   void configure();
 
+
   /**
    * Retrieve a list of Time-Series Aspects for an individual entity, matching a set of optional filters, sorted by the timestampMillis
    * field descending.
@@ -37,7 +38,37 @@ public interface TimeseriesAspectService {
    * @param startTimeMillis the start of a time window in milliseconds, compared against the standard timestampMillis field
    * @param endTimeMillis the end of a time window in milliseconds, compared against the standard timestampMillis field
    * @param limit the maximum number of results to retrieve
-   * @param getLatestValue whether to retrieve only the single latest value. This is actually a redundant parameter that should be removed.
+   * @param filter a set of additional secondary filters to apply when finding the aspects
+   * @return a list of {@link EnvelopedAspect} containing the Time-Series aspects that were found, or empty list if none were found.
+   */
+  @Nonnull
+  default List<EnvelopedAspect> getAspectValues(
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nullable final Long startTimeMillis,
+      @Nullable final Long endTimeMillis,
+      @Nullable final Integer limit,
+      @Nullable final Filter filter) {
+    return getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit, filter, null);
+  }
+
+  /**
+   * Retrieve a list of Time-Series Aspects for an individual entity, matching a set of optional filters, sorted by the timestampMillis
+   * field descending.
+   *
+   * This method allows you to optionally filter for events that fall into a particular time window based on the timestampMillis
+   * field of the aspect, or simply retrieve the latest aspects sorted by time.
+   *
+   * Note that this does not always indicate the event time, and is often used to reflect the reported
+   * time of a given event.
+   *
+   * @param urn the urn of the entity to retrieve aspects for
+   * @param entityName the name of the entity to retrieve aspects for
+   * @param aspectName the name of the timeseries aspect to retrieve for the entity
+   * @param startTimeMillis the start of a time window in milliseconds, compared against the standard timestampMillis field
+   * @param endTimeMillis the end of a time window in milliseconds, compared against the standard timestampMillis field
+   * @param limit the maximum number of results to retrieve
    * @param filter a set of additional secondary filters to apply when finding the aspects
    * @param sort the sort criterion for the result set. If not provided, defaults to sorting by timestampMillis descending.
    * @return a list of {@link EnvelopedAspect} containing the Time-Series aspects that were found, or empty list if none were found.
@@ -50,7 +81,6 @@ public interface TimeseriesAspectService {
       @Nullable final Long startTimeMillis,
       @Nullable final Long endTimeMillis,
       @Nullable final Integer limit,
-      @Nullable final Boolean getLatestValue,
       @Nullable final Filter filter,
       @Nullable final SortCriterion sort);
 

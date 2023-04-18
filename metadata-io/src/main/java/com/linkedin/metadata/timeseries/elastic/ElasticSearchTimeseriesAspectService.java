@@ -150,7 +150,6 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       @Nullable final Long startTimeMillis,
       @Nullable final Long endTimeMillis,
       @Nullable final Integer limit,
-      @Nullable final Boolean getLatestValue,
       @Nullable final Filter filter,
       @Nullable final SortCriterion sort) {
     final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter, true));
@@ -171,12 +170,6 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
-    if (getLatestValue != null && getLatestValue) {
-      if (limit != null && limit > 1) {
-        log.warn(String.format("Changing limit from %s to 1, since getLatestValue is true", limit));
-      }
-      limit = 1;
-    }
     searchSourceBuilder.size(limit != null ? limit : DEFAULT_LIMIT);
 
     if (sort != null) {

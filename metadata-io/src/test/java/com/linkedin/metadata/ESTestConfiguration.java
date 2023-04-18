@@ -126,7 +126,7 @@ public class ESTestConfiguration {
     @Bean(name = "entityRegistry")
     public EntityRegistry entityRegistry() throws EntityRegistryException {
         ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
-                ESTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+                ESTestConfiguration.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
         return new MergedEntityRegistry(SnapshotEntityRegistry.getInstance()).apply(configEntityRegistry);
     }
 }
