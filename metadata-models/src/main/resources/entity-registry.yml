@@ -22,6 +22,18 @@ entities:
       - testResults
       - siblings
       - embed
+      - datasetProperties
+      - editableDatasetProperties
+      - datasetDeprecation
+      - datasetUpstreamLineage
+      - upstreamLineage
+      - institutionalMemory
+      - ownership
+      - editableSchemaMetadata
+      - globalTags
+      - glossaryTerms
+      - browsePaths
+      - dataPlatformInstance
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -36,6 +48,16 @@ entities:
       - domains
       - deprecation
       - versionInfo
+      - dataJobInfo
+      - dataJobInputOutput
+      - editableDataJobProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - dataPlatformInstance
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -43,6 +65,21 @@ entities:
       - domains
       - deprecation
       - versionInfo
+      - dataFlowInfo
+      - editableDataFlowProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - dataPlatformInstance
+  - name: dataProcess
+    keyAspect: dataProcessKey
+    aspects:
+      - dataProcessInfo
+      - ownership
+      - status
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -55,12 +92,22 @@ entities:
   - name: chart
     keyAspect: chartKey
     aspects:
-      - domains
-      - container
-      - deprecation
+      - chartInfo
+      - editableChartProperties
+      - chartQuery
       - inputFields
       - chartUsageStatistics
       - embed
+      - browsePaths
+      - domains
+      - container
+      - deprecation
+      - ownership
+      - status
+      - institutionalMemory
+      - dataPlatformInstance
+      - globalTags
+      - glossaryTerms
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -71,6 +118,15 @@ entities:
       - inputFields
       - subTypes
       - embed
+      - dashboardInfo
+      - editableDashboardProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - dataPlatformInstance
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -141,15 +197,19 @@ entities:
       - tagProperties
       - ownership
       - deprecation
+      - status
   - name: glossaryTerm
     keyAspect: glossaryTermKey
     aspects:
       - glossaryTermInfo
+      - glossaryRelatedTerms
       - institutionalMemory
       - schemaMetadata
       - ownership
       - deprecation
       - domains
+      - status
+      - browsePaths
   - name: glossaryNode
     keyAspect: glossaryNodeKey
     aspects:
@@ -205,6 +265,24 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - ownership
+      - mlModelProperties
+      - intendedUse
+      - mlModelFactorPrompts
+      - mlModelMetrics
+      - mlModelEvaluationData
+      - mlModelTrainingData
+      - mlModelQuantitativeAnalyses
+      - mlModelEthicalConsiderations
+      - mlModelCaveatsAndRecommendations
+      - institutionalMemory
+      - sourceCode
+      - status
+      - cost
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -212,6 +290,23 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - mlModelGroupProperties
+      - ownership
+      - status
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
+  - name: mlModelDeployment
+    category: core
+    keyAspect: mlModelDeploymentKey
+    aspects:
+      - mlModelDeploymentProperties
+      - ownership
+      - status
+      - deprecation
+      - globalTags
+      - dataPlatformInstance
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -219,6 +314,14 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - mlFeatureTableProperties
+      - ownership
+      - institutionalMemory
+      - status
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -226,6 +329,14 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - mlFeatureProperties
+      - ownership
+      - institutionalMemory
+      - status
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -233,6 +344,13 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - mlPrimaryKeyProperties
+      - ownership
+      - institutionalMemory
+      - status
+      - deprecation
+      - globalTags
+      - dataPlatformInstance
   - name: telemetry
     category: internal
     keyAspect: telemetryKey

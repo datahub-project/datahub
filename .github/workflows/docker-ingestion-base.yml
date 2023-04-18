@@ -1,7 +1,7 @@
 name: ingestion base
 on:
   release:
-    types: [published, edited]
+    types: [published]
   push:
     branches:
       - master
