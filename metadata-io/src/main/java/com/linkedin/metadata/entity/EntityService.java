@@ -682,7 +682,8 @@ public class EntityService {
   }
 
   static void validateUrn(@Nonnull final Urn urn) {
-    if (!urn.toString().trim().equals(urn.toString())) {
+
+    if (urn.toString().trim().length() != urn.toString().length()) {
       throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
     }
     if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {

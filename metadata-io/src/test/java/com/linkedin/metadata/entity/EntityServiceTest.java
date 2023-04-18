@@ -1195,15 +1195,15 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testValidateUrn() throws Exception {
         // Valid URN
-        Urn validTestUrn = new Urn("li" , "testType", new TupleKey("testKey"));
+        Urn validTestUrn = new Urn("li", "testType", new TupleKey("testKey"));
         EntityService.validateUrn(validTestUrn);
 
         // URN with trailing whitespace
-        Urn testUrnWithTrailingWhitespace = new Urn("li" , "testType", new TupleKey("testKey   "));
+        Urn testUrnWithTrailingWhitespace = new Urn("li", "testType", new TupleKey("testKey   "));
         try {
             EntityService.validateUrn(testUrnWithTrailingWhitespace);
             Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN with leading or trailing whitespace");
 
         }
@@ -1218,14 +1218,14 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         try {
             EntityService.validateUrn(testUrnTooLong);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
         }
 
         // Urn too long when URL encoded
         StringBuilder buildStringTooLongWhenEncoded = new StringBuilder();
         StringBuilder buildStringSameLengthWhenEncoded = new StringBuilder();
-        for (int i = 0; i < 200; i++){
+        for (int i = 0; i < 200; i++) {
             buildStringTooLongWhenEncoded.append('>');
             buildStringSameLengthWhenEncoded.append('a');
         }
@@ -1236,7 +1236,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         try {
             EntityService.validateUrn(testUrnTooLongWhenEncoded);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
         }
     }
