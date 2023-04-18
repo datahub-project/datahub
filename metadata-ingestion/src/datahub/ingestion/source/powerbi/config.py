@@ -71,6 +71,7 @@ class Constant:
     DATASETS = "datasets"
     DATASET_KEY = "datasetKey"
     DATASET_PROPERTIES = "datasetProperties"
+    VIEW_PROPERTIES = "viewProperties"
     SCHEMA_METADATA = "schemaMetadata"
     SUBTYPES = "subTypes"
     VALUE = "value"

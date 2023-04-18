@@ -71,6 +71,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.source_helpers import (
@@ -328,15 +329,24 @@ class Mapper:
 
             logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
-            custom_properties = {}
             if table.expression:
-                custom_properties[Constant.EXPRESSION] = table.expression
+                view_properties = ViewPropertiesClass(
+                    materialized=False,
+                    viewLogic=table.expression,
+                    viewLanguage="m_query",
+                )
+                view_prop_mcp = self.new_mcp(
+                    entity_type=Constant.DATASET,
+                    entity_urn=ds_urn,
+                    aspect_name=Constant.VIEW_PROPERTIES,
+                    aspect=view_properties,
+                )
+                dataset_mcps.extend([view_prop_mcp])
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
                 description=dataset.description,
                 externalUrl=dataset.webUrl,
                 customProperties={
-                    **custom_properties,
                     "datasetId": dataset.id,
                 },
             )
@@ -362,7 +372,12 @@ class Mapper:
                 entity_type=Constant.DATASET,
                 entity_urn=ds_urn,
                 aspect_name=Constant.SUBTYPES,
-                aspect=SubTypesClass(typeNames=[DatasetSubTypes.POWERBI_DATASET_TABLE]),
+                aspect=SubTypesClass(
+                    typeNames=[
+                        DatasetSubTypes.POWERBI_DATASET_TABLE,
+                        DatasetSubTypes.VIEW,
+                    ]
+                ),
             )
             # normally the person who configure the dataset will be the most accurate person for ownership
             if (
