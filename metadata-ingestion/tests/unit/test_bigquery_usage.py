@@ -1,3 +1,4 @@
+import logging
 import random
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
@@ -8,7 +9,13 @@ from freezegun import freeze_time
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigQueryTableRef
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    AuditEvent,
+    BigqueryTableIdentifier,
+    BigQueryTableRef,
+    QueryEvent,
+    ReadEvent,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryUsageConfig,
     BigQueryV2Config,
@@ -389,8 +396,8 @@ def test_usage_counts_multiple_buckets_and_resources(
                 totalSqlQueries=4,
                 topSqlQueries=[
                     query_table_1_a().text,
-                    query_table_1_b().text,
                     query_tables_1_and_2().text,
+                    query_table_1_b().text,
                 ],
                 uniqueUserCount=2,
                 userCounts=[
@@ -464,7 +471,7 @@ def test_usage_counts_multiple_buckets_and_resources(
                     unit=BucketDuration.DAY, multiple=1
                 ),
                 totalSqlQueries=2,
-                topSqlQueries=[query_table_2().text, query_tables_1_and_2().text],
+                topSqlQueries=[query_tables_1_and_2().text, query_table_2().text],
                 uniqueUserCount=1,
                 userCounts=[
                     DatasetUserUsageCountsClass(
@@ -490,6 +497,92 @@ def test_usage_counts_multiple_buckets_and_resources(
             ),
         ),
     ]
+
+
+def test_usage_counts_no_query_event(
+    caplog: pytest.LogCaptureFixture,
+    usage_extractor: BigQueryUsageExtractor,
+    config: BigQueryV2Config,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        ref = BigQueryTableRef(BigqueryTableIdentifier("project", "dataset", "table"))
+        event = AuditEvent.create(
+            ReadEvent(
+                jobName="job_name",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=["id", "name", "total"],
+                readReason="JOB",
+                payload=None,
+            )
+        )
+        workunits = usage_extractor._run([event], [str(ref)])
+        assert list(workunits) == []
+        assert not caplog.records
+
+
+def test_usage_counts_no_columns(
+    caplog: pytest.LogCaptureFixture,
+    usage_extractor: BigQueryUsageExtractor,
+    config: BigQueryV2Config,
+) -> None:
+    job_name = "job_name"
+    ref = BigQueryTableRef(
+        BigqueryTableIdentifier(PROJECT_1, DATABASE_1.name, TABLE_1.name)
+    )
+    events = [
+        AuditEvent.create(
+            ReadEvent(
+                jobName=job_name,
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=[],
+                readReason="JOB",
+                payload=None,
+            ),
+        ),
+        AuditEvent.create(
+            QueryEvent(
+                job_name=job_name,
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                query="SELECT * FROM table_1",
+                statementType="SELECT",
+                project_id=PROJECT_1,
+                destinationTable=None,
+                referencedTables=[ref],
+                referencedViews=[],
+                payload=None,
+            )
+        ),
+    ]
+    with caplog.at_level(logging.WARNING):
+        workunits = usage_extractor._run(events, TABLE_REFS.values())
+        assert list(workunits) == [
+            make_usage_workunit(
+                table=TABLE_1,
+                dataset_usage_statistics=DatasetUsageStatisticsClass(
+                    timestampMillis=int(TS_1.timestamp() * 1000),
+                    eventGranularity=TimeWindowSizeClass(
+                        unit=BucketDuration.DAY, multiple=1
+                    ),
+                    totalSqlQueries=1,
+                    topSqlQueries=["SELECT * FROM table_1"],
+                    uniqueUserCount=1,
+                    userCounts=[
+                        DatasetUserUsageCountsClass(
+                            user=ACTOR_1_URN,
+                            count=1,
+                            userEmail=ACTOR_1,
+                        ),
+                    ],
+                    fieldCounts=[],
+                ),
+            )
+        ]
+        assert not caplog.records
 
 
 @freeze_time(FROZEN_TIME)
@@ -521,6 +614,7 @@ def test_operational_stats(
             seed_metadata,
             num_selects=10,
             num_operations=20,
+            num_unique_queries=10,
             num_users=3,
         )
     )
