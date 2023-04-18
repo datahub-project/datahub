@@ -226,12 +226,13 @@ module.exports = {
           "Enriching Entities": [
             "docs/api/tutorials/adding-tags",
             "docs/api/tutorials/adding-terms",
-            "docs/api/tuftorials/adding-domain",
+            "docs/api/tutorials/adding-domain",
             "docs/api/tutorials/adding-ownerships",
             "docs/api/tutorials/adding-dataset-description",
             "docs/api/tutorials/adding-column-description",
             "docs/api/tutorials/adding-lineage",
             "docs/api/tutorials/update-deprecation",
+            "docs/api/tutorials/modifying-dataset-custom-properties",
           ],
         },
         {
