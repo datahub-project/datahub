@@ -867,18 +867,7 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag",
-            "Relationship" : {
-              "entityTypes" : [ "tag" ],
-              "name" : "TaggedWith"
-            },
-            "Searchable" : {
-              "addToFilters" : true,
-              "fieldName" : "tags",
-              "fieldType" : "URN",
-              "filterNameOverride" : "Tag",
-              "hasValuesFieldName" : "hasTags"
-            }
+            "doc" : "Urn of the applied tag"
           }, {
             "name" : "context",
             "type" : "string",
@@ -888,12 +877,20 @@
         }
       },
       "doc" : "Tags associated with a given entity",
+      "Relationship" : {
+        "/*/tag" : {
+          "entityTypes" : [ "tag" ],
+          "name" : "TaggedWith"
+        }
+      },
       "Searchable" : {
         "/*/tag" : {
           "addToFilters" : true,
           "boostScore" : 0.5,
           "fieldName" : "tags",
           "fieldType" : "URN",
+          "filterNameOverride" : "Tag",
+          "hasValuesFieldName" : "hasTags",
           "queryByDefault" : true
         }
       }
@@ -2743,6 +2740,7 @@
               "type" : "com.linkedin.dataset.SchemaFieldPath",
               "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
               "Searchable" : {
+                "boostScore" : 5.0,
                 "fieldName" : "fieldPaths",
                 "fieldType" : "TEXT"
               }
@@ -3863,7 +3861,30 @@
       "name" : "version",
       "type" : "long"
     } ]
-  }, "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.metadata.query.filter.Condition", "com.linkedin.metadata.query.filter.ConjunctiveCriterion", "com.linkedin.metadata.query.filter.Criterion", "com.linkedin.metadata.query.filter.Filter", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
+  }, "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.metadata.query.filter.Condition", "com.linkedin.metadata.query.filter.ConjunctiveCriterion", "com.linkedin.metadata.query.filter.Criterion", "com.linkedin.metadata.query.filter.Filter", {
+    "type" : "record",
+    "name" : "SortCriterion",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that sorting has to be applied to"
+    }, {
+      "name" : "order",
+      "type" : {
+        "type" : "enum",
+        "name" : "SortOrder",
+        "doc" : "The order used to sort the results",
+        "symbols" : [ "ASCENDING", "DESCENDING" ],
+        "symbolDocs" : {
+          "ASCENDING" : "If results need to be sorted in ascending order",
+          "DESCENDING" : "If results need to be sorted in descending order"
+        }
+      },
+      "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
+    } ]
+  }, "com.linkedin.metadata.query.filter.SortOrder", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
     "type" : "record",
     "name" : "MetadataChangeProposal",
     "namespace" : "com.linkedin.mxe",
@@ -3974,6 +3995,10 @@
         }, {
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         } ],
         "returns" : "com.linkedin.aspect.GetTimeseriesAspectValuesResponse"
