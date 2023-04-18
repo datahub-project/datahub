@@ -111,7 +111,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
         // Step 1: Get aspects.
         List<EnvelopedAspect> aspects =
             _client.getTimeseriesAspectValues(urn, _entityName, _aspectName, maybeStartTimeMillis, maybeEndTimeMillis,
-                maybeLimit, buildFilters(maybeFilters), context.getAuthentication());
+                maybeLimit, buildFilters(maybeFilters), maybeSort, context.getAuthentication());
 
         // Step 2: Bind profiles into GraphQL strong types.
         return aspects.stream().map(_aspectMapper).collect(Collectors.toList());
