@@ -33,7 +33,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    * Click **Create**
 
 <p align="center">
-   <img width="70%" alt="Application (client) ID" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-client-id-secret.png"/>
+   <img width="70%" alt="Application (client) ID" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-client-id-secret.png"/>
 </p>
 
 4. Create a secret to store the Azure AD Client Secret
@@ -46,7 +46,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    * Click **Create**
 
 <p align="center">
-   <img width="70%" alt="Azure AD app Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-client-secret.png"/>
+   <img width="70%" alt="Azure AD app Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-client-secret.png"/>
 </p>
 
 ## Configure Recipe
@@ -59,7 +59,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 2.  Choose PowerBI
 
   <p align="center">
-    <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-source-window.png"/>
+    <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-source-window.png"/>
   </p>
 
 3.  Enter details into the PowerBI Recipe
@@ -69,13 +69,13 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
     a. **tenant_id:** This is the unique identifier (GUID) of the Azure Active Directory instance. Tenant Id can be found at: PowerBI Portal -> Click on `?` at top-right corner -> Click on `About PowerBI`
 
     <p align="center">
-      <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-portal-about-setting-window.png"/>
+      <img width="70%" alt="Select PowerBI from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-portal-about-setting-window.png"/>
     </p>
 
     On `About PowerBI` window copy `ctid`:
 
     <p align="center">
-      <img width="70%" alt="copy ctid" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-portal-about-window.png"/>
+      <img width="70%" alt="copy ctid" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-portal-about-window.png"/>
     </p>
 
 
@@ -95,7 +95,7 @@ Optionally, use the `workspace_id_pattern` field to filter for specific workspac
 
 Your recipe should look something like this:
 <p align="center">
-  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-recipe-window.png"/>
+  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-recipe-window.png"/>
 </p>
 
 
@@ -122,13 +122,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 1. Name your ingestion source, then click **Save and Run**
 <p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-ingestion-source-window.png"/>
+  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-source-window.png"/>
 </p>  
 
 You will now find your new ingestion source running
 
 <p align="center">
-  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-ingestion-running.png"/>
+  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-running.png"/>
 </p>  
 
 ## Validate Ingestion Runs
@@ -136,25 +136,25 @@ You will now find your new ingestion source running
 1. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
-  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-ingestion-succeeded.png"/>
+  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-succeeded.png"/>
 </p>  
 
 2. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
 <p align="center">
-  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-ingestion-history.png"/>
+  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-history.png"/>
 </p>
 
 3. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-ingestion-detail.png"/>
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-detail.png"/>
 </p>  
 
 4. Pick an entity from the list to manually validate if it contains the detail you expected  
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/powerbi/powerbi-ingestion-assets.png"/>
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-assets.png"/>
 </p>  
 
 **Congratulations!** You've successfully set up PowerBI as an ingestion source for DataHub!
