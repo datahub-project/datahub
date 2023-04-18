@@ -163,10 +163,10 @@ const quickLinkContent = [
     to: "/docs/metadata-ingestion",
   },
   {
-    title: "Enrich Metadata",
+    title: "APIs & SDKs",
     icon: <DeploymentUnitOutlined />,
-    description: "Improve the quality and coverage of Metadata",
-    to: "docs/enrich-metadata",
+    description: "Details on how to utilize Metadata programmatically",
+    to: "docs/api/datahub-apis",
   },
   {
     title: "Act on Metadata",
