@@ -193,7 +193,7 @@ class BigQueryV2Config(
 
     file_backed_cache_size: int = Field(
         hidden_from_docs=True,
-        default=200,
+        default=2000,
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 

@@ -226,7 +226,7 @@ module.exports = {
           "Enriching Entities": [
             "docs/api/tutorials/adding-tags",
             "docs/api/tutorials/adding-terms",
-            "docs/api/tutorials/adding-domain",
+            "docs/api/tuftorials/adding-domain",
             "docs/api/tutorials/adding-ownerships",
             "docs/api/tutorials/adding-dataset-description",
             "docs/api/tutorials/adding-column-description",
@@ -462,7 +462,6 @@ module.exports = {
             "docker/datahub-upgrade/README",
             "docs/advanced/no-code-modeling",
             "datahub-web-react/src/app/analytics/README",
-            "docs/advanced/es-7-upgrade",
             "docs/how/migrating-graph-service-implementation",
             "docs/advanced/field-path-spec-v2",
             "metadata-ingestion/adding-source",
