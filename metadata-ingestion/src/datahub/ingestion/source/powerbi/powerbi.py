@@ -831,9 +831,9 @@ class Mapper:
         ] = self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
 
         # Now add MCPs in sequence
+        mcps.extend(ds_mcps)
         if self.__config.ownership.create_corp_user:
             mcps.extend(user_mcps)
-        mcps.extend(ds_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(dashboard_mcps)
 
