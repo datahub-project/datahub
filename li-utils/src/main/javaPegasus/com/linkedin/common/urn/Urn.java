@@ -40,8 +40,6 @@ public class Urn {
   private static final String URN_START = "urn:";
   private static final String DEFAULT_NAMESPACE = "li";
 
-  private static final int NUM_BYTES_LIMIT = 512;
-
   private final String _entityType;
   private final TupleKey _entityKey;
   private final String _namespace;
@@ -83,13 +81,6 @@ public class Urn {
           rawUrn,
           "Urn doesn't start with 'urn:'. Urn: " + rawUrn,
           0);
-    }
-
-    if (rawUrn.length() > NUM_BYTES_LIMIT) {
-      throw new URISyntaxException(
-          rawUrn,
-          "Urn is longer than the limit " + Integer.toString(NUM_BYTES_LIMIT) + ". Urn: " + rawUrn
-      );
     }
 
     int secondColonIndex = rawUrn.indexOf(':', URN_START.length() + 1);
