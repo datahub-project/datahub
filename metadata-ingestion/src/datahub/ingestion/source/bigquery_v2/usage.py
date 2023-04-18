@@ -1,13 +1,26 @@
-import collections
+import hashlib
+import json
 import logging
+import os
 import textwrap
 import time
-import traceback
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
-import cachetools
+import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from ratelimiter import RateLimiter
@@ -15,6 +28,7 @@ from ratelimiter import RateLimiter
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
@@ -31,15 +45,18 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,
+    get_bigquery_client,
 )
-from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
+from datahub.ingestion.source.usage.usage_common import (
+    TOTAL_BUDGET_FOR_QUERY_LIST,
+    make_usage_workunit,
+)
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
-from datahub.utilities.delayed_iter import delayed_iter
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-AggregatedDataset = GenericAggregatedDataset[BigQueryTableRef]
 
 # See https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType
 # https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/audit may be more complete
@@ -68,6 +85,8 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
+STRING_ENCODING = "utf-8"
+MAX_QUERY_LENGTH = TOTAL_BUDGET_FOR_QUERY_LIST
 
 
 @dataclass(frozen=True, order=True)
@@ -91,6 +110,7 @@ def bigquery_audit_metadata_query_template(
     :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
            tables
     :param table_allow_filter: regex used to filter on log events that contain the wanted datasets
+    :param limit: maximum number of events to query for
     :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
     """
     allow_filter = f"""
@@ -141,6 +161,179 @@ def bigquery_audit_metadata_query_template(
     return textwrap.dedent(query)
 
 
+class BigQueryUsageState(Closeable):
+    read_events: FileBackedDict[ReadEvent]
+    query_events: FileBackedDict[QueryEvent]
+    column_accesses: FileBackedDict[Tuple[str, str]]
+    queries: FileBackedDict[str]
+
+    def __init__(self, config: BigQueryV2Config):
+        self.conn = ConnectionWrapper()
+        self.read_events = FileBackedDict[ReadEvent](
+            shared_connection=self.conn,
+            tablename="read_events",
+            extra_columns={
+                "resource": lambda e: str(e.resource),
+                "name": lambda e: e.jobName,
+                "timestamp": lambda e: get_time_bucket(
+                    e.timestamp, config.bucket_duration
+                ),
+                "user": lambda e: e.actor_email,
+            },
+            cache_max_size=config.file_backed_cache_size,
+            # Evict entire cache to reduce db calls.
+            cache_eviction_batch_size=max(int(config.file_backed_cache_size * 0.9), 1),
+            delay_index_creation=True,
+            should_compress_value=True,
+        )
+        # Keyed by job_name
+        self.query_events = FileBackedDict[QueryEvent](
+            shared_connection=self.conn,
+            tablename="query_events",
+            extra_columns={
+                "query": lambda e: e.query,
+                "is_read": lambda e: int(e.statementType in READ_STATEMENT_TYPES),
+            },
+            cache_max_size=config.file_backed_cache_size,
+            cache_eviction_batch_size=max(int(config.file_backed_cache_size * 0.9), 1),
+            delay_index_creation=True,
+            should_compress_value=True,
+        )
+        # Created just to store column accesses in sqlite for JOIN
+        self.column_accesses = FileBackedDict[Tuple[str, str]](
+            shared_connection=self.conn,
+            tablename="column_accesses",
+            extra_columns={"read_event": lambda p: p[0], "field": lambda p: p[1]},
+            cache_max_size=config.file_backed_cache_size,
+            cache_eviction_batch_size=max(int(config.file_backed_cache_size * 0.9), 1),
+            delay_index_creation=True,
+        )
+        self.queries = FileBackedDict[str](cache_max_size=config.file_backed_cache_size)
+
+    def close(self) -> None:
+        self.read_events.close()
+        self.query_events.close()
+        self.column_accesses.close()
+        self.conn.close()
+
+        self.queries.close()
+
+    def create_indexes(self) -> None:
+        self.read_events.create_indexes()
+        self.query_events.create_indexes()
+        self.column_accesses.create_indexes()
+
+    def standalone_events(self) -> Iterable[AuditEvent]:
+        query = """
+        SELECT r.value, q.value
+        FROM read_events r
+        LEFT JOIN query_events q ON r.name = q.key
+        """
+        for read_value, query_value in self.read_events.sql_query_iterator(query):
+            read_event = self.read_events.deserializer(read_value)
+            query_event = (
+                self.query_events.deserializer(query_value) if query_value else None
+            )
+            yield AuditEvent(read_event=read_event, query_event=query_event)
+        for _, query_event in self.query_events.items_snapshot("NOT is_read"):
+            yield AuditEvent(query_event=query_event)
+
+    @staticmethod
+    def usage_statistics_query(top_n: int) -> str:
+        return f"""
+        SELECT a.timestamp, a.resource, a.query_count, b.query_freq, c.user_freq, d.column_freq FROM (
+            SELECT
+                r.timestamp,
+                r.resource,
+                COUNT(q.query) query_count
+            FROM
+                read_events r
+                INNER JOIN query_events q ON r.name = q.key
+            GROUP BY r.timestamp, r.resource
+        ) a
+        LEFT JOIN (
+            SELECT timestamp, resource, json_group_array(json_array(query, query_count)) as query_freq FROM (
+                SELECT
+                    r.timestamp,
+                    r.resource,
+                    q.query,
+                    COUNT(r.key) as query_count,
+                    ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank
+                FROM
+                    read_events r
+                    INNER JOIN query_events q ON r.name = q.key
+                GROUP BY r.timestamp, r.resource, q.query
+                ORDER BY r.timestamp, r.resource, query_count DESC, q.query
+            ) WHERE rank <= {top_n}
+            GROUP BY timestamp, resource
+        ) b ON a.timestamp = b.timestamp AND a.resource = b.resource
+        LEFT JOIN (
+            SELECT timestamp, resource, json_group_array(json_array(user, user_count)) as user_freq FROM (
+                SELECT
+                    r.timestamp,
+                    r.resource,
+                    r.user,
+                    COUNT(r.key) user_count
+                FROM
+                    read_events r
+                GROUP BY r.timestamp, r.resource, r.user
+                ORDER BY r.timestamp, r.resource, user_count DESC, r.user
+            )
+            GROUP BY timestamp, resource
+        ) c ON a.timestamp = c.timestamp AND a.resource = c.resource
+        LEFT JOIN (
+            SELECT timestamp, resource, json_group_array(json_array(column, column_count)) as column_freq FROM (
+                SELECT
+                    r.timestamp,
+                    r.resource,
+                    c.field column,
+                    COUNT(r.key) column_count
+                FROM
+                    read_events r
+                    INNER JOIN column_accesses c ON r.key = c.read_event
+                GROUP BY r.timestamp, r.resource, c.field
+                ORDER BY r.timestamp, r.resource, column_count DESC, c.field
+            )
+            GROUP BY timestamp, resource
+        ) d ON a.timestamp = d.timestamp AND a.resource = d.resource
+        ORDER BY a.timestamp, a.resource
+        """
+
+    @dataclass
+    class UsageStatistic:
+        timestamp: str
+        resource: str
+        query_count: int
+        query_freq: List[Tuple[str, int]]
+        user_freq: List[Tuple[str, int]]
+        column_freq: List[Tuple[str, int]]
+
+    def usage_statistics(self, top_n: int) -> Iterator[UsageStatistic]:
+        query = self.usage_statistics_query(top_n)
+        rows = self.read_events.sql_query_iterator(
+            query, refs=[self.query_events, self.column_accesses]
+        )
+        for row in rows:
+            yield self.UsageStatistic(
+                timestamp=row["timestamp"],
+                resource=row["resource"],
+                query_count=row["query_count"],
+                query_freq=json.loads(row["query_freq"] or "[]"),
+                user_freq=json.loads(row["user_freq"] or "[]"),
+                column_freq=json.loads(row["column_freq"] or "[]"),
+            )
+
+    def report_disk_usage(self, report: BigQueryV2Report) -> None:
+        report.usage_state_size = str(
+            {
+                "main": humanfriendly.format_size(os.path.getsize(self.conn.filename)),
+                "queries": humanfriendly.format_size(
+                    os.path.getsize(self.queries._conn.filename)
+                ),
+            }
+        )
+
+
 class BigQueryUsageExtractor:
     """
     This plugin extracts the following:
@@ -155,9 +348,8 @@ class BigQueryUsageExtractor:
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
-
-    def add_config_to_report(self):
-        self.report.query_log_delay = self.config.usage.query_log_delay
+        # Replace hash of query with uuid if there are hash conflicts
+        self.uuid_to_query: Dict[str, str] = {}
 
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
@@ -166,89 +358,175 @@ class BigQueryUsageExtractor:
             and self.config.table_pattern.allowed(table_ref.table_identifier.table)
         )
 
-    def generate_usage_for_project(
-        self, project_id: str, tables: Dict[str, List[str]]
+    def run(
+        self, projects: Iterable[str], table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
-        aggregated_info: Dict[
-            datetime, Dict[BigQueryTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+        events = self._get_usage_events(projects)
+        yield from self._run(events, table_refs)
 
-        parsed_events: Iterable[Union[ReadEvent, QueryEvent]]
-        with PerfTimer() as timer:
-            try:
-                parsed_events = self._get_parsed_bigquery_log_events(project_id)
-
-                hydrated_read_events = self._join_events_by_job_id(parsed_events)
-                # storing it all in one big object.
-
-                # TODO: handle partitioned tables
-
-                # TODO: perhaps we need to continuously prune this, rather than
-                num_aggregated: int = 0
-                self.report.num_operational_stats_workunits_emitted = 0
-                for event in hydrated_read_events:
-                    if self.config.usage.include_operational_stats:
-                        operational_wu = self._create_operation_workunit(event)
-                        if operational_wu:
-                            yield operational_wu
-                            self.report.num_operational_stats_workunits_emitted += 1
-                    if event.read_event:
-                        self._aggregate_enriched_read_events(
-                            aggregated_info, event, tables
-                        )
-                        num_aggregated += 1
-                logger.info(f"Total number of events aggregated = {num_aggregated}.")
-                bucket_level_stats: str = "\n\t" + "\n\t".join(
-                    [
-                        f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
-                        for db, ads in aggregated_info.items()
-                    ]
-                )
-                logger.debug(
-                    f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
-                )
-
-                yield from self.get_workunits(aggregated_info)
-            except Exception as e:
-                self.report.usage_failed_extraction.append(project_id)
-                trace = traceback.format_exc()
-                logger.error(
-                    f"Error getting usage for project {project_id} due to error {e}, trace: {trace}"
-                )
-
-            self.report.usage_extraction_sec[project_id] = round(
-                timer.elapsed_seconds(), 2
-            )
-
-    def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
-        self, client: BigQueryClient
-    ) -> Iterable[BigQueryAuditMetadata]:
+    def _run(
+        self, events: Iterable[AuditEvent], table_refs: Collection[str]
+    ) -> Iterable[MetadataWorkUnit]:
         try:
-            list_entries: Iterable[
-                BigQueryAuditMetadata
-            ] = self._get_exported_bigquery_audit_metadata(
-                client, self.config.get_table_pattern(self.config.table_pattern.allow)
-            )
-            i: int = 0
-            for i, entry in enumerate(list_entries):
-                if i == 0:
-                    logger.info(
-                        f"Starting log load from BigQuery for project {client.project}"
+            with BigQueryUsageState(self.config) as usage_state:
+                self._ingest_events(events, table_refs, usage_state)
+                usage_state.create_indexes()
+                usage_state.report_disk_usage(self.report)
+
+                if self.config.usage.include_operational_stats:
+                    yield from self._generate_operational_workunits(
+                        usage_state, table_refs
                     )
-                yield entry
 
-            logger.info(
-                f"Finished loading {i} log entries from BigQuery for project {client.project}"
-            )
-
+                yield from self._generate_usage_workunits(usage_state)
+                usage_state.report_disk_usage(self.report)
         except Exception as e:
-            logger.warning(
-                f"Encountered exception retrieving AuditLogEntries for project {client.project} - {e}"
-            )
-            self.report.report_warning(
-                "lineage-extraction",
-                f"{client.project} - unable to retrieve log entries {e}",
-            )
+            logger.error("Error processing usage", exc_info=True)
+            self.report.report_warning("usage-ingestion", str(e))
+
+    def _ingest_events(
+        self,
+        events: Iterable[AuditEvent],
+        table_refs: Collection[str],
+        usage_state: BigQueryUsageState,
+    ) -> None:
+        """Read log and store events in usage_state."""
+        num_aggregated = 0
+        for audit_event in events:
+            try:
+                num_aggregated += self._store_usage_event(
+                    audit_event, usage_state, table_refs
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Unable to store usage event {audit_event}", exc_info=True
+                )
+                self._report_error("store-event", e)
+        logger.info(f"Total number of events aggregated = {num_aggregated}.")
+
+    def _generate_operational_workunits(
+        self, usage_state: BigQueryUsageState, table_refs: Collection[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.set_ingestion_stage("*", "Usage Extraction Operational Stats")
+        for audit_event in usage_state.standalone_events():
+            try:
+                operational_wu = self._create_operation_workunit(
+                    audit_event, table_refs
+                )
+                if operational_wu:
+                    yield operational_wu
+                    self.report.num_operational_stats_workunits_emitted += 1
+            except Exception as e:
+                logger.warning(
+                    f"Unable to generate operation workunit for event {audit_event}",
+                    exc_info=True,
+                )
+                self._report_error("operation-workunit", e)
+
+    def _generate_usage_workunits(
+        self, usage_state: BigQueryUsageState
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.set_ingestion_stage("*", "Usage Extraction Usage Aggregation")
+        top_n = (
+            self.config.usage.top_n_queries
+            if self.config.usage.include_top_n_queries
+            else 0
+        )
+        for entry in usage_state.usage_statistics(top_n=top_n):
+            try:
+                query_freq = [
+                    (
+                        self.uuid_to_query.get(
+                            query_hash, usage_state.queries[query_hash]
+                        ),
+                        count,
+                    )
+                    for query_hash, count in entry.query_freq
+                ]
+                yield make_usage_workunit(
+                    bucket_start_time=datetime.fromisoformat(entry.timestamp),
+                    resource=BigQueryTableRef.from_string_name(entry.resource),
+                    query_count=entry.query_count,
+                    query_freq=query_freq,
+                    user_freq=entry.user_freq,
+                    column_freq=entry.column_freq,
+                    bucket_duration=self.config.bucket_duration,
+                    urn_builder=lambda resource: resource.to_urn(self.config.env),
+                    top_n_queries=self.config.usage.top_n_queries,
+                    format_sql_queries=self.config.usage.format_sql_queries,
+                )
+                self.report.num_usage_workunits_emitted += 1
+            except Exception as e:
+                logger.warning(
+                    f"Unable to generate usage workunit for bucket {entry.timestamp}, {entry.resource}",
+                    exc_info=True,
+                )
+                self._report_error("statistics-workunit", e)
+
+    def _get_usage_events(self, projects: Iterable[str]) -> Iterable[AuditEvent]:
+        if self.config.use_exported_bigquery_audit_metadata:
+            projects = ["*"]  # project_id not used when using exported metadata
+
+        for project_id in projects:
+            with PerfTimer() as timer:
+                try:
+                    self.report.set_ingestion_stage(
+                        project_id, "Usage Extraction Ingestion"
+                    )
+                    yield from self._get_parsed_bigquery_log_events(project_id)
+                except Exception as e:
+                    logger.error(
+                        f"Error getting usage events for project {project_id}",
+                        exc_info=True,
+                    )
+                    self.report.usage_failed_extraction.append(project_id)
+                    self.report.report_warning(f"usage-extraction-{project_id}", str(e))
+
+                self.report.usage_extraction_sec[project_id] = round(
+                    timer.elapsed_seconds(), 2
+                )
+
+    def _store_usage_event(
+        self,
+        event: AuditEvent,
+        usage_state: BigQueryUsageState,
+        table_refs: Collection[str],
+    ) -> bool:
+        """Stores a usage event in `usage_state` and returns if an event was successfully processed."""
+        if event.read_event and (
+            self.config.start_time <= event.read_event.timestamp < self.config.end_time
+        ):
+            resource = event.read_event.resource
+            if str(resource) not in table_refs:
+                logger.debug(f"Skipping non-existent {resource} from usage")
+                self.report.num_usage_resources_dropped += 1
+                self.report.report_dropped(str(resource))
+                return False
+            elif resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
+                logger.debug(f"Dropping temporary table {resource}")
+                self.report.report_dropped(str(resource))
+                return False
+
+            # Use uuid keys to store all entries -- no overwriting
+            key = str(uuid.uuid4())
+            usage_state.read_events[key] = event.read_event
+            for field_read in event.read_event.fieldsRead:
+                usage_state.column_accesses[str(uuid.uuid4())] = key, field_read
+            return True
+        elif event.query_event and event.query_event.job_name:
+            query = event.query_event.query[:MAX_QUERY_LENGTH]
+            query_hash = hashlib.md5(query.encode(STRING_ENCODING)).hexdigest()
+            if usage_state.queries.get(query_hash, query) != query:
+                key = str(uuid.uuid4())
+                self.uuid_to_query[key] = query
+                event.query_event.query = key
+                self.report.num_usage_query_hash_collisions += 1
+            else:
+                usage_state.queries[query_hash] = query
+                event.query_event.query = query_hash
+            usage_state.query_events[event.query_event.job_name] = event.query_event
+            return True
+        return False
 
     def _get_exported_bigquery_audit_metadata(
         self,
@@ -299,57 +577,42 @@ class BigQueryUsageExtractor:
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
     ) -> Iterable[AuditLogEntry]:
-        self.report.total_query_log_entries = 0
 
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
 
-        try:
-            list_entries: Iterable[AuditLogEntry]
-            rate_limiter: Optional[RateLimiter] = None
-            if self.config.rate_limit:
-                # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
-                # to properly ratelimit we multiply the page size by the number of requests per minute
-                rate_limiter = RateLimiter(
-                    max_calls=self.config.requests_per_min * self.config.log_page_size,
-                    period=60,
-                )
-
-            list_entries = client.list_entries(
-                filter_=filter,
-                page_size=self.config.log_page_size,
-                max_results=limit,
+        list_entries: Iterable[AuditLogEntry]
+        rate_limiter: Optional[RateLimiter] = None
+        if self.config.rate_limit:
+            # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
+            # to properly ratelimit we multiply the page size by the number of requests per minute
+            rate_limiter = RateLimiter(
+                max_calls=self.config.requests_per_min * self.config.log_page_size,
+                period=60,
             )
 
-            for i, entry in enumerate(list_entries):
-                if i == 0:
-                    logger.info(
-                        f"Starting log load from GCP Logging for {client.project}"
-                    )
-                if i % 1000 == 0:
-                    logger.info(
-                        f"Loaded {i} log entries from GCP Log for {client.project}"
-                    )
-                self.report.total_query_log_entries += 1
+        list_entries = client.list_entries(
+            filter_=filter,
+            page_size=self.config.log_page_size,
+            max_results=limit,
+        )
 
-                if rate_limiter:
-                    with rate_limiter:
-                        yield entry
-                else:
+        for i, entry in enumerate(list_entries):
+            if i == 0:
+                logger.info(f"Starting log load from GCP Logging for {client.project}")
+            if i % 1000 == 0:
+                logger.info(f"Loaded {i} log entries from GCP Log for {client.project}")
+            self.report.total_query_log_entries += 1
+
+            if rate_limiter:
+                with rate_limiter:
                     yield entry
+            else:
+                yield entry
 
-            logger.info(
-                f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
-            )
-
-        except Exception as e:
-            logger.warning(
-                f"Encountered exception retrieving AuditLogEntires for project {client.project} - {e}"
-            )
-            self.report.report_warning(
-                "usage-extraction",
-                f"{client.project} - unable to retrive log entrires {e}",
-            )
+        logger.info(
+            f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
+        )
 
     def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
         # We adjust the filter values a bit, since we need to make sure that the join
@@ -465,7 +728,7 @@ class BigQueryUsageExtractor:
             return None
 
     def _create_operation_workunit(
-        self, event: AuditEvent
+        self, event: AuditEvent, table_refs: Collection[str]
     ) -> Optional[MetadataWorkUnit]:
         if not event.read_event and not event.query_event:
             return None
@@ -474,7 +737,14 @@ class BigQueryUsageExtractor:
         if destination_table is None:
             return None
 
-        if not self._is_table_allowed(destination_table):
+        if (
+            not self._is_table_allowed(destination_table)
+            or str(destination_table) not in table_refs
+        ):
+            logger.debug(
+                f"Filtering out operation {event.query_event}: invalid destination {destination_table}."
+            )
+            self.report.num_usage_operations_dropped += 1
             return None
 
         operational_meta = self._extract_operational_meta(event)
@@ -553,11 +823,7 @@ class BigQueryUsageExtractor:
 
     def _parse_bigquery_log_entry(
         self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
-    ) -> Optional[Union[ReadEvent, QueryEvent]]:
-        self.report.num_read_events = 0
-        self.report.num_query_events = 0
-        self.report.num_filtered_read_events = 0
-        self.report.num_filtered_query_events = 0
+    ) -> Optional[AuditEvent]:
         event: Optional[Union[ReadEvent, QueryEvent]] = None
 
         missing_read_entry = ReadEvent.get_missing_key_entry(entry)
@@ -568,9 +834,7 @@ class BigQueryUsageExtractor:
                 return None
 
             if event.readReason:
-                self.report.read_reasons_stat[event.readReason] = (
-                    self.report.read_reasons_stat.get(event.readReason, 0) + 1
-                )
+                self.report.read_reasons_stat[event.readReason] += 1
             self.report.num_read_events += 1
 
         missing_query_entry = QueryEvent.get_missing_key_entry(entry)
@@ -588,174 +852,57 @@ class BigQueryUsageExtractor:
 
         if event is None:
             logger.warning(
-                f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
+                f"Unable to parse {type(entry)} missing read {missing_read_entry}, "
+                f"missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
             )
             return None
-        else:
-            return event
+
+        return AuditEvent.create(event)
 
     def _parse_exported_bigquery_audit_metadata(
         self, audit_metadata: BigQueryAuditMetadata
-    ) -> Optional[Union[ReadEvent, QueryEvent]]:
-        event: Optional[Union[QueryEvent, ReadEvent]] = None
-        missing_query_event_exported_audit = (
-            QueryEvent.get_missing_key_exported_bigquery_audit_metadata(audit_metadata)
-        )
-        if missing_query_event_exported_audit is None:
-            event = QueryEvent.from_exported_bigquery_audit_metadata(
-                audit_metadata, self.config.debug_include_full_payloads
-            )
+    ) -> Optional[AuditEvent]:
+        event: Optional[Union[ReadEvent, QueryEvent]] = None
 
-        missing_read_event_exported_audit = (
-            ReadEvent.get_missing_key_exported_bigquery_audit_metadata(audit_metadata)
+        missing_read_event = ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
+            audit_metadata
         )
-        if missing_read_event_exported_audit is None:
+        if missing_read_event is None:
             event = ReadEvent.from_exported_bigquery_audit_metadata(
                 audit_metadata, self.config.debug_include_full_payloads
             )
+            if not self._is_table_allowed(event.resource):
+                self.report.num_filtered_read_events += 1
+                return None
+            if event.readReason:
+                self.report.read_reasons_stat[event.readReason] += 1
+            self.report.num_read_events += 1
+
+        missing_query_event = (
+            QueryEvent.get_missing_key_exported_bigquery_audit_metadata(audit_metadata)
+        )
+        if event is None and missing_query_event is None:
+            event = QueryEvent.from_exported_bigquery_audit_metadata(
+                audit_metadata, self.config.debug_include_full_payloads
+            )
+            self.report.num_query_events += 1
 
         if event is None:
             logger.warning(
-                f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+                f"{audit_metadata['logName']}-{audit_metadata['insertId']} "
+                f"Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event)} "
+                f"ReadEvent keys: {str(missing_read_event)} for {audit_metadata}"
             )
             return None
-        else:
-            return event
 
-    def _join_events_by_job_id(
-        self, events: Iterable[Union[ReadEvent, QueryEvent]]
-    ) -> Iterable[AuditEvent]:
-        # If caching eviction is enabled, we only store the most recently used query events,
-        # which are used when resolving job information within the read events.
-        query_jobs: MutableMapping[str, QueryEvent]
-        if self.config.usage.query_log_delay:
-            query_jobs = cachetools.LRUCache(
-                maxsize=5 * self.config.usage.query_log_delay
-            )
-        else:
-            query_jobs = {}
-
-        def event_processor(
-            events: Iterable[Union[ReadEvent, QueryEvent]]
-        ) -> Iterable[AuditEvent]:
-            for event in events:
-                if isinstance(event, QueryEvent):
-                    if event.job_name:
-                        query_jobs[event.job_name] = event
-                        # For Insert operations we yield the query event as it is possible
-                        # there won't be any read event.
-                        if event.statementType not in READ_STATEMENT_TYPES:
-                            yield AuditEvent(query_event=event)
-                        # If destination table exists we yield the query event as it is insert operation
-                else:
-                    yield AuditEvent(read_event=event)
-
-        # TRICKY: To account for the possibility that the query event arrives after
-        # the read event in the audit logs, we wait for at least `query_log_delay`
-        # additional events to be processed before attempting to resolve BigQuery
-        # job information from the logs. If `query_log_delay` is None, it gets treated
-        # as an unlimited delay, which prioritizes correctness at the expense of memory usage.
-        original_read_events = event_processor(events)
-        delayed_read_events = delayed_iter(
-            original_read_events, self.config.usage.query_log_delay
-        )
-
-        num_joined: int = 0
-        for event in delayed_read_events:
-            # If event_processor yields a query event which is an insert operation
-            # then we should just yield it.
-            if event.query_event and not event.read_event:
-                yield event
-                continue
-            if (
-                event.read_event is None
-                or event.read_event.timestamp < self.config.start_time
-                or event.read_event.timestamp >= self.config.end_time
-                or not self._is_table_allowed(event.read_event.resource)
-            ):
-                continue
-
-            # There are some read event which does not have jobName because it was read in a different way
-            # Like https://cloud.google.com/logging/docs/reference/audit/bigquery/rest/Shared.Types/AuditData#tabledatalistrequest
-            # There are various reason to read a table
-            # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
-            if event.read_event.jobName:
-                if event.read_event.jobName in query_jobs:
-                    # Join the query log event into the table read log event.
-                    num_joined += 1
-                    event.query_event = query_jobs[event.read_event.jobName]
-                else:
-                    logger.debug(
-                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`"
-                    )
-            yield event
-        logger.info(f"Number of read events joined with query events: {num_joined}")
-
-    def _aggregate_enriched_read_events(
-        self,
-        datasets: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]],
-        event: AuditEvent,
-        tables: Dict[str, List[str]],
-    ) -> None:
-        if not event.read_event:
-            return
-
-        floored_ts = get_time_bucket(
-            event.read_event.timestamp, self.config.bucket_duration
-        )
-        resource = event.read_event.resource
-        if (
-            resource.table_identifier.dataset not in tables
-            or resource.table_identifier.get_table_name()
-            not in tables[resource.table_identifier.dataset]
-        ):
-            logger.debug(f"Skipping non existing {resource} from usage")
-            return
-
-        if resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
-            logger.debug(f"Dropping temporary table {resource}")
-            self.report.report_dropped(str(resource))
-            return
-
-        agg_bucket = datasets[floored_ts].setdefault(
-            resource,
-            AggregatedDataset(
-                bucket_start_time=floored_ts,
-                resource=resource,
-            ),
-        )
-
-        agg_bucket.add_read_entry(
-            event.read_event.actor_email,
-            event.query_event.query if event.query_event else None,
-            event.read_event.fieldsRead,
-            user_email_pattern=self.config.usage.user_email_pattern,
-        )
-
-    def get_workunits(
-        self, aggregated_info: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
-    ) -> Iterable[MetadataWorkUnit]:
-        self.report.num_usage_workunits_emitted = 0
-        for time_bucket in aggregated_info.values():
-            for aggregate in time_bucket.values():
-                yield self._make_usage_stat(aggregate)
-                self.report.num_usage_workunits_emitted += 1
-
-    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
-        return agg.make_usage_workunit(
-            self.config.bucket_duration,
-            lambda resource: resource.to_urn(self.config.env),
-            self.config.usage.top_n_queries,
-            self.config.usage.format_sql_queries,
-            self.config.usage.include_top_n_queries,
-        )
+        return AuditEvent.create(event)
 
     def _get_parsed_bigquery_log_events(
         self, project_id: str, limit: Optional[int] = None
-    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
-        parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
+    ) -> Iterable[AuditEvent]:
+        parse_fn: Callable[[Any], Optional[AuditEvent]]
         if self.config.use_exported_bigquery_audit_metadata:
-            bq_client = BigQueryClient(project=project_id)
+            bq_client = get_bigquery_client(self.config)
             entries = self._get_exported_bigquery_audit_metadata(
                 bigquery_client=bq_client,
                 allow_filter=self.config.get_table_pattern(
@@ -773,21 +920,26 @@ class BigQueryUsageExtractor:
             )
             parse_fn = self._parse_bigquery_log_entry
 
-        log_entry_parse_failures = 0
         for entry in entries:
             try:
                 event = parse_fn(entry)
                 if event:
                     yield event
             except Exception as e:
-                logger.warning(f"Unable to parse log entry `{entry}`: {e}")
-                log_entry_parse_failures += 1
+                logger.warning(
+                    f"Unable to parse log entry `{entry}` for project {project_id}",
+                    exc_info=True,
+                )
+                self._report_error(
+                    f"log-parse-{project_id}", e, group="usage-log-parse"
+                )
 
-        if log_entry_parse_failures:
-            self.report.report_warning(
-                "usage-extraction",
-                f"Failed to parse {log_entry_parse_failures} audit log entries for project {project_id}.",
-            )
+    def _report_error(
+        self, label: str, e: Exception, group: Optional[str] = None
+    ) -> None:
+        """Report an error that does not constitute a major failure."""
+        self.report.usage_error_count[label] += 1
+        self.report.report_warning(group or f"usage-{label}", str(e))
 
     def test_capability(self, project_id: str) -> None:
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):

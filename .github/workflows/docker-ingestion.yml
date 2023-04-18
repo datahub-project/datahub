@@ -16,7 +16,7 @@ on:
       - "docker/datahub-ingestion-slim/**"
       - ".github/workflows/docker-ingestion.yml"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

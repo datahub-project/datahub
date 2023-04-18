@@ -18,6 +18,7 @@ module.exports = {
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
+    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || 'IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA',
   },
   themeConfig: {
     ...(!isSaas && {
@@ -199,6 +200,7 @@ module.exports = {
               ? require.resolve("./src/styles/acryl.scss")
               : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
+            require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
           ],
         },

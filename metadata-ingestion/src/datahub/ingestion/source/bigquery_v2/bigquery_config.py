@@ -21,10 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    query_log_delay: Optional[PositiveInt] = Field(
-        default=None,
-        description="To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least query_log_delay additional events to be processed before attempting to resolve BigQuery job information from the logs. If query_log_delay is None, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage.",
-    )
+    _query_log_delay_removed = pydantic_removed_field("query_log_delay")
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
@@ -116,8 +113,8 @@ class BigQueryV2Config(
     storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
-        default=False,
-        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+        default=True,
+        description="Use sql parser to resolve view/table lineage. Only invoked on tables with both upstream tables and views. Used to distinguish between direct/base objects accessed, to only emit upstream lineage for directly accessed objects.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,
@@ -192,6 +189,12 @@ class BigQueryV2Config(
         hidden_from_docs=True,
         default=False,
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
+    )
+
+    file_backed_cache_size: int = Field(
+        hidden_from_docs=True,
+        default=2000,
+        description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
     def __init__(self, **data: Any):

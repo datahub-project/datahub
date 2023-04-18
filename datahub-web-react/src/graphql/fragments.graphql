@@ -6,6 +6,7 @@ fragment globalTagsFields on GlobalTags {
             name
             description
             properties {
+                name
                 colorHex
             }
         }
