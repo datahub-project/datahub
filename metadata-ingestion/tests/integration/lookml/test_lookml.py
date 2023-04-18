@@ -117,7 +117,8 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
     mce_out_file = "refinement_include_order_mces_output.json"
 
     new_recipe = get_default_recipe(
-        f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_refinement_samples/sample1"
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_refinement_samples/sample1",
     )
     new_recipe["source"]["config"]["process_refinement"] = True
     new_recipe["source"]["config"]["project_name"] = "lkml_refinement_sample1"
@@ -138,6 +139,7 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
     )
+
 
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):

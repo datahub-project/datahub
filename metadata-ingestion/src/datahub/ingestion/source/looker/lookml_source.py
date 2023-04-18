@@ -811,9 +811,7 @@ class LookerRefinementResolver:
 
         return refined_views
 
-    def apply_view_refinement(
-        self, raw_view: dict
-    ) -> dict:
+    def apply_view_refinement(self, raw_view: dict) -> dict:
         """
         Looker process the lkml file in include order and merge the all refinement to original view.
         """
@@ -1266,9 +1264,7 @@ class LookerView:
         for raw_view in looker_viewfile.views:
             raw_view_name = raw_view["name"]
             if raw_view_name == target_view_name:
-                return looker_refinement_resolver.apply_view_refinement(
-                    raw_view
-                )
+                return looker_refinement_resolver.apply_view_refinement(raw_view)
 
         # Or, it could live in one of the imports.
         view = _find_view_from_resolved_includes(
@@ -1279,9 +1275,7 @@ class LookerView:
             reporter,
         )
         if view:
-            return looker_refinement_resolver.apply_view_refinement(
-                view[1]
-            )
+            return looker_refinement_resolver.apply_view_refinement(view[1])
         else:
             logger.warning(
                 f"failed to resolve view {target_view_name} included from {looker_viewfile.absolute_file_path}"
