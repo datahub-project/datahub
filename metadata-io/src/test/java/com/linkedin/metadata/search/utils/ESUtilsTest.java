@@ -14,7 +14,7 @@ public class ESUtilsTest {
   private static final String FIELD_TO_EXPAND = "fieldTags";
 
   @Test
-  public static void testGetQueryBuilderFromCriterionEqualsValues() {
+  public void testGetQueryBuilderFromCriterionEqualsValues() {
 
     final Criterion singleValueCriterion = new Criterion()
       .setField("myTestField")
@@ -80,7 +80,7 @@ public class ESUtilsTest {
   }
 
   @Test
-  public static void testGetQueryBuilderFromCriterionExists() {
+  public void testGetQueryBuilderFromCriterionExists() {
     final Criterion singleValueCriterion = new Criterion()
       .setField("myTestField")
       .setCondition(Condition.EXISTS);
@@ -129,7 +129,7 @@ public class ESUtilsTest {
   }
 
   @Test
-  public static void testGetQueryBuilderFromCriterionIsNull() {
+  public void testGetQueryBuilderFromCriterionIsNull() {
     final Criterion singleValueCriterion = new Criterion()
         .setField("myTestField")
         .setCondition(Condition.IS_NULL);
@@ -178,7 +178,7 @@ public class ESUtilsTest {
   }
 
   @Test
-  public static void testGetQueryBuilderFromCriterionFieldToExpand() {
+  public void testGetQueryBuilderFromCriterionFieldToExpand() {
 
     final Criterion singleValueCriterion = new Criterion()
         .setField(FIELD_TO_EXPAND)
