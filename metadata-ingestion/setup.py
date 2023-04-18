@@ -127,7 +127,7 @@ sqllineage_lib = {
     # As per https://github.com/reata/sqllineage/issues/361
     # and https://github.com/reata/sqllineage/pull/360
     # sqllineage has compat issues with sqlparse 0.4.4.
-    "sqlparse==0.4.1",
+    "sqlparse==0.4.3",
 }
 
 aws_common = {
