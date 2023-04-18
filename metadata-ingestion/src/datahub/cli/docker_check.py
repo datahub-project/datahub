@@ -137,6 +137,17 @@ class QuickstartStatus:
     def is_ok(self) -> bool:
         return not self.errors()
 
+    def needs_up(self) -> bool:
+        return any(
+            container.status
+            in {
+                ContainerStatus.EXITED_WITH_FAILURE,
+                ContainerStatus.DIED,
+                ContainerStatus.MISSING,
+            }
+            for container in self.containers
+        )
+
     def to_exception(
         self, header: str, footer: Optional[str] = None
     ) -> QuickstartError:
