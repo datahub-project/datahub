@@ -47,7 +47,6 @@ def get_default_recipe(output_file_path, base_folder_path):
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
                 "emit_reachable_views_only": False,
-                "process_refinement": False,
             },
         },
         "sink": {
