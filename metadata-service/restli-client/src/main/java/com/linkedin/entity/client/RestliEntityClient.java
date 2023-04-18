@@ -739,9 +739,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.filterParam(filter);
     }
 
-    // if (sort != null) {
-    //   requestBuilder.sortParam(sort);
-    // }
+    if (sort != null) {
+      requestBuilder.sortParam(sort);
+    }
 
     return sendClientRequest(requestBuilder, authentication).getEntity().getValues();
   }
