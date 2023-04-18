@@ -111,6 +111,35 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
 
 
 @freeze_time(FROZEN_TIME)
+def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
+    """Test backwards compatibility with previous form of config with new flags turned off"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "refinement_include_order_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_refinement_samples/sample1"
+    )
+    new_recipe["source"]["config"]["process_refinement"] = True
+    new_recipe["source"]["config"]["project_name"] = "lkml_refinement_sample1"
+    new_recipe["source"]["config"]["view_naming_pattern"] = {
+        "pattern": "{project}.{model}.view.{name}"
+    }
+    new_recipe["source"]["config"]["connection_to_platform_map"] = {
+        "db-connection": "conn"
+    }
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "refinement_include_order_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+@freeze_time(FROZEN_TIME)
 def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
     """New form of config with offline specification of connection defaults"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"

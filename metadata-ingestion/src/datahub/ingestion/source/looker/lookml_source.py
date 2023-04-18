@@ -812,8 +812,11 @@ class LookerRefinementResolver:
         return refined_views
 
     def apply_view_refinement(
-        self, looker_view_file: LookerViewFile, raw_view: dict
+        self, raw_view: dict
     ) -> dict:
+        """
+        Looker process the lkml file in include order and merge the all refinement to original view.
+        """
         raw_view_name: str = raw_view["name"]
 
         if LookerRefinementResolver.is_refinement(raw_view_name):
@@ -831,9 +834,6 @@ class LookerRefinementResolver:
 
         refinement_views: List[dict] = self.get_refinement_from_model_includes(
             raw_view_name
-        )
-        refinement_views.extend(
-            self.get_refinement_from_looker_view_file(looker_view_file, raw_view_name)
         )
 
         self.refinement_cache[raw_view_name] = self.merge_refinement(
@@ -1267,7 +1267,7 @@ class LookerView:
             raw_view_name = raw_view["name"]
             if raw_view_name == target_view_name:
                 return looker_refinement_resolver.apply_view_refinement(
-                    looker_viewfile, raw_view
+                    raw_view
                 )
 
         # Or, it could live in one of the imports.
@@ -1280,7 +1280,7 @@ class LookerView:
         )
         if view:
             return looker_refinement_resolver.apply_view_refinement(
-                looker_viewfile, view[1]
+                view[1]
             )
         else:
             logger.warning(
@@ -1986,7 +1986,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                         self.reporter.report_views_scanned()
                         try:
                             raw_view = looker_refinement_resolver.apply_view_refinement(
-                                looker_view_file=looker_viewfile,
                                 raw_view=raw_view,
                             )
                             maybe_looker_view = LookerView.from_looker_dict(
