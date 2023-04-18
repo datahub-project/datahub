@@ -506,7 +506,8 @@ class DataHubGraph(DatahubRestEmitter):
             )
             data = response["scrollAcrossEntities"]
             scroll_id = data["nextScrollId"]
-            yield from (entry["entity"]["urn"] for entry in data["searchResults"])
+            for entry in data["searchResults"]:
+                yield entry["entity"]["urn"]
 
     def get_latest_pipeline_checkpoint(
         self, pipeline_name: str, platform: str, name: str = "graph"
