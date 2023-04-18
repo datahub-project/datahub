@@ -98,6 +98,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     )
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
+
     database_alias: Optional[str] = Field(
         default=None,
         description="[Deprecated] Alias to apply to database when ingesting.",
