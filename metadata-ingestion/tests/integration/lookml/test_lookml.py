@@ -564,7 +564,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
                 "emit_reachable_views_only": False,
-                "process_refinement": False,
                 "stateful_ingestion": {
                     "enabled": True,
                     "remove_stale_metadata": True,
@@ -654,7 +653,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
     # the difference in dataset urns are all the views that are not reachable from the model file
-    assert len(difference_dataset_urns) == 10
+    assert len(difference_dataset_urns) == 11
     deleted_dataset_urns: List[str] = [
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
@@ -666,6 +665,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.view_derived_explore,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.flights,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
