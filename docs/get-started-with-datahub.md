@@ -18,6 +18,6 @@ Get Started with Self-Hosted DataHub
 
 <a
     className='button button--primary button--lg'
-    href="/docs/authentication/guides/add-users">
+    href="/docs/managed-datahub/welcome-acryl">
 Get Started with Managed DataHub
 </a>
