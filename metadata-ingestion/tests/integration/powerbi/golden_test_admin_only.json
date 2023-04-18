@@ -1,35 +1,5 @@
 [
 {
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserKey",
-    "aspect": {
-        "json": {
-            "username": "User1@foo.com"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserKey",
-    "aspect": {
-        "json": {
-            "username": "User2@foo.com"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
@@ -861,6 +831,36 @@
                     "type": "TRANSFORMED"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User1@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User2@foo.com"
         }
     },
     "systemMetadata": {
