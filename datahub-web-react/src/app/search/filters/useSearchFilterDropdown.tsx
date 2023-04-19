@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+    GetAutoCompleteMultipleResultsQuery,
     useAggregateAcrossEntitiesLazyQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '../../../graphql/search.generated';
@@ -36,7 +37,11 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     const [searchQuery, setSearchQuery] = useState<string>('');
     const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(filter.field);
     const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
-    const [getAutoCompleteResults, { data: autoCompleteResults }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const [autoCompleteResults, setAutoCompleteResults] =
+        useState<GetAutoCompleteMultipleResultsQuery | undefined>(undefined);
+    const [getAutoCompleteResults] = useGetAutoCompleteMultipleResultsLazyQuery({
+        onCompleted: (result) => setAutoCompleteResults(result),
+    });
 
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
 
@@ -45,6 +50,7 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         // set filters to default every time you open or close the menu without saving
         setSelectedFilterOptions(initialFilterOptions || []);
         setSearchQuery('');
+        setAutoCompleteResults(undefined);
 
         if (isOpen && numActiveFilters > 0) {
             aggregateAcrossEntities({
@@ -84,6 +90,9 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
                     },
                 },
             });
+        }
+        if (!newQuery) {
+            setAutoCompleteResults(undefined);
         }
     }
 
