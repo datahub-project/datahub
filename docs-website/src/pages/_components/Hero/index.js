@@ -39,7 +39,7 @@ const Hero = ({}) => {
             </p>
             <Link
               className="button button--primary button--md"
-              to={useBaseUrl("docs/get-started-with-datahub")}
+              to={useBaseUrl("docs/quickstart")}
             >
               Get Started →
             </Link>
