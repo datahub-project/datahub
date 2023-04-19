@@ -170,6 +170,9 @@ public class EntityService {
 
   private static final int URN_NUM_BYTES_LIMIT = 512;
 
+  // TODO(iprentic): Move this to a common utils location once used in other places
+  private static final String DELIMITER_SEPARATOR = "␟";
+
   public EntityService(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
@@ -688,6 +691,9 @@ public class EntityService {
     }
     if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
       throw new IllegalArgumentException("Error: cannot provide an URN longer than " + Integer.toString(URN_NUM_BYTES_LIMIT) + " bytes (when URL encoded)");
+    }
+    if (urn.toString().contains(DELIMITER_SEPARATOR)) {
+      throw new IllegalArgumentException("Error: URN cannot contain " + DELIMITER_SEPARATOR + " character");
     }
   }
 
