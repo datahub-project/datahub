@@ -49,7 +49,6 @@ interface Props {
     menu: React.ReactNode;
     updateFilters: () => void;
     isLoading: boolean;
-    showSearch: boolean;
     searchQuery: string;
     updateSearchQuery: (query: string) => void;
     alignRight?: boolean;
@@ -60,7 +59,6 @@ export default function OptionsDropdownMenu({
     menu,
     updateFilters,
     isLoading,
-    showSearch,
     searchQuery,
     updateSearchQuery,
     alignRight,
@@ -71,26 +69,24 @@ export default function OptionsDropdownMenu({
     return (
         <DropdownMenu alignRight={alignRight}>
             <ScrollableContent>
-                {showSearch && (
-                    <SearchBar
-                        initialQuery={searchQuery}
-                        placeholderText={searchPlaceholder || ''}
-                        suggestions={[]}
-                        hideRecommendations
-                        style={{
-                            padding: 12,
-                            paddingBottom: 5,
-                        }}
-                        inputStyle={{
-                            height: 30,
-                            fontSize: 12,
-                            borderRadius: 8,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={(q) => updateSearchQuery(q)}
-                        entityRegistry={entityRegistry}
-                    />
-                )}
+                <SearchBar
+                    initialQuery={searchQuery}
+                    placeholderText={searchPlaceholder || ''}
+                    suggestions={[]}
+                    hideRecommendations
+                    style={{
+                        padding: 12,
+                        paddingBottom: 5,
+                    }}
+                    inputStyle={{
+                        height: 30,
+                        fontSize: 12,
+                        borderRadius: 8,
+                    }}
+                    onSearch={() => null}
+                    onQueryChange={(q) => updateSearchQuery(q)}
+                    entityRegistry={entityRegistry}
+                />
                 {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}
                 {isLoading && (
                     <LoadingWrapper>

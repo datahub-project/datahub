@@ -23,8 +23,6 @@ export const SORTED_FILTERS = [
     CONTAINER_FILTER_NAME,
 ];
 
-export const MIN_OPTIONS_FOR_FILTER_SEARCH_BAR = 5;
-
 export const FACETS_TO_ENTITY_TYPES = {
     [DOMAINS_FILTER_NAME]: [EntityType.Domain],
     [GLOSSARY_TERMS_FILTER_NAME]: [EntityType.GlossaryTerm],
