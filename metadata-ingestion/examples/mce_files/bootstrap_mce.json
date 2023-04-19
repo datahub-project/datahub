@@ -3405,6 +3405,30 @@
     "systemMetadata":null
   },
   {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"operation",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629097200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1629097200001 }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"operation",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629107200000, \"operationType\": \"UPDATE\", \"lastUpdatedTimestamp\": 1625097200000 }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
     "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
