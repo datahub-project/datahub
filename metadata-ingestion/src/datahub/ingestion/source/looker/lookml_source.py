@@ -237,7 +237,7 @@ class LookMLSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
-    process_refinement: bool = Field(
+    process_refinements: bool = Field(
         False,
         description="When enabled, looker refinement will be processed to adapt an existing view.",
     )
@@ -831,7 +831,7 @@ class LookerRefinementResolver:
             # It is refinement no need to process
             return raw_view
 
-        if self.source_config.process_refinement is False:
+        if self.source_config.process_refinements is False:
             return raw_view
 
         if raw_view_name in self.refinement_cache:

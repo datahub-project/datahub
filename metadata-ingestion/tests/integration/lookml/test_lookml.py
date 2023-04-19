@@ -96,7 +96,7 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     new_recipe = get_default_recipe(
         f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
     )
-    new_recipe["source"]["config"]["process_refinement"] = True
+    new_recipe["source"]["config"]["process_refinements"] = True
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -120,7 +120,7 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
         f"{tmp_path}/{mce_out_file}",
         f"{test_resources_dir}/lkml_refinement_samples/sample1",
     )
-    new_recipe["source"]["config"]["process_refinement"] = True
+    new_recipe["source"]["config"]["process_refinements"] = True
     new_recipe["source"]["config"]["project_name"] = "lkml_refinement_sample1"
     new_recipe["source"]["config"]["view_naming_pattern"] = {
         "pattern": "{project}.{model}.view.{name}"
@@ -164,7 +164,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "emit_reachable_views_only": False,
-                    "process_refinement": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -209,7 +209,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data"]},
                     "emit_reachable_views_only": False,
-                    "process_refinement": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -256,7 +256,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "emit_reachable_views_only": False,
-                    "process_refinement": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -336,7 +336,7 @@ def ingestion_test(
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
                         "emit_reachable_views_only": False,
-                        "process_refinement": False,
+                        "process_refinements": False,
                     },
                 },
                 "sink": {
@@ -381,7 +381,7 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "sql_parser": "bad.sql.Parser",
                     "emit_reachable_views_only": False,
-                    "process_refinement": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -429,7 +429,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
-                    "process_refinement": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -482,7 +482,7 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "emit_reachable_views_only": True,
-                    "process_refinement": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -544,7 +544,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
-                    "process_refinement": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
