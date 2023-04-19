@@ -399,6 +399,7 @@ class TableauSource(StatefulIngestionSourceBase):
     upstream_tables: Dict[str, Tuple[Any, Optional[str], bool]] = {}
     tableau_stat_registry: Dict[str, UsageStat] = {}
     tableau_project_registry: Dict[str, TableauProject] = {}
+    workbook_project_map: Dict[str, str] = {}
     datasource_project_map: Dict[str, str] = {}
 
     def __hash__(self):
@@ -417,6 +418,7 @@ class TableauSource(StatefulIngestionSourceBase):
         self.upstream_tables = {}
         self.tableau_stat_registry = {}
         self.tableau_project_registry = {}
+        self.workbook_project_map = {}
         self.datasource_project_map = {}
 
         # This list keeps track of sheets in workbooks so that we retrieve those
@@ -574,6 +576,19 @@ class TableauSource(StatefulIngestionSourceBase):
                 continue
             self.datasource_project_map[ds.id] = ds.project_id
 
+    def _init_workbook_registry(self) -> None:
+        if self.server is None:
+            return
+
+        for wb in TSC.Pager(self.server.workbooks):
+            if wb.project_id not in self.tableau_project_registry:
+                logger.debug(
+                    f"project id ({wb.project_id}) of workbook {wb.name} is not present in project "
+                    f"registry"
+                )
+                continue
+            self.workbook_project_map[wb.id] = wb.project_id
+
     def _populate_projects_registry(self):
         if self.server is None:
             return
@@ -584,11 +599,15 @@ class TableauSource(StatefulIngestionSourceBase):
 
         self._init_tableau_project_registry(all_project_map)
         self._init_datasource_registry()
+        self._init_workbook_registry()
 
         logger.debug(f"All site projects {all_project_map}")
         logger.debug(f"Projects selected for ingestion {self.tableau_project_registry}")
         logger.debug(
             f"Tableau data-sources {self.datasource_project_map}",
+        )
+        logger.debug(
+            f"Tableau workbooks {self.workbook_project_map}",
         )
 
     def _authenticate(self):
@@ -723,7 +742,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
                 # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
                 if (
-                    workbook.get(tableau_constant.PROJECT_LUID)
+                    self._get_workbook_project_luid(workbook)
                     not in self.tableau_project_registry.keys()
                 ):
                     wrk_name: Optional[str] = workbook.get(tableau_constant.NAME)
@@ -731,7 +750,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     prj_name: Optional[str] = workbook.get(
                         tableau_constant.PROJECT_NAME
                     )
-                    prj_id: Optional[str] = workbook.get(tableau_constant.PROJECT_LUID)
+                    prj_id: Optional[str] = self._get_workbook_project_luid(workbook)
                     logger.debug(
                         f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({prj_id}) not "
                         f"present in project registry"
@@ -1252,14 +1271,24 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return None
 
+    def _get_workbook_project_luid(self, wb):
+        if wb.get(tableau_constant.LUID) and self.workbook_project_map.get(
+            wb[tableau_constant.LUID]
+        ):
+            return self.workbook_project_map[wb[tableau_constant.LUID]]
+
+        logger.debug(f"workbook {wb.get(tableau_constant.NAME)} project_luid not found")
+
+        return None
+
     def _get_embedded_datasource_project_luid(self, ds):
         if (
             ds.get(tableau_constant.WORKBOOK)
-            and ds.get(tableau_constant.WORKBOOK).get(tableau_constant.PROJECT_LUID)
-            and ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
+            and self._get_workbook_project_luid(ds.get(tableau_constant.WORKBOOK))
+            and self._get_workbook_project_luid(ds.get(tableau_constant.WORKBOOK))
             in self.tableau_project_registry
         ):
-            return ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
+            return self._get_workbook_project_luid(ds.get(tableau_constant.WORKBOOK))
 
         logger.debug(
             f"embedded datasource {ds.get(tableau_constant.NAME)} project_luid not found"
@@ -1796,13 +1825,14 @@ class TableauSource(StatefulIngestionSourceBase):
 
         if (
             workbook is not None
-            and workbook.get(tableau_constant.PROJECT_LUID)
-            and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
+            and self._get_workbook_project_luid(workbook)
+            and self._get_workbook_project_luid(workbook)
+            in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
+                    f"/{self.platform}/{self._project_luid_to_browse_path_name(self._get_workbook_project_luid(workbook))}"
                     f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
@@ -1929,11 +1959,11 @@ class TableauSource(StatefulIngestionSourceBase):
         )
         parent_key = None
         if (
-            workbook.get(tableau_constant.PROJECT_LUID)
-            and workbook[tableau_constant.PROJECT_LUID]
+            self._get_workbook_project_luid(workbook)
+            and self._get_workbook_project_luid(workbook)
             in self.tableau_project_registry.keys()
         ):
-            parent_key = self.gen_project_key(workbook[tableau_constant.PROJECT_LUID])
+            parent_key = self.gen_project_key(self._get_workbook_project_luid(workbook))
         else:
             workbook_id: Optional[str] = workbook.get(tableau_constant.ID)
             workbook_name: Optional[str] = workbook.get(tableau_constant.NAME)
@@ -2112,13 +2142,14 @@ class TableauSource(StatefulIngestionSourceBase):
 
         if (
             workbook is not None
-            and workbook.get(tableau_constant.PROJECT_LUID)
-            and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
+            and self._get_workbook_project_luid(workbook)
+            and self._get_workbook_project_luid(workbook)
+            in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
+                    f"/{self.platform}/{self._project_luid_to_browse_path_name(self._get_workbook_project_luid(workbook))}"
                     f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
