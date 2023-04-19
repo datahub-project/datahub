@@ -16,9 +16,7 @@ record ContainerPath {
    @Searchable = {
     "/*/id": {
       "fieldName": "containerPath",
-      "fieldType": "TEXT",
-      "aggregate": true,
-      "delimiter": "/"
+      "fieldType": "CONTAINER_PATH",
     }
   }
   path: array[ContainerPathEntry]
