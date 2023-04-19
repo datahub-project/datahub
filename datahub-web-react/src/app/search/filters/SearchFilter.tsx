@@ -5,7 +5,6 @@ import styled from 'styled-components/macro';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { MIN_OPTIONS_FOR_FILTER_SEARCH_BAR } from './constants';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { getFilterDropdownIcon } from './utils';
@@ -83,7 +82,6 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
                 <OptionsDropdownMenu
                     menu={menu}
                     updateFilters={updateFilters}
-                    showSearch={filterOptions.length > MIN_OPTIONS_FOR_FILTER_SEARCH_BAR || !!searchQuery}
                     searchQuery={searchQuery}
                     updateSearchQuery={updateSearchQuery}
                     isLoading={areFiltersLoading}
