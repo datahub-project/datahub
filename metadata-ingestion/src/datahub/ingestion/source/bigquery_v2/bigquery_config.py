@@ -113,8 +113,8 @@ class BigQueryV2Config(
     storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
-        default=False,
-        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+        default=True,
+        description="Use sql parser to resolve view/table lineage. Only invoked on tables with both upstream tables and views. Used to distinguish between direct/base objects accessed, to only emit upstream lineage for directly accessed objects.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,
@@ -193,7 +193,7 @@ class BigQueryV2Config(
 
     file_backed_cache_size: int = Field(
         hidden_from_docs=True,
-        default=200,
+        default=2000,
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 

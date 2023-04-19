@@ -289,6 +289,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.QueryService;
@@ -1012,7 +1014,8 @@ public class GmsGraphQLEngine {
                         this.entityClient,
                         "dataset",
                         "operation",
-                        OperationMapper::map
+                        OperationMapper::map,
+                        new SortCriterion().setField(OPERATION_EVENT_TIME_FIELD_NAME).setOrder(SortOrder.DESCENDING)
                     )
                 )
                 .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))

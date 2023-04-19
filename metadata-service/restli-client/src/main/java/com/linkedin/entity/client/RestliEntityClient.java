@@ -714,15 +714,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
       @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+      @Nullable Filter filter, @Nullable SortCriterion sort, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
 
     AspectsDoGetTimeseriesAspectValuesRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.actionGetTimeseriesAspectValues()
             .urnParam(urn)
             .entityParam(entity)
-            .aspectParam(aspect)
-            .latestValueParam(getLatestValue);
+            .aspectParam(aspect);
 
     if (startTimeMillis != null) {
       requestBuilder.startTimeMillisParam(startTimeMillis);
@@ -736,12 +735,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.limitParam(limit);
     }
 
-    if (getLatestValue != null) {
-      requestBuilder.latestValueParam(getLatestValue);
-    }
-
     if (filter != null) {
       requestBuilder.filterParam(filter);
+    }
+
+    if (sort != null) {
+      requestBuilder.sortParam(sort);
     }
 
     return sendClientRequest(requestBuilder, authentication).getEntity().getValues();

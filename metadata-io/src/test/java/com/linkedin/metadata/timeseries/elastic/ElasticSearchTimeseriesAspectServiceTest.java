@@ -26,6 +26,8 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -211,7 +213,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
 
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(urn, ENTITY_NAME, ASPECT_NAME, null, null,
-            testEntityProfiles.size(), false, null);
+            testEntityProfiles.size(), null);
     assertEquals(resultAspects.size(), testEntityProfiles.size());
   }
 
@@ -238,8 +240,39 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
   public void testGetAspectTimeseriesValuesAll() {
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_PROFILES, false, null);
+            NUM_PROFILES, null);
     validateAspectValues(resultAspects, NUM_PROFILES);
+
+    TestEntityProfile firstProfile =
+        (TestEntityProfile) GenericRecordUtils.deserializeAspect(resultAspects.get(0).getAspect().getValue(),
+            CONTENT_TYPE, _aspectSpec);
+    TestEntityProfile lastProfile =
+        (TestEntityProfile) GenericRecordUtils.deserializeAspect(resultAspects.get(resultAspects.size() - 1).getAspect().getValue(),
+            CONTENT_TYPE, _aspectSpec);
+
+    // Now verify that the first index is the one with the highest stat value, and the last the one with the lower.
+    assertEquals((long) firstProfile.getStat(), 20 + (NUM_PROFILES - 1) * 10);
+    assertEquals((long) lastProfile.getStat(), 20);
+  }
+
+  @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
+  public void testGetAspectTimeseriesValuesAllSorted() {
+    List<EnvelopedAspect> resultAspects =
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
+            NUM_PROFILES, null, new SortCriterion().setField("stat").setOrder(SortOrder.ASCENDING));
+    validateAspectValues(resultAspects, NUM_PROFILES);
+
+    TestEntityProfile firstProfile =
+        (TestEntityProfile) GenericRecordUtils.deserializeAspect(resultAspects.get(0).getAspect().getValue(),
+            CONTENT_TYPE, _aspectSpec);
+    TestEntityProfile lastProfile =
+        (TestEntityProfile) GenericRecordUtils.deserializeAspect(resultAspects.get(resultAspects.size() - 1).getAspect().getValue(),
+            CONTENT_TYPE, _aspectSpec);
+
+    // Now verify that the first index is the one with the highest stat value, and the last the one with the lower.
+    assertEquals((long) firstProfile.getStat(), 20);
+    assertEquals((long) lastProfile.getStat(), 20 + (NUM_PROFILES - 1) * 10);
+
   }
 
   @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
@@ -249,7 +282,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
     filter.setCriteria(new CriterionArray(hasStatEqualsTwenty));
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_PROFILES, false, filter);
+            NUM_PROFILES, filter);
     validateAspectValues(resultAspects, 1);
   }
 
@@ -258,7 +291,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
     int expectedNumRows = 10;
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, _startTime,
-            _startTime + TIME_INCREMENT * (expectedNumRows - 1), expectedNumRows, false, null);
+            _startTime + TIME_INCREMENT * (expectedNumRows - 1), expectedNumRows, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -268,7 +301,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
             _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2,
-            expectedNumRows, false, null);
+            expectedNumRows, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -278,7 +311,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
             _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2,
-            expectedNumRows, true, null);
+            expectedNumRows, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -287,7 +320,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
     int expectedNumRows = 1;
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
-            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2, expectedNumRows, false, null);
+            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2, expectedNumRows, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -296,7 +329,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
     Urn nonExistingUrn = new TestEntityUrn("missing", "missing", "missing");
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_PROFILES, false, null);
+            NUM_PROFILES, null);
     validateAspectValues(resultAspects, 0);
   }
 

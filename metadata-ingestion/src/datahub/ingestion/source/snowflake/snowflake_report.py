@@ -52,6 +52,7 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
 
     edition: Optional[SnowflakeEdition] = None
 
+    num_tables_with_external_upstreams_only: int = 0
     num_tables_with_upstreams: int = 0
     num_views_with_upstreams: int = 0
 

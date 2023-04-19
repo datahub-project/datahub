@@ -69,6 +69,7 @@ import com.linkedin.util.Pair;
 import io.ebean.PagedList;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -166,6 +167,8 @@ public class EntityService {
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
   protected static final int MAX_KEYS_PER_QUERY = 500;
+
+  private static final int URN_NUM_BYTES_LIMIT = 512;
 
   public EntityService(
       @Nonnull final AspectDao aspectDao,
@@ -545,7 +548,7 @@ public class EntityService {
 
   private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
     RecordTemplateValidator.validate(aspect, validationResult -> {
-      throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
+      throw new IllegalArgumentException("Invalid format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
           + validationResult.getMessages());
     }, validator);
   }
@@ -678,9 +681,13 @@ public class EntityService {
     return systemMetadata;
   }
 
-  private void validateUrn(@Nonnull final Urn urn) {
-    if (!urn.toString().trim().equals(urn.toString())) {
+  static void validateUrn(@Nonnull final Urn urn) {
+
+    if (urn.toString().trim().length() != urn.toString().length()) {
       throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+    if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
+      throw new IllegalArgumentException("Error: cannot provide an URN longer than " + Integer.toString(URN_NUM_BYTES_LIMIT) + " bytes (when URL encoded)");
     }
   }
 
@@ -1034,6 +1041,7 @@ public class EntityService {
     if (!isNoOp || _alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
+      // Uses new data map to prevent side effects on original
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
       metadataChangeLog.setEntityUrn(entityUrn);
       metadataChangeLog.setCreated(auditStamp);

@@ -89,3 +89,4 @@ Here's an overview of what each API can do.
 | Delete a dataset (Soft delete)                          | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md)  | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md) | ✅      |
 | Delete a dataset (Hard delele)                          | 🚫                                                            | ✅ [[Guide]](/docs/api/tutorials/deleting-entities-by-urn.md) | ✅      |
 | Search a dataset                                        | ✅                                                             | ✅                                                            | ✅      |
+

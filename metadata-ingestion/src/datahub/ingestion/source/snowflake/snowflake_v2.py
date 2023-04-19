@@ -326,8 +326,8 @@ class SnowflakeV2Source(
             else:
                 test_report.internal_failure = True
                 test_report.internal_failure_reason = f"{e}"
-        finally:
-            return test_report
+
+        return test_report
 
     @staticmethod
     def check_capabilities(
@@ -531,12 +531,20 @@ class SnowflakeV2Source(
             for db in databases
             for schema in db.schemas
             for table_name in schema.tables
+            if self._is_dataset_pattern_allowed(
+                self.get_dataset_identifier(table_name, schema.name, db.name),
+                SnowflakeObjectDomain.TABLE,
+            )
         ]
         discovered_views: List[str] = [
             self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.views
+            if self._is_dataset_pattern_allowed(
+                self.get_dataset_identifier(table_name, schema.name, db.name),
+                SnowflakeObjectDomain.VIEW,
+            )
         ]
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
@@ -1378,7 +1386,6 @@ class SnowflakeV2Source(
         if not self.report.ignore_start_time_lineage:
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
-        self.report.check_role_grants = self.config.check_role_grants
         self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
