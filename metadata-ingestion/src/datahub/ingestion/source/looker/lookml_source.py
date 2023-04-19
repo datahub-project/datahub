@@ -685,6 +685,7 @@ class LookerRefinementResolver:
     REFINEMENT_PREFIX: str = "+"
     DIMENSIONS = "dimensions"
     MEASURES = "measures"
+    DIMENSION_GROUPS = "dimension_groups"
     NAME = "name"
 
     looker_model: LookerModel
@@ -753,6 +754,16 @@ class LookerRefinementResolver:
         return merge_column
 
     @staticmethod
+    def merge_and_set_column(
+        new_raw_view: dict, refinement_view: dict, key: str
+    ) -> None:
+        merged_column = LookerRefinementResolver.merge_column(
+            new_raw_view, refinement_view, key
+        )
+        if merged_column:
+            new_raw_view[key] = merged_column
+
+    @staticmethod
     def merge_refinement(raw_view: dict, refinement_views: List[dict]) -> dict:
         new_raw_view: dict = {**raw_view}
 
@@ -761,19 +772,18 @@ class LookerRefinementResolver:
             # TODO: low priority: handle additive parameters
             # https://cloud.google.com/looker/docs/lookml-refinements#some_parameters_are_additive
 
-            # Merge dimension
-            merged_dimension = LookerRefinementResolver.merge_column(
+            # Merge Dimension
+            LookerRefinementResolver.merge_and_set_column(
                 new_raw_view, refinement_view, LookerRefinementResolver.DIMENSIONS
             )
-            if merged_dimension:
-                new_raw_view[LookerRefinementResolver.DIMENSIONS] = merged_dimension
-
             # Merge Measure
-            merged_measure = LookerRefinementResolver.merge_column(
+            LookerRefinementResolver.merge_and_set_column(
                 new_raw_view, refinement_view, LookerRefinementResolver.MEASURES
             )
-            if merged_measure:
-                new_raw_view[LookerRefinementResolver.MEASURES] = merged_measure
+            # Merge Dimension Group
+            LookerRefinementResolver.merge_and_set_column(
+                new_raw_view, refinement_view, LookerRefinementResolver.DIMENSION_GROUPS
+            )
 
         return new_raw_view
 
