@@ -92,7 +92,7 @@ public class CacheTest extends JetTestSupport {
             .setPageSize(1)
             .setMetadata(new SearchResultMetadata());
 
-        Sextet<List<String>, String, Filter, SortCriterion, String, Integer>
+        Sextet<List<String>, String, String, String, String, Integer>
             sextet = Sextet.with(List.of(corpuserUrn.toString()), "*", null, null, null, 1);
 
         Cache cache1 = cacheManager1.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
