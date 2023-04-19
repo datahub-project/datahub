@@ -244,7 +244,10 @@ public class CachingEntitySearchService {
       ScrollResult result;
       if (enableCache(flags)) {
         Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "scroll_cache_access").time();
-        Object cacheKey = Sextet.with(entities, query, filters, sortCriterion, scrollId, size);
+        Object cacheKey = Sextet.with(entities, query,
+            filters != null ? toJsonString(filters) : null,
+            sortCriterion != null ? toJsonString(sortCriterion) : null,
+            scrollId, size);
         result = cache.get(cacheKey, ScrollResult.class);
         cacheAccess.stop();
         if (result == null) {

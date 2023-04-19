@@ -11,21 +11,19 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.EntityLineageResultCacheKey;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.javatuples.Quintet;
-import org.javatuples.Triplet;
 import org.springframework.cache.Cache;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import static com.datahub.util.RecordUtils.*;
-import static com.linkedin.metadata.search.utils.GZIPUtil.*;
 
 
 public class CacheTest extends JetTestSupport {
@@ -95,16 +93,17 @@ public class CacheTest extends JetTestSupport {
         Cache cache1 = cacheManager1.getCache("relationshipSearchService");
         Cache cache2 = cacheManager2.getCache("relationshipSearchService");
 
-        Triplet<String, LineageDirection, Integer> triplet = Triplet.with(corpuserUrn.toString(), LineageDirection.DOWNSTREAM, 3);
+        EntityLineageResultCacheKey key = new EntityLineageResultCacheKey(corpuserUrn, LineageDirection.DOWNSTREAM,
+            0L, 1L,1, ChronoUnit.DAYS);
 
-        cache1.put(triplet, cachedEntityLineageResult);
+        cache1.put(key, cachedEntityLineageResult);
 
-        Assert.assertEquals(instance1.getMap("relationshipSearchService").get(triplet),
-            instance2.getMap("relationshipSearchService").get(triplet));
-        CachedEntityLineageResult cachedResult1 = cache1.get(triplet, CachedEntityLineageResult.class);
-        CachedEntityLineageResult cachedResult2 = cache2.get(triplet, CachedEntityLineageResult.class);
+        Assert.assertEquals(instance1.getMap("relationshipSearchService").get(key),
+            instance2.getMap("relationshipSearchService").get(key));
+        CachedEntityLineageResult cachedResult1 = cache1.get(key, CachedEntityLineageResult.class);
+        CachedEntityLineageResult cachedResult2 = cache2.get(key, CachedEntityLineageResult.class);
         Assert.assertEquals(cachedResult1, cachedResult2);
-        Assert.assertEquals(cache1.get(triplet, CachedEntityLineageResult.class), cachedEntityLineageResult);
-        Assert.assertEquals(cache2.get(triplet, CachedEntityLineageResult.class).getEntityLineageResult(), lineageResult);
+        Assert.assertEquals(cache1.get(key, CachedEntityLineageResult.class), cachedEntityLineageResult);
+        Assert.assertEquals(cache2.get(key, CachedEntityLineageResult.class).getEntityLineageResult(), lineageResult);
     }
 }
