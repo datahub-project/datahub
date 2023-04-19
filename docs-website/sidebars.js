@@ -397,63 +397,20 @@ module.exports = {
         },
         {
           "Getting Started: APIs & SDKs": [
-            {
-              "Creating Entities": [
-                "docs/api/tutorials/creating-datasets",
-                "docs/api/tutorials/creating-tags",
-                "docs/api/tutorials/creating-terms",
-                "docs/api/tutorials/creating-users-and-groups",
-                "docs/api/tutorials/creating-domain",
-              ],
-            },
-            {
-              "Reading Entities": [
-                "docs/api/tutorials/reading-tags",
-                "docs/api/tutorials/reading-terms",
-                "docs/api/tutorials/reading-domains",
-                "docs/api/tutorials/reading-owners",
-                "docs/api/tutorials/reading-deprecation",
-              ],
-            },
-            {
-              "Enriching Entities": [
-                "docs/api/tutorials/adding-tags",
-                "docs/api/tutorials/adding-terms",
-                "docs/api/tutorials/adding-domain",
-                "docs/api/tutorials/adding-ownerships",
-                "docs/api/tutorials/adding-dataset-description",
-                "docs/api/tutorials/adding-column-description",
-                "docs/api/tutorials/modifying-dataset-custom-properties",
-                "docs/api/tutorials/adding-lineage",
-                "docs/api/tutorials/update-deprecation",
-              ],
-            },
-            {
-              "Deleting Entities": [
-                "docs/api/tutorials/removing-tags",
-                "docs/api/tutorials/removing-terms",
-                "docs/api/tutorials/removing-owners",
-                "docs/api/tutorials/removing-domains",
-                "docs/api/tutorials/deleting-entities-by-urn",
-              ],
-            },
+            "docs/api/tutorials/modifying-dataset-tags",
+            "docs/api/tutorials/modifying-dataset-terms",
+            "docs/api/tutorials/modifying-dataset-owners",
+            "docs/api/tutorials/modifying-dataset-domains",
+            "docs/api/tutorials/modifying-datasets",
+            "docs/api/tutorials/modifying-dataset-lineage",
+            "docs/api/tutorials/modifying-dataset-deprecation",
+            "docs/api/tutorials/modifying-dataset-descriptions",
+            "docs/api/tutorials/modifying-dataset-custom-properties",
           ],
         },
       ],
     },
-    {
-      "Getting Started: APIs & SDKs": [
-        "docs/api/tutorials/tags",
-        "docs/api/tutorials/terms",
-        "docs/api/tutorials/owners",
-        "docs/api/tutorials/domains",
-        "docs/api/tutorials/datasets",
-        "docs/api/tutorials/lineage",
-        "docs/api/tutorials/deprecation",
-        "docs/api/tutorials/descriptions",
-        "docs/api/tutorials/users-and-groups",
-      ],
-    },
+
     {
       Tools: [
         "docs/cli",

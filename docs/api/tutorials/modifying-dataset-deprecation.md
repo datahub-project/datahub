@@ -1,12 +1,15 @@
-# Update Deprecation
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Why Would You Update Deprecation?
+# Modifying Deprecation
+
+## Why Would You Use Deprecation?
 
 Deprecation indicates the status of an entity. For datasets, keeping the deprecation status up-to-date is important to inform users and downstream systems of changes to the dataset's availability or reliability. By updating the status, you can prevent issues and ensure users have access to the most reliable data.
 
 ### Goal Of This Guide
 
-This guide will show you how to update deprecation status of a dataset `fct_users_created`.
+This guide will show you how to read or update deprecation status of a dataset `fct_users_created`.
 
 ## Prerequisites
 
@@ -19,17 +22,80 @@ If you attempt to manipulate entities that do not exist, your operation will fai
 In this guide, we will be using data from a sample ingestion.
 :::
 
-## Update Deprecation With GraphQL
 
-:::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
-:::
+## Read Deprecation 
 
-### GraphQL Explorer
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
 
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependencies.
-Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
+```json
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)") {
+    deprecation {
+      deprecated
+      decommissionTime
+    }
+  }
+}
+```
+
+If you see the following response, the operation was successful:
+
+```python
+{
+  "data": {
+    "dataset": {
+      "deprecation": {
+        "deprecated": false,
+        "decommissionTime": null
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "{ dataset(urn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\") { deprecation { deprecated decommissionTime } } }", "variables":{} }'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "deprecation": { "deprecated": false, "decommissionTime": null }
+    }
+  },
+  "extensions": {}
+}
+```
+
+
+</TabItem>
+
+<TabItem value="python" label="Python">
+
+> Coming Soon!
+
+</TabItem>
+</Tabs>
+
+
+
+
+## Update Deprecation
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
 
 ```json
 mutation updateDeprecation {
@@ -64,10 +130,9 @@ If you see the following response, the operation was successful:
 }
 ```
 
-### CURL
+</TabItem>
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Access Token Management](/docs/api/graphql/token-management.md).
-With `accessToken`, you can run the following command.
+<TabItem value="curl" label="Curl">
 
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
@@ -82,16 +147,18 @@ Expected Response:
 { "data": { "removeTag": true }, "extensions": {} }
 ```
 
-## Update Deprecation With Python SDK
 
-The following code update deprecation status of a dataset `fct_users_created`.
+</TabItem>
+
+<TabItem value="python" label="Python">
 
 > Coming Soon!
 
-We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
+</TabItem>
+</Tabs>
 
-## Expected Outcomes
+
+### Expected Outcomes of Updating Deprecation
 
 You can now see the dataset `fct_users_created` has been marked as `Deprecated.`
 

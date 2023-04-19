@@ -10,11 +10,11 @@ For more information about tags, refer to [About DataHub Tags](/docs/tags.md).
 
 ### Goal Of This Guide
 
-This guide will show you how to create, add or remove tags on a dataset `fct_users_create`. Here's what each operation means:
-
-- Create: Create tags
-- Add: Add tags to a dataset without affecting existing properties
-- Remove: Removing specific tags from the dataset without affecting other properties
+This guide will show you how to
+- Create: create a tag named `Deprecated`
+- Read: read tags attached to a dataset `SampleHiveDataset`
+- Add: add a `CustomerAccount` tag to the `user_name` column of a dataset called `fct_users_created`.
+- Remove: remove a `Legacy` from the `shipment_info` column of a dataset called `SampleHdfsDataset`.
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ For more information on how to set up for GraphQL, please refer to [How To Set U
 The following code creates a tag `Deprecated`.
 
 <Tabs>
-<TabItem value="graphql" label="GraphQL">
+<TabItem value="graphql" label="GraphQL" default>
 
 ```json
 mutation createTag {
@@ -77,7 +77,7 @@ Expected Response:
 
 </TabItem>
 
-<TabItem value="python" label="Python" default>
+<TabItem value="python" label="Python">
 
 ```python
 {{ inline /metadata-ingestion/examples/library/create_tag.py show_path_as_comment }}
@@ -105,13 +105,112 @@ datahub get --urn "urn:li:tag:deprecated" --aspect tagProperties
 }
 ```
 
+
+## Read Tags 
+
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)") {
+    tags {
+      tags {
+        tag {
+          name
+          urn
+        	properties {
+        	  description
+        	  colorHex
+        	}
+        }
+      }
+    }
+  }
+}
+```
+
+If you see the following response, the operation was successful:
+
+```python
+{
+  "data": {
+    "dataset": {
+      "tags": {
+        "tags": [
+          {
+            "tag": {
+              "name": "Legacy",
+              "urn": "urn:li:tag:Legacy",
+              "properties": {
+                "description": "Indicates the dataset is no longer supported",
+                "colorHex": null,
+                "name": "Legacy"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "{dataset(urn: \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\") {tags {tags {tag {name urn properties { description colorHex } } } } } }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "tags": {
+        "tags": [
+          {
+            "tag": {
+              "name": "Legacy",
+              "urn": "urn:li:tag:Legacy",
+              "properties": {
+                "description": "Indicates the dataset is no longer supported",
+                "colorHex": null
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+> Coming Soon!
+
+</TabItem>
+</Tabs>
+
+
 ## Add Tags
 
 The following code shows you how can add tags to a dataset.
 In the following code, we add a tag `Deprecated` to a dataset named `fct_users_created`.
 
 <Tabs>
-<TabItem value="graphql" label="GraphQL">
+<TabItem value="graphql" label="GraphQL" default>
 
 ```json
 mutation addTags {
@@ -165,7 +264,7 @@ Expected Response:
 ```
 
 </TabItem>
-<TabItem value="python" label="Python" default>
+<TabItem value="python" label="Python">
 
 ```python
 {{ inline /metadata-ingestion/examples/library/create_tag.py show_path_as_comment }}
@@ -193,7 +292,7 @@ The following code remove a tag from a dataset.
 After running this code, `Deprecated` tag will be removed from a `user_name` column.
 
 <Tabs>
-<TabItem value="graphql" label="GraphQL">
+<TabItem value="graphql" label="GraphQL" default>
 
 ```json
 mutation removeTag {
@@ -217,7 +316,7 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 ```
 
 </TabItem>
-<TabItem value="python" label="Python" default>
+<TabItem value="python" label="Python">
 
 > Coming Soon!
 
