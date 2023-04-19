@@ -1042,7 +1042,7 @@ public class EntityService {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
       // Uses new data map to prevent side effects on original
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(new DataMap(mcp.data()));
       metadataChangeLog.setEntityUrn(entityUrn);
       metadataChangeLog.setCreated(auditStamp);
       metadataChangeLog.setChangeType(isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT);
