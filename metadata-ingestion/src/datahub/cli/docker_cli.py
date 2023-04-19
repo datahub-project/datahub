@@ -870,9 +870,7 @@ def download_compose_files(
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
     if kafka_setup:
-        kafka_setup_github_file = (
-            f"{DOCKER_COMPOSE_BASE}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
-        )
+        kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
 
         default_kafka_compose_file = (
             Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
