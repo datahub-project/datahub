@@ -1,4 +1,4 @@
-namespace com.linkedin.common
+namespace com.datahub.test
 
 /**
  * Shared aspect containing Container Paths to be indexed for an entity.
@@ -13,5 +13,11 @@ record ContainerPath {
    * Container paths are stored in elasticsearch as unit-separator delimited strings and only include platform specific folders or containers.
    * These paths should not include high level info captured elsewhere ie. Platform and Environment.
    */
+   @Searchable = {
+    "/*/id": {
+      "fieldName": "containerPath",
+      "fieldType": "CONTAINER_PATH",
+    }
+  }
   path: array[ContainerPathEntry]
 }

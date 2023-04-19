@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.transformer;
 
 import com.datahub.test.TestEntitySnapshot;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -52,6 +53,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(browsePaths.get(1).asText(), "d/e/f");
     assertEquals(parsedJson.get("feature1").asInt(), 2);
     assertEquals(parsedJson.get("feature2").asInt(), 1);
+    JsonNode containerPath = (JsonNode) parsedJson.get("containerPath");
+    assertEquals(containerPath.asText(), "␟levelOne␟levelTwo");
   }
 
   @Test
