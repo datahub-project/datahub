@@ -54,7 +54,6 @@ emitter = DatahubRestEmitter("http://localhost:8080")
 # Emit metadata!
 emitter.emit_mce(lineage_mce)
 ```
-
 For more information on adding lineages, please refer to [how to add lineage on a dataset using PythonSDK](/docs/api/tutorials/adding-lineage.md#add-lineage-with-python-sdk).
 
 ### Add custom properties
@@ -62,24 +61,10 @@ For more information on adding lineages, please refer to [how to add lineage on 
 You can also set custom properties using the following code:
 
 ```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_custom_properties.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_properties.py show_path_as_comment }}
 ```
 
-Note that this code checks the existing custom properties of the target dataset and updates them.
-If you want to overwrite the current ones, you can simply comment out this part:
-
-```python
-dataset_properties_class = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=DatasetPropertiesClass
-)
-if dataset_properties_class:
-    existing_custom_properties = dataset_properties_class.customProperties
-    custom_properties_to_add.update(existing_custom_properties)
-```
-
-This will create custom properties like the ones shown below as an outcome.
-
-![custom-properties-added](../../imgs/apis/tutorials/custom-properties-added.png)
+For more information on adding custom properties, please refer to [Modifying Custom Properties on Datasets](/docs/api/tutorials/modifying-dataset-custom-properties.md)
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
 For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md).
