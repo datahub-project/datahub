@@ -373,7 +373,9 @@ class SnowflakeLineageExtractor(
         upstream_name = self.get_dataset_identifier_from_qualified_name(
             upstream_table["upstream_object_name"]
         )
-        if upstream_name:
+        if upstream_name and self._is_dataset_pattern_allowed(
+            upstream_name, upstream_table["upstream_object_domain"], is_upstream=True
+        ):
             upstreams.append(
                 UpstreamClass(
                     dataset=builder.make_dataset_urn_with_platform_instance(
@@ -480,7 +482,15 @@ class SnowflakeLineageExtractor(
     ) -> List[str]:
         column_upstreams = []
         for upstream_col in fine_upstream.inputColumns:
-            if upstream_col.objectName and upstream_col.columnName:
+            if (
+                upstream_col.objectName
+                and upstream_col.columnName
+                and self._is_dataset_pattern_allowed(
+                    upstream_col.objectName,
+                    upstream_col.objectDomain,
+                    is_upstream=True,
+                )
+            ):
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
                     upstream_col.objectName
                 )

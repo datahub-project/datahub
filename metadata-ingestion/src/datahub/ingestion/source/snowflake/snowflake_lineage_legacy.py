@@ -438,7 +438,13 @@ class SnowflakeLineageExtractor(
         upstream_table_name = self.get_dataset_identifier_from_qualified_name(
             db_row["UPSTREAM_TABLE_NAME"]
         )
-        if not self._is_dataset_pattern_allowed(key, SnowflakeObjectDomain.TABLE):
+        if not self._is_dataset_pattern_allowed(
+            key, SnowflakeObjectDomain.TABLE
+        ) or not (
+            self._is_dataset_pattern_allowed(
+                upstream_table_name, SnowflakeObjectDomain.TABLE, is_upstream=True
+            )
+        ):
             return
         self._lineage_map[key].update_lineage(
             # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
@@ -489,6 +495,8 @@ class SnowflakeLineageExtractor(
         if not self._is_dataset_pattern_allowed(
             dataset_name=view_name,
             dataset_type=db_row["REFERENCING_OBJECT_DOMAIN"],
+        ) or not self._is_dataset_pattern_allowed(
+            view_upstream, db_row["REFERENCED_OBJECT_DOMAIN"], is_upstream=True
         ):
             return
             # key is the downstream view name
@@ -542,6 +550,8 @@ class SnowflakeLineageExtractor(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
         if not self._is_dataset_pattern_allowed(
+            view_name, db_row["VIEW_DOMAIN"], is_upstream=True
+        ) or not self._is_dataset_pattern_allowed(
             downstream_table, db_row["DOWNSTREAM_TABLE_DOMAIN"]
         ):
             return
@@ -637,7 +647,13 @@ class SnowflakeLineageExtractor(
     ) -> List[str]:
         column_upstreams = []
         for upstream_col in fine_upstream.inputColumns:
-            if upstream_col.objectName and upstream_col.columnName:
+            if (
+                upstream_col.objectName
+                and upstream_col.columnName
+                and self._is_dataset_pattern_allowed(
+                    upstream_col.objectName, upstream_col.objectDomain, is_upstream=True
+                )
+            ):
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
                     upstream_col.objectName
                 )
