@@ -21,9 +21,13 @@ import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.javatuples.Quintet;
+import org.javatuples.Sextet;
 import org.springframework.cache.Cache;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import static com.datahub.util.RecordUtils.*;
+import static com.linkedin.metadata.search.client.CachingEntitySearchService.*;
 
 
 public class CacheTest extends JetTestSupport {
@@ -75,6 +79,35 @@ public class CacheTest extends JetTestSupport {
         Assert.assertEquals(instance1.getMap("test").get(quintet), instance2.getMap("test").get(quintet));
         Assert.assertEquals(cacheableSearcher1.getSearchResults(0, 1), searchResult);
         Assert.assertEquals(cacheableSearcher1.getSearchResults(0, 1), cacheableSearcher2.getSearchResults(0, 1));
+    }
+
+    @Test
+    public void hazelcastTestScroll() {
+        CorpuserUrn corpuserUrn = new CorpuserUrn("user");
+        SearchEntity searchEntity = new SearchEntity().setEntity(corpuserUrn);
+        SearchResult searchResult = new SearchResult()
+            .setEntities(new SearchEntityArray(List.of(searchEntity)))
+            .setNumEntities(1)
+            .setFrom(0)
+            .setPageSize(1)
+            .setMetadata(new SearchResultMetadata());
+
+        Sextet<List<String>, String, Filter, SortCriterion, String, Integer>
+            sextet = Sextet.with(List.of(corpuserUrn.toString()), "*", null, null, null, 1);
+
+        Cache cache1 = cacheManager1.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
+        Cache cache2 = cacheManager2.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
+
+        // Cache result
+        String json = toJsonString(searchResult);
+        cache1.put(sextet, json);
+        Assert.assertEquals(instance1.getMap(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME).get(sextet),
+            instance2.getMap(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME).get(sextet));
+        String cachedResult1 = cache1.get(sextet, String.class);
+        String cachedResult2 = cache2.get(sextet, String.class);
+        Assert.assertEquals(cachedResult1, cachedResult2);
+        Assert.assertEquals(cache1.get(sextet, String.class), json);
+        Assert.assertEquals(cache2.get(sextet, String.class), json);
     }
 
     @Test
