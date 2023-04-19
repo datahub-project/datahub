@@ -1,4 +1,3 @@
-import json
 from typing import Dict, Iterable, List, Optional, Union
 
 import pydantic
@@ -28,13 +27,12 @@ from datahub.ingestion.source.amplitude.dataclasses import (
     ProjectKey,
 )
 from datahub.ingestion.source.amplitude.utils import (
-    FIELD_TYPE_MAPPING,
+    AmplitudeFieldTypeMapping,
     MetadataIngestionException,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    NullTypeClass,
     OtherSchema,
     SchemaField,
     SchemaFieldDataType,
@@ -46,7 +44,7 @@ from datahub.utilities import config_clean
 
 class AmplitudeProjectConfig(ConfigModel):
     name: str = Field(description="The name of the Amplitude project")
-    description: str = Field(default=None, description="A description of the project")
+    description: str = Field(description="A description of the project")
     api_key: pydantic.SecretStr = Field(description="The project API key")
     secret_key: pydantic.SecretStr = Field(description="The project API secret key")
 
@@ -55,7 +53,7 @@ class AmplitudeConfig(ConfigModel):
     connect_uri: str = Field(
         default="https://amplitude.com/api/2", description="Amplitude API endpoint"
     )
-    projects: list[AmplitudeProjectConfig] = Field(
+    projects: List[AmplitudeProjectConfig] = Field(
         description="Config for an Amplitude project"
     )
 
@@ -95,8 +93,8 @@ class AmplitudeSource(Source):
 
     def build_project_from_config(
         self, config: AmplitudeProjectConfig
-    ) -> Optional[AmplitudeProject]:
-        project: Optional[AmplitudeProject] = self.map_config_project_values(config)
+    ) -> AmplitudeProject:
+        project: AmplitudeProject = self.map_config_project_values(config)
         return project
 
     def generate_project_key(self, project: AmplitudeProject) -> ProjectKey:
@@ -110,7 +108,7 @@ class AmplitudeSource(Source):
         data: Optional[Dict],
         api_key: pydantic.SecretStr,
         secret_key: pydantic.SecretStr,
-    ) -> json:
+    ) -> Dict:
         try:
             assert api_key.get_secret_value().strip(), "Project api_key is required"
             assert (
@@ -128,6 +126,7 @@ class AmplitudeSource(Source):
             return response.json()
         except (AssertionError, HTTPError) as error:
             self.report.report_failure(key=f"{endpoint}", reason=f"Error: {error}")
+        return {}
 
     @staticmethod
     def map_config_project_values(
@@ -140,28 +139,23 @@ class AmplitudeSource(Source):
             user_properties=[],
         )
 
-    def map_project_event_values(self, events: json, project: AmplitudeProject):
-        event_data: List[Dict] = events.get("data")
-        if event_data:
-            for event in event_data:
-                project.events.append(
-                    AmplitudeEvent(
-                        event_type=event["event_type"],
-                        category=event["category"],
-                        description=event["description"],
-                        properties=[],
-                    )
+    @staticmethod
+    def map_project_event_values(events: Dict, project: AmplitudeProject) -> None:
+        for event in events["data"]:
+            project.events.append(
+                AmplitudeEvent(
+                    event_type=event["event_type"],
+                    category=event["category"],
+                    description=event["description"],
+                    properties=[],
                 )
-        else:
-            self.report.report_warning(
-                key="Map project events", reason=f"No events for project {project.name}"
             )
 
     @staticmethod
     def map_project_user_properties_values(
-        user_properties: json, project: AmplitudeProject
-    ):
-        user_properties_data: List[Dict] = user_properties.get("data")
+        user_properties: Dict, project: AmplitudeProject
+    ) -> None:
+        user_properties_data: List[Dict] = user_properties["data"]
         if user_properties_data:
             for user_prop in user_properties_data:
                 project.user_properties.append(
@@ -176,11 +170,10 @@ class AmplitudeSource(Source):
                 )
 
     def get_event_category(self, event: AmplitudeEvent) -> str:
-        try:
-            event_category = event.category
-            category_name = event_category["name"]
+        if event.category:
+            category_name: str = event.category["name"]
             return category_name
-        except TypeError:
+        else:
             self.report.report_warning(
                 key="Get event category",
                 reason=f"Event {event.event_type} has no category, assigning empty value",
@@ -197,7 +190,7 @@ class AmplitudeSource(Source):
         if events:
             for event in events:
                 event_type_dict: Dict = {"event_type": event.event_type}
-                event_properties: json = self.make_get_request(
+                event_properties: Dict = self.make_get_request(
                     endpoint=endpoint,
                     data=event_type_dict,
                     api_key=project_config.api_key,
@@ -236,7 +229,7 @@ class AmplitudeSource(Source):
         project: AmplitudeProject,
         project_config: AmplitudeProjectConfig,
     ) -> None:
-        events: json = self.make_get_request(
+        events: Dict = self.make_get_request(
             endpoint=endpoint,
             data=None,
             api_key=project_config.api_key,
@@ -297,33 +290,40 @@ class AmplitudeSource(Source):
         self, project: AmplitudeProject
     ) -> Iterable[MetadataWorkUnit]:
         project_container_key = self.generate_project_key(project)
-        events: Optional[List[AmplitudeEvent]] = project.get_events()
-        for event in events:
-            event_metadata = self.map_properties_metadata_for_event_schema(event)
-            event_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=self.platform, name=event.event_type, platform_instance=None
-            )
-            dataset_snapshot = DatasetSnapshot(urn=event_urn, aspects=[])
-            dataset_snapshot.aspects.append(event_metadata)
+        events: List[AmplitudeEvent] = project.get_events()
+        if events:
+            for event in events:
+                event_metadata = self.map_properties_metadata_for_event_schema(event)
+                event_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=event.event_type,
+                    platform_instance=None,
+                )
+                dataset_snapshot = DatasetSnapshot(urn=event_urn, aspects=[])
+                dataset_snapshot.aspects.append(event_metadata)
 
-            # dataset properties
-            dataset_properties = DatasetPropertiesClass(
-                name=event.event_type,
-                description=event.description,
-                customProperties={"event_category": self.get_event_category(event)},
-            )
-            dataset_snapshot.aspects.append(dataset_properties)
+                # dataset properties
+                dataset_properties = DatasetPropertiesClass(
+                    name=event.event_type,
+                    description=event.description,
+                    customProperties={"event_category": self.get_event_category(event)},
+                )
+                dataset_snapshot.aspects.append(dataset_properties)
 
-            event_workunits = add_entity_to_container(
-                container_key=project_container_key,
-                entity_type="dataset",
-                entity_urn=dataset_snapshot.urn,
-            )
+                event_workunits = add_entity_to_container(
+                    container_key=project_container_key,
+                    entity_type="dataset",
+                    entity_urn=dataset_snapshot.urn,
+                )
 
-            for wu in event_workunits:
-                self.report.report_workunit(wu)
-                yield wu
-            yield self.get_metadata_change_event(dataset_snapshot)
+                for wu in event_workunits:
+                    self.report.report_workunit(wu)
+                    yield wu
+                yield self.get_metadata_change_event(dataset_snapshot)
+        else:
+            self.report.report_failure(
+                key="Emit events to project", reason="No events to add to project"
+            )
 
     def emit_user_properties_to_project(
         self, project: AmplitudeProject
@@ -364,17 +364,18 @@ class AmplitudeSource(Source):
 
     def map_properties_metadata_for_event_schema(
         self, event: AmplitudeEvent
-    ) -> Optional[SchemaMetadata]:
+    ) -> Union[SchemaMetadata]:
         fields: List = []
         schema_name: str = event.event_type
-        prop: Optional[List[AmplitudeEventProperties]] = event.get_properties()
+        prop: List[AmplitudeEventProperties] = event.get_properties()
         for p in prop:
             data_type = "string"
-            TypeClass = FIELD_TYPE_MAPPING.get(p.type, NullTypeClass)
 
             schema_field = SchemaField(
                 fieldPath=p.event_property,
-                type=SchemaFieldDataType(type=TypeClass()),
+                type=SchemaFieldDataType(
+                    type=AmplitudeFieldTypeMapping.get_field_type(p.type)
+                ),
                 nativeDataType=data_type,
                 description=p.description,
             )
@@ -392,19 +393,18 @@ class AmplitudeSource(Source):
 
     def map_user_properties_metadata_for_user_properties_schema(
         self, project: AmplitudeProject
-    ) -> Optional[SchemaMetadata]:
+    ) -> Union[SchemaMetadata]:
         fields: List = []
         schema_name: str = "user_properties"
-        user_props: Optional[
-            List[AmplitudeUserProperty]
-        ] = project.get_user_properties()
+        user_props: List[AmplitudeUserProperty] = project.get_user_properties()
         for user_prop in user_props:
             data_type = "string"
-            TypeClass = FIELD_TYPE_MAPPING.get(user_prop.type, NullTypeClass)
 
             schema_field = SchemaField(
                 fieldPath=user_prop.user_property,
-                type=SchemaFieldDataType(type=TypeClass()),
+                type=SchemaFieldDataType(
+                    type=AmplitudeFieldTypeMapping.get_field_type(user_prop.type)
+                ),
                 nativeDataType=data_type,
                 description=user_prop.description,
             )

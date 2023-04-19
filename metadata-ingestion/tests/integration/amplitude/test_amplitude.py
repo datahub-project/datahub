@@ -41,9 +41,9 @@ class MockResponse:
             self.json_data = j_data
         return self
 
-    def raise_for_status(self):
-        if self.json_data.get("success"):
-            return 200
+    @staticmethod
+    def raise_for_status():
+        return 200
 
 
 def mock_request(*args, **kwargs):

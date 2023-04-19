@@ -27,9 +27,9 @@ class AmplitudeEvent:
     event_type: str
     category: Optional[Dict]
     description: Optional[str]
-    properties: Optional[List[AmplitudeEventProperties]]
+    properties: List[AmplitudeEventProperties]
 
-    def get_properties(self) -> Optional[List[AmplitudeEventProperties]]:
+    def get_properties(self) -> List[AmplitudeEventProperties]:
         return self.properties
 
 
@@ -47,11 +47,11 @@ class AmplitudeUserProperty:
 class AmplitudeProject:
     name: str
     description: str
-    events: Optional[List[AmplitudeEvent]]
-    user_properties: Optional[List[AmplitudeUserProperty]]
+    events: List[AmplitudeEvent]
+    user_properties: List[AmplitudeUserProperty]
 
-    def get_events(self) -> Optional[List[AmplitudeEvent]]:
+    def get_events(self) -> List[AmplitudeEvent]:
         return self.events
 
-    def get_user_properties(self) -> Optional[List[AmplitudeUserProperty]]:
+    def get_user_properties(self) -> List[AmplitudeUserProperty]:
         return self.user_properties
