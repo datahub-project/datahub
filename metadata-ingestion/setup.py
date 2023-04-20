@@ -25,7 +25,8 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    "pydantic>=1.5.1,!=1.10.3",
+    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
+    "pydantic>=1.5.1,!=1.10.3,<2",
     "mixpanel>=4.9.0",
 }
 
