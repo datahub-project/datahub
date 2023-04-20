@@ -9,13 +9,16 @@ module.exports = {
 
   overviewSidebar: [
     {
-      "Getting Started": [
+      label: "Getting Started",
+      type: "category",
+      collapsed: true,
+      items: [
         // By the end of this section, readers should understand the core use cases that DataHub addresses,
         // target end-users, high-level architecture, & hosting options
         {
-            type: "doc",
-            label: "Introduction",
-            id: "docs/features",
+          type: "doc",
+          label: "Introduction",
+          id: "docs/features",
         },
         {
           type: "doc",
@@ -32,16 +35,16 @@ module.exports = {
       ],
     },
     {
-      "Integration": [
+      Integration: [
         // The purpose of this section is to provide a deeper understanding of how ingestion works.
         // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
         // and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
-       {
-        type: "doc",
-        label: "Introduction",
-        id: "metadata-ingestion/README",
-       },
-       {
+        {
+          type: "doc",
+          label: "Introduction",
+          id: "metadata-ingestion/README",
+        },
+        {
           "Quickstart Guides": [
             {
               BigQuery: [
@@ -135,7 +138,7 @@ module.exports = {
       ],
     },
     {
-      "Deployment": [
+      Deployment: [
         // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
         "docs/deploy/aws",
         "docs/deploy/gcp",
@@ -190,7 +193,7 @@ module.exports = {
       ],
     },
     {
-    "API" : [
+      API: [
         "docs/api/datahub-apis",
         {
           "GraphQL API": [
@@ -350,18 +353,14 @@ module.exports = {
         {
           type: "category",
           label: "Datahub CLI",
-          items:
-            [
-              "docs/cli",
-              "docs/datahub_lite"
-            ]
+          items: ["docs/cli", "docs/datahub_lite"],
         },
         {
           type: "category",
           label: "Datahub Actions",
           link: { type: "doc", id: "docs/act-on-metadata" },
           items: [
-             "docs/actions/README",
+            "docs/actions/README",
             "docs/actions/quickstart",
             "docs/actions/concepts",
             {
@@ -398,10 +397,10 @@ module.exports = {
             },
           ],
         },
-    ]
+      ],
     },
-        {
-      "Features": [
+    {
+      Features: [
         "docs/ui-ingestion",
         "docs/how/search",
         "docs/schema-history",
@@ -424,8 +423,8 @@ module.exports = {
         "docs/act-on-metadata/impact-analysis",
       ],
     },
-        {
-      "Develop": [
+    {
+      Develop: [
         // The purpose of this section is to provide developers & technical users with
         // concrete tutorials for how to work with the DataHub CLI & APIs
         {
@@ -470,7 +469,7 @@ module.exports = {
         },
         "docs/plugins",
         {
-          "Troubleshooting": [
+          Troubleshooting: [
             "docs/troubleshooting/quickstart",
             "docs/troubleshooting/build",
             "docs/troubleshooting/general",
@@ -494,7 +493,7 @@ module.exports = {
       ],
     },
     {
-      "Community": [
+      Community: [
         "docs/slack",
         "docs/townhalls",
         "docs/townhall-history",
