@@ -4,6 +4,7 @@ connection: "db-connection"
 include: "/views/book.view"
 include: "/views/book_refinement_2.view"
 include: "/views/extend_book.view"
+include: "/views/order.view"
 
 datagroup: model_default_datagroup {
   # sql_trigger: SELECT MAX(id) FROM etl_log;;
@@ -12,7 +13,13 @@ datagroup: model_default_datagroup {
 
 persist_with: model_default_datagroup
 
+explore: order {}
+
 explore: book {}
+
+explore: +book {
+  extends: [order]
+}
 
 explore: extend_book {}
 

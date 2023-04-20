@@ -1,5 +1,6 @@
 import logging
 import pathlib
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
@@ -12,6 +13,8 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.lookml_source import (
+    LookerModel,
+    LookerRefinementResolver,
     LookMLSource,
     LookMLSourceConfig,
 )
@@ -112,7 +115,6 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
-    """Test backwards compatibility with previous form of config with new flags turned off"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "refinement_include_order_mces_output.json"
 
@@ -139,6 +141,36 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
+    looker_model = LookerModel(
+        explores=[
+            {
+                "name": "book",
+            },
+            {"name": "+book", "extends__all": [["order"]]},
+        ],
+        connection=str(),
+        resolved_includes=[],
+        includes=[],
+    )
+
+    refinement_resolver = LookerRefinementResolver(
+        looker_model=looker_model,
+        looker_viewfile_loader=None,  # type: ignore
+        reporter=None,  # type: ignore
+        source_config=SimpleNamespace(process_refinements=True),  # type: ignore
+        connection_definition=None,  # type: ignore
+    )
+
+    new_explore: dict = refinement_resolver.apply_explore_refinement(
+        looker_model.explores[0]
+    )
+
+    assert new_explore.get("extends") is not None
+    assert new_explore["extends"][0] == "order"
 
 
 @freeze_time(FROZEN_TIME)

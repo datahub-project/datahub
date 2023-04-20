@@ -675,7 +675,7 @@ class LookerViewFileLoader:
 
 class LookerRefinementResolver:
     """
-    Refinement is a way to adapt an existing view or explore.
+    Refinements are a way to "edit" an existing view or explore.
     Refer: https://cloud.google.com/looker/docs/lookml-refinements
 
     A refinement to an existing view/explore is only applied if it's refinement is reachable from include files in a model.
@@ -687,15 +687,20 @@ class LookerRefinementResolver:
     MEASURES = "measures"
     DIMENSION_GROUPS = "dimension_groups"
     NAME = "name"
+    EXTENDS = "extends"
+    EXTENDS_ALL = "extends__all"
 
     looker_model: LookerModel
     looker_viewfile_loader: LookerViewFileLoader
     connection_definition: LookerConnectionDefinition
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
-    refinement_cache: Dict[
+    view_refinement_cache: Dict[
         str, dict
     ]  # looker view-name vs it is original view with applied refinement
+    explore_refinement_cache: Dict[
+        str, dict
+    ]  # looker explore-name vs it is original explore with applied refinement
 
     def __init__(
         self,
@@ -710,7 +715,8 @@ class LookerRefinementResolver:
         self.connection_definition = connection_definition
         self.source_config = source_config
         self.reporter = reporter
-        self.refinement_cache = {}
+        self.view_refinement_cache = {}
+        self.explore_refinement_cache = {}
 
     @staticmethod
     def is_refinement(view_name: str) -> bool:
@@ -787,14 +793,18 @@ class LookerRefinementResolver:
 
         return new_raw_view
 
-    def get_refinement_from_looker_view_file(
-        self, looker_view_file: LookerViewFile, view_name: str
+    def get_refinement_from_view_list(
+        self, views: List[dict], view_name: str
     ) -> List[dict]:
+        """
+        Refinement syntax for view and explore are same.
+        This function can be used to filter out view/explore refinement from raw dictionary list
+        """
         refined_view: str = self.REFINEMENT_PREFIX + view_name
         refined_views: List[dict] = []
 
-        for raw_view in looker_view_file.views:
-            if refined_view == raw_view["name"]:
+        for raw_view in views:
+            if refined_view == raw_view[LookerRefinementResolver.NAME]:
                 refined_views.append(raw_view)
 
         return refined_views
@@ -814,29 +824,36 @@ class LookerRefinementResolver:
                 continue
 
             refined_views.extend(
-                self.get_refinement_from_looker_view_file(
-                    included_looker_viewfile, view_name
+                self.get_refinement_from_view_list(
+                    included_looker_viewfile.views, view_name
                 )
             )
 
         return refined_views
 
+    def skip_processing(self, raw_view_name: str) -> bool:
+        if LookerRefinementResolver.is_refinement(raw_view_name):
+            return True
+
+        if self.source_config.process_refinements is False:
+            return True
+
+        return False
+
     def apply_view_refinement(self, raw_view: dict) -> dict:
         """
         Looker process the lkml file in include order and merge the all refinement to original view.
         """
-        raw_view_name: str = raw_view["name"]
+        assert raw_view.get(LookerRefinementResolver.NAME) is not None
 
-        if LookerRefinementResolver.is_refinement(raw_view_name):
-            # It is refinement no need to process
+        raw_view_name: str = raw_view[LookerRefinementResolver.NAME]
+
+        if self.skip_processing(raw_view_name):
             return raw_view
 
-        if self.source_config.process_refinements is False:
-            return raw_view
-
-        if raw_view_name in self.refinement_cache:
+        if raw_view_name in self.view_refinement_cache:
             logger.debug(f"Returning applied refined view {raw_view_name} from cache")
-            return self.refinement_cache[raw_view_name]
+            return self.view_refinement_cache[raw_view_name]
 
         logger.debug(f"Processing refinement for view {raw_view_name}")
 
@@ -844,11 +861,58 @@ class LookerRefinementResolver:
             raw_view_name
         )
 
-        self.refinement_cache[raw_view_name] = self.merge_refinement(
+        self.view_refinement_cache[raw_view_name] = self.merge_refinement(
             raw_view, refinement_views
         )
 
-        return self.refinement_cache[raw_view_name]
+        return self.view_refinement_cache[raw_view_name]
+
+    @staticmethod
+    def add_extended_explore(raw_view: dict, refinement_views: List[Dict]) -> None:
+        extended_explores: Set[str] = set()
+        for view in refinement_views:
+            extends = list(
+                itertools.chain.from_iterable(
+                    view.get(
+                        LookerRefinementResolver.EXTENDS,
+                        view.get(LookerRefinementResolver.EXTENDS_ALL, []),
+                    )
+                )
+            )
+            extended_explores.update(extends)
+
+        if extended_explores:  # if it is not empty then add to the original view
+            raw_view[LookerRefinementResolver.EXTENDS] = list(extended_explores)
+
+    def apply_explore_refinement(self, raw_view: dict) -> dict:
+        """
+        In explore refinement `extends` parameter is additive.
+        Refer looker refinement document: https://cloud.google.com/looker/docs/lookml-refinements#additive
+        """
+        assert raw_view.get(LookerRefinementResolver.NAME) is not None
+
+        raw_view_name: str = raw_view[LookerRefinementResolver.NAME]
+
+        if self.skip_processing(raw_view_name):
+            return raw_view
+
+        if raw_view_name in self.explore_refinement_cache:
+            logger.debug(
+                f"Returning applied refined explore {raw_view_name} from cache"
+            )
+            return self.explore_refinement_cache[raw_view_name]
+
+        logger.debug(f"Processing refinement for explore {raw_view_name}")
+
+        refinement_explore: List[dict] = self.get_refinement_from_view_list(
+            self.looker_model.explores, raw_view_name
+        )
+
+        self.add_extended_explore(raw_view, refinement_explore)
+
+        self.explore_refinement_cache[raw_view_name] = raw_view
+
+        return self.explore_refinement_cache[raw_view_name]
 
 
 VIEW_LANGUAGE_LOOKML: str = "lookml"
@@ -1919,10 +1983,24 @@ class LookMLSource(StatefulIngestionSourceBase):
                 continue
 
             explore_reachable_views: Set[ProjectInclude] = set()
+            looker_refinement_resolver: LookerRefinementResolver = (
+                LookerRefinementResolver(
+                    looker_model=model,
+                    connection_definition=connectionDefinition,
+                    looker_viewfile_loader=viewfile_loader,
+                    source_config=self.source_config,
+                    reporter=self.reporter,
+                )
+            )
             if self.source_config.emit_reachable_views_only:
                 model_explores_map = {d["name"]: d for d in model.explores}
                 for explore_dict in model.explores:
                     try:
+                        explore_dict = (
+                            looker_refinement_resolver.apply_explore_refinement(
+                                explore_dict
+                            )
+                        )
                         explore: LookerExplore = LookerExplore.from_dict(
                             model_name,
                             explore_dict,
@@ -1948,16 +2026,6 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             project_name = self.get_project_name(model_name)
             logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")
-
-            looker_refinement_resolver: LookerRefinementResolver = (
-                LookerRefinementResolver(
-                    looker_model=model,
-                    connection_definition=connectionDefinition,
-                    looker_viewfile_loader=viewfile_loader,
-                    source_config=self.source_config,
-                    reporter=self.reporter,
-                )
-            )
 
             for include in model.resolved_includes:
                 logger.debug(f"Considering {include} for model {model_name}")
