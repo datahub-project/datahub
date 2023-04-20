@@ -2009,6 +2009,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 model_explores_map = {d["name"]: d for d in model.explores}
                 for explore_dict in model.explores:
                     try:
+                        if LookerRefinementResolver.is_refinement(explore_dict["name"]):
+                            continue
+
                         explore_dict = (
                             looker_refinement_resolver.apply_explore_refinement(
                                 explore_dict
