@@ -21,6 +21,7 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.validator.Validator;
@@ -1042,7 +1043,7 @@ public class EntityService {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
       // Uses new data map to prevent side effects on original
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(new DataMap(mcp.data()));
       metadataChangeLog.setEntityUrn(entityUrn);
       metadataChangeLog.setCreated(auditStamp);
       metadataChangeLog.setChangeType(isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT);
