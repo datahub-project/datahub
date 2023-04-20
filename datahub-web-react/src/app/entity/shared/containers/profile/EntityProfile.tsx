@@ -82,6 +82,7 @@ const ContentContainer = styled.div`
     height: auto;
     min-height: 100%;
     flex: 1;
+    min-width: 0;
 `;
 
 const HeaderAndTabs = styled.div`

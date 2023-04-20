@@ -22,6 +22,7 @@ interface Props {
 
 export default function AutoCompleteItem({ query, entity }: Props) {
     const entityRegistry = useEntityRegistry();
+    const displayTooltip = getShouldDisplayTooltip(entity, entityRegistry);
     let componentToRender: React.ReactNode = null;
 
     switch (entity.type) {
@@ -32,11 +33,9 @@ export default function AutoCompleteItem({ query, entity }: Props) {
             componentToRender = <AutoCompleteTag tag={entity as Tag} />;
             break;
         default:
-            componentToRender = <AutoCompleteEntity query={query} entity={entity} />;
+            componentToRender = <AutoCompleteEntity query={query} entity={entity} hasParentTooltip={displayTooltip} />;
             break;
     }
-
-    const displayTooltip = getShouldDisplayTooltip(entity, entityRegistry);
 
     return (
         <Tooltip
