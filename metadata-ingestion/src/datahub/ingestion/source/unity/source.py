@@ -191,8 +191,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from self.process_metastores()
 
     def build_service_principal_map(self) -> None:
-        for sp in self.unity_catalog_api_proxy.service_principals():
-            self.service_principals[sp.application_id] = sp
+        try:
+            for sp in self.unity_catalog_api_proxy.service_principals():
+                self.service_principals[sp.application_id] = sp
+        except Exception as e:
+            self.report.report_warning(
+                "service-principals", f"Unable to fetch service principals: {e}"
+            )
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastores: Dict[str, Metastore] = {}
