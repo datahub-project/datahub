@@ -1,13 +1,17 @@
-# Adding Lineage
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Why Would You Add Lineage?
+# Modifying Lineages
+
+## Why Would You Use Lineage?
 
 Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
 For more information about lineage, refer to [About DataHub Lineage](/docs/lineage/lineage-feature-guide.md).
 
 ### Goal Of This Guide
 
-This guide will show you how to add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
+This guide will show you how to 
+* Add: add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
 
 ## Prerequisites
 
@@ -20,17 +24,12 @@ If you attempt to manipulate entities that do not exist, your operation will fai
 In this guide, we will be using data from sample ingestion.
 :::
 
-## Add Lineage With GraphQL
+## Add Lineage 
 
-:::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access `graphql`.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
-:::
 
-### GraphQL Explorer
-
-GraphQL Explorer is the fastest way to experiment with `graphql` without any dependencies.
-Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+avigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json
 mutation updateLineage {
@@ -83,11 +82,8 @@ If you see the following response, the operation was successful:
   "extensions": {}
 }
 ```
-
-### CURL
-
-With CURL, you need to provide tokens. To generate a token, please refer to [Access Token Management](/docs/api/graphql/token-management.md).
-With `accessToken`, you can run the following command.
+</TabItem>
+<TabItem value="curl" label="Curl">
 
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
@@ -100,19 +96,18 @@ Expected Response:
 ```json
 { "data": { "updateLineage": true }, "extensions": {} }
 ```
-
-## Add Lineage With Python SDK
-
-You can refer to the related code in [lineage_emitter_rest.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_rest.py).
+</TabItem>
+<TabItem value="python" label="Python">
 
 ```python
 {{ inline /metadata-ingestion/examples/library/lineage_emitter_rest.py show_path_as_comment }}
 ```
 
-We're using the `MetdataChangeEvent` emitter to change entities in this example.
-For more information about the `MetadataChangeEvent`, please refer to [Metadata Change Event (MCE)](/docs/what/mxe.md#metadata-change-event-mce)
+</TabItem>
+</Tabs>
 
-## Expected Outcomes
+
+### Expected Outcomes of Adding Lineage
 
 You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
