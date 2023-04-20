@@ -10,13 +10,14 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    InstitutionalMemoryClass,
-    EditableSchemaMetadataClass,
     EditableSchemaFieldInfoClass,
+    EditableSchemaMetadataClass,
+    InstitutionalMemoryClass,
 )
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
 
 def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
     """A helper function to extract simple . path notation from the v2 field path"""
@@ -30,8 +31,11 @@ def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
 
     return ".".join(tokens)
 
+
 # Inputs -> owner, ownership_type, dataset
-documentation_to_add = "Name of the user who was deleted. This description is updated via PythonSDK."
+documentation_to_add = (
+    "Name of the user who was deleted. This description is updated via PythonSDK."
+)
 dataset_urn = make_dataset_urn(platform="hive", name="fct_users_deleted", env="PROD")
 column = "user_name"
 field_info_to_set = EditableSchemaFieldInfoClass(
