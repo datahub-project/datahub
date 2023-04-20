@@ -1,3 +1,4 @@
+import copy
 import glob
 import itertools
 import logging
@@ -6,7 +7,18 @@ import re
 import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import lkml
 import lkml.simple
@@ -682,13 +694,13 @@ class LookerRefinementResolver:
     For refinement applied order please refer: https://cloud.google.com/looker/docs/lookml-refinements#refinements_are_applied_in_order
     """
 
-    REFINEMENT_PREFIX: str = "+"
-    DIMENSIONS = "dimensions"
-    MEASURES = "measures"
-    DIMENSION_GROUPS = "dimension_groups"
-    NAME = "name"
-    EXTENDS = "extends"
-    EXTENDS_ALL = "extends__all"
+    REFINEMENT_PREFIX: ClassVar[str] = "+"
+    DIMENSIONS: ClassVar[str] = "dimensions"
+    MEASURES: ClassVar[str] = "measures"
+    DIMENSION_GROUPS: ClassVar[str] = "dimension_groups"
+    NAME: ClassVar[str] = "name"
+    EXTENDS: ClassVar[str] = "extends"
+    EXTENDS_ALL: ClassVar[str] = "extends__all"
 
     looker_model: LookerModel
     looker_viewfile_loader: LookerViewFileLoader
@@ -697,10 +709,10 @@ class LookerRefinementResolver:
     reporter: LookMLSourceReport
     view_refinement_cache: Dict[
         str, dict
-    ]  # looker view-name vs it is original view with applied refinement
+    ]  # Map of view-name as key, and it is raw view dictionary after applying refinement process
     explore_refinement_cache: Dict[
         str, dict
-    ]  # looker explore-name vs it is original explore with applied refinement
+    ]  # Map of explore-name as key, and it is raw view dictionary after applying refinement process
 
     def __init__(
         self,
@@ -727,15 +739,12 @@ class LookerRefinementResolver:
         original_dict: dict, refinement_dict: dict, key: str
     ) -> List[dict]:
         """
-        Check refinement parameter override at https://help.looker.com/hc/en-us/articles/4419773929107-LookML-refinements
+        Merge a dimension/measure/other column with one from a refinement.
+        This follows the process documented at https://help.looker.com/hc/en-us/articles/4419773929107-LookML-refinements
         """
         merge_column: List[dict] = []
-        original_value: Any = (
-            original_dict.get(key) if original_dict.get(key) is not None else []
-        )
-        refine_value: Any = (
-            refinement_dict.get(key) if refinement_dict.get(key) is not None else []
-        )
+        original_value: Any = original_dict.get(key, [])
+        refine_value: Any = refinement_dict.get(key, [])
         # name is required field, not going to be None
         original_column_map = {
             column[LookerRefinementResolver.NAME]: column for column in original_value
@@ -770,8 +779,12 @@ class LookerRefinementResolver:
             new_raw_view[key] = merged_column
 
     @staticmethod
-    def merge_refinement(raw_view: dict, refinement_views: List[dict]) -> dict:
-        new_raw_view: dict = {**raw_view}
+    def merge_refinements(raw_view: dict, refinement_views: List[dict]) -> dict:
+        """
+        Iterate over refinement_views and merge parameter of each view with raw_view.
+        Detail of merging order can be found at https://cloud.google.com/looker/docs/lookml-refinements
+        """
+        new_raw_view: dict = copy.deepcopy(raw_view)
 
         for refinement_view in refinement_views:
             # Merge dimension and measure
@@ -800,11 +813,11 @@ class LookerRefinementResolver:
         Refinement syntax for view and explore are same.
         This function can be used to filter out view/explore refinement from raw dictionary list
         """
-        refined_view: str = self.REFINEMENT_PREFIX + view_name
+        view_refinement_name: str = self.REFINEMENT_PREFIX + view_name
         refined_views: List[dict] = []
 
         for raw_view in views:
-            if refined_view == raw_view[LookerRefinementResolver.NAME]:
+            if view_refinement_name == raw_view[LookerRefinementResolver.NAME]:
                 refined_views.append(raw_view)
 
         return refined_views
@@ -861,7 +874,7 @@ class LookerRefinementResolver:
             raw_view_name
         )
 
-        self.view_refinement_cache[raw_view_name] = self.merge_refinement(
+        self.view_refinement_cache[raw_view_name] = self.merge_refinements(
             raw_view, refinement_views
         )
 
