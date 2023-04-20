@@ -59,6 +59,7 @@ dependencies {
   testCompile project(':test-models')
   testImplementation externalDependency.springBootTest
   testImplementation project(':datahub-graphql-core')
+  testRuntime externalDependency.logbackClassic
 
   testAnnotationProcessor externalDependency.lombok
 
