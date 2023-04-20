@@ -234,6 +234,31 @@ def parse_restli_response(response):
 
 
 @ingest.command()
+@click.argument("path", type=click.Path(exists=True))
+def metadata_file(path: str) -> None:
+    """
+    Ingest from a metadata json file.
+
+    This requires that you've run `datahub init` to set up your config.
+    """
+
+    click.echo("Starting ingestion...")
+    recipe: dict = {
+        "source": {
+            "type": "file",
+            "config": {
+                "path": path,
+            },
+        },
+    }
+
+    pipeline = Pipeline.create(recipe)
+    pipeline.run()
+    ret = pipeline.pretty_print_summary()
+    sys.exit(ret)
+
+
+@ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
 @click.option(
