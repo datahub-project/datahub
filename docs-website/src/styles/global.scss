@@ -286,6 +286,7 @@ div[class^="announcementBar"] {
   --docsearch-key-gradient: linear-gradient(-26.5deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-color-emphasis-100) 100%);
 }
 
-.theme-doc-sidebar-item-category-level-1 > div:first-child {
-  font-size: 18px;
+.theme-doc-sidebar-item-category-level-1 > div > a:first-child {
+  color: var(--ifm-navbar-link-color);
+  font-size: 17px;
 }
