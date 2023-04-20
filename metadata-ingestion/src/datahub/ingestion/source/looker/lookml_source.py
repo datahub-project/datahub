@@ -1995,7 +1995,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.reporter.report_models_dropped(model_name)
                 continue
 
-            explore_reachable_views: Set[ProjectInclude] = set()
+            explore_reachable_views: Set[str] = set()
             looker_refinement_resolver: LookerRefinementResolver = (
                 LookerRefinementResolver(
                     looker_model=model,
@@ -2027,7 +2027,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                         )
                         if explore.upstream_views:
                             for view_name in explore.upstream_views:
-                                explore_reachable_views.add(view_name)
+                                explore_reachable_views.add(view_name.include)
                     except Exception as e:
                         self.reporter.report_warning(
                             f"{model}.explores",
@@ -2058,17 +2058,18 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
+                        raw_view_name = raw_view["name"]
+                        if LookerRefinementResolver.is_refinement(raw_view_name):
+                            continue
+
                         if (
                             self.source_config.emit_reachable_views_only
-                            and ProjectInclude(_BASE_PROJECT_NAME, raw_view["name"])
-                            not in explore_reachable_views
+                            and raw_view_name not in explore_reachable_views
                         ):
                             logger.debug(
-                                f"view {raw_view['name']} is not reachable from an explore, skipping.."
+                                f"view {raw_view_name} is not reachable from an explore, skipping.."
                             )
-                            self.reporter.report_unreachable_view_dropped(
-                                raw_view["name"]
-                            )
+                            self.reporter.report_unreachable_view_dropped(raw_view_name)
                             continue
 
                         self.reporter.report_views_scanned()
@@ -2102,11 +2103,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                             continue
 
                         if maybe_looker_view:
-                            if LookerRefinementResolver.is_refinement(
-                                maybe_looker_view.id.view_name
-                            ):
-                                continue
-
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.id.view_name
                             ):
