@@ -154,7 +154,7 @@ public class CacheTest extends JetTestSupport {
         Cache cache2 = cacheManager2.getCache("relationshipSearchService");
 
         EntityLineageResultCacheKey key = new EntityLineageResultCacheKey(corpuserUrn, LineageDirection.DOWNSTREAM,
-            0L, 1L,1, ChronoUnit.DAYS);
+            0L, 1L, 1, ChronoUnit.DAYS);
 
         cache1.put(key, cachedEntityLineageResult);
 

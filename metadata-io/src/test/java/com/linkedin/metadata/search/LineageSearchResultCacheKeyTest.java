@@ -5,7 +5,7 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertNotSame
+import static org.testng.AssertJUnit.assertNotSame;
 
 
 public class LineageSearchResultCacheKeyTest extends AbstractTestNGSpringContextTests {
