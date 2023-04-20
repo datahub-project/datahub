@@ -30,7 +30,7 @@ public class CachingEntitySearchService {
   private static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
   private static final String ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME = "entitySearchServiceAutoComplete";
   private static final String ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME = "entitySearchServiceBrowse";
-  private static final String ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME = "entitySearchServiceScroll";
+  public static final String ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME = "entitySearchServiceScroll";
 
   private final CacheManager cacheManager;
   private final EntitySearchService entitySearchService; // This is a shared component, also used in search aggregation
@@ -244,7 +244,10 @@ public class CachingEntitySearchService {
       ScrollResult result;
       if (enableCache(flags)) {
         Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "scroll_cache_access").time();
-        Object cacheKey = Sextet.with(entities, query, filters, sortCriterion, scrollId, size);
+        Object cacheKey = Sextet.with(entities, query,
+            filters != null ? toJsonString(filters) : null,
+            sortCriterion != null ? toJsonString(sortCriterion) : null,
+            scrollId, size);
         result = cache.get(cacheKey, ScrollResult.class);
         cacheAccess.stop();
         if (result == null) {
