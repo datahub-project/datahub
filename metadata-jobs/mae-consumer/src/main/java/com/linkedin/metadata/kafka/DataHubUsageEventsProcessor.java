@@ -11,8 +11,8 @@ import com.linkedin.metadata.kafka.transformer.DataHubUsageEventTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.Topics;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -52,19 +52,14 @@ public class DataHubUsageEventsProcessor {
 
     Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
         dataHubUsageEventTransformer.transformDataHubUsageEvent(record);
-    if (!eventDocument.isPresent()) {
+    if (eventDocument.isEmpty()) {
       log.warn("Failed to apply usage events transform to record: {}", record);
       return;
     }
     JsonElasticEvent elasticEvent = new JsonElasticEvent(eventDocument.get().getDocument());
-    try {
-      elasticEvent.setId(URLEncoder.encode(eventDocument.get().getId(), "UTF-8"));
-    } catch (UnsupportedEncodingException e) {
-      log.error("Failed to encode the urn with error: {}", e.toString());
-      return;
-    }
+    elasticEvent.setId(URLEncoder.encode(eventDocument.get().getId(), StandardCharsets.UTF_8));
     elasticEvent.setIndex(indexName);
     elasticEvent.setActionType(ChangeType.CREATE);
-    elasticSearchConnector.feedElasticEvent(elasticEvent);
+    elasticSearchConnector.feedElasticEvent(elasticEvent, true);
   }
 }
