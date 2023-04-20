@@ -14,7 +14,6 @@ public class EntityLineageResultCacheKey {
   private final Long startTimeMillis;
   private final Long endTimeMillis;
   private final Integer maxHops;
-  private final TemporalUnit temporalUnit;
 
   public EntityLineageResultCacheKey(Urn sourceUrn, LineageDirection direction, Long startTimeMillis,
       Long endTimeMillis, Integer maxHops, TemporalUnit resolution) {
@@ -22,8 +21,7 @@ public class EntityLineageResultCacheKey {
     this.sourceUrn = sourceUrn;
     this.direction = direction;
     this.maxHops = maxHops;
-    this.temporalUnit = resolution;
-    long endOffset = this.temporalUnit.getDuration().getSeconds() * 1000;
+    long endOffset = resolution.getDuration().getSeconds() * 1000;
     this.startTimeMillis =
         startTimeMillis == null ? null : Instant.ofEpochMilli(startTimeMillis).truncatedTo(resolution).toEpochMilli();
     this.endTimeMillis = endTimeMillis == null ? null
