@@ -50,9 +50,9 @@ class UnityCatalogSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigM
         description="Option to enable/disable lineage generation.",
     )
 
-    include_table_ownership: bool = pydantic.Field(
+    include_ownership: bool = pydantic.Field(
         default=False,
-        description="Option to enable/disable table ownership generation.",
+        description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",
     )
 
     include_column_lineage: Optional[bool] = pydantic.Field(
