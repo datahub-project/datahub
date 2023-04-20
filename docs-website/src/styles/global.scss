@@ -285,3 +285,7 @@ div[class^="announcementBar"] {
   --docsearch-footer-background: var(--ifm-background-surface-color);
   --docsearch-key-gradient: linear-gradient(-26.5deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-color-emphasis-100) 100%);
 }
+
+.theme-doc-sidebar-item-category-level-1 > div:first-child {
+  font-size: 18px;
+}
