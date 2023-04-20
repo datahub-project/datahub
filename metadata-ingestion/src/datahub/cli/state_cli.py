@@ -29,9 +29,7 @@ def inspect(pipeline_name: str, platform: str) -> None:
     """
 
     datahub_graph = get_default_graph()
-    checkpoint = datahub_graph.get_latest_pipeline_checkpoint(
-        pipeline_name, platform, name="cli"
-    )
+    checkpoint = datahub_graph.get_latest_pipeline_checkpoint(pipeline_name, platform)
     if not checkpoint:
         click.secho("No ingestion state found.", fg="red")
         exit(1)

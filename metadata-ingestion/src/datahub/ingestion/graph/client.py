@@ -464,7 +464,7 @@ class DataHubGraph(DatahubRestEmitter):
             logger.debug(f"yielding {x['entity']}")
             yield x["entity"]
 
-    def get_urns_by_platform(
+    def get_urns_by_filter(
         self, platform: str, batch_size: int = 10000
     ) -> Iterable[str]:
         # Does not filter on env, because env is missing in dashboard / chart urns and custom properties
@@ -510,7 +510,7 @@ class DataHubGraph(DatahubRestEmitter):
                 yield entry["entity"]["urn"]
 
     def get_latest_pipeline_checkpoint(
-        self, pipeline_name: str, platform: str, name: str = "graph"
+        self, pipeline_name: str, platform: str
     ) -> Optional[Checkpoint["GenericCheckpointState"]]:
         from datahub.ingestion.source.state.entity_removal_state import (
             GenericCheckpointState,
@@ -522,7 +522,7 @@ class DataHubGraph(DatahubRestEmitter):
             DatahubIngestionCheckpointingProvider,
         )
 
-        checkpoint_provider = DatahubIngestionCheckpointingProvider(self, name)
+        checkpoint_provider = DatahubIngestionCheckpointingProvider(self, "graph")
         job_name = StaleEntityRemovalHandler.compute_job_id(platform)
 
         raw_checkpoint = checkpoint_provider.get_latest_checkpoint(
