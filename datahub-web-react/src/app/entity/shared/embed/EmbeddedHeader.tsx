@@ -8,7 +8,7 @@ import { useAppConfig } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { useEntityData } from '../EntityContext';
-import { getDisplayedEntityType } from '../containers/profile/header/PlatformContent/PlatformContentContainer';
+import { getDisplayedEntityType } from '../containers/profile/header/utils';
 import { ANTD_GRAY } from '../constants';
 import analytics from '../../../analytics/analytics';
 import { EventType } from '../../../analytics';

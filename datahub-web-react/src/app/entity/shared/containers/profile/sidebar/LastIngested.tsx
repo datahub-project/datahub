@@ -9,7 +9,7 @@ import { ANTD_GRAY } from '../../../constants';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getPlatformName } from '../../../utils';
-import { getDisplayedEntityType } from '../header/PlatformContent/PlatformContentContainer';
+import { getDisplayedEntityType } from '../header/utils';
 
 const StyledDot = styled.div<{ color: string }>`
     border: 1px solid ${ANTD_GRAY[5]};
