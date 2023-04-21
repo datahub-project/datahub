@@ -290,3 +290,8 @@ div[class^="announcementBar"] {
   color: var(--ifm-navbar-link-color);
   font-size: 17px;
 }
+
+.theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
+  color: var(--ifm-menu-color-active);
+  font-size: 17px;
+}
