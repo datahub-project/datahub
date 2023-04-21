@@ -4,7 +4,6 @@ import os
 import sys
 import pathlib
 from collections.abc import Mapping
-import tempfile
 
 import click
 import yaml
@@ -211,11 +210,8 @@ def generate_one(compose_files, output_file) -> None:
     merged_contents = merge_files(compose_files)
 
     # Write output file
-    output_dir = os.path.dirname(output_file)
-    if len(output_dir) and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    with open(output_file, "w") as new_conf_file:
-        new_conf_file.write(merged_contents)
+    pathlib.Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    pathlib.Path(output_file).write_text(merged_contents)
 
     print(f"Successfully generated {output_file}.")
 
