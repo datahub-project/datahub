@@ -29,6 +29,9 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 
+/**
+ * TODO: Add more robust unit tests for this critical class.
+ */
 @Slf4j
 public class ESUtils {
 
@@ -135,84 +138,26 @@ public class ESUtils {
    * @param criterion {@link Criterion} single criterion which contains field, value and a comparison operator
    */
   @Nonnull
-  public static QueryBuilder getQueryBuilderFromCriterion(@Nonnull Criterion criterion, boolean isTimeseries) {
-    String fieldName = toFacetField(criterion.getField());
+  public static QueryBuilder getQueryBuilderFromCriterion(@Nonnull final Criterion criterion, boolean isTimeseries) {
+    final String fieldName = toFacetField(criterion.getField());
 
-    Optional<String[]> pairMatch = Arrays.stream(EDITABLE_FIELD_TO_QUERY_PAIRS)
-        .filter(pair -> Arrays.stream(pair).anyMatch(pairValue -> pairValue.equals(fieldName)))
+    /*
+     * Check the field-name for a "sibling" field, or one which should ALWAYS
+     * be matched in disjunction with the targeted field (OR).
+     *
+     * This essentially equates to filter expansion based on a particular field.
+     * First we handle this expansion, if required, otherwise we build the filter as usual
+     * without expansion.
+     */
+    final Optional<String[]> maybeFieldToExpand = Arrays.stream(EDITABLE_FIELD_TO_QUERY_PAIRS)
+        .filter(pair -> Arrays.asList(pair).contains(fieldName))
         .findFirst();
 
-    if (pairMatch.isPresent()) {
-      final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
-      String[] pairMatchValue = pairMatch.get();
-      for (String field: pairMatchValue) {
-        Criterion criterionToQuery = new Criterion();
-        criterionToQuery.setCondition(criterion.getCondition());
-        criterionToQuery.setNegated(criterion.isNegated());
-        criterionToQuery.setValue(criterion.getValue());
-        criterionToQuery.setValues(criterion.getValues());
-        criterionToQuery.setField(toKeywordField(field, isTimeseries));
-        orQueryBuilder.should(getQueryBuilderFromCriterionForSingleField(criterionToQuery, isTimeseries));
-      }
-      return orQueryBuilder;
+    if (maybeFieldToExpand.isPresent()) {
+      return getQueryBuilderFromCriterionForFieldToExpand(maybeFieldToExpand.get(), criterion, isTimeseries);
     }
 
     return getQueryBuilderFromCriterionForSingleField(criterion, isTimeseries);
-  }
-  @Nonnull
-  public static QueryBuilder getQueryBuilderFromCriterionForSingleField(@Nonnull Criterion criterion, @Nonnull boolean isTimeseries) {
-    final Condition condition = criterion.getCondition();
-    String fieldName = toFacetField(criterion.getField());
-
-    if (condition == Condition.EQUAL) {
-      // If values is set, use terms query to match one of the values
-      if (!criterion.getValues().isEmpty()) {
-        if (BOOLEAN_FIELDS.contains(fieldName) && criterion.getValues().size() == 1) {
-          return QueryBuilders.termQuery(fieldName, Boolean.parseBoolean(criterion.getValues().get(0)))
-                  .queryName(fieldName);
-        }
-        return QueryBuilders.termsQuery(toKeywordField(criterion.getField(), isTimeseries), criterion.getValues())
-                .queryName(fieldName);
-      }
-
-      // TODO(https://github.com/datahub-project/datahub-gma/issues/51): support multiple values a field can take without using
-      // delimiters like comma. This is a hack to support equals with URN that has a comma in it.
-      if (isUrn(criterion.getValue())) {
-        return QueryBuilders.matchQuery(toKeywordField(criterion.getField(), isTimeseries), criterion.getValue().trim())
-                .queryName(fieldName)
-                .analyzer(KEYWORD_ANALYZER);
-      }
-      BoolQueryBuilder filters = new BoolQueryBuilder();
-      // Cannot assume the existence of a .keyword or other subfield (unless contains `.`)
-      // Cannot assume the type of the underlying field or subfield thus KEYWORD_ANALYZER is forced
-      List<String> fields = criterion.getField().contains(".") ? List.of(criterion.getField())
-              : List.of(criterion.getField(), criterion.getField() + ".*");
-      Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
-          .forEach(elem -> filters.should(QueryBuilders.multiMatchQuery(elem, fields.toArray(new String[0]))
-                  .queryName(fieldName)
-                  .analyzer(KEYWORD_ANALYZER)));
-      return filters;
-    } else if (condition == Condition.IS_NULL) {
-      return QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(criterion.getField())).queryName(fieldName);
-    } else if (condition == Condition.GREATER_THAN) {
-      return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
-      return QueryBuilders.rangeQuery(criterion.getField()).gte(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.LESS_THAN) {
-      return QueryBuilders.rangeQuery(criterion.getField()).lt(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.LESS_THAN_OR_EQUAL_TO) {
-      return QueryBuilders.rangeQuery(criterion.getField()).lte(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.CONTAIN) {
-      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
-          "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
-    } else if (condition == Condition.START_WITH) {
-      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
-          ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
-    } else if (condition == Condition.END_WITH) {
-      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
-          "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim())).queryName(fieldName);
-    }
-    throw new UnsupportedOperationException("Unsupported condition: " + condition);
   }
 
   /**
@@ -256,7 +201,7 @@ public class ESUtils {
     return input;
   }
 
-  @Nullable
+  @Nonnull
   public static String toFacetField(@Nonnull final String filterField) {
     return filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
   }
@@ -297,5 +242,127 @@ public class ESUtils {
       pointInTimeBuilder.setKeepAlive(TimeValue.parseTimeValue(keepAlive, "keepAlive"));
       searchSourceBuilder.pointInTimeBuilder(pointInTimeBuilder);
     }
+  }
+
+  @Nonnull
+  private static QueryBuilder getQueryBuilderFromCriterionForFieldToExpand(
+      @Nonnull final String[] fields,
+      @Nonnull final Criterion criterion,
+      final boolean isTimeseries) {
+    final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
+    for (String field : fields) {
+      Criterion criterionToQuery = new Criterion();
+      criterionToQuery.setCondition(criterion.getCondition());
+      criterionToQuery.setNegated(criterion.isNegated());
+      criterionToQuery.setValue(criterion.getValue());
+      criterionToQuery.setValues(criterion.getValues());
+      criterionToQuery.setField(toKeywordField(field, isTimeseries));
+      orQueryBuilder.should(getQueryBuilderFromCriterionForSingleField(criterionToQuery, isTimeseries));
+    }
+    return orQueryBuilder;
+  }
+
+  @Nonnull
+  private static QueryBuilder getQueryBuilderFromCriterionForSingleField(@Nonnull Criterion criterion, @Nonnull boolean isTimeseries) {
+    final Condition condition = criterion.getCondition();
+    final String fieldName = toFacetField(criterion.getField());
+
+    if (condition == Condition.EQUAL) {
+      return buildEqualsConditionFromCriterion(fieldName, criterion, isTimeseries);
+    } else if (condition == Condition.IS_NULL) {
+      return QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(criterion.getField())).queryName(fieldName);
+    } else if (condition == Condition.EXISTS) {
+      return QueryBuilders.boolQuery().must(QueryBuilders.existsQuery(criterion.getField())).queryName(fieldName);
+    // TODO: Support multi-match on the following operators (using new 'values' field)
+    } else if (condition == Condition.GREATER_THAN) {
+      return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim()).queryName(fieldName);
+    } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
+      return QueryBuilders.rangeQuery(criterion.getField()).gte(criterion.getValue().trim()).queryName(fieldName);
+    } else if (condition == Condition.LESS_THAN) {
+      return QueryBuilders.rangeQuery(criterion.getField()).lt(criterion.getValue().trim()).queryName(fieldName);
+    } else if (condition == Condition.LESS_THAN_OR_EQUAL_TO) {
+      return QueryBuilders.rangeQuery(criterion.getField()).lte(criterion.getValue().trim()).queryName(fieldName);
+    } else if (condition == Condition.CONTAIN) {
+      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
+          "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
+    } else if (condition == Condition.START_WITH) {
+      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
+          ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
+    } else if (condition == Condition.END_WITH) {
+      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
+          "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim())).queryName(fieldName);
+    }
+    throw new UnsupportedOperationException("Unsupported condition: " + condition);
+  }
+
+  private static QueryBuilder buildEqualsConditionFromCriterion(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      final boolean isTimeseries) {
+    /*
+     * If the newer 'values' field of Criterion.pdl is set, then we
+     * handle using the following code to allow multi-match.
+     */
+    if (!criterion.getValues().isEmpty()) {
+      return buildEqualsConditionFromCriterionWithValues(fieldName, criterion, isTimeseries);
+    }
+    /*
+     * Otherwise, we are likely using the deprecated 'value' field.
+     * We handle using the legacy code path below.
+     */
+    return buildEqualsFromCriterionWithValue(fieldName, criterion, isTimeseries);
+  }
+
+  /**
+   * Builds an instance of {@link QueryBuilder} representing an EQUALS condition which
+   * was created using the new multi-match 'values' field of Criterion.pdl model.
+   */
+  private static QueryBuilder buildEqualsConditionFromCriterionWithValues(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      final boolean isTimeseries) {
+    if (BOOLEAN_FIELDS.contains(fieldName) && criterion.getValues().size() == 1) {
+      // Handle special-cased Boolean fields.
+      // here we special case boolean fields we recognize the names of and hard-cast
+      // the first provided value to a boolean to do the comparison.
+      // Ideally, we should detect the type of the field from the entity-registry in order
+      // to determine how to cast.
+      return QueryBuilders.termQuery(fieldName, Boolean.parseBoolean(criterion.getValues().get(0)))
+          .queryName(fieldName);
+    }
+    return QueryBuilders.termsQuery(toKeywordField(criterion.getField(), isTimeseries), criterion.getValues())
+        .queryName(fieldName);
+  }
+
+  /**
+   * Builds an instance of {@link QueryBuilder} representing an EQUALS condition which
+   * was created using the deprecated 'value' field of Criterion.pdl model.
+   *
+   * Previously, we supported comma-separate values inside of a single string field,
+   * thus we have to account for splitting and matching against each value below.
+   *
+   * For all new code, we should be using the new 'values' field for performing multi-match. This
+   * is simply retained for backwards compatibility of the search API.
+   */
+  private static QueryBuilder buildEqualsFromCriterionWithValue(
+      @Nonnull final String fieldName,
+      @Nonnull final Criterion criterion,
+      final boolean isTimeseries) {
+    // If the value is an URN style value, then we do not attempt to split it by comma (for obvious reasons)
+    if (isUrn(criterion.getValue())) {
+      return QueryBuilders.matchQuery(toKeywordField(criterion.getField(), isTimeseries), criterion.getValue().trim())
+          .queryName(fieldName)
+          .analyzer(KEYWORD_ANALYZER);
+    }
+    final BoolQueryBuilder filters = new BoolQueryBuilder();
+    // Cannot assume the existence of a .keyword or other subfield (unless contains `.`)
+    // Cannot assume the type of the underlying field or subfield thus KEYWORD_ANALYZER is forced
+    List<String> fields = criterion.getField().contains(".") ? List.of(criterion.getField())
+        : List.of(criterion.getField(), criterion.getField() + ".*");
+    Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
+        .forEach(elem -> filters.should(QueryBuilders.multiMatchQuery(elem, fields.toArray(new String[0]))
+            .queryName(fieldName)
+            .analyzer(KEYWORD_ANALYZER)));
+    return filters;
   }
 }
