@@ -39,7 +39,7 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     # Whether or not to create in datahub from the s3 object
     use_s3_object_tags: Optional[bool] = Field(
         None,
-        description="# Whether or not to create tags in datahub from the s3 object",
+        description="Whether or not to create tags in datahub from the s3 object",
     )
 
     # Whether to update the table schema when schema in files within the partitions are updated
