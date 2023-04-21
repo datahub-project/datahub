@@ -93,10 +93,6 @@ test {
   testLogging.exceptionFormat = 'full'
 }
 
-repositories {
-  mavenCentral()
-}
-
 tasks.withType(Test) {
     enableAssertions = false
 }
