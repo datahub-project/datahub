@@ -176,7 +176,9 @@ class StaleEntityRemovalHandler(
         self.source.register_stateful_ingestion_usecase_handler(self)
 
     @classmethod
-    def compute_job_id(cls, platform: Optional[str]) -> JobId:
+    def compute_job_id(
+        cls, platform: Optional[str], unique_id: Optional[str] = None
+    ) -> JobId:
         # Handle backward-compatibility for existing sources.
         backward_comp_platform_to_job_name: Dict[str, str] = {
             "bigquery": "ingest_from_bigquery_source",
@@ -191,11 +193,19 @@ class StaleEntityRemovalHandler(
 
         # Default name for everything else
         job_name_suffix = "stale_entity_removal"
-        return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
+        # Used with set_job_id when creating multiple checkpoints in one recipe source
+        # Because job_id is used as dictionary key when committing checkpoint, we have to set a new job_id
+        # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+        unique_suffix = f"_{unique_id}" if unique_id else ""
+        return JobId(
+            f"{platform}_{job_name_suffix}{unique_suffix}"
+            if platform
+            else job_name_suffix
+        )
 
-    def _init_job_id(self) -> JobId:
+    def _init_job_id(self, unique_id: Optional[str] = None) -> JobId:
         platform: Optional[str] = getattr(self.source, "platform", "default")
-        return self.compute_job_id(platform)
+        return self.compute_job_id(platform, unique_id)
 
     def _ignore_old_state(self) -> bool:
         if (
@@ -216,6 +226,9 @@ class StaleEntityRemovalHandler(
     @property
     def job_id(self) -> JobId:
         return self._job_id
+
+    def set_job_id(self, unique_id):
+        self._job_id = self._init_job_id(unique_id)
 
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
