@@ -95,8 +95,6 @@ services:
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
-    labels:
-      datahub_setup_job: true
     command:
     - -u
     - SystemUpdate
@@ -143,8 +141,6 @@ services:
     volumes:
     - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup:
-    labels:
-      datahub_setup_job: true
     container_name: elasticsearch-setup
     depends_on:
     - elasticsearch
@@ -157,8 +153,6 @@ services:
     labels:
       datahub_setup_job: true
   kafka-setup:
-    labels:
-      datahub_setup_job: true
     container_name: kafka-setup
     depends_on:
     - broker
@@ -187,8 +181,6 @@ services:
     - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
   mysql-setup:
-    labels:
-      datahub_setup_job: true
     container_name: mysql-setup
     depends_on:
     - mysql
