@@ -237,7 +237,7 @@ def parse_restli_response(response):
 @click.argument("path", type=click.Path(exists=True))
 def metadata_file(path: str) -> None:
     """
-    Ingest from a metadata json file.
+    Ingest from a metadata json file or directory of files.
 
     This requires that you've run `datahub init` to set up your config.
     """
