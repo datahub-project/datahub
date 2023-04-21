@@ -295,3 +295,8 @@ div[class^="announcementBar"] {
   color: var(--ifm-menu-color-active);
   font-size: 17px;
 }
+
+/* Increase padding for levels greater than 1 */
+[class^="theme-doc-sidebar-item"][class*="-level-"]:not(.theme-doc-sidebar-item-category-level-1) {
+  padding-left: 8px;
+}
