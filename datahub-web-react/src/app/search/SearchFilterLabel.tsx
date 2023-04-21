@@ -183,6 +183,17 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         );
     }
 
+    if (entity?.type === EntityType.DataProduct) {
+        const displayName = entityRegistry.getDisplayName(EntityType.DataProduct, entity);
+        const truncatedName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
+        return (
+            <Tooltip title={displayName}>
+                {truncatedName}
+                {countText}
+            </Tooltip>
+        );
+    }
+
     // Warning: Special casing for Sub-Types
     if (field === 'typeNames') {
         const displayName = capitalizeFirstLetterOnly(value) || '';

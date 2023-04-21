@@ -1,0 +1,29 @@
+namespace com.linkedin.dataproduct
+
+/**
+ * Links from an Asset to its DataProducts
+ */
+@Aspect = {
+  "name": "dataProducts"
+}
+record DataProducts {
+  /**
+   * The DataProducts attached to an Asset
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "PartOfDataProduct",
+      "entityTypes": [ "dataProduct" ]
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "dataProducts",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasDataProduct",
+      "addToFilters": true,
+      "filterNameOverride": "Data Product"
+    }
+  }
+  dataProducts: array[DataProductAssociation]
+}

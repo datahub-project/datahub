@@ -15,6 +15,7 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - dataProducts
       - schemaMetadata
       - status
       - container
@@ -47,6 +48,7 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - dataProducts
       - deprecation
       - versionInfo
       - dataJobInfo
@@ -65,6 +67,7 @@ entities:
     keyAspect: dataFlowKey
     aspects:
       - domains
+      - dataProducts
       - deprecation
       - versionInfo
       - dataFlowInfo
@@ -103,6 +106,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - dataProducts
       - container
       - deprecation
       - ownership
@@ -116,6 +120,7 @@ entities:
     keyAspect: dashboardKey
     aspects:
       - domains
+      - dataProducts
       - container
       - deprecation
       - dashboardUsageStatistics
@@ -146,6 +151,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - dataProducts
       - subTypes
       - dataPlatformInstance
       - browsePathsV2
@@ -198,6 +204,7 @@ entities:
       - status
       - domains
       - browsePathsV2
+      - dataProducts
   - name: tag
     keyAspect: tagKey
     aspects:
@@ -272,6 +279,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - dataProducts
       - ownership
       - mlModelProperties
       - intendedUse
@@ -298,6 +306,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - dataProducts
       - mlModelGroupProperties
       - ownership
       - status
@@ -323,6 +332,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - dataProducts
       - mlFeatureTableProperties
       - ownership
       - institutionalMemory
@@ -339,6 +349,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - dataProducts
       - mlFeatureProperties
       - ownership
       - institutionalMemory
@@ -355,6 +366,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - dataProducts
       - mlPrimaryKeyProperties
       - ownership
       - institutionalMemory
@@ -425,5 +437,16 @@ entities:
     aspects:
       - queryProperties
       - querySubjects
+      - status
+  - name: dataProduct
+    category: core
+    keyAspect: dataProductKey
+    aspects:
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
+      - dataProductProperties
+      - institutionalMemory
       - status
 events:

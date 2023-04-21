@@ -118,6 +118,7 @@ const Sidebar = styled.div<{ $width: number }>`
     min-width: ${(props) => props.$width}px;
     padding-left: 20px;
     padding-right: 20px;
+    padding-bottom: 20px;
 `;
 
 const Header = styled.div`

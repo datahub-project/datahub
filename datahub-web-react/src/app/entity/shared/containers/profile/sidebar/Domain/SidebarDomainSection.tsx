@@ -1,6 +1,7 @@
 import { Typography, Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
@@ -9,11 +10,21 @@ import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.g
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
-interface Props {
-    readOnly?: boolean;
+const StyledButton = styled(Button)`
+    display: block;
+`;
+
+interface PropertiesProps {
+    updateOnly?: boolean;
 }
 
-export const SidebarDomainSection = ({ readOnly }: Props) => {
+interface Props {
+    readOnly?: boolean;
+    properties?: PropertiesProps;
+}
+
+export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
+    const updateOnly = properties?.updateOnly;
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const urn = useMutationUrn();
@@ -57,7 +68,7 @@ export const SidebarDomainSection = ({ readOnly }: Props) => {
                     {domain && (
                         <DomainLink
                             domain={domain}
-                            closable={!readOnly}
+                            closable={!readOnly && !updateOnly}
                             readOnly={readOnly}
                             onClose={(e) => {
                                 e.preventDefault();
@@ -65,15 +76,17 @@ export const SidebarDomainSection = ({ readOnly }: Props) => {
                             }}
                         />
                     )}
-                    {!domain && (
+                    {(!domain || !!updateOnly) && (
                         <>
-                            <Typography.Paragraph type="secondary">
-                                {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
-                            </Typography.Paragraph>
+                            {!domain && (
+                                <Typography.Paragraph type="secondary">
+                                    {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
+                                </Typography.Paragraph>
+                            )}
                             {!readOnly && (
-                                <Button type="default" onClick={() => setShowModal(true)}>
+                                <StyledButton type="default" onClick={() => setShowModal(true)}>
                                     <EditOutlined /> Set Domain
-                                </Button>
+                                </StyledButton>
                             )}
                         </>
                     )}

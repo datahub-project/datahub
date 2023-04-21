@@ -66,6 +66,8 @@ export function getCanEditName(
             return privileges?.manageGlossaries || !!entityData?.privileges?.canManageEntity;
         case EntityType.Domain:
             return privileges?.manageDomains;
+        case EntityType.DataProduct:
+            return true; // TODO: add permissions for data products
         default:
             return false;
     }

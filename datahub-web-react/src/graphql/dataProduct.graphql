@@ -1,0 +1,55 @@
+query getDataProduct($urn: String!) {
+    dataProduct(urn: $urn) {
+        ...dataProductFields
+    }
+}
+
+fragment dataProductFields on DataProduct {
+    ...dataProductSearchFields
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+}
+
+fragment dataProductSearchFields on DataProduct {
+    urn
+    type
+    properties {
+        name
+        description
+        externalUrl
+        numAssets
+    }
+    ownership {
+        ...ownershipFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+}
+
+mutation createDataProduct($input: CreateDataProductInput!) {
+    createDataProduct(input: $input) {
+        ...dataProductSearchFields
+    }
+}
+
+mutation updateDataProduct($urn: String!, $input: UpdateDataProductInput!) {
+    updateDataProduct(urn: $urn, input: $input) {
+        ...dataProductSearchFields
+    }
+}
+
+mutation deleteDataProduct($urn: String!) {
+    deleteDataProduct(urn: $urn)
+}
+
+mutation batchSetDataProduct($input: BatchSetDataProductInput!) {
+    batchSetDataProduct(input: $input)
+}

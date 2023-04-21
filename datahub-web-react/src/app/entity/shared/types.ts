@@ -72,6 +72,7 @@ export type GenericEntityProperties = {
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
+    dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;

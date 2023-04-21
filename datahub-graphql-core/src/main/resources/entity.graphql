@@ -210,6 +210,11 @@ type Query {
     Get quick filters to display in auto-complete
     """
     getQuickFilters(input: GetQuickFiltersInput!): GetQuickFiltersResult
+
+    """
+    Fetch a DataProduct by primary key (urn)
+    """
+    dataProduct(urn: String!): DataProduct
 }
 
 """
@@ -616,6 +621,36 @@ type Mutation {
     deleteQuery(
       "Urn of the query to remove."
       urn: String!): Boolean
+
+    """
+    Create a new Data Product
+    """
+    createDataProduct(
+      "Inputs required to create a new DataProduct."
+      input: CreateDataProductInput!): DataProduct
+
+    """
+    Update a Data Product
+    """
+    updateDataProduct(
+      "The urn identifier for the Data Product to update."
+      urn: String!,
+      "Inputs required to create a new DataProduct."
+      input: UpdateDataProductInput!): DataProduct
+
+    """
+    Delete a DataProduct by urn.
+    """
+    deleteDataProduct(
+        "Urn of the data product to remove."
+        urn: String!): Boolean
+
+    """
+    Batch set or unset a DataProduct to a list of entities
+    """
+    batchSetDataProduct(
+        "Input for batch setting data product"
+        input: BatchSetDataProductInput!): Boolean
 }
 
 """
@@ -811,6 +846,11 @@ enum EntityType {
     A dataset query
     """
     QUERY
+
+    """
+    A Data Product
+    """
+    DATA_PRODUCT
 }
 
 """
@@ -10563,3 +10603,165 @@ type ListQueriesResult {
   """
   queries: [QueryEntity!]!
 }
+
+"""
+A Data Product, or a logical grouping of Metadata Entities
+"""
+type DataProduct implements Entity {
+    """
+    The primary key of the Data Product
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Properties about a Data Product
+    """
+    properties: DataProductProperties
+
+    """
+    Ownership metadata of the Data Product
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the Data Product
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The structured glossary terms associated with the Data Product
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Data Product
+    """
+    domain: DomainAssociation
+
+    """
+    Tags used for searching Data Product
+    """
+    tags: GlobalTags
+}
+
+"""
+Properties about a domain
+"""
+type DataProductProperties {
+    """
+    Display name of the Data Product
+    """
+    name: String!
+
+    """
+    Description of the Data Product
+    """
+    description: String
+
+    """
+    External URL for the DataProduct (most likely GitHub repo where Data Products are managed as code)
+    """
+    externalUrl: String
+
+    """
+    Number of children entities inside of the Data Product
+    """
+    numAssets: Int
+}
+
+"""
+Input required to fetch the entities inside of a Data Product.
+"""
+input DataProductEntitiesInput {
+    """
+    Optional query filter for particular entities inside the Data Product
+    """
+    query: String
+
+    """
+    The offset of the result set
+    """
+    start: Int
+
+    """
+    The number of entities to include in result set
+    """
+    count: Int
+
+    """
+    Optional Facet filters to apply to the result set
+    """
+    filters: [FacetFilterInput!]
+}
+
+"""
+Input required for creating a DataProduct.
+"""
+input CreateDataProductInput {
+    """
+    Properties about the Query
+    """
+    properties: CreateDataProductPropertiesInput!
+
+    """
+    The primary key of the Domain
+    """
+    domainUrn: String!
+}
+
+"""
+Input properties required for creating a DataProduct
+"""
+input CreateDataProductPropertiesInput {
+    """
+    A display name for the DataProduct
+    """
+    name: String!
+
+    """
+    An optional description for the DataProduct
+    """
+    description: String
+}
+
+"""
+Input properties required for update a DataProduct
+"""
+input UpdateDataProductInput {
+    """
+    A display name for the DataProduct
+    """
+    name: String
+
+    """
+    An optional description for the DataProduct
+    """
+    description: String
+}
+
+"""
+Input properties required for batch setting a DataProduct on other entities
+"""
+input BatchSetDataProductInput {
+    """
+    The urn of the data product you are setting on a group of resources.
+    If this is null, the Data Product will be unset for the given resources.
+    """
+    dataProductUrn: String
+
+    """
+    The urns of the entities the given data product should be set on
+    """
+    resourceUrns: [String!]!
+}
+
