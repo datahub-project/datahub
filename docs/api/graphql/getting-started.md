@@ -69,7 +69,7 @@ Note that by default Elasticsearch only allows pagination through 10,000 entitie
 If you need to paginate through more, you can change the default value for the `index.max_result_window` setting in Elasticsearch, or using the scroll API to read from the index directly.
 :::
 
-## Modifying an Entity: Mutations
+## an Entity: Mutations
 
 :::note
 Mutations which change Entity metadata are subject to [DataHub Access Policies](../../authorization/policies.md).

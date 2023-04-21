@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Modifying Terms on Datasets
+# Terms on Datasets
 
 ## Why Would You Use Terms on Datasets?
 
@@ -11,7 +11,8 @@ For more information about terms, refer to [About DataHub Business Glossary](/do
 
 ### Goal Of This Guide
 
-This guide will show you how to 
+This guide will show you how to
+
 - Create: create a term named `Rate of Return`.
 - Read : read terms attached to a dataset `SampleHiveDataset`.
 - Add: add a `CustomerAccount` term to `user_name` column of a dataset named `fct_users_created`.
@@ -110,7 +111,7 @@ datahub get --urn "urn:li:glossaryTerm:rateofreturn" --aspect glossaryTermInfo
 }
 ```
 
-## Read Terms 
+## Read Terms
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -161,7 +162,6 @@ If you see the following response, the operation was successful:
 </TabItem>
 <TabItem value="curl" label="Curl">
 
-
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
@@ -178,12 +178,12 @@ Expected Response:
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_terms.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
-
-
 
 ## Add Terms
 
@@ -319,7 +319,9 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_remove_term_execute_graphql.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>

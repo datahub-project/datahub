@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Modifying Dataset
+# Dataset
 
 ## Why Would You Use Datasets?
 
@@ -10,9 +10,10 @@ For more information about datasets, refer to [Dataset](/docs/generated/metamode
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-* Create: create a dataset named `realestate_db.sales` with three columns.
-* Delete: delete a dataset named `fct_user_deleted`.
+This guide will show you how to
+
+- Create: create a dataset named `realestate_db.sales` with three columns.
+- Delete: delete a dataset named `fct_user_deleted`.
 
 ## Prerequisites
 
@@ -31,9 +32,9 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_schema.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcomes of Creating Dataset
 
@@ -51,7 +52,6 @@ There are two methods of deletion: soft delete and hard delete.
 **Hard delete** physically deletes all rows for all aspects of the entity.
 
 For more information about soft delete and hard delete, please refer to [Removing Metadata from DataHub](/docs/how/delete-metadata.md#delete-by-urn).
-
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL">
@@ -100,6 +100,7 @@ Expected Response:
 ```python
 {{ inline /metadata-ingestion/examples/library/delete_dataset.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 

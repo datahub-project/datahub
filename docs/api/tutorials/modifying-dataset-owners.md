@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Modifying Owners
+# Owners
 
 ## Why Would You Use Users and Groups?
 
@@ -11,11 +11,12 @@ This helps to avoid confusion or conflicts over who is responsible for specific 
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-* Create: create or update users and groups.
-* Read: read owners attached to a dataset `SampleHiveDataset`.
-* Add: add user group `bfoo` as an owner to the `fct_users_created` datatset.
-* Remove: remove the owner `John Doe` from the `SampleHdfsDataset` datatset.
+This guide will show you how to
+
+- Create: create or update users and groups.
+- Read: read owners attached to a dataset `SampleHiveDataset`.
+- Add: add user group `bfoo` as an owner to the `fct_users_created` datatset.
+- Remove: remove the owner `John Doe` from the `SampleHdfsDataset` datatset.
 
 ## Pre-requisites
 
@@ -69,6 +70,7 @@ Update succeeded for urn urn:li:corpuser:datahub.
 ```python
 {{ inline /metadata-ingestion/examples/library/upsert_user.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 
@@ -108,6 +110,7 @@ If you see the following logs, the operation was successful:
 ```shell
 Update succeeded for group urn:li:corpGroup:foogroup@acryl.io.
 ```
+
 </TabItem>
 
 <TabItem value="python" label="Python">
@@ -119,12 +122,10 @@ Update succeeded for group urn:li:corpGroup:foogroup@acryl.io.
 </TabItem>
 </Tabs>
 
-
 ### Expected Outcomes of Upserting Group
 
 You can see the group `Foo Group` has been created under `Settings > Access > Users & Groups`
 ![group-upserted](../../imgs/apis/tutorials/group-upserted.png)
-
 
 ## Read Owners
 
@@ -207,15 +208,16 @@ Expected Response:
   "extensions": {}
 }
 ```
+
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_owners.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
-
-
 
 ## Add Owners
 
@@ -249,7 +251,6 @@ Expected Response:
 </TabItem>
 <TabItem value="curl" label="Curl">
 
-
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
@@ -273,9 +274,7 @@ You can now see `bfoo` has been added as an owner to the `fct_users_created` dat
 
 ![ownership-added](../../imgs/apis/tutorials/owner-added.png)
 
-
-
-## Remove Owners 
+## Remove Owners
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -330,11 +329,12 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_remove_owner_execute_graphql.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcomes of Removing Owners
 
