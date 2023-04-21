@@ -4,9 +4,9 @@ namespace com.datahub.test
  * Shared aspect containing Browse Paths to be indexed for an entity.
  */
 @Aspect = {
-    "name": "browsePaths"
+    "name": "testBrowsePaths"
 }
-record BrowsePaths {
+record TestBrowsePaths {
   /**
    * A list of valid browse paths for the entity.
    *

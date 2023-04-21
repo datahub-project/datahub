@@ -7,8 +7,6 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
-import com.linkedin.metadata.models.registry.MergedEntityRegistry;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.version.GitVersion;
@@ -125,8 +123,7 @@ public class ESTestConfiguration {
 
     @Bean(name = "entityRegistry")
     public EntityRegistry entityRegistry() throws EntityRegistryException {
-        ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
+        return new ConfigEntityRegistry(
                 ESTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-        return new MergedEntityRegistry(SnapshotEntityRegistry.getInstance()).apply(configEntityRegistry);
     }
 }
