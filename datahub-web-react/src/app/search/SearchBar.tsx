@@ -73,7 +73,7 @@ const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
             value: '',
             type: '',
             label: <QuickFilters />,
-            style: { padding: '10px 12px 12px 16px', cursor: 'auto' },
+            style: { padding: '8px', cursor: 'auto' },
             disabled: true,
         },
     ],
@@ -239,7 +239,7 @@ export const SearchBar = ({
         if (
             setIsSearchBarFocused &&
             (!isSearchBarFocused ||
-                (searchBarWrapperRef && searchBarWrapperRef.current && searchBarWrapperRef.current.clientWidth < 590))
+                (searchBarWrapperRef && searchBarWrapperRef.current && searchBarWrapperRef.current.clientWidth < 650))
         ) {
             setIsSearchBarFocused(isSearchBarFocused);
         }
