@@ -14,6 +14,7 @@ class DatasetSubTypes(str, Enum):
     ELASTIC_DATASTREAM = "Datastream"
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
+    POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
 
 
 class DatasetContainerSubTypes(str, Enum):
@@ -33,6 +34,7 @@ class BIContainerSubTypes(str, Enum):
     LOOKER_FOLDER = "Folder"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
+    POWERBI_DATASET = "PowerBI Dataset"
 
 
 class BIAssetSubTypes(str, Enum):

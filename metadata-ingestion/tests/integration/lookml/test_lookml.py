@@ -5,6 +5,7 @@ from unittest import mock
 
 import pydantic
 import pytest
+from deepdiff import DeepDiff
 from freezegun import freeze_time
 from looker_sdk.sdk.api40.models import DBConnection
 
@@ -12,6 +13,8 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.lookml_source import (
+    LookerModel,
+    LookerRefinementResolver,
     LookMLSource,
     LookMLSourceConfig,
 )
@@ -34,6 +37,30 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
+def get_default_recipe(output_file_path, base_folder_path):
+    return {
+        "run_id": "lookml-test",
+        "source": {
+            "type": "lookml",
+            "config": {
+                "base_folder": base_folder_path,
+                "connection_to_platform_map": {"my_connection": "conn"},
+                "parse_table_names_from_sql": True,
+                "tag_measures_and_dimensions": False,
+                "project_name": "lkml_samples",
+                "model_pattern": {"deny": ["data2"]},
+                "emit_reachable_views_only": False,
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{output_file_path}",
+            },
+        },
+    }
+
+
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with previous form of config with new flags turned off"""
@@ -43,28 +70,11 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     # Note this config below is known to create "bad" lineage since the config author has not provided enough information
     # to resolve relative table names (which are not fully qualified)
     # We keep this check just to validate that ingestion doesn't croak on this config
+
     pipeline = Pipeline.create(
-        {
-            "run_id": "lookml-test",
-            "source": {
-                "type": "lookml",
-                "config": {
-                    "base_folder": str(test_resources_dir / "lkml_samples"),
-                    "connection_to_platform_map": {"my_connection": "conn"},
-                    "parse_table_names_from_sql": True,
-                    "tag_measures_and_dimensions": False,
-                    "project_name": "lkml_samples",
-                    "model_pattern": {"deny": ["data2"]},
-                    "emit_reachable_views_only": False,
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/{mce_out_file}",
-                },
-            },
-        }
+        get_default_recipe(
+            f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
+        )
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -75,6 +85,206 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
         output_path=tmp_path / mce_out_file,
         golden_path=test_resources_dir / mce_out_file,
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
+    """Test backwards compatibility with previous form of config with new flags turned off"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "refinement_mces_output.json"
+
+    # Note this config below is known to create "bad" lineage since the config author has not provided enough information
+    # to resolve relative table names (which are not fully qualified)
+    # We keep this check just to validate that ingestion doesn't croak on this config
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
+    )
+    new_recipe["source"]["config"]["process_refinements"] = True
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "refinements_ingestion_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "refinement_include_order_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_refinement_samples/sample1",
+    )
+    new_recipe["source"]["config"]["process_refinements"] = True
+    new_recipe["source"]["config"]["project_name"] = "lkml_refinement_sample1"
+    new_recipe["source"]["config"]["view_naming_pattern"] = {
+        "pattern": "{project}.{model}.view.{name}"
+    }
+    new_recipe["source"]["config"]["connection_to_platform_map"] = {
+        "db-connection": "conn"
+    }
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "refinement_include_order_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
+    looker_model = LookerModel(
+        explores=[
+            {
+                "name": "book",
+            },
+            {"name": "+book", "extends__all": [["order"]]},
+            {"name": "+book", "extends__all": [["transaction"]]},
+        ],
+        connection=str(),
+        resolved_includes=[],
+        includes=[],
+    )
+
+    refinement_resolver = LookerRefinementResolver(
+        looker_model=looker_model,
+        looker_viewfile_loader=None,  # type: ignore
+        reporter=None,  # type: ignore
+        source_config=LookMLSourceConfig.parse_obj(
+            {
+                "process_refinements": "True",
+                "base_folder": ".",
+                "api": {
+                    "base_url": "fake",
+                    "client_id": "fake_client_id",
+                    "client_secret": "fake_client_secret",
+                },
+            }
+        ),
+        connection_definition=None,  # type: ignore
+    )
+
+    new_explore: dict = refinement_resolver.apply_explore_refinement(
+        looker_model.explores[0]
+    )
+
+    assert new_explore.get("extends") is not None
+    assert new_explore["extends"].sort() == ["order", "transaction"].sort()
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
+    raw_view: dict = {
+        "sql_table_name": "flightstats.accidents",
+        "dimensions": [
+            {
+                "type": "number",
+                "primary_key": "yes",
+                "sql": '${TABLE}."id"',
+                "name": "id",
+            }
+        ],
+        "name": "flights",
+    }
+
+    refinement_views: List[dict] = [
+        {
+            "dimensions": [
+                {
+                    "type": "string",
+                    "sql": '${TABLE}."air_carrier"',
+                    "name": "air_carrier",
+                }
+            ],
+            "name": "+flights",
+        },
+        {
+            "measures": [
+                {"type": "average", "sql": "${distance}", "name": "distance_avg"},
+                {
+                    "type": "number",
+                    "sql": "STDDEV(${distance})",
+                    "name": "distance_stddev",
+                },
+            ],
+            "dimensions": [
+                {
+                    "type": "tier",
+                    "sql": "${distance}",
+                    "tiers": [500, 1300],
+                    "name": "distance_tiered2",
+                },
+            ],
+            "name": "+flights",
+        },
+        {
+            "dimension_groups": [
+                {
+                    "type": "duration",
+                    "intervals": ["week", "year"],
+                    "sql_start": '${TABLE}."enrollment_date"',
+                    "sql_end": '${TABLE}."graduation_date"',
+                    "name": "enrolled",
+                },
+            ],
+            "name": "+flights",
+        },
+        {
+            "dimensions": [{"type": "string", "sql": '${TABLE}."id"', "name": "id"}],
+            "name": "+flights",
+        },
+    ]
+
+    merged_view: dict = LookerRefinementResolver.merge_refinements(
+        raw_view=raw_view, refinement_views=refinement_views
+    )
+
+    expected_view: dict = {
+        "sql_table_name": "flightstats.accidents",
+        "dimensions": [
+            {
+                "type": "string",
+                "primary_key": "yes",
+                "sql": '${TABLE}."id"',
+                "name": "id",
+            },
+            {"type": "string", "sql": '${TABLE}."air_carrier"', "name": "air_carrier"},
+            {
+                "type": "tier",
+                "sql": "${distance}",
+                "tiers": [500, 1300],
+                "name": "distance_tiered2",
+            },
+        ],
+        "name": "flights",
+        "measures": [
+            {"type": "average", "sql": "${distance}", "name": "distance_avg"},
+            {"type": "number", "sql": "STDDEV(${distance})", "name": "distance_stddev"},
+        ],
+        "dimension_groups": [
+            {
+                "type": "duration",
+                "intervals": ["week", "year"],
+                "sql_start": '${TABLE}."enrollment_date"',
+                "sql_end": '${TABLE}."graduation_date"',
+                "name": "enrolled",
+            }
+        ],
+    }
+
+    assert DeepDiff(expected_view, merged_view) == {}
 
 
 @freeze_time(FROZEN_TIME)
@@ -100,6 +310,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "emit_reachable_views_only": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -144,6 +355,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data"]},
                     "emit_reachable_views_only": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -190,6 +402,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "emit_reachable_views_only": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -269,6 +482,7 @@ def ingestion_test(
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
                         "emit_reachable_views_only": False,
+                        "process_refinements": False,
                     },
                 },
                 "sink": {
@@ -313,6 +527,7 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "sql_parser": "bad.sql.Parser",
                     "emit_reachable_views_only": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -360,6 +575,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -412,6 +628,7 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "emit_reachable_views_only": True,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -473,6 +690,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
+                    "process_refinements": False,
                 },
             },
             "sink": {
@@ -612,7 +830,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
     # the difference in dataset urns are all the views that are not reachable from the model file
-    assert len(difference_dataset_urns) == 10
+    assert len(difference_dataset_urns) == 11
     deleted_dataset_urns: List[str] = [
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
@@ -624,6 +842,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.view_derived_explore,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.flights,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
