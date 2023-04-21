@@ -119,6 +119,7 @@ class DataHubClassifier(Classifier):
     def create(cls, config_dict: Optional[Dict[str, Any]]) -> "DataHubClassifier":
         # This could be replaced by parsing to particular class, if required
         if config_dict is not None:
+            print("Generación del classify")
             config = DataHubClassifierConfig.parse_obj(config_dict)
         else:
             config = DataHubClassifierConfig()
