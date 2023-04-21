@@ -35,7 +35,7 @@ module.exports = {
       ],
     },
     {
-      Integration: [
+      Integrations: [
         // The purpose of this section is to provide a deeper understanding of how ingestion works.
         // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
         // and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
