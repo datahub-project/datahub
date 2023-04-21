@@ -9,6 +9,9 @@
         </filter>
     </appender>
 
+    <logger name="com.datastax.oss" level="ERROR" />
+    <logger name="com.datastax.driver" level="FATAL" />
+
     <root level="WARN">
         <appender-ref ref="STDOUT" />
     </root>
