@@ -1239,6 +1239,17 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
         }
+
+        // Urn containing disallowed character
+        Urn testUrnSpecialCharValid = new Urn("li", "testType", new TupleKey("entity␇"));
+        Urn testUrnSpecialCharInvalid = new Urn("li", "testType", new TupleKey("entity␟"));
+        EntityService.validateUrn(testUrnSpecialCharValid);
+        try {
+            EntityService.validateUrn(testUrnSpecialCharInvalid);
+            Assert.fail("Should have raised IllegalArgumentException for URN containing the illegal char");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: URN cannot contain ␟ character");
+        }
     }
 
     @Nonnull

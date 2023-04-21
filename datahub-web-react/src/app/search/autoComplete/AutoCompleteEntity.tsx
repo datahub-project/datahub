@@ -35,17 +35,19 @@ const Subtype = styled.span`
     color: ${ANTD_GRAY[9]};
     border: 1px solid ${ANTD_GRAY[9]};
     border-radius: 16px;
-    padding: 2px 6px;
+    padding: 4px 8px;
     line-height: 12px;
     font-size: 12px;
+    margin-right: 8px;
 `;
 
 interface Props {
     query: string;
     entity: Entity;
+    hasParentTooltip: boolean;
 }
 
-export default function AutoCompleteEntity({ query, entity }: Props) {
+export default function AutoCompleteEntity({ query, entity, hasParentTooltip }: Props) {
     const entityRegistry = useEntityRegistry();
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformName = getPlatformName(genericEntityProps);
@@ -66,7 +68,11 @@ export default function AutoCompleteEntity({ query, entity }: Props) {
                 {icon}
                 <SuggestionText>
                     <ParentContainers parentContainers={orderedParentContainers} />
-                    <Typography.Text ellipsis>
+                    <Typography.Text
+                        ellipsis={
+                            hasParentTooltip ? {} : { tooltip: { title: displayName, color: 'rgba(0, 0, 0, 0.9)' } }
+                        }
+                    >
                         <Typography.Text strong>{matchedText}</Typography.Text>
                         {unmatchedText}
                     </Typography.Text>
