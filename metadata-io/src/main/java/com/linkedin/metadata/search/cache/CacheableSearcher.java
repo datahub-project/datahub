@@ -90,19 +90,24 @@ public class CacheableSearcher<K> {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getBatch").time()) {
       QueryPagination batch = getBatchQuerySize(batchId);
       SearchResult result;
-      if (enableCache()) {
-        try (Timer.Context ignored2 = MetricUtils.timer(this.getClass(), "getBatch_cache").time()) {
-          Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "getBatch_cache_access").time();
-          K cacheKey = cacheKeyGenerator.apply(batch);
-          String json = cache.get(cacheKey, String.class);
-          result = json != null ? toRecordTemplate(SearchResult.class, json) : null;
-          cacheAccess.stop();
-          if (result == null) {
-            Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "getBatch_cache_miss").time();
-            result = searcher.apply(batch);
-            cache.put(cacheKey, toJsonString(result));
-            cacheMiss.stop();
-            MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").inc();
+      if (enableCache) {
+        K cacheKey = cacheKeyGenerator.apply(batch);
+        if ((searchFlags == null || !searchFlags.isSkipCache())) {
+          result = searcher.apply(batch);
+          cache.put(cacheKey, toJsonString(result));
+        } else {
+          try (Timer.Context ignored2 = MetricUtils.timer(this.getClass(), "getBatch_cache").time()) {
+            Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "getBatch_cache_access").time();
+            String json = cache.get(cacheKey, String.class);
+            result = json != null ? toRecordTemplate(SearchResult.class, json) : null;
+            cacheAccess.stop();
+            if (result == null) {
+              Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "getBatch_cache_miss").time();
+              result = searcher.apply(batch);
+              cache.put(cacheKey, toJsonString(result));
+              cacheMiss.stop();
+              MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").inc();
+            }
           }
         }
       } else {
@@ -110,9 +115,5 @@ public class CacheableSearcher<K> {
       }
       return result;
     }
-  }
-
-  private boolean enableCache() {
-    return enableCache && (searchFlags == null || !searchFlags.isSkipCache());
   }
 }
