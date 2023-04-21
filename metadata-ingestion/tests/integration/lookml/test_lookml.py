@@ -1,11 +1,11 @@
 import logging
 import pathlib
-from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
 import pydantic
 import pytest
+from deepdiff import DeepDiff
 from freezegun import freeze_time
 from looker_sdk.sdk.api40.models import DBConnection
 
@@ -151,6 +151,7 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
                 "name": "book",
             },
             {"name": "+book", "extends__all": [["order"]]},
+            {"name": "+book", "extends__all": [["transaction"]]},
         ],
         connection=str(),
         resolved_includes=[],
@@ -161,7 +162,17 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
         looker_model=looker_model,
         looker_viewfile_loader=None,  # type: ignore
         reporter=None,  # type: ignore
-        source_config=SimpleNamespace(process_refinements=True),  # type: ignore
+        source_config=LookMLSourceConfig.parse_obj(
+            {
+                "process_refinements": "True",
+                "base_folder": ".",
+                "api": {
+                    "base_url": "fake",
+                    "client_id": "fake_client_id",
+                    "client_secret": "fake_client_secret",
+                },
+            }
+        ),
         connection_definition=None,  # type: ignore
     )
 
@@ -170,7 +181,110 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
     )
 
     assert new_explore.get("extends") is not None
-    assert new_explore["extends"][0] == "order"
+    assert new_explore["extends"].sort() == ["order", "transaction"].sort()
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
+    raw_view: dict = {
+        "sql_table_name": "flightstats.accidents",
+        "dimensions": [
+            {
+                "type": "number",
+                "primary_key": "yes",
+                "sql": '${TABLE}."id"',
+                "name": "id",
+            }
+        ],
+        "name": "flights",
+    }
+
+    refinement_views: List[dict] = [
+        {
+            "dimensions": [
+                {
+                    "type": "string",
+                    "sql": '${TABLE}."air_carrier"',
+                    "name": "air_carrier",
+                }
+            ],
+            "name": "+flights",
+        },
+        {
+            "measures": [
+                {"type": "average", "sql": "${distance}", "name": "distance_avg"},
+                {
+                    "type": "number",
+                    "sql": "STDDEV(${distance})",
+                    "name": "distance_stddev",
+                },
+            ],
+            "dimensions": [
+                {
+                    "type": "tier",
+                    "sql": "${distance}",
+                    "tiers": [500, 1300],
+                    "name": "distance_tiered2",
+                },
+            ],
+            "name": "+flights",
+        },
+        {
+            "dimension_groups": [
+                {
+                    "type": "duration",
+                    "intervals": ["week", "year"],
+                    "sql_start": '${TABLE}."enrollment_date"',
+                    "sql_end": '${TABLE}."graduation_date"',
+                    "name": "enrolled",
+                },
+            ],
+            "name": "+flights",
+        },
+        {
+            "dimensions": [{"type": "string", "sql": '${TABLE}."id"', "name": "id"}],
+            "name": "+flights",
+        },
+    ]
+
+    merged_view: dict = LookerRefinementResolver.merge_refinements(
+        raw_view=raw_view, refinement_views=refinement_views
+    )
+
+    expected_view: dict = {
+        "sql_table_name": "flightstats.accidents",
+        "dimensions": [
+            {
+                "type": "string",
+                "primary_key": "yes",
+                "sql": '${TABLE}."id"',
+                "name": "id",
+            },
+            {"type": "string", "sql": '${TABLE}."air_carrier"', "name": "air_carrier"},
+            {
+                "type": "tier",
+                "sql": "${distance}",
+                "tiers": [500, 1300],
+                "name": "distance_tiered2",
+            },
+        ],
+        "name": "flights",
+        "measures": [
+            {"type": "average", "sql": "${distance}", "name": "distance_avg"},
+            {"type": "number", "sql": "STDDEV(${distance})", "name": "distance_stddev"},
+        ],
+        "dimension_groups": [
+            {
+                "type": "duration",
+                "intervals": ["week", "year"],
+                "sql_start": '${TABLE}."enrollment_date"',
+                "sql_end": '${TABLE}."graduation_date"',
+                "name": "enrolled",
+            }
+        ],
+    }
+
+    assert DeepDiff(expected_view, merged_view) == {}
 
 
 @freeze_time(FROZEN_TIME)

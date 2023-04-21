@@ -743,8 +743,8 @@ class LookerRefinementResolver:
         This follows the process documented at https://help.looker.com/hc/en-us/articles/4419773929107-LookML-refinements
         """
         merge_column: List[dict] = []
-        original_value: Any = original_dict.get(key, [])
-        refine_value: Any = refinement_dict.get(key, [])
+        original_value: List[dict] = original_dict.get(key, [])
+        refine_value: List[dict] = refinement_dict.get(key, [])
         # name is required field, not going to be None
         original_column_map = {
             column[LookerRefinementResolver.NAME]: column for column in original_value
@@ -757,14 +757,13 @@ class LookerRefinementResolver:
             refine_column = refine_column_map.get(existing_column_name)
             if refine_column is not None:
                 existing_column.update(refine_column)
-                # delete the entry from refine_column_map
-                del refine_column_map[existing_column_name]
 
             merge_column.append(existing_column)
 
         # merge any remaining column from refine_column_map
         for new_column_name in refine_column_map:
-            merge_column.append(refine_column_map[new_column_name])
+            if new_column_name not in original_column_map:
+                merge_column.append(refine_column_map[new_column_name])
 
         return merge_column
 
@@ -806,9 +805,7 @@ class LookerRefinementResolver:
 
         return new_raw_view
 
-    def get_refinement_from_view_list(
-        self, views: List[dict], view_name: str
-    ) -> List[dict]:
+    def get_refinements(self, views: List[dict], view_name: str) -> List[dict]:
         """
         Refinement syntax for view and explore are same.
         This function can be used to filter out view/explore refinement from raw dictionary list
@@ -837,14 +834,12 @@ class LookerRefinementResolver:
                 continue
 
             refined_views.extend(
-                self.get_refinement_from_view_list(
-                    included_looker_viewfile.views, view_name
-                )
+                self.get_refinements(included_looker_viewfile.views, view_name)
             )
 
         return refined_views
 
-    def skip_processing(self, raw_view_name: str) -> bool:
+    def should_skip_processing(self, raw_view_name: str) -> bool:
         if LookerRefinementResolver.is_refinement(raw_view_name):
             return True
 
@@ -861,7 +856,7 @@ class LookerRefinementResolver:
 
         raw_view_name: str = raw_view[LookerRefinementResolver.NAME]
 
-        if self.skip_processing(raw_view_name):
+        if self.should_skip_processing(raw_view_name):
             return raw_view
 
         if raw_view_name in self.view_refinement_cache:
@@ -881,9 +876,11 @@ class LookerRefinementResolver:
         return self.view_refinement_cache[raw_view_name]
 
     @staticmethod
-    def add_extended_explore(raw_view: dict, refinement_views: List[Dict]) -> None:
+    def add_extended_explore(
+        raw_explore: dict, refinement_explores: List[Dict]
+    ) -> None:
         extended_explores: Set[str] = set()
-        for view in refinement_views:
+        for view in refinement_explores:
             extends = list(
                 itertools.chain.from_iterable(
                     view.get(
@@ -895,7 +892,7 @@ class LookerRefinementResolver:
             extended_explores.update(extends)
 
         if extended_explores:  # if it is not empty then add to the original view
-            raw_view[LookerRefinementResolver.EXTENDS] = list(extended_explores)
+            raw_explore[LookerRefinementResolver.EXTENDS] = list(extended_explores)
 
     def apply_explore_refinement(self, raw_view: dict) -> dict:
         """
@@ -906,7 +903,7 @@ class LookerRefinementResolver:
 
         raw_view_name: str = raw_view[LookerRefinementResolver.NAME]
 
-        if self.skip_processing(raw_view_name):
+        if self.should_skip_processing(raw_view_name):
             return raw_view
 
         if raw_view_name in self.explore_refinement_cache:
@@ -917,7 +914,7 @@ class LookerRefinementResolver:
 
         logger.debug(f"Processing refinement for explore {raw_view_name}")
 
-        refinement_explore: List[dict] = self.get_refinement_from_view_list(
+        refinement_explore: List[dict] = self.get_refinements(
             self.looker_model.explores, raw_view_name
         )
 
