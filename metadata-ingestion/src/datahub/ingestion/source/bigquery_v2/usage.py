@@ -444,8 +444,9 @@ class BigQueryUsageExtractor:
         ):
             resource = event.read_event.resource
             if str(resource) not in table_refs:
-                logger.debug(f"Skipping non-existent {resource} from usage")
+                logger.info(f"Skipping non-existent {resource} from usage")
                 self.report.num_usage_resources_dropped += 1
+                self.report.report_dropped(str(resource))
                 return False
             elif resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
                 logger.debug(f"Dropping temporary table {resource}")
