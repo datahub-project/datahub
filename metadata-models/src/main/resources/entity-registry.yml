@@ -34,6 +34,7 @@ entities:
       - glossaryTerms
       - browsePaths
       - dataPlatformInstance
+      - containerPath
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -58,6 +59,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - containerPath
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -74,6 +76,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - containerPath
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -108,6 +111,7 @@ entities:
       - dataPlatformInstance
       - globalTags
       - glossaryTerms
+      - containerPath
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -127,6 +131,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - containerPath
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -143,6 +148,7 @@ entities:
       - domains
       - subTypes
       - dataPlatformInstance
+      - containerPath
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -191,6 +197,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - containerPath
   - name: tag
     keyAspect: tagKey
     aspects:
@@ -283,6 +290,7 @@ entities:
       - browsePaths
       - globalTags
       - dataPlatformInstance
+      - containerPath
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -297,6 +305,7 @@ entities:
       - browsePaths
       - globalTags
       - dataPlatformInstance
+      - containerPath
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -322,6 +331,7 @@ entities:
       - browsePaths
       - globalTags
       - dataPlatformInstance
+      - containerPath
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -337,6 +347,7 @@ entities:
       - browsePaths
       - globalTags
       - dataPlatformInstance
+      - containerPath
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey

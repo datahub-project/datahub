@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 import requests
 
@@ -12,7 +12,10 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FIELD_TYPE_MAPPING,
+    Column,
     Dashboard,
+    Measure,
     PowerBIDataset,
     Report,
     Table,
@@ -183,6 +186,10 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
+        if self.__config.modified_since:
+            workspaces = self.get_modified_workspaces()
+            return workspaces
+
         groups: List[dict] = []
         try:
             groups = self._get_resolver().get_groups()
@@ -204,16 +211,37 @@ class PowerBiAPI:
         ]
         return workspaces
 
-    def _get_scan_result(self, workspace: Workspace) -> Any:
+    def get_modified_workspaces(self) -> List[Workspace]:
+        workspaces = []
+        try:
+            modified_workspace_ids = self._get_resolver().get_modified_workspaces(
+                self.__config.modified_since
+            )
+            workspaces = [
+                Workspace(
+                    id=workspace_id,
+                    name="",
+                    datasets={},
+                    dashboards=[],
+                    reports=[],
+                    report_endorsements={},
+                    dashboard_endorsements={},
+                    scan_result={},
+                )
+                for workspace_id in modified_workspace_ids
+            ]
+        except:
+            self.log_http_error(message="Unable to fetch list of modified workspaces")
+        return workspaces
+
+    def _get_scan_result(self, workspace_ids: List[str]) -> Any:
         scan_id: Optional[str] = None
         try:
             scan_id = self.__admin_api_resolver.create_scan_job(
-                workspace_id=workspace.id
+                workspace_ids=workspace_ids
             )
         except:
-            e = self.log_http_error(
-                message=f"Unable to fetch dataset lineage for {workspace.name}({workspace.id})."
-            )
+            e = self.log_http_error(message=f"Unable to fetch get scan result.")
             if data_resolver.is_permission_error(cast(Exception, e)):
                 logger.warning(
                     "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "
@@ -317,29 +345,66 @@ class PowerBiAPI:
                             table[Constant.NAME].replace(" ", "_"),
                         ),
                         expression=expression,
+                        columns=[
+                            Column(
+                                **column,
+                                datahubDataType=FIELD_TYPE_MAPPING.get(
+                                    column["dataType"], FIELD_TYPE_MAPPING["Null"]
+                                ),
+                            )
+                            for column in table.get("columns", [])
+                        ],
+                        measures=[
+                            Measure(**measure) for measure in table.get("measures", [])
+                        ],
                         dataset=dataset_instance,
                     )
                 )
 
         return dataset_map
 
-    def _fill_metadata_from_scan_result(self, workspace: Workspace) -> None:
-        workspace.scan_result = self._get_scan_result(workspace)
-        workspace.datasets = self._get_workspace_datasets(workspace.scan_result)
-        # Fetch endorsements tag if it is enabled from configuration
-        if self.__config.extract_endorsements_to_tags is False:
-            logger.info(
-                "Skipping endorsements tag as extract_endorsements_to_tags is set to "
-                "false "
-            )
-            return
+    def _fill_metadata_from_scan_result(
+        self, workspaces: List[Workspace]
+    ) -> List[Workspace]:
+        workspace_ids = [workspace.id for workspace in workspaces]
+        scan_result = self._get_scan_result(workspace_ids)
+        if not scan_result:
+            return workspaces
 
-        workspace.dashboard_endorsements = self._get_dashboard_endorsements(
-            workspace.scan_result
-        )
-        workspace.report_endorsements = self._get_report_endorsements(
-            workspace.scan_result
-        )
+        workspaces = []
+        for workspace_metadata in scan_result["workspaces"]:
+            cur_workspace = Workspace(
+                id=workspace_metadata["id"],
+                name=workspace_metadata["name"],
+                datasets={},
+                dashboards=[],
+                reports=[],
+                report_endorsements={},
+                dashboard_endorsements={},
+                scan_result={},
+            )
+            cur_workspace.scan_result = workspace_metadata
+            cur_workspace.datasets = self._get_workspace_datasets(
+                cur_workspace.scan_result
+            )
+
+            # Fetch endorsements tag if it is enabled from configuration
+            if self.__config.extract_endorsements_to_tags:
+                cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
+                    cur_workspace.scan_result
+                )
+                cur_workspace.report_endorsements = self._get_report_endorsements(
+                    cur_workspace.scan_result
+                )
+            else:
+                logger.info(
+                    "Skipping endorsements tag as extract_endorsements_to_tags is set to "
+                    "false "
+                )
+
+            workspaces.append(cur_workspace)
+
+        return workspaces
 
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
@@ -367,16 +432,18 @@ class PowerBiAPI:
             for dashboard in workspace.dashboards:
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
-        fill_dashboards()
+        if self.__config.extract_dashboards:
+            fill_dashboards()
+
         fill_reports()
         fill_dashboard_tags()
 
     # flake8: noqa: C901
-    def fill_workspace(
-        self, workspace: Workspace, reporter: PowerBiDashboardSourceReport
-    ) -> None:
-        self._fill_metadata_from_scan_result(
-            workspace=workspace
-        )  # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
-
-        self._fill_regular_metadata_detail(workspace=workspace)
+    def fill_workspaces(
+        self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
+    ) -> Iterable[Workspace]:
+        workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
+        # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
+        for workspace in workspaces:
+            self._fill_regular_metadata_detail(workspace=workspace)
+        return workspaces
