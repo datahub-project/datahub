@@ -1,5 +1,11 @@
 # Introduction to Metadata Ingestion
 
+<a
+    className='button button--primary button--lg'
+    href="https://datahubproject.io/integrations">
+    Find Integration Source
+</a>
+
 ## Integration Options
 
 DataHub supports both **push-based** and **pull-based** metadata integration.
