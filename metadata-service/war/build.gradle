@@ -37,6 +37,7 @@ dependencies {
   runtime externalDependency.log4j2Api
   runtime externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
+  testRuntime externalDependency.logbackClassic
 }
 
 configurations {
