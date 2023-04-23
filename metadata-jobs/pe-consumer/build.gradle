@@ -23,6 +23,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   runtime externalDependency.logbackClassic
   testCompile externalDependency.mockito
+  testRuntime externalDependency.logbackClassic
 }
 
 task avroSchemaSources(type: Copy) {

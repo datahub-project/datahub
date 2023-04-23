@@ -63,6 +63,7 @@ dependencies {
   testImplementation externalDependency.springBootTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
+  testRuntime externalDependency.logbackClassic
 }
 
 bootJar {
