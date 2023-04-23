@@ -96,7 +96,7 @@ def load_config_file(
             except Exception as e:
                 raise ConfigurationError(
                     f"Cannot read remote file {config_file_path}, error:{e}"
-                )                        
+                )
         else:
             if not config_file_path.is_file():
                 raise ConfigurationError(f"Cannot open config file {config_file_path}")
