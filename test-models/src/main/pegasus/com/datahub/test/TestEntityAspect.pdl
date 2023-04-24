@@ -8,5 +8,5 @@ typeref TestEntityAspect = union[
   TestEntityInfo,
   TestBrowsePaths,
   SearchFeatures
-  ContainerPath
+  TestContainerPath
 ]

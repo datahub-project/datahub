@@ -10,6 +10,7 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.BROWSE_PATH_HIERARCHY_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.CONTAINER_PATH_HIERARCHY_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
@@ -40,6 +41,10 @@ public class SearchFieldConfig {
     private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_BROWSE_PATH =
             Set.of(
                     SearchableAnnotation.FieldType.BROWSE_PATH
+            );
+    private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_CONTAINER_PATH =
+            Set.of(
+                    SearchableAnnotation.FieldType.CONTAINER_PATH
             );
     private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_BASE_KEYWORD =
             Set.of(
@@ -117,6 +122,8 @@ public class SearchFieldConfig {
         // order is important
         if (TYPES_WITH_BROWSE_PATH.contains(fieldType)) {
             return BROWSE_PATH_HIERARCHY_ANALYZER;
+        } else if (TYPES_WITH_CONTAINER_PATH.contains(fieldType)) {
+            return CONTAINER_PATH_HIERARCHY_ANALYZER;
         // sub fields
         } else if (isKeyword(fieldName, fieldType)) {
             return KEYWORD_ANALYZER;

@@ -4,9 +4,9 @@ namespace com.datahub.test
  * Shared aspect containing Container Paths to be indexed for an entity.
  */
 @Aspect = {
-    "name": "containerPath"
+    "name": "testContainerPath"
 }
-record ContainerPath {
+record TestContainerPath {
   /**
    * A valid container path for the entity. This field is provided by DataHub by default.
    *

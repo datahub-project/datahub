@@ -1,7 +1,7 @@
 package com.linkedin.metadata;
 
 import com.datahub.test.TestBrowsePaths;
-import com.datahub.test.ContainerPath;
+import com.datahub.test.TestContainerPath;
 import com.datahub.test.ContainerPathEntry;
 import com.datahub.test.ContainerPathEntryArray;
 import com.datahub.test.KeyPartEnum;
@@ -61,7 +61,7 @@ public class TestEntityUtil {
     ContainerPathEntry entry2 = new ContainerPathEntry().setId("levelTwo");
     containerPathEntries.add(entry1);
     containerPathEntries.add(entry2);
-    ContainerPath containerPath = new ContainerPath().setPath(containerPathEntries);
+    TestContainerPath containerPath = new TestContainerPath().setPath(containerPathEntries);
     SearchFeatures searchFeatures = new SearchFeatures().setFeature1(2).setFeature2(1);
 
     TestEntityAspectArray aspects = new TestEntityAspectArray(
