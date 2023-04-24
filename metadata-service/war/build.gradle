@@ -17,6 +17,7 @@ dependencies {
   runtime project(':metadata-service:servlet')
   runtime project(':metadata-service:auth-servlet-impl')
   runtime project(':metadata-service:graphql-servlet-impl')
+  runtime project(':metadata-service:health-servlet')
   runtime project(':metadata-service:openapi-servlet')
   runtime project(':metadata-jobs:mce-consumer')
   runtime project(':metadata-jobs:mae-consumer')
@@ -36,6 +37,7 @@ dependencies {
   runtime externalDependency.log4j2Api
   runtime externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
+  testRuntime externalDependency.logbackClassic
 }
 
 configurations {

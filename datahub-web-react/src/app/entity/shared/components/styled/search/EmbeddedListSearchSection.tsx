@@ -31,6 +31,7 @@ type Props = {
     defaultFilters?: Array<FacetFilterInput>;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    skipCache?: boolean;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
@@ -50,6 +51,7 @@ export const EmbeddedListSearchSection = ({
     defaultFilters,
     searchBarStyle,
     searchBarInputStyle,
+    skipCache,
     useGetSearchResults,
     shouldRefetch,
     resetShouldRefetch,
@@ -133,6 +135,7 @@ export const EmbeddedListSearchSection = ({
             defaultFilters={defaultFilters}
             searchBarStyle={searchBarStyle}
             searchBarInputStyle={searchBarInputStyle}
+            skipCache={skipCache}
             useGetSearchResults={useGetSearchResults}
             shouldRefetch={shouldRefetch}
             resetShouldRefetch={resetShouldRefetch}

@@ -103,7 +103,10 @@ class SnowflakeCommonMixin:
         self: SnowflakeCommonProtocol,
         dataset_name: Optional[str],
         dataset_type: Optional[str],
+        is_upstream: bool = False,
     ) -> bool:
+        if is_upstream and not self.config.validate_upstreams_against_patterns:
+            return True
         if not dataset_type or not dataset_name:
             return True
         dataset_params = dataset_name.split(".")

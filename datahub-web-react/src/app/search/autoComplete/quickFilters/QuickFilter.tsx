@@ -18,7 +18,7 @@ const QuickFilterWrapper = styled(Button)<{ isSelected: boolean }>`
     display: flex;
     align-items: center;
     padding: 2px 10px;
-    font-size: 12px;
+    font-size: 14px;
     margin: 4px;
 
     &:hover {
