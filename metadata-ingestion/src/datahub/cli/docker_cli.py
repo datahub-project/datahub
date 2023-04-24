@@ -20,7 +20,11 @@ import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_url_and_token, test_connectivity_complain_exit
+from datahub.cli.cli_utils import (
+    DATAHUB_ROOT_FOLDER,
+    get_url_and_token,
+    test_connectivity_complain_exit,
+)
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
