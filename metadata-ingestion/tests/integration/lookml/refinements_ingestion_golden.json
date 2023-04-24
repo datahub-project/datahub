@@ -1312,6 +1312,17 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.owners,PROD),owner_name)"
                                 ],
                                 "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,..owners,PROD),owner_name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.owners,PROD),has_owner_name)"
+                                ],
+                                "confidenceScore": 1.0
                             }
                         ]
                     }
@@ -1368,6 +1379,27 @@
                                     }
                                 },
                                 "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "has_owner_name",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                    }
+                                },
+                                "nativeDataType": "yesno",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -1720,10 +1752,10 @@
                                 "label": "id",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "number",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
