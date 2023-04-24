@@ -20,7 +20,7 @@ import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_url_and_token
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_url_and_token, test_connectivity_complain_exit
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
@@ -901,28 +901,17 @@ def valid_restore_options(
     type=click.Path(exists=True, dir_okay=False),
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
-@click.option(
-    "--token",
-    type=str,
-    is_flag=False,
-    default=None,
-    help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
-)
 @telemetry.with_telemetry()
-def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
+def ingest_sample_data(path: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
+
+    test_connectivity_complain_exit("ingest-sample-data")
 
     if path is None:
         click.echo("Downloading sample data...")
         path = str(download_sample_data())
 
-    # Verify that docker is up.
-    status = check_docker_quickstart()
-    if not status.is_ok():
-        raise status.to_exception(
-            header="Docker is not ready:",
-            footer="Try running `datahub docker quickstart` first.",
-        )
+    gms_host, gms_token = get_url_and_token()
 
     gms_host, gms_token = get_url_and_token()
 
@@ -943,9 +932,6 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
             },
         },
     }
-
-    if token is not None:
-        recipe["sink"]["config"]["token"] = token
 
     pipeline = Pipeline.create(recipe)
     pipeline.run()

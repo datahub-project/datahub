@@ -5,6 +5,7 @@ import click
 
 from datahub import __package_name__
 from datahub.cli.json_file import check_mce_file
+from datahub.cli.cli_utils import test_connectivity_complain_exit, get_url_and_token
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
@@ -87,3 +88,10 @@ def plugins(verbose: bool) -> None:
     click.echo(
         f"If a plugin is disabled, try running: pip install '{__package_name__}[<plugin>]'"
     )
+
+
+@check.command()
+def connectivity_gms() -> None:
+    """Test connectivity to configured GMS instance"""
+
+    test_connectivity_complain_exit("connectivity")
