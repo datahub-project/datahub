@@ -38,4 +38,3 @@ export const setupJiraIssueCollector = (customButtonId: string) => {
         };
     }
 };
-
