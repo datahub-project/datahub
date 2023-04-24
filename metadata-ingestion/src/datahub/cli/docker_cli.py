@@ -20,7 +20,7 @@ import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_url_and_token
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
@@ -924,8 +924,6 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
             footer="Try running `datahub docker quickstart` first.",
         )
 
-    gms_host, gms_token = get_url_and_token()
-
     # Run ingestion.
     click.echo("Starting ingestion...")
     recipe: dict = {
@@ -937,10 +935,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         },
         "sink": {
             "type": "datahub-rest",
-            "config": {
-                "server": gms_host,
-                "token": gms_token,
-            },
+            "config": {"server": "http://localhost:8080"},
         },
     }
 
