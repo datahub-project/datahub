@@ -222,7 +222,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, metastore: proxy.Metastore
     ) -> Iterable[MetadataWorkUnit]:
         for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
-            if not self.config.catalog_pattern.allowed(catalog.name):
+            if not self.config.catalog_pattern.allowed(catalog.id):
                 self.report.catalogs.dropped(catalog.id)
                 continue
 
@@ -233,7 +233,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_schemas(self, catalog: proxy.Catalog) -> Iterable[MetadataWorkUnit]:
         for schema in self.unity_catalog_api_proxy.schemas(catalog=catalog):
-            if not self.config.schema_pattern.allowed(schema.name):
+            if not self.config.schema_pattern.allowed(schema.id):
                 self.report.schemas.dropped(schema.id)
                 continue
 
