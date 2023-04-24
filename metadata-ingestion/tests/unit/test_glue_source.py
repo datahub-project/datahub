@@ -35,6 +35,7 @@ from tests.unit.test_glue_source_stubs import (
     databases_2,
     get_bucket_tagging,
     get_databases_response,
+    get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
     get_jobs_response,
@@ -45,8 +46,11 @@ from tests.unit.test_glue_source_stubs import (
     get_object_tagging,
     get_tables_response_1,
     get_tables_response_2,
+    get_tables_response_for_target_database,
+    resource_link_database,
     tables_1,
     tables_2,
+    target_database_tables,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -189,6 +193,37 @@ def test_platform_config():
     assert source.platform == "athena"
 
 
+@pytest.mark.parametrize(
+    "ignore_resource_links, all_databases_and_tables_result",
+    [
+        (True, ({}, [])),
+        (False, ({"test-database": resource_link_database}, target_database_tables)),
+    ],
+)
+def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="eu-west-1",
+            ignore_resource_links=ignore_resource_links,
+        ),
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases",
+            get_databases_response_with_resource_link,
+            {},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_for_target_database,
+            {"DatabaseName": "test-database"},
+        )
+
+        assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+
+
 def test_platform_must_be_valid():
     with pytest.raises(pydantic.ValidationError):
         GlueSource(
@@ -258,11 +293,11 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         with patch(
-            "datahub.ingestion.source.aws.glue.GlueSource.get_all_tables_and_databases",
-        ) as mock_get_all_tables_and_databases:
+            "datahub.ingestion.source.aws.glue.GlueSource.get_all_databases_and_tables",
+        ) as mock_get_all_databases_and_tables:
             tables_on_first_call = tables_1
             tables_on_second_call = tables_2
-            mock_get_all_tables_and_databases.side_effect = [
+            mock_get_all_databases_and_tables.side_effect = [
                 (databases_1, tables_on_first_call),
                 (databases_2, tables_on_second_call),
             ]

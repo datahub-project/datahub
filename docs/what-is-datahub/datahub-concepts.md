@@ -152,7 +152,7 @@ Domains are curated, top-level folders or categories where related assets can be
 ### Owner
 Owner refers to the users or groups that has ownership rights over entities. For example, owner can be acceessed to dataset or a column or a dataset. 
 
-> * [Getting Started : Adding Owners On Datasets/Columns](/docs/api/tutorials/adding-ownerships.md#why-would-you-add-owners)
+> * [Getting Started : Adding Owners On Datasets/Columns](/docs/api/tutorials/modifying-dataset-owners.md#add-owners)
 
 ### Users (CorpUser)
 CorpUser represents an identity of a person (or an account) in the enterprise.

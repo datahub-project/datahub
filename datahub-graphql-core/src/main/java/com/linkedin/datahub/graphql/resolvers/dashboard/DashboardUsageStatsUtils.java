@@ -56,7 +56,6 @@ public class DashboardUsageStatsUtils {
         maybeStartTimeMillis,
         maybeEndTimeMillis,
         maybeLimit,
-        null,
         filter);
       dashboardUsageMetrics = aspects.stream().map(DashboardUsageMetricMapper::map).collect(Collectors.toList());
     } catch (URISyntaxException e) {

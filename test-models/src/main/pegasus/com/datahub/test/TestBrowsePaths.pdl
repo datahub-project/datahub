@@ -1,0 +1,22 @@
+namespace com.datahub.test
+
+/**
+ * Shared aspect containing Browse Paths to be indexed for an entity.
+ */
+@Aspect = {
+    "name": "testBrowsePaths"
+}
+record TestBrowsePaths {
+  /**
+   * A list of valid browse paths for the entity.
+   *
+   * Browse paths are expected to be forward slash-separated strings. For example: 'prod/snowflake/datasetName'
+   */
+  @Searchable = {
+    "/*": {
+      "fieldName": "browsePaths",
+      "fieldType": "BROWSE_PATH"
+    }
+  }
+  paths: array[string]
+}
