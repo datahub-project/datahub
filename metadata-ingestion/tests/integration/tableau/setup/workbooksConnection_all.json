@@ -7,7 +7,6 @@
                     "name": "Email Performance by Campaign",
                     "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b",
                     "projectName": "default",
-                    "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
                     "owner": {
                         "username": "jawadqu@gmail.com"
                     },
@@ -45,7 +44,6 @@
                     "name": "Dvdrental Workbook",
                     "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc",
                     "projectName": "default",
-                    "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
                     "owner": {
                         "username": "jawadqu@gmail.com"
                     },
@@ -106,7 +104,6 @@
                     "name": "Executive Dashboard",
                     "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                     "projectName": "default",
-                    "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
                     "owner": {
                         "username": "jawadqu@gmail.com"
                     },
@@ -186,8 +183,7 @@
                     "name": "Workbook published ds",
                     "luid": "a059a443-7634-4abf-9e46-d147b99168be",
                     "projectName": "default",
-                    "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
-                    "owner": {
+                    "owner": {  
                         "username": "jawadqu@gmail.com"
                     },
                     "description": "",
@@ -223,7 +219,6 @@
                     "name": "Deny Pattern WorkBook",
                     "luid": "b45eabfe-dc3d-4331-9324-cc1b14b0549b",
                     "projectName": "DenyProject",
-                    "projectLuid": "79d02655-88e5-45a6-9f9b-eeaf5fe54903",
                     "owner": {
                         "username": "jawadqu@gmail.com"
                     },
