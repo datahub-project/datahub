@@ -35,13 +35,19 @@ def mock_msal_cca(*args, **kwargs):
 
 def scan_init_response(request, context):
     # Request mock is passing POST input in the form of workspaces=<workspace_id>
-    workspace_id = request.text.split("=")[1]
+    # If we scan 2 or more, it get messy like this. 'workspaces=64ED5CAD-7C10-4684-8180-826122881108&workspaces=64ED5CAD-7C22-4684-8180-826122881108'
+    workspace_id_list = request.text.replace("&", "").split("workspaces=")
+
+    workspace_id = "||".join(workspace_id_list[1:])
 
     w_id_vs_response: Dict[str, Any] = {
         "64ED5CAD-7C10-4684-8180-826122881108": {
             "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
         },
         "64ED5CAD-7C22-4684-8180-826122881108": {
+            "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
+        },
+        "64ED5CAD-7C10-4684-8180-826122881108||64ED5CAD-7C22-4684-8180-826122881108": {
             "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
         },
     }

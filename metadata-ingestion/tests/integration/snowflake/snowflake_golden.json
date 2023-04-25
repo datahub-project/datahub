@@ -3589,7 +3589,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -3600,25 +3600,9 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.table_1,PROD)",
                     "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
+                },
                 {
                     "auditStamp": {
                         "time": 0,
@@ -3637,6 +3621,17 @@
                 }
             ],
             "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.table_1,PROD),col_1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
@@ -4970,6 +4965,30 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_10,PROD),col_9)"
                     ],
                     "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
+                    "type": "TRANSFORMED"
                 }
             ]
         }
