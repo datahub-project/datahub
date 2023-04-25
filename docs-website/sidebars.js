@@ -144,6 +144,7 @@ module.exports = {
         "docs/deploy/gcp",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/deploy/environment-vars",
         {
           Authentication: [
             "docs/authentication/README",
