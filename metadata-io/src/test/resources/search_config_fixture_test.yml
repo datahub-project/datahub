@@ -1,0 +1,51 @@
+# Use for testing with search fixtures
+queryConfigurations:
+  # Select *
+  - queryRegex: '[*]|'
+    simpleQuery: false
+    prefixMatchQuery: false
+    exactMatchQuery: false
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: avg
+      boost_mode: multiply
+
+  - queryRegex: .*
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+        - filter:
+            terms:
+              tags:
+                - urn:li:tag:pii
+          weight: 1.25
+      score_mode: avg
+      boost_mode: multiply
