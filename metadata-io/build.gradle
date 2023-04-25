@@ -59,6 +59,8 @@ dependencies {
   testCompile project(':test-models')
   testImplementation externalDependency.springBootTest
   testImplementation project(':datahub-graphql-core')
+  // logback >=1.3 required due to `testcontainers` only
+  testImplementation 'ch.qos.logback:logback-classic:1.4.7'
 
   testAnnotationProcessor externalDependency.lombok
 
