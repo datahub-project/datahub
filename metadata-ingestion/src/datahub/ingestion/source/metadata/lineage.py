@@ -26,6 +26,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+)
+
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.utilities.source_helpers import auto_workunit_reporter
@@ -49,9 +54,44 @@ class EntityConfig(EnvConfigMixin):
         return v
 
 
+class FineGrainedLineageConfig(ConfigModel):
+    upstreamType: str
+    upstreams: Optional[List[str]]
+    downstreamType: str
+    downstreams: Optional[List[str]]
+    transformOperation: Optional[str]
+    confidenceScore: Optional[float]
+
+    @validator("upstreamType")
+    def upstream_type_must_be_supported(cls, v: str) -> str:
+        allowed_types = [
+            FineGrainedLineageUpstreamType.FIELD_SET,
+            FineGrainedLineageUpstreamType.DATASET,
+            FineGrainedLineageUpstreamType.NONE,
+        ]
+        if v not in allowed_types:
+            raise ConfigurationError(
+                f"Upstream Type must be one of {allowed_types}, {v} is not yet supported."
+            )
+        return v
+
+    @validator("downstreamType")
+    def downstream_type_must_be_supported(cls, v: str) -> str:
+        allowed_types = [
+            FineGrainedLineageDownstreamType.FIELD_SET,
+            FineGrainedLineageDownstreamType.FIELD,
+        ]
+        if v not in allowed_types:
+            raise ConfigurationError(
+                f"Downstream Type must be one of {allowed_types}, {v} is not yet supported."
+            )
+        return v
+
+
 class EntityNodeConfig(ConfigModel):
     entity: EntityConfig
     upstream: Optional[List["EntityNodeConfig"]]
+    fineGrainedLineages: Optional[List[FineGrainedLineageConfig]]
 
 
 # https://pydantic-docs.helpmanual.io/usage/postponed_annotations/ required for when you reference a model within itself
@@ -133,9 +173,11 @@ def _get_lineage_mcp(
     entity_node: EntityNodeConfig, preserve_upstream: bool
 ) -> Optional[MetadataChangeProposalWrapper]:
     new_upstreams: List[models.UpstreamClass] = []
+    new_fine_grained_lineages: List[models.FineGrainedLineageClass] = []
     # if this entity has upstream nodes defined, we'll want to do some work.
     # if no upstream nodes are present, we don't emit an MCP for it.
     if not entity_node.upstream:
+        # TODO If this is not optional then why is it marked as Optional in Config?
         return None
 
     entity = entity_node.entity
@@ -150,6 +192,7 @@ def _get_lineage_mcp(
 
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
+        # TODO Decide how to use this preserve upstream for fine grained lineage stuff
         old_upstream_lineage = get_aspects_for_entity(
             entity_urn=entity_urn,
             aspects=["upstreamLineage"],
@@ -179,8 +222,22 @@ def _get_lineage_mcp(
                 f"Entity type: {upstream_entity.type} is unsupported. "
                 f"Upstream lineage will be skipped for {upstream_entity.name}->{entity.name}"
             )
+    for fine_grained_lineage in entity_node.fineGrainedLineages or []:
+        new_fine_grained_lineages.append(
+            models.FineGrainedLineageClass(
+                upstreams=fine_grained_lineage.upstreams,
+                upstreamType=fine_grained_lineage.upstreamType,
+                downstreams=fine_grained_lineage.downstreams,
+                downstreamType=fine_grained_lineage.downstreamType,
+                confidenceScore=fine_grained_lineage.confidenceScore,
+                transformOperation=fine_grained_lineage.transformOperation,
+            )
+        )
 
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        aspect=models.UpstreamLineageClass(upstreams=new_upstreams),
+        aspect=models.UpstreamLineageClass(
+            upstreams=new_upstreams,
+            fineGrainedLineages=new_fine_grained_lineages,
+        ),
     )

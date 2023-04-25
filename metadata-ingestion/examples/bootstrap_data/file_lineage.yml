@@ -17,6 +17,16 @@ lineage:
           type: dataset
           env: DEV
           platform: kafka
+    fineGrainedLineages:
+      - upstreamType: FIELD_SET
+        upstreams:
+          - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)
+        downstreamType: FIELD
+        downstreams:
+          - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)
+        confidenceScore: 0.9
+        transformOperation: func1
+
   - entity:
       name: topic2
       type: dataset
