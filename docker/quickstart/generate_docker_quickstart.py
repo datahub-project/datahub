@@ -1,4 +1,8 @@
+from io import StringIO
+from typing import List
 import os
+import sys
+import pathlib
 from collections.abc import Mapping
 
 import click
@@ -6,8 +10,38 @@ import yaml
 from dotenv import dotenv_values
 from yaml import Loader
 
-# Generates a merged docker-compose file with env variables inlined.
-# Usage: python3 docker_compose_cli_gen.py ../docker-compose.yml ../docker-compose.override.yml ../docker-compose-gen.yml
+COMPOSE_SPECS = {
+    "docker-compose.quickstart.yml": [
+        "../docker-compose.yml",
+        "../docker-compose.override.yml",
+    ],
+    "docker-compose-m1.quickstart.yml": [
+        "../docker-compose.yml",
+        "../docker-compose.override.yml",
+        "../docker-compose.m1.yml",
+    ],
+    "docker-compose-without-neo4j.quickstart.yml": [
+        "../docker-compose-without-neo4j.yml",
+        "../docker-compose-without-neo4j.override.yml",
+    ],
+    "docker-compose-without-neo4j-m1.quickstart.yml": [
+        "../docker-compose-without-neo4j.yml",
+        "../docker-compose-without-neo4j.override.yml",
+        "../docker-compose-without-neo4j.m1.yml",
+    ],
+    "docker-compose.monitoring.quickstart.yml": [
+        "../monitoring/docker-compose.monitoring.yml",
+    ],
+    "docker-compose.consumers.quickstart.yml": [
+        "../docker-compose.consumers.yml",
+    ],
+    "docker-compose.consumers-without-neo4j.quickstart.yml": [
+        "../docker-compose.consumers-without-neo4j.yml",
+    ],
+    "docker-compose.kafka-setup.quickstart.yml": [
+        "../docker-compose.kafka-setup.yml",
+    ],
+}
 
 omitted_services = [
     "kafka-rest-proxy",
@@ -33,6 +67,7 @@ def dict_merge(dct, merge_dct):
                 dct[k] = sorted(list(a.union(b)))
         else:
             dct[k] = merge_dct[k]
+
 
 def modify_docker_config(base_path, docker_yaml_config):
     if not docker_yaml_config["services"]:
@@ -91,17 +126,35 @@ def modify_docker_config(base_path, docker_yaml_config):
     docker_yaml_config["version"] = "2.3"
 
 
-@click.command()
-@click.argument(
-    "compose-files",
-    nargs=-1,
-    type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ),
-)
-@click.argument("output-file", type=click.Path())
-def generate(compose_files, output_file) -> None:
+def dedup_env_vars(merged_docker_config):
+    for service in merged_docker_config["services"]:
+        if "environment" in merged_docker_config["services"][service]:
+            lst = merged_docker_config["services"][service]["environment"]
+            if lst is not None:
+                # use a set to cache duplicates
+                caches = set()
+                results = {}
+                for item in lst:
+                    partitions = item.rpartition("=")
+                    prefix = partitions[0]
+                    suffix = partitions[1]
+                    # check whether prefix already exists
+                    if prefix not in caches and suffix != "":
+                        results[prefix] = item
+                        caches.add(prefix)
+                if set(lst) != set([v for k, v in results.items()]):
+                    sorted_vars = sorted([k for k in results])
+                    merged_docker_config["services"][service]["environment"] = [
+                        results[var] for var in sorted_vars
+                    ]
+
+
+def merge_files(compose_files: List[str]) -> str:
+    """
+    Generates a merged docker-compose file with env variables inlined.
+
+    Example Usage: python3 generate_docker_quickstart.py generate-one ../docker-compose.yml ../docker-compose.override.yml ../docker-compose-gen.yml
+    """
 
     # Resolve .env files to inlined vars
     modified_files = []
@@ -121,40 +174,77 @@ def generate(compose_files, output_file) -> None:
     # Dedup env vars, last wins
     dedup_env_vars(merged_docker_config)
 
+    # Generate yaml to string.
+    out = StringIO()
+    yaml.dump(
+        merged_docker_config,
+        out,
+        default_flow_style=False,
+        width=1000,
+    )
+    return out.getvalue()
+
+
+@click.group()
+def main_cmd() -> None:
+    pass
+
+
+@main_cmd.command()
+@click.argument(
+    "compose-files",
+    nargs=-1,
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+    ),
+)
+@click.argument("output-file", type=click.Path())
+def generate_one(compose_files, output_file) -> None:
+    """
+    Generates a merged docker-compose file with env variables inlined.
+
+    Example Usage: python3 generate_docker_quickstart.py generate-one ../docker-compose.yml ../docker-compose.override.yml ../docker-compose-gen.yml
+    """
+
+    merged_contents = merge_files(compose_files)
+
     # Write output file
-    output_dir = os.path.dirname(output_file)
-    if len(output_dir) and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    with open(output_file, "w") as new_conf_file:
-        yaml.dump(
-            merged_docker_config,
-            new_conf_file,
-            default_flow_style=False,
-        )
+    pathlib.Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    pathlib.Path(output_file).write_text(merged_contents)
 
     print(f"Successfully generated {output_file}.")
 
 
-def dedup_env_vars(merged_docker_config):
-    for service in merged_docker_config['services']:
-        if 'environment' in merged_docker_config['services'][service]:
-            lst = merged_docker_config['services'][service]['environment']
-            if lst is not None:
-                # use a set to cache duplicates
-                caches = set()
-                results = {}
-                for item in lst:
-                    partitions = item.rpartition('=')
-                    prefix = partitions[0]
-                    suffix = partitions[1]
-                    # check whether prefix already exists
-                    if prefix not in caches and suffix != "":
-                        results[prefix] = item
-                        caches.add(prefix)
-                if set(lst) != set([v for k,v in results.items()]):
-                    sorted_vars = sorted([k for k in results])
-                    merged_docker_config['services'][service]['environment'] = [results[var] for var in sorted_vars]
+@main_cmd.command()
+@click.pass_context
+def generate_all(ctx: click.Context) -> None:
+    """
+    Generates all merged docker-compose files with env variables inlined.
+    """
+
+    for output_compose_file, inputs in COMPOSE_SPECS.items():
+        ctx.invoke(generate_one, compose_files=inputs, output_file=output_compose_file)
+
+
+@main_cmd.command()
+def check_all() -> None:
+    """
+    Checks that the generated docker-compose files are up to date.
+    """
+
+    for output_compose_file, inputs in COMPOSE_SPECS.items():
+        expected = merge_files(inputs)
+
+        # Check that the files match.
+        current = pathlib.Path(output_compose_file).read_text()
+
+        if expected != current:
+            print(
+                f"File {output_compose_file} is out of date. Please run `python3 generate_docker_quickstart.py generate-all`."
+            )
+            sys.exit(1)
 
 
 if __name__ == "__main__":
-    generate()
+    main_cmd()
