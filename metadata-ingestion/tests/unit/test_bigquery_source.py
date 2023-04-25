@@ -602,6 +602,12 @@ def test_get_table_and_shard_custom_shard_pattern(
         ("project.dataset.table", "project.dataset.table"),
         ("project.dataset.table_20231215", "project.dataset.table"),
         ("project.dataset.table@1624046611000", "project.dataset.table"),
+        ("project.dataset.table@-9600", "project.dataset.table"),
+        ("project.dataset.table@-3600000", "project.dataset.table"),
+        ("project.dataset.table@-3600000--1800000", "project.dataset.table"),
+        ("project.dataset.table@1624046611000-1612046611000", "project.dataset.table"),
+        ("project.dataset.table@-3600000-", "project.dataset.table"),
+        ("project.dataset.table@1624046611000-", "project.dataset.table"),
         (
             "project.dataset.table_1624046611000_name",
             "project.dataset.table_1624046611000_name",
