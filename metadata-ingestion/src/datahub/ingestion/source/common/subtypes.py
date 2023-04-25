@@ -28,6 +28,7 @@ class DatasetContainerSubTypes(str, Enum):
     DATABRICKS_METASTORE = "Metastore"
     S3_FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
+    GCS_BUCKET = "GCS bucket"
 
 
 class BIContainerSubTypes(str, Enum):

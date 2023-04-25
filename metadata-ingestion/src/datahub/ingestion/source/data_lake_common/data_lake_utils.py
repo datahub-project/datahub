@@ -3,6 +3,7 @@ from typing import Iterable, List, Optional
 
 from datahub.emitter.mcp_builder import (
     FolderKey,
+    GCSBucketKey,
     KeyType,
     PlatformKey,
     S3BucketKey,
@@ -13,7 +14,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
-    is_s3_uri,
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
@@ -61,26 +61,39 @@ class ContainerWUCreator:
         )
 
     def gen_bucket_key(self, name):
-        return S3BucketKey(
-            platform="s3",
-            instance=self.instance,
-            backcompat_instance_for_guid=self.env,
-            bucket_name=name,
-        )
+        if self.platform == "s3":
+            return S3BucketKey(
+                platform="s3",
+                instance=self.instance,
+                backcompat_instance_for_guid=self.env,
+                bucket_name=name,
+            )
+        elif self.platform == "gcs":
+            return GCSBucketKey(
+                platform="gcs",
+                instance=self.instance,
+                backcompat_instance_for_guid=self.env,
+                bucket_name=name,
+            )
 
     def create_container_hierarchy(
-        self, path: str, is_s3: bool, dataset_urn: str
+        self, path: str, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"Creating containers for {dataset_urn}")
         base_full_path = path
         parent_key = None
-        if is_s3_uri(path):
+        if self.platform in ("s3", "gcs"):
             bucket_name = get_bucket_name(path)
             bucket_key = self.gen_bucket_key(bucket_name)
+
             yield from self.create_emit_containers(
                 container_key=bucket_key,
                 name=bucket_name,
-                sub_types=[DatasetContainerSubTypes.S3_BUCKET],
+                sub_types=[
+                    DatasetContainerSubTypes.S3_BUCKET
+                    if self.platform == "s3"
+                    else DatasetContainerSubTypes.GCS_BUCKET
+                ],
                 parent_container_key=None,
             )
             parent_key = bucket_key
