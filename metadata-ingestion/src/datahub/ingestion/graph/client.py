@@ -1,5 +1,6 @@
 import json
 import logging
+import textwrap
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -15,7 +16,7 @@ from typing_extensions import Literal
 from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mce_builder import Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -65,6 +66,27 @@ class DatahubClientConfig(ConfigModel):
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
+
+
+def _graphql_entity_type(entity_type: str) -> str:
+    """Convert the entity types into GraphQL "EntityType" enum values."""
+
+    # Hard-coded special cases.
+    if entity_type == "corpuser":
+        return "CORP_USER"
+
+    # Convert camelCase to UPPER_UNDERSCORE.
+    entity_type = (
+        "".join(["_" + c.lower() if c.isupper() else c for c in entity_type])
+        .lstrip("_")
+        .upper()
+    )
+
+    # Strip the "DATA_HUB_" prefix.
+    if entity_type.startswith("DATA_HUB_"):
+        entity_type = entity_type[len("DATA_HUB_") :]
+
+    return entity_type
 
 
 class DataHubGraph(DatahubRestEmitter):
@@ -465,33 +487,69 @@ class DataHubGraph(DatahubRestEmitter):
             yield x["entity"]
 
     def get_urns_by_filter(
-        self, platform: str, batch_size: int = 10000
+        self,
+        *,
+        entity_types: Optional[List[str]] = None,
+        platform: Optional[str] = None,
+        batch_size: int = 10000,
     ) -> Iterable[str]:
+        """Fetch all urns that match the given filters.
+
+        Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
+        Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+
+        :param entity_types: List of entity types to include. If None, all entity types will be returned.
+        :param platform: Platform to filter on. If None, all platforms will be returned.
+        """
+
+        types = None
+        if entity_types is not None:
+            if not entity_types:
+                raise ValueError("entity_types cannot be an empty list")
+
+            types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
+
         # Does not filter on env, because env is missing in dashboard / chart urns and custom properties
         # For containers, use { field: "customProperties", values: ["instance=env}"], condition:EQUAL }
         # For others, use { field: "origin", values: ["env"], condition:EQUAL }
 
-        query = """
-        query scrollEntitiesForPlatform($platform: String!, $batchSize: Int!, $scrollId: String) {
-          scrollAcrossEntities(input: { query: "*", count:$batchSize,
-            scrollId: $scrollId,
-            orFilters: [
-              {and: [{
-                field: "platform.keyword",
-                values: [$platform],
-                condition: EQUAL,
-              }]}
+        andFilters = []
+        if platform:
+            andFilters += [
+                {
+                    "field": "platform.keyword",
+                    "values": [make_data_platform_urn(platform)],
+                    "condition": "EQUAL",
+                }
             ]
-          }) {
-            nextScrollId
-            searchResults {
-              entity {
-                urn
-              }
+        orFilters = [{"and": andFilters}]
+
+        query = textwrap.dedent(
+            """
+            query scrollUrnsWithFilters(
+                $types: [EntityType!],
+                $orFilters: [AndFilterInput!],
+                $batchSize: Int!,
+                $scrollId: String) {
+
+                scrollAcrossEntities(input: {
+                    query: "*",
+                    count: $batchSize,
+                    scrollId: $scrollId,
+                    types: $types,
+                    orFilters: $orFilters,
+                    searchFlags: { skipHighlighting: true }
+                }) {
+                    nextScrollId
+                    searchResults {
+                        entity {
+                            urn
+                        }
+                    }
+                }
             }
-          }
-        }
-        """
+            """
+        )
 
         # Set scroll_id to False to enter while loop
         scroll_id: Union[Literal[False], str, None] = False
@@ -499,7 +557,8 @@ class DataHubGraph(DatahubRestEmitter):
             response = self.execute_graphql(
                 query,
                 variables={
-                    "platform": f"urn:li:dataPlatform:{platform}",
+                    "types": types,
+                    "orFilters": orFilters,
                     "batchSize": batch_size,
                     "scrollId": scroll_id or None,
                 },
