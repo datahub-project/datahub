@@ -713,9 +713,9 @@ class SnowflakeQuery:
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
                 AND upstream_column_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
-                AND upstream_column_table_name NOT LIKE '%__DBT_TMP'
+                AND upstream_column_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
                 AND upstream_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
-                AND upstream_table_name NOT LIKE '%__DBT_TMP'
+                AND upstream_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
             ),
         column_upstream_jobs AS (
             SELECT
@@ -811,7 +811,7 @@ class SnowflakeQuery:
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
                 AND upstream_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
-                AND upstream_table_name NOT LIKE '%__DBT_TMP'
+                AND upstream_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
                 )
             SELECT
                 downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
