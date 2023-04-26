@@ -144,14 +144,6 @@ Specify as long fixed prefix ( with out /*/ ) as possible in `path_specs.include
 
 :::
 
-:::caution
-
-Running profiling against many tables or over many rows can run up significant costs.
-While we've done our best to limit the expensiveness of the queries the profiler runs, you
-should be prudent about the set of tables profiling is enabled on or the frequency
-of the profiling runs.
-
-:::
 
 :::caution
 

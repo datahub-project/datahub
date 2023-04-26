@@ -36,6 +36,11 @@ class GCSSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
         description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",
     )
 
+    max_rows: int = Field(
+        default=100,
+        description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
+    )
+
     @validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
         cls, path_specs: List[PathSpec], values: Dict
@@ -59,7 +64,7 @@ class GCSSourceReport(SourceReport):
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.DATA_PROFILING, "Not supported")
+@capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
 class GCSSource(Source):
     """
     This connector extracting datasets located on Google Cloud Storage. Supported file types are as follows:
@@ -76,8 +81,8 @@ class GCSSource(Source):
     JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 
 
-    [Interoperability of GCS with S3](https://cloud.google.com/storage/docs/interoperability)
-    is leveraged here to reuse most of S3 Data Lake integration code.
+    This source leverages [Interoperability of GCS with S3](https://cloud.google.com/storage/docs/interoperability)
+    and uses DataHub S3 Data Lake integration source under the hood.
 
     ### Prerequisites
     1. Create a service account with "Storage Object Viewer" Role - https://cloud.google.com/iam/docs/service-accounts-create
@@ -108,6 +113,7 @@ class GCSSource(Source):
                 aws_region="auto",
             ),
             env=self.config.env,
+            max_rows=self.config.max_rows,
         )
         return s3_config
 
