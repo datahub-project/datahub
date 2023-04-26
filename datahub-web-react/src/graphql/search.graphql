@@ -140,6 +140,7 @@ fragment autoCompleteFields on Entity {
         name
         properties {
             name
+            colorHex
         }
     }
     ... on MLFeatureTable {
@@ -699,6 +700,7 @@ fragment searchResultFields on Entity {
         name
         properties {
             name
+            colorHex
         }
         description
     }
@@ -719,6 +721,7 @@ fragment facetFields on FacetMetadata {
             ... on Tag {
                 name
                 properties {
+                    name
                     colorHex
                 }
             }
@@ -807,9 +810,9 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         entity {
             ...searchResultFields
             ... on Dataset {
-                assertions @include(if: $includeAssertions) {
+                assertions(start: 0, count: 1000) @include(if: $includeAssertions) {
                     assertions {
-                        runEvents(limit: 1) {
+                        runEvents(status: COMPLETE, limit: 1) {
                             total
                             failed
                             succeeded

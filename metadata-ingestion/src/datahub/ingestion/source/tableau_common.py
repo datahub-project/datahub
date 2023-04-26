@@ -29,6 +29,10 @@ class TableauLineageOverrides(ConfigModel):
         default=None,
         description="A holder for platform -> platform mappings to generate correct dataset urns",
     )
+    database_override_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="A holder for database -> database mappings to generate correct dataset urns",
+    )
 
 
 class MetadataQueryException(Exception):
@@ -42,7 +46,6 @@ workbook_graphql_query = """
       luid
       uri
       projectName
-      projectLuid
       owner {
         username
       }
@@ -85,7 +88,7 @@ sheet_graphql_query = """
         id
         name
         projectName
-        projectLuid
+        luid
         owner {
           username
         }
@@ -163,7 +166,7 @@ dashboard_graphql_query = """
         id
         name
         projectName
-        projectLuid
+        luid
         owner {
           username
         }
@@ -247,7 +250,7 @@ embedded_datasource_graphql_query = """
         id
         name
         projectName
-        projectLuid
+        luid
         owner {
           username
         }
@@ -260,6 +263,7 @@ custom_sql_graphql_query = """
       id
       name
       query
+      isUnsupportedCustomSql
       columns {
         id
         name
@@ -290,7 +294,7 @@ custom_sql_graphql_query = """
                 id
                 name
                 projectName
-                projectLuid
+                luid
               }
             }
           }
@@ -311,6 +315,10 @@ custom_sql_graphql_query = """
             name
             remoteType
         }
+      }
+      database{
+        name
+        connectionType
       }
 }
 """
@@ -581,6 +589,14 @@ def make_table_urn(
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
 
+    if (
+        lineage_overrides is not None
+        and lineage_overrides.database_override_map is not None
+        and upstream_db is not None
+        and upstream_db in lineage_overrides.database_override_map.keys()
+    ):
+        upstream_db = lineage_overrides.database_override_map[upstream_db]
+
     table_name = get_fully_qualified_table_name(
         original_platform, upstream_db, schema, full_name
     )
@@ -608,9 +624,11 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
         unique_csql = {
             "id": custom_sql.get("id"),
             "name": custom_sql.get("name"),
+            "isUnsupportedCustomSql": custom_sql.get("isUnsupportedCustomSql"),
             "query": custom_sql.get("query"),
             "columns": custom_sql.get("columns"),
             "tables": custom_sql.get("tables"),
+            "database": custom_sql.get("database"),
         }
         datasource_for_csql = []
         for column in custom_sql.get("columns", []):

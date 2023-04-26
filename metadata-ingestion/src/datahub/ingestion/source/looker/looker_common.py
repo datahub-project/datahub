@@ -142,7 +142,8 @@ class NamingPattern(ConfigModel):
 
     def replace_variables(self, values: Union[Dict[str, Optional[str]], object]) -> str:
         if not isinstance(values, dict):
-            assert dataclasses.is_dataclass(values)
+            # Check that this is a dataclass instance (not a dataclass type).
+            assert dataclasses.is_dataclass(values) and not isinstance(values, type)
             values = dataclasses.asdict(values)
         values = {k: v for k, v in values.items() if v is not None}
         return self.pattern.format(**values)

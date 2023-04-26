@@ -7,8 +7,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "ephemeral",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -34,6 +34,7 @@
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.customer_details",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -150,8 +151,9 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table",
+                "View"
             ]
         }
     },
@@ -178,6 +180,7 @@
                             "dbt_file_path": "models/billing/monthly_billing_with_cust.sql",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.monthly_billing_with_cust",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -310,8 +313,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
-                "view"
+                "Model",
+                "View"
             ]
         }
     },
@@ -333,6 +336,7 @@
                             "dbt_file_path": "models/base/payments_base.sql",
                             "catalog_type": "VIEW",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.payments_base",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -529,8 +533,9 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table",
-                "view"
+                "Model",
+                "Table",
+                "View"
             ]
         }
     },
@@ -552,6 +557,7 @@
                             "dbt_file_path": "models/transform/payments_by_customer_by_month.sql",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.payments_by_customer_by_month",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -664,7 +670,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -688,6 +694,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.actor",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -829,7 +836,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -850,6 +857,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.address",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1015,7 +1023,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1036,6 +1044,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.category",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1141,7 +1150,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1162,6 +1171,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.city",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1279,7 +1289,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1303,6 +1313,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.country",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1422,7 +1433,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1443,6 +1454,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.customer",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1632,7 +1644,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1653,6 +1665,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_01",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1794,7 +1807,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1819,6 +1832,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_02",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1974,7 +1988,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -1995,6 +2009,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_03",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -2136,7 +2151,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2157,6 +2172,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_04",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -2298,7 +2314,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "source"
+                "Source"
             ]
         }
     },
@@ -2319,6 +2335,7 @@
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
+                            "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_05",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -2458,7 +2475,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.dbt_postgres.an-aliased-view-for-monthly-billing%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -2472,7 +2489,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.dbt_postgres.an-aliased-view-for-payments%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -2486,23 +2503,8 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.dbt_postgres.payments_by_customer_by_month%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-complex-owner-patterns"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:test_tag",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "dbt:test_tag"
-        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -2517,6 +2519,21 @@
     "aspect": {
         "json": {
             "name": "dbt:column_tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-complex-owner-patterns"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:test_tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:test_tag"
         }
     },
     "systemMetadata": {

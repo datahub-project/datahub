@@ -37,6 +37,7 @@ M_QUERIES = [
     'let\n Source = GoogleBigQuery.Database([BillingProject="dwh-prod"]),\ngcp_project = Source{[Name="dwh-prod"]}[Data],\ngcp_billing_Schema = gcp_project {[Name="gcp_billing",Kind="Schema"]}[Data],\nD_GCP_CUSTOM_LABEL_Table = gcp_billing_Schema{[Name="D_GCP_CUSTOM_LABEL",Kind="Table"]}[Data] \n in \n D_GCP_CUSTOM_LABEL_Table',
     'let\n    Source = AmazonRedshift.Database("redshift-url","dev"),\n    public = Source{[Name="public"]}[Data],\n    category1 = public{[Name="category"]}[Data]\nin\n    category1',
     'let\n Source = Value.NativeQuery(AmazonRedshift.Database("redshift-url","dev"), "select * from dev.public.category", null, [EnableFolding=true]) \n in Source',
+    'let\n    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", [Catalog=null, Database=null]),\n    hive_metastore_Database = Source{[Name="hive_metastore",Kind="Database"]}[Data],\n    sandbox_revenue_Schema = hive_metastore_Database{[Name="sandbox_revenue",Kind="Schema"]}[Data],\n    public_consumer_price_index_Table = sandbox_revenue_Schema{[Name="public_consumer_price_index",Kind="Table"]}[Data],\n    #"Renamed Columns" = Table.RenameColumns(public_consumer_price_index_Table,{{"Country", "country"}, {"Metric", "metric"}}),\n #"Inserted Year" = Table.AddColumn(#"Renamed Columns", "ID", each Date.Year([date_id]) + Date.Month([date_id]), Text.Type),\n #"Added Custom" = Table.AddColumn(#"Inserted Year", "Custom", each Text.Combine({Number.ToText(Date.Year([date_id])), Number.ToText(Date.Month([date_id])), [country]})),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Custom",{"ID"}),\n    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns",{{"Custom", "ID"}}),\n #"Filtered Rows" = Table.SelectRows(#"Renamed Columns1", each ([metric] = "Consumer Price Index") and (not Number.IsNaN([value])))\nin\n    #"Filtered Rows"',
 ]
 
 
@@ -135,6 +136,8 @@ def test_parse_m_query13():
 def test_snowflake_regular_case():
     q: str = M_QUERIES[0]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -163,6 +166,8 @@ def test_snowflake_regular_case():
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -184,9 +189,39 @@ def test_postgres_regular_case():
 
 
 @pytest.mark.integration
+def test_databricks_regular_case():
+    q: str = M_QUERIES[23]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="public_consumer_price_index",
+        full_name="hive_metastore.sandbox_revenue.public_consumer_price_index",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == "public_consumer_price_index"
+    assert (
+        data_platform_tables[0].full_name
+        == "hive_metastore.sandbox_revenue.public_consumer_price_index"
+    )
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.DATABRICK_SQL.value.powerbi_data_platform_name
+    )
+
+
+@pytest.mark.integration
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -211,6 +246,8 @@ def test_oracle_regular_case():
 def test_mssql_regular_case():
     q: str = M_QUERIES[15]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -253,6 +290,8 @@ def test_mssql_with_query():
 
     for index, query in enumerate(mssql_queries):
         table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+            columns=[],
+            measures=[],
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -291,6 +330,8 @@ def test_snowflake_native_query():
 
     for index, query in enumerate(snowflake_queries):
         table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+            columns=[],
+            measures=[],
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -426,6 +467,8 @@ def test_for_each_expression_2():
 @pytest.mark.integration
 def test_native_query_disabled():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=M_QUERIES[1],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -442,6 +485,8 @@ def test_native_query_disabled():
 @pytest.mark.integration
 def test_multi_source_table():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=M_QUERIES[12],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -474,6 +519,8 @@ def test_multi_source_table():
 @pytest.mark.integration
 def test_table_combine():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=M_QUERIES[16],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -518,6 +565,8 @@ def test_expression_is_none():
     logging.getLogger().setLevel(logging.DEBUG)
 
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=None,  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",

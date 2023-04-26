@@ -18,10 +18,6 @@ repos:
           - --remove-unused-variables
           - --remove-all-unused-imports
           - --expand-star-imports
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
-    hooks:
-      - id: flake8
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: "v3.0.0-alpha.6" # Use the sha or tag you want to point at
     hooks:

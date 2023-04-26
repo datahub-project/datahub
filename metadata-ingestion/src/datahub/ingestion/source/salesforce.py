@@ -367,12 +367,14 @@ class SalesforceSource(Source):
     def get_operation_workunit(
         self, customObject: dict, datasetUrn: str
     ) -> Iterable[WorkUnit]:
+        reported_time: int = int(time.time() * 1000)
+
         if customObject.get("CreatedBy") and customObject.get("CreatedDate"):
             timestamp = self.get_time_from_salesforce_timestamp(
                 customObject["CreatedDate"]
             )
             operation = OperationClass(
-                timestampMillis=timestamp,
+                timestampMillis=reported_time,
                 operationType=OperationTypeClass.CREATE,
                 lastUpdatedTimestamp=timestamp,
                 actor=builder.make_user_urn(customObject["CreatedBy"]["Username"]),
@@ -393,7 +395,7 @@ class SalesforceSource(Source):
                     customObject["LastModifiedDate"]
                 )
                 operation = OperationClass(
-                    timestampMillis=timestamp,
+                    timestampMillis=reported_time,
                     operationType=OperationTypeClass.ALTER,
                     lastUpdatedTimestamp=timestamp,
                     actor=builder.make_user_urn(

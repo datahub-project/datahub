@@ -1,4 +1,5 @@
 import collections
+import gzip
 import logging
 import pathlib
 import pickle
@@ -64,6 +65,7 @@ class ConnectionWrapper:
             filename = pathlib.Path(self._directory.name) / _DEFAULT_FILE_NAME
 
         self.conn = sqlite3.connect(filename, isolation_level=None)
+        self.conn.row_factory = sqlite3.Row
         self.filename = filename
 
         # These settings are optimized for performance.
@@ -134,7 +136,7 @@ def _default_deserializer(value: Any) -> Any:
 
 
 @dataclass(eq=False)
-class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
+class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     """
     A dict-like object that stores its data in a temporary SQLite database.
     This is useful for storing large amounts of data that don't fit in memory.
@@ -152,8 +154,11 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
 
     cache_max_size: int = _DEFAULT_MEMORY_CACHE_MAX_SIZE
     cache_eviction_batch_size: int = _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE
+    delay_index_creation: bool = False
+    should_compress_value: bool = False
 
     _conn: ConnectionWrapper = field(init=False, repr=False)
+    indexes_created: bool = field(init=False, default=False)
 
     # To improve performance, we maintain an in-memory LRU cache using an OrderedDict.
     # Maintains a dirty bit marking whether the value has been modified since it was persisted.
@@ -189,12 +194,24 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             )"""
         )
 
-        # The key column will automatically be indexed, but we need indexes
-        # for the extra columns.
+        if not self.delay_index_creation:
+            self.create_indexes()
+
+        if self.should_compress_value:
+            serializer = self.serializer
+            self.serializer = lambda value: gzip.compress(serializer(value))  # type: ignore
+            deserializer = self.deserializer
+            self.deserializer = lambda value: deserializer(gzip.decompress(value))
+
+    def create_indexes(self) -> None:
+        if self.indexes_created:
+            return
+        # The key column will automatically be indexed, but we need indexes for the extra columns.
         for column_name in self.extra_columns.keys():
             self._conn.execute(
                 f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
+        self.indexes_created = True
 
     def _add_to_cache(self, key: str, value: _VT, dirty: bool) -> None:
         self._active_object_cache[key] = value, dirty
@@ -266,7 +283,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             self._active_object_cache[key] = self._active_object_cache[key][0], True
 
     def __iter__(self) -> Iterator[str]:
-        # Cache should be small, so safe list cast to avoid mutation during iteration
+        # Cache should be small, so safe set cast to avoid mutation during iteration
         cache_keys = set(self._active_object_cache.keys())
         yield from cache_keys
 
@@ -314,7 +331,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> List[sqlite3.Row]:
         return self._sql_query(query, params, refs).fetchall()
 
     def sql_query_iterator(
@@ -322,7 +339,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> Iterator[Tuple[Any, ...]]:
+    ) -> Iterator[sqlite3.Row]:
         return self._sql_query(query, params, refs)
 
     def _sql_query(
@@ -376,7 +393,7 @@ class FileBackedList(Generic[_VT]):
         cache_eviction_batch_size: Optional[int] = None,
     ) -> None:
         self._len = 0
-        self._dict = FileBackedDict(
+        self._dict = FileBackedDict[_VT](
             shared_connection=connection,
             serializer=serializer,
             deserializer=deserializer,
@@ -422,7 +439,7 @@ class FileBackedList(Generic[_VT]):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> List[sqlite3.Row]:
         return self._dict.sql_query(query, params, refs=refs)
 
     def close(self) -> None:

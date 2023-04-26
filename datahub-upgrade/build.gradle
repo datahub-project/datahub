@@ -63,10 +63,11 @@ dependencies {
   testImplementation externalDependency.springBootTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
+  testRuntime externalDependency.logbackClassic
 }
 
 bootJar {
-  mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+  mainClass = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
   archiveFileName = "${project.name}.jar"
 }
 

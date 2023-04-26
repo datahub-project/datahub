@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -7,6 +8,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -45,7 +47,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.unity import proxy
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy import Catalog, Metastore, Schema
+from datahub.ingestion.source.unity.proxy import (
+    Catalog,
+    Metastore,
+    Schema,
+    ServicePrincipal,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -57,9 +64,15 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DomainsClass,
     MySqlDDLClass,
+    OperationClass,
+    OperationTypeClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SchemaFieldClass,
     SchemaMetadataClass,
     SubTypesClass,
+    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -83,6 +96,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` configs")
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
@@ -135,6 +149,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
+        # Global map of service principal application id -> ServicePrincipal
+        self.service_principals: Dict[str, ServicePrincipal] = {}
+
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
@@ -170,7 +187,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self.build_service_principal_map()
         yield from self.process_metastores()
+
+    def build_service_principal_map(self) -> None:
+        try:
+            for sp in self.unity_catalog_api_proxy.service_principals():
+                self.service_principals[sp.application_id] = sp
+        except Exception as e:
+            self.report.report_warning(
+                "service-principals", f"Unable to fetch service principals: {e}"
+            )
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastores: Dict[str, Metastore] = {}
@@ -247,6 +274,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         sub_type = self._create_table_sub_type_aspect(table)
         schema_metadata = self._create_schema_metadata_aspect(table)
+        operation = self._create_table_operation_aspect(table)
 
         domain = self._get_domain_aspect(
             dataset_name=str(
@@ -254,10 +282,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+        ownership = self._create_table_ownership_aspect(table)
+
+        lineage: Optional[UpstreamLineageClass] = None
         if self.config.include_column_lineage:
             self.unity_catalog_api_proxy.get_column_lineage(table)
             lineage = self._generate_column_lineage_aspect(dataset_urn, table)
-        else:
+        elif self.config.include_table_lineage:
             self.unity_catalog_api_proxy.table_lineage(table)
             lineage = self._generate_lineage_aspect(dataset_urn, table)
 
@@ -270,7 +301,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     view_props,
                     sub_type,
                     schema_metadata,
+                    operation,
                     domain,
+                    ownership,
                     lineage,
                 ],
             )
@@ -341,6 +374,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return DomainsClass(domains=[domain_urn])
 
+    def gen_user_urn(self, user: Optional[str]) -> Optional[str]:
+        if self.config.include_ownership and user is not None:
+            if user in self.service_principals:
+                user = self.service_principals[user].display_name
+            return make_user_urn(user)
+        return None
+
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
 
@@ -352,6 +392,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             parent_container_key=self.gen_catalog_key(catalog=schema.catalog),
             domain_urn=domain_urn,
             description=schema.comment,
+            owner_urn=self.gen_user_urn(schema.owner),
         )
 
     def gen_metastore_containers(
@@ -360,22 +401,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         domain_urn = self._gen_domain_urn(metastore.name)
 
         metastore_container_key = self.gen_metastore_key(metastore)
-
         yield from gen_containers(
             container_key=metastore_container_key,
             name=metastore.name,
             sub_types=[DatasetContainerSubTypes.DATABRICKS_METASTORE],
             domain_urn=domain_urn,
             description=metastore.comment,
+            owner_urn=self.gen_user_urn(metastore.owner),
         )
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
 
         metastore_container_key = self.gen_metastore_key(catalog.metastore)
-
         catalog_container_key = self.gen_catalog_key(catalog)
-
         yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
@@ -383,6 +422,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             domain_urn=domain_urn,
             parent_container_key=metastore_container_key,
             description=catalog.comment,
+            owner_urn=self.gen_user_urn(catalog.owner),
         )
 
     def gen_schema_key(self, schema: Schema) -> PlatformKey:
@@ -444,17 +484,73 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         custom_properties["created_by"] = table.created_by
         custom_properties["created_at"] = str(table.created_at)
         if table.properties:
-            custom_properties["properties"] = str(table.properties)
+            custom_properties.update({k: str(v) for k, v in table.properties.items()})
         custom_properties["table_id"] = table.table_id
         custom_properties["owner"] = table.owner
         custom_properties["updated_by"] = table.updated_by
         custom_properties["updated_at"] = str(table.updated_at)
 
+        created = TimeStampClass(
+            int(table.created_at.timestamp() * 1000), make_user_urn(table.created_by)
+        )
+        last_modified = created
+        if table.updated_at and table.updated_by is not None:
+            last_modified = TimeStampClass(
+                int(table.updated_at.timestamp() * 1000),
+                make_user_urn(table.updated_by),
+            )
+
         return DatasetPropertiesClass(
             name=table.name,
             description=table.comment,
             customProperties=custom_properties,
+            created=created,
+            lastModified=last_modified,
         )
+
+    def _create_table_operation_aspect(self, table: proxy.Table) -> OperationClass:
+        """Produce an operation aspect for a table.
+
+        If a last updated time is present, we produce an update operation.
+        Otherwise, we produce a create operation. We do this in addition to
+        setting the last updated time in the dataset properties aspect, as
+        the UI is currently missing the ability to display the last updated
+        from the properties aspect.
+        """
+
+        reported_time = int(time.time() * 1000)
+
+        operation = OperationClass(
+            timestampMillis=reported_time,
+            lastUpdatedTimestamp=int(table.created_at.timestamp() * 1000),
+            actor=make_user_urn(table.created_by),
+            operationType=OperationTypeClass.CREATE,
+        )
+
+        if table.updated_at and table.updated_by is not None:
+            operation = OperationClass(
+                timestampMillis=reported_time,
+                lastUpdatedTimestamp=int(table.updated_at.timestamp() * 1000),
+                actor=make_user_urn(table.updated_by),
+                operationType=OperationTypeClass.UPDATE,
+            )
+
+        return operation
+
+    def _create_table_ownership_aspect(
+        self, table: proxy.Table
+    ) -> Optional[OwnershipClass]:
+        owner_urn = self.gen_user_urn(table.owner)
+        if owner_urn is not None:
+            return OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=owner_urn,
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+            )
+        return None
 
     def _create_table_sub_type_aspect(self, table: proxy.Table) -> SubTypesClass:
         return SubTypesClass(
