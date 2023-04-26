@@ -107,6 +107,7 @@ class GCSSource(Source):
                 aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
             ),
+            env=self.config.env,
         )
         return s3_config
 
