@@ -5,6 +5,7 @@ from hashlib import md5
 from typing import Any, List, Optional, Set, Tuple
 
 import confluent_kafka
+import confluent_kafka.schema_registry.schema_registry_client
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,

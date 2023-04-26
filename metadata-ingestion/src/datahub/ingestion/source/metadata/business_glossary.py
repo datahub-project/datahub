@@ -13,7 +13,7 @@ from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
+from datahub.ingestion.api.decorators import (
     SupportStatus,
     config_class,
     platform_name,
@@ -23,15 +23,12 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import auto_workunit_reporter
+from datahub.utilities.source_helpers import auto_workunit, auto_workunit_reporter
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
 
 valid_status: models.StatusClass = models.StatusClass(removed=False)
-
-# This needed to map path presents in inherits, contains, values, and related_terms to terms' optional id
-path_vs_id: Dict[str, Optional[str]] = {}
 
 
 class Owners(ConfigModel):
@@ -80,7 +77,7 @@ class DefaultConfig(ConfigModel):
     source: str
     owners: Owners
     url: Optional[str] = None
-    source_type: Optional[str] = "INTERNAL"
+    source_type: str = "INTERNAL"
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
@@ -166,17 +163,18 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
 
 def get_mces(
     glossary: BusinessGlossaryConfig,
+    path_vs_id: Dict[str, Optional[str]],
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
-    path: List[str] = []
     root_owners = get_owners(glossary.owners)
 
     if glossary.nodes:
         for node in glossary.nodes:
             yield from get_mces_from_node(
                 node,
-                path + [node.name],
+                [node.name],
+                path_vs_id=path_vs_id,
                 parentNode=None,
                 parentOwners=root_owners,
                 defaults=glossary,
@@ -188,7 +186,8 @@ def get_mces(
         for term in glossary.terms:
             yield from get_mces_from_term(
                 term,
-                path + [term.name],
+                [term.name],
+                path_vs_id=path_vs_id,
                 parentNode=None,
                 parentOwnership=root_owners,
                 defaults=glossary,
@@ -238,6 +237,7 @@ def make_domain_mcp(
 def get_mces_from_node(
     glossaryNode: GlossaryNodeConfig,
     path: List[str],
+    path_vs_id: Dict[str, Optional[str]],
     parentNode: Optional[str],
     parentOwners: models.OwnershipClass,
     defaults: DefaultConfig,
@@ -275,6 +275,7 @@ def get_mces_from_node(
             yield from get_mces_from_node(
                 node,
                 path + [node.name],
+                path_vs_id=path_vs_id,
                 parentNode=node_urn,
                 parentOwners=node_owners,
                 defaults=defaults,
@@ -287,6 +288,7 @@ def get_mces_from_node(
             yield from get_mces_from_term(
                 glossaryTerm=term,
                 path=path + [term.name],
+                path_vs_id=path_vs_id,
                 parentNode=node_urn,
                 parentOwnership=node_owners,
                 defaults=defaults,
@@ -314,6 +316,7 @@ def get_domain_class(
 def get_mces_from_term(
     glossaryTerm: GlossaryTermConfig,
     path: List[str],
+    path_vs_id: Dict[str, Optional[str]],
     parentNode: Optional[str],
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
@@ -335,7 +338,7 @@ def get_mces_from_term(
     ] = []
     term_info = models.GlossaryTermInfoClass(
         definition=glossaryTerm.description,
-        termSource=glossaryTerm.term_source  # type: ignore
+        termSource=glossaryTerm.term_source
         if glossaryTerm.term_source is not None
         else defaults.source_type,
         sourceRef=glossaryTerm.source_ref
@@ -432,8 +435,10 @@ def get_mces_from_term(
             yield mcp
 
 
-def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> None:
-    path: List[str] = []
+def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, Optional[str]]:
+    # This needed to map paths present in inherits, contains, values, and related_terms to term's
+    # urn, if one was manually specified.
+    path_vs_id: Dict[str, Optional[str]] = {}
 
     def _process_child_terms(parent_node: GlossaryNodeConfig, path: List[str]) -> None:
         path_vs_id[".".join(path + [parent_node.name])] = parent_node.id
@@ -448,11 +453,13 @@ def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> None:
 
     if glossary.nodes:
         for node in glossary.nodes:
-            _process_child_terms(node, path)
+            _process_child_terms(node, [])
 
     if glossary.terms:
         for term in glossary.terms:
-            path_vs_id[".".join(path + [term.name])] = term.id
+            path_vs_id[".".join([term.name])] = term.id
+
+    return path_vs_id
 
 
 @platform_name("Business Glossary")
@@ -472,8 +479,9 @@ class BusinessGlossaryFileSource(Source):
         config = BusinessGlossarySourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    @classmethod
     def load_glossary_config(
-        self, file_name: Union[str, pathlib.Path]
+        cls, file_name: Union[str, pathlib.Path]
     ) -> BusinessGlossaryConfig:
         config = load_config_file(file_name)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
@@ -486,14 +494,15 @@ class BusinessGlossaryFileSource(Source):
         self,
     ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
-        populate_path_vs_id(glossary_config)
-        for event in get_mces(
-            glossary_config, ingestion_config=self.config, ctx=self.ctx
+
+        path_vs_id = populate_path_vs_id(glossary_config)
+
+        for event in auto_workunit(
+            get_mces(
+                glossary_config, path_vs_id, ingestion_config=self.config, ctx=self.ctx
+            )
         ):
-            if isinstance(event, models.MetadataChangeEventClass):
-                yield MetadataWorkUnit(f"{event.proposedSnapshot.urn}", mce=event)
-            elif isinstance(event, MetadataChangeProposalWrapper):
-                yield event.as_workunit()
+            yield event
 
     def get_report(self):
         return self.report
