@@ -11,6 +11,7 @@ from wcmatch import pathlib
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -18,12 +19,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
 SUPPORTED_COMPRESSIONS: List[str] = ["gz", "bz2"]
-
-GCS_PREFIX = "gs://"
-
-
-def is_gcs_uri(uri: str) -> bool:
-    return uri.startswith(GCS_PREFIX)
 
 
 class PathSpec(ConfigModel):

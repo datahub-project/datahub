@@ -4,5 +4,5 @@ source:
     path_specs: 
        - include: gs://gcs-ingestion-bucket/parquet_example/{table}/year={partition[0]}/*.parquet
     credential:
-      hmac_access_id: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-      hmac_access_secret: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+      hmac_access_id: <hmac access id>
+      hmac_access_secret: <hmac access secret>

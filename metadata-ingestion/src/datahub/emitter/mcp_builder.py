@@ -112,7 +112,7 @@ class FolderKey(PlatformKey):
     folder_abs_path: str
 
 
-class S3BucketKey(PlatformKey):
+class BucketKey(PlatformKey):
     bucket_name: str
 
 
