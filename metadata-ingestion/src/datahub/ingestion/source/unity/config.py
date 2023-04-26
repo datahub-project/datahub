@@ -12,9 +12,12 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
-class UnityCatalogSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class UnityCatalogSourceConfig(
+    StatefulIngestionConfigBase, BaseUsageConfig, DatasetSourceConfigMixin
+):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(description="Databricks workspace url")
     workspace_name: Optional[str] = pydantic.Field(
@@ -63,6 +66,11 @@ class UnityCatalogSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigM
     include_column_lineage: Optional[bool] = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    include_usage_statistics: bool = Field(
+        default=True,
+        description="Generate usage statistics.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
