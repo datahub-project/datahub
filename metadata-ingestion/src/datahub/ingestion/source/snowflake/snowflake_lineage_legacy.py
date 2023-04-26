@@ -228,36 +228,32 @@ class SnowflakeLineageExtractor(
     def get_table_upstream_workunits(self, discovered_tables):
         if self.config.include_table_lineage:
             for dataset_name in discovered_tables:
-                if self._is_dataset_pattern_allowed(
-                    dataset_name, SnowflakeObjectDomain.TABLE
-                ):
-                    dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        dataset_name,
-                        self.config.platform_instance,
-                        self.config.env,
-                    )
-                    upstream_lineage = self._get_upstream_lineage_info(dataset_name)
-                    if upstream_lineage is not None:
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=dataset_urn, aspect=upstream_lineage
-                        ).as_workunit()
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    dataset_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                upstream_lineage = self._get_upstream_lineage_info(dataset_name)
+                if upstream_lineage is not None:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=upstream_lineage
+                    ).as_workunit()
 
     def get_view_upstream_workunits(self, discovered_views):
         if self.config.include_view_lineage:
             for view_name in discovered_views:
-                if self._is_dataset_pattern_allowed(view_name, "view"):
-                    dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        view_name,
-                        self.config.platform_instance,
-                        self.config.env,
-                    )
-                    upstream_lineage = self._get_upstream_lineage_info(view_name)
-                    if upstream_lineage is not None:
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=dataset_urn, aspect=upstream_lineage
-                        ).as_workunit()
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    view_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                upstream_lineage = self._get_upstream_lineage_info(view_name)
+                if upstream_lineage is not None:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=upstream_lineage
+                    ).as_workunit()
 
     def _get_upstream_lineage_info(
         self, dataset_name: str
@@ -446,7 +442,7 @@ class SnowflakeLineageExtractor(
             key, SnowflakeObjectDomain.TABLE
         ) or not (
             self._is_dataset_pattern_allowed(
-                upstream_table_name, SnowflakeObjectDomain.TABLE
+                upstream_table_name, SnowflakeObjectDomain.TABLE, is_upstream=True
             )
         ):
             return
@@ -500,7 +496,7 @@ class SnowflakeLineageExtractor(
             dataset_name=view_name,
             dataset_type=db_row["REFERENCING_OBJECT_DOMAIN"],
         ) or not self._is_dataset_pattern_allowed(
-            view_upstream, db_row["REFERENCED_OBJECT_DOMAIN"]
+            view_upstream, db_row["REFERENCED_OBJECT_DOMAIN"], is_upstream=True
         ):
             return
             # key is the downstream view name
@@ -554,7 +550,7 @@ class SnowflakeLineageExtractor(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
         if not self._is_dataset_pattern_allowed(
-            view_name, db_row["VIEW_DOMAIN"]
+            view_name, db_row["VIEW_DOMAIN"], is_upstream=True
         ) or not self._is_dataset_pattern_allowed(
             downstream_table, db_row["DOWNSTREAM_TABLE_DOMAIN"]
         ):
@@ -655,7 +651,7 @@ class SnowflakeLineageExtractor(
                 upstream_col.objectName
                 and upstream_col.columnName
                 and self._is_dataset_pattern_allowed(
-                    upstream_col.objectName, upstream_col.objectDomain
+                    upstream_col.objectName, upstream_col.objectDomain, is_upstream=True
                 )
             ):
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
