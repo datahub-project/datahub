@@ -116,10 +116,6 @@ class BucketKey(PlatformKey):
     bucket_name: str
 
 
-class GCSBucketKey(PlatformKey):
-    bucket_name: str
-
-
 class DatahubKeyJSONEncoder(json.JSONEncoder):
     # overload method default
     def default(self, obj: Any) -> Any:
