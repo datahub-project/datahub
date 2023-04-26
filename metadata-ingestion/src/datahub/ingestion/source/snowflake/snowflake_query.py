@@ -664,6 +664,15 @@ class SnowflakeQuery:
             basic_usage_counts.bucket_start_time
         """
 
+    # Note on temporary tables:
+    # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
+    # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
+    #
+    # FIVETRAN creates temporary tables in schema named FIVETRAN_xxx_STAGING.
+    # Ref - https://support.fivetran.com/hc/en-us/articles/1500003507122-Why-Is-There-an-Empty-Schema-Named-Fivetran-staging-in-the-Destination-
+    #
+    # DBT incremental models create temporary tables ending with __dbt_tmp
+    # Ref - https://discourse.getdbt.com/t/handling-bigquery-incremental-dbt-tmp-tables/7540
     @staticmethod
     def table_upstreams_with_column_lineage(
         start_time_millis: int,
@@ -703,6 +712,10 @@ class SnowflakeQuery:
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND upstream_column_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
+                AND upstream_column_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
+                AND upstream_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
+                AND upstream_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
             ),
         column_upstream_jobs AS (
             SELECT
@@ -747,7 +760,7 @@ class SnowflakeQuery:
                     'upstream_object_domain', h.upstream_table_domain
                 )
             ) AS "UPSTREAM_TABLES",
-            ARRAY_AGG(
+            ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
                 'column_name', column_upstreams.downstream_column_name,
                 'upstreams', column_upstreams.upstreams
@@ -759,8 +772,11 @@ class SnowflakeQuery:
                 on h.downstream_table_name = column_upstreams.downstream_table_name
             GROUP BY
                 h.downstream_table_name
+            ORDER BY
+                h.downstream_table_name
         """
 
+    # See Note on temporary tables above.
     @staticmethod
     def table_upstreams_only(
         start_time_millis: int,
@@ -794,6 +810,8 @@ class SnowflakeQuery:
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND upstream_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
+                AND upstream_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
                 )
             SELECT
                 downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
@@ -807,5 +825,7 @@ class SnowflakeQuery:
                 FROM
                     table_lineage_history
                 GROUP BY
+                    downstream_table_name
+                ORDER BY
                     downstream_table_name
             """
