@@ -16,7 +16,10 @@ result = graph.get_aspects_for_entity(
     entity_urn=dataset_urn,
     aspects=["schemaMetadata"],
     aspect_types=[SchemaMetadataClass],
-)["schemaMetadata"].fields
+)["schemaMetadata"]
 
-column_descriptions = [{field.fieldPath: field.description} for field in result]
-print(column_descriptions)
+if result:
+    column_descriptions = [
+        {field.fieldPath: field.description} for field in result.fields
+    ]
+    print(column_descriptions)

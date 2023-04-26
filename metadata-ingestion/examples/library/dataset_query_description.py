@@ -16,6 +16,7 @@ result = graph.get_aspects_for_entity(
     entity_urn=dataset_urn,
     aspects=["datasetProperties"],
     aspect_types=[DatasetPropertiesClass],
-)["datasetProperties"].description
+)["datasetProperties"]
 
-print(result)
+if result:
+    print(result.description)
