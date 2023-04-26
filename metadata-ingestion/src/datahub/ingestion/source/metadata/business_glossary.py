@@ -41,6 +41,11 @@ class KnowledgeCard(ConfigModel):
     label: Optional[str]
 
 
+class GlossaryNodeMixin(ConfigModel):
+    terms: Optional[List["GlossaryTermConfig"]]
+    nodes: Optional[List["GlossaryNodeConfig"]]
+
+
 class GlossaryTermConfig(ConfigModel):
     id: Optional[str]
     name: str
@@ -58,17 +63,12 @@ class GlossaryTermConfig(ConfigModel):
     domain: Optional[str]
 
 
-class GlossaryNodeConfig(ConfigModel):
+class GlossaryNodeConfig(GlossaryNodeMixin):
     id: Optional[str]
     name: str
     description: str
     owners: Optional[Owners]
-    terms: Optional[List[GlossaryTermConfig]]
-    nodes: Optional[List["GlossaryNodeConfig"]]
     knowledge_links: Optional[List[KnowledgeCard]]
-
-
-GlossaryNodeConfig.update_forward_refs()
 
 
 class DefaultConfig(ConfigModel):
@@ -85,15 +85,13 @@ class BusinessGlossarySourceConfig(ConfigModel):
         description="File path or URL to business glossary file to ingest."
     )
     enable_auto_id: bool = Field(
-        description="Generate id field from GlossaryNode and GlossaryTerm's name field",
+        description="Generate guid urns instead of a plaintext path urn with the node/term's hierarchy.",
         default=False,
     )
 
 
-class BusinessGlossaryConfig(DefaultConfig):
+class BusinessGlossaryConfig(DefaultConfig, GlossaryNodeMixin):
     version: str
-    nodes: Optional[List[GlossaryNodeConfig]]
-    terms: Optional[List[GlossaryTermConfig]]
 
     @validator("version")
     def version_must_be_1(cls, v):
@@ -163,7 +161,7 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
 
 def get_mces(
     glossary: BusinessGlossaryConfig,
-    path_vs_id: Dict[str, Optional[str]],
+    path_vs_id: Dict[str, str],
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
@@ -173,7 +171,6 @@ def get_mces(
         for node in glossary.nodes:
             yield from get_mces_from_node(
                 node,
-                [node.name],
                 path_vs_id=path_vs_id,
                 parentNode=None,
                 parentOwners=root_owners,
@@ -186,7 +183,6 @@ def get_mces(
         for term in glossary.terms:
             yield from get_mces_from_term(
                 term,
-                [term.name],
                 path_vs_id=path_vs_id,
                 parentNode=None,
                 parentOwnership=root_owners,
@@ -236,17 +232,16 @@ def make_domain_mcp(
 
 def get_mces_from_node(
     glossaryNode: GlossaryNodeConfig,
-    path: List[str],
-    path_vs_id: Dict[str, Optional[str]],
+    path_vs_id: Dict[str, str],
     parentNode: Optional[str],
     parentOwners: models.OwnershipClass,
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
-    node_urn = make_glossary_node_urn(
-        path, glossaryNode.id, ingestion_config.enable_auto_id
-    )
+    node_urn = glossaryNode.id
+    assert node_urn is not None
+
     node_info = models.GlossaryNodeInfoClass(
         definition=glossaryNode.description,
         parentNode=parentNode,
@@ -274,7 +269,6 @@ def get_mces_from_node(
         for node in glossaryNode.nodes:
             yield from get_mces_from_node(
                 node,
-                path + [node.name],
                 path_vs_id=path_vs_id,
                 parentNode=node_urn,
                 parentOwners=node_owners,
@@ -287,7 +281,6 @@ def get_mces_from_node(
         for term in glossaryNode.terms:
             yield from get_mces_from_term(
                 glossaryTerm=term,
-                path=path + [term.name],
                 path_vs_id=path_vs_id,
                 parentNode=node_urn,
                 parentOwnership=node_owners,
@@ -315,17 +308,16 @@ def get_domain_class(
 
 def get_mces_from_term(
     glossaryTerm: GlossaryTermConfig,
-    path: List[str],
-    path_vs_id: Dict[str, Optional[str]],
+    path_vs_id: Dict[str, str],
     parentNode: Optional[str],
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[models.MetadataChangeEventClass, MetadataChangeProposalWrapper]]:
-    term_urn = make_glossary_term_urn(
-        path, glossaryTerm.id, ingestion_config.enable_auto_id
-    )
+    term_urn = glossaryTerm.id
+    assert term_urn
+
     aspects: List[
         Union[
             models.GlossaryTermInfoClass,
@@ -435,29 +427,42 @@ def get_mces_from_term(
             yield mcp
 
 
-def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, Optional[str]]:
+def materialize_all_node_ids(
+    glossary: BusinessGlossaryConfig, enable_auto_id: bool
+) -> None:
+    """After this runs, all nodes will have an id value that is a valid urn."""
+
+    def _process_child_terms(parent_node: GlossaryNodeMixin, path: List[str]) -> None:
+        for term in parent_node.terms or []:
+            term.id = make_glossary_term_urn(
+                path + [term.name], term.id, enable_auto_id
+            )
+
+        for node in parent_node.nodes or []:
+            node.id = make_glossary_node_urn(
+                path + [node.name], node.id, enable_auto_id
+            )
+            _process_child_terms(node, path + [node.name])
+
+    _process_child_terms(glossary, [])
+
+
+def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, str]:
     # This needed to map paths present in inherits, contains, values, and related_terms to term's
     # urn, if one was manually specified.
-    path_vs_id: Dict[str, Optional[str]] = {}
+    path_vs_id: Dict[str, str] = {}
 
-    def _process_child_terms(parent_node: GlossaryNodeConfig, path: List[str]) -> None:
-        path_vs_id[".".join(path + [parent_node.name])] = parent_node.id
+    def _process_child_terms(parent_node: GlossaryNodeMixin, path: List[str]) -> None:
+        for term in parent_node.terms or []:
+            assert term.id
+            path_vs_id[".".join(path + [term.name])] = term.id
 
-        if parent_node.terms:
-            for term in parent_node.terms:
-                path_vs_id[".".join(path + [parent_node.name] + [term.name])] = term.id
+        for node in parent_node.nodes or []:
+            assert node.id
+            path_vs_id[".".join(path + [node.name])] = node.id
+            _process_child_terms(node, path + [node.name])
 
-        if parent_node.nodes:
-            for node in parent_node.nodes:
-                _process_child_terms(node, path + [parent_node.name])
-
-    if glossary.nodes:
-        for node in glossary.nodes:
-            _process_child_terms(node, [])
-
-    if glossary.terms:
-        for term in glossary.terms:
-            path_vs_id[".".join([term.name])] = term.id
+    _process_child_terms(glossary, [])
 
     return path_vs_id
 
@@ -495,6 +500,7 @@ class BusinessGlossaryFileSource(Source):
     ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
 
+        materialize_all_node_ids(glossary_config, self.config.enable_auto_id)
         path_vs_id = populate_path_vs_id(glossary_config)
 
         for event in auto_workunit(
