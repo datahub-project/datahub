@@ -20,11 +20,13 @@ This guide will show you how to
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
+## Create Dataset
+
 <Tabs>
 <TabItem value="graphql" label="GraphQL">
 
 > 🚫 Creating a dataset via `graphql` is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information,
+> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
 
 </TabItem>
 <TabItem value="python" label="Python" default>

@@ -11,6 +11,8 @@ Adding a description and related link to a dataset can provide important informa
 
 This guide will show you how to
 
+- Read dataset description: read a description of a dataset `fct_users_deleted`.
+- Read column description: read a description of columns of a dataset `fct_users_deleted`.
 - Add dataset description: add a description and a link to dataset `fct_users_deleted`.
 - Add column description: add a description to `user_name `column of a dataset `fct_users_deleted`.
 
@@ -26,6 +28,171 @@ In this guide, we will be using data from sample ingestion.
 :::
 
 In this example, we will add a description to `user_name `column of a dataset `fct_users_deleted`.
+
+## Read Description on Dataset
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)") {
+    properties {
+      description
+    }
+  }
+}
+```
+
+If you see the following response, the operation was successful:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "properties": {
+        "description": "table containing all the users deleted on a single day"
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "query { dataset(urn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\") { properties { description } } }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "properties": {
+        "description": "table containing all the users deleted on a single day"
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_description.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+## Read Description on Columns
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)") {
+    schemaMetadata {
+      fields {
+        fieldPath
+        description
+      }
+    }
+  }
+}
+```
+
+If you see the following response, the operation was successful:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "schemaMetadata": {
+        "fields": [
+          {
+            "fieldPath": "user_name",
+            "description": "Name of the user who was deleted"
+          },
+          ...
+          {
+            "fieldPath": "deletion_reason",
+            "description": "Why the user chose to deactivate"
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "query { dataset(urn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\") { schemaMetadata { fields { fieldPath description } } } }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "schemaMetadata": {
+        "fields": [
+          {
+            "fieldPath": "user_name",
+            "description": "Name of the user who was deleted"
+          },
+          {
+            "fieldPath": "timestamp",
+            "description": "Timestamp user was deleted at"
+          },
+          { "fieldPath": "user_id", "description": "Id of the user deleted" },
+          {
+            "fieldPath": "browser_id",
+            "description": "Cookie attached to identify the browser"
+          },
+          {
+            "fieldPath": "session_id",
+            "description": "Cookie attached to identify the session"
+          },
+          {
+            "fieldPath": "deletion_reason",
+            "description": "Why the user chose to deactivate"
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_description_on_columns.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
 
 ## Add Description on Dataset
 
