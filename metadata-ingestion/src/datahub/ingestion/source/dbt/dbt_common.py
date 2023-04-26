@@ -1352,7 +1352,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         subtypes: List[str] = [node.node_type.capitalize()]
         if node.materialization == "table":
             subtypes.append(DatasetSubTypes.TABLE)
-        elif node.materialization == "view":
+
+        if node.node_type == "model" or node.node_type == "snapshot":
+            # We need to add the view subtype so that the view properties tab shows up in the UI.
             subtypes.append(DatasetSubTypes.VIEW)
 
         return MetadataChangeProposalWrapper(

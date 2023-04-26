@@ -20,7 +20,7 @@
                         "id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
                         "name": "Email Performance by Campaign",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                      "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b",
 
                         "owner": {
                             "username": "jawadqu@gmail.com"
@@ -151,7 +151,7 @@
                         "id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
                         "name": "Email Performance by Campaign",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -431,7 +431,7 @@
                         "id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
                         "name": "Email Performance by Campaign",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -741,7 +741,7 @@
                         "id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
                         "name": "Email Performance by Campaign",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -991,7 +991,7 @@
                         "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                         "name": "Dvdrental Workbook",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -1026,7 +1026,7 @@
                         "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                         "name": "Dvdrental Workbook",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -1155,7 +1155,7 @@
                         "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                         "name": "Dvdrental Workbook",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -1246,7 +1246,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -1481,7 +1481,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -1701,7 +1701,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -1936,7 +1936,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -2111,7 +2111,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -2271,7 +2271,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -2446,7 +2446,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -2651,7 +2651,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -2841,7 +2841,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -2986,7 +2986,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -3141,7 +3141,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -3241,7 +3241,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -3441,7 +3441,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -3581,7 +3581,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -3741,7 +3741,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -3916,7 +3916,7 @@
                         "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
                         "name": "Executive Dashboard",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
@@ -4116,7 +4116,7 @@
                         "id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
                         "name": "Workbook published ds",
                         "projectName": "default",
-                        "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01",
+                        "luid": "a059a443-7634-4abf-9e46-d147b99168be",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
