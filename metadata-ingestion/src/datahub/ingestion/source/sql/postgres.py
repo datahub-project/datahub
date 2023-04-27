@@ -163,7 +163,6 @@ class PostgresSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
-        # Set default database to `postgres` over postgres default of the user's username.
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
             if self.config.ingest_multiple_databases:
