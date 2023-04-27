@@ -78,9 +78,11 @@ Emitting Datahub ...
 
 ### Emitting lineage via a custom operator to the Airflow Plugin
 
-If you have created a custom airflow operator [docs](https://airflow.apache.org/docs/apache-airflow/stable/howto/custom-operator.html) that inherits from the BaseOperator class,
-When overriding the `execute` function, set inlets and outlets via `context['ti'].task.inlets` and `context['ti'].task.outlets`.
-The airflow plugin will then pick up your inlets and outlets after the task runs. 
+If you have created a custom Airflow operator [docs](https://airflow.apache.org/docs/apache-airflow/stable/howto/custom-operator.html) that inherits from the BaseOperator class,
+when overriding the `execute` function, set inlets and outlets via `context['ti'].task.inlets` and `context['ti'].task.outlets`.
+The Datahub Airflow plugin will then pick up those inlets and outlets after the task runs. 
+
+
 
 ```python
 class DbtOperator(BaseOperator):
@@ -98,6 +100,8 @@ class DbtOperator(BaseOperator):
         
         return inlets, outlets 
 ```
+
+If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. [source](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage)
 
 ## Using Datahub's Airflow lineage backend (deprecated)
 
