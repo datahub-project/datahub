@@ -1,7 +1,9 @@
-from typing import Dict, Optional
+from datetime import datetime, timezone
+from typing import Dict, Optional, Any
 
 import pydantic
 from pydantic import Field
+from pydantic.error_wrappers import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -76,3 +78,9 @@ class UnityCatalogSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
+
+    @pydantic.validator("start_time")
+    def within_thirty_days(cls, v: Optional[datetime]) -> datetime:
+        if v and (datetime.now(timezone.utc) - v).days > 30:
+            raise ValidationError("Query history is only maintained for 30 days.")
+        return v

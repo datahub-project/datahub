@@ -95,10 +95,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
+@capability(SourceCapability.USAGE_STATS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
-@capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` configs")
+@capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",

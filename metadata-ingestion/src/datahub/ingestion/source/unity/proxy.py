@@ -130,7 +130,7 @@ class UnityCatalogApiProxy:
     ) -> Iterable[Query]:
         # This is a _complete_ hack. The source code of perform_query
         # bundles data into query params if method == "GET", but we need it passed as the body.
-        # To get around this, we set method to underscore "get".
+        # To get around this, we set method to lowercase "get".
         # I still prefer this over duplicating the code in perform_query.
         method = "get"
         path = "/sql/history/queries"
