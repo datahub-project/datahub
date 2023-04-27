@@ -4,11 +4,13 @@ import styled from 'styled-components';
 import { PlusOutlined } from '@ant-design/icons';
 
 import { FacetFilterInput } from '../../types.generated';
-import { FIELD_TO_LABEL } from './utils/constants';
+import { DEGREE_FILTER_NAME, FIELD_TO_LABEL, ORDERED_FIELDS } from './utils/constants';
 
 const StyledPlus = styled(PlusOutlined)`
     margin-right: 6px;
 `;
+
+const selectStyle = { padding: 6, fontWeight: 500, width: 'auto' };
 
 interface Props {
     selectedFilters: Array<FacetFilterInput>;
@@ -30,24 +32,22 @@ export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSe
                 ),
             }}
             labelInValue
-            style={{ padding: 6, fontWeight: 500 }}
+            style={selectStyle}
             onChange={onFilterFieldSelect}
             dropdownMatchSelectWidth={false}
             filterOption={(_, option) => option?.value === 'null'}
         >
-            {Object.keys(FIELD_TO_LABEL)
-                .sort((a, b) => FIELD_TO_LABEL[a].localeCompare(FIELD_TO_LABEL[b]))
-                .filter((key) => key !== 'degree')
-                .map((key) => (
-                    <Option
-                        // disable the `entity` option if they already have an entity filter selected
-                        disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
-                        value={key}
-                        data-testid={`adv-search-add-filter-${key}`}
-                    >
-                        {FIELD_TO_LABEL[key]}
-                    </Option>
-                ))}
+            {ORDERED_FIELDS.filter((key) => key !== DEGREE_FILTER_NAME).map((key) => (
+                <Option
+                    // disable the `entity` option if they already have an entity filter selected
+                    disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
+                    value={key}
+                    data-testid={`adv-search-add-filter-${key}`}
+                    key={key}
+                >
+                    {FIELD_TO_LABEL[key]}
+                </Option>
+            ))}
         </Select>
     );
 };

@@ -1,4 +1,4 @@
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import * as React from 'react';
 import {
     ApiOutlined,
@@ -12,8 +12,10 @@ import {
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
-import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
+import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
+import { useUserContext } from '../../context/useUserContext';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -61,17 +63,19 @@ interface Props {
 
 export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
-    const me = useGetAuthenticatedUser();
+    const me = useUserContext();
     const { config } = useAppConfig();
 
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
 
-    const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
+    const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showSettings = true;
     const showIngestion =
-        isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
-    const showDomains = me?.platformPrivileges.createDomains || me?.platformPrivileges.manageDomains;
+        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
+    const showDomains = me?.platformPrivileges?.createDomains || me?.platformPrivileges?.manageDomains;
+
+    useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
@@ -92,7 +96,7 @@ export function HeaderLinks(props: Props) {
             {showIngestion && (
                 <LinkWrapper>
                     <Link to="/ingestion">
-                        <Button type="text">
+                        <Button id={HOME_PAGE_INGESTION_ID} type="text">
                             <Tooltip title="Connect DataHub to your organization's data sources">
                                 <NavTitleContainer>
                                     <ApiOutlined />

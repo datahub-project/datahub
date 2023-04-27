@@ -10,7 +10,7 @@ import { SearchPage } from './search/SearchPage';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
-import BusinessGlossaryPage from './glossary/BusinessGlossaryPage';
+import GlossaryRoutes from './glossary/GlossaryRoutes';
 import { SettingsPage } from './settings/SettingsPage';
 
 /**
@@ -21,7 +21,7 @@ export const SearchRoutes = (): JSX.Element => {
     return (
         <SearchablePage>
             <Switch>
-                {entityRegistry.getEntities().map((entity) => (
+                {entityRegistry.getNonGlossaryEntities().map((entity) => (
                     <Route
                         key={entity.getPathName()}
                         path={`/${entity.getPathName()}/:urn`}
@@ -41,7 +41,7 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPage />} />
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
-                <Route path={PageRoutes.GLOSSARY} render={() => <BusinessGlossaryPage />} />
+                <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutes />} />
                 <Route component={NoPageFound} />
             </Switch>
         </SearchablePage>

@@ -1,4 +1,6 @@
 import logging
+import pathlib
+import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -8,12 +10,9 @@ from pydantic.fields import Field
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import (
-    datahub_guid,
-    get_sys_time,
-    make_group_urn,
-    make_user_urn,
-)
+from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
     config_class,
@@ -22,6 +21,10 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.source_helpers import auto_workunit_reporter
+from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +33,15 @@ valid_status: models.StatusClass = models.StatusClass(removed=False)
 # This needed to map path presents in inherits, contains, values, and related_terms to terms' optional id
 path_vs_id: Dict[str, Optional[str]] = {}
 
-auditStamp = models.AuditStampClass(
-    time=get_sys_time(), actor="urn:li:corpUser:restEmitter"
-)
-
 
 class Owners(ConfigModel):
     users: Optional[List[str]]
     groups: Optional[List[str]]
+
+
+class KnowledgeCard(ConfigModel):
+    url: Optional[str]
+    label: Optional[str]
 
 
 class GlossaryTermConfig(ConfigModel):
@@ -53,6 +57,8 @@ class GlossaryTermConfig(ConfigModel):
     values: Optional[List[str]]
     related_terms: Optional[List[str]]
     custom_properties: Optional[Dict[str, str]]
+    knowledge_links: Optional[List[KnowledgeCard]]
+    domain: Optional[str]
 
 
 class GlossaryNodeConfig(ConfigModel):
@@ -62,6 +68,7 @@ class GlossaryNodeConfig(ConfigModel):
     owners: Optional[Owners]
     terms: Optional[List[GlossaryTermConfig]]
     nodes: Optional[List["GlossaryNodeConfig"]]
+    knowledge_links: Optional[List[KnowledgeCard]]
 
 
 GlossaryNodeConfig.update_forward_refs()
@@ -77,7 +84,9 @@ class DefaultConfig(ConfigModel):
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
-    file: str = Field(description="Path to business glossary file to ingest.")
+    file: Union[str, pathlib.Path] = Field(
+        description="File path or URL to business glossary file to ingest."
+    )
     enable_auto_id: bool = Field(
         description="Generate id field from GlossaryNode and GlossaryTerm's name field",
         default=False,
@@ -101,6 +110,10 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
         return default_id  # No need to create id from path as default_id is provided
 
     id_: str = ".".join(path)
+
+    if UrnEncoder.contains_reserved_char(id_):
+        enable_auto_id = True
+
     if enable_auto_id:
         id_ = datahub_guid({"path": id_})
     return id_
@@ -152,39 +165,74 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
 
 
 def get_mces(
-    glossary: BusinessGlossaryConfig, ingestion_config: BusinessGlossarySourceConfig
-) -> List[models.MetadataChangeEventClass]:
-    events: List[models.MetadataChangeEventClass] = []
+    glossary: BusinessGlossaryConfig,
+    ingestion_config: BusinessGlossarySourceConfig,
+    ctx: PipelineContext,
+) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
     path: List[str] = []
     root_owners = get_owners(glossary.owners)
 
     if glossary.nodes:
         for node in glossary.nodes:
-            events += get_mces_from_node(
+            yield from get_mces_from_node(
                 node,
                 path + [node.name],
                 parentNode=None,
                 parentOwners=root_owners,
                 defaults=glossary,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
 
     if glossary.terms:
         for term in glossary.terms:
-            events += get_mces_from_term(
+            yield from get_mces_from_term(
                 term,
                 path + [term.name],
                 parentNode=None,
                 parentOwnership=root_owners,
                 defaults=glossary,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
-
-    return events
 
 
 def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(proposedSnapshot=snapshot)
+
+
+def make_institutional_memory_mcp(
+    urn: str, knowledge_cards: List[KnowledgeCard]
+) -> Optional[MetadataChangeProposalWrapper]:
+    elements: List[models.InstitutionalMemoryMetadataClass] = []
+
+    for knowledge_card in knowledge_cards:
+        if knowledge_card.label and knowledge_card.url:
+            elements.append(
+                models.InstitutionalMemoryMetadataClass(
+                    url=knowledge_card.url,
+                    description=knowledge_card.label,
+                    createStamp=models.AuditStampClass(
+                        time=int(time.time() * 1000.0),
+                        actor="urn:li:corpuser:datahub",
+                        message="ingestion bot",
+                    ),
+                )
+            )
+
+    if elements:
+        return MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=models.InstitutionalMemoryClass(elements=elements),
+        )
+
+    return None
+
+
+def make_domain_mcp(
+    term_urn: str, domain_aspect: models.DomainsClass
+) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(entityUrn=term_urn, aspect=domain_aspect)
 
 
 def get_mces_from_node(
@@ -194,7 +242,8 @@ def get_mces_from_node(
     parentOwners: models.OwnershipClass,
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
-) -> List[models.MetadataChangeEventClass]:
+    ctx: PipelineContext,
+) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
     node_urn = make_glossary_node_urn(
         path, glossaryNode.id, ingestion_config.enable_auto_id
     )
@@ -212,29 +261,54 @@ def get_mces_from_node(
         urn=node_urn,
         aspects=[node_info, node_owners, valid_status],
     )
-    mces = [get_mce_from_snapshot(node_snapshot)]
+    yield get_mce_from_snapshot(node_snapshot)
+
+    if glossaryNode.knowledge_links is not None:
+        mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
+            node_urn, glossaryNode.knowledge_links
+        )
+        if mcp is not None:
+            yield mcp
+
     if glossaryNode.nodes:
         for node in glossaryNode.nodes:
-            mces += get_mces_from_node(
+            yield from get_mces_from_node(
                 node,
                 path + [node.name],
                 parentNode=node_urn,
                 parentOwners=node_owners,
                 defaults=defaults,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
 
     if glossaryNode.terms:
         for term in glossaryNode.terms:
-            mces += get_mces_from_term(
+            yield from get_mces_from_term(
                 glossaryTerm=term,
                 path=path + [term.name],
                 parentNode=node_urn,
                 parentOwnership=node_owners,
                 defaults=defaults,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
-    return mces
+
+
+def get_domain_class(
+    graph: Optional[DataHubGraph], domains: List[str]
+) -> models.DomainsClass:
+    # FIXME: In the ideal case, the domain registry would be an instance variable so that it
+    # preserves its cache across calls to this function. However, the current implementation
+    # requires the full list of domains to be passed in at instantiation time, so we can't
+    # actually do that.
+    domain_registry: DomainRegistry = DomainRegistry(
+        cached_domains=[k for k in domains], graph=graph
+    )
+    domain_class = models.DomainsClass(
+        domains=[domain_registry.get_domain_urn(domain) for domain in domains]
+    )
+    return domain_class
 
 
 def get_mces_from_term(
@@ -244,7 +318,8 @@ def get_mces_from_term(
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
-) -> List[models.MetadataChangeEventClass]:
+    ctx: PipelineContext,
+) -> Iterable[Union[models.MetadataChangeEventClass, MetadataChangeProposalWrapper]]:
     term_urn = make_glossary_term_urn(
         path, glossaryTerm.id, ingestion_config.enable_auto_id
     )
@@ -338,14 +413,23 @@ def get_mces_from_term(
         ownership = get_owners(glossaryTerm.owners)
     aspects.append(ownership)
 
-    term_browse = models.BrowsePathsClass(paths=["/" + "/".join(path)])
-    aspects.append(term_browse)
+    if glossaryTerm.domain is not None:
+        yield make_domain_mcp(
+            term_urn, get_domain_class(ctx.graph, [glossaryTerm.domain])
+        )
 
     term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
         urn=term_urn,
         aspects=aspects,
     )
-    return [get_mce_from_snapshot(term_snapshot)]
+    yield get_mce_from_snapshot(term_snapshot)
+
+    if glossaryTerm.knowledge_links:
+        mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
+            term_urn, glossaryTerm.knowledge_links
+        )
+        if mcp is not None:
+            yield mcp
 
 
 def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> None:
@@ -388,21 +472,28 @@ class BusinessGlossaryFileSource(Source):
         config = BusinessGlossarySourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def load_glossary_config(self, file_name: str) -> BusinessGlossaryConfig:
+    def load_glossary_config(
+        self, file_name: Union[str, pathlib.Path]
+    ) -> BusinessGlossaryConfig:
         config = load_config_file(file_name)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
         populate_path_vs_id(glossary_config)
-        for mce in get_mces(glossary_config, ingestion_config=self.config):
-            wu = MetadataWorkUnit(f"{mce.proposedSnapshot.urn}", mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+        for event in get_mces(
+            glossary_config, ingestion_config=self.config, ctx=self.ctx
+        ):
+            if isinstance(event, models.MetadataChangeEventClass):
+                yield MetadataWorkUnit(f"{event.proposedSnapshot.urn}", mce=event)
+            elif isinstance(event, MetadataChangeProposalWrapper):
+                yield event.as_workunit()
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass

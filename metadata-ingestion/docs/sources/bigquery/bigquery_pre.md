@@ -21,8 +21,6 @@ There are two important concepts to understand and identify:
 | `bigquery.jobs.list`             | Manage the queries that the service account has sent. *This only needs for the extractor project where the service account belongs*                                                                                                  |                                                                                                               |
 | `bigquery.readsessions.create`   | Create a session for streaming large results. *This only needs for the extractor project where the service account belongs*                                                                                                          |                                                                                                               |
 | `bigquery.readsessions.getData`  | Get data from the read session. *This only needs for the extractor project where the service account belongs*                                                                                                                        |
-| `bigquery.tables.create`         | Create temporary tables when profiling tables. Tip: Use the `profiling.bigquery_temp_table_schema` to ensure that all temp tables (across multiple projects) are created in this project under a specific dataset.                   | Profiling                                                                                                     |                                                                                                                 |
-| `bigquery.tables.delete`         | Delete temporary tables when profiling tables. Tip: Use the `profiling.bigquery_temp_table_schema` to ensure that all temp tables (across multiple projects) are created in this project under a specific dataset.                   | Profiling                                                                                                     |                                                                                                                 |
 2. Grant the following permissions to the Service Account on every project where you would like to extract metadata from
 
 :::info
@@ -36,16 +34,13 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 | `bigquery.datasets.getIamPolicy` | Read a dataset's IAM permissions.                                                                            | Table Metadata Extraction           | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)  |
 | `bigquery.tables.list`           | List BigQuery tables.                                                                                        | Table Metadata Extraction           | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)  |
 | `bigquery.tables.get`            | Retrieve metadata for a table.                                                                               | Table Metadata Extraction           | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)  |
+| `bigquery.routines.get`           | Get Routines. Needs to retrieve metadata for a table from system table.                                                                                        | Table Metadata Extraction           | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)  |
+| `bigquery.routines.list`            | List Routines. Needs to retrieve metadata for a table from system table                                                                               | Table Metadata Extraction           | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)  |
 | `resourcemanager.projects.get`   | Retrieve project names and metadata.                                                                         | Table Metadata Extraction           | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)  |
 | `bigquery.jobs.listAll`          | List all jobs (queries) submitted by any user. Needs for Lineage extraction.                                 | Lineage Extraction/Usage extraction | [roles/bigquery.resourceViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.resourceViewer)  |
 | `logging.logEntries.list`        | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. | Lineage Extraction/Usage extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
 | `logging.privateLogEntries.list` | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. | Lineage Extraction/Usage extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
 | `bigquery.tables.getData`        | Access table data to extract storage size, last updated at, data profiles etc. | Profiling                           |                                                                                                                 |
-| `bigquery.tables.create`         | [Optional] Only needed if not using the `profiling.bigquery_temp_table_schema` config option. | Profiling                           |                                                                                                                 |
-| `bigquery.tables.delete`         | [Optional] Only needed if not using the `profiling.bigquery_temp_table_schema` config option. | Profiling                           |                                                                                                                 |
-
-The profiler creates temporary tables to profile partitioned/sharded tables and that is why it needs table create/delete privilege.
-Use `profiling.bigquery_temp_table_schema` to restrict to one specific dataset the create/delete permission
 
 #### Create a service account in the Extractor Project
 
@@ -100,24 +95,8 @@ Note: Since bigquery source also supports dataset level lineage, the auth client
 
 ### Profiling Details
 
-Profiling can profile normal/partitioned and sharded tables as well but due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
-
-If limit/offset parameter is set or partitioning partitioned or sharded table Great Expectation (the profiling framework we use) needs to create temporary
-views. By default, these views are created in the schema where the profiled table is but you can control to create all these
-tables into a predefined schema by setting `profiling.bigquery_temp_table_schema` property.
-Temporary tables are removed after profiling.
-
-```yaml
-profiling:
-   enabled: true
-   bigquery_temp_table_schema: my-project-id.my-schema-where-views-can-be-created
-```
-
-:::note
-
-Due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
-You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
-:::
+For performance reasons, we only profile the latest partition for partitioned tables and the latest shard for sharded tables.
+You can set partition explicitly with `partition.partition_datetime` property if you want, though note that partition config will be applied to all partitioned tables.
 
 ### Caveats
 

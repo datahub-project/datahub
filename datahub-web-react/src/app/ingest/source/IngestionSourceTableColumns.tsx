@@ -61,8 +61,12 @@ const CliBadge = styled.span`
         margin-right: 5px;
     }
 `;
+interface TypeColumnProps {
+    type: string;
+    record: any;
+}
 
-export function TypeColumn(type: string, record: any) {
+export function TypeColumn({ type, record }: TypeColumnProps) {
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 
@@ -178,7 +182,7 @@ export function ActionsColumn({
                     DETAILS
                 </Button>
             )}
-            <Button onClick={() => onDelete(record.urn)} type="text" shape="circle" danger>
+            <Button data-testid="delete-button" onClick={() => onDelete(record.urn)} type="text" shape="circle" danger>
                 <DeleteOutlined />
             </Button>
         </ActionButtonContainer>

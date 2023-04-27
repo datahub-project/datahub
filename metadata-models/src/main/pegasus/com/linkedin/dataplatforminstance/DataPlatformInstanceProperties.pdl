@@ -1,0 +1,33 @@
+namespace com.linkedin.dataplatforminstance
+
+import com.linkedin.common.Uri
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Properties associated with a Data Platform Instance
+ */
+@Aspect = {
+  "name": "dataPlatformInstanceProperties"
+}
+record DataPlatformInstanceProperties includes CustomProperties, ExternalReference {
+
+  /**
+   * Display name of the Data Platform Instance
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: optional string
+
+  /**
+   * Documentation of the Data Platform Instance
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+}

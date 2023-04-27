@@ -2,12 +2,14 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Embed;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.Status;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.Container;
@@ -18,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.EmbedMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
@@ -101,7 +104,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setSiblings(SiblingsMapper.map(new Siblings(dataMap))));
         mappingHelper.mapToResult(UPSTREAM_LINEAGE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setFineGrainedLineages(UpstreamLineagesMapper.map(new UpstreamLineage(dataMap))));
-
+        mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
         return mappingHelper.getResult();
     }
 
@@ -133,8 +137,19 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         properties.setQualifiedName(gmsProperties.getQualifiedName());
         dataset.setProperties(properties);
         dataset.setDescription(properties.getDescription());
-        if (gmsProperties.getUri() != null) {
-            dataset.setUri(gmsProperties.getUri().toString());
+        TimeStamp created = gmsProperties.getCreated();
+        if (created != null) {
+            properties.setCreated(created.getTime());
+            if (created.hasActor()) {
+                properties.setCreatedActor(created.getActor().toString());
+            }
+        }
+        TimeStamp lastModified = gmsProperties.getLastModified();
+        if (lastModified != null) {
+            properties.setLastModified(lastModified.getTime());
+            if (lastModified.hasActor()) {
+                properties.setLastModifiedActor(lastModified.getActor().toString());
+            }
         }
     }
 

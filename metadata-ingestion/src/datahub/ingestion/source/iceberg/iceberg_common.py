@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import pydantic
 from azure.storage.filedatalake import FileSystemClient, PathProperties
 from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
@@ -12,9 +13,15 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.source_common import DatasetSourceConfigBase
-from datahub.ingestion.api.source import SourceReport
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 
 class IcebergProfilingConfig(ConfigModel):
@@ -44,7 +51,11 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-class IcebergSourceConfig(DatasetSourceConfigBase):
+class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+    # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+        default=None, description="Iceberg Stateful Ingestion Config."
+    )
     adls: Optional[AdlsSourceConfig] = Field(
         default=None,
         description="[Azure Data Lake Storage](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) to crawl for Iceberg tables.  This is one filesystem type supported by this source and **only one can be configured**.",
@@ -160,7 +171,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
 
 
 @dataclass
-class IcebergSourceReport(SourceReport):
+class IcebergSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned: int = 0
     entities_profiled: int = 0
     filtered: List[str] = field(default_factory=list)

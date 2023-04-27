@@ -46,7 +46,7 @@ public class IngestDataPlatformInstancesStepTest {
 
     verify(migrationsDao, times(1)).checkIfAspectExists(anyString());
     verifyNoMoreInteractions(migrationsDao);
-    verifyZeroInteractions(entityService);
+    verifyNoInteractions(entityService);
   }
 
   @Test
@@ -62,7 +62,7 @@ public class IngestDataPlatformInstancesStepTest {
     verify(migrationsDao, times(1)).checkIfAspectExists(anyString());
     verify(migrationsDao, times(1)).countEntities();
     verifyNoMoreInteractions(migrationsDao);
-    verifyZeroInteractions(entityService);
+    verifyNoInteractions(entityService);
   }
 
   @Test

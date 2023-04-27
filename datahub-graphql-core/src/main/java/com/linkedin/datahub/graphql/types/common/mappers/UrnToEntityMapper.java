@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
+import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
@@ -151,8 +152,8 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
     }
     if (input.getEntityType().equals("test")) {
       partialEntity = new Test();
-      ((Assertion) partialEntity).setUrn(input.toString());
-      ((Assertion) partialEntity).setType(EntityType.TEST);
+      ((Test) partialEntity).setUrn(input.toString());
+      ((Test) partialEntity).setType(EntityType.TEST);
     }
     if (input.getEntityType().equals(DATAHUB_ROLE_ENTITY_NAME)) {
       partialEntity = new DataHubRole();
@@ -168,6 +169,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new SchemaFieldEntity();
       ((SchemaFieldEntity) partialEntity).setUrn(input.toString());
       ((SchemaFieldEntity) partialEntity).setType(EntityType.SCHEMA_FIELD);
+    }
+    if (input.getEntityType().equals(DATAHUB_VIEW_ENTITY_NAME)) {
+      partialEntity = new DataHubView();
+      ((DataHubView) partialEntity).setUrn(input.toString());
+      ((DataHubView) partialEntity).setType(EntityType.DATAHUB_VIEW);
     }
     return partialEntity;
   }

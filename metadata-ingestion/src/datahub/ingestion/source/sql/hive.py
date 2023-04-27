@@ -20,10 +20,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NullTypeClass,
@@ -41,7 +41,6 @@ register_custom_type(HiveTimestamp, TimeTypeClass)
 register_custom_type(HiveDecimal, NumberTypeClass)
 
 try:
-
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
     from pyhive.sqlalchemy_hive import _type_map
     from sqlalchemy import types, util
@@ -56,7 +55,7 @@ try:
         # Filter out empty rows and comment
         rows = [row for row in rows if row[0] and row[0] != "# col_name"]
         result = []
-        for (col_name, col_type, _comment) in rows:
+        for col_name, col_type, _comment in rows:
             # Handle both oss hive and Databricks' hive partition header, respectively
             if col_name in ("# Partition Information", "# Partitioning"):
                 break
@@ -93,14 +92,14 @@ except Exception as e:
 
 class HiveConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="hive", hidden_from_schema=True)
+    scheme = Field(default="hive", hidden_from_docs=True)
 
     # Hive SQLAlchemy connector returns views as tables.
     # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
     # Disabling views helps us prevent this duplication.
     include_views = Field(
         default=False,
-        hidden_from_schema=True,
+        hidden_from_docs=True,
         description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.",
     )
 
@@ -150,7 +149,6 @@ class HiveSource(SQLAlchemySource):
         pk_constraints: Optional[Dict[Any, Any]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
-
         fields = super().get_schema_fields_for_column(
             dataset_name, column, pk_constraints
         )

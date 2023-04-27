@@ -13,7 +13,3 @@ def _check_sink_classes(cls: Type[Sink]) -> None:
 
 sink_registry = PluginRegistry[Sink](extra_cls_check=_check_sink_classes)
 sink_registry.register_from_entrypoint("datahub.ingestion.sink.plugins")
-
-# These sinks are always enabled
-assert sink_registry.get("console")
-assert sink_registry.get("file")

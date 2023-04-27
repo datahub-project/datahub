@@ -16,7 +16,7 @@ from requests.adapters import HTTPAdapter
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -28,7 +28,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -63,7 +62,7 @@ class NifiAuthType(Enum):
     CLIENT_CERT = "CLIENT_CERT"
 
 
-class NifiSourceConfig(EnvBasedSourceConfigBase):
+class NifiSourceConfig(EnvConfigMixin):
     site_url: str = Field(description="URI to connect")
 
     auth: NifiAuthType = Field(
@@ -156,7 +155,6 @@ class NifiProcessorType:
 # 2. Implement provenance event analyzer to find external dataset and
 # map it in provenance_event_to_lineage_map
 class NifiProcessorProvenanceEventAnalyzer:
-
     env: str
 
     KNOWN_INGRESS_EGRESS_PROCESORS = {
@@ -303,14 +301,14 @@ class NifiSourceReport(SourceReport):
 
 
 # allowRemoteAccess
-@platform_name("Nifi")
+@platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 class NifiSource(Source):
     """
     This plugin extracts the following:
 
-    - Nifi flow as `DataFlow` entity
+    - NiFi flow as `DataFlow` entity
     - Ingress, egress processors, remote input and output ports as `DataJob` entity
     - Input and output ports receiving remote connections as `Dataset` entity
     - Lineage information between external datasets and ingress/egress processors by analyzing provenance events
@@ -601,13 +599,13 @@ class NifiSource(Source):
             ):
                 self.report_warning(
                     self.config.site_url,
-                    f"Dropping Nifi Processor of type {c.type}, id {c.id}, name {c.name} from lineage view. \
+                    f"Dropping NiFi Processor of type {c.type}, id {c.id}, name {c.name} from lineage view. \
                     This is likely an Ingress or Egress node which may be reading to/writing from external datasets \
                     However not currently supported in datahub",
                 )
             else:
                 logger.debug(
-                    f"Dropping Nifi Component of type {c.type}, id {c.id}, name {c.name} from lineage view."
+                    f"Dropping NiFi Component of type {c.type}, id {c.id}, name {c.name} from lineage view."
                 )
 
             del self.nifi_flow.components[c.id]
@@ -662,7 +660,6 @@ class NifiSource(Source):
         startDate: datetime,
         endDate: Optional[datetime] = None,
     ) -> Iterable[Dict]:
-
         logger.debug(
             f"Fetching {eventType} provenance events for {processor.id}\
             of processor type {processor.type}, Start date: {startDate}, End date: {endDate}"
@@ -770,7 +767,6 @@ class NifiSource(Source):
             logger.error("failed to delete provenance ", provenance_uri)
 
     def construct_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
-
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = builder.make_data_flow_urn(NIFI, rootpg.id, self.config.env)
@@ -931,7 +927,6 @@ class NifiSource(Source):
             )
 
     def process_provenance_events(self):
-
         startDate = datetime.now(timezone.utc) - timedelta(
             days=self.config.provenance_days
         )
@@ -957,7 +952,6 @@ class NifiSource(Source):
                         component.outlets[dataset.dataset_urn] = dataset
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         self.create_nifi_flow()
 
@@ -988,10 +982,7 @@ class NifiSource(Source):
         flow_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataFlow",
             entityUrn=flow_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataFlowInfo",
             aspect=DataFlowInfoClass(
                 name=flow_name,
                 customProperties=flow_properties,
@@ -1022,10 +1013,7 @@ class NifiSource(Source):
             job_properties = {k: v for k, v in job_properties.items() if v is not None}
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataJob",
             entityUrn=job_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataJobInfo",
             aspect=DataJobInfoClass(
                 name=job_name,
                 type=job_type,
@@ -1048,10 +1036,7 @@ class NifiSource(Source):
         inputJobs.sort()
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataJob",
             entityUrn=job_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataJobInputOutput",
             aspect=DataJobInputOutputClass(
                 inputDatasets=inlets, outputDatasets=outlets, inputDatajobs=inputJobs
             ),
@@ -1072,17 +1057,13 @@ class NifiSource(Source):
         external_url: Optional[str] = None,
         datasetProperties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         if not dataset_urn:
             dataset_urn = builder.make_dataset_urn(
                 dataset_platform, dataset_name, self.config.env
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataPlatformInstance",
             aspect=DataPlatformInstanceClass(
                 platform=builder.make_data_platform_urn(dataset_platform)
             ),
@@ -1093,21 +1074,16 @@ class NifiSource(Source):
             else dataset_platform
         )
         wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        if wu.id not in self.report.event_ids:
-            self.report.report_workunit(wu)
-            yield wu
+        self.report.report_workunit(wu)
+        yield wu
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProperties",
             aspect=DatasetPropertiesClass(
                 externalUrl=external_url, customProperties=datasetProperties
             ),
         )
 
         wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        if wu.id not in self.report.event_ids:
-            self.report.report_workunit(wu)
-            yield wu
+        self.report.report_workunit(wu)
+        yield wu

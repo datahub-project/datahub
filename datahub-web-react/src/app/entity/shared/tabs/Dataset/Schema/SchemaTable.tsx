@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
+import { useVT } from 'virtualizedtableforantd4';
+import ResizeObserver from 'rc-resize-observer';
 import styled from 'styled-components';
-import {} from 'antd';
 import {
     EditableSchemaMetadata,
     ForeignKeyConstraint,
@@ -22,8 +23,12 @@ import { FkContext } from './utils/selectedFkContext';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import { ANTD_GRAY } from '../../../constants';
 import MenuColumn from './components/MenuColumn';
+import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
 
 const TableContainer = styled.div`
+    overflow: inherit;
+    height: inherit;
+
     &&& .ant-table-tbody > tr > .ant-table-cell-with-append {
         border-right: none;
         padding: 0px;
@@ -51,6 +56,7 @@ export type Props = {
 };
 
 const EMPTY_SET: Set<string> = new Set();
+const TABLE_HEADER_HEIGHT = 52;
 
 export default function SchemaTable({
     rows,
@@ -64,7 +70,7 @@ export default function SchemaTable({
     filterText = '',
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
-
+    const [tableHeight, setTableHeight] = useState(0);
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [selectedFkFieldPath, setSelectedFkFieldPath] =
         useState<null | { fieldPath: string; constraint?: ForeignKeyConstraint | null }>(null);
@@ -94,10 +100,10 @@ export default function SchemaTable({
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
-    const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
+    const onTagTermCell = (record: SchemaField) => ({
         onMouseEnter: () => {
             if (editMode) {
-                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
+                setTagHoveredIndex(record.fieldPath);
             }
         },
         onMouseLeave: () => {
@@ -114,6 +120,9 @@ export default function SchemaTable({
         key: 'fieldPath',
         render: schemaTitleRenderer,
         filtered: true,
+        sorter: (sourceA, sourceB) => {
+            return translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath));
+        },
     };
 
     const descriptionColumn = {
@@ -206,40 +215,43 @@ export default function SchemaTable({
         });
     }, [expandedRowsFromFilter]);
 
+    const [VT, setVT] = useVT(() => ({ scroll: { y: tableHeight } }), [tableHeight]);
+
+    useMemo(() => setVT({ body: { row: SchemaRow } }), [setVT]);
+
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
             <TableContainer>
-                <StyledTable
-                    rowClassName={(record) =>
-                        record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : ''
-                    }
-                    columns={allColumns}
-                    dataSource={rows}
-                    rowKey="fieldPath"
-                    components={{
-                        body: {
-                            row: SchemaRow,
-                        },
-                    }}
-                    expandable={{
-                        expandedRowKeys: [...Array.from(expandedRows)],
-                        defaultExpandAllRows: false,
-                        expandRowByClick: false,
-                        expandIcon: ExpandIcon,
-                        onExpand: (expanded, record) => {
-                            if (expanded) {
-                                setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
-                            } else {
-                                setExpandedRows((previousRows) => {
-                                    previousRows.delete(record.fieldPath);
-                                    return new Set(previousRows);
-                                });
-                            }
-                        },
-                        indentSize: 0,
-                    }}
-                    pagination={false}
-                />
+                <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
+                    <StyledTable
+                        rowClassName={(record) =>
+                            record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : ''
+                        }
+                        columns={allColumns}
+                        dataSource={rows}
+                        rowKey="fieldPath"
+                        scroll={{ y: tableHeight }}
+                        components={VT}
+                        expandable={{
+                            expandedRowKeys: [...Array.from(expandedRows)],
+                            defaultExpandAllRows: false,
+                            expandRowByClick: false,
+                            expandIcon: ExpandIcon,
+                            onExpand: (expanded, record) => {
+                                if (expanded) {
+                                    setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
+                                } else {
+                                    setExpandedRows((previousRows) => {
+                                        previousRows.delete(record.fieldPath);
+                                        return new Set(previousRows);
+                                    });
+                                }
+                            },
+                            indentSize: 0,
+                        }}
+                        pagination={false}
+                    />
+                </ResizeObserver>
             </TableContainer>
         </FkContext.Provider>
     );

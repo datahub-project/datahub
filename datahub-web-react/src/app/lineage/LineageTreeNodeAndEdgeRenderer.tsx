@@ -1,12 +1,10 @@
 import React, { useContext } from 'react';
 import { Group } from '@vx/group';
-import { curveBasis } from '@vx/curve';
-import { LinePath } from '@vx/shape';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
-import { NodeData, Direction, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType } from './types';
+import { NodeData, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType, UpdatedLineages } from './types';
 import LineageEntityNode from './LineageEntityNode';
-import { ANTD_GRAY } from '../entity/shared/constants';
+import LineageEntityEdge from './LineageEntityEdge';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 
 type Props = {
@@ -22,10 +20,10 @@ type Props = {
     setHoveredEntity: (EntitySelectParams) => void;
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     margin: TreeProps['margin'];
-    direction: Direction;
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
     nodesByUrn: Record<string, VizNode>;
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 };
 
 function transformToString(transform: {
@@ -50,10 +48,10 @@ export default function LineageTreeNodeAndEdgeRenderer({
     hoveredEntity,
     setHoveredEntity,
     onDrag,
-    direction,
     nodesToRender,
     edgesToRender,
     nodesByUrn,
+    setUpdatedLineages,
 }: Props) {
     const { highlightedEdges } = useContext(LineageExplorerContext);
     const isLinkHighlighted = (link) =>
@@ -73,37 +71,22 @@ export default function LineageTreeNodeAndEdgeRenderer({
                 // concept of a z-index
                 ...edgesToRender.filter((link) => !isLinkHighlighted(link)),
                 ...edgesToRender.filter(isLinkHighlighted),
-            ].map((link) => {
+            ].map((link, idx) => {
                 const isHighlighted = isLinkHighlighted(link);
+                const key = `edge-${idx}-${link.source.data.urn}${link.sourceField && `-${link.sourceField}`}-${
+                    link.target.data.urn
+                }${link.targetField && `-${link.targetField}`}-${link.target.direction}`;
 
-                return (
-                    <Group
-                        key={`edge-${link.source.data.urn}${link.sourceField && `-${link.sourceField}`}-${
-                            link.target.data.urn
-                        }${link.targetField && `-${link.targetField}`}-${direction}`}
-                    >
-                        <LinePath
-                            // we rotated the svg 90 degrees so we need to switch x & y for the last mile
-                            x={(d) => d.y}
-                            y={(d) => d.x}
-                            curve={curveBasis}
-                            data={link.curve}
-                            stroke={isHighlighted ? '#1890FF' : ANTD_GRAY[6]}
-                            strokeWidth="1"
-                            markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
-                            markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}
-                            data-testid={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}
-                        />
-                    </Group>
-                );
+                return <LineageEntityEdge edge={link} key={key} isHighlighted={!!isHighlighted} />;
             })}
-            {nodesToRender.map((node) => {
+            {nodesToRender.map((node, index) => {
                 const isSelected = node.data.urn === selectedEntity?.urn;
                 const isHovered = node.data.urn === hoveredEntity?.urn;
+                const key = `node-${node.data.urn}-${node.direction}-${index}`;
 
                 return (
                     <LineageEntityNode
-                        key={`node-${node.data.urn}-${direction}`}
+                        key={key}
                         node={node}
                         isSelected={isSelected}
                         isHovered={isHovered}
@@ -114,6 +97,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
                         onDrag={onDrag}
+                        setUpdatedLineages={setUpdatedLineages}
                     />
                 );
             })}

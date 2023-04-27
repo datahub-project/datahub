@@ -1,9 +1,10 @@
 import time
 import urllib
+from http import HTTPStatus
 from typing import Any, Optional
 
 import pytest
-import requests
+import requests_wrapper as requests
 import tenacity
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -17,17 +18,18 @@ from tests.utils import (
     wait_for_healthcheck_util,
     get_frontend_session,
     get_admin_credentials,
+    get_root_urn,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = (
-    "../metadata-ingestion/tests/integration/bigquery-usage/bigquery_usages_golden.json"
+    "./test_resources/bigquery_usages_golden.json"
 )
 bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-kafka_post_ingestion_wait_sec = 60
+kafka_post_ingestion_wait_sec = 30
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -92,7 +94,7 @@ def _ensure_user_relationship_present(frontend_session, urn, relationships):
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["relationships"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == relationships
 
 
 @tenacity.retry(
@@ -120,10 +122,7 @@ def _ensure_dataset_present(
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_group_not_present(
-    urn: str,
-    frontend_session
-) -> Any:
+def _ensure_group_not_present(urn: str, frontend_session) -> Any:
     json = {
         "query": """query corpGroup($urn: String!) {\n
             corpGroup(urn: $urn) {\n
@@ -148,7 +147,7 @@ def _ensure_group_not_present(
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
     ingest_file_via_rest(bootstrap_sample_data)
-    _ensure_user_present(urn="urn:li:corpuser:datahub")
+    _ensure_user_present(urn=get_root_urn())
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -481,7 +480,7 @@ def test_frontend_search_across_entities(frontend_session, query, min_expected_r
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_user_info(frontend_session):
 
-    urn = "urn:li:corpuser:datahub"
+    urn = get_root_urn()
     json = {
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
@@ -570,15 +569,15 @@ def test_ingest_with_system_metadata():
             "entity": {
                 "value": {
                     "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
-                        "urn": "urn:li:corpuser:datahub",
+                        "urn": get_root_urn(),
                         "aspects": [
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
                                     "active": True,
-                                    "displayName": "Data Hub",
+                                    "displayName": "DataHub",
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
-                                    "fullName": "Data Hub",
+                                    "fullName": "DataHub",
                                 }
                             }
                         ],
@@ -603,15 +602,15 @@ def test_ingest_with_blank_system_metadata():
             "entity": {
                 "value": {
                     "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
-                        "urn": "urn:li:corpuser:datahub",
+                        "urn": get_root_urn(),
                         "aspects": [
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
                                     "active": True,
-                                    "displayName": "Data Hub",
+                                    "displayName": "DataHub",
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
-                                    "fullName": "Data Hub",
+                                    "fullName": "DataHub",
                                 }
                             }
                         ],
@@ -633,15 +632,15 @@ def test_ingest_without_system_metadata():
             "entity": {
                 "value": {
                     "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
-                        "urn": "urn:li:corpuser:datahub",
+                        "urn": get_root_urn(),
                         "aspects": [
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
                                     "active": True,
-                                    "displayName": "Data Hub",
+                                    "displayName": "DataHub",
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
-                                    "fullName": "Data Hub",
+                                    "fullName": "DataHub",
                                 }
                             }
                         ],
@@ -731,7 +730,7 @@ def test_frontend_me_query(frontend_session):
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
+    assert res_data["data"]["me"]["corpUser"]["urn"] == get_root_urn()
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["manageUserCredentials"] is True
@@ -1140,7 +1139,7 @@ def test_home_page_recommendations(frontend_session):
             listRecommendations(input: $input) { modules { title } } }""",
         "variables": {
             "input": {
-                "userUrn": "urn:li:corpuser:datahub",
+                "userUrn": get_root_urn(),
                 "requestContext": {"scenario": "HOME"},
                 "limit": 5,
             }
@@ -1171,7 +1170,7 @@ def test_search_results_recommendations(frontend_session):
             listRecommendations(input: $input) { modules { title }  } }""",
         "variables": {
             "input": {
-                "userUrn": "urn:li:corpuser:datahub",
+                "userUrn": get_root_urn(),
                 "requestContext": {
                     "scenario": "SEARCH_RESULTS",
                     "searchRequestContext": {"query": "asdsdsdds", "filters": []},
@@ -1202,7 +1201,7 @@ def test_generate_personal_access_token(frontend_session):
         "variables": {
             "input": {
                 "type": "PERSONAL",
-                "actorUrn": "urn:li:corpuser:datahub",
+                "actorUrn": get_root_urn(),
                 "duration": "ONE_MONTH",
             }
         },
@@ -1342,7 +1341,7 @@ def test_native_user_endpoints(frontend_session):
     # Pass the reset token when resetting credentials
     reset_credentials_json = {
         "email": "test@email.com",
-        "password": "password",
+        "password": "newpassword",
         "resetToken": reset_token,
     }
 
@@ -1355,7 +1354,7 @@ def test_native_user_endpoints(frontend_session):
     # Test that a bad reset token leads to failed response
     bad_user_reset_credentials_json = {
         "email": "test@email.com",
-        "password": "password",
+        "password": "newerpassword",
         "resetToken": "reset_token",
     }
     bad_reset_credentials_response = frontend_session.post(
@@ -1378,25 +1377,12 @@ def test_native_user_endpoints(frontend_session):
 
     # Tests that unauthenticated users can't invite users or send reset password links
 
-    native_user_frontend_session = requests.Session()
+    unauthenticated_session = requests.Session()
 
-    native_user_login_data = '{"username":"test@email.com", "password":"password"}'
-    native_user_frontend_session.post(
-        f"{get_frontend_url()}/logIn", headers=headers, data=native_user_login_data
-    )
-
-    unauthenticated_get_invite_token_response = native_user_frontend_session.post(
+    unauthenticated_get_invite_token_response = unauthenticated_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=get_invite_token_json
     )
-    unauthenticated_get_invite_token_response.raise_for_status()
-    unauthenticated_get_invite_token_res_data = (
-        unauthenticated_get_invite_token_response.json()
-    )
-
-    assert unauthenticated_get_invite_token_res_data
-    assert "errors" in unauthenticated_get_invite_token_res_data
-    assert unauthenticated_get_invite_token_res_data["data"]
-    assert unauthenticated_get_invite_token_res_data["data"]["getInviteToken"] is None
+    assert unauthenticated_get_invite_token_response.status_code == HTTPStatus.UNAUTHORIZED
 
     unauthenticated_create_reset_token_json = {
         "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n
@@ -1407,24 +1393,11 @@ def test_native_user_endpoints(frontend_session):
         "variables": {"input": {"userUrn": "urn:li:corpuser:test@email.com"}},
     }
 
-    unauthenticated_create_reset_token_response = native_user_frontend_session.post(
+    unauthenticated_create_reset_token_response = unauthenticated_session.post(
         f"{get_frontend_url()}/api/v2/graphql",
         json=unauthenticated_create_reset_token_json,
     )
-    unauthenticated_create_reset_token_response.raise_for_status()
-    unauthenticated_create_reset_token_res_data = (
-        unauthenticated_create_reset_token_response.json()
-    )
-
-    assert unauthenticated_create_reset_token_res_data
-    assert "errors" in unauthenticated_create_reset_token_res_data
-    assert unauthenticated_create_reset_token_res_data["data"]
-    assert (
-        unauthenticated_create_reset_token_res_data["data"][
-            "createNativeUserResetToken"
-        ]
-        is None
-    )
+    assert unauthenticated_create_reset_token_response.status_code == HTTPStatus.UNAUTHORIZED
 
     # cleanup steps
     json = {
@@ -1433,7 +1406,11 @@ def test_native_user_endpoints(frontend_session):
         "variables": {"urn": "urn:li:corpuser:test@email.com"},
     }
 
-    remove_user_response = native_user_frontend_session.post(
+    frontend_session.post(
+        f"{get_frontend_url()}/logIn", headers=headers, data=root_login_data
+    )
+
+    remove_user_response = frontend_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
     )
     remove_user_response.raise_for_status()

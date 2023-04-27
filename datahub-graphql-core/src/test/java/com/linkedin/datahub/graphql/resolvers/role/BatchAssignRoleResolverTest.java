@@ -2,11 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.role.RoleService;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchAssignRoleInput;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.ArrayList;
 import java.util.List;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -45,56 +45,30 @@ public class BatchAssignRoleResolverTest {
   }
 
   @Test
-  public void testRoleDoesNotExistFails() throws Exception {
+  public void testNullRole() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
 
     BatchAssignRoleInput input = new BatchAssignRoleInput();
-    input.setRoleUrn(ROLE_URN_STRING);
-    List<String> actors = new ArrayList<>();
-    actors.add(FIRST_ACTOR_URN_STRING);
-    input.setActors(actors);
-    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
-    when(_roleService.exists(eq(roleUrn), eq(_authentication))).thenReturn(false);
-
-    assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
-  }
-
-  @Test
-  public void testSomeActorsExist() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-    when(mockContext.getAuthentication()).thenReturn(_authentication);
-
-    BatchAssignRoleInput input = new BatchAssignRoleInput();
-    input.setRoleUrn(ROLE_URN_STRING);
-    List<String> actors = new ArrayList<>();
-    actors.add(FIRST_ACTOR_URN_STRING);
-    actors.add(SECOND_ACTOR_URN_STRING);
+    List<String> actors = ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING);
     input.setActors(actors);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    doThrow(RuntimeException.class).when(_roleService)
-        .assignRoleToActor(eq(SECOND_ACTOR_URN_STRING), eq(roleUrn), eq(_authentication));
-    when(_roleService.exists(eq(Urn.createFromString(ROLE_URN_STRING)), eq(_authentication))).thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
-  public void testAllActorsExist() throws Exception {
+  public void testNotNullRole() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
 
     BatchAssignRoleInput input = new BatchAssignRoleInput();
     input.setRoleUrn(ROLE_URN_STRING);
-    List<String> actors = new ArrayList<>();
-    actors.add(FIRST_ACTOR_URN_STRING);
-    actors.add(SECOND_ACTOR_URN_STRING);
+    List<String> actors = ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING);
     input.setActors(actors);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_roleService.exists(eq(Urn.createFromString(ROLE_URN_STRING)), eq(_authentication))).thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }

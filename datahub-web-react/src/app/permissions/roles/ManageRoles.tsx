@@ -17,6 +17,9 @@ import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
 import analytics, { EventType } from '../../analytics';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
+import { clearUserListCache } from '../../identity/user/cacheUtils';
 
 const SourceContainer = styled.div``;
 
@@ -69,7 +72,7 @@ export const ManageRoles = () => {
         data: rolesData,
         refetch: rolesRefetch,
     } = useListRolesQuery({
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: {
             input: {
                 start,
@@ -91,7 +94,7 @@ export const ManageRoles = () => {
         setFocusRole(undefined);
     };
 
-    const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
+    const [batchAssignRoleMutation, { client }] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
     const batchAssignRole = (actorUrns: Array<string>) => {
         if (!focusRole || !focusRole.urn) {
@@ -116,8 +119,9 @@ export const ManageRoles = () => {
                         content: `Assigned Role to users!`,
                         duration: 2,
                     });
-                    setTimeout(function () {
+                    setTimeout(() => {
                         rolesRefetch();
+                        clearUserListCache(client);
                     }, 3000);
                 }
             })
@@ -212,6 +216,7 @@ export const ManageRoles = () => {
 
     return (
         <PageContainer>
+            <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}

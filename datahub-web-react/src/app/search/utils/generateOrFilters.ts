@@ -1,7 +1,7 @@
-import { FacetFilterInput, OrFilter } from '../../../types.generated';
+import { FacetFilterInput, AndFilterInput } from '../../../types.generated';
 import { UnionType } from './constants';
 
-export function generateOrFilters(unionType: UnionType, filters: FacetFilterInput[]): OrFilter[] {
+export function generateOrFilters(unionType: UnionType, filters: FacetFilterInput[]): AndFilterInput[] {
     if ((filters?.length || 0) === 0) {
         return [];
     }

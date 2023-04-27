@@ -22,6 +22,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 
@@ -31,7 +33,6 @@ public class SiblingGraphServiceTest {
    * Some test URN types.
    */
   protected static String datasetType = "dataset";
-  protected static String userType = "user";
 
   /**
    * Some test datasets.
@@ -61,12 +62,13 @@ public class SiblingGraphServiceTest {
   @BeforeClass
   public void setup() {
     _mockEntityService = Mockito.mock(EntityService.class);
+    when(_mockEntityService.exists(any())).thenReturn(true);
     _graphService = Mockito.mock(GraphService.class);
     _client = new SiblingGraphService(_mockEntityService, _graphService);
   }
 
   @Test
-  public void testNoSiblingMetadata() throws Exception {
+  public void testNoSiblingMetadata() {
     EntityLineageResult mockResult = new EntityLineageResult();
     LineageRelationshipArray relationships = new LineageRelationshipArray();
     LineageRelationship relationship1 = new LineageRelationship();
@@ -91,13 +93,14 @@ public class SiblingGraphServiceTest {
     mockResult.setStart(0);
     mockResult.setTotal(200);
     mockResult.setCount(3);
+    mockResult.setFiltered(0);
     mockResult.setRelationships(relationships);
 
-    Mockito.when(_graphService.getLineage(
-        datasetFourUrn,  LineageDirection.UPSTREAM, 0, 100, 1
+    when(_graphService.getLineage(
+        datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null
     )).thenReturn(mockResult);
 
-    Mockito.when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(null);
+    when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(null);
 
     SiblingGraphService service = _client;
 
@@ -108,7 +111,7 @@ public class SiblingGraphServiceTest {
   }
 
   @Test
-  public void testNoSiblingInResults() throws Exception {
+  public void testNoSiblingInResults() {
     EntityLineageResult mockResult = new EntityLineageResult();
     EntityLineageResult siblingMockResult = new EntityLineageResult();
 
@@ -135,10 +138,11 @@ public class SiblingGraphServiceTest {
     mockResult.setStart(0);
     mockResult.setTotal(200);
     mockResult.setCount(3);
+    mockResult.setFiltered(0);
     mockResult.setRelationships(relationships);
 
-    Mockito.when(_graphService.getLineage(
-        datasetFourUrn,  LineageDirection.UPSTREAM, 0, 100, 1
+    when(_graphService.getLineage(
+        datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null
     )).thenReturn(mockResult);
 
     siblingMockResult.setStart(0);
@@ -146,15 +150,15 @@ public class SiblingGraphServiceTest {
     siblingMockResult.setCount(0);
     siblingMockResult.setRelationships(new LineageRelationshipArray());
 
-    Mockito.when(_graphService.getLineage(
-        datasetFiveUrn,  LineageDirection.UPSTREAM, 0, 97, 1
+    when(_graphService.getLineage(
+        datasetFiveUrn, LineageDirection.UPSTREAM, 0, 97, 1, null, null
     )).thenReturn(siblingMockResult);
 
     Siblings noRelevantSiblingsResponse = new Siblings();
     noRelevantSiblingsResponse.setPrimary(true);
     noRelevantSiblingsResponse.setSiblings(new UrnArray(ImmutableList.of(datasetFiveUrn)));
 
-    Mockito.when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(noRelevantSiblingsResponse);
+    when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(noRelevantSiblingsResponse);
 
     Siblings dataset1Siblings = new Siblings();
     dataset1Siblings.setPrimary(false);
@@ -174,7 +178,7 @@ public class SiblingGraphServiceTest {
         datasetThreeUrn, ImmutableList.of(dataset3Siblings)
     );
 
-    Mockito.when(_mockEntityService.getLatestAspects(Mockito.any(), Mockito.any())).thenReturn(siblingsMap);
+    when(_mockEntityService.getLatestAspects(any(), any())).thenReturn(siblingsMap);
 
     SiblingGraphService service = _client;
 
@@ -219,20 +223,20 @@ public class SiblingGraphServiceTest {
     siblingMockResult.setCount(0);
     siblingMockResult.setRelationships(new LineageRelationshipArray());
 
-    Mockito.when(_graphService.getLineage(
-        datasetThreeUrn,  LineageDirection.UPSTREAM, 0, 98, 1
+    when(_graphService.getLineage(
+        datasetThreeUrn, LineageDirection.UPSTREAM, 0, 98, 1, null, null
     )).thenReturn(siblingMockResult);
 
 
-    Mockito.when(_graphService.getLineage(
-        datasetFourUrn,  LineageDirection.UPSTREAM, 0, 100, 1
+    when(_graphService.getLineage(
+        datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null
     )).thenReturn(mockResult);
 
     Siblings siblingInSearchResult = new Siblings();
     siblingInSearchResult.setPrimary(true);
     siblingInSearchResult.setSiblings(new UrnArray(ImmutableList.of(datasetThreeUrn)));
 
-    Mockito.when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(siblingInSearchResult);
+    when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(siblingInSearchResult);
 
     Siblings dataset1Siblings = new Siblings();
     dataset1Siblings.setPrimary(false);
@@ -252,14 +256,15 @@ public class SiblingGraphServiceTest {
         datasetThreeUrn, ImmutableList.of(dataset3Siblings)
     );
 
-    Mockito.when(_mockEntityService.getLatestAspects(Mockito.any(), Mockito.any())).thenReturn(siblingsMap);
+    when(_mockEntityService.getLatestAspects(any(), any())).thenReturn(siblingsMap);
 
     SiblingGraphService service = _client;
 
     EntityLineageResult expectedResult = mockResult.clone();
     expectedResult.setTotal(3);
     expectedResult.setCount(2);
-    expectedResult.setRelationships(new LineageRelationshipArray(relationship2, relationship1));
+    expectedResult.setFiltered(0);
+    expectedResult.setRelationships(new LineageRelationshipArray(relationship1, relationship2));
 
     EntityLineageResult upstreamLineage = service.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1);
 
@@ -269,7 +274,7 @@ public class SiblingGraphServiceTest {
   }
 
   @Test
-  public void testCombineSiblingResult() throws Exception {
+  public void testCombineSiblingResult() {
     EntityLineageResult mockResult = new EntityLineageResult();
     EntityLineageResult siblingMockResult = new EntityLineageResult();
     EntityLineageResult expectedResult = new EntityLineageResult();
@@ -302,11 +307,12 @@ public class SiblingGraphServiceTest {
 
     expectedRelationships.add(relationship2);
     expectedRelationships.add(relationship4);
-    expectedRelationships.add(relationship1);
+    expectedRelationships.add(relationship1); // expect just one relationship1 despite duplicates in sibling lineage
 
     expectedResult.setCount(3);
     expectedResult.setStart(0);
     expectedResult.setTotal(3);
+    expectedResult.setFiltered(0);
     expectedResult.setRelationships(expectedRelationships);
 
     mockResult.setStart(0);
@@ -316,25 +322,26 @@ public class SiblingGraphServiceTest {
 
     siblingRelationships.add(relationship2);
     siblingRelationships.add(relationship4);
+    siblingRelationships.add(relationship1); // duplicate from sibling's lineage, we should not see duplicates in result
     siblingMockResult.setStart(0);
     siblingMockResult.setTotal(2);
     siblingMockResult.setCount(2);
     siblingMockResult.setRelationships(siblingRelationships);
 
-    Mockito.when(_graphService.getLineage(
-        datasetThreeUrn,  LineageDirection.UPSTREAM, 0, 99, 1
+    when(_graphService.getLineage(
+        datasetThreeUrn, LineageDirection.UPSTREAM, 0, 99, 1, null, null
     )).thenReturn(siblingMockResult);
 
 
-    Mockito.when(_graphService.getLineage(
-        datasetFourUrn,  LineageDirection.UPSTREAM, 0, 100, 1
+    when(_graphService.getLineage(
+        datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null
     )).thenReturn(mockResult);
 
     Siblings siblingInSearchResult = new Siblings();
     siblingInSearchResult.setPrimary(true);
     siblingInSearchResult.setSiblings(new UrnArray(ImmutableList.of(datasetThreeUrn)));
 
-    Mockito.when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(siblingInSearchResult);
+    when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(siblingInSearchResult);
 
     Siblings dataset1Siblings = new Siblings();
     dataset1Siblings.setPrimary(false);
@@ -355,7 +362,7 @@ public class SiblingGraphServiceTest {
         datasetFiveUrn, ImmutableList.of(dataset3Siblings)
     );
 
-    Mockito.when(_mockEntityService.getLatestAspects(Mockito.any(), Mockito.any())).thenReturn(siblingsMap);
+    when(_mockEntityService.getLatestAspects(any(), any())).thenReturn(siblingsMap);
 
     SiblingGraphService service = _client;
 
@@ -366,7 +373,7 @@ public class SiblingGraphServiceTest {
   }
 
   @Test
-  public void testUpstreamOfSiblings() throws Exception {
+  public void testUpstreamOfSiblings() {
     EntityLineageResult mockResult = new EntityLineageResult();
     EntityLineageResult siblingMockResult = new EntityLineageResult();
     EntityLineageResult expectedResult = new EntityLineageResult();
@@ -403,6 +410,7 @@ public class SiblingGraphServiceTest {
     expectedResult.setCount(2);
     expectedResult.setStart(0);
     expectedResult.setTotal(3);
+    expectedResult.setFiltered(0);
     expectedResult.setRelationships(expectedRelationships);
 
     mockResult.setStart(0);
@@ -417,20 +425,20 @@ public class SiblingGraphServiceTest {
     siblingMockResult.setCount(2);
     siblingMockResult.setRelationships(siblingRelationships);
 
-    Mockito.when(_graphService.getLineage(
-        datasetThreeUrn,  LineageDirection.UPSTREAM, 0, 99, 1
+    when(_graphService.getLineage(
+        datasetThreeUrn, LineageDirection.UPSTREAM, 0, 99, 1, null, null
     )).thenReturn(siblingMockResult);
 
 
-    Mockito.when(_graphService.getLineage(
-        datasetFourUrn,  LineageDirection.UPSTREAM, 0, 100, 1
+    when(_graphService.getLineage(
+        datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null
     )).thenReturn(mockResult);
 
     Siblings siblingInSearchResult = new Siblings();
     siblingInSearchResult.setPrimary(true);
     siblingInSearchResult.setSiblings(new UrnArray(ImmutableList.of(datasetThreeUrn)));
 
-    Mockito.when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(siblingInSearchResult);
+    when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(siblingInSearchResult);
 
     Siblings dataset1Siblings = new Siblings();
     dataset1Siblings.setPrimary(false);
@@ -455,13 +463,105 @@ public class SiblingGraphServiceTest {
         datasetFiveUrn, ImmutableList.of(dataset5Siblings)
     );
 
-    Mockito.when(_mockEntityService.getLatestAspects(Mockito.any(), Mockito.any())).thenReturn(siblingsMap);
+    when(_mockEntityService.getLatestAspects(any(), any())).thenReturn(siblingsMap);
 
     SiblingGraphService service = _client;
 
     EntityLineageResult upstreamLineage = service.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1);
 
     // assert your lineage will not contain two siblings
+    assertEquals(upstreamLineage, expectedResult);
+  }
+
+  // we should be combining lineage of siblings of siblings
+  // ie. dataset1 has sibling dataset2. dataset 2 has siblings dataset1 and dataset3. dataset3 has sibling dataset2. dataset3 has upstream dataset4.
+  // requesting upstream for dataset1 should give us dataset4
+  @Test
+  public void testUpstreamOfSiblingSiblings() {
+    EntityLineageResult mockResult = new EntityLineageResult();
+    EntityLineageResult expectedResult = new EntityLineageResult();
+
+    LineageRelationshipArray relationships = new LineageRelationshipArray();
+    LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
+
+    LineageRelationship relationship = new LineageRelationship();
+    relationship.setDegree(0);
+    relationship.setType(downstreamOf);
+    relationship.setEntity(datasetFourUrn);
+
+    relationships.add(relationship);
+
+    expectedRelationships.add(relationship);
+
+    expectedResult.setCount(1);
+    expectedResult.setStart(0);
+    expectedResult.setTotal(1);
+    expectedResult.setFiltered(0);
+    expectedResult.setRelationships(expectedRelationships);
+
+    mockResult.setStart(0);
+    mockResult.setTotal(1);
+    mockResult.setCount(1);
+    mockResult.setRelationships(relationships);
+
+    EntityLineageResult emptyLineageResult = new EntityLineageResult();
+    emptyLineageResult.setRelationships(new LineageRelationshipArray());
+    emptyLineageResult.setStart(0);
+    emptyLineageResult.setTotal(0);
+    emptyLineageResult.setCount(0);
+
+    when(_graphService.getLineage(
+        Mockito.eq(datasetOneUrn), Mockito.eq(LineageDirection.UPSTREAM), Mockito.anyInt(), Mockito.anyInt(),
+        Mockito.eq(1), Mockito.eq(null), Mockito.eq(null)
+    )).thenReturn(emptyLineageResult);
+
+    when(_graphService.getLineage(
+        Mockito.eq(datasetTwoUrn), Mockito.eq(LineageDirection.UPSTREAM), Mockito.anyInt(), Mockito.anyInt(),
+        Mockito.eq(1), Mockito.eq(null), Mockito.eq(null)
+    )).thenReturn(emptyLineageResult);
+
+    when(_graphService.getLineage(
+        Mockito.eq(datasetThreeUrn), Mockito.eq(LineageDirection.UPSTREAM), Mockito.anyInt(), Mockito.anyInt(),
+        Mockito.eq(1), Mockito.eq(null), Mockito.eq(null)
+    )).thenReturn(mockResult);
+
+    Siblings dataset1Siblings = new Siblings();
+    dataset1Siblings.setPrimary(true);
+    dataset1Siblings.setSiblings(new UrnArray(ImmutableList.of(datasetTwoUrn)));
+
+    when(_mockEntityService.getLatestAspect(datasetOneUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset1Siblings);
+
+    Siblings dataset2Siblings = new Siblings();
+    dataset2Siblings.setPrimary(true);
+    dataset2Siblings.setSiblings(new UrnArray(ImmutableList.of(datasetOneUrn, datasetThreeUrn)));
+
+    when(_mockEntityService.getLatestAspect(datasetTwoUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset2Siblings);
+
+    Siblings dataset3Siblings = new Siblings();
+    dataset3Siblings.setPrimary(true);
+    dataset3Siblings.setSiblings(new UrnArray(ImmutableList.of(datasetTwoUrn)));
+
+    when(_mockEntityService.getLatestAspect(datasetThreeUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset3Siblings);
+
+    Siblings dataset4Siblings = new Siblings();
+    dataset4Siblings.setPrimary(true);
+    dataset4Siblings.setSiblings(new UrnArray());
+
+    when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset4Siblings);
+
+    Map<Urn, List<RecordTemplate>> siblingsMap = ImmutableMap.of(
+        datasetOneUrn, ImmutableList.of(dataset1Siblings),
+        datasetTwoUrn, ImmutableList.of(dataset2Siblings),
+        datasetThreeUrn, ImmutableList.of(dataset3Siblings),
+        datasetFourUrn, ImmutableList.of(dataset4Siblings)
+    );
+
+    when(_mockEntityService.getLatestAspects(any(), any())).thenReturn(siblingsMap);
+
+    SiblingGraphService service = _client;
+
+    EntityLineageResult upstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 100, 1);
+
     assertEquals(upstreamLineage, expectedResult);
   }
 

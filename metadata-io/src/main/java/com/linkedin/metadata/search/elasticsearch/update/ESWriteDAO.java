@@ -6,9 +6,7 @@ import java.io.IOException;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -16,7 +14,6 @@ import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.GetIndexResponse;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.script.Script;
 
 
@@ -27,7 +24,8 @@ public class ESWriteDAO {
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient searchClient;
   private final IndexConvention indexConvention;
-  private final BulkProcessor bulkProcessor;
+  private final ESBulkProcessor bulkProcessor;
+  private final int numRetries;
 
   /**
    * Updates or inserts the given search document.
@@ -38,9 +36,13 @@ public class ESWriteDAO {
    */
   public void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
-    final IndexRequest indexRequest = new IndexRequest(indexName).id(docId).source(document, XContentType.JSON);
-    final UpdateRequest updateRequest =
-        new UpdateRequest(indexName, docId).doc(document, XContentType.JSON).detectNoop(false).upsert(indexRequest);
+    final UpdateRequest updateRequest = new UpdateRequest(
+            indexName, docId)
+            .detectNoop(false)
+            .docAsUpsert(true)
+            .doc(document, XContentType.JSON)
+            .retryOnConflict(numRetries);
+
     bulkProcessor.add(updateRequest);
   }
 
@@ -60,7 +62,12 @@ public class ESWriteDAO {
    */
   public void applyScriptUpdate(@Nonnull String entityName, @Nonnull String docId, @Nonnull String script) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
-    bulkProcessor.add(new UpdateRequest(indexName, docId).script(new Script(script)));
+    UpdateRequest updateRequest = new UpdateRequest(indexName, docId)
+            .detectNoop(false)
+            .scriptedUpsert(true)
+            .retryOnConflict(numRetries)
+            .script(new Script(script));
+    bulkProcessor.add(updateRequest);
   }
 
   /**
@@ -68,12 +75,7 @@ public class ESWriteDAO {
    */
   public void clear() {
     String[] indices = getIndices(indexConvention.getAllEntityIndicesPattern());
-    DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(indices).setQuery(QueryBuilders.matchAllQuery());
-    try {
-      searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Failed to delete content of search indices: {}", e.toString());
-    }
+    bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), indices);
   }
 
   private String[] getIndices(String pattern) {

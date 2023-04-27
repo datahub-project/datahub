@@ -1,7 +1,5 @@
 import datahub.emitter.mcp_builder as builder
-import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import datahub_guid
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 
 def test_guid_generator():
@@ -56,12 +54,3 @@ def test_guid_generators():
 
     guid = key.guid()
     assert guid == guid_datahub
-
-
-def test_mcpw_inference():
-    mcpw = MetadataChangeProposalWrapper(
-        entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
-        aspect=models.DomainsClass(domains=["urn:li:domain:health"]),
-    )
-    assert mcpw.entityType == "dataset"
-    assert mcpw.aspectName == "domains"

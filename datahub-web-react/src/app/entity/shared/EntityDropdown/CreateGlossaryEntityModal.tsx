@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { EditOutlined } from '@ant-design/icons';
-import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import DOMPurify from 'dompurify';
 import {
     useCreateGlossaryTermMutation,
@@ -13,6 +13,9 @@ import NodeParentSelect from './NodeParentSelect';
 import { useEntityData, useRefetch } from '../EntityContext';
 import analytics, { EventType } from '../../../analytics';
 import DescriptionModal from '../components/legacy/DescriptionModal';
+import { validateCustomUrnId } from '../../../shared/textUtil';
+import { useGlossaryEntityData } from '../GlossaryEntityContext';
+import { getGlossaryRootToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -35,8 +38,10 @@ interface Props {
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData } = props;
     const entityData = useEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
+    const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
     const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
     const [documentation, setDocumentation] = useState('');
@@ -55,6 +60,7 @@ function CreateGlossaryEntityModal(props: Props) {
         mutation({
             variables: {
                 input: {
+                    id: stagedId?.length ? stagedId : undefined,
                     name: stagedName,
                     parentNode: selectedParentUrn || null,
                     description: sanitizedDescription || null,
@@ -74,6 +80,11 @@ function CreateGlossaryEntityModal(props: Props) {
                         duration: 2,
                     });
                     refetch();
+                    if (isInGlossaryContext) {
+                        // either refresh this current glossary node or the root nodes or root terms
+                        const nodeToUpdate = entityData?.urn || getGlossaryRootToUpdate(entityType);
+                        updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                    }
                     if (refetchData) {
                         refetchData();
                     }
@@ -160,13 +171,49 @@ function CreateGlossaryEntityModal(props: Props) {
                     </StyledButton>
                     {isDocumentationModalVisible && (
                         <DescriptionModal
-                            title="Add Documenataion"
+                            title="Add Documentation"
                             onClose={() => setIsDocumentationModalVisible(false)}
                             onSubmit={addDocumentation}
                             description={documentation}
                         />
                     )}
                 </StyledItem>
+                <Collapse ghost>
+                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                        <Form.Item
+                            label={
+                                <Typography.Text strong>
+                                    {entityRegistry.getEntityName(props.entityType)} Id
+                                </Typography.Text>
+                            }
+                        >
+                            <Typography.Paragraph>
+                                By default, a random UUID will be generated to uniquely identify this entity. If
+                                you&apos;d like to provide a custom id, you may provide it here. Note that it should be
+                                unique across the entire Glossary. Be careful, you cannot easily change the id after
+                                creation.
+                            </Typography.Paragraph>
+                            <Form.Item
+                                name="id"
+                                rules={[
+                                    () => ({
+                                        validator(_, value) {
+                                            if (value && validateCustomUrnId(value)) {
+                                                return Promise.resolve();
+                                            }
+                                            return Promise.reject(new Error('Please enter a valid entity id'));
+                                        },
+                                    }),
+                                ]}
+                            >
+                                <Input
+                                    placeholder="classification"
+                                    onChange={(event) => setStagedId(event.target.value)}
+                                />
+                            </Form.Item>
+                        </Form.Item>
+                    </Collapse.Panel>
+                </Collapse>
             </Form>
         </Modal>
     );

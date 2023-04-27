@@ -11,6 +11,7 @@ import CustomAvatar from './avatar/CustomAvatar';
 import analytics, { EventType } from '../analytics';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
+import { useUserContext } from '../context/useUserContext';
 
 const MenuItem = styled(Menu.Item)`
     display: flex;
@@ -54,10 +55,12 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
     const { config } = useAppConfig();
+    const userContext = useUserContext();
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });
         isLoggedInVar(false);
         Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
+        userContext.updateLocalState({ selectedViewUrn: undefined });
     };
     const version = config?.appVersion;
     const menu = (
@@ -100,7 +103,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             </MenuItem>
             <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
-                <a href="/logOut" onClick={handleLogout}>
+                <a href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item">
                     Sign Out
                 </a>
             </MenuItem>
@@ -109,7 +112,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
 
     return (
         <Dropdown overlay={menu} trigger={['click']}>
-            <DropdownWrapper>
+            <DropdownWrapper data-testid="manage-account-menu">
                 <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
                 <DownArrow />
             </DropdownWrapper>

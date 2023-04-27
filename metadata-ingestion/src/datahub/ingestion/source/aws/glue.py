@@ -22,6 +22,7 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -47,11 +48,15 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -75,7 +80,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
@@ -87,19 +91,21 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
-    JobStatusClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
-    StatusClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,19 +114,14 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the GlueSourceConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["table"])
-
-
 class GlueSourceConfig(
-    AwsSourceConfig, GlueProfilingConfig, StatefulIngestionConfigBase
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
 ):
+    platform: str = Field(
+        default=DEFAULT_PLATFORM,
+        description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
+    )
+
     extract_owners: Optional[bool] = Field(
         default=True,
         description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
@@ -128,16 +129,12 @@ class GlueSourceConfig(
     extract_transforms: Optional[bool] = Field(
         default=True, description="Whether to extract Glue transform jobs."
     )
-    underlying_platform: Optional[str] = Field(
-        default=None,
-        description="@deprecated(Use `platform`) Override for platform name. Allowed values - `glue`, `athena`",
-    )
     ignore_unsupported_connectors: Optional[bool] = Field(
         default=True,
         description="Whether to ignore unsupported connectors. If disabled, an error will be raised.",
     )
     emit_s3_lineage: bool = Field(
-        default=False, description=" Whether to emit S3-to-Glue lineage."
+        default=False, description="Whether to emit S3-to-Glue lineage."
     )
     glue_s3_lineage_direction: str = Field(
         default="upstream",
@@ -150,6 +147,10 @@ class GlueSourceConfig(
     catalog_id: Optional[str] = Field(
         default=None,
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
+    )
+    ignore_resource_links: Optional[bool] = Field(
+        default=False,
+        description="If set to True, ignore database resource links.",
     )
     use_s3_bucket_tags: Optional[bool] = Field(
         default=False,
@@ -164,7 +165,7 @@ class GlueSourceConfig(
         description="Configs to ingest data profiles from glue table",
     )
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[GlueStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
 
@@ -179,26 +180,17 @@ class GlueSourceConfig(
     @validator("glue_s3_lineage_direction")
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "glue_s3_lineage_direction must be either upstream or downstream"
             )
         return v.lower()
-
-    @validator("underlying_platform")
-    def underlying_platform_validator(cls, v: str) -> str:
-        if not v or v in VALID_PLATFORMS:
-            return v
-        else:
-            raise ConfigurationError(
-                f"'underlying_platform' can only take following values: {VALID_PLATFORMS}"
-            )
 
     @validator("platform")
     def platform_validator(cls, v: str) -> str:
         if not v or v in VALID_PLATFORMS:
             return v
         else:
-            raise ConfigurationError(
+            raise ValueError(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
             )
 
@@ -235,7 +227,7 @@ class GlueSource(StatefulIngestionSourceBase):
     - Table metadata, such as owner, description and parameters
     - Jobs and their component transformations, data sources, and data sinks
 
-    ## IAM permissions
+    ### IAM permissions
 
     For ingesting datasets, the following IAM permissions are required:
     ```json
@@ -306,16 +298,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     @property
     def platform(self) -> str:
-        """
-        This deprecates "underlying_platform" field in favour of the standard "platform" one, which has
-        more priority when both are defined.
-        :return: platform, otherwise underlying_platform, otherwise "glue"
-        """
-        return (
-            self.source_config.platform
-            or self.source_config.underlying_platform
-            or DEFAULT_PLATFORM
-        )
+        return self.source_config.platform
 
     def get_all_jobs(self):
         """
@@ -347,7 +330,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # catch any other cases where the script path is invalid
         if not script_path.startswith("s3://"):
-
             self.report.report_warning(
                 script_path,
                 f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path.",
@@ -379,7 +361,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # sometimes the Python script can be user-modified and the script is not valid for graph extraction
         except self.glue_client.exceptions.InvalidInputException as e:
-
             self.report.report_warning(
                 script_path,
                 f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
@@ -399,22 +380,18 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
     ) -> Iterator[Tuple[str, Optional[str]]]:
-
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
-
             node_type = node["NodeType"]
 
             # for nodes representing datasets, we construct a dataset URN accordingly
             if node_type in ["DataSource", "DataSink"]:
-
                 node_args = {
                     x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]
                 }
 
                 # if data object is S3 bucket
                 if node_args.get("connection_type") == "s3":
-
                     s3_uri = self.get_s3_uri(node_args)
 
                     if s3_uri is None:
@@ -432,17 +409,14 @@ class GlueSource(StatefulIngestionSourceBase):
         new_dataset_mces: List[MetadataChangeEvent],
         s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
-
         node_type = node["NodeType"]
 
         # for nodes representing datasets, we construct a dataset URN accordingly
         if node_type in ["DataSource", "DataSink"]:
-
             node_args = {x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]}
 
             # if data object is Glue table
             if "database" in node_args and "table_name" in node_args:
-
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
@@ -455,7 +429,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
-
                 s3_uri = self.get_s3_uri(node_args)
 
                 if s3_uri is None:
@@ -494,16 +467,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
 
             else:
-
                 if self.source_config.ignore_unsupported_connectors:
-
                     logger.info(
                         flow_urn,
                         f"Unrecognized Glue data object type: {node_args}. Skipping.",
                     )
                     return None
                 else:
-
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
 
         # otherwise, a node represents a transformation
@@ -546,7 +516,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
-
             processed_node = self.process_dataflow_node(
                 node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
             )
@@ -556,7 +525,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
-
             source_node = nodes.get(edge["Source"])
             target_node = nodes.get(edge["Target"])
 
@@ -670,62 +638,59 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
-    def get_all_tables_and_databases(
+    def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
+        paginator = self.glue_client.get_paginator("get_databases")
+
+        if self.source_config.catalog_id:
+            paginator_response = paginator.paginate(
+                CatalogId=self.source_config.catalog_id
+            )
+        else:
+            paginator_response = paginator.paginate()
+
+        for page in paginator_response:
+            yield from page["DatabaseList"]
+
+    def get_tables_from_database(self, database_name: str) -> Iterable[Dict]:
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetTables.html
+        paginator = self.glue_client.get_paginator("get_tables")
+
+        if self.source_config.catalog_id:
+            paginator_response = paginator.paginate(
+                DatabaseName=database_name, CatalogId=self.source_config.catalog_id
+            )
+        else:
+            paginator_response = paginator.paginate(DatabaseName=database_name)
+
+        for page in paginator_response:
+            yield from page["TableList"]
+
+    def get_all_databases_and_tables(
         self,
     ) -> Tuple[Dict, List[Dict]]:
-        def get_tables_from_database(database_name: str) -> List[dict]:
-            new_tables = []
+        all_databases = self.get_all_databases()
 
-            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_tables
-            paginator = self.glue_client.get_paginator("get_tables")
+        if self.source_config.ignore_resource_links:
+            all_databases = [
+                database
+                for database in all_databases
+                if "TargetDatabase" not in database
+            ]
 
-            if self.source_config.catalog_id:
-                paginator_response = paginator.paginate(
-                    DatabaseName=database_name, CatalogId=self.source_config.catalog_id
-                )
-            else:
-                paginator_response = paginator.paginate(DatabaseName=database_name)
-
-            for page in paginator_response:
-                new_tables += page["TableList"]
-
-            return new_tables
-
-        def get_databases() -> List[Mapping[str, Any]]:
-            databases = []
-
-            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_databases
-            paginator = self.glue_client.get_paginator("get_databases")
-
-            if self.source_config.catalog_id:
-                paginator_response = paginator.paginate(
-                    CatalogId=self.source_config.catalog_id
-                )
-            else:
-                paginator_response = paginator.paginate()
-
-            for page in paginator_response:
-                for db in page["DatabaseList"]:
-                    if self.source_config.database_pattern.allowed(db["Name"]):
-                        databases.append(db)
-
-            return databases
-
-        all_databases = get_databases()
-
-        databases = {
+        allowed_databases = {
             database["Name"]: database
             for database in all_databases
             if self.source_config.database_pattern.allowed(database["Name"])
         }
 
-        all_tables: List[dict] = [
+        all_tables = [
             table
-            for databaseName in databases.keys()
-            for table in get_tables_from_database(databaseName)
+            for database_name in allowed_databases
+            for table in self.get_tables_from_database(database_name)
         ]
 
-        return databases, all_tables
+        return allowed_databases, all_tables
 
     def get_lineage_if_enabled(
         self, mce: MetadataChangeEventClass
@@ -737,7 +702,7 @@ class GlueSource(StatefulIngestionSourceBase):
             ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
-                if location.startswith("s3://"):
+                if is_s3_uri(location):
                     s3_dataset_urn = make_s3_urn(location, self.source_config.env)
                     if self.source_config.glue_s3_lineage_direction == "upstream":
                         upstream_lineage = UpstreamLineageClass(
@@ -749,10 +714,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             ]
                         )
                         mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
                             entityUrn=mce.proposedSnapshot.urn,
-                            changeType=ChangeTypeClass.UPSERT,
-                            aspectName="upstreamLineage",
                             aspect=upstream_lineage,
                         )
                         return mcp
@@ -767,10 +729,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             ]
                         )
                         mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
                             entityUrn=s3_dataset_urn,
-                            changeType=ChangeTypeClass.UPSERT,
-                            aspectName="upstreamLineage",
                             aspect=upstream_lineage,
                         )
                         return mcp
@@ -852,10 +811,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=mce.proposedSnapshot.urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
             aspect=dataset_profile,
         )
         return mcp
@@ -935,7 +891,7 @@ class GlueSource(StatefulIngestionSourceBase):
         container_workunits = gen_containers(
             container_key=database_container_key,
             name=database["Name"],
-            sub_types=["Database"],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
             description=database.get("Description"),
             qualified_name=self.get_glue_arn(
@@ -967,13 +923,11 @@ class GlueSource(StatefulIngestionSourceBase):
         return None
 
     def _get_domain_wu(
-        self, dataset_name: str, entity_urn: str, entity_type: str
+        self, dataset_name: str, entity_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -982,8 +936,14 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()
-        databases, tables = self.get_all_tables_and_databases()
+        databases, tables = self.get_all_databases_and_tables()
 
         for table in tables:
             database_name = table["DatabaseName"]
@@ -1015,7 +975,7 @@ class GlueSource(StatefulIngestionSourceBase):
             # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
             workunit = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=SubTypes(typeNames=["table"]),
+                aspect=SubTypes(typeNames=[DatasetSubTypes.TABLE]),
             ).as_workunit()
             self.report.report_workunit(workunit)
             yield workunit
@@ -1023,14 +983,10 @@ class GlueSource(StatefulIngestionSourceBase):
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
                 entity_urn=dataset_urn,
-                entity_type="dataset",
             )
             yield from self.add_table_to_database_container(
                 dataset_urn=dataset_urn, db_name=database_name
             )
-
-            # Add table to the checkpoint state.
-            self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
 
             mcp = self.get_lineage_if_enabled(mce)
             if mcp:
@@ -1053,14 +1009,10 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.extract_transforms:
             yield from self._transform_extraction()
 
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
         flow_names: Dict[str, str] = {}
         for job in self.get_all_jobs():
-
             flow_urn = mce_builder.make_data_flow_urn(
                 self.platform, job["Name"], self.env
             )
@@ -1089,7 +1041,6 @@ class GlueSource(StatefulIngestionSourceBase):
                     s3_formats[s3_name].add(extension)
         # run second pass to generate node workunits
         for flow_urn, dag in dags.items():
-
             if dag is None:
                 continue
 
@@ -1098,7 +1049,6 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
             for node in nodes.values():
-
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
                     job_wu = self.get_datajob_wu(node, flow_names[flow_urn])
                     self.report.report_workunit(job_wu)
@@ -1140,6 +1090,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 uri=table.get("Location"),
                 tags=[],
+                name=table["Name"],
                 qualifiedName=self.get_glue_arn(
                     account_id=table["CatalogId"],
                     database=table["DatabaseName"],
@@ -1206,9 +1157,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 logger.warning(
                     "Could not connect to DatahubApi. No current tags to maintain"
                 )
-
             # Remove duplicate tags
-            tags_to_add = list(set(tags_to_add))
+            tags_to_add = sorted(list(set(tags_to_add)))
             new_tags = GlobalTagsClass(
                 tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
             )
@@ -1291,9 +1241,3 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def get_platform_instance_id(self) -> str:
-        return self.source_config.platform_instance or self.platform
-
-    def close(self):
-        self.prepare_for_commit()

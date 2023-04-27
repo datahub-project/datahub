@@ -1,4 +1,5 @@
 import typing
+from typing import Any, Dict, Iterable, Optional
 
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -8,16 +9,18 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_common import (
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, logger
+from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
-    SQLAlchemySource,
-    logger,
     make_sqlalchemy_uri,
+)
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    gen_database_key,
 )
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
-
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
@@ -53,11 +56,29 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         super().__init__(config, ctx, platform)
         self.config: TwoTierSQLAlchemyConfig = config
 
-    def get_parent_container_key(self, db_name: str, schema: str) -> PlatformKey:
+    def get_database_container_key(self, db_name: str, schema: str) -> PlatformKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
         assert db_name == schema
-        return self.gen_database_key(db_name)
+        return gen_database_key(
+            db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def add_table_to_schema_container(
+        self,
+        dataset_urn: str,
+        db_name: str,
+        schema: str,
+        schema_container_key: Optional[PlatformKey] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            parent_container_key=self.get_database_container_key(db_name, schema),
+            report=self.report,
+        )
 
     def get_allowed_schemas(
         self, inspector: Inspector, db_name: str
@@ -91,6 +112,17 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                     yield inspector
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
-    ) -> typing.Iterable[MetadataWorkUnit]:
+        self,
+        schema: str,
+        database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
         return []
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        engine = inspector.engine
+
+        if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
+            return str(engine.url.database).strip('"')
+        else:
+            raise Exception("Unable to get database name from Sqlalchemy inspector")

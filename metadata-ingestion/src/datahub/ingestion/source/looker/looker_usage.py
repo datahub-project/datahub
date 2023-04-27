@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
-from looker_sdk.sdk.api31.models import Dashboard, LookWithQuery
+from looker_sdk.sdk.api40.models import Dashboard, LookWithQuery
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import Aspect, AspectAbstract
@@ -239,7 +239,7 @@ class BaseStatGenerator(ABC):
             * 1000
         )
 
-    def _get_user_identifier(self, row: Dict) -> int:
+    def _get_user_identifier(self, row: Dict) -> str:
         return row[UserViewField.USER_ID]
 
     def _process_entity_timeseries_rows(
@@ -371,7 +371,6 @@ class BaseStatGenerator(ABC):
         return query
 
     def generate_usage_stat_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-
         # No looker entities available to process stat generation
         if len(self.looker_models) == 0:
             return

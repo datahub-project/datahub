@@ -24,6 +24,14 @@ const UPSTREAM_X_MODIFIER = -1;
 const UPSTREAM_DIRECTION_SHIFT = -20;
 const COLUMN_HEIGHT_BUFFER = 1.2;
 
+function getParentRelationship(direction: Direction, parent: VizNode | null, node: NodeData) {
+    const directionRelationships =
+        direction === Direction.Downstream
+            ? parent?.data?.downstreamRelationships
+            : parent?.data?.upstreamRelationships;
+    return directionRelationships?.find((r) => r?.entity?.urn === node?.urn);
+}
+
 function layoutNodesForOneDirection(
     data: NodeData,
     direction: Direction,
@@ -34,7 +42,6 @@ function layoutNodesForOneDirection(
     collapsedColumnsNodes: any,
     nodesToRender: VizNode[],
     edgesToRender: VizEdge[],
-    renderedNodeUrns: Set<string>,
 ) {
     const nodesByUrn: Record<string, VizNode> = {};
     const xModifier = direction === Direction.Downstream ? 1 : UPSTREAM_X_MODIFIER;
@@ -109,10 +116,7 @@ function layoutNodesForOneDirection(
                         node: child,
                     })) || []),
                 ];
-                if (!renderedNodeUrns.has(node.urn)) {
-                    nodesToRender.push(vizNodeForNode);
-                    renderedNodeUrns.add(node.urn);
-                }
+                nodesToRender.push(vizNodeForNode);
             }
 
             if (parent) {
@@ -145,9 +149,15 @@ function layoutNodesForOneDirection(
                           { x: vizNodeForNode.x, y: vizNodeForNode.y - (nodeWidth / 2) * xModifier + directionShift },
                       ];
 
+                const relationship = getParentRelationship(direction, parent, node);
+
                 const vizEdgeForPair = {
                     source: parent,
                     target: vizNodeForNode,
+                    createdActor: relationship?.createdActor,
+                    createdOn: relationship?.createdOn,
+                    updatedOn: relationship?.updatedOn,
+                    isManual: relationship?.isManual || false,
                     curve,
                 };
                 edgesToRender.push(vizEdgeForPair);
@@ -354,7 +364,6 @@ export default function layoutTree(
     nodesByUrn: Record<string, VizNode>;
     layers: number;
 } {
-    const renderedNodeUrns = new Set<string>();
     const nodesToRender: VizNode[] = [];
     const edgesToRender: VizEdge[] = [];
 
@@ -368,7 +377,6 @@ export default function layoutTree(
         collapsedColumnsNodes,
         nodesToRender,
         edgesToRender,
-        renderedNodeUrns,
     );
 
     const { numInCurrentLayer: numDownstream, nodesByUrn: downstreamNodesByUrn } = layoutNodesForOneDirection(
@@ -381,7 +389,6 @@ export default function layoutTree(
         collapsedColumnsNodes,
         nodesToRender,
         edgesToRender,
-        renderedNodeUrns,
     );
 
     const nodesByUrn = { ...upstreamNodesByUrn, ...downstreamNodesByUrn };

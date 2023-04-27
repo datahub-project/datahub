@@ -5,7 +5,7 @@
 #########################################################
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 import pydantic
 import requests
@@ -14,7 +14,7 @@ from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -58,7 +58,7 @@ from datahub.utilities.dedup_list import deduplicate_list
 LOGGER = logging.getLogger(__name__)
 
 
-class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
+class PowerBiReportServerAPIConfig(EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(
@@ -68,7 +68,9 @@ class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
     server_alias: str = pydantic.Field(
         default="", description="Alias for Power BI Report Server host URL"
     )
-    graphql_url: str = pydantic.Field(description="GraphQL API URL")
+    graphql_url: Optional[str] = pydantic.Field(
+        default=None, description="[deprecated] Not used"
+    )
     report_virtual_directory_name: str = pydantic.Field(
         description="Report Virtual Directory URL name"
     )
@@ -570,6 +572,3 @@ class PowerBiReportServerDashboardSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self):
-        pass

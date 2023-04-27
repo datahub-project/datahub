@@ -42,7 +42,8 @@ dependencies {
     implementation(externalDependency.kafkaAvroSerializer) {
       exclude group: "org.apache.avro"
     }
-    
+
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testCompile externalDependency.mockito
@@ -50,6 +51,7 @@ dependencies {
     testCompile externalDependency.mockServerClient
     testCompile externalDependency.testContainers
     testCompile externalDependency.httpAsyncClient
+    testRuntime externalDependency.logbackClassic
 
     swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
@@ -112,7 +114,6 @@ shadowJar {
   relocate 'com.sun.jna', 'datahub.shaded.com.sun.jna'
   // Below jars added for kafka emitter only
   relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
-  relocate 'org.codehaus.jackson', 'datahub.shaded.org.codehaus.jackson'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
   relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
   relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'
@@ -124,6 +125,7 @@ shadowJar {
   relocate 'org.I0Itec.zkclient', 'datahub.shaded.org.I0Itec.zkclient'
   relocate 'net.jpountz', 'datahub.shaded.net.jpountz'
   relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
+  relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
  
   finalizedBy checkShadowJar
 }

@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.elastic;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
@@ -9,10 +10,10 @@ import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -22,6 +23,9 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
@@ -42,18 +46,15 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchGraphService implements GraphService {
+public class ElasticSearchGraphService implements GraphService, ElasticSearchIndexed {
 
   private final LineageRegistry _lineageRegistry;
-  private final RestHighLevelClient _searchClient;
+  private final ESBulkProcessor _esBulkProcessor;
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
@@ -77,13 +78,43 @@ public class ElasticSearchGraphService implements GraphService {
     searchDocument.set("source", sourceObject);
     searchDocument.set("destination", destinationObject);
     searchDocument.put("relationshipType", edge.getRelationshipType());
+    if (edge.getCreatedOn() != null) {
+      searchDocument.put("createdOn", edge.getCreatedOn());
+    }
+    if (edge.getCreatedActor() != null) {
+      searchDocument.put("createdActor", edge.getCreatedActor().toString());
+    }
+    if (edge.getUpdatedOn() != null) {
+      searchDocument.put("updatedOn", edge.getUpdatedOn());
+    }
+    if (edge.getUpdatedActor() != null) {
+      searchDocument.put("updatedActor", edge.getUpdatedActor().toString());
+    }
+    if (edge.getProperties() != null) {
+      final ObjectNode propertiesObject = JsonNodeFactory.instance.objectNode();
+      for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
+        if (entry.getValue() instanceof String) {
+          propertiesObject.put(entry.getKey(), (String) entry.getValue());
+        } else {
+          throw new UnsupportedOperationException(
+              String.format(
+                  "Tried setting properties on graph edge but property value type is not supported. Key: %s, Value: %s ",
+                  entry.getKey(),
+                  entry.getValue()
+              )
+          );
+        }
+      }
+      searchDocument.set("properties", propertiesObject);
+    }
 
     return searchDocument.toString();
   }
 
   private String toDocId(@Nonnull final Edge edge) {
     String rawDocId =
-        edge.getSource().toString() + DOC_DELIMETER + edge.getRelationshipType() + DOC_DELIMETER + edge.getDestination().toString();
+        edge.getSource().toString() + DOC_DELIMETER + edge.getRelationshipType() + DOC_DELIMETER + edge.getDestination()
+            .toString();
 
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
@@ -101,17 +132,29 @@ public class ElasticSearchGraphService implements GraphService {
     return _lineageRegistry;
   }
 
+  @Override
   public void addEdge(@Nonnull final Edge edge) {
     String docId = toDocId(edge);
     String edgeDocument = toDocument(edge);
     _graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
 
+  @Override
+  public void upsertEdge(@Nonnull final Edge edge) {
+    addEdge(edge);
+  }
+
+  @Override
+  public void removeEdge(@Nonnull final Edge edge) {
+    String docId = toDocId(edge);
+    _graphWriteDAO.deleteDocument(docId);
+  }
+
   @Nonnull
   public RelatedEntitiesResult findRelatedEntities(
       @Nullable final List<String> sourceTypes,
       @Nonnull final Filter sourceEntityFilter,
-      @Nullable final  List<String> destinationTypes,
+      @Nullable final List<String> destinationTypes,
       @Nonnull final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter,
@@ -142,7 +185,9 @@ public class ElasticSearchGraphService implements GraphService {
     int totalCount = (int) response.getHits().getTotalHits().value;
     final List<RelatedEntity> relationships = Arrays.stream(response.getHits().getHits())
         .map(hit -> {
-          final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
+          final String urnStr =
+              ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault(
+                  "urn", null);
           final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
 
           if (urnStr == null || relationshipType == null) {
@@ -169,9 +214,41 @@ public class ElasticSearchGraphService implements GraphService {
       int offset,
       int count, int maxHops) {
     ESGraphQueryDAO.LineageResponse lineageResponse =
-        _graphReadDAO.getLineage(entityUrn, direction, graphFilters, offset, count, maxHops);
+        _graphReadDAO.getLineage(
+            entityUrn,
+            direction,
+            graphFilters,
+            offset,
+            count,
+            maxHops,
+            null,
+            null);
     return new EntityLineageResult().setRelationships(
-        new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
+            new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
+        .setStart(offset)
+        .setCount(count)
+        .setTotal(lineageResponse.getTotal());
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+      GraphFilters graphFilters,
+      int offset,
+      int count, int maxHops, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
+    ESGraphQueryDAO.LineageResponse lineageResponse =
+        _graphReadDAO.getLineage(
+            entityUrn,
+            direction,
+            graphFilters,
+            offset,
+            count,
+            maxHops,
+            startTimeMillis,
+            endTimeMillis);
+    return new EntityLineageResult().setRelationships(
+            new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
         .setCount(count)
         .setTotal(lineageResponse.getTotal());
@@ -241,22 +318,29 @@ public class ElasticSearchGraphService implements GraphService {
   public void configure() {
     log.info("Setting up elastic graph index");
     try {
-      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME),
-          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
+      for (ReindexConfig config : getReindexConfigs()) {
+        _indexBuilder.buildIndex(config);
+      }
     } catch (IOException e) {
-      e.printStackTrace();
+      throw new RuntimeException(e);
     }
   }
 
   @Override
+  public List<ReindexConfig> getReindexConfigs() throws IOException {
+    return List.of(_indexBuilder.buildReindexState(_indexConvention.getIndexName(INDEX_NAME),
+            GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()));
+  }
+
+  @Override
+  public void reindexAll() {
+    configure();
+  }
+
+  @VisibleForTesting
+  @Override
   public void clear() {
-    DeleteByQueryRequest deleteRequest =
-        new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
-    try {
-      _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Failed to clear graph service: {}", e.toString());
-    }
+    _esBulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
   }
 
   @Override

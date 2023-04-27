@@ -97,6 +97,12 @@
       "type" : "int",
       "doc" : "Total number of results in the result set"
     }, {
+      "name" : "filtered",
+      "type" : "int",
+      "doc" : "The number of results that were filtered out of the page (soft-deleted or non-existent)",
+      "default" : 0,
+      "optional" : true
+    }, {
       "name" : "relationships",
       "type" : {
         "type" : "array",
@@ -137,6 +143,31 @@
             "type" : "int",
             "doc" : "Degree of relationship (number of hops to get to entity)",
             "default" : 1
+          }, {
+            "name" : "createdOn",
+            "type" : "long",
+            "doc" : "Timestamp for when this lineage relationship was created. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "createdActor",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the actor that created this lineage relationship. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "updatedOn",
+            "type" : "long",
+            "doc" : "Timestamp for when this lineage relationship was last updated. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "updatedActor",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the actor that last updated this lineage relationship. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "isManual",
+            "type" : "boolean",
+            "doc" : "Whether this lineage edge is a manual edge.",
+            "optional" : true
           } ]
         }
       },

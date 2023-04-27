@@ -39,9 +39,19 @@ The entity registry has a few important fields to pay attention to:
 
 ## Build your new model 
 
+Change your directory to the metadata-models-custom folder and then run this command
+
 ```
 ../gradlew build
 ```
+
+This will create a zip file in the build/dist folder. Then change your directory back to the main datahub folder and run 
+
+```
+./gradlew :metadata-models-custom:install
+```
+
+This will install the zip file as a datahub plugin. It is installed at `~/.datahub/plugins/models/` and if you list the directory you should see the following path if you are following the customDataQualityRules implementation example: `~/.datahub/plugins/models/mycompany-dq-model/0.0.0-dev/`
 
 ### Build a versioned artifact
 ```
@@ -114,6 +124,8 @@ curl -s http://localhost:8080/config | jq .
   "noCode": "true"
 }
 ```
+
+Alternatively, you could type in http://localhost:8080/config in your browser.
 
 ### Add some metadata with your new model 
 

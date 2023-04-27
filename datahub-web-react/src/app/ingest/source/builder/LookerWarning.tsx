@@ -14,13 +14,13 @@ export const LookerWarning = ({ type }: Props) => {
     if (type === LOOKER) {
         link = (
             <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                DataHub lookml module
+                DataHub LookML Ingestion Source
             </a>
         );
     } else if (type === LOOK_ML) {
         link = (
             <a href={LOOKER_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                DataHub looker module
+                DataHub Looker Ingestion Source
             </a>
         );
     }
@@ -32,8 +32,8 @@ export const LookerWarning = ({ type }: Props) => {
             banner
             message={
                 <>
-                    To get complete Looker metadata integration (including Looker views and lineage to the underlying
-                    warehouse tables), you must <b>also</b> use the {link}.
+                    To complete the Looker integration (including Looker views and lineage to the underlying warehouse
+                    tables), you must <b>also</b> use the {link}.
                 </>
             }
         />

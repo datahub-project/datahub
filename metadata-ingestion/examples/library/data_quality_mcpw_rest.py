@@ -21,7 +21,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionSpec
 
 
@@ -38,12 +37,8 @@ def assertionUrn(info: AssertionInfo) -> str:
 
 
 def emitAssertionResult(assertionResult: AssertionRunEvent) -> None:
-
     dataset_assertionRunEvent_mcp = MetadataChangeProposalWrapper(
-        entityType="assertion",
-        changeType=ChangeType.UPSERT,
         entityUrn=assertionResult.assertionUrn,
-        aspectName="assertionRunEvent",
         aspect=assertionResult,
     )
 
@@ -59,10 +54,7 @@ datasetProperties = DatasetProperties(
 )
 # Construct a MetadataChangeProposalWrapper object for dataset
 dataset_mcp = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeType.UPSERT,
     entityUrn=datasetUrn("bazTable"),
-    aspectName="datasetProperties",
     aspect=datasetProperties,
 )
 
@@ -94,10 +86,7 @@ assertion_maxVal = AssertionInfo(
 
 # Construct a MetadataChangeProposalWrapper object.
 assertion_maxVal_mcp = MetadataChangeProposalWrapper(
-    entityType="assertion",
-    changeType=ChangeType.UPSERT,
     entityUrn=assertionUrn(assertion_maxVal),
-    aspectName="assertionInfo",
     aspect=assertion_maxVal,
 )
 
@@ -111,10 +100,7 @@ assertion_dataPlatformInstance = DataPlatformInstance(
 
 # Construct a MetadataChangeProposalWrapper object for assertion platform
 assertion_dataPlatformInstance_mcp = MetadataChangeProposalWrapper(
-    entityType="assertion",
-    changeType=ChangeType.UPSERT,
     entityUrn=assertionUrn(assertion_maxVal),
-    aspectName="dataPlatformInstance",
     aspect=assertion_dataPlatformInstance,
 )
 # Emit Assertion entity platform aspect!

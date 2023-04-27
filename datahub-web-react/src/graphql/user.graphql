@@ -186,3 +186,7 @@ mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
         resetToken
     }
 }
+
+mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) {
+    updateCorpUserViewsSettings(input: $input)
+}

@@ -1,11 +1,11 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"datacharmer\"}, \"name\": \"datacharmer\"}",
+        "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"dataCharmer\"}, \"name\": \"dataCharmer\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -15,7 +15,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -29,7 +29,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -43,7 +43,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -57,11 +57,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:9191fea5add3487ba6b8266d4c74a7d1\"}",
+        "value": "{\"container\": \"urn:li:container:0f72a1bc79da282eb614cc089c0ba302\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -72,7 +72,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -88,7 +88,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "datacharmer.employees",
+                        "schemaName": "dataCharmer.employees",
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
@@ -191,11 +191,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -205,11 +205,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:9191fea5add3487ba6b8266d4c74a7d1\"}",
+        "value": "{\"container\": \"urn:li:container:0f72a1bc79da282eb614cc089c0ba302\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -220,7 +220,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -236,7 +236,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "datacharmer.salaries",
+                        "schemaName": "dataCharmer.salaries",
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
@@ -315,11 +315,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -329,11 +329,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 10, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"emp_no\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"10001\", \"10002\", \"10003\", \"10004\", \"10005\", \"10006\", \"10007\", \"10008\", \"10009\", \"10010\"]}, {\"fieldPath\": \"birth_date\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1952-04-19\", \"max\": \"1964-06-02\", \"sampleValues\": [\"1953-09-02\", \"1964-06-02\", \"1959-12-03\", \"1954-05-01\", \"1955-01-21\", \"1953-04-20\", \"1957-05-23\", \"1958-02-19\", \"1952-04-19\", \"1963-06-01\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Georgi\", \"Bezalel\", \"Parto\", \"Chirstian\", \"Kyoichi\", \"Anneke\", \"Tzvetan\", \"Saniya\", \"Sumant\", \"Duangkaew\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Facello\", \"Simmel\", \"Bamford\", \"Koblick\", \"Maliniak\", \"Preusig\", \"Zielinski\", \"Kalloufi\", \"Peac\", \"Piveteau\"]}, {\"fieldPath\": \"gender\", \"uniqueCount\": 2, \"uniqueProportion\": 0.2, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"M\", \"frequency\": 5}, {\"value\": \"F\", \"frequency\": 5}], \"sampleValues\": [\"M\", \"F\", \"M\", \"M\", \"M\", \"F\", \"F\", \"M\", \"F\", \"F\"]}, {\"fieldPath\": \"hire_date\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1985-02-18\", \"max\": \"1994-09-15\", \"sampleValues\": [\"1986-06-26\", \"1985-11-21\", \"1986-08-28\", \"1986-12-01\", \"1989-09-12\", \"1989-06-02\", \"1989-02-10\", \"1994-09-15\", \"1985-02-18\", \"1989-08-24\"]}]}",
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 10, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"emp_no\", \"uniqueCount\": 10, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"10001\", \"max\": \"10010\", \"mean\": \"10005.5\", \"median\": \"10005.5\", \"stdev\": \"3.0276503540974917\", \"sampleValues\": [\"10001\", \"10002\", \"10003\", \"10004\", \"10005\", \"10006\", \"10007\", \"10008\", \"10009\", \"10010\"]}, {\"fieldPath\": \"birth_date\", \"uniqueCount\": 10, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1952-04-19\", \"max\": \"1964-06-02\", \"sampleValues\": [\"1953-09-02\", \"1964-06-02\", \"1959-12-03\", \"1954-05-01\", \"1955-01-21\", \"1953-04-20\", \"1957-05-23\", \"1958-02-19\", \"1952-04-19\", \"1963-06-01\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 10, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Georgi\", \"Bezalel\", \"Parto\", \"Chirstian\", \"Kyoichi\", \"Anneke\", \"Tzvetan\", \"Saniya\", \"Sumant\", \"Duangkaew\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 10, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Facello\", \"Simmel\", \"Bamford\", \"Koblick\", \"Maliniak\", \"Preusig\", \"Zielinski\", \"Kalloufi\", \"Peac\", \"Piveteau\"]}, {\"fieldPath\": \"gender\", \"uniqueCount\": 2, \"uniqueProportion\": 0.2, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"M\", \"frequency\": 5}, {\"value\": \"F\", \"frequency\": 5}], \"sampleValues\": [\"M\", \"F\", \"M\", \"M\", \"M\", \"F\", \"F\", \"M\", \"F\", \"F\"]}, {\"fieldPath\": \"hire_date\", \"uniqueCount\": 10, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1985-02-18\", \"max\": \"1994-09-15\", \"sampleValues\": [\"1986-06-26\", \"1985-11-21\", \"1986-08-28\", \"1986-12-01\", \"1989-09-12\", \"1989-06-02\", \"1989-02-10\", \"1994-09-15\", \"1985-02-18\", \"1989-08-24\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -343,11 +343,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 112, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"emp_no\", \"uniqueCount\": 10, \"uniqueProportion\": 0.08928571428571429, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"10001\", \"max\": \"10010\", \"mean\": \"10005.3125\", \"median\": \"10005.0\", \"stdev\": \"2.834889609688869\", \"distinctValueFrequencies\": [{\"value\": \"10001\", \"frequency\": 17}, {\"value\": \"10002\", \"frequency\": 6}, {\"value\": \"10003\", \"frequency\": 7}, {\"value\": \"10004\", \"frequency\": 16}, {\"value\": \"10005\", \"frequency\": 13}, {\"value\": \"10006\", \"frequency\": 12}, {\"value\": \"10007\", \"frequency\": 14}, {\"value\": \"10008\", \"frequency\": 3}, {\"value\": \"10009\", \"frequency\": 18}, {\"value\": \"10010\", \"frequency\": 6}], \"sampleValues\": [\"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10002\", \"10002\", \"10002\"]}, {\"fieldPath\": \"salary\", \"uniqueCount\": 111, \"uniqueProportion\": 0.9910714285714286, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"40000\", \"max\": \"94692\", \"mean\": \"68303.11607142857\", \"median\": \"69544.0\", \"stdev\": \"15505.291475014095\", \"sampleValues\": [\"60117\", \"62102\", \"66074\", \"66596\", \"66961\", \"71046\", \"74333\", \"75286\", \"75994\", \"76884\", \"80013\", \"81025\", \"81097\", \"84917\", \"85112\", \"85097\", \"88958\", \"65909\", \"65909\", \"67534\"]}, {\"fieldPath\": \"from_date\", \"uniqueCount\": 106, \"uniqueProportion\": 0.9464285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1985-02-18\", \"max\": \"2002-06-22\", \"sampleValues\": [\"1986-06-26\", \"1987-06-26\", \"1988-06-25\", \"1989-06-25\", \"1990-06-25\", \"1991-06-25\", \"1992-06-24\", \"1993-06-24\", \"1994-06-24\", \"1995-06-24\", \"1996-06-23\", \"1997-06-23\", \"1998-06-23\", \"1999-06-23\", \"2000-06-22\", \"2001-06-22\", \"2002-06-22\", \"1996-08-03\", \"1997-08-03\", \"1998-08-03\"]}, {\"fieldPath\": \"to_date\", \"uniqueCount\": 99, \"uniqueProportion\": 0.8839285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1986-02-18\", \"max\": \"9999-01-01\", \"sampleValues\": [\"1987-06-26\", \"1988-06-25\", \"1989-06-25\", \"1990-06-25\", \"1991-06-25\", \"1992-06-24\", \"1993-06-24\", \"1994-06-24\", \"1995-06-24\", \"1996-06-23\", \"1997-06-23\", \"1998-06-23\", \"1999-06-23\", \"2000-06-22\", \"2001-06-22\", \"2002-06-22\", \"9999-01-01\", \"1997-08-03\", \"1998-08-03\", \"1999-08-03\"]}]}",
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 112, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"emp_no\", \"uniqueCount\": 10, \"uniqueProportion\": 0.08928571428571429, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"10001\", \"max\": \"10010\", \"mean\": \"10005.3125\", \"median\": \"10005.0\", \"stdev\": \"2.834889609688869\", \"distinctValueFrequencies\": [{\"value\": \"10001\", \"frequency\": 17}, {\"value\": \"10002\", \"frequency\": 6}, {\"value\": \"10003\", \"frequency\": 7}, {\"value\": \"10004\", \"frequency\": 16}, {\"value\": \"10005\", \"frequency\": 13}, {\"value\": \"10006\", \"frequency\": 12}, {\"value\": \"10007\", \"frequency\": 14}, {\"value\": \"10008\", \"frequency\": 3}, {\"value\": \"10009\", \"frequency\": 18}, {\"value\": \"10010\", \"frequency\": 6}], \"sampleValues\": [\"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10002\", \"10002\", \"10002\", \"10002\", \"10002\", \"10002\", \"10003\", \"10003\", \"10003\", \"10003\", \"10003\", \"10003\", \"10003\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10004\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10005\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10006\", \"10007\", \"10007\", \"10007\", \"10007\"]}, {\"fieldPath\": \"salary\", \"uniqueCount\": 111, \"uniqueProportion\": 0.9910714285714286, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"40000\", \"max\": \"94692\", \"mean\": \"68303.11607142857\", \"median\": \"69544.0\", \"stdev\": \"15505.291475014095\", \"sampleValues\": [\"60117\", \"62102\", \"66074\", \"66596\", \"66961\", \"71046\", \"74333\", \"75286\", \"75994\", \"76884\", \"80013\", \"81025\", \"81097\", \"84917\", \"85112\", \"85097\", \"88958\", \"65909\", \"65909\", \"67534\", \"69366\", \"71963\", \"72527\", \"40006\", \"43616\", \"43466\", \"43636\", \"43478\", \"43699\", \"43311\", \"40054\", \"42283\", \"42542\", \"46065\", \"48271\", \"50594\", \"52119\", \"54693\", \"58326\", \"60770\", \"62566\", \"64340\", \"67096\", \"69722\", \"70698\", \"74057\", \"78228\", \"82621\", \"83735\", \"85572\", \"85076\", \"86050\", \"88448\", \"88063\", \"89724\", \"90392\", \"90531\", \"91453\", \"94692\", \"40000\", \"42085\", \"42629\", \"45844\", \"47518\", \"47917\", \"52255\", \"53747\", \"56032\", \"58299\", \"60098\", \"59755\", \"56724\", \"60740\", \"62745\", \"63475\"]}, {\"fieldPath\": \"from_date\", \"uniqueCount\": 106, \"uniqueProportion\": 0.9464285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1985-02-18\", \"max\": \"2002-06-22\", \"sampleValues\": [\"1986-06-26\", \"1987-06-26\", \"1988-06-25\", \"1989-06-25\", \"1990-06-25\", \"1991-06-25\", \"1992-06-24\", \"1993-06-24\", \"1994-06-24\", \"1995-06-24\", \"1996-06-23\", \"1997-06-23\", \"1998-06-23\", \"1999-06-23\", \"2000-06-22\", \"2001-06-22\", \"2002-06-22\", \"1996-08-03\", \"1997-08-03\", \"1998-08-03\", \"1999-08-03\", \"2000-08-02\", \"2001-08-02\", \"1995-12-03\", \"1996-12-02\", \"1997-12-02\", \"1998-12-02\", \"1999-12-02\", \"2000-12-01\", \"2001-12-01\", \"1986-12-01\", \"1987-12-01\", \"1988-11-30\", \"1989-11-30\", \"1990-11-30\", \"1991-11-30\", \"1992-11-29\", \"1993-11-29\", \"1994-11-29\", \"1995-11-29\", \"1996-11-28\", \"1997-11-28\", \"1998-11-28\", \"1999-11-28\", \"2000-11-27\", \"2001-11-27\", \"1989-09-12\", \"1990-09-12\", \"1991-09-12\", \"1992-09-11\", \"1993-09-11\", \"1994-09-11\", \"1995-09-11\", \"1996-09-10\", \"1997-09-10\", \"1998-09-10\", \"1999-09-10\", \"2000-09-09\", \"2001-09-09\", \"1990-08-05\", \"1991-08-05\", \"1992-08-04\", \"1993-08-04\", \"1994-08-04\", \"1995-08-04\", \"1996-08-03\", \"1997-08-03\", \"1998-08-03\", \"1999-08-03\", \"2000-08-02\", \"2001-08-02\", \"1989-02-10\", \"1990-02-10\", \"1991-02-10\", \"1992-02-10\"]}, {\"fieldPath\": \"to_date\", \"uniqueCount\": 99, \"uniqueProportion\": 0.8839285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1986-02-18\", \"max\": \"9999-01-01\", \"sampleValues\": [\"1987-06-26\", \"1988-06-25\", \"1989-06-25\", \"1990-06-25\", \"1991-06-25\", \"1992-06-24\", \"1993-06-24\", \"1994-06-24\", \"1995-06-24\", \"1996-06-23\", \"1997-06-23\", \"1998-06-23\", \"1999-06-23\", \"2000-06-22\", \"2001-06-22\", \"2002-06-22\", \"9999-01-01\", \"1997-08-03\", \"1998-08-03\", \"1999-08-03\", \"2000-08-02\", \"2001-08-02\", \"9999-01-01\", \"1996-12-02\", \"1997-12-02\", \"1998-12-02\", \"1999-12-02\", \"2000-12-01\", \"2001-12-01\", \"9999-01-01\", \"1987-12-01\", \"1988-11-30\", \"1989-11-30\", \"1990-11-30\", \"1991-11-30\", \"1992-11-29\", \"1993-11-29\", \"1994-11-29\", \"1995-11-29\", \"1996-11-28\", \"1997-11-28\", \"1998-11-28\", \"1999-11-28\", \"2000-11-27\", \"2001-11-27\", \"9999-01-01\", \"1990-09-12\", \"1991-09-12\", \"1992-09-11\", \"1993-09-11\", \"1994-09-11\", \"1995-09-11\", \"1996-09-10\", \"1997-09-10\", \"1998-09-10\", \"1999-09-10\", \"2000-09-09\", \"2001-09-09\", \"9999-01-01\", \"1991-08-05\", \"1992-08-04\", \"1993-08-04\", \"1994-08-04\", \"1995-08-04\", \"1996-08-03\", \"1997-08-03\", \"1998-08-03\", \"1999-08-03\", \"2000-08-02\", \"2001-08-02\", \"9999-01-01\", \"1990-02-10\", \"1991-02-10\", \"1992-02-10\", \"1993-02-09\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -577,7 +577,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -753,7 +753,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -894,7 +894,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
+        "value": "{\"typeNames\": [\"View\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1126,7 +1126,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1250,7 +1250,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1264,7 +1264,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 5, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\", \"4\", \"5\"]}, {\"fieldPath\": \"company\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Company A\", \"Company B\", \"Company C\", \"Company D\", \"Company E\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Axen\", \"Bedecs\", \"Donnell\", \"Gratacos Solsona\", \"Lee\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Anna\", \"Antonio\", \"Christina\", \"Martin\", \"Thomas\"]}, {\"fieldPath\": \"email_address\", \"uniqueCount\": 0, \"nullCount\": 5, \"nullProportion\": 1.0, \"sampleValues\": []}, {\"fieldPath\": \"priority\", \"uniqueCount\": 3, \"uniqueProportion\": 0.75, \"nullCount\": 1, \"nullProportion\": 0.2, \"min\": \"3.8\", \"max\": \"4.9\", \"mean\": \"4.175000011920929\", \"median\": \"4.0\", \"distinctValueFrequencies\": [{\"value\": \"3.8\", \"frequency\": 1}, {\"value\": \"4.0\", \"frequency\": 2}, {\"value\": \"4.9\", \"frequency\": 1}], \"sampleValues\": [\"4.0\", \"4.9\", \"4.0\", \"3.8\"]}]}",
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 5, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"5\", \"mean\": \"3.0\", \"median\": \"3\", \"stdev\": \"1.5811388300841898\", \"sampleValues\": [\"1\", \"2\", \"3\", \"4\", \"5\"]}, {\"fieldPath\": \"company\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Company A\", \"Company B\", \"Company C\", \"Company D\", \"Company E\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Axen\", \"Bedecs\", \"Donnell\", \"Gratacos Solsona\", \"Lee\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Anna\", \"Antonio\", \"Christina\", \"Martin\", \"Thomas\"]}, {\"fieldPath\": \"email_address\", \"uniqueCount\": 0, \"nullCount\": 5, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"priority\", \"uniqueCount\": 3, \"uniqueProportion\": 0.75, \"nullCount\": 1, \"nullProportion\": 0.2, \"min\": \"3.8\", \"max\": \"4.9\", \"mean\": \"4.175000011920929\", \"median\": \"4.0\", \"stdev\": \"0.49244294899530355\", \"distinctValueFrequencies\": [{\"value\": \"3.8\", \"frequency\": 1}, {\"value\": \"4.0\", \"frequency\": 2}, {\"value\": \"4.9\", \"frequency\": 1}], \"sampleValues\": [\"4.0\", \"4.9\", \"4.0\", \"3.8\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1278,7 +1278,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 0, \"columnCount\": 3, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"description\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"customer_id\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}]}",
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 0, \"columnCount\": 3, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 0, \"nullCount\": 0, \"min\": \"None\", \"max\": \"None\", \"mean\": \"None\", \"median\": \"None\", \"stdev\": \"0.0\", \"sampleValues\": []}, {\"fieldPath\": \"description\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"customer_id\", \"uniqueCount\": 0, \"nullCount\": 0, \"min\": \"None\", \"max\": \"None\", \"mean\": \"None\", \"median\": \"None\", \"stdev\": \"0.0\", \"sampleValues\": []}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1335,6 +1335,94 @@
     "aspectName": "subTypes",
     "aspect": {
         "value": "{\"typeNames\": [\"Database\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.myset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:28176129fe1c0e526e1803250ec124ef\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.myset,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "myset",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_cases.myset",
+                        "platform": "urn:li:dataPlatform:mysql",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "col",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "SET('a', 'b', 'c', 'd')",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.myset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1422,7 +1510,21 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.myset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 0, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"col\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

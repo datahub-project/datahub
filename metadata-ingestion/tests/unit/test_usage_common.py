@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 _TestTableRef = str
 
 _TestAggregatedDataset = GenericAggregatedDataset[_TestTableRef]
+USAGE_ASPECT_NAME = DatasetUsageStatisticsClass.get_aspect_name()
 
 
 def _simple_urn_builder(resource):
@@ -55,16 +56,17 @@ def test_add_one_query_with_ignored_user():
     event_time = datetime(2020, 1, 1)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
+    user_email_pattern = AllowDenyPattern(deny=list(["test_email@test.com"]))
 
     ta = _TestAggregatedDataset(
         bucket_start_time=floored_ts,
         resource=resource,
-        user_email_pattern=AllowDenyPattern(deny=list(["test_email@test.com"])),
     )
     ta.add_read_entry(
         test_email,
         test_query,
         [],
+        user_email_pattern=user_email_pattern,
     )
 
     assert ta.queryCount == 0
@@ -81,26 +83,29 @@ def test_multiple_query_with_ignored_user():
     event_time = datetime(2020, 1, 1)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
+    user_email_pattern = AllowDenyPattern(deny=list(["test_email@test.com"]))
 
     ta = _TestAggregatedDataset(
         bucket_start_time=floored_ts,
         resource=resource,
-        user_email_pattern=AllowDenyPattern(deny=list(["test_email@test.com"])),
     )
     ta.add_read_entry(
         test_email,
         test_query,
         [],
+        user_email_pattern=user_email_pattern,
     )
     ta.add_read_entry(
         test_email,
         test_query,
         [],
+        user_email_pattern=user_email_pattern,
     )
     ta.add_read_entry(
         test_email2,
         test_query2,
         [],
+        user_email_pattern=user_email_pattern,
     )
 
     assert ta.queryCount == 1
@@ -166,7 +171,10 @@ def test_make_usage_workunit():
         include_top_n_queries=True,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -197,7 +205,10 @@ def test_query_formatting():
         format_sql_queries=True,
         include_top_n_queries=True,
     )
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -215,7 +226,6 @@ def test_query_trimming():
     resource = "test_db.test_schema.test_table"
 
     ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
-    ta.total_budget_for_query_list = total_budget_for_query_list
     ta.add_read_entry(
         test_email,
         test_query,
@@ -227,20 +237,24 @@ def test_query_trimming():
         top_n_queries=top_n_queries,
         format_sql_queries=False,
         include_top_n_queries=True,
+        total_budget_for_query_list=total_budget_for_query_list,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries
-    assert du.topSqlQueries.pop() == "select * f ..."
+    assert du.topSqlQueries.pop() == "select * from te ..."
 
 
 def test_top_n_queries_validator_fails():
     with pytest.raises(ValidationError) as excinfo:
         with mock.patch(
-            "datahub.ingestion.source.usage.usage_common.GenericAggregatedDataset.total_budget_for_query_list",
+            "datahub.ingestion.source.usage.usage_common.TOTAL_BUDGET_FOR_QUERY_LIST",
             20,
         ):
             BaseUsageConfig(top_n_queries=2)
@@ -268,7 +282,10 @@ def test_make_usage_workunit_include_top_n_queries():
         include_top_n_queries=False,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1

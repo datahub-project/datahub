@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.domain.DomainProperties;
@@ -28,6 +31,7 @@ public class CreateDomainResolverTest {
       "test-name",
       "test-description"
   );
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
   private static final String TEST_ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
   private static final String TEST_TAG_1_URN = "urn:li:tag:test-id-1";
   private static final String TEST_TAG_2_URN = "urn:li:tag:test-id-2";
@@ -55,13 +59,14 @@ public class CreateDomainResolverTest {
     DomainProperties props = new DomainProperties();
     props.setDescription("test-description");
     props.setName("test-name");
+    props.setCreated(new AuditStamp().setActor(TEST_ACTOR_URN).setTime(0L));
     proposal.setAspectName(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(props));
     proposal.setChangeType(ChangeType.UPSERT);
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
+        Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
         Mockito.any(Authentication.class)
     );
   }

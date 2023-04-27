@@ -1,9 +1,11 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -12,20 +14,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
-class UnityCatalogStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the UnityCatalogConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["dataset", "container"])
-
-
-class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
+class UnityCatalogSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(description="Databricks workspace url")
-    workspace_name: str = pydantic.Field(
+    workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
@@ -59,11 +51,20 @@ class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
         description="Option to enable/disable lineage generation.",
     )
 
+    include_ownership: bool = pydantic.Field(
+        default=False,
+        description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",
+    )
+
+    _rename_table_ownership = pydantic_renamed_field(
+        "include_table_ownership", "include_ownership"
+    )
+
     include_column_lineage: Optional[bool] = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
-    stateful_ingestion: Optional[UnityCatalogStatefulIngestionConfig] = pydantic.Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )

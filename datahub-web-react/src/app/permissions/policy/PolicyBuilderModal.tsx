@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Button, Modal, Steps } from 'antd';
 import PolicyPrivilegeForm from './PolicyPrivilegeForm';
 import PolicyTypeForm from './PolicyTypeForm';

@@ -20,6 +20,7 @@ dependencies {
     }
     compile externalDependency.guava
 
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 

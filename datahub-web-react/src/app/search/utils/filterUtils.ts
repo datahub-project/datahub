@@ -1,5 +1,6 @@
-import { FacetFilterInput, OrFilter } from '../../../types.generated';
+import { FacetFilterInput, AndFilterInput, QuickFilter, EntityType } from '../../../types.generated';
 import { FilterSet } from '../../entity/shared/components/styled/search/types';
+import { QuickFilterField } from '../autoComplete/quickFilters/utils';
 import { UnionType } from './constants';
 
 /**
@@ -19,7 +20,7 @@ import { UnionType } from './constants';
  * @param conjunction1 a conjunctive set of filters
  * @param conjunction2 a conjunctive set of filters
  */
-const mergeConjunctions = (conjunction1: FacetFilterInput[], conjunction2: FacetFilterInput[]): OrFilter[] => {
+const mergeConjunctions = (conjunction1: FacetFilterInput[], conjunction2: FacetFilterInput[]): AndFilterInput[] => {
     return [
         {
             and: [...conjunction1, ...conjunction2],
@@ -55,8 +56,8 @@ const mergeConjunctions = (conjunction1: FacetFilterInput[], conjunction2: Facet
  * @param disjunction1 a disjunctive set of filters
  * @param disjunction2 a disjunctive set of filters
  */
-const mergeDisjunctions = (disjunction1: FacetFilterInput[], disjunction2: FacetFilterInput[]): OrFilter[] => {
-    const finalOrFilters: OrFilter[] = [];
+const mergeDisjunctions = (disjunction1: FacetFilterInput[], disjunction2: FacetFilterInput[]): AndFilterInput[] => {
+    const finalOrFilters: AndFilterInput[] = [];
 
     disjunction1.forEach((d1) => {
         disjunction2.forEach((d2) => {
@@ -90,8 +91,11 @@ const mergeDisjunctions = (disjunction1: FacetFilterInput[], disjunction2: Facet
  * @param conjunction a conjunctive set of filters
  * @param disjunction a disjunctive set of filters
  */
-const mergeConjunctionDisjunction = (conjunction: FacetFilterInput[], disjunction: FacetFilterInput[]): OrFilter[] => {
-    const finalOrFilters: OrFilter[] = [];
+const mergeConjunctionDisjunction = (
+    conjunction: FacetFilterInput[],
+    disjunction: FacetFilterInput[],
+): AndFilterInput[] => {
+    const finalOrFilters: AndFilterInput[] = [];
 
     disjunction.forEach((filter) => {
         const andFilters = [filter, ...conjunction];
@@ -112,7 +116,7 @@ const mergeConjunctionDisjunction = (conjunction: FacetFilterInput[], disjunctio
  * @param orFilters the fixed set of filters in disjunction
  * @param baseFilters a base set of filters in either conjunction or disjunction
  */
-const mergeOrFilters = (orFilters: FacetFilterInput[], baseFilters: FilterSet): OrFilter[] => {
+const mergeOrFilters = (orFilters: FacetFilterInput[], baseFilters: FilterSet): AndFilterInput[] => {
     // If the user-provided union type is AND, we need to treat differenty
     // than if user-provided union type is OR.
     if (baseFilters.unionType === UnionType.AND) {
@@ -132,7 +136,7 @@ const mergeOrFilters = (orFilters: FacetFilterInput[], baseFilters: FilterSet): 
  * @param andFilters the fixed set of filters in conjunction
  * @param baseFilters a base set of filters in either conjunction or disjunction
  */
-const mergeAndFilters = (andFilters: FacetFilterInput[], baseFilters: FilterSet): OrFilter[] => {
+const mergeAndFilters = (andFilters: FacetFilterInput[], baseFilters: FilterSet): AndFilterInput[] => {
     // If the user-provided union type is AND, we need to treat differenty
     // than if user-provided union type is OR.
     if (baseFilters.unionType === UnionType.AND) {
@@ -148,7 +152,7 @@ const mergeAndFilters = (andFilters: FacetFilterInput[], baseFilters: FilterSet)
  * @param filterSet1 the fixed set of filters to be merged.
  * @param filterSet2 the set of base filters to merge into.
  */
-export const mergeFilterSets = (filterSet1: FilterSet, filterSet2: FilterSet): OrFilter[] => {
+export const mergeFilterSets = (filterSet1: FilterSet, filterSet2: FilterSet): AndFilterInput[] => {
     if (filterSet1 && filterSet2) {
         if (filterSet1.unionType === UnionType.AND) {
             // Inject fixed AND filters.
@@ -159,3 +163,33 @@ export const mergeFilterSets = (filterSet1: FilterSet, filterSet2: FilterSet): O
     }
     return [];
 };
+
+function generateFilterInputFromQuickFilter(selectedQuickFilter: QuickFilter) {
+    return { field: selectedQuickFilter.field, values: [selectedQuickFilter.value] };
+}
+
+/**
+ * Generates a list of a singular facet filter with the selected quick filter.
+ * If no selected quick filter, return an empty list
+ */
+export function getFiltersWithQuickFilter(selectedQuickFilter: QuickFilter | null) {
+    const filters: FacetFilterInput[] = [];
+    if (selectedQuickFilter) {
+        filters.push(generateFilterInputFromQuickFilter(selectedQuickFilter));
+    }
+    return filters;
+}
+
+export function getAutoCompleteInputFromQuickFilter(selectedQuickFilter: QuickFilter | null) {
+    const filters: FacetFilterInput[] = [];
+    const types: EntityType[] = [];
+    if (selectedQuickFilter) {
+        if (selectedQuickFilter.field === QuickFilterField.Entity) {
+            types.push(selectedQuickFilter.value as EntityType);
+        } else if (selectedQuickFilter.field === QuickFilterField.Platform) {
+            filters.push(generateFilterInputFromQuickFilter(selectedQuickFilter));
+        }
+    }
+
+    return { filters, types };
+}

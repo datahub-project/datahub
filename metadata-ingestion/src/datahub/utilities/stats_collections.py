@@ -1,16 +1,31 @@
-from typing import Any, Dict, TypeVar, Union
+from typing import Any, Callable, DefaultDict, Dict, Optional, TypeVar
 
-T = TypeVar("T")
+from typing_extensions import Protocol
+
+_CT = TypeVar("_CT")
+
+
+class Comparable(Protocol):
+    def __lt__(self: _CT, other: _CT) -> bool:
+        pass
+
+
 _KT = TypeVar("_KT")
-_VT = TypeVar("_VT")
+_VT = TypeVar("_VT", bound=Comparable)
 
 
-class TopKDict(Dict[_KT, _VT]):
+class TopKDict(DefaultDict[_KT, _VT]):
     """A structure that only prints the top K items from the dictionary. Not lossy."""
 
-    def __init__(self, top_k: int = 10) -> None:
-        super().__init__()
-        self.top_k = 10
+    def __init__(
+        self,
+        default_factory: Optional[Callable[[], _VT]] = None,
+        *args: Any,
+        top_k: int = 10,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(default_factory, *args, **kwargs)
+        self.top_k = top_k
 
     def __repr__(self) -> str:
         return repr(self.as_obj())
@@ -18,19 +33,19 @@ class TopKDict(Dict[_KT, _VT]):
     def __str__(self) -> str:
         return self.__repr__()
 
-    @staticmethod
-    def _trim_dictionary(big_dict: Dict[str, Any]) -> Dict[str, Any]:
-        if big_dict is not None and len(big_dict) > 10:
-            dict_as_tuples = [(k, v) for k, v in big_dict.items()]
-            sorted_tuples = sorted(dict_as_tuples, key=lambda x: x[1], reverse=True)
-            dict_as_tuples = sorted_tuples[:10]
-            trimmed_dict = {k: v for k, v in dict_as_tuples}
-            trimmed_dict[f"... top(10) of total {len(big_dict)} entries"] = ""
-            print(f"Dropping entries {sorted_tuples[11:]}")
+    def as_obj(self) -> Dict[_KT, _VT]:
+        if len(self) <= self.top_k:
+            return dict(self)
+        else:
+            try:
+                trimmed_dict = dict(
+                    sorted(self.items(), key=lambda x: x[1], reverse=True)[: self.top_k]
+                )
+            except TypeError:
+                trimmed_dict = dict(list(self.items())[: self.top_k])
+            trimmed_dict[f"... top {self.top_k} of total {len(self)} entries"] = ""  # type: ignore
             return trimmed_dict
 
-        return big_dict
 
-    def as_obj(self) -> Dict[Union[_KT, str], Union[_VT, str]]:
-        base_dict: Dict[Union[_KT, str], Union[_VT, str]] = super().copy()  # type: ignore
-        return self._trim_dictionary(base_dict)  # type: ignore
+def int_top_k_dict() -> TopKDict[str, int]:
+    return TopKDict(int)

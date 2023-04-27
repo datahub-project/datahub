@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * Shared aspect containing Container Paths to be indexed for an entity.
+ */
+@Aspect = {
+    "name": "containerPath"
+}
+record ContainerPath {
+  /**
+   * A valid container path for the entity. This field is provided by DataHub by default.
+   *
+   * Container paths are stored in elasticsearch as slash-separated strings and only include platform specific folders or containers.
+   * These paths should not include high level info captured elsewhere ie. Platform and Environment.
+   */
+  path: array[ContainerPathEntry]
+}

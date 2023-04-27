@@ -9,12 +9,12 @@ import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../gr
 import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import CreateTokenModal from './CreateTokenModal';
-import { useAppConfigQuery } from '../../graphql/app.generated';
 import { getLocaleTimezone } from '../shared/time/timeUtils';
 import { scrollToTop } from '../shared/searchUtils';
 import analytics, { EventType } from '../analytics';
+import { useUserContext } from '../context/useUserContext';
+import { useAppConfig } from '../useAppConfig';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -78,12 +78,12 @@ export const AccessTokens = () => {
     const [removedTokens, setRemovedTokens] = useState<string[]>([]);
 
     // Current User Urn
-    const authenticatedUser = useGetAuthenticatedUser();
-    const currentUserUrn = authenticatedUser?.corpUser.urn || '';
+    const authenticatedUser = useUserContext();
+    const currentUserUrn = authenticatedUser?.user?.urn || '';
 
-    const isTokenAuthEnabled = useAppConfigQuery().data?.appConfig?.authConfig?.tokenAuthEnabled;
+    const isTokenAuthEnabled = useAppConfig().config?.authConfig?.tokenAuthEnabled;
     const canGeneratePersonalAccessTokens =
-        isTokenAuthEnabled && authenticatedUser?.platformPrivileges.generatePersonalAccessTokens;
+        isTokenAuthEnabled && authenticatedUser?.platformPrivileges?.generatePersonalAccessTokens;
 
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
@@ -143,7 +143,7 @@ export const AccessTokens = () => {
                         message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
                     })
                     .finally(() => {
-                        setTimeout(function () {
+                        setTimeout(() => {
                             tokensRefetch?.();
                         }, 3000);
                     });
@@ -283,7 +283,7 @@ export const AccessTokens = () => {
                 onClose={() => setIsCreatingToken(false)}
                 onCreateToken={() => {
                     // Hack to deal with eventual consistency.
-                    setTimeout(function () {
+                    setTimeout(() => {
                         tokensRefetch?.();
                     }, 3000);
                 }}

@@ -1,3 +1,5 @@
+import { EntityType } from '../../../types.generated';
+
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
     GREY: '#e5e5e5',
@@ -40,8 +42,8 @@ export const EMPTY_MESSAGES = {
         description: 'Properties will appear here if they exist in your data source.',
     },
     queries: {
-        title: 'No queries',
-        description: 'Recent queries made to this dataset will appear here.',
+        title: 'No queries yet',
+        description: 'Create, view, and share commonly used queries for this dataset.',
     },
     domain: {
         title: 'No domain set',
@@ -49,11 +51,19 @@ export const EMPTY_MESSAGES = {
     },
     contains: {
         title: 'Contains no Terms',
-        description: 'Terms can contain other terms to represent an "Has A" style relationship.',
+        description: 'Terms can contain other terms to represent a "Has A" style relationship.',
     },
     inherits: {
         title: 'Does not inherit from any terms',
         description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
+    },
+    'contained by': {
+        title: 'Is not contained by any terms',
+        description: 'Terms can be contained by other terms to represent a "Has A" style relationship.',
+    },
+    'inherited by': {
+        title: 'Is not inherited by any terms',
+        description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
     },
 };
 
@@ -66,3 +76,16 @@ export const getElasticCappedTotalValueText = (count: number) => {
 
     return `${count}`;
 };
+
+export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
+    EntityType.Dashboard,
+    EntityType.Chart,
+    EntityType.Dataset,
+    EntityType.DataJob,
+]);
+
+export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];
+
+export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
+
+export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';

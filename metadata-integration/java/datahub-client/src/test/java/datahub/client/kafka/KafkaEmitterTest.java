@@ -15,7 +15,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.errors.TimeoutException;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.testcontainers.containers.Network;
@@ -106,7 +105,7 @@ public class KafkaEmitterTest {
       try {
         createAdminClient(bootstrap).createTopics(singletonList(new NewTopic(TOPIC, partitions, replicationFactor))).all().get();
         return bootstrap;
-      } catch (TimeoutException | InterruptedException | ExecutionException ex) {
+      } catch (RuntimeException | InterruptedException | ExecutionException ex) {
         return null;
       }
     }).filter(Objects::nonNull).findFirst().get();

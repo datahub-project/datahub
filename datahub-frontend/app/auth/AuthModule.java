@@ -14,6 +14,7 @@ import com.google.inject.Singleton;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
 import controllers.SsoCallbackController;
 import java.nio.charset.StandardCharsets;
@@ -55,6 +56,8 @@ public class AuthModule extends AbstractModule {
      */
     private static final String PAC4J_AES_KEY_BASE_CONF = "play.http.secret.key";
     private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
+    private static final String ENTITY_CLIENT_RETRY_INTERVAL = "entityClient.retryInterval";
+    private static final String ENTITY_CLIENT_NUM_RETRIES = "entityClient.numRetries";
 
     private final com.typesafe.config.Config _configs;
 
@@ -89,7 +92,7 @@ public class AuthModule extends AbstractModule {
                 final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
                 final String aesEncryptionKey = aesKeyHash.substring(0, 16);
                 playCacheCookieStore = new PlayCookieSessionStore(
-                        new ShiroAesDataEncrypter(aesEncryptionKey));
+                        new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
             } catch (Exception e) {
                 throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
             }
@@ -102,9 +105,10 @@ public class AuthModule extends AbstractModule {
                 SsoManager.class,
                 Authentication.class,
                 EntityClient.class,
-                AuthServiceClient.class));
+                AuthServiceClient.class,
+                com.typesafe.config.Config.class));
         } catch (NoSuchMethodException | SecurityException e) {
-            throw new RuntimeException("Failed to bind to SsoCallbackController. Cannot find constructor, e");
+            throw new RuntimeException("Failed to bind to SsoCallbackController. Cannot find constructor", e);
         }
         // logout
         final LogoutController logoutController = new LogoutController();
@@ -158,7 +162,9 @@ public class AuthModule extends AbstractModule {
     @Provides
     @Singleton
     protected EntityClient provideEntityClient() {
-        return new RestliEntityClient(buildRestliClient());
+        return new RestliEntityClient(buildRestliClient(),
+                new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
+                _configs.getInt(ENTITY_CLIENT_NUM_RETRIES));
     }
 
     @Provides

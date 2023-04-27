@@ -25,6 +25,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.util.HashSet;
@@ -97,18 +99,18 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable, 
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("mlFeatureTable", query, facetFilters, start, count, context.getAuthentication());
+        final SearchResult searchResult = _entityClient.search("mlFeatureTable", query, facetFilters, start, count,
+                context.getAuthentication(), new SearchFlags().setFulltext(true));
         return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
     public AutoCompleteResults autoComplete(@Nonnull String query,
                                             @Nullable String field,
-                                            @Nullable List<FacetFilterInput> filters,
+                                            @Nullable Filter filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("mlFeatureTable", query, facetFilters, limit, context.getAuthentication());
+        final AutoCompleteResult result = _entityClient.autoComplete("mlFeatureTable", query, filters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 

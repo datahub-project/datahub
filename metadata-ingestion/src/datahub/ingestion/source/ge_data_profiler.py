@@ -1,3 +1,5 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import collections
 import concurrent.futures
 import contextlib
@@ -8,10 +10,21 @@ import threading
 import traceback
 import unittest.mock
 import uuid
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import sqlalchemy as sa
-from great_expectations import __version__ as ge_version
+import sqlalchemy.sql.compiler
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -21,6 +34,7 @@ from great_expectations.data_context.types.base import (
     datasourceConfigSchema,
 )
 from great_expectations.dataset.dataset import Dataset
+from great_expectations.dataset.sqlalchemy_dataset import SqlAlchemyDataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
@@ -28,12 +42,11 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
-    _convert_to_cardinality,
+    convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
@@ -47,10 +60,12 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
+    IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
     get_query_columns,
 )
 
+assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
@@ -96,7 +111,7 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
-def get_column_unique_count_patch(self, column):
+def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
     if self.engine.dialect.name.lower() == "redshift":
         element_values = self.engine.execute(
             sa.select(
@@ -104,11 +119,22 @@ def get_column_unique_count_patch(self, column):
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
+    elif self.engine.dialect.name.lower() == "bigquery":
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT ({sa.column(column)})")]  # type:ignore
+                [
+                    sa.text(  # type:ignore
+                        f"APPROX_COUNT_DISTINCT(`{column}`)"
+                    )
+                ]
             ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "snowflake":
+        element_values = self.engine.execute(
+            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     return convert_to_json_serializable(
@@ -233,7 +259,7 @@ class _SingleColumnSpec:
 
 @dataclasses.dataclass
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
-    dataset: Dataset
+    dataset: SqlAlchemyDataset
     dataset_name: str
     partition: Optional[str]
     config: GEProfilingConfig
@@ -242,7 +268,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     query_combiner: SQLAlchemyQueryCombiner
 
     def _get_columns_to_profile(self) -> List[str]:
-        if self.config.profile_table_level_only:
+        if not self.config.any_field_level_metrics_enabled():
             return []
 
         # Compute columns to profile
@@ -297,6 +323,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 "Profiling - Unable to get column cardinality",
                 f"{self.dataset_name}.{column}",
             )
+            return
 
         unique_count = None
         pct_unique = None
@@ -311,11 +338,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         column_spec.unique_count = unique_count
 
-        column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)
+        column_spec.cardinality = convert_to_cardinality(unique_count, pct_unique)
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
-        dataset_profile.rowCount = self.dataset.get_row_count()
+        if (
+            self.config.profile_table_row_count_estimate_only
+            and self.dataset.engine.dialect.name.lower() == "postgresql"
+        ):
+            schema_name = self.dataset_name.split(".")[1]
+            table_name = self.dataset_name.split(".")[2]
+            logger.debug(
+                f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+            )
+            dataset_profile.rowCount = int(
+                self.dataset.engine.execute(
+                    sa.text(
+                        f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
+                    )
+                ).scalar()
+            )
+        else:
+            dataset_profile.rowCount = self.dataset.get_row_count()
 
     @_run_with_query_combiner
     def _get_dataset_column_min(
@@ -345,7 +389,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            column_profile.median = str(self.dataset.get_column_median(column))
+            if self.dataset.engine.dialect.name.lower() == "snowflake":
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select([sa.func.median(sa.column(column))]).select_from(
+                            self.dataset._table
+                        )
+                    ).scalar()
+                )
+            else:
+                column_profile.median = str(self.dataset.get_column_median(column))
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column median for column {column}. {e}"
@@ -468,7 +521,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
-                column, [], result_format="SUMMARY"
+                column,
+                [],
+                result_format={
+                    "result_format": "SUMMARY",
+                    "partial_unexpected_count": self.config.field_sample_values_limit,
+                },
             ).result
 
             column_profile.sampleValues = [
@@ -530,25 +588,23 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             non_null_count = column_spec.nonnull_count
             unique_count = column_spec.unique_count
 
-            if self.config.include_field_null_count and non_null_count is not None:
-                null_count = row_count - non_null_count
-                if null_count < 0:
-                    null_count = 0
+            if non_null_count is not None:
+                null_count = max(0, row_count - non_null_count)
 
-                column_profile.nullCount = null_count
-                if row_count > 0:
-                    column_profile.nullProportion = null_count / row_count
-                    # Sometimes this value is bigger than 1 because of the approx queries
-                    if column_profile.nullProportion > 1:
-                        column_profile.nullProportion = 1
+                if self.config.include_field_null_count:
+                    column_profile.nullCount = null_count
+                    if row_count > 0:
+                        # Sometimes this value is bigger than 1 because of the approx queries
+                        column_profile.nullProportion = min(1, null_count / row_count)
 
             if unique_count is not None:
-                column_profile.uniqueCount = unique_count
-                if non_null_count is not None and non_null_count > 0:
-                    column_profile.uniqueProportion = unique_count / non_null_count
-                    # Sometimes this value is bigger than 1 because of the approx queries
-                    if column_profile.uniqueProportion > 1:
-                        column_profile.uniqueProportion = 1
+                if self.config.include_field_distinct_count:
+                    column_profile.uniqueCount = unique_count
+                    if non_null_count is not None and non_null_count > 0:
+                        # Sometimes this value is bigger than 1 because of the approx queries
+                        column_profile.uniqueProportion = min(
+                            1, unique_count / non_null_count
+                        )
 
             self._get_dataset_column_sample_values(column_profile, column)
 
@@ -557,39 +613,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 or type_ == ProfilerDataType.FLOAT
                 or type_ == ProfilerDataType.NUMERIC
             ):
-                if cardinality == Cardinality.UNIQUE:
-                    pass
-                elif cardinality in [
+                self._get_dataset_column_min(column_profile, column)
+                self._get_dataset_column_max(column_profile, column)
+                self._get_dataset_column_mean(column_profile, column)
+                self._get_dataset_column_median(column_profile, column)
+                self._get_dataset_column_stdev(column_profile, column)
+
+                if cardinality in [
                     Cardinality.ONE,
                     Cardinality.TWO,
                     Cardinality.VERY_FEW,
+                ]:
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
+                if cardinality in {
                     Cardinality.FEW,
                     Cardinality.MANY,
                     Cardinality.VERY_MANY,
-                    Cardinality.UNIQUE,
-                ]:
-                    self._get_dataset_column_min(column_profile, column)
-                    self._get_dataset_column_max(column_profile, column)
-                    self._get_dataset_column_mean(column_profile, column)
-                    self._get_dataset_column_median(column_profile, column)
-
-                    if type_ == ProfilerDataType.INT:
-                        self._get_dataset_column_stdev(column_profile, column)
-
+                }:
                     self._get_dataset_column_quantiles(column_profile, column)
                     self._get_dataset_column_histogram(column_profile, column)
-                    if cardinality in [
-                        Cardinality.ONE,
-                        Cardinality.TWO,
-                        Cardinality.VERY_FEW,
-                        Cardinality.FEW,
-                    ]:
-                        self._get_dataset_column_distinct_value_frequencies(
-                            column_profile,
-                            column,
-                        )
-                else:  # unknown cardinality - skip
-                    pass
 
             elif type_ == ProfilerDataType.STRING:
                 if cardinality in [
@@ -674,6 +719,21 @@ class DatahubGEProfiler:
         # make the threading code work correctly. As such, we need to make sure we've
         # got an engine here.
         self.base_engine = conn.engine
+
+        if IS_SQLALCHEMY_1_4:
+            # SQLAlchemy 1.4 added a statement "linter", which issues warnings about cartesian products in SELECT statements.
+            # Changelog: https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#change-4737.
+            # Code: https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/sql/compiler.py#L549
+            #
+            # The query combiner does indeed produce queries with cartesian products, but they are
+            # safe because each "FROM" clause only returns one row, so the cartesian product
+            # is also always a single row. As such, we disable the linter here.
+
+            # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
+            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
+                ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
+            )
+
         self.platform = platform
 
     @contextlib.contextmanager
@@ -793,16 +853,6 @@ class DatahubGEProfiler:
 
                     self.report.report_from_query_combiner(query_combiner.report)
 
-    def _is_legacy_ge_temp_table_creation(self) -> bool:
-        legacy_ge_bq_temp_table_creation: bool = False
-        (major, minor, patch) = ge_version.split(".")
-        if int(major) == 0 and (
-            int(minor) < 15 or (int(minor) == 15 and int(patch) < 3)
-        ):
-            legacy_ge_bq_temp_table_creation = True
-
-        return legacy_ge_bq_temp_table_creation
-
     def _generate_profile_from_request(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -818,16 +868,6 @@ class DatahubGEProfiler:
             **request.batch_kwargs,
         )
 
-    def _drop_bigquery_temp_table(self, bigquery_temp_table: str) -> None:
-        try:
-            with self.base_engine.connect() as connection:
-                connection.execute(f"drop view if exists `{bigquery_temp_table}`")
-                logger.debug(f"Temp table {bigquery_temp_table} was dropped.")
-        except Exception:
-            logger.warning(
-                f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
-            )
-
     def _drop_trino_temp_table(self, temp_dataset: Dataset) -> None:
         schema = temp_dataset._table.schema
         table = temp_dataset._table.name
@@ -842,8 +882,8 @@ class DatahubGEProfiler:
         self,
         query_combiner: SQLAlchemyQueryCombiner,
         pretty_name: str,
-        schema: str = None,
-        table: str = None,
+        schema: Optional[str] = None,
+        table: Optional[str] = None,
         partition: Optional[str] = None,
         custom_sql: Optional[str] = None,
         platform: Optional[str] = None,
@@ -853,7 +893,6 @@ class DatahubGEProfiler:
         logger.debug(
             f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
         )
-        bigquery_temp_table: Optional[str] = None
 
         ge_config = {
             "schema": schema,
@@ -863,46 +902,101 @@ class DatahubGEProfiler:
             **kwargs,
         }
 
-        # We have to create temporary tables if offset or limit or custom sql is set on Bigquery
-        if custom_sql or self.config.limit or self.config.offset:
-            if profiler_args is not None:
-                temp_table_db = profiler_args.get("temp_table_db", schema)
-                if platform is not None and platform == "bigquery":
-                    ge_config["schema"] = None
+        bigquery_temp_table: Optional[str] = None
+        if platform == "bigquery" and (
+            custom_sql or self.config.limit or self.config.offset
+        ):
+            # On BigQuery, we need to bypass GE's mechanism for creating temporary tables because
+            # it requires create/delete table permissions.
+            import google.cloud.bigquery.job.query
+            from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 
-            if self.config.bigquery_temp_table_schema:
-                num_parts = self.config.bigquery_temp_table_schema.split(".")
-                # If we only have 1 part that means the project_id is missing from the table name and we add it
-                if len(num_parts) == 1:
-                    bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-                elif len(num_parts) == 2:
-                    bigquery_temp_table = f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+            raw_connection = self.base_engine.raw_connection()
+            try:
+                cursor: "BigQueryCursor" = cast(
+                    "BigQueryCursor", raw_connection.cursor()
+                )
+                if custom_sql is not None:
+                    # Note that limit and offset are not supported for custom SQL.
+                    bq_sql = custom_sql
                 else:
-                    raise ConfigurationError(
-                        f"bigquery_temp_table_schema should be either project.dataset or dataset format but it was: {self.config.bigquery_temp_table_schema}"
+                    bq_sql = f"SELECT * FROM `{table}`"
+                    if self.config.limit:
+                        bq_sql += f" LIMIT {self.config.limit}"
+                    if self.config.offset:
+                        bq_sql += f" OFFSET {self.config.offset}"
+                try:
+                    cursor.execute(bq_sql)
+                except Exception as e:
+                    if not self.config.catch_exceptions:
+                        raise e
+                    logger.exception(
+                        f"Encountered exception while profiling {pretty_name}"
                     )
-            else:
-                assert table
-                table_parts = table.split(".")
-                if len(table_parts) == 2:
-                    bigquery_temp_table = (
-                        f"{temp_table_db}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
+                    self.report.report_warning(
+                        pretty_name,
+                        f"Profiling exception {e} when running custom sql {bq_sql}",
                     )
+                    return None
 
-            # With this pr there is no option anymore to set the bigquery temp table:
-            # https://github.com/great-expectations/great_expectations/pull/4925
-            # This dirty hack to make it possible to control the temp table to use in Bigquery
-            # otherwise it will expect dataset_id in the connection url which is not option in our case
-            # as we batch these queries.
-            # Currently only with this option is possible to control the temp table which is created:
-            # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
-            if self._is_legacy_ge_temp_table_creation():
-                ge_config["bigquery_temp_table"] = bigquery_temp_table
-            else:
-                ge_config["snowflake_transient_table"] = bigquery_temp_table
+                # Great Expectations batch v2 API, which is the one we're using, requires
+                # a concrete table name against which profiling is executed. Normally, GE
+                # creates a table with an expiry time of 24 hours. However, we don't want the
+                # temporary tables to stick around that long, so we'd also have to delete them
+                # ourselves. As such, the profiler required create and delete table permissions
+                # on BigQuery.
+                #
+                # It turns out that we can (ab)use the BigQuery cached results feature
+                # to avoid creating temporary tables ourselves. For almost all queries, BigQuery
+                # will store the results in a temporary, cached results table when an explicit
+                # destination table is not provided. These tables are pretty easy to identify
+                # because they live in "anonymous datasets" and have a name that looks like
+                # "project-id._d60e97aec7f471046a960419adb6d44e98300db7.anon10774d0ea85fd20fe9671456c5c53d5f1b85e1b17bedb232dfce91661a219ee3"
+                # These tables are per-user and per-project, so there's no risk of permissions escalation.
+                # As per the docs, the cached results tables typically have a lifetime of 24 hours,
+                # which should be plenty for our purposes.
+                # See https://cloud.google.com/bigquery/docs/cached-results for more details.
+                #
+                # The code below extracts the name of the cached results table from the query job
+                # and points GE to that table for profiling.
+                #
+                # Risks:
+                # 1. If the query results are larger than the maximum response size, BigQuery will
+                #    not cache the results. According to the docs https://cloud.google.com/bigquery/quotas,
+                #    the maximum response size is 10 GB compressed.
+                # 2. The cache lifetime of 24 hours is "best-effort" and hence not guaranteed.
+                # 3. Tables with column-level security may not be cached, and tables with row-level
+                #    security will not be cached.
+                # 4. BigQuery "discourages" using cached results directly, but notes that
+                #    the current semantics do allow it.
+                #
+                # The better long-term solution would be to use a subquery avoid this whole
+                # temporary table dance. However, that would require either a) upgrading to
+                # use GE's batch v3 API or b) bypassing GE altogether.
 
-        if custom_sql is not None:
-            ge_config["query"] = custom_sql
+                query_job: Optional[
+                    "google.cloud.bigquery.job.query.QueryJob"
+                ] = cursor._query_job
+                assert query_job
+                temp_destination_table = query_job.destination
+                bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"
+            finally:
+                raw_connection.close()
+
+        if platform == "bigquery":
+            if bigquery_temp_table:
+                ge_config["table"] = bigquery_temp_table
+                ge_config["schema"] = None
+                ge_config["limit"] = None
+                ge_config["offset"] = None
+
+                bigquery_temp_table = None
+
+            assert not ge_config["limit"]
+            assert not ge_config["offset"]
+        else:
+            if custom_sql is not None:
+                ge_config["query"] = custom_sql
 
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
@@ -937,13 +1031,11 @@ class DatahubGEProfiler:
                 if not self.config.catch_exceptions:
                     raise e
                 logger.exception(f"Encountered exception while profiling {pretty_name}")
-                self.report.report_failure(pretty_name, f"Profiling exception {e}")
+                self.report.report_warning(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
                 if self.base_engine.engine.name == "trino":
                     self._drop_trino_temp_table(batch)
-                elif bigquery_temp_table:
-                    self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(
         self,

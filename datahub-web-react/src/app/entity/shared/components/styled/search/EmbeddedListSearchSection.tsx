@@ -31,12 +31,15 @@ type Props = {
     defaultFilters?: Array<FacetFilterInput>;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    skipCache?: boolean;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
         error: ApolloError | undefined;
         refetch: (variables: GetSearchResultsParams['variables']) => Promise<SearchResultsInterface | undefined | null>;
     };
+    shouldRefetch?: boolean;
+    resetShouldRefetch?: () => void;
 };
 
 export const EmbeddedListSearchSection = ({
@@ -48,7 +51,10 @@ export const EmbeddedListSearchSection = ({
     defaultFilters,
     searchBarStyle,
     searchBarInputStyle,
+    skipCache,
     useGetSearchResults,
+    shouldRefetch,
+    resetShouldRefetch,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
@@ -129,7 +135,10 @@ export const EmbeddedListSearchSection = ({
             defaultFilters={defaultFilters}
             searchBarStyle={searchBarStyle}
             searchBarInputStyle={searchBarInputStyle}
+            skipCache={skipCache}
             useGetSearchResults={useGetSearchResults}
+            shouldRefetch={shouldRefetch}
+            resetShouldRefetch={resetShouldRefetch}
         />
     );
 };

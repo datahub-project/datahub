@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Inputs -> owner, ownership_type, dataset
 owner_to_add = make_user_urn("jdoe")
-ownership_type = OwnershipTypeClass.DATAOWNER
+ownership_type = OwnershipTypeClass.TECHNICAL_OWNER
 dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
 
 # Some objects to help with conditional pathways later

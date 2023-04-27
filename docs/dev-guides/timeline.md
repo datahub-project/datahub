@@ -3,7 +3,7 @@ title: "Timeline API"
 ---
 
 The Timeline API supports viewing version history of schemas, documentation, tags, glossary terms, and other updates
-to entities. At present, the API only supports Datasets. 
+to entities. At present, the API only supports Datasets and Glossary Terms.
 
 ## Compatibility
 
@@ -111,7 +111,7 @@ Took 1.087 seconds to hard delete 6 rows for 1 entities
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNERSHIP&start=1644874829027&end=2682397800000
+http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874829027&end=2682397800000
 2022-02-24 15:40:26 - 0.0.0-computed
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:datahub): A new owner 'datahub' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:jdoe): A new owner 'jdoe' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
@@ -123,7 +123,7 @@ http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3Adat
 Update succeeded with status 200
 Update succeeded with status 200
 Update succeeded with status 200
-http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNERSHIP&start=1644874831456&end=2682397800000
+http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CtestTimelineDataset%2CPROD%29?categories=OWNER&start=1644874831456&end=2682397800000
 2022-02-24 15:40:26 - 0.0.0-computed
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:datahub): A new owner 'datahub' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 	ADD OWNERSHIP dataset:hive:testTimelineDataset (urn:li:corpuser:jdoe): A new owner 'jdoe' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.

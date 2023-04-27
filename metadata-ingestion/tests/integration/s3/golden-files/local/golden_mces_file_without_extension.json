@@ -5,6 +5,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "1",

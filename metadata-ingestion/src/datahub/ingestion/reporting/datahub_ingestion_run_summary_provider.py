@@ -4,7 +4,12 @@ import time
 from typing import Any, Dict, Optional
 
 from datahub import nice_version_name
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig, IgnorableError
+from datahub.configuration.common import (
+    ConfigModel,
+    DynamicTypedConfig,
+    IgnorableError,
+    redact_raw_config,
+)
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import make_data_platform_urn
@@ -19,8 +24,10 @@ from datahub.metadata.schema_classes import (
     ExecutionRequestInputClass,
     ExecutionRequestResultClass,
     ExecutionRequestSourceClass,
+    StructuredExecutionReportClass,
     _Aspect,
 )
+from datahub.utilities.logging_manager import get_log_buffer
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
@@ -32,7 +39,6 @@ class DatahubIngestionRunSummaryProviderConfig(ConfigModel):
 
 
 class DatahubIngestionRunSummaryProvider(PipelineRunListener):
-
     _EXECUTOR_ID: str = "__datahub_cli_"
     _EXECUTION_REQUEST_SOURCE_TYPE: str = "CLI_INGESTION_SOURCE"
     _INGESTION_TASK_NAME: str = "CLI Ingestion"
@@ -73,7 +79,6 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         config_dict: Dict[str, Any],
         ctx: PipelineContext,
     ) -> PipelineRunListener:
-
         sink_config_holder: Optional[DynamicTypedConfig] = None
 
         reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
@@ -140,7 +145,6 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         # Emit the dataHubIngestionSourceInfo aspect
         self._emit_aspect(
             entity_urn=self.ingestion_source_urn,
-            aspect_name="dataHubIngestionSourceInfo",
             aspect_value=source_info_aspect,
         )
 
@@ -149,19 +153,14 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         if not self.report_recipe or not ctx.pipeline_config._raw_dict:
             return ""
         else:
-            return json.dumps(ctx.pipeline_config._raw_dict)
+            return json.dumps(redact_raw_config(ctx.pipeline_config._raw_dict))
 
-    def _emit_aspect(
-        self, entity_urn: Urn, aspect_name: str, aspect_value: _Aspect
-    ) -> None:
+    def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
         self.sink.write_record_async(
             RecordEnvelope(
                 record=MetadataChangeProposalWrapper(
-                    entityType=entity_urn.get_type(),
                     entityUrn=str(entity_urn),
-                    aspectName=aspect_name,
                     aspect=aspect_value,
-                    changeType="UPSERT",
                 ),
                 metadata={},
             ),
@@ -187,7 +186,6 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         # Emit the dataHubExecutionRequestInput aspect
         self._emit_aspect(
             entity_urn=self.execution_request_input_urn,
-            aspect_name="dataHubExecutionRequestInput",
             aspect_value=execution_input_aspect,
         )
 
@@ -197,18 +195,29 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         report: Dict[str, Any],
         ctx: PipelineContext,
     ) -> None:
+        # Prepare a nicely formatted summary
+        structured_report_str = json.dumps(report, indent=2)
+        summary = f"~~~~ Ingestion Report ~~~~\n{structured_report_str}\n\n"
+        summary += "~~~~ Ingestion Logs ~~~~\n"
+        summary += get_log_buffer().format_lines()
+
         # Construct the dataHubExecutionRequestResult aspect
+        structured_report = StructuredExecutionReportClass(
+            type="CLI_INGEST",
+            serializedValue=structured_report_str,
+            contentType="application/json",
+        )
         execution_result_aspect = ExecutionRequestResultClass(
             status=status,
             startTimeMs=self.start_time_ms,
             durationMs=self.get_cur_time_in_ms() - self.start_time_ms,
-            report=json.dumps(report, indent=2),
+            report=summary,
+            structuredReport=structured_report,
         )
 
         # Emit the dataHubExecutionRequestResult aspect
         self._emit_aspect(
             entity_urn=self.execution_request_input_urn,
-            aspect_name="dataHubExecutionRequestResult",
             aspect_value=execution_result_aspect,
         )
         self.sink.close()

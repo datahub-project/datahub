@@ -3,28 +3,34 @@ package com.linkedin.metadata.search.elasticsearch;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchService implements EntitySearchService {
+public class ElasticSearchService implements EntitySearchService, ElasticSearchIndexed {
 
   private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
   private final EntityIndexBuilders indexBuilders;
@@ -34,7 +40,17 @@ public class ElasticSearchService implements EntitySearchService {
 
   @Override
   public void configure() {
-    indexBuilders.buildAll();
+    indexBuilders.reindexAll();
+  }
+
+  @Override
+  public List<ReindexConfig> getReindexConfigs() {
+    return indexBuilders.getReindexConfigs();
+  }
+
+  @Override
+  public void reindexAll() {
+    configure();
   }
 
   @Override
@@ -90,11 +106,11 @@ public class ElasticSearchService implements EntitySearchService {
   @Nonnull
   @Override
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
     log.debug(String.format(
-        "Searching Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+        "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
-    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size);
+    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, searchFlags);
   }
 
   @Nonnull
@@ -140,6 +156,28 @@ public class ElasticSearchService implements EntitySearchService {
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
     log.debug(String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
     return esBrowseDAO.getBrowsePaths(entityName, urn);
+  }
+
+  @Nonnull
+  @Override
+  public ScrollResult fullTextScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size) {
+    log.debug(String.format(
+        "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
+        entities, input, postFilters, sortCriterion, scrollId, size));
+    return esSearchDAO.scroll(entities, input, postFilters, sortCriterion, scrollId, keepAlive, size,
+            new SearchFlags().setFulltext(true));
+  }
+
+  @Nonnull
+  @Override
+  public ScrollResult structuredScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size) {
+    log.debug(String.format(
+        "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
+        entities, input, postFilters, sortCriterion, scrollId, size));
+    return esSearchDAO.scroll(entities, input, postFilters, sortCriterion, scrollId, keepAlive, size,
+            new SearchFlags().setFulltext(false));
   }
 
   @Override

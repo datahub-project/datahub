@@ -1,22 +1,11 @@
 from dataclasses import dataclass, field
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     AzkabanJobTypeClass,
-    ChangeTypeClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
@@ -141,9 +130,7 @@ class DataJob:
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="datajob",
             entityUrn=str(self.urn),
-            aspectName="dataJobInfo",
             aspect=DataJobInfoClass(
                 name=self.name if self.name is not None else self.id,
                 type=AzkabanJobTypeClass.COMMAND,
@@ -151,7 +138,6 @@ class DataJob:
                 customProperties=self.properties,
                 externalUrl=self.url,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
@@ -159,21 +145,15 @@ class DataJob:
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="datajob",
                 entityUrn=str(self.urn),
-                aspectName="ownership",
                 aspect=owner,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
         for tag in self.generate_tags_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="datajob",
                 entityUrn=str(self.urn),
-                aspectName="globalTags",
                 aspect=tag,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
@@ -187,39 +167,27 @@ class DataJob:
 
         :param emitter: Datahub Emitter to emit the process event
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
-        :rtype: None
         """
+
         for mcp in self.generate_mcp():
-            if type(emitter).__name__ == "DatahubKafkaEmitter":
-                assert callback is not None
-                kafka_emitter = cast("DatahubKafkaEmitter", emitter)
-                kafka_emitter.emit(mcp, callback)
-            else:
-                rest_emitter = cast("DatahubRestEmitter", emitter)
-                rest_emitter.emit(mcp)
+            emitter.emit(mcp, callback)
 
     def generate_data_input_output_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="datajob",
             entityUrn=str(self.urn),
-            aspectName="dataJobInputOutput",
             aspect=DataJobInputOutputClass(
                 inputDatasets=[str(urn) for urn in self.inlets],
                 outputDatasets=[str(urn) for urn in self.outlets],
                 inputDatajobs=[str(urn) for urn in self.upstream_urns],
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
         # Force entity materialization
         for iolet in self.inlets + self.outlets:
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
                 entityUrn=str(iolet),
-                aspectName="status",
                 aspect=StatusClass(removed=False),
-                changeType=ChangeTypeClass.UPSERT,
             )
 
             yield mcp

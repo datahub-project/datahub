@@ -71,13 +71,16 @@ public class AcceptRoleResolverTest {
     when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
     when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication))).thenReturn(true);
     when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication))).thenReturn(null);
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
 
     AcceptRoleInput input = new AcceptRoleInput();
     input.setInviteToken(INVITE_TOKEN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    verify(_roleService, never()).assignRoleToActor(any(), any(), any());
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
   }
 
   @Test
@@ -97,6 +100,6 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    verify(_roleService, times(1)).assignRoleToActor(any(), any(), any());
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
   }
 }

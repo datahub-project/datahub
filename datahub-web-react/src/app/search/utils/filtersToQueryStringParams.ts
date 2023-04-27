@@ -1,6 +1,6 @@
 import { FacetFilterInput, FilterOperator } from '../../../types.generated';
 import { encodeComma } from '../../entity/shared/utils';
-import { DEGREE_FILTER, FILTER_URL_PREFIX } from './constants';
+import { DEGREE_FILTER_NAME, FILTER_URL_PREFIX } from './constants';
 
 export const URL_PARAM_SEPARATOR = '___';
 
@@ -9,10 +9,10 @@ export const URL_PARAM_SEPARATOR = '___';
 // we need to special case `degree` filter since it is a OR grouping vs the others which are ANDS by default
 function reduceFiltersToCombineDegreeFilters(acc: FacetFilterInput[], filter: FacetFilterInput) {
     // if we see a `degree` filter and we already have one, combine it with the other degree filter
-    if (filter.field === DEGREE_FILTER && acc.filter((f) => f.field === DEGREE_FILTER).length > 0) {
+    if (filter.field === DEGREE_FILTER_NAME && acc.filter((f) => f.field === DEGREE_FILTER_NAME).length > 0) {
         // instead of appending this new degree filter, combine it with the previous one and continue
         return acc.map((f) =>
-            f.field === DEGREE_FILTER ? { ...f, values: [...(f.values || []), ...(filter.values || [])] } : f,
+            f.field === DEGREE_FILTER_NAME ? { ...f, values: [...(f.values || []), ...(filter.values || [])] } : f,
         ) as FacetFilterInput[];
     }
     return [...acc, filter] as FacetFilterInput[];

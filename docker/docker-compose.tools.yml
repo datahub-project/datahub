@@ -3,7 +3,7 @@
 version: '3.8'
 services:
   kafka-rest-proxy:
-    image: confluentinc/cp-kafka-rest:5.4.0
+    image: confluentinc/cp-kafka-rest:7.2.2
     env_file: kafka-rest-proxy/env/docker.env
     hostname: kafka-rest-proxy
     container_name: kafka-rest-proxy
@@ -28,7 +28,7 @@ services:
       - kafka-rest-proxy
 
   kibana:
-    image: kibana:7.9.3
+    image: kibana:7.10.1
     env_file: kibana/env/docker.env
     container_name: kibana
     hostname: kibana

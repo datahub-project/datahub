@@ -1,18 +1,9 @@
 import json
-import time
-# import urllib
-# from typing import Any, Dict, Optional, cast
 
 import pytest
 import requests
 import os
 from jsoncomparison import Compare, NO_DIFF
-
-# from datahub.ingestion.run.pipeline import Pipeline
-# from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
-# from datahub.ingestion.source.sql.sql_common import BaseSQLAlchemyCheckpointState
-# from datahub.ingestion.source.state.checkpoint import Checkpoint
-# from tests.utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
 GOLDEN_FILES_PATH = "./spark-smoke-test/golden_json/"
@@ -23,7 +14,6 @@ print(golden_files)
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-kafka_post_ingestion_wait_sec = 60
 
 JSONDIFF_CONFIG = {
     'output': {

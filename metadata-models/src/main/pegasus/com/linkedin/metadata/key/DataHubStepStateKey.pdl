@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub Step State
+ */
+@Aspect = {
+  "name": "dataHubStepStateKey"
+}
+record DataHubStepStateKey {
+  /**
+   * A unique id for the state
+   */
+  id: string
+}

@@ -24,7 +24,6 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     ContainerKeyClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
@@ -81,7 +80,7 @@ class MigrationReport:
 
 
 @click.group()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def migrate() -> None:
     """Helper commands for migrating metadata within DataHub."""
     pass
@@ -111,7 +110,7 @@ def _get_type_from_urn(urn: str) -> str:
     default=False,
     help="When enabled, will not delete (hard/soft) the previous entities.",
 )
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def dataplatform2instance(
     instance: str,
     platform: str,
@@ -210,7 +209,6 @@ def dataplatform2instance_func(
         for mcp in migration_utils.clone_aspect(
             src_entity_urn,
             aspect_names=migration_utils.all_aspects,
-            entity_type="dataset",
             dst_urn=new_urn,
             dry_run=dry_run,
             run_id=run_id,
@@ -222,10 +220,7 @@ def dataplatform2instance_func(
         if not dry_run:
             rest_emitter.emit_mcp(
                 MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=new_urn,
-                    aspectName="dataPlatformInstance",
                     aspect=DataPlatformInstanceClass(
                         platform=make_data_platform_urn(platform),
                         instance=make_dataplatform_instance_urn(platform, instance),
@@ -253,10 +248,7 @@ def dataplatform2instance_func(
                 )
                 # use mcpw
                 mcp = MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=target_urn,
-                    aspectName=aspect_name,
                     aspect=aspect,
                 )
                 if not dry_run:
@@ -270,7 +262,7 @@ def dataplatform2instance_func(
             delete_cli._delete_one_urn(src_entity_urn, soft=not hard, run_id=run_id)
         migration_report.on_entity_migrated(src_entity_urn, "status")  # type: ignore
 
-    print(f"{migration_report}")
+    click.echo(f"{migration_report}")
     migrate_containers(
         dry_run=dry_run,
         env=env,
@@ -343,7 +335,6 @@ def migrate_containers(
         for mcp in migration_utils.clone_aspect(
             src_urn,
             aspect_names=migration_utils.all_aspects,
-            entity_type="container",
             dst_urn=dst_urn,
             dry_run=dry_run,
             run_id=run_id,
@@ -378,12 +369,10 @@ def migrate_containers(
 
         if not dry_run and not keep:
             log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
-            delete_cli._delete_one_urn(
-                src_urn, soft=not hard, run_id=run_id, entity_type="container"
-            )
+            delete_cli._delete_one_urn(src_urn, soft=not hard, run_id=run_id)
         migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
 
-    print(f"{migration_report}")
+    click.echo(f"{migration_report}")
 
 
 def get_containers_for_migration(env: str) -> List[Any]:
@@ -434,10 +423,7 @@ def process_container_relationships(
             )
             # use mcpw
             mcp = MetadataChangeProposalWrapper(
-                entityType=entity_type,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=target_urn,
-                aspectName=aspect_name,
                 aspect=aspect,
             )
 

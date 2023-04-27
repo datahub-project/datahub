@@ -5,9 +5,13 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "5",
                             "partition_columns": "['foo', 'bar']",
                             "table_creation_time": "1655831476360",
                             "id": "628d06df-ecb0-4314-a97e-75d8872db7c3",
@@ -448,7 +452,7 @@
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"3\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831477768}",
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"engineInfo\": \"local Delta-Standalone/0.4.0\", \"isBlindAppend\": \"True\", \"isolationLevel\": \"Serializable\", \"readVersion\": \"3\"}, \"lastUpdatedTimestamp\": 1655831477768}",
         "contentType": "application/json"
     },
     "systemMetadata": {

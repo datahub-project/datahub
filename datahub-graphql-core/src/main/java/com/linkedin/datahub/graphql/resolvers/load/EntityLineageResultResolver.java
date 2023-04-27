@@ -11,12 +11,13 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
 /**
@@ -44,21 +45,27 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     final Integer count = input.getCount(); // Optional!
     @Nullable
     final Boolean separateSiblings = input.getSeparateSiblings(); // Optional!
+    @Nullable
+    final Long startTimeMillis = input.getStartTimeMillis(); // Optional!
+    @Nullable
+    final Long endTimeMillis = input.getEndTimeMillis(); // Optional!
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        return mapEntityRelationships(lineageDirection,
+        return mapEntityRelationships(
             _siblingGraphService.getLineage(
                 Urn.createFromString(urn),
                 resolvedDirection,
                 start != null ? start : 0,
                 count != null ? count : 100,
                 1,
-                separateSiblings != null ? input.getSeparateSiblings() : false
-            ));
+                separateSiblings != null ? input.getSeparateSiblings() : false,
+                new HashSet<>(),
+                startTimeMillis,
+                endTimeMillis));
       } catch (URISyntaxException e) {
         log.error("Failed to fetch lineage for {}", urn);
         throw new RuntimeException(String.format("Failed to fetch lineage for {}", urn), e);
@@ -66,20 +73,21 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     });
   }
 
-  private EntityLineageResult mapEntityRelationships(final LineageDirection lineageDirection,
+  private EntityLineageResult mapEntityRelationships(
       final com.linkedin.metadata.graph.EntityLineageResult entityLineageResult) {
     final EntityLineageResult result = new EntityLineageResult();
     result.setStart(entityLineageResult.getStart());
     result.setCount(entityLineageResult.getCount());
     result.setTotal(entityLineageResult.getTotal());
+    result.setFiltered(entityLineageResult.getFiltered());
     result.setRelationships(entityLineageResult.getRelationships()
         .stream()
-        .map(entityRelationship -> mapEntityRelationship(lineageDirection, entityRelationship))
+        .map(this::mapEntityRelationship)
         .collect(Collectors.toList()));
     return result;
   }
 
-  private LineageRelationship mapEntityRelationship(final LineageDirection direction,
+  private LineageRelationship mapEntityRelationship(
       final com.linkedin.metadata.graph.LineageRelationship lineageRelationship) {
     final LineageRelationship result = new LineageRelationship();
     final Entity partialEntity = UrnToEntityMapper.map(lineageRelationship.getEntity());
@@ -88,6 +96,22 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     }
     result.setType(lineageRelationship.getType());
     result.setDegree(lineageRelationship.getDegree());
+    if (lineageRelationship.hasCreatedOn()) {
+      result.setCreatedOn(lineageRelationship.getCreatedOn());
+    }
+    if (lineageRelationship.hasCreatedActor()) {
+      final Urn createdActor = lineageRelationship.getCreatedActor();
+      result.setCreatedActor(UrnToEntityMapper.map(createdActor));
+    }
+    if (lineageRelationship.hasUpdatedOn()) {
+      result.setUpdatedOn(lineageRelationship.getUpdatedOn());
+    }
+    if (lineageRelationship.hasUpdatedActor()) {
+      final Urn updatedActor = lineageRelationship.getUpdatedActor();
+      result.setUpdatedActor(UrnToEntityMapper.map(updatedActor));
+    }
+    result.setIsManual(lineageRelationship.hasIsManual() && lineageRelationship.isIsManual());
+
     return result;
   }
 }

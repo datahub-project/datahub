@@ -5,6 +5,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateUserSettingInput;
 import com.linkedin.datahub.graphql.generated.UserSetting;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.entity.EntityService;
@@ -20,6 +21,10 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 
+/**
+ * Deprecated! Use {@link UpdateCorpUserViewsSettingsResolver}
+ * instead.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<Boolean>> {

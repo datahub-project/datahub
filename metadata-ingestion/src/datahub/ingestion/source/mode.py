@@ -68,9 +68,9 @@ class ModeConfig(DatasetLineageProviderConfigBase):
     connect_uri: str = Field(
         default="https://app.mode.com", description="Mode host URL."
     )
-    token: Optional[str] = Field(default=None, description="Mode user token.")
-    password: Optional[pydantic.SecretStr] = Field(
-        default=None, description="Mode password for authentication."
+    token: str = Field(description="Mode user token.")
+    password: pydantic.SecretStr = Field(
+        description="Mode password for authentication."
     )
     workspace: Optional[str] = Field(default=None, description="")
     default_schema: str = Field(
@@ -172,7 +172,7 @@ class ModeSource(Source):
         self.session = requests.session()
         self.session.auth = HTTPBasicAuth(
             self.config.token,
-            self.config.password.get_secret_value() if self.config.password else None,
+            self.config.password.get_secret_value(),
         )
         self.session.headers.update(
             {
@@ -214,6 +214,9 @@ class ModeSource(Source):
         )
         if creator is not None:
             modified_actor = builder.make_user_urn(creator)
+            if report_info.get("last_saved_at") is None:
+                report_info["last_saved_at"] = report_info.get("created_at")
+
             modified_ts = int(
                 dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp()
                 * 1000
@@ -361,7 +364,6 @@ class ModeSource(Source):
     def construct_chart_custom_properties(
         self, chart_detail: dict, chart_type: str
     ) -> Dict:
-
         custom_properties = {}
         metadata = chart_detail.get("encoding", {})
         if chart_type == "table":
@@ -447,7 +449,6 @@ class ModeSource(Source):
     def _get_platform_and_dbname(
         self, data_source_id: int
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
-
         data_sources = []
         try:
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")

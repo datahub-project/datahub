@@ -1,8 +1,9 @@
 # Removing Metadata from DataHub
 
-There are a two ways to delete metadata from DataHub. 
-- Delete metadata attached to entities by providing a specific urn or a filter that identifies a set of entities
-- Delete metadata affected by a single ingestion run
+There are a two ways to delete metadata from DataHub:
+
+1. Delete metadata attached to entities by providing a specific urn or filters that identify a set of entities
+2. Delete metadata created by a single ingestion run
 
 To follow this guide you need to use [DataHub CLI](../cli.md).
 
@@ -10,6 +11,10 @@ Read on to find out how to perform these kinds of deletes.
 
 _Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._ 
 
+
+:::info
+Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Domain, it will not delete those children, you will instead need to delete each child by URN in addition to deleting the parent. 
+:::
 ## Delete By Urn
 
 To delete all the data related to a single entity, run
@@ -36,25 +41,6 @@ datahub delete --urn "<my urn>" --hard
 As of datahub v0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
 For now, this behaviour must be opted into by a prompt that will appear for you to manually accept or deny.
 
-Starting v0.8.44.2, this also supports deletion of a specific `timeseries` aspect associated with the entity, optionally for a specific time range.
-
-_Note: Deletion by a specific aspect and time range is currently supported only for timeseries aspects._
-
-```bash
-# Delete all of the aspect values for a given entity and a timeseries aspect.
-datahub delete --urn "<entity urn>" -a "<timeseries aspect>" --hard
-Eg: datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_dataset,TEST)" -a "datasetProfile" --hard
-
-# Delete all of the aspect values for a given platform and a timeseries aspect.
-datahub delete -p "<platform>" -a "<timeseries aspect>" --hard
-Eg: datahub delete -p "snowflake" -a "datasetProfile" --hard
-
-# Delete the aspect values for a given platform and a timeseries aspect corresponding to a specific time range.
-datahub delete -p "<platform>" -a "<timeseries aspect>" --start-time '<start_time>' --end-time '<end_time>' --hard
-Eg: datahub delete -p "snowflake" -a "datasetProfile" --start-time '2022-05-29 00:00:00' --end-time '2022-05-31 00:00:00' --hard
-```
-
-
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
 You can optionally add `-f` or `--force` to skip confirmations
 You can optionally add `--only-soft-deleted` flag to remove soft-deleted items only.
@@ -71,14 +57,14 @@ If you wish to hard-delete using a curl request you can use something like below
 curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
 
-## Delete using Broader Filters
+## Delete by filters
 
-_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). Additionally, as of v0.8.29 there is a new option: `--include-removed` that deletes softly deleted entities that match the provided filter.
+_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). 
 
 
-### Delete all datasets in the DEV environment
+### Delete all Datasets from the Snowflake platform
 ```
-datahub delete --env DEV --entity_type dataset
+datahub delete --entity_type dataset --platform snowflake
 ```
 
 ### Delete all containers for a particular platform
@@ -86,10 +72,15 @@ datahub delete --env DEV --entity_type dataset
 datahub delete --entity_type container --platform s3
 ```
 
+### Delete all datasets in the DEV environment
+```
+datahub delete --env DEV --entity_type dataset
+```
+
 ### Delete all Pipelines and Tasks in the DEV environment
 ```
-datahub delete --env DEV --entity_type "datajob"
-datahub delete --env DEV --entity_type "dataflow"
+datahub delete --env DEV --entity_type "dataJob"
+datahub delete --env DEV --entity_type "dataFlow"
 ```
 
 ### Delete all bigquery datasets in the PROD environment
@@ -105,10 +96,10 @@ datahub delete --entity_type chart --platform looker
 
 ### Delete all datasets that match a query
 ```
-datahub delete --entity_type dataset --query "_tmp" -n
+datahub delete --entity_type dataset --query "_tmp"
 ```
 
-## Rollback Ingestion Batch Run
+## Rollback Ingestion Run
 
 The second way to delete metadata is to identify entities (and the aspects affected) by using an ingestion `run-id`. Whenever you run `datahub ingest -c ...`, all the metadata ingested with that run will have the same run id.
 

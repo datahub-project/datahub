@@ -37,19 +37,8 @@ public class BatchAssignRoleResolver implements DataFetcher<CompletableFuture<Bo
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        Urn roleUrn = Urn.createFromString(roleUrnStr);
-        if (!_roleService.exists(roleUrn, authentication)) {
-          throw new RuntimeException(String.format("Role %s does not exist", roleUrnStr));
-        }
-
-        actors.forEach(actor -> {
-          try {
-            _roleService.assignRoleToActor(actor, roleUrn, authentication);
-          } catch (Exception e) {
-            log.warn(
-                String.format("Failed to assign role %s to actor %s. Skipping actor assignment", roleUrnStr, actor), e);
-          }
-        });
+        final Urn roleUrn = roleUrnStr == null ? null : Urn.createFromString(roleUrnStr);
+        _roleService.batchAssignRoleToActors(actors, roleUrn, authentication);
         return true;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);

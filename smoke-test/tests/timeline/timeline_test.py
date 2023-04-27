@@ -1,9 +1,11 @@
 import json
+from time import sleep
 
 from datahub.cli import delete_cli
 from datahub.cli import timeline_cli
 from datahub.cli.cli_utils import guess_entity_type, post_entity
 from tests.utils import ingest_file_via_rest
+from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
 
 
 def test_all():
@@ -21,6 +23,7 @@ def test_all():
     res_data = timeline_cli.get_timeline(dataset_urn, ["TAG", "DOCUMENTATION", "TECHNICAL_SCHEMA", "GLOSSARY_TERM",
                                                        "OWNER"], None, None, False)
     delete_cli.delete_one_urn_cmd(urn=dataset_urn)
+
     assert res_data
     assert len(res_data) == 3
     assert res_data[0]["semVerChange"] == "MINOR"
@@ -174,3 +177,4 @@ def put(urn: str, aspect: str, aspect_data: str) -> None:
             entity_type=entity_type,
             aspect_value=aspect_obj,
         )
+        sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)

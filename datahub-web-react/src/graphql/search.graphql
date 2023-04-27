@@ -13,6 +13,13 @@ fragment autoCompleteFields on Entity {
             name
             qualifiedName
         }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+        ...datasetStatsFields
     }
     ... on CorpUser {
         username
@@ -43,6 +50,12 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         chartId
@@ -54,6 +67,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
     }
     ... on DataFlow {
@@ -116,11 +132,15 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Tag {
         name
         properties {
             name
+            colorHex
         }
     }
     ... on MLFeatureTable {
@@ -190,6 +210,38 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
     }
 }
 
+fragment datasetStatsFields on Dataset {
+    lastProfile: datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        sizeInBytes
+        timestampMillis
+    }
+    lastOperation: operations(limit: 1) {
+        lastUpdatedTimestamp
+        timestampMillis
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
+}
+
 fragment searchResultFields on Entity {
     urn
     type
@@ -215,6 +267,7 @@ fragment searchResultFields on Entity {
                 key
                 value
             }
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -251,37 +304,12 @@ fragment searchResultFields on Entity {
                         name
                         description
                         qualifiedName
+                        externalUrl
                     }
                 }
             }
         }
-        lastProfile: datasetProfiles(limit: 1) {
-            rowCount
-            timestampMillis
-        }
-        lastOperation: operations(limit: 1) {
-            lastUpdatedTimestamp
-            timestampMillis
-        }
-        statsSummary {
-            queryCountLast30Days
-            uniqueUserCountLast30Days
-            topUsersLast30Days {
-                urn
-                type
-                username
-                properties {
-                    displayName
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableProperties {
-                    displayName
-                    pictureLink
-                }
-            }
-        }
+        ...datasetStatsFields
     }
     ... on CorpUser {
         username
@@ -451,6 +479,7 @@ fragment searchResultFields on Entity {
             name
             description
             project
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -491,6 +520,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         globalTags {
             ...globalTagsFields
@@ -568,6 +598,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         platform {
             ...platformFields
@@ -669,6 +700,7 @@ fragment searchResultFields on Entity {
         name
         properties {
             name
+            colorHex
         }
         description
     }
@@ -689,6 +721,7 @@ fragment facetFields on FacetMetadata {
             ... on Tag {
                 name
                 properties {
+                    name
                     colorHex
                 }
             }
@@ -776,6 +809,17 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     searchResults {
         entity {
             ...searchResultFields
+            ... on Dataset {
+                assertions(start: 0, count: 1000) @include(if: $includeAssertions) {
+                    assertions {
+                        runEvents(status: COMPLETE, limit: 1) {
+                            total
+                            failed
+                            succeeded
+                        }
+                    }
+                }
+            }
         }
         matchedFields {
             name
@@ -812,8 +856,16 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query searchAcrossLineage($input: SearchAcrossLineageInput!) {
+query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
+    }
+}
+
+query getEntityMentionNode($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...searchResultFields
     }
 }

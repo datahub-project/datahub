@@ -13,8 +13,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -104,7 +104,7 @@ public class OwnerUtils {
 
     final OwnerArray ownerArray = new OwnerArray(ownershipAspect.getOwners()
         .stream()
-        .filter(owner ->  !owner.getOwner().equals(ownerUrn))
+        .filter(owner ->  !(owner.getOwner().equals(ownerUrn) && owner.getType().equals(type)))
         .collect(Collectors.toList()));
 
     Owner newOwner = new Owner();

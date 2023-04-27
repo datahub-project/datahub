@@ -3,9 +3,8 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export const Logo = (props) => {
   return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
       <img
-        height="150"
         alt="DataHub Logo"
         src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
         {...props}
@@ -44,7 +43,7 @@ HOSTED_DOCS_ONLY-->
 [Features](https://datahubproject.io/docs/features) |
 [Roadmap](https://feature-requests.datahubproject.io/roadmap) |
 [Adoption](#adoption) |
-[Demo](https://datahubproject.io/docs/demo) |
+[Demo](https://demo.datahubproject.io/) |
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
 ---
@@ -71,7 +70,7 @@ Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-req
 
 ## Demo and Screenshots
 
-There's a [hosted demo environment](https://datahubproject.io/docs/demo) courtesy of [Acryl Data](https://acryldata.io) where you can explore DataHub without installing it locally
+There's a [hosted demo environment](https://demo.datahubproject.io/) courtesy of [Acryl Data](https://acryldata.io) where you can explore DataHub without installing it locally
 
 ## Quickstart
 
@@ -81,7 +80,7 @@ Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quic
 
 If you're looking to build & modify datahub please take a look at our [Development Guide](https://datahubproject.io/docs/developers).
 
-[![DataHub Demo GIF](docs/imgs/entity.png)](https://datahubproject.io/docs/demo)
+[![DataHub Demo GIF](docs/imgs/entity.png)](https://demo.datahubproject.io/)
 
 ## Source Code and Repositories
 
@@ -110,27 +109,37 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
 - [Cabify](https://cabify.tech/)
+- [ClassDojo](https://www.classdojo.com/)
+- [Coursera](https://www.coursera.org/)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
+- [Digital Turbine](https://www.digitalturbine.com/)
 - [Expedia Group](http://expedia.com)
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
 - [Grofers](https://grofers.com)
 - [Haibo Technology](https://www.botech.com.cn)
 - [hipages](https://hipages.com.au/)
+- [inovex](https://www.inovex.de/)
 - [IOMED](https://iomed.health)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
 - [Moloco](https://www.moloco.com/en)
+- [N26](https://n26brasil.com/)
+- [Optum](https://www.optum.com/)
 - [Peloton](https://www.onepeloton.com)
 - [Razer](https://www.razer.com)
 - [Saxo Bank](https://www.home.saxo)
+- [Showroomprive](https://www.showroomprive.com/)
+- [SpotHero](https://spothero.com)
 - [Stash](https://www.stash.com)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
+- [Udemy](https://www.udemy.com/)
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
+- [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
 

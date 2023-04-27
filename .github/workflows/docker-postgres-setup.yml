@@ -13,7 +13,7 @@ on:
       - "docker/postgres-setup/**"
       - ".github/workflows/docker-postgres-setup.yml"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -31,19 +31,15 @@ jobs:
       - name: Compute Tag
         id: tag
         run: |
-          echo "GITHUB_REF: $GITHUB_REF"
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          echo "SHORT_SHA: $SHORT_SHA"
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/.*$,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
-          echo "tag=$TAG"
-          echo "::set-output name=tag::$TAG"
+          source .github/scripts/docker_helpers.sh
+          echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: ${{ secrets.ORG_DOCKER_PASSWORD }}
+          ENABLE_PUBLISH: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
   push_to_registries:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
@@ -53,26 +49,16 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             acryldata/datahub-postgres-setup
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
-      - name: Build and Push image
-        uses: docker/build-push-action@v2
-        with:
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish == 'true' }}
           context: .
           file: ./docker/postgres-setup/Dockerfile
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: ${{ needs.setup.outputs.publish == 'true' }}
+          platforms: linux/amd64,linux/arm64
+

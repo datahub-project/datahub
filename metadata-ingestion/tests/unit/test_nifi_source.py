@@ -162,7 +162,6 @@ def test_nifi_s3_provenance_event():
 
 
 def mocked_functions(mock_provenance_events, mock_delete_provenance, provenance_case):
-
     puts3_provenance_response = [
         {
             "id": "49",

@@ -2,13 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.ListRolesInput;
 import com.linkedin.datahub.graphql.generated.ListRolesResult;
 import com.linkedin.datahub.graphql.types.role.mappers.DataHubRoleMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -41,10 +40,6 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
   @Override
   public CompletableFuture<ListRolesResult> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (!canManagePolicies(context)) {
-      throw new AuthorizationException(
-          "Unauthorized to view roles. Please contact your DataHub administrator if this needs corrective action.");
-    }
 
     final ListRolesInput input = bindArgument(environment.getArgument("input"), ListRolesInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
@@ -56,7 +51,7 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
         // First, get all role Urns.
         final SearchResult gmsResult =
             _entityClient.search(DATAHUB_ROLE_ENTITY_NAME, query, Collections.emptyMap(), start, count,
-                context.getAuthentication());
+                context.getAuthentication(), new SearchFlags().setFulltext(true));
 
         // Then, get and hydrate all users.
         final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(DATAHUB_ROLE_ENTITY_NAME,

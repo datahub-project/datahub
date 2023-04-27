@@ -4,7 +4,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import workunit
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
+from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
@@ -14,8 +14,6 @@ class FakeSource(Source):
             workunit.MetadataWorkUnit(
                 id="test-workunit",
                 mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=str(
                         DatasetUrn.create_from_ids(
                             platform_id="elasticsearch",
@@ -23,7 +21,6 @@ class FakeSource(Source):
                             env="PROD",
                         )
                     ),
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ),
             )

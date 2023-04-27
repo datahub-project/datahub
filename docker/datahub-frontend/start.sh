@@ -8,7 +8,7 @@ fi
 
 OTEL_AGENT=""
 if [[ ${ENABLE_OTEL:-false} == true ]]; then
-  OTEL_AGENT="-javaagent:/opentelemetry-javaagent-all.jar"
+  OTEL_AGENT="-javaagent:/opentelemetry-javaagent.jar"
 fi
 
 TRUSTSTORE_FILE=""

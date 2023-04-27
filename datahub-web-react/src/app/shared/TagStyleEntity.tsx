@@ -9,7 +9,7 @@ import ColorHash from 'color-hash';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetTagQuery } from '../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
-import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner';
+import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../entity/shared/constants';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -350,7 +350,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         urn={urn}
                         entityType={EntityType.Tag}
                         entityData={data?.tag}
-                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                        menuItems={new Set([EntityMenuItems.DELETE])}
                     />
                 </ActionButtons>
                 {displayColorPicker && (

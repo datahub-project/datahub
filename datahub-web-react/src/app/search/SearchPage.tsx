@@ -14,6 +14,13 @@ import { GetSearchResultsParams } from '../entity/shared/components/styled/searc
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
 import { generateOrFilters } from './utils/generateOrFilters';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
+import {
+    SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+    SEARCH_RESULTS_FILTERS_ID,
+} from '../onboarding/config/SearchOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
+import { useGetDownloadScrollResultsQuery } from '../../graphql/scroll.generated';
 
 type SearchPageParams = {
     type?: string;
@@ -25,6 +32,7 @@ type SearchPageParams = {
 export const SearchPage = () => {
     const history = useHistory();
     const location = useLocation();
+    const userContext = useUserContext();
 
     const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -32,6 +40,7 @@ export const SearchPage = () => {
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     const filters: Array<FacetFilterInput> = useFilters(params);
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -39,7 +48,7 @@ export const SearchPage = () => {
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
+        .flatMap((filter) => (filter.values || []).map((value) => value?.toUpperCase() as EntityType));
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -59,6 +68,7 @@ export const SearchPage = () => {
                 count: numResultsPerPage,
                 filters: [],
                 orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                viewUrn,
             },
         },
     });
@@ -72,21 +82,21 @@ export const SearchPage = () => {
 
     // we need to extract refetch on its own so paging thru results for csv download
     // doesnt also update search results
-    const { refetch } = useGetSearchResultsForMultipleQuery({
+    const { refetch } = useGetDownloadScrollResultsQuery({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
+                viewUrn,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: [],
                 orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
+        skip: true,
     });
 
     const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetch(variables).then((res) => res.data.searchAcrossEntities);
+        return refetch(variables).then((res) => res.data.scrollAcrossEntities);
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
@@ -147,6 +157,7 @@ export const SearchPage = () => {
 
     return (
         <>
+            {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
             <SearchResults
                 unionType={unionType}
                 entityFilters={entityFilters}
@@ -154,6 +165,7 @@ export const SearchPage = () => {
                 callSearchOnVariables={callSearchOnVariables}
                 page={page}
                 query={query}
+                viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
                 filters={data?.searchAcrossEntities?.facets}

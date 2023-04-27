@@ -22,8 +22,7 @@ def mssql_runner(docker_compose_runner, pytestconfig):
         time.sleep(5)
 
         # Run the setup.sql file to populate the database.
-        docker = "docker"
-        command = f"{docker} exec testsqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
+        command = "docker exec testsqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
         ret = subprocess.run(
             command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )

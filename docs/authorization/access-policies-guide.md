@@ -12,7 +12,7 @@ There are 2 types of Access Policy within DataHub:
 2. **Metadata** Policies
 
 <p align="center">
-  <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-policy-type.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-policy-type.png"/>
 </p>
 
 **Platform** Policies determine who has platform-level Privileges on DataHub. These include:
@@ -68,7 +68,7 @@ Policies can be created by first navigating to **Settings > Permissions > Polici
 To begin building a new Policy, click **Create new Policy**.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/manage-permissions.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/manage-permissions.png"/>
 </p>
 
 ### Creating a Platform Policy
@@ -88,27 +88,32 @@ You can optionally provide a text description to add richer details about the pu
 In the second step, we can simply select the Privileges that this Platform Policy will grant.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-platform-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-platform-privileges.png"/>
 </p>
 
 **Platform** Privileges most often provide access to perform administrative functions on the Platform. These include:
 
-| Platform Privileges             | Description                                                                                                                    |
-|---------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| Manage Policies                 | Allow actor to create and remove access control policies. Be careful - Actors with this Privilege are effectively super users. |
-| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources.                                                          |
-| Manage Secrets                  | Allow actor to create & remove secrets stored inside DataHub.                                                                  |
-| Manage Users & Groups           | Allow actor to create, remove, and update users and groups on DataHub.                                                          |
-| Manage All Access Tokens        | Allow actor to create, remove, and list access tokens for all users on DataHub.                                                |
-| Create Domains                  | Allow the actor to create new Domains                                                                                          |
-| Manage Domains                  | Allow actor to create and remove any Domains.                                                                                |
-| View Analytics                  | Allow the actor access to the DataHub analytics dashboard.                                                                      |
-| Generate Personal Access Tokens | Allow the actor to generate access tokens for personal use with DataHub APIs.                                                  |
-| Manage User Credentials         | Allow the actor to generate invite links for new native DataHub users, and password reset links for existing native users.   |
-| Manage Glossaries               | Allow the actor to create, edit, move, and delete Glossary Terms and Term Groups                                               |
-| Create Tags                     | Allow the actor to create new Tags                                                                                             |
-| Manage Tags                     | Allow the actor to create and remove any Tags                                                                                  |
+| Platform Privileges                 | Description                                                                                                                    |
+|-------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| Manage Policies                     | Allow actor to create and remove access control policies. Be careful - Actors with this Privilege are effectively super users. |
+| Manage Metadata Ingestion           | Allow actor to create, remove, and update Metadata Ingestion sources.                                                          |
+| Manage Secrets                      | Allow actor to create & remove secrets stored inside DataHub.                                                                  |
+| Manage Users & Groups               | Allow actor to create, remove, and update users and groups on DataHub.                                                         |
+| Manage All Access Tokens            | Allow actor to create, remove, and list access tokens for all users on DataHub.                                                |
+| Create Domains                      | Allow the actor to create new Domains                                                                                          |
+| Manage Domains                      | Allow actor to create and remove any Domains.                                                                                  |
+| View Analytics                      | Allow the actor access to the DataHub analytics dashboard.                                                                     |
+| Generate Personal Access Tokens     | Allow the actor to generate access tokens for personal use with DataHub APIs.                                                  |
+| Manage User Credentials             | Allow the actor to generate invite links for new native DataHub users, and password reset links for existing native users.     |
+| Manage Glossaries                   | Allow the actor to create, edit, move, and delete Glossary Terms and Term Groups                                               |
+| Create Tags                         | Allow the actor to create new Tags                                                                                             |
+| Manage Tags                         | Allow the actor to create and remove any Tags                                                                                  |
+| Manage Public Views                 | Allow the actor to create, edit, and remove any public (shared) Views.                                                         |
+| Restore Indices API[^1]             | Allow the actor to restore indices for a set of entities via API                                                               |
+| Enable/Disable Writeability API[^1] | Allow the actor to enable or disable GMS writeability for use in data migrations                                               |
+| Apply Retention API[^1]             | Allow the actor to apply aspect retention via API                                                                              |
 
+[^1]: Only active if REST_API_AUTHORIZATION_ENABLED environment flag is enabled
 
 #### Step 3: Choose Policy Actors
 
@@ -116,18 +121,17 @@ In this step, we can select the actors who should be granted Privileges appearin
 
 To do so, simply search and select the Users or Groups that the Policy should apply to.
 
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
-</p>
-
 **Assigning a Policy to a User**
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
 </p>
 
 **Assigning a Policy to a Group**
 
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
+</p>
 
 ### Creating a Metadata Policy
 
@@ -154,7 +158,7 @@ For example, if we only want to grant access for `Datasets` on DataHub, we can s
 `Datasets`.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-type.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-type.png"/>
 </p>
 
 Next, we can search for specific Entities of the that the Policy should grant privileges on. 
@@ -164,7 +168,7 @@ For example, if we only want to grant access for a specific sample dataset, we c
 select it directly.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-urn.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-urn.png"/>
 </p>
 
 We can also limit the scope of the Policy to assets that live in a specific **Domain**. If left blank,
@@ -174,33 +178,41 @@ For example, if we only want to grant access for assets part of a "Marketing" Do
 select it.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-domain.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-domain.png"/>
 </p>
 
 Finally, we will choose the Privileges to grant when the selected entities fall into the defined
 scope.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-metadata-privileges.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-metadata-privileges.png"/>
 </p>
 
 **Metadata** Privileges grant access to change specific *entities* (i.e. data assets) on DataHub.
 
 The common Metadata Privileges, which span across entity types, include:
 
-| Common Privileges   | Description                                                                                                                      |
-|---------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| View Entity Page    | Allow actor to access the entity page for the resource in the UI. If not granted, it will redirect them to an unauthorized page. |
-| Edit Tags           | Allow actor to add and remove tags to an asset.                                                                                  |
-| Edit Glossary Terms | Allow actor to add and remove glossary terms to an asset.                                                                        |
-| Edit Owners         | Allow actor to add and remove owners of an entity.                                                                               |
-| Edit Description    | Allow actor to edit the description (documentation) of an entity.                                                                |
-| Edit Links          | Allow actor to edit links associated with an entity.                                                                             |
-| Edit Status         | Allow actor to edit the status of an entity (soft deleted or not).                                                               |
-| Edit Domain         | Allow actor to edit the Domain of an entity.                                                                                     |
-| Edit Deprecation    | Allow actor to edit the Deprecation status of an entity.                                                                         |
-| Edit Assertions     | Allow actor to add and remove assertions from an entity.                                                                         |
-| Edit All            | Allow actor to edit any information about an entity. Super user privileges.                                                      |
+| Common Privileges                | Description                                                                                                                      |
+|----------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| View Entity Page                 | Allow actor to access the entity page for the resource in the UI. If not granted, it will redirect them to an unauthorized page. |
+| Edit Tags                        | Allow actor to add and remove tags to an asset.                                                                                  |
+| Edit Glossary Terms              | Allow actor to add and remove glossary terms to an asset.                                                                        |
+| Edit Owners                      | Allow actor to add and remove owners of an entity.                                                                               |
+| Edit Description                 | Allow actor to edit the description (documentation) of an entity.                                                                |
+| Edit Links                       | Allow actor to edit links associated with an entity.                                                                             |
+| Edit Status                      | Allow actor to edit the status of an entity (soft deleted or not).                                                               |
+| Edit Domain                      | Allow actor to edit the Domain of an entity.                                                                                     |
+| Edit Deprecation                 | Allow actor to edit the Deprecation status of an entity.                                                                         |
+| Edit Assertions                  | Allow actor to add and remove assertions from an entity.                                                                         |
+| Edit All                         | Allow actor to edit any information about an entity. Super user privileges.                                                      |
+| Get Timeline API[^1]             | Allow actor to get the timeline of an entity via API.                                                                            |
+| Get Entity API[^1]               | Allow actor to get an entity via API.                                                                                            |
+| Get Timeseries Aspect API[^1]    | Allow actor to get a timeseries aspect via API.                                                                                  |
+| Get Aspect/Entity Count APIs[^1] | Allow actor to get aspect and entity counts via API.                                                                             |
+| Search API                       | Allow actor to search for entities via API.                                                                                      |
+| Produce Platform Event API       | Allow actor to ingest a platform event via API.                                                                                  |
+
+[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 
 **Specific Metadata Privileges** include
 
@@ -209,6 +221,7 @@ The common Metadata Privileges, which span across entity types, include:
 | Dataset      | Edit Dataset Column Tags           | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                              |
 | Dataset      | Edit Dataset Column Glossary Terms | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                    |
 | Dataset      | Edit Dataset Column Descriptions   | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                      |
+| Dataset      | Edit Dataset Queries               | Allow actor to edit the Highlighted Queries on the Queries tab of the dataset.                                                                                             |
 | Dataset      | View Dataset Usage                 | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This includes example queries, number of queries, etc.                         |
 | Dataset      | View Dataset Profile               | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This   includes snapshot statistics like #rows, #columns, null percentage per field, etc. |
 | Tag          | Edit Tag Color                     | Allow actor to change the color of a Tag.                                                                                                                                  |
@@ -227,18 +240,18 @@ can target specific Users & Groups, or the *owners* of the Entities that are inc
 To do so, simply search and select the Users or Groups that the Policy should apply to.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
 </p>
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
 </p>
 
 We can also grant the Privileges to the *owners* of Entities (or *Resources*) that are in scope for the Policy. 
 This advanced functionality allows of Admins of DataHub to closely control which actions can or cannot be performed by owners.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-owners.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-owners.png"/>
 </p>
 
 ### Updating an Existing Policy
@@ -246,7 +259,7 @@ This advanced functionality allows of Admins of DataHub to closely control which
 To update an existing Policy, simply click the **Edit** on the Policy you wish to change.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/edit-policy.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/edit-policy.png"/>
 </p>
 
 Then, make the changes required and click **Save**. When you save a Policy, it may take up to 2 minutes for changes
@@ -270,7 +283,7 @@ To deactivate a Policy, simply click the **Deactivate** button on the Policy you
 the state of a Policy, it may take up to 2 minutes for the changes to be reflected.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/deactivate-policy.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/deactivate-policy.png"/>
 </p>
 
 After deactivating, you can re-enable a Policy by clicking **Activate**.

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 
 
@@ -12,7 +12,7 @@ class BaseSnowflakeReport(BaseTimeWindowReport):
 
 
 @dataclass
-class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
+class SnowflakeReport(BaseSnowflakeReport, ProfilingSqlReport):
     num_table_to_table_edges_scanned: int = 0
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
@@ -25,8 +25,6 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
 
     cleaned_account_id: str = ""
     run_ingestion: bool = False
-    provision_role_done: bool = False
-    provision_role_success: bool = False
 
     # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
     saas_version: Optional[str] = None
@@ -34,8 +32,6 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
     role: str = ""
-    check_role_grants: Optional[bool] = None
-    role_grants: List[str] = field(default_factory=list)
 
     profile_if_updated_since: Optional[datetime] = None
     profile_candidates: Dict[str, List[str]] = field(default_factory=dict)

@@ -7,7 +7,7 @@ on:
       - "docs/**"
       - "**.md"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -25,7 +25,7 @@ jobs:
           ENABLE_PUBLISH: ${{ secrets.DataHubToken }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
   metadata-ingestion-docgen:
     runs-on: ubuntu-latest
     needs: setup

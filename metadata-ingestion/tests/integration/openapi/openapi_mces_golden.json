@@ -1,6 +1,5 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.root,PROD)",
@@ -8,9 +7,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "description": "List API versions",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -27,8 +24,7 @@
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
-                                    "actor": "urn:li:corpuser:etl",
-                                    "impersonator": null
+                                    "actor": "urn:li:corpuser:etl"
                                 }
                             }
                         ]
@@ -40,18 +36,13 @@
                         "platform": "urn:li:dataPlatform:api",
                         "version": 0,
                         "created": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:etl",
-                            "impersonator": null
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:etl",
-                            "impersonator": null
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -61,7 +52,6 @@
                         "fields": [
                             {
                                 "fieldPath": "foo",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -71,28 +61,20 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00",
-        "properties": null
+        "runId": "openapi-2020_04_14-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.v2,PROD)",
@@ -100,9 +82,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "description": "Show API version details",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -119,8 +99,7 @@
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
-                                    "actor": "urn:li:corpuser:etl",
-                                    "impersonator": null
+                                    "actor": "urn:li:corpuser:etl"
                                 }
                             }
                         ]
@@ -132,18 +111,13 @@
                         "platform": "urn:li:dataPlatform:api",
                         "version": 0,
                         "created": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:etl",
-                            "impersonator": null
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:etl",
-                            "impersonator": null
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -153,7 +127,6 @@
                         "fields": [
                             {
                                 "fieldPath": "foo",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -163,24 +136,17 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00",
-        "properties": null
+        "runId": "openapi-2020_04_14-07_00_00"
     }
 }
 ]

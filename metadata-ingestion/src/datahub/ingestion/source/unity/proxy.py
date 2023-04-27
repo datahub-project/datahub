@@ -62,16 +62,19 @@ class CommonProperty:
 @dataclass
 class Metastore(CommonProperty):
     metastore_id: str
+    owner: Optional[str]
 
 
 @dataclass
 class Catalog(CommonProperty):
     metastore: Metastore
+    owner: Optional[str]
 
 
 @dataclass
 class Schema(CommonProperty):
     catalog: Catalog
+    owner: Optional[str]
 
 
 @dataclass
@@ -92,6 +95,14 @@ class ColumnLineage:
 
 
 @dataclass
+class ServicePrincipal:
+    id: str
+    application_id: str  # uuid used to reference the service principal
+    display_name: str
+    active: Optional[bool]
+
+
+@dataclass
 class Table(CommonProperty):
     schema: Schema
     columns: List[Column]
@@ -99,7 +110,7 @@ class Table(CommonProperty):
     data_source_format: Optional[str]
     comment: Optional[str]
     table_type: str
-    owner: str
+    owner: Optional[str]
     generation: int
     created_at: datetime.datetime
     created_by: str
@@ -134,6 +145,13 @@ class UnityCatalogApiProxy:
         self._unity_catalog_api.list_metastores()
         return True
 
+    def assigned_metastore(self) -> Optional[Metastore]:
+        response: dict = self._unity_catalog_api.get_metastore_summary()
+        if response.get("metastore_id") is None:
+            logger.info("Not found assigned metastore")
+            return None
+        return self._create_metastore(response)
+
     def metastores(self) -> Iterable[Metastore]:
         response: dict = self._unity_catalog_api.list_metastores()
         if response.get("metastores") is None:
@@ -149,8 +167,6 @@ class UnityCatalogApiProxy:
         if response.get("catalogs") is None:
             logger.info(f"Catalogs not found for metastore {metastore.name}")
             return []
-
-        self.report.num_catalogs_to_scan[metastore.id] = len(response["catalogs"])
 
         for obj in response["catalogs"]:
             if obj["metastore_id"] == metastore.metastore_id:
@@ -170,10 +186,6 @@ class UnityCatalogApiProxy:
             logger.info(f"Schemas not found for catalog {catalog.name}")
             return []
 
-        self.report.num_schemas_to_scan[
-            f"{catalog.metastore.metastore_id}.{catalog.name}"
-        ] = len(response["schemas"])
-
         for schema in response["schemas"]:
             yield self._create_schema(catalog, schema)
 
@@ -188,11 +200,22 @@ class UnityCatalogApiProxy:
             logger.info(f"Tables not found for schema {schema.name}")
             return []
 
-        self.report.num_tables_to_scan[
-            f"{schema.catalog.metastore.metastore_id}.{schema.catalog.name}.{schema.name}"
-        ] = len(response["tables"])
         for table in response["tables"]:
             yield self._create_table(schema=schema, obj=table)
+
+    def service_principals(self) -> Iterable[ServicePrincipal]:
+        start_index = 1  # Unfortunately 1-indexed
+        items_per_page = 0
+        total_results = float("inf")
+        while start_index + items_per_page <= total_results:
+            response: dict = self._unity_catalog_api.client.client.perform_query(
+                "GET", "/account/scim/v2/ServicePrincipals"
+            )
+            start_index = response["startIndex"]
+            items_per_page = response["itemsPerPage"]
+            total_results = response["totalResults"]
+            for principal in response["Resources"]:
+                yield self._create_service_principal(principal)
 
     def list_lineages_by_table(self, table_name=None, headers=None):
         """
@@ -281,6 +304,7 @@ class UnityCatalogApiProxy:
             metastore_id=obj["metastore_id"],
             type="Metastore",
             comment=obj.get("comment"),
+            owner=obj.get("owner"),
         )
 
     def _create_catalog(self, metastore: Metastore, obj: Any) -> Catalog:
@@ -293,6 +317,7 @@ class UnityCatalogApiProxy:
             metastore=metastore,
             type="Catalog",
             comment=obj.get("comment"),
+            owner=obj.get("owner"),
         )
 
     def _create_schema(self, catalog: Catalog, obj: Any) -> Schema:
@@ -305,6 +330,7 @@ class UnityCatalogApiProxy:
             catalog=catalog,
             type="Schema",
             comment=obj.get("comment"),
+            owner=obj.get("owner"),
         )
 
     def _create_column(self, table_id: str, obj: Any) -> Column:
@@ -338,7 +364,7 @@ class UnityCatalogApiProxy:
             type="view" if str(obj["table_type"]).lower() == "view" else "table",
             view_definition=obj.get("view_definition", None),
             properties=obj.get("properties", {}),
-            owner=obj["owner"],
+            owner=obj.get("owner"),
             generation=obj["generation"],
             created_at=datetime.datetime.utcfromtimestamp(obj["created_at"] / 1000),
             created_by=obj["created_by"],
@@ -348,4 +374,13 @@ class UnityCatalogApiProxy:
             updated_by=obj.get("updated_by", None),
             table_id=obj["table_id"],
             comment=obj.get("comment"),
+        )
+
+    def _create_service_principal(self, obj: dict) -> ServicePrincipal:
+        display_name = obj["displayName"]
+        return ServicePrincipal(
+            id="{}.{}".format(obj["id"], self._escape_sequence(display_name)),
+            display_name=display_name,
+            application_id=obj["applicationId"],
+            active=obj.get("active"),
         )

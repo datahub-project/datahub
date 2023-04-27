@@ -23,6 +23,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -70,18 +71,21 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private final RestliEntityClient _entityClient;
   private final EntitySearchService _searchService;
   private final Authentication _systemAuthentication;
+  private final boolean _isEnabled;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final RestliEntityClient entityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull final Authentication systemAuthentication
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled
   ) {
     _entityRegistry = entityRegistry;
     _entityClient = entityClient;
     _searchService = searchService;
     _systemAuthentication = systemAuthentication;
+    _isEnabled = isEnabled;
   }
 
   @Value("${siblings.enabled:false}")
@@ -94,6 +98,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @Override
   public void init() {
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return _isEnabled;
   }
 
   @Override
@@ -132,7 +141,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         entitiesWithYouAsSiblingFilter,
         null,
         0,
-        10);
+        10,
+            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
 
     // we have a match of an entity with you as a sibling, associate yourself back
     searchResult.getEntities().forEach(entity -> {

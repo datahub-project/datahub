@@ -10,13 +10,25 @@
 //
 //
 // -- This is a parent command --
+
+import dayjs from "dayjs";
+
+function selectorWithtestId (id) {
+  return '[data-testid="' + id +'"]';
+}
+
+export function getTimestampMillisNumDaysAgo (numDays) {
+  return dayjs().subtract(numDays, 'day').valueOf();
+}
+
+
 Cypress.Commands.add('login', () => {
     cy.request({
       method: 'POST',
       url: '/logIn',
       body: {
-        username: Cypress.env('ADMIN_USERNAME'),
-        password: Cypress.env('ADMIN_PASSWORD'),
+         username: Cypress.env('ADMIN_USERNAME'),
+         password: Cypress.env('ADMIN_PASSWORD'),
       },
       retryOnStatusCodeFailure: true,
     });
@@ -32,7 +44,8 @@ Cypress.Commands.add('deleteUrn', (urn) => {
 })
 
 Cypress.Commands.add("logout", () => {
-  cy.visit("/logOut")
+  cy.get(selectorWithtestId("manage-account-menu")).click();
+  cy.get(selectorWithtestId("log-out-menu-item")).click({ force: true });
   cy.waitTextVisible("Username");
   cy.waitTextVisible("Password");
 });
@@ -48,12 +61,40 @@ Cypress.Commands.add("goToDomainList", () => {
   cy.waitTextVisible("New Domain");
 });
 
+Cypress.Commands.add("goToViewsSettings", () => {
+  cy.visit("/settings/views");
+  cy.waitTextVisible("Manage Views");
+});
+
+Cypress.Commands.add("goToIngestionPage", () => {
+  cy.visit("/ingestion");
+  cy.waitTextVisible("Manage Ingestion");
+});
+
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
   );
   cy.waitTextVisible(dataset_name);
+});
+
+Cypress.Commands.add("goToEntityLineageGraph", (entity_type, urn) => {
+  cy.visit(
+    `/${entity_type}/${urn}?is_lineage_mode=true`
+  );
 })
+
+Cypress.Commands.add("goToEntityLineageGraph", (entity_type, urn, start_time_millis, end_time_millis) => {
+  cy.visit(
+    `/${entity_type}/${urn}?is_lineage_mode=true&start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`
+  );
+})
+
+Cypress.Commands.add("lineageTabClickOnUpstream", () => {
+  cy.get('[data-testid="lineage-tab-direction-select-option-downstream"] > b').click();
+  cy.get('[data-testid="lineage-tab-direction-select-option-upstream"] > b').click();
+})
+
 
 Cypress.Commands.add("goToChart", (urn) => {
   cy.visit(
@@ -75,7 +116,7 @@ Cypress.Commands.add("goToDomain", (urn) => {
 
 Cypress.Commands.add("goToAnalytics", () => {
   cy.visit("/analytics");
-  cy.waitTextVisible("Data Landscape Summary");
+  cy.contains("Data Landscape Summary", {timeout: 10000});
 });
 
 Cypress.Commands.add("goToUserList", () => {
@@ -83,8 +124,14 @@ Cypress.Commands.add("goToUserList", () => {
   cy.waitTextVisible("Manage Users & Groups");
 })
 
+Cypress.Commands.add("goToStarSearchList", () => {
+  cy.visit("/search?query=%2A")
+  cy.waitTextVisible("Showing")
+  cy.waitTextVisible("results")
+})
+
 Cypress.Commands.add("openThreeDotDropdown", () => {
-  cy.get('div[class^="EntityHeader__SideHeaderContent-"] > div > .ant-dropdown-trigger').click();
+  cy.clickOptionWithTestId("entity-header-dropdown")
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
@@ -97,9 +144,15 @@ Cypress.Commands.add("deleteFromDropdown", () => {
   cy.clickOptionWithText("Yes");
 });
 
-Cypress.Commands.add("addViaModel", (text, modelHeader) => {
+Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-form-item-control-input-content > input[type='text']").first().type(text);
+  cy.get(".ant-modal-footer > button:nth-child(2)").click();
+});
+
+Cypress.Commands.add("addViaModal", (text, modelHeader) => {
+  cy.waitTextVisible(modelHeader);
+  cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
@@ -120,28 +173,64 @@ Cypress.Commands.add("waitTextVisible", (text) => {
   return cy.contains(text);
 })
 
+Cypress.Commands.add("openMultiSelect", (data_id) => {
+  let selector = `${selectorWithtestId(data_id)}`
+  cy.get(`.ant-select${selector} > .ant-select-selector > .ant-select-selection-search`).click();
+})
+
+Cypress.Commands.add( 'multiSelect', (within_data_id , text) => {
+  cy.openMultiSelect(within_data_id);
+  cy.waitTextVisible(text);
+  cy.clickOptionWithText(text);
+});
+
 Cypress.Commands.add("enterTextInTestId", (id, text) => {
-  cy.get('[data-testid="' + id +'"]').type(text);
+  cy.get(selectorWithtestId(id)).type(text);
 })
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {
-  cy.get('[data-testid="' + id +'"]').click({
+  cy.get(selectorWithtestId(id)).first().click({
     force: true,
   });
+})
+
+Cypress.Commands.add("clickFirstOptionWithTestId", (id) => {
+  cy.get(selectorWithtestId(id)).first().click({
+    force: true,
+  });
+})
+
+Cypress.Commands.add("hideOnboardingTour", () => {
+  cy.get('body').type("{ctrl} {meta} h");
+});
+
+Cypress.Commands.add("clearView", (viewName) => {
+  cy.clickOptionWithTestId("view-select");
+  cy.clickOptionWithTestId("view-select-clear");
+  cy.get("input[data-testid='search-input']").click();
+  cy.contains(viewName).should("not.be.visible");
 })
 
 Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.goToDataset(urn, dataset_name);
   cy.clickOptionWithText("Add Term");
-  cy.focused().type(term);
-  cy.get(".ant-select-item-option-content").within(() =>
-    cy.contains(term).click({ force: true })
-  );
-  cy.clickOptionWithTestId('add-tag-term-from-modal-btn');
-  cy.get('[data-testid="add-tag-term-from-modal-btn"]').should("not.exist");
-
+  cy.selectOptionInTagTermModal(term);
   cy.contains(term);
 });
+
+Cypress.Commands.add('selectOptionInTagTermModal', (text) => {
+  cy.enterTextInTestId("tag-term-modal-input", text);
+  cy.clickOptionWithTestId("tag-term-option");
+  let btn_id = "add-tag-term-from-modal-btn";
+  cy.clickOptionWithTestId(btn_id);
+  cy.get(selectorWithtestId(btn_id)).should("not.exist");
+});
+
+Cypress.Commands.add("removeDomainFromDataset", (urn, dataset_name, domain_urn) => {
+  cy.goToDataset(urn, dataset_name);
+  cy.get('.sidebar-domain-section [href="/domain/' + domain_urn + '"] .anticon-close').click();
+  cy.clickOptionWithText("Yes");
+})
 
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = 'div[id$="' + tab + '"]:nth-child(1)'

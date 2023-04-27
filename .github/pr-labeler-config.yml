@@ -1,9 +1,13 @@
 ingestion:
   - "metadata-ingestion/**/*"
+  - "metadata-ingestion-modules/**/*"
+  - "metadata-integration/**/*"
 
 devops:
   - "docker/**/*"
   - ".github/**/*"
+  - "perf-test/**/*"
+  - "metadata-service/**/*"
 
 product:
   - "datahub-web-react/**/*"
@@ -13,3 +17,6 @@ product:
 
 docs:
   - "docs/**/*"
+
+smoke_test:
+  - "smoke-test/**/*"

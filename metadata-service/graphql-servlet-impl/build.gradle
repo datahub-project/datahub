@@ -2,7 +2,7 @@ apply plugin: 'java'
 
 dependencies {
   compile project(':datahub-graphql-core')
-  compile project(':metadata-service:auth-api')
+  compile project(':metadata-auth:auth-api')
   compile project(':metadata-service:factories')
 
   compile externalDependency.springCore
@@ -11,7 +11,8 @@ dependencies {
   compile externalDependency.graphqlJava
   compile externalDependency.springBeans
   compile externalDependency.springContext
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
 }

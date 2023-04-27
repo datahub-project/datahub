@@ -63,6 +63,7 @@ from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -78,7 +79,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetPropertiesClass,
     MapTypeClass,
     OtherSchemaClass,
@@ -158,8 +158,6 @@ profiling_flags_to_report = [
     "include_field_histogram",
     "include_field_sample_values",
 ]
-
-S3_PREFIXES = ("s3://", "s3n://", "s3a://")
 
 
 # LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG = AddDatasetBrowsePathConfig(
@@ -249,7 +247,6 @@ class S3Source(Source):
             self.init_spark()
 
     def init_spark(self):
-
         conf = SparkConf()
 
         conf.set(
@@ -264,7 +261,6 @@ class S3Source(Source):
         )
 
         if self.source_config.aws_config is not None:
-
             credentials = self.source_config.aws_config.get_credentials()
 
             aws_access_key_id = credentials.get("aws_access_key_id")
@@ -278,7 +274,6 @@ class S3Source(Source):
             ]
 
             if any(x is not None for x in aws_provided_credentials):
-
                 # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
                 if all(x is not None for x in aws_provided_credentials):
                     conf.set(
@@ -311,6 +306,15 @@ class S3Source(Source):
                     "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
                 )
 
+            if self.source_config.aws_config.aws_endpoint_url is not None:
+                conf.set(
+                    "fs.s3a.endpoint", self.source_config.aws_config.aws_endpoint_url
+                )
+            if self.source_config.aws_config.aws_region is not None:
+                conf.set(
+                    "fs.s3a.endpoint.region", self.source_config.aws_config.aws_region
+                )
+
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 
@@ -323,7 +327,6 @@ class S3Source(Source):
         return cls(config, ctx)
 
     def read_file_spark(self, file: str, ext: str) -> Optional[DataFrame]:
-
         logger.debug(f"Opening file {file} for profiling in spark")
         file = file.replace("s3://", "s3a://")
 
@@ -386,7 +389,6 @@ class S3Source(Source):
                 table_data.full_path, "rb", transport_params={"client": s3_client}
             )
         else:
-
             file = open(table_data.full_path, "rb")
 
         fields = []
@@ -502,10 +504,7 @@ class S3Source(Source):
             self.profiling_times_taken.append(time_taken)
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
             aspect=table_profiler.profile,
         )
         wu = MetadataWorkUnit(
@@ -517,7 +516,6 @@ class S3Source(Source):
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
-
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_s3_prefix(table_data.table_path)
@@ -536,7 +534,7 @@ class S3Source(Source):
 
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         customProperties: Optional[Dict[str, str]] = None
@@ -618,7 +616,6 @@ class S3Source(Source):
     def extract_table_data(
         self, path_spec: PathSpec, path: str, timestamp: datetime, size: int
     ) -> TableData:
-
         logger.debug(f"Getting table data for path: {path}")
         table_name, table_path = path_spec.extract_table_name_and_path(path)
         table_data = None
@@ -749,6 +746,17 @@ class S3Source(Source):
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
+                        logger.debug(
+                            f"Update schema on partition file updates is set to: {self.source_config.update_schema_on_partition_file_updates!s}"
+                        )
+                        if (
+                            self.source_config.update_schema_on_partition_file_updates
+                            and not path_spec.sample_files
+                        ):
+                            logger.info(
+                                "Will update table schema as file within the partitions has an updated schema."
+                            )
+                            table_dict[table_data.table_path] = table_data
                         table_dict[table_data.table_path].number_of_files = (
                             table_dict[table_data.table_path].number_of_files + 1
                         )
@@ -760,6 +768,9 @@ class S3Source(Source):
                             table_dict[table_data.table_path].timestamp
                             < table_data.timestamp
                         ):
+                            table_dict[
+                                table_data.table_path
+                            ].full_path = table_data.full_path
                             table_dict[
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
@@ -804,6 +815,3 @@ class S3Source(Source):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass

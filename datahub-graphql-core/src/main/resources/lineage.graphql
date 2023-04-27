@@ -1,0 +1,27 @@
+"""
+Input required in order to upsert lineage edges
+"""
+input UpdateLineageInput {
+    """
+    New lineage edges to upsert
+    """
+    edgesToAdd: [LineageEdge]!
+
+    """
+    Lineage edges to remove. Takes precedence over edgesToAdd - so edges existing both edgesToAdd
+    and edgesToRemove will be removed.
+    """
+    edgesToRemove: [LineageEdge]!
+}
+
+input LineageEdge {
+    """
+    Urn of the source entity. This urn is downstream of the destinationUrn.
+    """
+    downstreamUrn: String!
+
+    """
+    Urn of the destination entity. This urn is upstream of the destinationUrn
+    """
+    upstreamUrn: String!
+}

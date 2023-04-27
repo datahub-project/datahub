@@ -82,7 +82,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const noRoleText = 'No Role';
 
     const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: {
             input: {
                 start: 0,

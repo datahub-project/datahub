@@ -1,0 +1,14 @@
+namespace com.linkedin.common
+
+/**
+ * Information regarding rendering an embed for an asset.
+ */
+@Aspect = {
+  "name": "embed"
+}
+record Embed {
+  /**
+   * An embed URL to be rendered inside of an iframe.
+   */
+  renderUrl: optional string
+}

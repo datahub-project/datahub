@@ -1,6 +1,14 @@
 plugins {
   id 'org.springframework.boot'
   id 'java'
+  id 'com.palantir.docker'
+}
+
+apply from: "../gradle/versioning/versioning.gradle"
+
+ext {
+  docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
+  docker_repo = 'datahub-upgrade'
 }
 
 dependencies {
@@ -13,10 +21,30 @@ dependencies {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
+    exclude group: "org.eclipse.jetty", module: "jetty-util"
+    exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
   }
-  compile externalDependency.lombok
+
+  constraints {
+    implementation(externalDependency.hadoopCommon3) {
+      because("previous versions are vulnerable to CVE-2021-37404")
+    }
+    implementation(externalDependency.snakeYaml) {
+      because("previous versions are vulnerable to CVE-2022-25857")
+    }
+    implementation(externalDependency.woodstoxCore) {
+      because("previous versions are vulnerable to CVE-2022-40151-2")
+    }
+    implementation(externalDependency.jettison) {
+      because("previous versions are vulnerable")
+    }
+  }
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   compile externalDependency.picocli
   compile externalDependency.parquet
+  implementation externalDependency.protobuf
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore
@@ -27,10 +55,43 @@ dependencies {
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
 
+  implementation externalDependency.awsMskIamAuth
+
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
+
+  testImplementation externalDependency.springBootTest
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
+  testRuntime externalDependency.logbackClassic
 }
 
 bootJar {
-  mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+  mainClass = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+  archiveFileName = "${project.name}.jar"
 }
+
+docker {
+  name "${docker_registry}/${docker_repo}:v${version}"
+  version "v${version}"
+  dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+  files bootJar.outputs.files
+  files fileTree(rootProject.projectDir) {
+    include "docker/${docker_repo}/*"
+    include 'metadata-models/src/main/resources/*'
+  }
+  tag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+  // platform('linux/arm64', 'linux/amd64')
+  buildx(true)
+  load(true)
+  push(false)
+}
+tasks.getByName("docker").dependsOn([bootJar])
+
+task cleanLocalDockerImages {
+  doLast {
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+  }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

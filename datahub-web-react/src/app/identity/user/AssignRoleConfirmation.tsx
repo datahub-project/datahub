@@ -24,45 +24,44 @@ export default function AssignRoleConfirmation({
     const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
     const batchAssignRole = () => {
-        if (roleToAssign) {
-            batchAssignRoleMutation({
-                variables: {
-                    input: {
-                        roleUrn: roleToAssign.urn,
-                        actors: [userUrn],
-                    },
+        batchAssignRoleMutation({
+            variables: {
+                input: {
+                    roleUrn: roleToAssign?.urn,
+                    actors: [userUrn],
                 },
-            })
-                .then(({ errors }) => {
-                    if (!errors) {
-                        analytics.event({
-                            type: EventType.SelectUserRoleEvent,
-                            roleUrn: roleToAssign.urn,
-                            userUrn,
-                        });
-                        message.success({
-                            content: `Assigned role ${roleToAssign?.name} to user ${username}!`,
-                            duration: 2,
-                        });
-                        onConfirm();
-                    }
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: `Failed to assign role ${roleToAssign?.name} to ${username}: \n ${e.message || ''}`,
-                        duration: 3,
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.SelectUserRoleEvent,
+                        roleUrn: roleToAssign?.urn || 'undefined',
+                        userUrn,
                     });
+                    message.success({
+                        content: roleToAssign
+                            ? `Assigned role ${roleToAssign?.name} to user ${username}!`
+                            : `Removed role from user ${username}!`,
+                        duration: 2,
+                    });
+                    onConfirm();
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: roleToAssign
+                        ? `Failed to assign role ${roleToAssign?.name} to ${username}: \n ${e.message || ''}`
+                        : `Failed to remove role from ${username}: \n ${e.message || ''}`,
+                    duration: 3,
                 });
-        }
+            });
     };
 
-    return (
-        <Popconfirm
-            title={`Would you like to assign the role ${roleToAssign?.name} to ${username}?`}
-            visible={visible}
-            onConfirm={batchAssignRole}
-            onCancel={onClose}
-        />
-    );
+    const assignRoleText = roleToAssign
+        ? `Would you like to assign the role ${roleToAssign?.name} to ${username}?`
+        : `Would you like to remove ${username}'s existing role?`;
+
+    return <Popconfirm title={assignRoleText} visible={visible} onConfirm={batchAssignRole} onCancel={onClose} />;
 }

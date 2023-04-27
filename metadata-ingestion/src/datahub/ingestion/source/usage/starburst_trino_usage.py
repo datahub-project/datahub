@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from email.utils import parseaddr
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 from dateutil import parser
 from pydantic.fields import Field
@@ -62,23 +62,23 @@ class TrinoConnectorInfo(BaseModel):
 
 
 class TrinoAccessedMetadata(BaseModel):
-    catalog_name: str = Field(None, alias="catalogName")
-    schema_name: str = Field(None, alias="schema")  # type: ignore
-    table: str = None  # type: ignore
+    catalog_name: Optional[str] = Field(None, alias="catalogName")
+    schema_name: Optional[str] = Field(None, alias="schema")
+    table: Optional[str] = None
     columns: List[str]
-    connector_info: TrinoConnectorInfo = Field(None, alias="connectorInfo")
+    connector_info: Optional[TrinoConnectorInfo] = Field(None, alias="connectorInfo")
 
 
 class TrinoJoinedAccessEvent(BaseModel):
-    usr: str = None  # type:ignore
-    query: str = None  # type: ignore
-    catalog: str = None  # type: ignore
-    schema_name: str = Field(None, alias="schema")
-    query_type: str = None  # type:ignore
-    table: str = None  # type:ignore
+    usr: Optional[str] = None
+    query: Optional[str] = None
+    catalog: Optional[str] = None
+    schema_name: Optional[str] = Field(None, alias="schema")
+    query_type: Optional[str] = None
+    table: Optional[str] = None
     accessed_metadata: List[TrinoAccessedMetadata]
-    starttime: datetime = Field(None, alias="create_time")
-    endtime: datetime = Field(None, alias="end_time")
+    starttime: datetime = Field(alias="create_time")
+    endtime: datetime = Field(alias="end_time")
 
 
 class EnvBasedSourceBaseConfig:
@@ -232,9 +232,10 @@ class TrinoUsageSource(Source):
         for event in events:
             floored_ts = get_time_bucket(event.starttime, self.config.bucket_duration)
             for metadata in event.accessed_metadata:
-
                 # Skipping queries starting with $system@
-                if metadata.catalog_name.startswith("$system@"):
+                if metadata.catalog_name and metadata.catalog_name.startswith(
+                    "$system@"
+                ):
                     logging.debug(
                         f"Skipping system query for {metadata.catalog_name}..."
                     )
@@ -253,13 +254,12 @@ class TrinoUsageSource(Source):
                     AggregatedDataset(
                         bucket_start_time=floored_ts,
                         resource=resource,
-                        user_email_pattern=self.config.user_email_pattern,
                     ),
                 )
 
                 # add @unknown.com to username
                 # current limitation in user stats UI, we need to provide email to show users
-                if "@" in parseaddr(event.usr)[1]:
+                if event.usr and "@" in parseaddr(event.usr)[1]:
                     username = event.usr
                 else:
                     username = f"{event.usr if event.usr else 'unknown'}@{self.config.email_domain}"
@@ -268,6 +268,7 @@ class TrinoUsageSource(Source):
                     username,
                     event.query,
                     metadata.columns,
+                    user_email_pattern=self.config.user_email_pattern,
                 )
         return datasets
 
@@ -287,6 +288,3 @@ class TrinoUsageSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass

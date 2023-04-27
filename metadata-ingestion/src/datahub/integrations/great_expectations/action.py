@@ -1,12 +1,13 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import json
 import logging
-import os
 import sys
 import time
 from dataclasses import dataclass
 from datetime import timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
@@ -21,7 +22,6 @@ from great_expectations.data_asset.data_asset import DataAsset
 from great_expectations.data_context.data_context import DataContext
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
-    GeCloudIdentifier,
     ValidationResultIdentifier,
 )
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
@@ -32,6 +32,7 @@ from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
+from datahub.cli.cli_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
@@ -52,12 +53,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
 
+if TYPE_CHECKING:
+    from great_expectations.data_context.types.resource_identifiers import (
+        GXCloudIdentifier,
+    )
+
+assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
-if os.getenv("DATAHUB_DEBUG", False):
+if get_boolean_env_variable("DATAHUB_DEBUG", False):
     handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
@@ -81,6 +87,7 @@ class DataHubValidationAction(ValidationAction):
         extra_headers: Optional[Dict[str, str]] = None,
         exclude_dbname: Optional[bool] = None,
         parse_table_names_from_sql: bool = False,
+        convert_urns_to_lowercase: bool = False,
     ):
         super().__init__(data_context)
         self.server_url = server_url
@@ -95,17 +102,18 @@ class DataHubValidationAction(ValidationAction):
         self.extra_headers = extra_headers
         self.exclude_dbname = exclude_dbname
         self.parse_table_names_from_sql = parse_table_names_from_sql
+        self.convert_urns_to_lowercase = convert_urns_to_lowercase
 
     def _run(
         self,
         validation_result_suite: ExpectationSuiteValidationResult,
         validation_result_suite_identifier: Union[
-            ValidationResultIdentifier, GeCloudIdentifier
+            ValidationResultIdentifier, "GXCloudIdentifier"
         ],
         data_asset: Union[Validator, DataAsset, Batch],
-        payload: Any = None,
+        payload: Optional[Any] = None,
         expectation_suite_identifier: Optional[ExpectationSuiteIdentifier] = None,
-        checkpoint_identifier: Any = None,
+        checkpoint_identifier: Optional[Any] = None,
     ) -> Dict:
         datasets = []
         try:
@@ -157,37 +165,27 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
             for assertion in assertions:
-
                 logger.info(
                     "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
                 )
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_info_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="assertionInfo",
                     aspect=assertion["assertionInfo"],
                 )
                 emitter.emit_mcp(assertion_info_mcp)
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_platform_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="dataPlatformInstance",
                     aspect=assertion["assertionPlatform"],
                 )
                 emitter.emit_mcp(assertion_platform_mcp)
 
                 for assertionResult in assertion["assertionResults"]:
                     dataset_assertionResult_mcp = MetadataChangeProposalWrapper(
-                        entityType="assertion",
-                        changeType=ChangeType.UPSERT,
                         entityUrn=assertionResult.assertionUrn,
-                        aspectName="assertionRunEvent",
                         aspect=assertionResult,
                     )
 
@@ -213,7 +211,6 @@ class DataHubValidationAction(ValidationAction):
         payload,
         datasets,
     ):
-
         dataPlatformInstance = DataPlatformInstance(
             platform=builder.make_data_platform_urn(GE_PLATFORM_NAME)
         )
@@ -347,7 +344,6 @@ class DataHubValidationAction(ValidationAction):
     def get_assertion_info(
         self, expectation_type, kwargs, dataset, fields, expectation_suite_name
     ):
-
         # TODO - can we find exact type of min and max value
         def get_min_max(kwargs, type=AssertionStdParameterType.UNKNOWN):
             return AssertionStdParameters(
@@ -599,6 +595,7 @@ class DataHubValidationAction(ValidationAction):
                     ),
                     self.exclude_dbname,
                     self.platform_alias,
+                    self.convert_urns_to_lowercase,
                 )
                 batchSpec = BatchSpec(
                     nativeBatchId=batch_identifier,
@@ -667,6 +664,7 @@ class DataHubValidationAction(ValidationAction):
                         ),
                         self.exclude_dbname,
                         self.platform_alias,
+                        self.convert_urns_to_lowercase,
                     )
                     dataset_partitions.append(
                         {
@@ -709,8 +707,8 @@ def make_dataset_urn_from_sqlalchemy_uri(
     platform_instance=None,
     exclude_dbname=None,
     platform_alias=None,
+    convert_urns_to_lowercase=False,
 ):
-
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
     url_instance = make_url(sqlalchemy_uri)
 
@@ -751,12 +749,14 @@ def make_dataset_urn_from_sqlalchemy_uri(
             return None
         # If data platform is snowflake, we artificially lowercase the Database name.
         # This is because DataHub also does this during ingestion.
-        # Ref: https://github.com/datahub-project/datahub/blob/master/metadata-ingestion%2Fsrc%2Fdatahub%2Fingestion%2Fsource%2Fsql%2Fsnowflake.py#L272
+        # Ref: https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/snowflake/snowflake_utils.py#L155
         database_name = (
             url_instance.database.lower()
             if data_platform == "snowflake"
             else url_instance.database
         )
+        if database_name.endswith(f"/{schema_name}"):
+            database_name = database_name[: -len(f"/{schema_name}")]
         schema_name = (
             schema_name
             if exclude_dbname
@@ -781,6 +781,9 @@ def make_dataset_urn_from_sqlalchemy_uri(
         return None
 
     dataset_name = f"{schema_name}.{table_name}"
+
+    if convert_urns_to_lowercase:
+        dataset_name = dataset_name.lower()
 
     dataset_urn = builder.make_dataset_urn_with_platform_instance(
         platform=data_platform if platform_alias is None else platform_alias,

@@ -7,7 +7,6 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
 )
@@ -34,10 +33,7 @@ terms_aspect = GlossaryTermsClass(
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=dataset_urn,
-    aspectName="glossaryTerms",
     aspect=terms_aspect,
 )
 rest_emitter.emit(event)

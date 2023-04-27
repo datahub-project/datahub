@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -65,7 +67,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
         proposal.setEntityType(Constants.DOMAIN_ENTITY_NAME);
         proposal.setAspectName(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input)));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input, context)));
         proposal.setChangeType(ChangeType.UPSERT);
 
         String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
@@ -78,10 +80,11 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
     });
   }
 
-  private DomainProperties mapDomainProperties(final CreateDomainInput input) {
+  private DomainProperties mapDomainProperties(final CreateDomainInput input, final QueryContext context) {
     final DomainProperties result = new DomainProperties();
     result.setName(input.getName());
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
+    result.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
     return result;
   }
 }

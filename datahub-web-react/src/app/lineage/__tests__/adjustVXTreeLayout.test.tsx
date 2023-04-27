@@ -45,6 +45,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -94,6 +95,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -148,6 +150,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -191,6 +194,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -234,6 +238,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 

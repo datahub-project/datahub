@@ -30,8 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang.ArrayUtils;
 
-import static com.datahub.authentication.token.TokenClaims.*;
-
 
 /**
  * Service responsible for generating JWT tokens & managing the associated metadata entities in GMS for use within
@@ -92,10 +90,10 @@ public class StatefulTokenService extends StatelessTokenService {
 
     Map<String, Object> claims = new HashMap<>();
     // Only stateful token service generates v2 tokens.
-    claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.TWO.numericValue));
-    claims.put(TOKEN_TYPE_CLAIM_NAME, type.toString());
-    claims.put(ACTOR_TYPE_CLAIM_NAME, actor.getType());
-    claims.put(ACTOR_ID_CLAIM_NAME, actor.getId());
+    claims.put(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.TWO.numericValue));
+    claims.put(TokenClaims.TOKEN_TYPE_CLAIM_NAME, type.toString());
+    claims.put(TokenClaims.ACTOR_TYPE_CLAIM_NAME, actor.getType());
+    claims.put(TokenClaims.ACTOR_ID_CLAIM_NAME, actor.getId());
     final String accessToken = super.generateAccessToken(actor.getId(), claims, expiresInMs);
     final String tokenHash = this.hash(accessToken);
 

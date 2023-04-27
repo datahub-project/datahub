@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { Button, Dropdown, Menu } from 'antd';
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { EntityType, OrFilter, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
-import { SearchResultsInterface } from './types';
+import {
+    EntityType,
+    AndFilterInput,
+    ScrollAcrossEntitiesInput,
+    ScrollResults,
+} from '../../../../../../types.generated';
 import DownloadAsCsvButton from './DownloadAsCsvButton';
 import DownloadAsCsvModal from './DownloadAsCsvModal';
 
@@ -24,11 +28,12 @@ const MenuItem = styled(Menu.Item)`
 
 type Props = {
     callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
-    }) => Promise<SearchResultsInterface | null | undefined>;
+        input: ScrollAcrossEntitiesInput;
+    }) => Promise<ScrollResults | null | undefined>;
     entityFilters: EntityType[];
-    filters: OrFilter[];
+    filters: AndFilterInput[];
     query: string;
+    viewUrn?: string;
     setShowSelectMode?: (showSelectMode: boolean) => any;
 };
 
@@ -38,6 +43,7 @@ export default function SearchExtendedMenu({
     entityFilters,
     filters,
     query,
+    viewUrn,
     setShowSelectMode,
 }: Props) {
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
@@ -69,6 +75,7 @@ export default function SearchExtendedMenu({
                 entityFilters={entityFilters}
                 filters={filters}
                 query={query}
+                viewUrn={viewUrn}
                 setIsDownloadingCsv={setIsDownloadingCsv}
                 showDownloadAsCsvModal={showDownloadAsCsvModal}
                 setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}

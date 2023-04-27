@@ -18,10 +18,12 @@ dependencies {
   }
   compile externalDependency.springKafka
   compile externalDependency.springActuator
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   runtime externalDependency.logbackClassic
   testCompile externalDependency.mockito
+  testRuntime externalDependency.logbackClassic
 }
 
 task avroSchemaSources(type: Copy) {

@@ -56,7 +56,10 @@ from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,
 )
-from datahub.ingestion.transformer.dataset_domain import SimpleAddDatasetDomain
+from datahub.ingestion.transformer.dataset_domain import (
+    PatternAddDatasetDomain,
+    SimpleAddDatasetDomain,
+)
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
@@ -64,7 +67,6 @@ from datahub.ingestion.transformer.remove_dataset_ownership import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
@@ -78,8 +80,11 @@ from datahub.utilities.urns.urn import Urn
 
 def make_generic_dataset(
     entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-    aspects: List[Any] = [models.StatusClass(removed=False)],
+    aspects: Optional[List[Any]] = None,
 ) -> models.MetadataChangeEventClass:
+    if aspects is None:
+        # Default to a status aspect if none is provided.
+        aspects = [models.StatusClass(removed=False)]
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn=entity_urn,
@@ -845,7 +850,7 @@ def test_ownership_patching_intersect(mock_time):
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = server_ownership
 
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -858,7 +863,7 @@ def test_ownership_patching_with_nones(mock_time):
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = None
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -867,7 +872,7 @@ def test_ownership_patching_with_nones(mock_time):
 
     server_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", None
     )
     assert not test_ownership
@@ -877,7 +882,7 @@ def test_ownership_patching_with_empty_mce_none_server(mock_time):
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = None
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     # nothing to add, so we omit writing
@@ -889,7 +894,7 @@ def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
     server_ownership = gen_owners(["baz", "foo"])
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     # nothing to add, so we omit writing
@@ -901,7 +906,7 @@ def test_ownership_patching_with_different_types_1(mock_time):
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -919,7 +924,7 @@ def test_ownership_patching_with_different_types_2(mock_time):
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo", "baz"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -1163,7 +1168,6 @@ def test_pattern_dataset_terms_transformation(mock_time):
 
 
 def test_mcp_add_tags_missing(mock_time):
-
     dataset_mcp = make_generic_dataset_mcp()
 
     transformer = SimpleAddDatasetTags.create(
@@ -1223,7 +1227,6 @@ def test_mcp_add_tags_existing(mock_time):
 
 
 def test_mcp_multiple_transformers(mock_time, tmp_path):
-
     events_file = f"{tmp_path}/multi_transformer_test.json"
 
     pipeline = Pipeline.create(
@@ -1303,8 +1306,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
         Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
     ] = [
         MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=str(
                 DatasetUrn.create_from_ids(
                     platform_id="elasticsearch",
@@ -1312,7 +1313,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                     env="PROD",
                 )
             ),
-            aspectName="globalTags",
             aspect=GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:Test")]),
         )
         for i in range(0, 10)
@@ -1320,8 +1320,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
     mcps.extend(
         [
             MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=str(
                     DatasetUrn.create_from_ids(
                         platform_id="elasticsearch",
@@ -1329,7 +1327,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                         env="PROD",
                     )
                 ),
-                aspectName="datasetProperties",
                 aspect=DatasetPropertiesClass(description="test dataset"),
             )
             for i in range(0, 10)
@@ -1388,20 +1385,23 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
 
     # check on browsePaths aspect
     for i in range(0, 10):
-        tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
-            entity_urn=str(
-                DatasetUrn.create_from_ids(
-                    platform_id="elasticsearch",
-                    table_name=f"fooBarIndex{i}",
-                    env="PROD",
-                )
-            ),
-            aspect_name="browsePaths",
-            aspect_field_matcher={
-                "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
-            },
-            file=events_file,
-        ) == 1
+        assert (
+            tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
+                entity_urn=str(
+                    DatasetUrn.create_from_ids(
+                        platform_id="elasticsearch",
+                        table_name=f"fooBarIndex{i}",
+                        env="PROD",
+                    )
+                ),
+                aspect_name="browsePaths",
+                aspect_field_matcher={
+                    "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
+                },
+                file=events_file,
+            )
+            == 1
+        )
 
 
 class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):
@@ -1641,7 +1641,6 @@ def run_dataset_transformer_pipeline(
     pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
     use_mce: bool = False,
 ) -> List[RecordEnvelope]:
-
     transformer: DatasetTransformer = cast(
         DatasetTransformer, transformer_type.create(config, pipeline_context)
     )
@@ -1666,6 +1665,16 @@ def run_dataset_transformer_pipeline(
         )
     )
     return outputs
+
+
+def test_simple_add_dataset_domain_aspect_name(mock_datahub_graph):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    transformer = SimpleAddDatasetDomain.create({"domains": []}, pipeline_context)
+    assert transformer.aspect_name() == models.DomainsClass.ASPECT_NAME
 
 
 def test_simple_add_dataset_domain(mock_datahub_graph):
@@ -1832,8 +1841,222 @@ def test_simple_add_dataset_domain_semantics_patch(
     assert server_domain in transformed_aspect.domains
 
 
-def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph):
+def test_pattern_add_dataset_domain_aspect_name(mock_datahub_graph):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
 
+    transformer = PatternAddDatasetDomain.create(
+        {"domain_pattern": {"rules": {}}}, pipeline_context
+    )
+    assert transformer.aspect_name() == models.DomainsClass.ASPECT_NAME
+
+
+def test_pattern_add_dataset_domain_match(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "domain_pattern": {"rules": {pattern: [acryl_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 2
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+
+
+def test_pattern_add_dataset_domain_no_match(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    pattern = "urn:li:dataset:\\(urn:li:dataPlatform:invalid,.*"
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "domain_pattern": {"rules": {pattern: [acryl_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain not in transformed_aspect.domains
+
+
+def test_pattern_add_dataset_domain_replace_existing_match(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "replace_existing": True,
+            "domain_pattern": {"rules": {pattern: [acryl_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert gslab_domain not in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+
+
+def test_pattern_add_dataset_domain_replace_existing_no_match(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    pattern = "urn:li:dataset:\\(urn:li:dataPlatform:invalid,.*"
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "replace_existing": True,
+            "domain_pattern": {"rules": {pattern: [acryl_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 0
+
+
+def test_pattern_add_dataset_domain_semantics_overwrite(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    server_domain = builder.make_domain_urn("test.io")
+    pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[server_domain])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "semantics": TransformerSemantics.OVERWRITE,
+            "domain_pattern": {"rules": {pattern: [acryl_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 2
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain not in transformed_aspect.domains
+
+
+def test_pattern_add_dataset_domain_semantics_patch(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    server_domain = builder.make_domain_urn("test.io")
+    pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[server_domain])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "replace_existing": False,
+            "semantics": TransformerSemantics.PATCH,
+            "domain_pattern": {"rules": {pattern: [acryl_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 3
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain in transformed_aspect.domains
+
+
+def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph):
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
 
@@ -1922,7 +2145,7 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                                 urn=builder.make_term_urn("pii")
                             )
                         ],
-                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
                     nativeDataType="VARCHAR(100)",
@@ -1936,7 +2159,7 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                                 urn=builder.make_term_urn("pii")
                             )
                         ],
-                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
                     nativeDataType="VARCHAR(100)",

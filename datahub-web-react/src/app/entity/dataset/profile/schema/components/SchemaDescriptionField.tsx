@@ -7,10 +7,10 @@ import { FetchResult } from '@apollo/client';
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
-import MarkdownViewer from '../../../../shared/components/legacy/MarkdownViewer';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
 import { useEntityData } from '../../../../shared/EntityContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
+import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -56,12 +56,6 @@ const DescriptionContainer = styled.div`
         }
     }
 `;
-
-const DescriptionText = styled(MarkdownViewer)`
-    padding-right: 8px;
-    display: block;
-`;
-
 const EditedLabel = styled(Typography.Text)`
     position: absolute;
     right: -10px;
@@ -72,6 +66,15 @@ const EditedLabel = styled(Typography.Text)`
 
 const ReadLessText = styled(Typography.Link)`
     margin-right: 4px;
+`;
+
+const StyledViewer = styled(Editor)`
+    padding-right: 8px;
+    display: block;
+
+    .remirror-editor.ProseMirror {
+        padding: 0;
+    }
 `;
 
 type Props = {
@@ -128,7 +131,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
         <DescriptionContainer>
             {expanded ? (
                 <>
-                    {!!description && <DescriptionText source={description} />}
+                    {!!description && <StyledViewer content={description} readOnly />}
                     {!!description && (
                         <ExpandedActions>
                             {overLimit && (
@@ -160,6 +163,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                             </>
                         }
                         suffix={EditButton}
+                        shouldWrap
                     >
                         {description}
                     </StripMarkdownText>

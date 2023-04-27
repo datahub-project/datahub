@@ -73,10 +73,8 @@ def test_presto_on_hive_ingest(
     include_catalog_name_in_ids,
     test_suffix,
 ):
-
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
-
         # Run the metadata ingestion pipeline for presto catalog referring to postgres database
         mce_out_file = f"presto_on_hive_mces{test_suffix}.json"
         events_file = tmp_path / mce_out_file

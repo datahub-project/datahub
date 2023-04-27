@@ -3,6 +3,8 @@ package client;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -79,7 +81,7 @@ public class AuthServiceClient {
       final ObjectNode objectNode = objectMapper.createObjectNode();
       objectNode.put(USER_ID_FIELD, userId);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -138,7 +140,7 @@ public class AuthServiceClient {
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(INVITE_TOKEN_FIELD, inviteToken);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -150,9 +152,11 @@ public class AuthServiceClient {
         final String jsonStr = EntityUtils.toString(entity);
         return getIsNativeUserCreatedFromJson(jsonStr);
       } else {
+        String content = response.getEntity().getContent() == null ? "" : new String(
+                response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
         throw new RuntimeException(
-            String.format("Bad response from the Metadata Service: %s %s", response.getStatusLine().toString(),
-                response.getEntity().toString()));
+            String.format("Bad response from the Metadata Service: %s %s Body: %s", response.getStatusLine().toString(),
+                response.getEntity().toString(), content));
       }
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to create user %s", userUrn), e);
@@ -191,7 +195,7 @@ public class AuthServiceClient {
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(RESET_TOKEN_FIELD, resetToken);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -241,7 +245,7 @@ public class AuthServiceClient {
       objectNode.put(USER_URN_FIELD, userUrn);
       objectNode.put(PASSWORD_FIELD, password);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -284,7 +288,7 @@ public class AuthServiceClient {
               TRACK_ENDPOINT));
 
       // Build JSON request to track event.
-      request.setEntity(new StringEntity(event));
+      request.setEntity(new StringEntity(event, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());

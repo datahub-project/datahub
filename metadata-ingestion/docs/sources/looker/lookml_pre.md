@@ -1,4 +1,4 @@
-### Pre-requisites
+### Prerequisites
 
 #### [Recommended] Create a GitHub Deploy Key
 
@@ -69,15 +69,14 @@ You need to set up the following secrets in your GitHub repository to get this w
 - LOOKER_CLIENT_ID: A provisioned Looker Client ID
 - LOOKER_CLIENT_SECRET: A provisioned Looker Client Secret
 
-```
+```yml
 name: lookml metadata upload
 on:
+  # Note that this action only runs on pushes to your main branch. If you want to also
+  # run on pull requests, we'd recommend running datahub ingest with the `--dry-run` flag.
   push:
     branches:
       - main
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
   release:
     types: [published, edited]
   workflow_dispatch:
@@ -90,7 +89,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - name: Run LookML ingestion
         run: |
           pip install 'acryl-datahub[lookml,datahub-rest]'

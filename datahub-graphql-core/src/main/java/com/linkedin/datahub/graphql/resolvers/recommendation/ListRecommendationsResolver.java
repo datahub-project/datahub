@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
-import com.linkedin.datahub.graphql.generated.Filter;
+import com.linkedin.datahub.graphql.generated.FacetFilter;
 import com.linkedin.datahub.graphql.generated.ListRecommendationsInput;
 import com.linkedin.datahub.graphql.generated.ListRecommendationsResult;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
@@ -148,7 +148,7 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
         searchParams.setFilters(params.getSearchParams()
             .getFilters()
             .stream()
-            .map(criterion -> Filter.builder().setField(criterion.getField()).setValues(
+            .map(criterion -> FacetFilter.builder().setField(criterion.getField()).setValues(
                 ImmutableList.of(criterion.getValue())).build())
             .collect(Collectors.toList()));
       }

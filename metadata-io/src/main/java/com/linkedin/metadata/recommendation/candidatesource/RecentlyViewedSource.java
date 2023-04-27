@@ -2,8 +2,10 @@ package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
@@ -21,6 +23,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +45,20 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 @Slf4j
 @RequiredArgsConstructor
 public class RecentlyViewedSource implements RecommendationSource {
+  /**
+   * Entity Types that should be in scope for this type of recommendation.
+   */
+  private static final Set<String> SUPPORTED_ENTITY_TYPES = ImmutableSet.of(Constants.DATASET_ENTITY_NAME,
+      Constants.DATA_FLOW_ENTITY_NAME,
+      Constants.DATA_JOB_ENTITY_NAME,
+      Constants.CONTAINER_ENTITY_NAME,
+      Constants.DASHBOARD_ENTITY_NAME,
+      Constants.CHART_ENTITY_NAME,
+      Constants.ML_MODEL_ENTITY_NAME,
+      Constants.ML_FEATURE_ENTITY_NAME,
+      Constants.ML_MODEL_GROUP_ENTITY_NAME,
+      Constants.ML_FEATURE_TABLE_ENTITY_NAME
+  );
   private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
   private final EntityService _entityService;
@@ -99,12 +116,13 @@ public class RecentlyViewedSource implements RecommendationSource {
   }
 
   private SearchRequest buildSearchRequest(@Nonnull Urn userUrn) {
+    // TODO: Proactively filter for entity types in the supported set.
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
     query.must(
-        QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN + ESUtils.KEYWORD_SUFFIX, userUrn.toString()));
+        QueryBuilders.termQuery(ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, true), userUrn.toString()));
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);
@@ -112,7 +130,7 @@ public class RecentlyViewedSource implements RecommendationSource {
     // Find the entity with the largest last viewed timestamp
     String lastViewed = "last_viewed";
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.ENTITY_URN + ESUtils.KEYWORD_SUFFIX)
+        .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, false))
         .size(MAX_CONTENT)
         .order(BucketOrder.aggregation(lastViewed, false))
         .subAggregation(AggregationBuilders.max(lastViewed).field(DataHubUsageEventConstants.TIMESTAMP));
@@ -126,7 +144,7 @@ public class RecentlyViewedSource implements RecommendationSource {
 
   private Optional<RecommendationContent> buildContent(@Nonnull String entityUrn) {
     Urn entity = UrnUtils.getUrn(entityUrn);
-    if (EntityUtils.checkIfRemoved(_entityService, entity)) {
+    if (EntityUtils.checkIfRemoved(_entityService, entity) || !RecommendationUtils.isSupportedEntityType(entity, SUPPORTED_ENTITY_TYPES)) {
       return Optional.empty();
     }
 

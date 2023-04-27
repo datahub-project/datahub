@@ -1,28 +1,26 @@
 import dataclasses
-import datetime
 import logging
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
-from datahub.ingestion.api.common import WorkUnit
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    BigqueryColumn,
+    RANGE_PARTITION_NAME,
     BigqueryTable,
 )
-from datahub.ingestion.source.ge_data_profiler import (
-    DatahubGEProfiler,
-    GEProfilerRequest,
+from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+from datahub.ingestion.source.sql.sql_generic_profiler import (
+    GenericProfiler,
+    TableProfilerRequest,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
-from datahub.metadata.schema_classes import DatasetProfileClass
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
 
@@ -33,16 +31,24 @@ class BigqueryProfilerRequest(GEProfilerRequest):
     profile_table_level_only: bool = False
 
 
-class BigqueryProfiler:
-    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report) -> None:
+class BigqueryProfiler(GenericProfiler):
+    config: BigQueryV2Config
+    report: BigQueryV2Report
+
+    def __init__(
+        self,
+        config: BigQueryV2Config,
+        report: BigQueryV2Report,
+        state_handler: Optional[ProfilingHandler] = None,
+    ) -> None:
+        super().__init__(config, report, "bigquery", state_handler)
         self.config = config
         self.report = report
-        self.platform = "bigquery"
 
     @staticmethod
     def get_partition_range_from_partition_id(
-        partition_id: str, partition_datetime: Optional[datetime.datetime]
-    ) -> Tuple[datetime.datetime, datetime.datetime]:
+        partition_id: str, partition_datetime: Optional[datetime]
+    ) -> Tuple[datetime, datetime]:
         partition_range_map: Dict[int, Tuple[relativedelta, str]] = {
             4: (relativedelta(years=1), "%Y"),
             6: (relativedelta(months=1), "%Y%m"),
@@ -55,7 +61,12 @@ class BigqueryProfiler:
             (delta, format) = partition_range_map[len(partition_id)]
             duration = delta
             if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(partition_id, format)
+                partition_datetime = datetime.strptime(partition_id, format)
+            else:
+                partition_datetime = datetime.strptime(
+                    partition_datetime.strftime(format), format
+                )
+
         else:
             raise ValueError(
                 f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
@@ -68,7 +79,7 @@ class BigqueryProfiler:
         project: str,
         schema: str,
         table: BigqueryTable,
-        partition_datetime: Optional[datetime.datetime],
+        partition_datetime: Optional[datetime] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
@@ -79,17 +90,14 @@ class BigqueryProfiler:
             f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, partition_datetime: {partition_datetime}"
         )
         partition = table.max_partition_id
-        if partition:
+        if table.partition_info and partition:
             partition_where_clause: str
 
-            if not table.time_partitioning:
-                partition_column: Optional[BigqueryColumn] = None
-                for column in table.columns:
-                    if column.is_partition_column:
-                        partition_column = column
-                        break
-                if partition_column:
-                    partition_where_clause = f"{partition_column.name} >= {partition}"
+            if table.partition_info.type == RANGE_PARTITION_NAME:
+                if table.partition_info and table.partition_info.column:
+                    partition_where_clause = (
+                        f"{table.partition_info.column.name} >= {partition}"
+                    )
                 else:
                     logger.warning(
                         f"Partitioned table {table.name} without partiton column"
@@ -115,21 +123,19 @@ class BigqueryProfiler:
                     ] = partition
                     return None, None
 
-                if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = "{column_name} BETWEEN DATE('{partition_id}') AND DATE('{upper_bound_partition_id}')".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                    )
-                elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                    )
+                partition_data_type: str = "TIMESTAMP"
+                # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
+                # See more about this at
+                # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
+                partition_column_name = "_PARTITIONTIME"
+                if table.partition_info.column:
+                    partition_column_name = table.partition_info.column.name
+                    partition_data_type = table.partition_info.column.data_type
+                if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"{partition_data_type}(`{partition_column_name}`) BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
-                        f"Not supported partition type {table.time_partitioning.type_}"
+                        f"Not supported partition type {table.partition_info.type}"
                     )
                     return None, None
             custom_sql = """
@@ -154,56 +160,77 @@ WHERE
         return None, None
 
     def get_workunits(
-        self, tables: Dict[str, Dict[str, List[BigqueryTable]]]
-    ) -> Iterable[WorkUnit]:
-
+        self, project_id: str, tables: Dict[str, List[BigqueryTable]]
+    ) -> Iterable[MetadataWorkUnit]:
         # Otherwise, if column level profiling is enabled, use  GE profiler.
-        for project in tables.keys():
-            if not self.config.project_id_pattern.allowed(project):
+        if not self.config.project_id_pattern.allowed(project_id):
+            return
+        profile_requests = []
+
+        for dataset in tables:
+            if not self.config.schema_pattern.allowed(dataset):
                 continue
-            profile_requests = []
 
-            for dataset in tables[project]:
-                if not self.config.schema_pattern.allowed(dataset):
-                    continue
-
-                for table in tables[project][dataset]:
-                    # Emit the profile work unit
-                    profile_request = self.get_bigquery_profile_request(
-                        project=project, dataset=dataset, table=table
+            for table in tables[dataset]:
+                normalized_table_name = BigqueryTableIdentifier(
+                    project_id=project_id, dataset=dataset, table=table.name
+                ).get_table_name()
+                for column in table.columns_ignore_from_profiling:
+                    # Profiler has issues with complex types (array, struct, geography, json), so we deny those types from profiling
+                    # We also filter columns without data type as it means that column is part of a complex type.
+                    self.config.profile_pattern.deny.append(
+                        f"^{normalized_table_name}.{column}$"
                     )
-                    if profile_request is not None:
-                        profile_requests.append(profile_request)
 
-            if len(profile_requests) == 0:
+                # Emit the profile work unit
+                profile_request = self.get_bigquery_profile_request(
+                    project=project_id, dataset=dataset, table=table
+                )
+                if profile_request is not None:
+                    profile_requests.append(profile_request)
+
+        if len(profile_requests) == 0:
+            return
+        yield from self.generate_wu_from_profile_requests(profile_requests)
+
+    def generate_wu_from_profile_requests(
+        self, profile_requests: List[BigqueryProfilerRequest]
+    ) -> Iterable[MetadataWorkUnit]:
+        table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
+        for request, profile in self.generate_profiles(
+            table_profile_requests,
+            self.config.profiling.max_workers,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        ):
+            if request is None or profile is None:
                 continue
 
-            for request, profile in self.generate_profiles(
-                profile_requests,
-                self.config.profiling.max_workers,
-                platform=self.platform,
-                profiler_args=self.get_profile_args(),
-            ):
-                if request is None or profile is None:
-                    continue
+            request = cast(BigqueryProfilerRequest, request)
+            profile.sizeInBytes = request.table.size_in_bytes
+            # If table is partitioned we profile only one partition (if nothing set then the last one)
+            # but for table level we can use the rows_count from the table metadata
+            # This way even though column statistics only reflects one partition data but the rows count
+            # shows the proper count.
+            if profile.partitionSpec and profile.partitionSpec.partition:
+                profile.rowCount = request.table.rows_count
 
-                request = cast(BigqueryProfilerRequest, request)
-                profile.sizeInBytes = request.table.size_in_bytes
-                dataset_name = request.pretty_name
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
+            dataset_name = request.pretty_name
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            # We don't add to the profiler state if we only do table level profiling as it always happens
+            if self.state_handler and not request.profile_table_level_only:
+                self.state_handler.add_to_state(
+                    dataset_urn, int(datetime.now().timestamp() * 1000)
                 )
-                wu = wrap_aspect_as_workunit(
-                    "dataset",
-                    dataset_urn,
-                    "datasetProfile",
-                    profile,
-                )
-                self.report.report_workunit(wu)
-                yield wu
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=profile
+            ).as_workunit()
 
     def get_bigquery_profile_request(
         self, project: str, dataset: str, table: BigqueryTable
@@ -216,16 +243,10 @@ WHERE
         if not self.is_dataset_eligible_for_profiling(
             dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
         ):
-            # Profile only table level if dataset is filtered from profiling
-            # due to size limits alone
-            if self.is_dataset_eligible_for_profiling(
-                dataset_name, table.last_altered, 0, 0
-            ):
-                profile_table_level_only = True
-            else:
-                skip_profiling = True
+            profile_table_level_only = True
+            self.report.num_tables_not_eligible_profiling[f"{project}.{dataset}"] += 1
 
-        if not table.columns:
+        if not table.column_count:
             skip_profiling = True
 
         if skip_profiling:
@@ -236,7 +257,7 @@ WHERE
             project, dataset, table, self.config.profiling.partition_datetime
         )
 
-        if partition is None and table.time_partitioning:
+        if partition is None and table.partition_info:
             self.report.report_warning(
                 "profile skipped as partitioned table is empty or partition id was invalid",
                 dataset_name,
@@ -257,113 +278,12 @@ WHERE
         profile_request = BigqueryProfilerRequest(
             pretty_name=dataset_name,
             batch_kwargs=dict(
-                schema=project, table=f"{dataset}.{table.name}", custom_sql=custom_sql
+                schema=project,
+                table=f"{dataset}.{table.name}",
+                custom_sql=custom_sql,
+                partition=partition,
             ),
             table=table,
             profile_table_level_only=profile_table_level_only,
         )
         return profile_request
-
-    def is_dataset_eligible_for_profiling(
-        self,
-        dataset_name: str,
-        last_altered: Optional[datetime.datetime],
-        size_in_bytes: Optional[int],
-        rows_count: Optional[int],
-    ) -> bool:
-        threshold_time: Optional[datetime.datetime] = None
-        if self.config.profiling.profile_if_updated_since_days is not None:
-            threshold_time = datetime.datetime.now(
-                datetime.timezone.utc
-            ) - datetime.timedelta(self.config.profiling.profile_if_updated_since_days)
-
-        return (
-            (
-                self.config.table_pattern.allowed(dataset_name)
-                and self.config.profile_pattern.allowed(dataset_name)
-            )
-            and (
-                (threshold_time is None)
-                or (last_altered is not None and last_altered >= threshold_time)
-            )
-            and (
-                self.config.profiling.profile_table_size_limit is None
-                or (
-                    size_in_bytes is not None
-                    and size_in_bytes / (2**30)
-                    <= self.config.profiling.profile_table_size_limit
-                )  # Note: Profiling is not allowed is size_in_bytes is not available
-            )
-            and (
-                self.config.profiling.profile_table_row_limit is None
-                or (
-                    rows_count is not None
-                    and rows_count <= self.config.profiling.profile_table_row_limit
-                )  # Note: Profiling is not allowed is rows_count is not available
-            )
-        )
-
-    def get_inspectors(self) -> Iterable[Inspector]:
-        # This method can be overridden in the case that you want to dynamically
-        # run on multiple databases.
-
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            inspector = inspect(conn)
-            yield inspector
-
-    def get_profiler_instance(self) -> "DatahubGEProfiler":
-        logger.debug("Getting profiler instance from bigquery")
-        url = self.config.get_sql_alchemy_url()
-
-        logger.debug(f"sql_alchemy_url={url}")
-
-        engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            inspector = inspect(conn)
-
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-        )
-
-    def get_profile_args(self) -> Dict:
-        """Passed down to GE profiler"""
-        return {}
-
-    def generate_profiles(
-        self,
-        requests: List[BigqueryProfilerRequest],
-        max_workers: int,
-        platform: Optional[str] = None,
-        profiler_args: Optional[Dict] = None,
-    ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-
-        ge_profile_requests: List[GEProfilerRequest] = [
-            cast(GEProfilerRequest, request)
-            for request in requests
-            if not request.profile_table_level_only
-        ]
-        table_level_profile_requests: List[BigqueryProfilerRequest] = [
-            request for request in requests if request.profile_table_level_only
-        ]
-        for request in table_level_profile_requests:
-            profile = DatasetProfile(
-                timestampMillis=int(datetime.datetime.now().timestamp() * 1000),
-                columnCount=len(request.table.columns),
-                rowCount=request.table.rows_count,
-                sizeInBytes=request.table.size_in_bytes,
-            )
-            yield (request, profile)
-
-        if not ge_profile_requests:
-            return
-
-        ge_profiler = self.get_profiler_instance()
-        yield from ge_profiler.generate_profiles(
-            ge_profile_requests, max_workers, platform, profiler_args
-        )

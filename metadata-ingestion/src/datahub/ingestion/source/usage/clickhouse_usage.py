@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -68,9 +68,7 @@ class ClickHouseJoinedAccessEvent(BaseModel):
     endtime: datetime
 
 
-class ClickHouseUsageConfig(
-    ClickHouseConfig, BaseUsageConfig, EnvBasedSourceConfigBase
-):
+class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     email_domain: str = Field(description="")
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
@@ -192,7 +190,6 @@ class ClickHouseUsageSource(Source):
     def _get_joined_access_event(self, events):
         joined_access_events = []
         for event_dict in events:
-
             event_dict["starttime"] = self._convert_str_to_datetime(
                 event_dict.get("starttime")
             )
@@ -257,6 +254,3 @@ class ClickHouseUsageSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass

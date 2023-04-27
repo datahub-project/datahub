@@ -5,9 +5,9 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
+import { Direction, VizNode, EntitySelectParams, EntityAndType, UpdatedLineages } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
@@ -15,6 +15,8 @@ import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width } from './constants';
 import LineageEntityColumns from './LineageEntityColumns';
 import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
+import ManageLineageMenu from './manage/ManageLineageMenu';
+import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -45,6 +47,7 @@ export default function LineageEntityNode({
     onExpandClick,
     isCenterNode,
     nodesToRenderByUrn,
+    setUpdatedLineages,
 }: {
     node: VizNode;
     isSelected: boolean;
@@ -56,24 +59,48 @@ export default function LineageEntityNode({
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (data: EntityAndType) => void;
     nodesToRenderByUrn: Record<string, VizNode>;
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 }) {
     const { direction } = node;
-    const { expandTitles, collapsedColumnsNodes, showColumns } = useContext(LineageExplorerContext);
+    const { expandTitles, collapsedColumnsNodes, showColumns, refetchCenterNode } = useContext(LineageExplorerContext);
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    const [hasExpanded, setHasExpanded] = useState(false);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
-    const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
+    const [getAsyncEntityLineage, { data: asyncLineageData, loading }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
 
+    function fetchEntityLineage() {
+        if (node.data.urn) {
+            if (isCenterNode) {
+                refetchCenterNode();
+            } else {
+                // update non-center node using onExpandClick in useEffect below
+                getAsyncEntityLineage({
+                    variables: {
+                        urn: node.data.urn,
+                        separateSiblings: isHideSiblingMode,
+                        showColumns,
+                        startTimeMillis,
+                        endTimeMillis,
+                    },
+                });
+                setTimeout(() => setHasExpanded(false), 0);
+            }
+        }
+    }
+
     useEffect(() => {
-        if (asyncLineageData && asyncLineageData.entity) {
+        if (asyncLineageData && asyncLineageData.entity && !hasExpanded && !loading) {
             const entityAndType = {
                 type: asyncLineageData.entity.type,
                 entity: { ...asyncLineageData.entity },
             } as EntityAndType;
             onExpandClick(entityAndType);
+            setHasExpanded(true);
         }
-    }, [asyncLineageData, onExpandClick]);
+    }, [asyncLineageData, onExpandClick, hasExpanded, loading]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -90,12 +117,11 @@ export default function LineageEntityNode({
         [],
     );
 
-    let platformDisplayText = capitalizeFirstLetter(
-        node.data.platform?.properties?.displayName || node.data.platform?.name,
-    );
+    let platformDisplayText =
+        node.data.platform?.properties?.displayName || capitalizeFirstLetterOnly(node.data.platform?.name);
     if (node.data.siblingPlatforms && !isHideSiblingMode) {
         platformDisplayText = node.data.siblingPlatforms
-            .map((platform) => platform.properties?.displayName || platform.name)
+            .map((platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name))
             .join(' & ');
     }
 
@@ -142,7 +168,13 @@ export default function LineageEntityNode({
                             if (node.data.urn && node.data.type) {
                                 // getAsyncEntity(node.data.urn, node.data.type);
                                 getAsyncEntityLineage({
-                                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode, showColumns },
+                                    variables: {
+                                        urn: node.data.urn,
+                                        separateSiblings: isHideSiblingMode,
+                                        showColumns,
+                                        startTimeMillis,
+                                        endTimeMillis,
+                                    },
                                 });
                             }
                         }}
@@ -269,6 +301,25 @@ export default function LineageEntityNode({
                         {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
                     </svg>
                 )}
+                <foreignObject
+                    x={-centerX - 25}
+                    y={centerY + 20}
+                    width={20}
+                    height={20}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <ManageLineageMenu
+                        entityUrn={node.data.urn || ''}
+                        refetchEntity={fetchEntityLineage}
+                        setUpdatedLineages={setUpdatedLineages}
+                        disableUpstream={!isCenterNode && direction === Direction.Downstream}
+                        disableDownstream={!isCenterNode && direction === Direction.Upstream}
+                        centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                        entityType={node.data.type}
+                        entityPlatform={node.data.platform?.name}
+                        canEditLineage={node.data.canEditLineage}
+                    />
+                </foreignObject>
                 <Group>
                     <UnselectableText
                         dy="-1em"
@@ -285,9 +336,8 @@ export default function LineageEntityNode({
                             |{' '}
                         </tspan>
                         <tspan dx=".25em" dy="-2px">
-                            {capitalizeFirstLetter(
-                                node.data.subtype || (node.data.type && entityRegistry.getEntityName(node.data.type)),
-                            )}
+                            {capitalizeFirstLetterOnly(node.data.subtype) ||
+                                (node.data.type && entityRegistry.getEntityName(node.data.type))}
                         </tspan>
                     </UnselectableText>
                     {expandTitles ? (

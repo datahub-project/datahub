@@ -5,6 +5,8 @@ dependencies {
   compile project(':metadata-io')
   compile project(':metadata-utils')
   compile project(':metadata-service:auth-impl')
+  compile project(':metadata-service:auth-config')
+  compile project(':metadata-service:plugin')
   compile project(':datahub-graphql-core')
   compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
@@ -13,9 +15,11 @@ dependencies {
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
   compile externalDependency.gson
+  compile externalDependency.hazelcast
+  compile externalDependency.hazelcastSpring
   compile externalDependency.kafkaClients
   compile externalDependency.kafkaAvroSerde
-  compile externalDependency.lombok
+  compileOnly externalDependency.lombok
   compile externalDependency.servletApi
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
@@ -24,14 +28,20 @@ dependencies {
   compile externalDependency.springCore
   compile externalDependency.springKafka
   compile externalDependency.springWeb
-  compile project(':metadata-service:auth-ranger-impl')
+
+  implementation externalDependency.awsPostgresIamAuth
+  implementation externalDependency.awsRds
 
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliSpringBridge
+  implementation spec.product.pegasus.restliDocgen
+
+  testImplementation externalDependency.springBootTest
 
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
+  testCompile externalDependency.hazelcastTest
 
 }
 

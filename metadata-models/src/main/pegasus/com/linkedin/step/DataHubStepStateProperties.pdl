@@ -1,0 +1,21 @@
+namespace com.linkedin.step
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * The properties associated with a DataHub step state
+ */
+@Aspect = {
+  "name": "dataHubStepStateProperties"
+}
+record DataHubStepStateProperties {
+  /**
+   * Description of the secret
+   */
+  properties: map[string, string] = { }
+
+  /**
+   * Audit stamp describing the last person to update it.
+   */
+  lastModified: AuditStamp
+}

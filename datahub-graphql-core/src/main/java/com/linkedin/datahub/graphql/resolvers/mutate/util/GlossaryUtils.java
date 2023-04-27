@@ -5,14 +5,15 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.PoliciesConfig.Privilege;
 import com.linkedin.r2.RemoteInvocationException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,7 +40,7 @@ public class GlossaryUtils {
    * They can do this with either the global MANAGE_GLOSSARIES privilege, or if they have the MANAGE_GLOSSARY_CHILDREN privilege
    * on the relevant parent node in the Glossary.
    */
-  public static boolean canManageChildrenEntities(@Nonnull QueryContext context, @Nullable Urn parentNodeUrn) {
+  public static boolean canManageChildrenEntities(@Nonnull QueryContext context, @Nullable Urn parentNodeUrn, @Nonnull EntityClient entityClient) {
     if (canManageGlossaries(context)) {
       return true;
     }
@@ -47,8 +48,27 @@ public class GlossaryUtils {
       return false; // if no parent node, we must rely on the canManageGlossaries method above
     }
 
+    //Check for the MANAGE_GLOSSARY_CHILDREN_PRIVILEGE privilege
+    if (hasManagePrivilege(context, parentNodeUrn, PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_PRIVILEGE)) {
+      return true;
+    }
+
+    //Check for the MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE privilege recursively until there is no parent associated.
+    Urn currentParentNodeUrn = parentNodeUrn;
+    while (currentParentNodeUrn != null) {
+      if (hasManagePrivilege(context, currentParentNodeUrn, PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
+        return true;
+      }
+      currentParentNodeUrn = getParentUrn(currentParentNodeUrn, context, entityClient);
+    }
+
+    return false;
+
+  }
+
+  public static boolean hasManagePrivilege(@Nonnull QueryContext context, @Nullable Urn parentNodeUrn, Privilege privilege) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_PRIVILEGE.getType()))
+        new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()))
     ));
 
     return AuthorizationUtils.isAuthorized(

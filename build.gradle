@@ -1,13 +1,26 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
+  // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.20'
-  ext.springBootVersion = '2.5.12'
+  ext.springVersion = '5.3.27'
+  ext.springBootVersion = '2.7.11'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.0'
   ext.testContainersVersion = '1.17.4'
+  ext.elasticsearchVersion = '7.10.2'
+  // TODO: Change to final release version once it's out ETA Mid-April
+  ext.jacksonVersion = '2.15.0-rc2'
+  ext.jettyVersion = '9.4.46.v20220331'
+  ext.playVersion = '2.8.18'
+  ext.log4jVersion = '2.19.0'
+  ext.slf4jVersion = '1.7.36'
+  ext.logbackClassic = '1.2.12'
+  ext.hadoop3Version = '3.3.5'
+
+  ext.docker_registry = 'linkedin'
+
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
@@ -25,7 +38,12 @@ buildscript {
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
   id 'com.github.johnrengelman.shadow' version '6.1.0'
+  id "com.palantir.docker" version "0.34.0"
+  // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
+  // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
+
+apply from: "gradle/docker/docker.gradle"
 
 project.ext.spec = [
     'product' : [
@@ -44,7 +62,7 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.1.15',
+    'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.2.10',
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
     'antlr4': 'org.antlr:antlr4:4.7.2',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -53,10 +71,13 @@ project.ext.externalDependency = [
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.8',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.0',
+    'awsRds':'software.amazon.awssdk:rds:2.18.24',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
+    'commonsText': 'org.apache.commons:commons-text:1.10.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
@@ -67,37 +88,47 @@ project.ext.externalDependency = [
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
     'ebean': 'io.ebean:ebean:11.33.3',
     'ebeanAgent': 'io.ebean:ebean-agent:11.27.1',
-    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.3',
-    'elasticSearchTransport': 'org.elasticsearch.client:transport:7.9.3',
+    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:' + elasticsearchVersion,
+    'elasticSearchTransport': 'org.elasticsearch.client:transport:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:' + graphQLJavaVersion,
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:' + graphQLJavaVersion,
     'gson': 'com.google.code.gson:gson:2.8.9',
-    'guice': 'com.google.inject:guice:4.2.2',
+    'guice': 'com.google.inject:guice:4.2.3',
     'guava': 'com.google.guava:guava:27.0.1-jre',
-    'h2': 'com.h2database:h2:2.1.210',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.1',
+    'h2': 'com.h2database:h2:2.1.214',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
+    "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
+    "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
+    'hazelcast':'com.hazelcast:hazelcast:5.2.1',
+    'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
+    'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.13.2',
-    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.13.2.2',
-    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.2',
+    'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
+    'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",
+    'jacksonCore': "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
+    'jacksonDataBind': "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
+    'jacksonDataFormatYaml': "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
+    'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
-    'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.46.v20220331',
+    'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
+    'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
+    'jettison': 'org.codehaus.jettison:jettison:1.5.4',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
     'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.4.6',
+    'jsonSmart': 'net.minidev:json-smart:2.4.9',
+    'json': 'org.json:json:20090211',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
@@ -105,7 +136,12 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
-    'logbackClassic': 'ch.qos.logback:logback-classic:1.2.9',
+    'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
+    'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
+    'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
+    'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
+    'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
+    'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
     'lombok': 'org.projectlombok:lombok:1.18.12',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
@@ -120,26 +156,28 @@ project.ext.externalDependency = [
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    'parquet': 'org.apache.parquet:parquet-avro:1.12.2',
+    'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': 'com.typesafe.play:play-cache_2.12:2.7.6',
-    'playEhcache': 'com.typesafe.play:play-ehcache_2.12:2.7.6',
-    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.0.8',
-    'playDocs': 'com.typesafe.play:play-docs_2.12:2.7.6',
-    'playGuice': 'com.typesafe.play:play-guice_2.12:2.7.6',
-    'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.12:2.7.6',
-    'playAkkaHttpServer': 'com.typesafe.play:play-akka-http-server_2.12:2.7.6',
-    'playServer': 'com.typesafe.play:play-server_2.12:2.7.6',
-    'playTest': 'com.typesafe.play:play-test_2.12:2.7.6',
-    'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
-    'playPac4j': 'org.pac4j:play-pac4j_2.12:8.0.2',
-    'postgresql': 'org.postgresql:postgresql:42.3.3',
-    'protobuf': 'com.google.protobuf:protobuf-java:3.19.3',
+    'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
+    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
+    'playDocs': "com.typesafe.play:play-docs_2.12:$playVersion",
+    'playGuice': "com.typesafe.play:play-guice_2.12:$playVersion",
+    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_2.12:$playVersion",
+    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_2.12:$playVersion",
+    'playServer': "com.typesafe.play:play-server_2.12:$playVersion",
+    'playTest': "com.typesafe.play:play-test_2.12:$playVersion",
+    'playFilters': "com.typesafe.play:filters-helpers_2.12:$playVersion",
+    'pac4j': 'org.pac4j:pac4j-oidc:4.5.7',
+    'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
+    'postgresql': 'org.postgresql:postgresql:42.3.8',
+    'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
+    'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.9',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
-    'shiroCore': 'org.apache.shiro:shiro-core:1.8.0',
+    'shiroCore': 'org.apache.shiro:shiro-core:1.11.0',
+    'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.11:2.4.8',
     'sparkHive' : 'org.apache.spark:spark-hive_2.11:2.4.8',
     'springBeans': "org.springframework:spring-beans:$springVersion",
@@ -149,12 +187,13 @@ project.ext.externalDependency = [
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
+    'springBootTest': "org.springframework.boot:spring-boot-starter-test:$springBootVersion",
     'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
     'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
-    'springKafka': 'org.springframework.kafka:spring-kafka:2.7.12',
+    'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
     'testng': 'org.testng:testng:7.3.0',
@@ -173,13 +212,20 @@ allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   apply plugin: 'checkstyle'
+  // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
 }
 
-configure(subprojects.findAll {! it.name.startsWith('spark-lineage') }) {
+configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
+    exclude group: "org.springframework.boot", module: "spring-boot-starter-logging"
+    exclude group: "com.vaadin.external.google", module: "android-json"
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "org.slf4j", module: "slf4j-nop"
+    exclude group: "org.slf4j", module: "slf4j-ext"
   }
 }
 
@@ -201,12 +247,12 @@ subprojects {
     dependencies {
       testCompile externalDependency.testng
       constraints {
-        implementation('io.netty:netty-all:4.1.68.Final')
+        implementation('io.netty:netty-all:4.1.86.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
-        implementation('com.fasterxml.jackson.core:jackson-databind:2.13.2.2')
-        implementation('com.fasterxml.jackson.core:jackson-dataformat-cbor:2.13.2')
+        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
+        implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
       }
     }
 

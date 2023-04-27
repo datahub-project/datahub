@@ -19,7 +19,7 @@ function changeFavicon(src) {
 }
 
 const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
-    const { data: appConfigData, refetch } = useAppConfigQuery();
+    const { data: appConfigData, refetch } = useAppConfigQuery({ fetchPolicy: 'no-cache' });
 
     const refreshAppConfig = () => {
         refetch();

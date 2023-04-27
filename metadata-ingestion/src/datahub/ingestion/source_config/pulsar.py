@@ -2,10 +2,13 @@ import re
 from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigBase
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -13,16 +16,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities import config_clean
-
-
-class PulsarSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of the StatefulStaleMetadataRemovalConfig to add custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the PulsarSourceConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["topic"])
 
 
 def _is_valid_hostname(hostname: str) -> bool:
@@ -39,9 +32,9 @@ def _is_valid_hostname(hostname: str) -> bool:
     return all(allowed.match(x) for x in hostname.split("."))
 
 
-class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
-    env: str = DEFAULT_ENV
-
+class PulsarSourceConfig(
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+):
     web_service_url: str = Field(
         default="http://localhost:8080", description="The web URL for the cluster."
     )
@@ -96,7 +89,7 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
         default_factory=dict, description="Domain patterns"
     )
 
-    stateful_ingestion: Optional[PulsarSourceStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="see Stateful Ingestion"
     )
 
@@ -142,16 +135,3 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
             )
 
         return config_clean.remove_trailing_slashes(val)
-
-    @root_validator
-    def validate_platform_instance(cls: "PulsarSourceConfig", values: Dict) -> Dict:
-        stateful_ingestion = values.get("stateful_ingestion")
-        if (
-            stateful_ingestion
-            and stateful_ingestion.enabled
-            and not values.get("platform_instance")
-        ):
-            raise ConfigurationError(
-                "Enabling Pulsar stateful ingestion requires to specify a platform instance."
-            )
-        return values

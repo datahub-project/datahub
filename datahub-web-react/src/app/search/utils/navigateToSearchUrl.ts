@@ -1,6 +1,5 @@
 import * as QueryString from 'query-string';
 import { RouteComponentProps } from 'react-router-dom';
-
 import filtersToQueryStringParams from './filtersToQueryStringParams';
 import { EntityType, FacetFilterInput } from '../../../types.generated';
 import { PageRoutes } from '../../../conf/Global';

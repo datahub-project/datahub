@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, Type
 
 import requests
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
@@ -56,11 +57,10 @@ class PipelineContext:
         self.pipeline_name = pipeline_name
         self.dry_run_mode = dry_run
         self.preview_mode = preview_mode
-        self.reporters: Dict[str, Committable] = {}
         self.checkpointers: Dict[str, Committable] = {}
         try:
             self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
-        except requests.exceptions.ConnectionError as e:
+        except (requests.exceptions.ConnectionError, ConfigurationError) as e:
             raise Exception("Failed to connect to DataHub") from e
         except Exception as e:
             raise Exception(
@@ -83,16 +83,5 @@ class PipelineContext:
             )
         self.checkpointers[committable.name] = committable
 
-    def register_reporter(self, committable: Committable) -> None:
-        if committable.name in self.reporters:
-            raise IndexError(
-                f"Reporting provider {committable.name} already registered."
-            )
-        self.reporters[committable.name] = committable
-
-    def get_reporters(self) -> Iterable[Committable]:
-        yield from self.reporters.values()
-
     def get_committables(self) -> Iterable[Tuple[str, Committable]]:
-        yield from self.reporters.items()
         yield from self.checkpointers.items()

@@ -1,13 +1,22 @@
 # DataHub Quickstart Guide
 
+This guide provides instructions on deploying the open source DataHub locally. 
+If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub.
+
+<a
+    className='button button--primary button--lg'
+    href="/docs/managed-datahub/welcome-acryl">
+Get Started with Managed DataHub
+</a>
+
 ## Deploying DataHub
 
 To deploy a new instance of DataHub, perform the following steps.
 
 
-1. Install Docker for your platform.
+1. Install Docker and Docker Compose v2 for your platform.
 - On Windows or Mac, install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-- On Linux, install [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/).
+- On Linux, install [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/).
 
 :::note
 
@@ -16,9 +25,7 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
 :::
 
-2. Install [jq](https://stedolan.github.io/jq/download/)
-   
-3. Launch the Docker Engine from command line or the desktop app.
+2. Launch the Docker Engine from command line or the desktop app.
 
 3. Install the DataHub CLI
 
@@ -26,10 +33,15 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
    b. Run the following commands in your terminal
 
-   ```
+   ```sh
    python3 -m pip install --upgrade pip wheel setuptools
-   python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
    python3 -m pip install --upgrade acryl-datahub
+   datahub version
+   ```
+   
+   If you're using poetry, run the following command. 
+   ```sh
+   poetry add acryl-datahub
    datahub version
    ```
 
@@ -88,7 +100,7 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
 5. To ingest the sample metadata, run the following CLI command from your terminal
 
-   ```
+   ```bash
    datahub docker ingest-sample-data
    ```
 
@@ -110,13 +122,13 @@ Command not found: datahub
 If running the datahub cli produces "command not found" errors inside your terminal, your system may be defaulting to an
 older version of Python. Try prefixing your `datahub` commands with `python3 -m`:
 
-```
+```bash
 python3 -m datahub docker quickstart
 ```
 
 Another possibility is that your system PATH does not include pip's `$HOME/.local/bin` directory.  On linux, you can add this to your `~/.bashrc`:
 
-```
+```bash
 if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
 fi

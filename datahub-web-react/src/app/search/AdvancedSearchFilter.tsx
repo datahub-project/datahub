@@ -15,13 +15,14 @@ type Props = {
     onClose: () => void;
     onUpdate: (newValue: FacetFilterInput) => void;
     loading: boolean;
+    disabled?: boolean;
 };
 
 const FilterContainer = styled.div`
     box-shadow: 0px 0px 4px 0px #00000010;
     border-radius: 10px;
     border: 1px solid ${ANTD_GRAY[4]};
-    padding: 5px;
+    padding: 4px;
     margin: 4px;
     :hover {
         cursor: pointer;
@@ -36,6 +37,10 @@ const FieldFilterSection = styled.span`
     justify-content: space-between;
 `;
 
+const FieldFilterSelect = styled.span`
+    padding-right: 8px;
+`;
+
 const CloseSpan = styled.span`
     :hover {
         color: black;
@@ -47,7 +52,7 @@ const FilterFieldLabel = styled.span`
     margin-right: 2px;
 `;
 
-export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading }: Props) => {
+export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading, disabled = false }: Props) => {
     const [isEditing, setIsEditing] = useState(false);
     return (
         <>
@@ -57,26 +62,28 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading
                 }}
             >
                 <FieldFilterSection>
-                    <span>
+                    <FieldFilterSelect>
                         <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
                         <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
-                    </span>
-                    <CloseSpan
-                        role="button"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onClose();
-                        }}
-                        tabIndex={0}
-                        onKeyPress={onClose}
-                    >
-                        <CloseOutlined />
-                    </CloseSpan>
+                    </FieldFilterSelect>
+                    {!disabled && (
+                        <CloseSpan
+                            role="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onClose();
+                            }}
+                            tabIndex={0}
+                            onKeyPress={onClose}
+                        >
+                            <CloseOutlined />
+                        </CloseSpan>
+                    )}
                 </FieldFilterSection>
                 {!loading && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} />}
             </FilterContainer>
-            {isEditing && (
+            {!disabled && isEditing && (
                 <AdvancedFilterSelectValueModal
                     facet={facet}
                     onCloseModal={() => setIsEditing(false)}

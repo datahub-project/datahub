@@ -6,6 +6,8 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.Media;
 import com.linkedin.common.MediaType;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.post.PostContent;
 import com.linkedin.post.PostContentType;
@@ -19,6 +21,7 @@ import static org.testng.Assert.*;
 
 
 public class PostServiceTest {
+  private static final Urn POST_URN = UrnUtils.getUrn("urn:li:post:123");
   private static final MediaType POST_MEDIA_TYPE = MediaType.IMAGE;
   private static final String POST_MEDIA_LOCATION =
       "https://datahubproject.io/img/datahub-logo-color-light-horizontal.svg";
@@ -62,5 +65,17 @@ public class PostServiceTest {
   public void testCreatePost() throws RemoteInvocationException {
     _postService.createPost(POST_TYPE.toString(), POST_CONTENT, SYSTEM_AUTHENTICATION);
     verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
+  public void testDeletePostDoesNotExist() throws RemoteInvocationException {
+    when(_entityClient.exists(eq(POST_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    assertThrows(() -> _postService.deletePost(POST_URN, SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
+  public void testDeletePost() throws RemoteInvocationException {
+    when(_entityClient.exists(eq(POST_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    assertTrue(_postService.deletePost(POST_URN, SYSTEM_AUTHENTICATION));
   }
 }

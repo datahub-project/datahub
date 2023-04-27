@@ -16,6 +16,8 @@ import {
     FineGrainedLineage,
     SchemaMetadata,
     InputFields,
+    Entity,
+    LineageRelationship,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -39,8 +41,10 @@ export type FetchedEntity = {
     icon?: string;
     // children?: Array<string>;
     upstreamChildren?: Array<EntityAndType>;
+    upstreamRelationships?: Array<LineageRelationship>;
     numUpstreamChildren?: number;
     downstreamChildren?: Array<EntityAndType>;
+    downstreamRelationships?: Array<LineageRelationship>;
     numDownstreamChildren?: number;
     fullyFetched?: boolean;
     platform?: DataPlatform;
@@ -49,6 +53,7 @@ export type FetchedEntity = {
     fineGrainedLineages?: [FineGrainedLineage];
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
+    canEditLineage?: boolean;
 };
 
 export type NodeData = {
@@ -69,6 +74,9 @@ export type NodeData = {
     siblingPlatforms?: Maybe<DataPlatform[]>;
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
+    canEditLineage?: boolean;
+    upstreamRelationships?: Array<LineageRelationship>;
+    downstreamRelationships?: Array<LineageRelationship>;
 };
 
 export type VizNode = {
@@ -81,9 +89,14 @@ export type VizNode = {
 export type VizEdge = {
     source: VizNode;
     target: VizNode;
+    curve: { x: number; y: number }[];
     sourceField?: string;
     targetField?: string;
-    curve: { x: number; y: number }[];
+    createdOn?: Maybe<number>;
+    createdActor?: Maybe<Entity>;
+    updatedOn?: Maybe<number>;
+    updatedActor?: Maybe<Entity>;
+    isManual?: boolean;
 };
 
 export type ColumnEdge = {
@@ -159,4 +172,14 @@ export interface LineageResult {
     urn: string;
     upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
     downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+}
+
+export interface UpdatedLineages {
+    [urn: string]: UpdatedLineage;
+}
+
+export interface UpdatedLineage {
+    lineageDirection: Direction;
+    entitiesToAdd: Entity[];
+    urnsToRemove: string[];
 }

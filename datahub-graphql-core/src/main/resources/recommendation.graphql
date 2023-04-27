@@ -227,32 +227,7 @@ type SearchParams {
   """
   Filters
   """
-  filters: [Filter!]
-}
-
-"""
-Facet filters to apply to search results
-"""
-type Filter {
-  """
-  Name of field to filter by
-  """
-  field: String!
-
-  """
-  Values, one of which the intended field should match.
-  """
-  values: [String!]!
-
-  """
-  If the filter should or should not be matched
-  """
-  negated: Boolean
-
-  """
-  Condition for the values. How to If unset, assumed to be equality
-  """
-  condition: FilterOperator
+  filters: [FacetFilter!]
 }
 
 """
