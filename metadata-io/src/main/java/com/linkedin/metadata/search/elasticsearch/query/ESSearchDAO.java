@@ -3,11 +3,16 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
@@ -92,7 +97,7 @@ public class ESSearchDAO {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration).extractScrollResult(searchResponse,
-              filter, scrollId, keepAlive, size, supportsPointInTime());
+          filter, scrollId, keepAlive, size, supportsPointInTime());
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
         final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
@@ -253,7 +258,7 @@ public class ESSearchDAO {
 
     // Step 1: construct the query
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration)
-        .getSearchRequest(finalInput, postFilters, sortCriterion, sort, pitId, keepAlive, size, searchFlags);
+        .getSearchRequest(finalInput, transformFilterForEntities(postFilters, indexConvention), sortCriterion, sort, pitId, keepAlive, size, searchFlags);
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so we only specify if not using PIT
     if (!supportsPointInTime()) {
@@ -263,6 +268,25 @@ public class ESSearchDAO {
     scrollRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(entitySpecs, searchRequest, postFilters, scrollId, keepAlive, size);
+  }
+
+  /**
+   * Allows filtering on entities which are stored as different indices under the hood by transforming the tag _entityType to _index and updating the type to the index name.
+   * @param filter The filter to parse and transform if needed
+   * @param indexConvention The index convention used to generate the index name for an entity
+   * @return A filter, with the changes if necessary
+   */
+  static Filter transformFilterForEntities(Filter filter, @Nonnull IndexConvention indexConvention) {
+    if (filter != null && filter.getOr() != null) {
+      return new Filter().setOr(new ConjunctiveCriterionArray(filter.getOr().stream().map(
+          conjunctiveCriterion -> new ConjunctiveCriterion().setAnd(conjunctiveCriterion.getAnd().stream().map(
+              criterion -> criterion.getField().equals("_entityType") ? criterion.setField("_index").setValues(
+                  new StringArray(criterion.getValues().stream().map(
+                      indexConvention::getEntityIndexName).collect(
+                      Collectors.toList()))).setValue(indexConvention.getEntityIndexName(criterion.getValue())) : criterion).
+              collect(Collectors.toCollection(CriterionArray::new)))).collect(Collectors.toList())));
+    }
+    return filter;
   }
 
   private boolean supportsPointInTime() {
