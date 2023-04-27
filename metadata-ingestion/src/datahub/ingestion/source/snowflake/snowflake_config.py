@@ -84,6 +84,11 @@ class SnowflakeV2Config(
         description="Whether to use the legacy lineage computation method. If set to False, ingestion uses new optimised lineage extraction method that requires less ingestion process memory.",
     )
 
+    validate_upstreams_against_patterns: bool = Field(
+        default=True,
+        description="Whether to validate upstream snowflake tables against allow-deny patterns",
+    )
+
     @validator("include_column_lineage")
     def validate_include_column_lineage(cls, v, values):
         if not values.get("include_table_lineage") and v:
