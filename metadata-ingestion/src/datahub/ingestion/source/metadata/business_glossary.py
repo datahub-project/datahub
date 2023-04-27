@@ -80,7 +80,7 @@ class GlossaryNodeConfig(ConfigModel):
 class DefaultConfig(ConfigModel):
     """Holds defaults for populating fields in glossary terms"""
 
-    source: str
+    source: Optional[str]
     owners: Owners
     url: Optional[str] = None
     source_type: str = "INTERNAL"
