@@ -3,11 +3,16 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
@@ -48,6 +53,9 @@ public class ESSearchDAO {
 
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
+  // Utility class that takes in Filter and IndexConvention and modifies the filter
+  // Run it through here for every place that has a filter as input
+  // Handle the null case
   private final IndexConvention indexConvention;
   private final boolean pointInTimeCreationEnabled;
   private final String elasticSearchImplementation;
@@ -116,7 +124,7 @@ public class ESSearchDAO {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags Structured or full text search modes, plus other misc options
+   * @param searchFlags Structured or full text search modes, plus other T$%"??????????
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
@@ -227,6 +235,7 @@ public class ESSearchDAO {
   @Nonnull
   public ScrollResult scroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, SearchFlags searchFlags) {
+    // They see me scrolling, they hating....
     final String finalInput = input.isEmpty() ? "*" : input;
     String[] indexArray = entities.stream()
         .map(indexConvention::getEntityIndexName)
@@ -252,8 +261,22 @@ public class ESSearchDAO {
     }
 
     // Step 1: construct the query
+    // the builder ~~~ Here it is ~~~~
+    /**
+     *
+     return _entitySpecs.stream()
+     .map(EntitySpec::getSearchableFieldSpecs)
+     .flatMap(List::stream)
+     .map(SearchableFieldSpec::getSearchableAnnotation)
+     .collect(Collectors.toList());
+
+     return annotations.stream()
+     .filter(SearchableAnnotation::isAddToFilters)
+     .map(SearchableAnnotation::getFieldName)
+     .collect(Collectors.toSet());
+     */
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration)
-        .getSearchRequest(finalInput, postFilters, sortCriterion, sort, pitId, keepAlive, size, searchFlags);
+        .getSearchRequest(finalInput, transformFilterForEntities(postFilters, indexConvention), sortCriterion, sort, pitId, keepAlive, size, searchFlags);
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so we only specify if not using PIT
     if (!supportsPointInTime()) {
@@ -263,6 +286,25 @@ public class ESSearchDAO {
     scrollRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(entitySpecs, searchRequest, postFilters, scrollId, keepAlive, size);
+  }
+
+  /**
+   * Allows filtering on entities which are stored as different indices under the hood by transforming the tag _entityType to _index and updating the type to the index name.
+   * @param filter The filter to parse and transform if needed
+   * @param indexConvention The index convention used to generate the index name for an entity
+   * @return A filter, with the changes if necessary
+   */
+  static Filter transformFilterForEntities(Filter filter, @Nonnull IndexConvention indexConvention) {
+    if (filter != null && filter.getOr() != null) {
+       return new Filter().setOr(new ConjunctiveCriterionArray(filter.getOr().stream().map(
+          conjunctiveCriterion -> new ConjunctiveCriterion().setAnd(conjunctiveCriterion.getAnd().stream().map(
+              criterion -> criterion.getField().equals("_entityType") ? criterion.setField("_index").setValues(
+                  new StringArray(criterion.getValues().stream().map(
+                      indexConvention::getEntityIndexName).collect(
+                      Collectors.toList()))) : criterion).
+          collect(Collectors.toCollection(CriterionArray::new)))).collect(Collectors.toList())));
+    }
+    return filter;
   }
 
   private boolean supportsPointInTime() {
