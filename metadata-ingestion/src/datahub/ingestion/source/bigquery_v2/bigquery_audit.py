@@ -182,8 +182,9 @@ class BigqueryTableIdentifier:
 class BigQueryTableRef:
     # Handle table time travel. See https://cloud.google.com/bigquery/docs/time-travel
     # See https://cloud.google.com/bigquery/docs/table-decorators#time_decorators
-    # Handling for @0 and @-TIME_OFFSET is apparently missing
-    SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(r"^(.+)@(\d{13})$")
+    SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(
+        "^(.+)@(-?\\d{1,13})(-(-?\\d{1,13})?)?$"
+    )
 
     table_identifier: BigqueryTableIdentifier
 
