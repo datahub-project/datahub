@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
+import pydantic
 import sqlalchemy.dialects.postgresql as custom_types
 
 # GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
@@ -109,10 +110,26 @@ class PostgresConfig(BasicSQLAlchemyConfig):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
-    database: Optional[str] = Field(
-        default=None,
-        description="database (catalog). If set to Null, all databases will be considered for ingestion.",
+    ingest_multiple_databases: bool = Field(
+        default=True,
+        description=(
+            "Whether to ingest all databases that match `database_pattern`. "
+            "Not compatible with `sqlalchemy_uri`."
+        ),
     )
+
+    @pydantic.validator("database", pre=True, always=True)
+    def default_database_postgres(cls, v: Optional[str]) -> str:
+        """Sets default database to `postgres`, a preferable default over the user's username."""
+        return "postgres" if v is None else v
+
+    @pydantic.validator("ingest_multiple_databases")
+    def cannot_ingest_multiple_databases_with_sqlachemy_uri(
+        cls, v: bool, values: Dict[str, Any]
+    ) -> bool:
+        if v and values.get("sqlalchemy_uri"):
+            raise ValueError("Cannot ingest multiple databases with sqlalchemy_uri")
+        return v
 
 
 @platform_name("Postgres")
@@ -144,16 +161,12 @@ class PostgresSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
-        # This method can be overridden in the case that you want to dynamically
-        # run on multiple databases.
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
+        # Set default database to `postgres` over postgres default of the user's username.
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
-            if self.config.database and self.config.database != "":
-                inspector = inspect(conn)
-                yield inspector
-            else:
+            if self.config.ingest_multiple_databases:
                 # pg_database catalog -  https://www.postgresql.org/docs/current/catalog-pg-database.html
                 # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
                 databases = conn.execute(
@@ -166,6 +179,9 @@ class PostgresSource(SQLAlchemySource):
                             create_engine(url, **self.config.options).connect()
                         )
                         yield inspector
+            else:
+                inspector = inspect(conn)
+                yield inspector
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits()
