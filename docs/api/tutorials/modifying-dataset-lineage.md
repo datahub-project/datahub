@@ -29,7 +29,6 @@ In this guide, we will be using data from sample ingestion.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
-avigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
 
 ```json
 mutation updateLineage {
