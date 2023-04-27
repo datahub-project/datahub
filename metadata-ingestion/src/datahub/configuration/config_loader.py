@@ -89,11 +89,7 @@ def load_config_file(
                 f"Only .toml and .yml are supported. Cannot process file type {config_file_path.suffix}"
             )
         url_parsed = parse.urlparse(str(config_file))
-        if url_parsed.scheme in ("file", ""):  # Possibly a local file
-            if not config_file_path.is_file():
-                raise ConfigurationError(f"Cannot open config file {config_file_path}")
-            raw_config_file = config_file_path.read_text()
-        else:
+        if url_parsed.scheme in ("http", "https"):  # URLs will return http/https
             try:
                 response = requests.get(str(config_file))
                 raw_config_file = response.text
@@ -101,6 +97,10 @@ def load_config_file(
                 raise ConfigurationError(
                     f"Cannot read remote file {config_file_path}, error:{e}"
                 )
+        else:
+            if not config_file_path.is_file():
+                raise ConfigurationError(f"Cannot open config file {config_file_path}")
+            raw_config_file = config_file_path.read_text()
 
     config_fp = io.StringIO(raw_config_file)
     raw_config = config_mech.load_config(config_fp)
