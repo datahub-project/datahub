@@ -68,6 +68,11 @@
             "urn": "urn:li:glossaryTerm:ad2c819afb36131c86398364213ad233",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {
                             "is_confidential": "False"
@@ -133,6 +138,11 @@
             "urn": "urn:li:glossaryTerm:23f52095a9a4d310bc3a7851b483a462",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {
                             "is_confidential": "True"
@@ -189,6 +199,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:aa0c9a43967840932fe68b1ffc0815ec",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {
@@ -268,6 +283,11 @@
             "urn": "urn:li:glossaryTerm:d47e082e7d78362d2d1bc34c318ede70",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Email",
@@ -313,6 +333,11 @@
             "urn": "urn:li:glossaryTerm:dda3991a819112a7bc4c097cc0b16a09",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Address",
@@ -350,6 +375,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:26a6cb647cc4796632eecab6db746d92",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
@@ -434,6 +464,11 @@
             "urn": "urn:li:glossaryTerm:cab86764c6cdaab05d69306cf6e0ba94",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Account",
@@ -481,6 +516,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:9a589ce0a808216a95511b3ed2e223b1",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
@@ -557,6 +597,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:4faf1eed790370f65942f2998a7993d6",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
