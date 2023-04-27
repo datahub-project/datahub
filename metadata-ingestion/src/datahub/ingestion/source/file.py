@@ -247,7 +247,7 @@ class GenericFileSource(TestableSource):
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
         self.report.current_file_name = path
         path_parsed = parse.urlparse(path)
-        if path_parsed.scheme not in ("http", "https"):  # A remote file
+        if path_parsed.scheme not in ("http", "https"):  # A local file
             self.report.current_file_size = os.path.getsize(path)
             if self.config.read_mode == FileReadMode.AUTO:
                 file_read_mode = (
