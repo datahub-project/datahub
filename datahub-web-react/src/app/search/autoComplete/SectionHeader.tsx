@@ -7,7 +7,12 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 export const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
     font-size: 14px;
     color: ${ANTD_GRAY[8]};
-    ${(props) => props.showBorder && `border-bottom: 1px solid ${ANTD_GRAY[4]};`}
+    ${(props) =>
+        props.showBorder &&
+        `
+        border-bottom: 1px solid ${ANTD_GRAY[4]};
+        padding-bottom: 2px;
+        `}
 `;
 
 const SubtypesDescription = styled.span`

@@ -21,6 +21,7 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.validator.Validator;
@@ -69,6 +70,7 @@ import com.linkedin.util.Pair;
 import io.ebean.PagedList;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -166,6 +168,11 @@ public class EntityService {
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
   protected static final int MAX_KEYS_PER_QUERY = 500;
+
+  private static final int URN_NUM_BYTES_LIMIT = 512;
+
+  // TODO(iprentic): Move this to a common utils location once used in other places
+  private static final String DELIMITER_SEPARATOR = "␟";
 
   public EntityService(
       @Nonnull final AspectDao aspectDao,
@@ -678,9 +685,16 @@ public class EntityService {
     return systemMetadata;
   }
 
-  private void validateUrn(@Nonnull final Urn urn) {
-    if (!urn.toString().trim().equals(urn.toString())) {
+  static void validateUrn(@Nonnull final Urn urn) {
+
+    if (urn.toString().trim().length() != urn.toString().length()) {
       throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+    if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
+      throw new IllegalArgumentException("Error: cannot provide an URN longer than " + Integer.toString(URN_NUM_BYTES_LIMIT) + " bytes (when URL encoded)");
+    }
+    if (urn.toString().contains(DELIMITER_SEPARATOR)) {
+      throw new IllegalArgumentException("Error: URN cannot contain " + DELIMITER_SEPARATOR + " character");
     }
   }
 
@@ -1035,7 +1049,7 @@ public class EntityService {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
       // Uses new data map to prevent side effects on original
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(new DataMap(mcp.data()));
       metadataChangeLog.setEntityUrn(entityUrn);
       metadataChangeLog.setCreated(auditStamp);
       metadataChangeLog.setChangeType(isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT);

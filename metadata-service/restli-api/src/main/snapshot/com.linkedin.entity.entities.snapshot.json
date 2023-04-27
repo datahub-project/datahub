@@ -842,18 +842,7 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag",
-            "Relationship" : {
-              "entityTypes" : [ "tag" ],
-              "name" : "TaggedWith"
-            },
-            "Searchable" : {
-              "addToFilters" : true,
-              "fieldName" : "tags",
-              "fieldType" : "URN",
-              "filterNameOverride" : "Tag",
-              "hasValuesFieldName" : "hasTags"
-            }
+            "doc" : "Urn of the applied tag"
           }, {
             "name" : "context",
             "type" : "string",
@@ -863,12 +852,20 @@
         }
       },
       "doc" : "Tags associated with a given entity",
+      "Relationship" : {
+        "/*/tag" : {
+          "entityTypes" : [ "tag" ],
+          "name" : "TaggedWith"
+        }
+      },
       "Searchable" : {
         "/*/tag" : {
           "addToFilters" : true,
           "boostScore" : 0.5,
           "fieldName" : "tags",
           "fieldType" : "URN",
+          "filterNameOverride" : "Tag",
+          "hasValuesFieldName" : "hasTags",
           "queryByDefault" : true
         }
       }
@@ -3104,6 +3101,7 @@
                           "type" : "com.linkedin.dataset.SchemaFieldPath",
                           "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
                           "Searchable" : {
+                            "boostScore" : 5.0,
                             "fieldName" : "fieldPaths",
                             "fieldType" : "TEXT"
                           }
@@ -5639,11 +5637,12 @@
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query.filter",
     "doc" : "The matching condition in a filter criterion",
-    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IS_NULL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
     "symbolDocs" : {
       "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
       "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
       "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "EXISTS" : "Represents the relation: field exists and is non-empty, e.g. owners is not null and != [] (empty)",
       "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
       "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
       "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",

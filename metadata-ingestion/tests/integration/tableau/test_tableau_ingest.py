@@ -8,7 +8,12 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
-from tableauserverclient.models import DatasourceItem, ProjectItem, ViewItem
+from tableauserverclient.models import (
+    DatasourceItem,
+    ProjectItem,
+    ViewItem,
+    WorkbookItem,
+)
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
@@ -145,6 +150,45 @@ def side_effect_datasource_data(*arg, **kwargs):
     ], mock_pagination
 
 
+def side_effect_workbook_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    workbook1: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+        name="Email Performance by Campaign",
+    )
+    workbook1._id = "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b"
+
+    workbook2: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Dvdrental Workbook"
+    )
+    workbook2._id = "b2c84ac6-1e37-4ca0-bf9b-62339be046fc"
+
+    workbook3: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Executive Dashboard"
+    )
+    workbook3._id = "68ebd5b2-ecf6-4fdf-ba1a-95427baef506"
+
+    workbook4: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Workbook published ds"
+    )
+    workbook4._id = "a059a443-7634-4abf-9e46-d147b99168be"
+
+    workbook5: WorkbookItem = WorkbookItem(
+        project_id="79d02655-88e5-45a6-9f9b-eeaf5fe54903", name="Deny Pattern WorkBook"
+    )
+    workbook5._id = "b45eabfe-dc3d-4331-9324-cc1b14b0549b"
+
+    return [
+        workbook1,
+        workbook2,
+        workbook3,
+        workbook4,
+        workbook5,
+    ], mock_pagination
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -173,6 +217,8 @@ def tableau_ingest_common(
             mock_client.projects.get.side_effect = side_effect_project_data
             mock_client.datasources = mock.Mock()
             mock_client.datasources.get.side_effect = side_effect_datasource_data
+            mock_client.workbooks = mock.Mock()
+            mock_client.workbooks.get.side_effect = side_effect_workbook_data
             mock_client.views.get.side_effect = side_effect_usage_stat
             mock_client.auth.sign_in.return_value = None
             mock_client.auth.sign_out.side_effect = sign_out_side_effect

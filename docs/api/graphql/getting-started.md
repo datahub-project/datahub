@@ -22,11 +22,11 @@ The following `graphql` query retrieves the `urn` and `name` of the `properties`
 In addition to the URN and properties, you can also fetch other types of metadata for an asset, such as owners, tags, domains, and terms of an entity.
 For more information on, please refer to the following links."
 
-- [Querying for Owners of a Dataset](/docs/api/tutorials/reading-owners.md)
-- [Querying for Tags of a Dataset](/docs/api/tutorials/reading-tags.md)
-- [Querying for Domain of a Dataset](/docs/api/tutorials/reading-domains.md)
-- [Querying for Glossary Terms of a Dataset](/docs/api/tutorials/reading-terms.md)
-- [Querying for Deprecation of a dataset](/docs/api/tutorials/reading-deprecation.md)
+- [Querying for Owners of a Dataset](/docs/api/tutorials/modifying-dataset-owners.md#read-owners)
+- [Querying for Tags of a Dataset](/docs/api/tutorials/modifying-dataset-tags.md#read-tags)
+- [Querying for Domain of a Dataset](/docs/api/tutorials/modifying-dataset-domains.md#read-domains)
+- [Querying for Glossary Terms of a Dataset](/docs/api/tutorials/modifying-dataset-terms.md#read-terms)
+- [Querying for Deprecation of a dataset](/docs/api/tutorials/modifying-dataset-deprecation.md#read-deprecation)
 
 ### Search
 
@@ -96,18 +96,18 @@ mutation updateDashboard {
 
 For more information, please refer to following links.
 
-- [Adding Tags](/docs/api/tutorials/adding-tags.md)
-- [Adding Glossary Terms](/docs/api/tutorials/adding-terms.md)
-- [Adding Domain](/docs/api/tutorials/adding-domain.md)
-- [Adding Owners](/docs/api/tutorials/adding-ownerships.md)
-- [Removing Tags](/docs/api/tutorials/removing-tags.md)
-- [Removing Glossary Terms](/docs/api/tutorials/removing-terms.md)
-- [Removing Domain](/docs/api/tutorials/removing-domains.md)
-- [Removing Owners](/docs/api/tutorials/removing-owners.md)
-- [Updating Deprecation](/docs/api/tutorials/update-deprecation.md)
-- [Editing Description (i.e. Documentation) on Datasets](/docs/api/tutorials/adding-dataset-description.md)
-- [Editing Description (i.e. Documnetation) on Columns](/docs/api/tutorials/adding-column-description.md)
-- [Soft Deleting](/docs/api/tutorials/deleting-entities-by-urn.md)
+- [Adding Tags](/docs/api/tutorials/modifying-dataset-tags.md#add-tags)
+- [Adding Glossary Terms](/docs/api/tutorials/modifying-dataset-terms.md#add-terms)
+- [Adding Domain](/docs/api/tutorials/modifying-dataset-domains.md#add-domains)
+- [Adding Owners](/docs/api/tutorials/modifying-dataset-owners.md#add-owners)
+- [Removing Tags](/docs/api/tutorials/modifying-dataset-tags.md#remove-tags)
+- [Removing Glossary Terms](/docs/api/tutorials/modifying-dataset-terms.md#remove-terms)
+- [Removing Domain](/docs/api/tutorials/modifying-dataset-domains.md#remove-domains)
+- [Removing Owners](/docs/api/tutorials/modifying-dataset-owners.md#remove-owners)
+- [Updating Deprecation](/docs/api/tutorials/modifying-dataset-deprecation.md#update-deprecation)
+- [Editing Description (i.e. Documentation) on Datasets](/docs/api/tutorials/modifying-dataset-descriptions.md#add-description-on-dataset)
+- [Editing Description (i.e. Documentation) on Columns](/docs/api/tutorials/modifying-dataset-descriptions.md#add-description-on-column)
+- [Soft Deleting](/docs/api/tutorials/modifying-datasets.md#delete-dataset)
 
 Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
 
