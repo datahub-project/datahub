@@ -76,6 +76,29 @@ lazy_load_plugins = False
 Emitting Datahub ...
 ```
 
+### Emitting lineage via a custom operator to the Airflow Plugin
+
+If you have created a custom airflow operator [docs](https://airflow.apache.org/docs/apache-airflow/stable/howto/custom-operator.html) that inherits from the BaseOperator class,
+When overriding the `execute` function, set inlets and outlets via `context['ti'].task.inlets` and `context['ti'].task.outlets`.
+The airflow plugin will then pick up your inlets and outlets after the task runs. 
+
+```python
+class DbtOperator(BaseOperator):
+    ...
+
+    def execute(self, context):
+        # do something
+        inlets, outlets = self._get_lineage()
+        # inlets/outlets are lists of either datahub_provider.entities.Dataset or datahub_provider.entities.Urn
+        context['ti'].task.inlets = self.inlets
+        context['ti'].task.outlets = self.outlets
+
+    def _get_lineage(self):
+        # Do some processing to get inlets/outlets
+        
+        return inlets, outlets 
+```
+
 ## Using Datahub's Airflow lineage backend (deprecated)
 
 :::caution
@@ -144,6 +167,7 @@ Take a look at this sample DAG:
 - [`lineage_emission_dag.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
 
 In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
+
 
 ## Debugging
 
