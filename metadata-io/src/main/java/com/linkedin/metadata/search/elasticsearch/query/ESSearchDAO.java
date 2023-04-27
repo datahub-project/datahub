@@ -53,9 +53,6 @@ public class ESSearchDAO {
 
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
-  // Utility class that takes in Filter and IndexConvention and modifies the filter
-  // Run it through here for every place that has a filter as input
-  // Handle the null case
   private final IndexConvention indexConvention;
   private final boolean pointInTimeCreationEnabled;
   private final String elasticSearchImplementation;
@@ -124,7 +121,7 @@ public class ESSearchDAO {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags Structured or full text search modes, plus other T$%"??????????
+   * @param searchFlags Structured or full text search modes, plus other misc options
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
@@ -235,7 +232,6 @@ public class ESSearchDAO {
   @Nonnull
   public ScrollResult scroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, SearchFlags searchFlags) {
-    // They see me scrolling, they hating....
     final String finalInput = input.isEmpty() ? "*" : input;
     String[] indexArray = entities.stream()
         .map(indexConvention::getEntityIndexName)
@@ -261,20 +257,6 @@ public class ESSearchDAO {
     }
 
     // Step 1: construct the query
-    // the builder ~~~ Here it is ~~~~
-    /**
-     *
-     return _entitySpecs.stream()
-     .map(EntitySpec::getSearchableFieldSpecs)
-     .flatMap(List::stream)
-     .map(SearchableFieldSpec::getSearchableAnnotation)
-     .collect(Collectors.toList());
-
-     return annotations.stream()
-     .filter(SearchableAnnotation::isAddToFilters)
-     .map(SearchableAnnotation::getFieldName)
-     .collect(Collectors.toSet());
-     */
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration)
         .getSearchRequest(finalInput, transformFilterForEntities(postFilters, indexConvention), sortCriterion, sort, pitId, keepAlive, size, searchFlags);
 
