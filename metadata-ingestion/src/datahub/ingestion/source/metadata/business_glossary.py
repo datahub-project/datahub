@@ -2,7 +2,7 @@ import logging
 import pathlib
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
 
 from pydantic import validator
 from pydantic.fields import Field
@@ -29,6 +29,9 @@ from datahub.utilities.urn_encoder import UrnEncoder
 logger = logging.getLogger(__name__)
 
 valid_status: models.StatusClass = models.StatusClass(removed=False)
+GlossaryNodeInterface = TypeVar(
+    "GlossaryNodeInterface", "GlossaryNodeConfig", "BusinessGlossaryConfig"
+)
 
 
 class Owners(ConfigModel):
@@ -39,11 +42,6 @@ class Owners(ConfigModel):
 class KnowledgeCard(ConfigModel):
     url: Optional[str]
     label: Optional[str]
-
-
-class GlossaryNodeMixin(ConfigModel):
-    terms: Optional[List["GlossaryTermConfig"]]
-    nodes: Optional[List["GlossaryNodeConfig"]]
 
 
 class GlossaryTermConfig(ConfigModel):
@@ -62,13 +60,21 @@ class GlossaryTermConfig(ConfigModel):
     knowledge_links: Optional[List[KnowledgeCard]]
     domain: Optional[str]
 
+    # Private fields.
+    _urn: str
 
-class GlossaryNodeConfig(GlossaryNodeMixin):
+
+class GlossaryNodeConfig(ConfigModel):
     id: Optional[str]
     name: str
     description: str
     owners: Optional[Owners]
+    terms: Optional[List["GlossaryTermConfig"]]
+    nodes: Optional[List["GlossaryNodeConfig"]]
     knowledge_links: Optional[List[KnowledgeCard]]
+
+    # Private fields.
+    _urn: str
 
 
 class DefaultConfig(ConfigModel):
@@ -90,8 +96,10 @@ class BusinessGlossarySourceConfig(ConfigModel):
     )
 
 
-class BusinessGlossaryConfig(DefaultConfig, GlossaryNodeMixin):
+class BusinessGlossaryConfig(DefaultConfig):
     version: str
+    terms: Optional[List["GlossaryTermConfig"]]
+    nodes: Optional[List["GlossaryNodeConfig"]]
 
     @validator("version")
     def version_must_be_1(cls, v):
@@ -239,8 +247,7 @@ def get_mces_from_node(
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
-    node_urn = glossaryNode.id
-    assert node_urn is not None
+    node_urn = glossaryNode._urn
 
     node_info = models.GlossaryNodeInfoClass(
         definition=glossaryNode.description,
@@ -315,8 +322,7 @@ def get_mces_from_term(
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[models.MetadataChangeEventClass, MetadataChangeProposalWrapper]]:
-    term_urn = glossaryTerm.id
-    assert term_urn
+    term_urn = glossaryTerm._urn
 
     aspects: List[
         Union[
@@ -327,7 +333,7 @@ def get_mces_from_term(
             models.GlossaryTermKeyClass,
             models.BrowsePathsClass,
         ]
-    ] = []
+    ] = [valid_status]
     term_info = models.GlossaryTermInfoClass(
         definition=glossaryTerm.description,
         termSource=glossaryTerm.term_source
@@ -427,19 +433,21 @@ def get_mces_from_term(
             yield mcp
 
 
-def materialize_all_node_ids(
+def materialize_all_node_urns(
     glossary: BusinessGlossaryConfig, enable_auto_id: bool
 ) -> None:
     """After this runs, all nodes will have an id value that is a valid urn."""
 
-    def _process_child_terms(parent_node: GlossaryNodeMixin, path: List[str]) -> None:
+    def _process_child_terms(
+        parent_node: GlossaryNodeInterface, path: List[str]
+    ) -> None:
         for term in parent_node.terms or []:
-            term.id = make_glossary_term_urn(
+            term._urn = make_glossary_term_urn(
                 path + [term.name], term.id, enable_auto_id
             )
 
         for node in parent_node.nodes or []:
-            node.id = make_glossary_node_urn(
+            node._urn = make_glossary_node_urn(
                 path + [node.name], node.id, enable_auto_id
             )
             _process_child_terms(node, path + [node.name])
@@ -452,14 +460,14 @@ def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, str]:
     # urn, if one was manually specified.
     path_vs_id: Dict[str, str] = {}
 
-    def _process_child_terms(parent_node: GlossaryNodeMixin, path: List[str]) -> None:
+    def _process_child_terms(
+        parent_node: GlossaryNodeInterface, path: List[str]
+    ) -> None:
         for term in parent_node.terms or []:
-            assert term.id
-            path_vs_id[".".join(path + [term.name])] = term.id
+            path_vs_id[".".join(path + [term.name])] = term._urn
 
         for node in parent_node.nodes or []:
-            assert node.id
-            path_vs_id[".".join(path + [node.name])] = node.id
+            path_vs_id[".".join(path + [node.name])] = node._urn
             _process_child_terms(node, path + [node.name])
 
     _process_child_terms(glossary, [])
@@ -500,7 +508,7 @@ class BusinessGlossaryFileSource(Source):
     ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
 
-        materialize_all_node_ids(glossary_config, self.config.enable_auto_id)
+        materialize_all_node_urns(glossary_config, self.config.enable_auto_id)
         path_vs_id = populate_path_vs_id(glossary_config)
 
         for event in auto_workunit(
