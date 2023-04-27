@@ -55,8 +55,24 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
 
     Filter f = new Filter().setOr(
         new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(c))));
+    Filter originalF = null;
+    try {
+      originalF = f.copy();
+    } catch (CloneNotSupportedException e) {
+      fail(e.getMessage());
+    }
+    assertEquals(f, originalF);
 
     Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, indexConvention);
-    assertEquals(f, transformedFilter);
+    assertNotEquals(originalF, transformedFilter);
+
+    Criterion expectedNewCriterion = new Criterion().setValue("dataset_indexv2").setValues(
+        new StringArray(ImmutableList.of("dataset_indexv2"))
+    ).setNegated(false).setCondition(Condition.EQUAL).setField("_index");
+
+    Filter expectedNewFilter = new Filter().setOr(
+        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(expectedNewCriterion))));
+
+    assertEquals(expectedNewFilter, transformedFilter);
   }
 }
