@@ -11,7 +11,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -130,13 +129,14 @@ public class ESSearchDAO {
     final String finalInput = input.isEmpty() ? "*" : input;
     Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
     // Step 1: construct the query
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec, searchConfiguration)
-        .getSearchRequest(finalInput, postFilters, sortCriterion, from, size, searchFlags);
+        .getSearchRequest(finalInput, transformedFilters, sortCriterion, from, size, searchFlags);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
     searchRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(entitySpec, searchRequest, postFilters, from, size);
+    return executeAndExtract(entitySpec, searchRequest, transformedFilters, from, size);
   }
 
   /**
@@ -152,10 +152,11 @@ public class ESSearchDAO {
   public SearchResult filter(@Nonnull String entityName, @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
     final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration).getFilterRequest(filters, sortCriterion, from, size);
+        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration).getFilterRequest(transformedFilters, sortCriterion, from, size);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
-    return executeAndExtract(entitySpec, searchRequest, filters, from, size);
+    return executeAndExtract(entitySpec, searchRequest, transformedFilters, from, size);
   }
 
   /**
@@ -175,7 +176,7 @@ public class ESSearchDAO {
     try {
       EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
       AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
-      SearchRequest req = builder.getSearchRequest(query, field, requestParams, limit);
+      SearchRequest req = builder.getSearchRequest(query, field, transformFilterForEntities(requestParams, indexConvention), limit);
       req.indices(indexConvention.getIndexName(entitySpec));
       SearchResponse searchResponse = client.search(req, RequestOptions.DEFAULT);
       return builder.extractResult(searchResponse, query);
@@ -197,7 +198,7 @@ public class ESSearchDAO {
   @Nonnull
   public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
-    final SearchRequest searchRequest = SearchRequestHandler.getAggregationRequest(field, requestParams, limit);
+    final SearchRequest searchRequest = SearchRequestHandler.getAggregationRequest(field, transformFilterForEntities(requestParams, indexConvention), limit);
     String indexName;
     if (entityName == null) {
       indexName = indexConvention.getAllEntityIndicesPattern();
@@ -256,9 +257,10 @@ public class ESSearchDAO {
       pitId = createPointInTime(indexArray, keepAlive);
     }
 
+    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
     // Step 1: construct the query
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration)
-        .getSearchRequest(finalInput, transformFilterForEntities(postFilters, indexConvention), sortCriterion, sort, pitId, keepAlive, size, searchFlags);
+        .getSearchRequest(finalInput, transformedFilters, sortCriterion, sort, pitId, keepAlive, size, searchFlags);
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so we only specify if not using PIT
     if (!supportsPointInTime()) {
@@ -267,7 +269,7 @@ public class ESSearchDAO {
 
     scrollRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(entitySpecs, searchRequest, postFilters, scrollId, keepAlive, size);
+    return executeAndExtract(entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
   }
 
   /**

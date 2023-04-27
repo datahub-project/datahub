@@ -75,4 +75,37 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
 
     assertEquals(expectedNewFilter, transformedFilter);
   }
+
+  @Test
+  public void testTransformFilterForEntitiesWithSomeChanges() {
+
+    Criterion criterionChanged = new Criterion().setValue("dataset").setValues(
+        new StringArray(ImmutableList.of("dataset"))
+    ).setNegated(false).setCondition(Condition.EQUAL).setField("_entityType");
+    Criterion criterionUnchanged = new Criterion().setValue("urn:li:tag:abc").setValues(
+        new StringArray(ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def"))
+    ).setNegated(false).setCondition(Condition.EQUAL).setField("tags.keyword");
+
+    Filter f = new Filter().setOr(
+        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(criterionChanged, criterionUnchanged))));
+    Filter originalF = null;
+    try {
+      originalF = f.copy();
+    } catch (CloneNotSupportedException e) {
+      fail(e.getMessage());
+    }
+    assertEquals(f, originalF);
+
+    Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, indexConvention);
+    assertNotEquals(originalF, transformedFilter);
+
+    Criterion expectedNewCriterion = new Criterion().setValue("smpldat_datasetindex_v2").setValues(
+        new StringArray(ImmutableList.of("smpldat_datasetindex_v2"))
+    ).setNegated(false).setCondition(Condition.EQUAL).setField("_index");
+
+    Filter expectedNewFilter = new Filter().setOr(
+        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(expectedNewCriterion, criterionUnchanged))));
+
+    assertEquals(expectedNewFilter, transformedFilter);
+  }
 }
