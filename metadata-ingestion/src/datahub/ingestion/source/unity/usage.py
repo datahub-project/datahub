@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 TableMap = Dict[str, List[TableReference]]
-T = TypeVar("T", bound=object)
+T = TypeVar("T")
 
 
 @dataclass  # Dataclass over NamedTuple to support generic type annotations
