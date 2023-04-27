@@ -283,7 +283,7 @@ public class ESSearchDAO {
               criterion -> criterion.getField().equals("_entityType") ? criterion.setField("_index").setValues(
                   new StringArray(criterion.getValues().stream().map(
                       indexConvention::getEntityIndexName).collect(
-                      Collectors.toList()))) : criterion).
+                      Collectors.toList()))).setValue(indexConvention.getEntityIndexName(criterion.getValue())) : criterion).
           collect(Collectors.toCollection(CriterionArray::new)))).collect(Collectors.toList())));
     }
     return filter;

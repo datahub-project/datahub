@@ -66,8 +66,8 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
     Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, indexConvention);
     assertNotEquals(originalF, transformedFilter);
 
-    Criterion expectedNewCriterion = new Criterion().setValue("dataset_indexv2").setValues(
-        new StringArray(ImmutableList.of("dataset_indexv2"))
+    Criterion expectedNewCriterion = new Criterion().setValue("smpldat_datasetindex_v2").setValues(
+        new StringArray(ImmutableList.of("smpldat_datasetindex_v2"))
     ).setNegated(false).setCondition(Condition.EQUAL).setField("_index");
 
     Filter expectedNewFilter = new Filter().setOr(
