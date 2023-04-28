@@ -69,18 +69,18 @@ lazy_load_plugins = False
 
 ### How to validate installation
 
-1. Go and check in Airflow at Admin -> Plugins menu if you can see the Datahub plugin
+1. Go and check in Airflow at Admin -> Plugins menu if you can see the DataHub plugin
 2. Run an Airflow DAG. In the task logs, you should see Datahub related log messages like:
 
 ```
-Emitting Datahub ...
+Emitting DataHub ...
 ```
 
 ### Emitting lineage via a custom operator to the Airflow Plugin
 
 If you have created a custom Airflow operator [docs](https://airflow.apache.org/docs/apache-airflow/stable/howto/custom-operator.html) that inherits from the BaseOperator class,
 when overriding the `execute` function, set inlets and outlets via `context['ti'].task.inlets` and `context['ti'].task.outlets`.
-The Datahub Airflow plugin will then pick up those inlets and outlets after the task runs. 
+The DataHub Airflow plugin will then pick up those inlets and outlets after the task runs. 
 
 
 
@@ -103,7 +103,7 @@ class DbtOperator(BaseOperator):
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. [source](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage)
 
-## Using Datahub's Airflow lineage backend (deprecated)
+## Using DataHub's Airflow lineage backend (deprecated)
 
 :::caution
 
