@@ -34,7 +34,6 @@ from pyspark.sql.types import (
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
-import datahub.ingestion.source.s3.config
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -58,8 +57,8 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
+from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
-from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
@@ -377,7 +376,7 @@ class S3Source(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
-        if table_data.is_s3:
+        if self.is_s3_platform():
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
 
@@ -394,10 +393,11 @@ class S3Source(Source):
         fields = []
 
         extension = pathlib.Path(table_data.full_path).suffix
-        if path_spec.enable_compression and (
-            extension[1:]
-            in datahub.ingestion.source.aws.path_spec.SUPPORTED_COMPRESSIONS
-        ):
+        from datahub.ingestion.source.data_lake_common.path_spec import (
+            SUPPORTED_COMPRESSIONS,
+        )
+
+        if path_spec.enable_compression and (extension[1:] in SUPPORTED_COMPRESSIONS):
             # Removing the compression extension and using the one before that like .json.gz -> .json
             extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
         if extension == "" and path_spec.default_extension:
@@ -519,7 +519,7 @@ class S3Source(Source):
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_s3_prefix(table_data.table_path)
-            if table_data.is_s3
+            if self.is_s3_platform()
             else table_data.table_path.strip("/")
         )
 
@@ -543,7 +543,7 @@ class S3Source(Source):
                 "number_of_files": str(table_data.number_of_files),
                 "size_in_bytes": str(table_data.size_in_bytes),
             }
-            if table_data.is_s3:
+            if self.is_s3_platform():
                 customProperties["table_path"] = str(table_data.table_path)
 
         dataset_properties = DatasetPropertiesClass(
@@ -592,7 +592,7 @@ class S3Source(Source):
         yield wu
 
         container_wus = self.container_WU_creator.create_container_hierarchy(
-            table_data.table_path, table_data.is_s3, dataset_urn
+            table_data.table_path, dataset_urn
         )
         for wu in container_wus:
             self.report.report_workunit(wu)
@@ -621,7 +621,7 @@ class S3Source(Source):
         table_data = None
         table_data = TableData(
             display_name=table_name,
-            is_s3=path_spec.is_s3,
+            is_s3=self.is_s3_platform(),
             full_path=path,
             partitions=None,
             timestamp=timestamp,
@@ -693,8 +693,8 @@ class S3Source(Source):
                         .page_size(PAGE_SIZE)
                         .limit(SAMPLE_SIZE)
                     ):
-                        s3_path = f"s3://{obj.bucket_name}/{obj.key}"
-                        logger.debug(f"Samping file: {s3_path}")
+                        s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+                        logger.debug(f"Sampling file: {s3_path}")
                         yield s3_path, obj.last_modified, obj.size,
         else:
             logger.debug(
@@ -702,9 +702,12 @@ class S3Source(Source):
             )
             path_spec.sample_files = False
             for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
-                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+                s3_path = self.create_s3_path(obj.bucket_name, obj.key)
                 logger.debug(f"Path: {s3_path}")
                 yield s3_path, obj.last_modified, obj.size,
+
+    def create_s3_path(self, bucket_name: str, key: str) -> str:
+        return f"s3://{bucket_name}/{key}"
 
     def local_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         prefix = self.get_prefix(path_spec.include)
@@ -733,7 +736,7 @@ class S3Source(Source):
             for path_spec in self.source_config.path_specs:
                 file_browser = (
                     self.s3_browser(path_spec)
-                    if self.source_config.platform == "s3"
+                    if self.is_s3_platform()
                     else self.local_browser(path_spec)
                 )
                 table_dict: Dict[str, TableData] = {}
@@ -812,6 +815,9 @@ class S3Source(Source):
                     **time_percentiles,
                 },
             )
+
+    def is_s3_platform(self):
+        return self.source_config.platform == "s3"
 
     def get_report(self):
         return self.report
