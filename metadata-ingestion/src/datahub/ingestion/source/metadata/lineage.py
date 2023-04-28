@@ -82,7 +82,7 @@ class FineGrainedLineageConfig(ConfigModel):
             FineGrainedLineageDownstreamType.FIELD,
         ]
         if v not in allowed_types:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Downstream Type must be one of {allowed_types}, {v} is not yet supported."
             )
         return v
