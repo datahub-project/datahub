@@ -3,8 +3,8 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.20'
-  ext.springBootVersion = '2.7.10'
+  ext.springVersion = '5.3.27'
+  ext.springBootVersion = '2.7.11'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.0'
@@ -15,8 +15,9 @@ buildscript {
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
-  ext.slf4jVersion = '1.7.32'
-  ext.logbackClassic = '1.2.11'
+  ext.slf4jVersion = '1.7.36'
+  ext.logbackClassic = '1.2.12'
+  ext.hadoop3Version = '3.3.5'
 
   ext.docker_registry = 'linkedin'
 
@@ -96,10 +97,10 @@ project.ext.externalDependency = [
     'guice': 'com.google.inject:guice:4.2.3',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.214',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.4',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
-    'hadoopCommon3':'org.apache.hadoop:hadoop-common:3.3.4',
+    "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
+    "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
     'hazelcast':'com.hazelcast:hazelcast:5.2.1',
     'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
     'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',

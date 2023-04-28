@@ -43,8 +43,19 @@
     "changeType": "UPSERT",
     "aspectName": "institutionalMemory",
     "aspect": {
-        "value": "{\"elements\": [{\"url\": \"https://en.wikipedia.org/wiki/Classification\", \"description\": \"Wiki link for classification\", \"createStamp\": {\"time\": 1586847600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"ingestion bot\"}}]}",
-        "contentType": "application/json"
+        "json": {
+            "elements": [
+                {
+                    "url": "https://en.wikipedia.org/wiki/Classification",
+                    "description": "Wiki link for classification",
+                    "createStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub",
+                        "message": "ingestion bot"
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -97,8 +108,19 @@
     "changeType": "UPSERT",
     "aspectName": "institutionalMemory",
     "aspect": {
-        "value": "{\"elements\": [{\"url\": \"https://www.google.com\", \"description\": \"Google Link\", \"createStamp\": {\"time\": 1586847600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"ingestion bot\"}}]}",
-        "contentType": "application/json"
+        "json": {
+            "elements": [
+                {
+                    "url": "https://www.google.com",
+                    "description": "Google Link",
+                    "createStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub",
+                        "message": "ingestion bot"
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -151,8 +173,11 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:Marketing\"]}",
-        "contentType": "application/json"
+        "json": {
+            "domains": [
+                "urn:li:domain:Marketing"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

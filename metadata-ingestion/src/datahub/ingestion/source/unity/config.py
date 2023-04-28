@@ -5,6 +5,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -50,9 +51,13 @@ class UnityCatalogSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigM
         description="Option to enable/disable lineage generation.",
     )
 
-    include_table_ownership: bool = pydantic.Field(
+    include_ownership: bool = pydantic.Field(
         default=False,
-        description="Option to enable/disable table ownership generation.",
+        description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",
+    )
+
+    _rename_table_ownership = pydantic_renamed_field(
+        "include_table_ownership", "include_ownership"
     )
 
     include_column_lineage: Optional[bool] = pydantic.Field(

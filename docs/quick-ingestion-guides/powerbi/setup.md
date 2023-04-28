@@ -20,7 +20,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    e. On `Register an application` window fill the `Name` of application says `powerbi-app-connector` and keep other default as is
 
       <p align="center">
-   <img width="75%" alt="app_registration" src="https://raw.githubusercontent.com/main/static-assets-fork/main/imgs/guides/powerbi/app-registration.png"/>
+   <img width="75%" alt="app_registration" src="https://raw.githubusercontent.com/main/static-assets/main/imgs/guides/powerbi/app-registration.png"/>
       </p>
 
    f. On `Register an application` window click on `Register`
@@ -28,7 +28,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    g. The Azure portal will open up the `powerbi-app-connector` window as shown below. On this screen note down the `Application (client) ID` and click on `Add a certificate or secret` to generate a secret for the `Application (client) ID`
 
       <p align="center">
-   <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/main/static-assets-fork/main/imgs/guides/powerbi/powerbi-connector-window.png"/>
+   <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/main/static-assets/main/imgs/guides/powerbi/powerbi-connector-window.png"/>
       </p>
 
    f. On `powerbi-connector-app | Certificates & secrets` window generate the client secret and note down the `Secret` 
@@ -42,7 +42,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    c. On `New group` window fill out the `Group type`,&nbsp; `Group name`, &nbsp;`Group description`. &nbsp;`Group type` should be set to `Security` . &nbsp; `New group` window is shown in below screenshot.
 
       <p align="center">
-   <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/main/static-assets-fork/main/imgs/guides/powerbi/new-group-window.png"/>
+   <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/main/static-assets/main/imgs/guides/powerbi/new-group-window.png"/>
       </p>
 
    d. On `New group` window click on `No members selected` and add `Azure AD app` i.e. *powerbi-connector-app* as member
@@ -58,7 +58,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    c. On `Admin Portal` navigate to `Tenant settings` as shown in below screenshot.
 
       <p align="center">
-   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/main/static-assets-fork/main/imgs/guides/powerbi/powerbi-admin-portal.png"/>
+   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/main/static-assets/main/imgs/guides/powerbi/powerbi-admin-portal.png"/>
       </p>
 
    d. **Enable PowerBI API:** Under `Tenant settings` -> `Developer settings` -> `Allow service principals to use Power BI APIs` add the previously created security group i.e. *powerbi-connector-app-security-group* into `Specific security groups (Recommended)`
@@ -73,7 +73,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    f. **Add Security Group to Workspace:** Navigate to `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member
 
       <p align="center">
-   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/main/static-assets-fork/main/imgs/guides/powerbi/workspace-window.png"/>
+   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/main/static-assets/main/imgs/guides/powerbi/workspace-window.png"/>
       </p>
 
 

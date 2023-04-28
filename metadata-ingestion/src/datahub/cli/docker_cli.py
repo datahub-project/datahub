@@ -25,6 +25,7 @@ from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
     DockerComposeVersionError,
+    QuickstartStatus,
     check_docker_quickstart,
     get_docker_client,
     run_quickstart_preflight_checks,
@@ -58,6 +59,10 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
 )
+
+
+_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
+_QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
 
 
 class Architectures(Enum):
@@ -714,12 +719,7 @@ def quickstart(
     if build_locally:
         logger.info("Building docker images locally...")
         subprocess.run(
-            [
-                *base_command,
-                "build",
-                "--pull",
-                "-q",
-            ],
+            base_command + ["build", "--pull", "-q"],
             check=True,
             env=_docker_subprocess_env(),
         )
@@ -727,14 +727,13 @@ def quickstart(
 
     # Start it up! (with retries)
     click.echo("\nStarting up DataHub...")
-    max_wait_time = datetime.timedelta(minutes=8)
     start_time = datetime.datetime.now()
-    sleep_interval = datetime.timedelta(seconds=2)
-    up_interval = datetime.timedelta(seconds=30)
+    status: Optional[QuickstartStatus] = None
     up_attempts = 0
-    while (datetime.datetime.now() - start_time) < max_wait_time:
-        # Attempt to run docker compose up every `up_interval`.
-        if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
+    while (datetime.datetime.now() - start_time) < _QUICKSTART_MAX_WAIT_TIME:
+        # We must run docker-compose up at least once.
+        # Beyond that, we should run it again if something goes wrong.
+        if up_attempts == 0 or (status and status.needs_up()):
             if up_attempts > 0:
                 click.echo()
             subprocess.run(
@@ -750,8 +749,10 @@ def quickstart(
 
         # Wait until next iteration.
         click.echo(".", nl=False)
-        time.sleep(sleep_interval.total_seconds())
+        time.sleep(_QUICKSTART_STATUS_CHECK_INTERVAL.total_seconds())
     else:
+        assert status
+
         # Falls through if the while loop doesn't exit via break.
         click.echo()
         with tempfile.NamedTemporaryFile(suffix=".log", delete=False) as log_file:

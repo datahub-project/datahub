@@ -1,6 +1,6 @@
 package com.linkedin.metadata.models;
 
-import com.datahub.test.BrowsePaths;
+import com.datahub.test.TestBrowsePaths;
 import com.datahub.test.SearchFeatures;
 import com.datahub.test.Snapshot;
 import com.datahub.test.TestEntityInfo;
@@ -91,7 +91,7 @@ public class EntitySpecBuilderTest {
     final Map<String, AspectSpec> aspectSpecMap = testEntitySpec.getAspectSpecMap();
     assertEquals(4, aspectSpecMap.size());
     assertTrue(aspectSpecMap.containsKey("testEntityKey"));
-    assertTrue(aspectSpecMap.containsKey("browsePaths"));
+    assertTrue(aspectSpecMap.containsKey("testBrowsePaths"));
     assertTrue(aspectSpecMap.containsKey("testEntityInfo"));
     assertTrue(aspectSpecMap.containsKey("searchFeatures"));
 
@@ -99,7 +99,7 @@ public class EntitySpecBuilderTest {
     validateTestEntityKey(aspectSpecMap.get("testEntityKey"));
 
     // Assert on BrowsePaths Aspect
-    validateBrowsePaths(aspectSpecMap.get("browsePaths"));
+    validateBrowsePaths(aspectSpecMap.get("testBrowsePaths"));
 
     // Assert on TestEntityInfo Aspect
     validateTestEntityInfo(aspectSpecMap.get("testEntityInfo"));
@@ -130,8 +130,8 @@ public class EntitySpecBuilderTest {
 
 
   private void validateBrowsePaths(final AspectSpec browsePathAspectSpec) {
-    assertEquals("browsePaths", browsePathAspectSpec.getName());
-    assertEquals(new BrowsePaths().schema().getFullName(), browsePathAspectSpec.getPegasusSchema().getFullName());
+    assertEquals("testBrowsePaths", browsePathAspectSpec.getName());
+    assertEquals(new TestBrowsePaths().schema().getFullName(), browsePathAspectSpec.getPegasusSchema().getFullName());
     assertEquals(1, browsePathAspectSpec.getSearchableFieldSpecs().size());
     assertEquals(SearchableAnnotation.FieldType.BROWSE_PATH, browsePathAspectSpec.getSearchableFieldSpecs().get(0)
         .getSearchableAnnotation().getFieldType());
