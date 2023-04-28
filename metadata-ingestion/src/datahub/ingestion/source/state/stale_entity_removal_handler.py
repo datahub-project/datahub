@@ -30,6 +30,7 @@ from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
 )
 from datahub.metadata.schema_classes import StatusClass
+from datahub.utilities.lossy_collections import LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
 
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
+    soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)
 
     def report_stale_entity_soft_deleted(self, urn: str) -> None:
         self.soft_deleted_stale_entities.append(urn)
