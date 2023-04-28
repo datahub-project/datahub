@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Optional, Set, TypeVar, Union
+from typing import Callable, Iterable, Optional, Set, TypeVar
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
@@ -16,18 +16,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
-
-
-def auto_workunit(
-    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]
-) -> Iterable[MetadataWorkUnit]:
-    """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
-
-    for item in stream:
-        if isinstance(item, MetadataChangeEventClass):
-            yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
-        else:
-            yield item.as_workunit()
 
 
 def auto_status_aspect(
@@ -132,11 +120,11 @@ def auto_materialize_referenced_tags(
 
     for wu in stream:
         for urn in list_urns(wu.metadata):
-            if guess_entity_type(urn) == "tag":
+            if guess_entity_type(urn) == TagUrn.ENTITY_TYPE:
                 referenced_tags.add(urn)
 
         urn = wu.get_urn()
-        if guess_entity_type(urn) == "tag":
+        if guess_entity_type(urn) == TagUrn.ENTITY_TYPE:
             tags_with_aspects.add(urn)
 
         yield wu
