@@ -1,6 +1,5 @@
 package com.linkedin.metadata.boot.factories;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
@@ -28,7 +27,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -102,8 +100,8 @@ public class BootstrapManagerFactory {
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices = new RestoreColumnLineageIndices(_entityService, _entityRegistry);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep = new IngestDefaultGlobalSettingsStep(_entityService);
-    final WaitForSystemUpdateStep waitForSystemUpdateStep = _configurationProvider.getSystemUpdate().isWaitForSystemUpdate() ?
-            new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider) : null;
+    final WaitForSystemUpdateStep waitForSystemUpdateStep = _configurationProvider.getSystemUpdate().isWaitForSystemUpdate()
+        ? new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider) : null;
 
     final List<BootstrapStep> finalSteps = Stream.of(
                     waitForSystemUpdateStep,
