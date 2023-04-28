@@ -11,6 +11,7 @@ from wcmatch import pathlib
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -25,7 +26,7 @@ class PathSpec(ConfigModel):
         arbitrary_types_allowed = True
 
     include: str = Field(
-        description="Path to table (s3 or local file system). Name variable {table} is used to mark the folder with dataset. In absence of {table}, file level dataset will be created. Check below examples for more details."
+        description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details."
     )
     exclude: Optional[List[str]] = Field(
         default=None,
@@ -110,7 +111,7 @@ class PathSpec(ConfigModel):
 
     @pydantic.validator("default_extension")
     def validate_default_extension(cls, v):
-        if v not in SUPPORTED_FILE_TYPES:
+        if v is not None and v not in SUPPORTED_FILE_TYPES:
             raise ValueError(
                 f"default extension {v} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
             )
@@ -119,8 +120,9 @@ class PathSpec(ConfigModel):
     @pydantic.validator("sample_files", always=True)
     def turn_off_sampling_for_non_s3(cls, v, values):
         is_s3 = is_s3_uri(values.get("include") or "")
-        if not is_s3:
-            # Sampling only makes sense on s3 currently
+        is_gcs = is_gcs_uri(values.get("include") or "")
+        if not is_s3 and not is_gcs:
+            # Sampling only makes sense on s3 and gcs currently
             v = False
         return v
 
@@ -158,6 +160,10 @@ class PathSpec(ConfigModel):
     @cached_property
     def is_s3(self):
         return is_s3_uri(self.include)
+
+    @cached_property
+    def is_gcs(self):
+        return is_gcs_uri(self.include)
 
     @cached_property
     def compiled_include(self):
