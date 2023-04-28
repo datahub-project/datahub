@@ -273,7 +273,8 @@ public class ESSearchDAO {
   }
 
   /**
-   * Allows filtering on entities which are stored as different indices under the hood by transforming the tag _entityType to _index and updating the type to the index name.
+   * Allows filtering on entities which are stored as different indices under the hood by transforming the tag
+   * _entityType to _index and updating the type to the index name.
    * @param filter The filter to parse and transform if needed
    * @param indexConvention The index convention used to generate the index name for an entity
    * @return A filter, with the changes if necessary
