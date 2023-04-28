@@ -5,8 +5,6 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.sink.file import FileSinkConfig
-from datahub.ingestion.source.sql.hive import HiveConfig
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -42,13 +40,15 @@ def base_pipeline_config(events_file):
         "run_id": "hive-test",
         "source": {
             "type": data_platform,
-            "config": HiveConfig(
-                scheme="hive", database="db1", host_port="localhost:10000"
-            ).dict(),
+            "config": {
+                "scheme": "hive",
+                "database": "db1",
+                "host_port": "localhost:10000",
+            },
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": {"filename": str(events_file)},
         },
     }
 
