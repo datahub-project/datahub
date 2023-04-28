@@ -1,0 +1,27 @@
+source:
+  type: "ravendb"
+  config:
+    connect_uri: "ravendb://localhost"
+    # Credentials
+    # username: admin
+    # password: password
+    # authMechanism: "DEFAULT"
+
+    database_pattern:
+      deny:
+        - "@.*"
+    collection_pattern:
+      allow: 
+        - ".*"
+      deny: 
+        - "@.*"
+      ignoreCase: True
+
+    # Options
+    enable_schema_inference: True
+    schema_sampling_size: 200
+    remove_metadata_from_schema: True
+    max_schema_size: 300
+
+sink:
+  # sink configs
