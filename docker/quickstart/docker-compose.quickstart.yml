@@ -166,7 +166,7 @@ services:
     - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - USE_CONFLUENT_SCHEMA_REGISTRY=FALSE
+    - USE_CONFLUENT_SCHEMA_REGISTRY=FALSE
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     labels:
@@ -212,7 +212,7 @@ services:
     - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
     - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
     volumes:
-      - neo4jdata:/data
+    - neo4jdata:/data
   zookeeper:
     container_name: zookeeper
     environment:

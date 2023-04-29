@@ -152,7 +152,7 @@ services:
   kafka-setup:
     container_name: kafka-setup
     depends_on:
-      - broker
+    - broker
     environment:
     - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
