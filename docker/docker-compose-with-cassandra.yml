@@ -29,6 +29,16 @@ services:
     volumes:
       - broker:/var/lib/kafka/data/
 
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.2.2
+    env_file: schema-registry/env/docker.env
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
+
   elasticsearch:
     image: elasticsearch:7.10.1
     env_file: elasticsearch/env/docker.env

@@ -14,7 +14,7 @@ services:
     - MAE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=false
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
@@ -52,7 +52,7 @@ services:
     - GRAPH_SERVICE_IMPL=neo4j
     - JAVA_OPTS=-Xms1g -Xmx1g
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=true
     - NEO4J_HOST=http://neo4j:7474

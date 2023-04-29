@@ -26,6 +26,16 @@ services:
     ports:
       - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
 
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.2.2
+    env_file: schema-registry/env/docker.env
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
+
   elasticsearch:
     image: elasticsearch:7.10.1
     env_file: elasticsearch/env/docker.env
@@ -105,6 +115,7 @@ services:
     container_name: kafka-setup
     depends_on:
       - broker
+      - schema-registry
 
   datahub-upgrade:
     labels:
