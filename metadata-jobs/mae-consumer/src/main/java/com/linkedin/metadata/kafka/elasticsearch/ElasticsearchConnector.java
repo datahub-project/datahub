@@ -26,15 +26,11 @@ public class ElasticsearchConnector {
   /*
     Be careful here, we are mixing `DataHub` change type semantics with `Elasticsearch` concepts.
   */
-  public void feedElasticEvent(@Nonnull ElasticEvent event, boolean allowReplacement) {
+  public void feedElasticEvent(@Nonnull ElasticEvent event) {
     if (event.getActionType().equals(ChangeType.DELETE)) {
       _bulkProcessor.add(createDeleteRequest(event));
     } else if (event.getActionType().equals(ChangeType.CREATE)) {
-      if (allowReplacement) {
-        createIndexRequestWithReplace(event);
-      } else {
-        _bulkProcessor.add(createIndexRequest(event));
-      }
+      _bulkProcessor.add(createIndexRequest(event));
     } else if (event.getActionType().equals(ChangeType.UPDATE)) {
       _bulkProcessor.add(createUpsertRequest(event));
     }
@@ -42,18 +38,9 @@ public class ElasticsearchConnector {
 
   @Nonnull
   private static IndexRequest createIndexRequest(@Nonnull ElasticEvent event) {
-    log.debug("Document created: " + event.getId());
     return new IndexRequest(event.getIndex()).id(event.getId())
         .source(event.buildJson())
         .opType(DocWriteRequest.OpType.CREATE);
-  }
-
-  @Nonnull
-  private static IndexRequest createIndexRequestWithReplace(@Nonnull ElasticEvent event) {
-    log.debug("Document replaced: " + event.getId());
-    return new IndexRequest(event.getIndex()).id(event.getId())
-            .source(event.buildJson())
-            .opType(DocWriteRequest.OpType.INDEX);
   }
 
   @Nonnull
