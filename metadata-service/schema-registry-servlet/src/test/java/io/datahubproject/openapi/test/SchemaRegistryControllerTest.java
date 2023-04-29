@@ -57,9 +57,10 @@ import static org.testng.Assert.*;
         SchemaRegistryControllerTestConfiguration.class})
 @EnableKafka
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
+  private static final String CONFLUENT_PLATFORM_VERSION = "7.2.2";
 
   static KafkaContainer kafka = new KafkaContainer(
-      DockerImageName.parse("confluentinc/cp-kafka:5.3.1"))
+      DockerImageName.parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
       .withReuse(true)
       .withStartupAttempts(5)
       .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS));
