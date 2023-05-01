@@ -16,7 +16,7 @@ def test_init_database(create_engine_mock):
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
-    assert create_engine_mock.call_args.args[0].endswith("postgres")
+    assert create_engine_mock.call_args[0][0].endswith("postgres")
 
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
@@ -30,9 +30,9 @@ def test_get_inspectors_multiple_databases(create_engine_mock):
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 3
-    assert create_engine_mock.call_args_list[0].args[0].endswith("db0")
-    assert create_engine_mock.call_args_list[1].args[0].endswith("db1")
-    assert create_engine_mock.call_args_list[2].args[0].endswith("db2")
+    assert create_engine_mock.call_args_list[0][0][0].endswith("db0")
+    assert create_engine_mock.call_args_list[1][0][0].endswith("db1")
+    assert create_engine_mock.call_args_list[2][0][0].endswith("db2")
 
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
@@ -46,7 +46,7 @@ def tests_get_inspectors_with_database_provided(create_engine_mock):
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
-    assert create_engine_mock.call_args_list[0].args[0].endswith("custom_db")
+    assert create_engine_mock.call_args_list[0][0][0].endswith("custom_db")
 
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
@@ -62,7 +62,7 @@ def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
-    assert create_engine_mock.call_args_list[0].args[0] == "custom_url"
+    assert create_engine_mock.call_args_list[0][0][0] == "custom_url"
 
 
 def test_database_alias_takes_precendence():

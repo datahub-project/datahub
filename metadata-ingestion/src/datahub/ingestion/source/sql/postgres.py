@@ -150,6 +150,7 @@ class PostgresSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
+        # init_database is overwritten in url if database or sqlalchemy_uri are provided
         url = self.config.get_sql_alchemy_url(database=self.config.init_database)
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
