@@ -368,7 +368,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
-    "unity-catalog": databricks_cli | {"requests"},
+    "unity-catalog": databricks_cli | {"requests"} | usage_common,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
