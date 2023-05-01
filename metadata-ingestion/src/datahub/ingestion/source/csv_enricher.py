@@ -22,6 +22,7 @@ from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DomainsClass,
+    EditableContainerPropertiesClass,
     EditableDatasetPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
@@ -264,30 +265,52 @@ class CSVEnricherSource(Source):
         # Check if there is a description to add. If not, return None.
         if not description:
             return None
-
         # If the description is empty, return None.
         if len(description) <= 0:
             return None
-
-        current_editable_properties: Optional[EditableDatasetPropertiesClass] = None
-        if self.ctx.graph and not self.should_overwrite:
-            # Get the existing editable properties for the entity from the DataHub graph
-            current_editable_properties = self.ctx.graph.get_aspect(
-                entity_urn=entity_urn,
-                aspect_type=EditableDatasetPropertiesClass,
+        entityType = entity_urn.replace("urn:li:", "", 1).split(":")[0]
+        if entityType not in ["dataset", "container"]:
+            raise ValueError(
+                f"Entity Type {entityType} cannot be operated on using csv-enricher"
             )
 
-        if not current_editable_properties:
-            # If we want to overwrite or there are no existing editable dataset properties, create a new object
-            current_editable_properties = EditableDatasetPropertiesClass(
-                created=get_audit_stamp(),
-                lastModified=get_audit_stamp(),
-                description=description,
-            )
+        current_editable_properties: Optional[
+            Union[EditableDatasetPropertiesClass, EditableContainerPropertiesClass]
+        ]
+        if entityType == "dataset":
+            if self.ctx.graph and not self.should_overwrite:
+                # Get the existing editable properties for the entity from the DataHub graph
+                current_editable_properties = self.ctx.graph.get_aspect(
+                    entity_urn=entity_urn,
+                    aspect_type=EditableDatasetPropertiesClass,
+                )
+
+            if not current_editable_properties:
+                # If we want to overwrite or there are no existing editable dataset properties, create a new object
+                current_editable_properties = EditableDatasetPropertiesClass(
+                    created=get_audit_stamp(),
+                    lastModified=get_audit_stamp(),
+                    description=description,
+                )
+            else:
+                current_editable_properties.description = description
         else:
-            current_editable_properties.description = description
-            current_editable_properties.lastModified = get_audit_stamp()
+            if self.ctx.graph and not self.should_overwrite:
+                # Get the existing editable properties for the entity from the DataHub graph
+                current_editable_properties = self.ctx.graph.get_aspect(
+                    entity_urn=entity_urn,
+                    aspect_type=EditableContainerPropertiesClass,
+                )
 
+            if not current_editable_properties:
+                # If we want to overwrite or there are no existing editable dataset properties, create a new object
+                current_editable_properties = EditableContainerPropertiesClass(
+                    description=description,
+                )
+            else:
+                current_editable_properties.description = description
+        if isinstance(current_editable_properties, EditableDatasetPropertiesClass):
+            current_editable_properties.lastModified = get_audit_stamp()
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=current_editable_properties,
