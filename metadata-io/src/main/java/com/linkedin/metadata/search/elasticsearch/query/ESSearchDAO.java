@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -284,6 +285,31 @@ public class ESSearchDAO {
     return executeAndExtract(entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
   }
 
+  private static Criterion transformEntityTypeCriterion(Criterion criterion, IndexConvention indexConvention) {
+    return criterion.setField("_index").setValues(
+        new StringArray(criterion.getValues().stream().map(
+            indexConvention::getEntityIndexName).collect(
+            Collectors.toList()))).setValue(indexConvention.getEntityIndexName(criterion.getValue()));
+  }
+
+  private static ConjunctiveCriterion transformConjunctiveCriterion(ConjunctiveCriterion conjunctiveCriterion,
+      IndexConvention indexConvention) {
+    return new ConjunctiveCriterion().setAnd(
+        conjunctiveCriterion.getAnd().stream().map(
+                criterion -> criterion.getField().equals("_entityType")
+                    ? transformEntityTypeCriterion(criterion, indexConvention)
+                    : criterion)
+            .collect(Collectors.toCollection(CriterionArray::new)));
+  }
+
+  private static ConjunctiveCriterionArray transformConjunctiveCriterionArray(ConjunctiveCriterionArray criterionArray,
+      IndexConvention indexConvention) {
+    return new ConjunctiveCriterionArray(
+        criterionArray.stream().map(
+            conjunctiveCriterion -> transformConjunctiveCriterion(conjunctiveCriterion, indexConvention))
+            .collect(Collectors.toList()));
+  }
+
   /**
    * Allows filtering on entities which are stored as different indices under the hood by transforming the tag
    * _entityType to _index and updating the type to the index name.
@@ -293,13 +319,7 @@ public class ESSearchDAO {
    */
   static Filter transformFilterForEntities(Filter filter, @Nonnull IndexConvention indexConvention) {
     if (filter != null && filter.getOr() != null) {
-      return new Filter().setOr(new ConjunctiveCriterionArray(filter.getOr().stream().map(
-          conjunctiveCriterion -> new ConjunctiveCriterion().setAnd(conjunctiveCriterion.getAnd().stream().map(
-              criterion -> criterion.getField().equals("_entityType") ? criterion.setField("_index").setValues(
-                  new StringArray(criterion.getValues().stream().map(
-                      indexConvention::getEntityIndexName).collect(
-                      Collectors.toList()))).setValue(indexConvention.getEntityIndexName(criterion.getValue())) : criterion).
-              collect(Collectors.toCollection(CriterionArray::new)))).collect(Collectors.toList())));
+      return new Filter().setOr(transformConjunctiveCriterionArray(filter.getOr(), indexConvention));
     }
     return filter;
   }
