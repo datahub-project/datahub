@@ -3,8 +3,8 @@ services:
   datahub-mae-consumer:
     image: linkedin/datahub-mae-consumer:debug
     build:
-      context: datahub-mae-consumer
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/datahub-mae-consumer/Dockerfile
       args:
         APP_ENV: dev
     volumes:
@@ -16,8 +16,8 @@ services:
   datahub-mce-consumer:
     image: linkedin/datahub-mce-consumer:debug
     build:
-      context: datahub-mce-consumer
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/datahub-mce-consumer/Dockerfile
       args:
         APP_ENV: dev
     volumes:

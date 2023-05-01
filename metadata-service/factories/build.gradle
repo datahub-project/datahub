@@ -11,6 +11,7 @@ dependencies {
   compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
   compile project(':ingestion-scheduler')
+
   compile externalDependency.awsGlueSchemaRegistrySerde
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
@@ -28,7 +29,6 @@ dependencies {
   compile externalDependency.springCore
   compile externalDependency.springKafka
   compile externalDependency.springWeb
-
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
 
