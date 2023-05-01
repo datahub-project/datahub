@@ -240,9 +240,7 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {
-    "databricks-cli==0.17.3",
-}
+databricks_cli = {"databricks-cli==0.17.3", "pyspark"}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
