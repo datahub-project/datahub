@@ -5,13 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+@Slf4j
 public class DefaultUpgradeReport implements UpgradeReport {
 
   private final List<String> reportLines = new ArrayList<>();
 
   @Override
   public void addLine(String line) {
-    System.out.println(line); // TODO: Change to logging.
+    log.info(line);
     reportLines.add(line);
   }
 
