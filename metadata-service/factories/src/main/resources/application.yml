@@ -197,6 +197,9 @@ elasticsearch:
     partial:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
+    custom:
+      configEnabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:false}
+      configFile: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yml}
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
