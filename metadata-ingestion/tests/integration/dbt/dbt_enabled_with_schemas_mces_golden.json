@@ -7,7 +7,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model"
+                "Model",
+                "View"
             ]
         }
     },
@@ -187,7 +188,8 @@
         "json": {
             "typeNames": [
                 "Model",
-                "Table"
+                "Table",
+                "View"
             ]
         }
     },
@@ -585,7 +587,8 @@
         "json": {
             "typeNames": [
                 "Model",
-                "Table"
+                "Table",
+                "View"
             ]
         }
     },
@@ -2735,12 +2738,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:int_meta_property",
+    "entityUrn": "urn:li:tag:dbt:column_tag",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "dbt:int_meta_property"
+            "name": "dbt:column_tag"
         }
     },
     "systemMetadata": {
@@ -2756,6 +2759,21 @@
     "aspect": {
         "json": {
             "name": "dbt:has_pii_test"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-schemas-dbt-enabled"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:int_meta_property",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:int_meta_property"
         }
     },
     "systemMetadata": {
@@ -2786,21 +2804,6 @@
     "aspect": {
         "json": {
             "name": "dbt:test_tag"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-schemas-dbt-enabled"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:dbt:column_tag",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "dbt:column_tag"
         }
     },
     "systemMetadata": {
