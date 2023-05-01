@@ -204,7 +204,7 @@ def register_mock_data(unity_catalog_api_instance):
     }
 
 
-def mock_perform_query(method, path, **kwargs):
+def mock_perform_query(method, path, *args, **kwargs):
     if method == "GET" and path == "/account/scim/v2/ServicePrincipals":
         return {
             "Resources": [
@@ -226,6 +226,8 @@ def mock_perform_query(method, path, **kwargs):
             "itemsPerPage": 2,
             "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
         }
+    elif method == "get" and path == "/sql/history/queries":
+        return {"next_page_token": "next_token", "has_next_page": False, "res": []}
     else:
         return {}
 
