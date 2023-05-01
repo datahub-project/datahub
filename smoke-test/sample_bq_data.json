@@ -50,7 +50,13 @@
                                     },
                                     "nativeDataType": "String()",
                                     "recursive": false,
-                                    "globalTags": null
+                                    "globalTags": {
+                                        "tags": [
+                                            {
+                                                "tag": "urn:li:tag:search_tag1"
+                                            }
+                                        ]
+                                    }
                                 },
                                 {
                                     "fieldPath": "port_name",
@@ -393,6 +399,15 @@
                             "uri": null,
                             "tags": [],
                             "customProperties": {}
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.GlobalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:search_tag1"
+                                }
+                            ]
                         }
                     }
                 ]

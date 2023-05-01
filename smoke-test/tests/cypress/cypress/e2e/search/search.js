@@ -8,6 +8,18 @@ describe("search", () => {
     cy.contains(/of [0-9]+ results/);
   });
 
+  it("can click on tags and get results containing both dataset and field level tags", () => {
+    cy.login();
+    cy.goToStarSearchList();
+    cy.waitTextVisible("Top Tags");
+    cy.get("[data-testid=recommendation-container-id]").within(() => {
+      cy.clickOptionWithText("search_tag1");
+    })
+    cy.waitTextVisible("ca_border_wait_times");
+    cy.waitTextVisible("us_border_wait_times");
+    cy.waitTextVisible("Matches column tag");
+  });
+
   it("can hit all entities search with an impossible query and find 0 results", () => {
     cy.login();
     cy.visit("/");
