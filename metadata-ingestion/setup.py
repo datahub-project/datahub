@@ -25,7 +25,8 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    "pydantic>=1.5.1,!=1.10.3",
+    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
+    "pydantic>=1.5.1,!=1.10.3,<2",
     "mixpanel>=4.9.0",
 }
 
@@ -348,6 +349,7 @@ plugins: Dict[str, Set[str]] = {
     "redshift-legacy": sql_common | redshift_common,
     "redshift-usage-legacy": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
+    "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common,
@@ -572,6 +574,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
