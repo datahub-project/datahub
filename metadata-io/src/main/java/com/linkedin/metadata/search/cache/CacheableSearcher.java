@@ -93,9 +93,6 @@ public class CacheableSearcher<K> {
       if (enableCache) {
         K cacheKey = cacheKeyGenerator.apply(batch);
         if ((searchFlags == null || !searchFlags.isSkipCache())) {
-          result = searcher.apply(batch);
-          cache.put(cacheKey, toJsonString(result));
-        } else {
           try (Timer.Context ignored2 = MetricUtils.timer(this.getClass(), "getBatch_cache").time()) {
             Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "getBatch_cache_access").time();
             String json = cache.get(cacheKey, String.class);
@@ -109,6 +106,9 @@ public class CacheableSearcher<K> {
               MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").inc();
             }
           }
+        } else {
+          result = searcher.apply(batch);
+          cache.put(cacheKey, toJsonString(result));
         }
       } else {
         result = searcher.apply(batch);

@@ -116,7 +116,35 @@ public class CacheableSearcherTest {
     assertEquals(result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
         getUrns(0, 10));
     Mockito.verify(mockCache, Mockito.times(1)).put(Mockito.any(), Mockito.any());
-    Mockito.verify(mockCache, Mockito.times(0)).get(Mockito.any());
+    Mockito.verify(mockCache, Mockito.times(0)).get(Mockito.any(), Mockito.any(Class.class));
+    Mockito.reset(mockCache);
+
+    // Test cache hit when searchFlags is null
+    CacheableSearcher<Integer> nullFlags =
+        new CacheableSearcher<>(mockCache, 10,
+            qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()), CacheableSearcher.QueryPagination::getFrom,
+            null, true);
+    result = nullFlags.getSearchResults(0, 10);
+    assertEquals(result.getNumEntities().intValue(), 1000);
+    assertEquals(result.getEntities().size(), 10);
+    assertEquals(result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+        getUrns(0, 10));
+    Mockito.verify(mockCache, Mockito.times(1)).put(Mockito.any(), Mockito.any());
+    Mockito.verify(mockCache, Mockito.times(1)).get(Mockito.any(), Mockito.any(Class.class));
+    Mockito.reset(mockCache);
+
+    // Test cache hit when skipCache is false
+    CacheableSearcher<Integer> useCache =
+        new CacheableSearcher<>(mockCache, 10,
+            qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()), CacheableSearcher.QueryPagination::getFrom,
+            new SearchFlags().setSkipCache(false), true);
+    result = useCache.getSearchResults(0, 10);
+    assertEquals(result.getNumEntities().intValue(), 1000);
+    assertEquals(result.getEntities().size(), 10);
+    assertEquals(result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+        getUrns(0, 10));
+    Mockito.verify(mockCache, Mockito.times(1)).put(Mockito.any(), Mockito.any());
+    Mockito.verify(mockCache, Mockito.times(1)).get(Mockito.any(), Mockito.any(Class.class));
   }
 
   private SearchResult getEmptySearchResult(CacheableSearcher.QueryPagination queryPagination) {
