@@ -125,7 +125,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
             self.host_port,
-            database or self.database,
+            self.database or database,
             uri_opts=uri_opts,
         )
 

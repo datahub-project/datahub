@@ -1,6 +1,5 @@
 from unittest import mock
-
-import pytest
+from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
@@ -10,40 +9,60 @@ def _base_config():
     return {"username": "user", "password": "password", "host_port": "host:1521"}
 
 
-def test_default_database():
+@patch("datahub.ingestion.source.sql.postgres.create_engine")
+def test_init_database(create_engine_mock):
     config = PostgresConfig.parse_obj(_base_config())
-    assert config.database == "postgres"
+    assert config.init_database == "postgres"
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+    assert create_engine_mock.call_count == 1
+    assert create_engine_mock.call_args.args[0].endswith("postgres")
 
-    config = PostgresConfig.parse_obj({**_base_config(), "database": "my_database"})
-    assert config.database == "my_database"
 
-
-def test_ingest_multiple_databases_with_sqlachemy_uri():
-    config = PostgresConfig.parse_obj(
-        {
-            **_base_config(),
-            "ingest_multiple_databases": True,
-        }
+@patch("datahub.ingestion.source.sql.postgres.create_engine")
+def test_get_inspectors_multiple_databases(create_engine_mock):
+    execute_mock = (
+        create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     )
-    assert config.ingest_multiple_databases is True
+    execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
+
+    config = PostgresConfig.parse_obj({**_base_config(), "init_database": "db0"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+    assert create_engine_mock.call_count == 3
+    assert create_engine_mock.call_args_list[0].args[0].endswith("db0")
+    assert create_engine_mock.call_args_list[1].args[0].endswith("db1")
+    assert create_engine_mock.call_args_list[2].args[0].endswith("db2")
+
+
+@patch("datahub.ingestion.source.sql.postgres.create_engine")
+def tests_get_inspectors_with_database_provided(create_engine_mock):
+    execute_mock = (
+        create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+    )
+    execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
+
+    config = PostgresConfig.parse_obj({**_base_config(), "database": "custom_db"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+    assert create_engine_mock.call_count == 1
+    assert create_engine_mock.call_args_list[0].args[0].endswith("custom_db")
+
+
+@patch("datahub.ingestion.source.sql.postgres.create_engine")
+def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
+    execute_mock = (
+        create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+    )
+    execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
     config = PostgresConfig.parse_obj(
-        {
-            **_base_config(),
-            "sqlalchemy_uri": "postgresql://user:password@host:1521/postgres",
-            "ingest_multiple_databases": False,
-        }
+        {**_base_config(), "sqlalchemy_uri": "custom_url"}
     )
-    assert config.sqlalchemy_uri == "postgresql://user:password@host:1521/postgres"
-
-    with pytest.raises(ValueError):
-        PostgresConfig.parse_obj(
-            {
-                **_base_config(),
-                "ingest_multiple_databases": True,
-                "sqlachemy_uri": "postgresql://user:password@host:1521/postgres",
-            }
-        )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+    assert create_engine_mock.call_count == 1
+    assert create_engine_mock.call_args_list[0].args[0] == "custom_url"
 
 
 def test_database_alias_takes_precendence():

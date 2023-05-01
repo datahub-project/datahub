@@ -7,7 +7,6 @@ source:
     database: 'postgrestest'
     username: 'postgres'
     password: 'example'
-    ingest_multiple_databases: false
     profiling:
       enabled: true
       profile_table_level_only: true
