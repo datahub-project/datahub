@@ -9,11 +9,11 @@ DataHub works.
 
 ## Feature Flags
 
-| Variable                                          | Default | Unit/Type | Components                              | Description                                                                                                                 |
-|---------------------------------------------------|---------|-----------|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `UI_INGESTION_ENABLED`                            | `true`  | boolean   | [`GMS`, `MCE Consumer`]                 | Enable UI based ingestion.                                                                                                  |
-| `DATAHUB_ANALYTICS_ENABLED`                       | `true`  | boolean   | [`Frontend`, `GMS`]                     | Enabled analytics within DataHub.                                                                                           |
-| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE`  | `true`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`] | Do not wait for the `system-update` to complete before starting. This should typically only be disabled during development. |
+| Variable                                         | Default | Unit/Type | Components                              | Description                                                                                                                 |
+|--------------------------------------------------|---------|-----------|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `UI_INGESTION_ENABLED`                           | `true`  | boolean   | [`GMS`, `MCE Consumer`]                 | Enable UI based ingestion.                                                                                                  |
+| `DATAHUB_ANALYTICS_ENABLED`                      | `true`  | boolean   | [`Frontend`, `GMS`]                     | Collect DataHub usage to populate the analytics dashboard.                                                                  |                                                                                     |
+| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE` | `true`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`] | Do not wait for the `system-update` to complete before starting. This should typically only be disabled during development. |
 
 ## Ingestion
 
