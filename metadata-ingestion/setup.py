@@ -347,6 +347,7 @@ plugins: Dict[str, Set[str]] = {
     "redshift-legacy": sql_common | redshift_common,
     "redshift-usage-legacy": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
+    "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common,
@@ -571,6 +572,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
