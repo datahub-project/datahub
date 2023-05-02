@@ -34,6 +34,7 @@ RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
+COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
 
 FROM ${APP_ENV}-install as final
 

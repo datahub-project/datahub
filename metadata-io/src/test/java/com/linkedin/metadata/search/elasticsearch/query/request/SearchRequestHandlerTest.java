@@ -74,7 +74,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testDatasetFieldsAndHighlights() {
     EntitySpec entitySpec = entityRegistry.getEntitySpec("dataset");
-    SearchRequestHandler datasetHandler = SearchRequestHandler.getBuilder(entitySpec, testQueryConfig);
+    SearchRequestHandler datasetHandler = SearchRequestHandler.getBuilder(entitySpec, testQueryConfig, null);
 
     /*
        Ensure efficient query performance, we do not expect upstream/downstream/fineGrained lineage
@@ -89,7 +89,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testSearchRequestHandler() {
-    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig);
+    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
             10,  new SearchFlags().setFulltext(false));
     SearchSourceBuilder sourceBuilder = searchRequest.source();
@@ -118,7 +118,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testFilteredSearch() {
 
-    final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig);
+    final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
 
     final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
@@ -398,7 +398,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         ));
 
     final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(
-        TestEntitySpecBuilder.getSpec(), testQueryConfig);
+        TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
 
     return (BoolQueryBuilder) requestHandler
         .getSearchRequest("", filter, null, 0, 10,  new SearchFlags().setFulltext(false))
