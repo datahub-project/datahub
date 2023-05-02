@@ -333,6 +333,7 @@ def get_mces_from_term(
             models.GlossaryRelatedTermsClass,
             models.OwnershipClass,
             models.GlossaryTermKeyClass,
+            models.StatusClass,
             models.BrowsePathsClass,
         ]
     ] = []
