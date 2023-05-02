@@ -62,6 +62,7 @@ def get_kafka_broker_url():
 
 
 def get_kafka_schema_registry():
+    #  internal registry "http://localhost:8080/schema-registry/api/"
     return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL") or "http://localhost:8081"
 
 
