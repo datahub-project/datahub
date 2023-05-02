@@ -12,6 +12,9 @@ authentication:
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
 
+  # Normally failures are only warnings, enable this to throw them.
+  logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:false}
+
   # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
   # at user login time.
   systemClientId: ${DATAHUB_SYSTEM_CLIENT_ID:__datahub_system}
@@ -194,6 +197,9 @@ elasticsearch:
     partial:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
+    custom:
+      configEnabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:false}
+      configFile: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yml}
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
@@ -210,11 +216,12 @@ kafka:
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
-    type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
-    url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081} # Application only for type = kafka
-    awsGlue:
-      region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
-      registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+    type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
+    url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
+    #url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8080/schema-registry/api/}
+    #awsGlue:
+    #  region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
+    #  registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
   schema:
     registry:
       security:

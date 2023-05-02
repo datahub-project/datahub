@@ -546,12 +546,7 @@ class CSVEnricherSource(Source):
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
         parsed_location = parse.urlparse(self.config.filename)
-        if parsed_location.scheme in ("file", ""):
-            with open(
-                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
-            ) as f:
-                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
-        else:
+        if parsed_location.scheme in ("http", "https"):
             try:
                 resp = requests.get(self.config.filename)
                 decoded_content = resp.content.decode("utf-8-sig")
@@ -564,6 +559,11 @@ class CSVEnricherSource(Source):
                 raise ConfigurationError(
                     f"Cannot read remote file {self.config.filename}, error:{e}"
                 )
+        else:
+            with open(
+                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
+            ) as f:
+                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
 
         for row in rows:
             # We need the resource to move forward

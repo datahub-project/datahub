@@ -4,6 +4,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 
 import javax.annotation.Nonnull;
 
@@ -16,6 +17,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 
 @Builder
 @Getter
+@Accessors(fluent = true)
 public class SearchFieldConfig {
     public static final float DEFAULT_BOOST = 1.0f;
 
@@ -61,41 +63,47 @@ public class SearchFieldConfig {
 
     @Nonnull
     private final String fieldName;
+    @Nonnull
+    private final String shortName;
     @Builder.Default
     private final Float boost = DEFAULT_BOOST;
     private final String analyzer;
     private boolean hasKeywordSubfield;
     private boolean hasDelimitedSubfield;
+    private boolean isQueryByDefault;
+    private boolean isDelimitedSubfield;
+    private boolean isKeywordSubfield;
 
     public static SearchFieldConfig detectSubFieldType(@Nonnull SearchableFieldSpec fieldSpec) {
-        final String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
-        final float boost = (float) fieldSpec.getSearchableAnnotation().getBoostScore();
-        final SearchableAnnotation.FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
-        return detectSubFieldType(fieldName, boost, fieldType);
+        final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
+        final String fieldName = searchableAnnotation.getFieldName();
+        final float boost = (float) searchableAnnotation.getBoostScore();
+        final SearchableAnnotation.FieldType fieldType = searchableAnnotation.getFieldType();
+        return detectSubFieldType(fieldName, boost, fieldType, searchableAnnotation.isQueryByDefault());
     }
 
     public static SearchFieldConfig detectSubFieldType(String fieldName,
-                                                       SearchableAnnotation.FieldType fieldType) {
-        return detectSubFieldType(fieldName, DEFAULT_BOOST, fieldType);
+                                                       SearchableAnnotation.FieldType fieldType,
+                                                       boolean isQueryByDefault) {
+        return detectSubFieldType(fieldName, DEFAULT_BOOST, fieldType, isQueryByDefault);
     }
 
-    public static SearchFieldConfig detectSubFieldType(String fieldName, float boost,
-                                                       SearchableAnnotation.FieldType fieldType) {
+    public static SearchFieldConfig detectSubFieldType(String fieldName,
+                                                       float boost,
+                                                       SearchableAnnotation.FieldType fieldType,
+                                                       boolean isQueryByDefault) {
         return SearchFieldConfig.builder()
                 .fieldName(fieldName)
                 .boost(boost)
                 .analyzer(getAnalyzer(fieldName, fieldType))
                 .hasKeywordSubfield(hasKeywordSubfield(fieldName, fieldType))
                 .hasDelimitedSubfield(hasDelimitedSubfield(fieldName, fieldType))
+                .isQueryByDefault(isQueryByDefault)
                 .build();
     }
 
-    public boolean hasDelimitedSubfield() {
-        return isHasDelimitedSubfield();
-    }
-
-    public boolean hasKeywordSubfield() {
-        return isHasKeywordSubfield();
+    public boolean isKeyword() {
+        return KEYWORD_ANALYZER.equals(analyzer()) || isKeyword(fieldName());
     }
 
     private static boolean hasDelimitedSubfield(String fieldName, SearchableAnnotation.FieldType fieldType) {
@@ -108,8 +116,8 @@ public class SearchFieldConfig {
                 && (TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType) // if delimited then also has keyword
                     || TYPES_WITH_KEYWORD_SUBFIELD.contains(fieldType));
     }
-    private static boolean isKeyword(String fieldName, SearchableAnnotation.FieldType fieldType) {
-        return fieldName.equals(".keyword")
+    private static boolean isKeyword(String fieldName) {
+        return fieldName.endsWith(".keyword")
                 || KEYWORD_FIELDS.contains(fieldName);
     }
 
@@ -118,7 +126,7 @@ public class SearchFieldConfig {
         if (TYPES_WITH_BROWSE_PATH.contains(fieldType)) {
             return BROWSE_PATH_HIERARCHY_ANALYZER;
         // sub fields
-        } else if (isKeyword(fieldName, fieldType)) {
+        } else if (isKeyword(fieldName)) {
             return KEYWORD_ANALYZER;
         } else if (fieldName.endsWith(".delimited")) {
             return TEXT_SEARCH_ANALYZER;
@@ -129,6 +137,16 @@ public class SearchFieldConfig {
             return URN_SEARCH_ANALYZER;
         } else {
             throw new IllegalStateException(String.format("Unknown analyzer for fieldName: %s, fieldType: %s", fieldName, fieldType));
+        }
+    }
+
+    public static class SearchFieldConfigBuilder {
+        public SearchFieldConfigBuilder fieldName(@Nonnull String fieldName) {
+            this.fieldName = fieldName;
+            isDelimitedSubfield(fieldName.endsWith(".delimited"));
+            isKeywordSubfield(fieldName.endsWith(".keyword"));
+            shortName(fieldName.split("[.]")[0]);
+            return this;
         }
     }
 }

@@ -4,11 +4,14 @@ dependencies {
 
   compile project(':metadata-auth:auth-api')
   compile project(':metadata-service:factories')
+  compile project(':metadata-service:schema-registry-api')
 
   compile externalDependency.reflections
   compile externalDependency.springBoot
   compile externalDependency.springCore
-  compile externalDependency.springDocUI
+  compile(externalDependency.springDocUI) {
+    exclude group: 'org.springframework.boot'
+  }
   compile externalDependency.springWeb
   compile externalDependency.springWebMVC
   compile externalDependency.springBeans
@@ -20,6 +23,14 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  testImplementation externalDependency.springBootTest
+  testCompile externalDependency.springBoot
+  testCompile externalDependency.testContainers
+  testCompile externalDependency.springKafka
   testCompile externalDependency.testng
   testCompile externalDependency.mockito
+  testCompile externalDependency.logbackClassic
+  testCompile externalDependency.jacksonCore
+  testCompile externalDependency.jacksonDataBind
+  testCompile externalDependency.springBootStarterWeb
 }
