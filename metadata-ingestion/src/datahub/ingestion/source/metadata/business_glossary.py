@@ -20,15 +20,18 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import auto_workunit, auto_workunit_reporter
+from datahub.utilities.source_helpers import (
+    auto_status_aspect,
+    auto_workunit,
+    auto_workunit_reporter,
+)
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
 
-valid_status: models.StatusClass = models.StatusClass(removed=False)
 GlossaryNodeInterface = TypeVar(
     "GlossaryNodeInterface", "GlossaryNodeConfig", "BusinessGlossaryConfig"
 )
@@ -261,7 +264,7 @@ def get_mces_from_node(
 
     node_snapshot = models.GlossaryNodeSnapshotClass(
         urn=node_urn,
-        aspects=[node_info, node_owners, valid_status],
+        aspects=[node_info, node_owners],
     )
     yield get_mce_from_snapshot(node_snapshot)
 
@@ -329,11 +332,10 @@ def get_mces_from_term(
             models.GlossaryTermInfoClass,
             models.GlossaryRelatedTermsClass,
             models.OwnershipClass,
-            models.StatusClass,
             models.GlossaryTermKeyClass,
             models.BrowsePathsClass,
         ]
-    ] = [valid_status]
+    ] = []
     term_info = models.GlossaryTermInfoClass(
         definition=glossaryTerm.description,
         termSource=glossaryTerm.term_source
@@ -500,12 +502,17 @@ class BusinessGlossaryFileSource(Source):
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(
+            self.report,
+            auto_status_aspect(
+                self.get_workunits_internal(),
+            ),
+        )
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         glossary_config = self.load_glossary_config(self.config.file)
 
         materialize_all_node_urns(glossary_config, self.config.enable_auto_id)

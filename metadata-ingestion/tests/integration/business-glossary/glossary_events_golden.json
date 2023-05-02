@@ -23,11 +23,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
@@ -67,11 +62,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Classification.Sensitive",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {
@@ -138,11 +128,6 @@
             "urn": "urn:li:glossaryTerm:Classification.Confidential",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {
                             "is_confidential": "True"
@@ -199,11 +184,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Classification.Highly Confidential",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {
@@ -263,11 +243,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
@@ -282,11 +257,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Personal Information.Email",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
@@ -333,11 +303,6 @@
             "urn": "urn:li:glossaryTerm:Personal Information.Address",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Address",
@@ -375,11 +340,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Personal Information.Gender",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
@@ -444,11 +404,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
@@ -463,11 +418,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Clients And Accounts.Account",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
@@ -516,11 +466,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Clients And Accounts.Balance",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
@@ -578,11 +523,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
@@ -597,11 +537,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:4faf1eed790370f65942f2998a7993d6",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
@@ -628,6 +563,201 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Classification",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Clients And Accounts",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:KPIs",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Personal Information",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:4faf1eed790370f65942f2998a7993d6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Highly Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Sensitive",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients And Accounts.Account",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients And Accounts.Balance",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal Information.Address",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal Information.Email",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal Information.Gender",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
