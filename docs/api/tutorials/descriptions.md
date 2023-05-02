@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Modifying Description
+# Description
 
 ## Why Would You Use Description on Dataset?
 
@@ -9,9 +9,12 @@ Adding a description and related link to a dataset can provide important informa
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-* Add dataset description: add a description and a link to dataset `fct_users_deleted`.
-* Add column description: add a description to `user_name `column of a dataset `fct_users_deleted`.
+This guide will show you how to
+
+- Read dataset description: read a description of a dataset.
+- Read column description: read a description of columns of a dataset`.
+- Add dataset description: add a description and a link to dataset.
+- Add column description: add a description to a column of a dataset.
 
 ## Prerequisites
 
@@ -25,6 +28,171 @@ In this guide, we will be using data from sample ingestion.
 :::
 
 In this example, we will add a description to `user_name `column of a dataset `fct_users_deleted`.
+
+## Read Description on Dataset
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)") {
+    properties {
+      description
+    }
+  }
+}
+```
+
+If you see the following response, the operation was successful:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "properties": {
+        "description": "table containing all the users deleted on a single day"
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "query { dataset(urn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\") { properties { description } } }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "properties": {
+        "description": "table containing all the users deleted on a single day"
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_description.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+## Read Description on Columns
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)") {
+    schemaMetadata {
+      fields {
+        fieldPath
+        description
+      }
+    }
+  }
+}
+```
+
+If you see the following response, the operation was successful:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "schemaMetadata": {
+        "fields": [
+          {
+            "fieldPath": "user_name",
+            "description": "Name of the user who was deleted"
+          },
+          ...
+          {
+            "fieldPath": "deletion_reason",
+            "description": "Why the user chose to deactivate"
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "query { dataset(urn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\") { schemaMetadata { fields { fieldPath description } } } }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "dataset": {
+      "schemaMetadata": {
+        "fields": [
+          {
+            "fieldPath": "user_name",
+            "description": "Name of the user who was deleted"
+          },
+          {
+            "fieldPath": "timestamp",
+            "description": "Timestamp user was deleted at"
+          },
+          { "fieldPath": "user_id", "description": "Id of the user deleted" },
+          {
+            "fieldPath": "browser_id",
+            "description": "Cookie attached to identify the browser"
+          },
+          {
+            "fieldPath": "session_id",
+            "description": "Cookie attached to identify the session"
+          },
+          {
+            "fieldPath": "deletion_reason",
+            "description": "Why the user chose to deactivate"
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_description_on_columns.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
 
 ## Add Description on Dataset
 
@@ -40,6 +208,7 @@ In this example, we will add a description to `user_name `column of a dataset `f
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_documentation.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 
@@ -49,8 +218,7 @@ You can now see the description is added to `fct_users_deleted`.
 
 ![dataset-description-added](../../imgs/apis/tutorials/dataset-description-added.png)
 
-## Add Description on Column 
-
+## Add Description on Column
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -126,7 +294,7 @@ Expected Response:
 </TabItem>
 </Tabs>
 
-### Expected Outcomes of Adding Description on Column 
+### Expected Outcomes of Adding Description on Column
 
 You can now see column description is added to `user_name` column of `fct_users_deleted`.
 
