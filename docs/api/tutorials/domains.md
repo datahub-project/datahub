@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Domains On Dataset
+# Domains
 
 ## Why Would You Use Domains?
 

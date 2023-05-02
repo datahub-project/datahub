@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Custom Properties on Datasets
+# Custom Properties
 
 ## Why Would You Use Custom Properties on Datasets?
 

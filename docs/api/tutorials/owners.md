@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Owners
+# Ownership
 
 ## Why Would You Use Users and Groups?
 

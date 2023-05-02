@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Terms on Datasets
+# Terms
 
 ## Why Would You Use Terms on Datasets?
 

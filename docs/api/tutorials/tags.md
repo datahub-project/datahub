@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Tags on Datasets
+# Tags
 
 ## Why Would You Use Tags on Datasets?
 
