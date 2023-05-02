@@ -35,14 +35,14 @@ def loaded_hive(hive_runner):
     subprocess.run(command, shell=True, check=True)
 
 
-def base_pipeline_config(events_file):
+def base_pipeline_config(events_file, db=None):
     return {
         "run_id": "hive-test",
         "source": {
             "type": data_platform,
             "config": {
                 "scheme": "hive",
-                "database": "db1",
+                "database": db,
                 "host_port": "localhost:10000",
             },
         },
@@ -62,7 +62,7 @@ def test_hive_ingest(
     events_file = tmp_path / mce_out_file
 
     # Run the metadata ingestion pipeline.
-    pipeline = Pipeline.create(base_pipeline_config(events_file))
+    pipeline = Pipeline.create(base_pipeline_config(events_file, "db1"))
     pipeline.run()
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=True)
@@ -73,8 +73,34 @@ def test_hive_ingest(
         output_path=events_file,
         golden_path=test_resources_dir / "hive_mces_golden.json",
         ignore_paths=[
-            # example: root[1]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['CreateTime:']
-            # example: root[2]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['Table Parameters: transient_lastDdlTime']
+            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]",
+            r"root\[6\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
+        ],
+    )
+
+    # Limitation - native data types for union does not show up as expected
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration_batch_1
+def test_hive_ingest_all_db(
+    loaded_hive, pytestconfig, test_resources_dir, tmp_path, mock_time
+):
+    mce_out_file = "test_hive_ingest.json"
+    events_file = tmp_path / mce_out_file
+
+    # Run the metadata ingestion pipeline.
+    pipeline = Pipeline.create(base_pipeline_config(events_file))
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=events_file,
+        golden_path=test_resources_dir / "hive_mces_all_db_golden.json",
+        ignore_paths=[
             r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]",
             r"root\[6\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
         ],
@@ -92,7 +118,7 @@ def test_hive_instance_check(loaded_hive, test_resources_dir, tmp_path, pytestco
     mce_out_file = "test_hive_instance.json"
     events_file = tmp_path / mce_out_file
 
-    pipeline_config = base_pipeline_config(events_file)
+    pipeline_config = base_pipeline_config(events_file, "db1")
     pipeline_config["source"]["config"]["platform_instance"] = instance
 
     pipeline = Pipeline.create(pipeline_config)
