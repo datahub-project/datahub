@@ -25,7 +25,6 @@ dependencies {
     compile spec.product.pegasus.restliClient
     compile spec.product.pegasus.restliCommon
     compile externalDependency.elasticSearchRest
-    compile externalDependency.kafkaAvroSerde
     implementation externalDependency.protobuf
 
     compile externalDependency.springKafka
