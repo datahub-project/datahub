@@ -167,7 +167,7 @@ class ClassificationMixin:
     def populate_terms_in_schema_metadata(
         self: ClassificationSourceProtocol,
         schema_metadata: SchemaMetadata,
-        field_terms: dict[str, str],
+        field_terms: Dict[str, str],
     ) -> None:
         for schema_field in schema_metadata.fields:
             if schema_field.fieldPath in field_terms:
@@ -213,7 +213,7 @@ class ClassificationMixin:
         self: ClassificationSourceProtocol,
         dataset_name: str,
         schema_metadata: SchemaMetadata,
-        sample_data: dict[str, list],
+        sample_data: Dict[str, list],
     ) -> List[ColumnInfo]:
         column_infos: List[ColumnInfo] = []
 
