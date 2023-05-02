@@ -12,10 +12,10 @@ For more information about domains, refer to [About DataHub Domains](/docs/domai
 
 This guide will show you how to
 
-- create a domain named `Marketing`
-- read domains attached to a dataset `fct_users_created`.
-- add a dataset named `fct_users_created` to a domain named `Marketing`.
-- remove the domain `Marketing` from the `fct_users_created` dataset.
+- Create a domain.
+- Read domains attached to a dataset.
+- Add a dataset to a domain
+- Remove the domain from a dataset.
 
 ## Prerequisites
 
@@ -205,18 +205,11 @@ Expected Response:
 </TabItem>
 </Tabs>
 
-With GraphQL
-
-:::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access `graphql`.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
-:::
-
 ### Expected Outcomes of Adding Domain
 
-You can now see `CustomerAccount` domain has been added to `user_name` column.
+You can now see `Marketing` domain has been added to the dataset.
 
-![tag-added](../../imgs/apis/tutorials/tag-added.png)
+![domain-added](../../imgs/apis/tutorials/domain-added.png)
 
 ## Remove Domains
 

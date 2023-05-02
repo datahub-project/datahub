@@ -11,10 +11,10 @@ Adding a description and related link to a dataset can provide important informa
 
 This guide will show you how to
 
-- Read dataset description: read a description of a dataset `fct_users_deleted`.
-- Read column description: read a description of columns of a dataset `fct_users_deleted`.
-- Add dataset description: add a description and a link to dataset `fct_users_deleted`.
-- Add column description: add a description to `user_name `column of a dataset `fct_users_deleted`.
+- Read dataset description: read a description of a dataset.
+- Read column description: read a description of columns of a dataset`.
+- Add dataset description: add a description and a link to dataset.
+- Add column description: add a description to a column of a dataset.
 
 ## Prerequisites
 

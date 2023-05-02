@@ -12,8 +12,8 @@ For more information about datasets, refer to [Dataset](/docs/generated/metamode
 
 This guide will show you how to
 
-- Create: create a dataset named `realestate_db.sales` with three columns.
-- Delete: delete a dataset named `fct_user_deleted`.
+- Create: create a dataset with three columns.
+- Delete: delete a dataset.
 
 ## Prerequisites
 

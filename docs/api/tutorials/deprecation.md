@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Deprecation of Datasets
+# Deprecation
 
 ## Why Would You Deprecate Datasets?
 
@@ -9,7 +9,7 @@ The Deprecation feature on DataHub indicates the status of an entity. For datase
 
 ### Goal Of This Guide
 
-This guide will show you how to read or update deprecation status of a dataset `fct_users_created`.
+This guide will show you how to read or update deprecation status of a dataset.
 
 ## Prerequisites
 

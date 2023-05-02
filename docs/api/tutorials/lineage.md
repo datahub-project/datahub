@@ -12,7 +12,7 @@ For more information about lineage, refer to [About DataHub Lineage](/docs/linea
 
 This guide will show you how to
 
-- Add: add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
+- Add lineage between two hive datasets.
 
 ## Prerequisites
 

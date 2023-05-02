@@ -14,9 +14,9 @@ This helps to avoid confusion or conflicts over who is responsible for specific 
 This guide will show you how to
 
 - Create: create or update users and groups.
-- Read: read owners attached to a dataset `SampleHiveDataset`.
-- Add: add user group `bfoo` as an owner to the `fct_users_created` datatset.
-- Remove: remove the owner `John Doe` from the `SampleHdfsDataset` datatset.
+- Read: read owners attached to a dataset.
+- Add: add user group as an owner to a dataset.
+- Remove: remove the owner from a dataset.
 
 ## Pre-requisites
 
