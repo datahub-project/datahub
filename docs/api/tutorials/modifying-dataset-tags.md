@@ -14,8 +14,8 @@ This guide will show you how to
 
 - Create: create a tag named `Deprecated`
 - Read: read tags attached to a dataset `SampleHiveDataset`
-- Add: add a `CustomerAccount` tag to the `user_name` column of a dataset called `fct_users_created`.
-- Remove: remove a `Legacy` from the `shipment_info` column of a dataset called `SampleHdfsDataset`.
+- Add: add a `Deprecated` tag to the `user_name` column of a dataset called `fct_users_created`.
+- Remove: remove a `Deprecated` tag from the `user_name` column of a dataset called `fct_users_created`.
 
 ## Prerequisites
 
@@ -266,7 +266,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_tag.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_column_tag.py show_path_as_comment }}
 ```
 
 </TabItem>
