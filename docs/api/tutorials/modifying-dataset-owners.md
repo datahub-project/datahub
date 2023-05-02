@@ -11,11 +11,12 @@ This helps to avoid confusion or conflicts over who is responsible for specific 
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-* Create: create or update users and groups.
-* Read: read owners attached to a dataset `SampleHiveDataset`.
-* Add: add user group `bfoo` as an owner to the `fct_users_created` datatset.
-* Remove: remove the owner `John Doe` from the `SampleHdfsDataset` datatset.
+This guide will show you how to
+
+- Create: create or update users and groups.
+- Read: read owners attached to a dataset.
+- Add: add user group as an owner to the dataset.
+- Remove: remove the owner from the dataset.
 
 ## Pre-requisites
 
@@ -69,6 +70,7 @@ Update succeeded for urn urn:li:corpuser:datahub.
 ```python
 {{ inline /metadata-ingestion/examples/library/upsert_user.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 
@@ -108,6 +110,7 @@ If you see the following logs, the operation was successful:
 ```shell
 Update succeeded for group urn:li:corpGroup:foogroup@acryl.io.
 ```
+
 </TabItem>
 
 <TabItem value="python" label="Python">
@@ -119,12 +122,10 @@ Update succeeded for group urn:li:corpGroup:foogroup@acryl.io.
 </TabItem>
 </Tabs>
 
-
 ### Expected Outcomes of Upserting Group
 
 You can see the group `Foo Group` has been created under `Settings > Access > Users & Groups`
 ![group-upserted](../../imgs/apis/tutorials/group-upserted.png)
-
 
 ## Read Owners
 
@@ -207,6 +208,7 @@ Expected Response:
   "extensions": {}
 }
 ```
+
 </TabItem>
 <TabItem value="python" label="Python">
 
@@ -214,8 +216,6 @@ Expected Response:
 
 </TabItem>
 </Tabs>
-
-
 
 ## Add Owners
 
@@ -249,7 +249,6 @@ Expected Response:
 </TabItem>
 <TabItem value="curl" label="Curl">
 
-
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
@@ -273,9 +272,7 @@ You can now see `bfoo` has been added as an owner to the `fct_users_created` dat
 
 ![ownership-added](../../imgs/apis/tutorials/owner-added.png)
 
-
-
-## Remove Owners 
+## Remove Owners
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -334,7 +331,6 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcomes of Removing Owners
 

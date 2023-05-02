@@ -40,15 +40,7 @@ Taking a simple nested schema as described below:
 
 Understanding field paths is important, because they are the identifiers through which tags, terms, documentation on fields are expressed. Besides the type and name of the field, schemas also contain descriptions attached to the individual fields, as well as information about primary and foreign keys.
 
-The following code snippet shows you how to add a Schema containing 3 fields to a dataset.
-<details>
-<summary>Python SDK: Add a schema to a dataset</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/dataset_schema.py show_path_as_comment }}
-```
-</details>
-
+For more information on how to add a schema to a dataset, please refer to our API guides on [Creating Dataset via Python SDK](/docs/api/tutorials/modifying-datasets.md#create-dataset).
 
 ### Tags and Glossary Terms
 
@@ -58,48 +50,19 @@ Datasets can have Tags or Terms attached to them. Read [this blog](https://blog.
 
 At the top-level, tags are added to datasets using the `globalTags` aspect, while terms are added using the `glossaryTerms` aspect.
 
-Here is an example for how to add a tag to a dataset. Note that this involves reading the currently set tags on the dataset and then adding a new one if needed.
-
-<details>
-<summary>Python SDK: Add a tag to a dataset at the top-level</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_tag.py show_path_as_comment }}
-```
-</details>
-
-Here is an example of adding a term to a dataset. Note that this involves reading the currently set terms on the dataset and then adding a new one if needed.
-<details>
-<summary>Python SDK: Add a term to a dataset at the top-level</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_term.py show_path_as_comment }}
-```
-</details>
+Refer to the following guides for more information. 
+* [Adding Tags to a dataset](/docs/api/tutorials/modifying-dataset-tags.md#add-tags-to-a-dataset)
+* [Adding Terms to a dataset](/docs/api/tutorials/modifying-dataset-terms.md#add-terms-to-a-dataset)
 
 #### Adding Tags or Glossary Terms to columns / fields of a dataset
 
 Tags and Terms can also be attached to an individual column (field) of a dataset. These attachments are done via the `schemaMetadata` aspect by ingestion connectors / transformers and via the `editableSchemaMetadata` aspect by the UI.
 This separation allows the writes from the replication of metadata from the source system to be isolated from the edits made in the UI.
 
-Here is an example of how you can add a tag to a field in a dataset using the low-level Python SDK.
+Refer to the following guides for more information. 
+* [Adding Tags to a column of a dataset](/docs/api/tutorials/modifying-dataset-tags.md#add-tags-to-a-column-of-a-dataset)
+* [Adding Terms to a column of a dataset](/docs/api/tutorials/modifying-dataset-terms.md#add-terms-to-a-column-of-a-dataset)
 
-<details>
-<summary>Python SDK: Add a tag to a column (field) of a dataset</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_column_term.py show_path_as_comment }}
-```
-</details>
-
-Similarly, here is an example of how you would add a term to a field in a dataset using the low-level Python SDK. 
-<details>
-<summary>Python SDK: Add a term to a column (field) of a dataset</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_column_term.py show_path_as_comment }}
-```
-</details>
 
 ### Ownership
 
@@ -107,15 +70,8 @@ Ownership is associated to a dataset using the `ownership` aspect. Owners can be
 
 #### Adding Owners
 
-The following script shows you how to add an owner to a dataset using the low-level Python SDK.
-
-<details>
-<summary>Python SDK: Add an owner to a dataset</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_owner.py show_path_as_comment }}
-```
-</details>
+Refer to the following guides for more information. 
+* [Adding Owners to a dataset](/docs/api/tutorials/modifying-dataset-owners.md#add-owners)
 
 ### Fine-grained lineage
 Fine-grained lineage at field level can be associated to a dataset in two ways - either directly attached to the `upstreamLineage` aspect of a dataset, or captured as part of the `dataJobInputOutput` aspect of a dataJob.

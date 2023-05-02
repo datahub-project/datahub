@@ -9,9 +9,10 @@ Adding a description and related link to a dataset can provide important informa
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-* Add dataset description: add a description and a link to dataset `fct_users_deleted`.
-* Add column description: add a description to `user_name `column of a dataset `fct_users_deleted`.
+This guide will show you how to
+
+- Add dataset description: add a description and a link to dataset.
+- Add column description: add a description to column of a dataset.
 
 ## Prerequisites
 
@@ -40,6 +41,7 @@ In this example, we will add a description to `user_name `column of a dataset `f
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_documentation.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 
@@ -49,8 +51,7 @@ You can now see the description is added to `fct_users_deleted`.
 
 ![dataset-description-added](../../imgs/apis/tutorials/dataset-description-added.png)
 
-## Add Description on Column 
-
+## Add Description on Column
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -126,7 +127,7 @@ Expected Response:
 </TabItem>
 </Tabs>
 
-### Expected Outcomes of Adding Description on Column 
+### Expected Outcomes of Adding Description on Column
 
 You can now see column description is added to `user_name` column of `fct_users_deleted`.
 

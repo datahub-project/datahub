@@ -11,10 +11,12 @@ For more information about tags, refer to [About DataHub Tags](/docs/tags.md).
 ### Goal Of This Guide
 
 This guide will show you how to
-- Create: create a tag named `Deprecated`
-- Read: read tags attached to a dataset `SampleHiveDataset`
-- Add: add a `CustomerAccount` tag to the `user_name` column of a dataset called `fct_users_created`.
-- Remove: remove a `Legacy` from the `shipment_info` column of a dataset called `SampleHdfsDataset`.
+
+- Create: create a tag.
+- Read : read tags attached to a dataset.
+- Add: add a tag to a column of a dataset or a dataset itself.
+- Remove: remove a tag from a dataset.
+-
 
 ## Prerequisites
 
@@ -105,9 +107,7 @@ datahub get --urn "urn:li:tag:deprecated" --aspect tagProperties
 }
 ```
 
-
-## Read Tags 
-
+## Read Tags
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -161,7 +161,6 @@ If you see the following response, the operation was successful:
 </TabItem>
 <TabItem value="curl" label="Curl">
 
-
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
@@ -203,8 +202,9 @@ Expected Response:
 </TabItem>
 </Tabs>
 
-
 ## Add Tags
+
+### Add Tags to a dataset
 
 The following code shows you how can add tags to a dataset.
 In the following code, we add a tag `Deprecated` to a dataset named `fct_users_created`.
@@ -220,19 +220,6 @@ mutation addTags {
         resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
       }
     )
-}
-```
-
-Note that you can also add a tag on a column of a dataset if you specify `subResourceType` and `subResource`.
-
-```json
-mutation addTags {
-    addTags(
-      input: {
-        tagUrns: ["urn:li:tag:deprecated"],
-        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-        subResourceType:DATASET_FIELD,
-        subResource:"user_name"})
 }
 ```
 
@@ -268,6 +255,48 @@ Expected Response:
 
 ```python
 {{ inline /metadata-ingestion/examples/library/create_tag.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+### Add Tags to a Column of a dataset
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL">
+
+```json
+mutation addTags {
+    addTags(
+      input: {
+        tagUrns: ["urn:li:tag:deprecated"],
+        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+        subResourceType:DATASET_FIELD,
+        subResource:"user_name"})
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "mutation addTags { addTags(input: { tagUrns: [\"urn:li:tag:deprecated\"], resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\", subResourceType: DATASET_FIELD, subResource: \"user_name\" }) }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{ "data": { "addTags": true }, "extensions": {} }
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_column_tag.py show_path_as_comment }}
 ```
 
 </TabItem>

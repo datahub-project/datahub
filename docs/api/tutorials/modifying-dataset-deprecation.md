@@ -9,7 +9,7 @@ Deprecation indicates the status of an entity. For datasets, keeping the depreca
 
 ### Goal Of This Guide
 
-This guide will show you how to read or update deprecation status of a dataset `fct_users_created`.
+This guide will show you how to read or update deprecation status of a dataset.
 
 ## Prerequisites
 
@@ -22,8 +22,7 @@ If you attempt to manipulate entities that do not exist, your operation will fai
 In this guide, we will be using data from a sample ingestion.
 :::
 
-
-## Read Deprecation 
+## Read Deprecation
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -79,7 +78,6 @@ Expected Response:
 }
 ```
 
-
 </TabItem>
 
 <TabItem value="python" label="Python">
@@ -88,9 +86,6 @@ Expected Response:
 
 </TabItem>
 </Tabs>
-
-
-
 
 ## Update Deprecation
 
@@ -147,7 +142,6 @@ Expected Response:
 { "data": { "removeTag": true }, "extensions": {} }
 ```
 
-
 </TabItem>
 
 <TabItem value="python" label="Python">
@@ -156,7 +150,6 @@ Expected Response:
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcomes of Updating Deprecation
 

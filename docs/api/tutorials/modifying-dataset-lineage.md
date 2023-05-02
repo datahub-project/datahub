@@ -10,8 +10,9 @@ For more information about lineage, refer to [About DataHub Lineage](/docs/linea
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-* Add: add lineage between two hive datasets named `fct_users_deleted` and `logging_events`.
+This guide will show you how to
+
+- Add: add lineage between two hive datasets.
 
 ## Prerequisites
 
@@ -24,8 +25,7 @@ If you attempt to manipulate entities that do not exist, your operation will fai
 In this guide, we will be using data from sample ingestion.
 :::
 
-## Add Lineage 
-
+## Add Lineage
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -82,6 +82,7 @@ If you see the following response, the operation was successful:
   "extensions": {}
 }
 ```
+
 </TabItem>
 <TabItem value="curl" label="Curl">
 
@@ -96,6 +97,7 @@ Expected Response:
 ```json
 { "data": { "updateLineage": true }, "extensions": {} }
 ```
+
 </TabItem>
 <TabItem value="python" label="Python">
 
@@ -105,7 +107,6 @@ Expected Response:
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcomes of Adding Lineage
 
