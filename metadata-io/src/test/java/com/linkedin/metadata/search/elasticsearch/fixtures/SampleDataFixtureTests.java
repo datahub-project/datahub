@@ -119,8 +119,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
             for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
                 SearchFieldConfig test = SearchFieldConfig.detectSubFieldType(fieldSpec);
 
-                if (!test.getFieldName().contains(".")) {
-                    Map<String, Object> actual = mappings.get(test.getFieldName());
+                if (!test.fieldName().contains(".")) {
+                    Map<String, Object> actual = mappings.get(test.fieldName());
 
                     final String expectedAnalyzer;
                     if (actual.get("search_analyzer") != null) {
@@ -131,36 +131,36 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         expectedAnalyzer = "keyword";
                     }
 
-                    assertEquals(test.getAnalyzer(), expectedAnalyzer,
+                    assertEquals(test.analyzer(), expectedAnalyzer,
                             String.format("Expected search analyzer to match for entity: `%s`field: `%s`",
-                                    entitySpec.getName(), test.getFieldName()));
+                                    entitySpec.getName(), test.fieldName()));
 
                     if (test.hasDelimitedSubfield()) {
                         assertTrue(((Map<String, Map<String, String>>) actual.get("fields")).containsKey("delimited"),
                                 String.format("Expected entity: `%s` field to have .delimited subfield: `%s`",
-                                        entitySpec.getName(), test.getFieldName()));
+                                        entitySpec.getName(), test.fieldName()));
                     } else {
                         boolean nosubfield = !actual.containsKey("fields")
                                 || !((Map<String, Map<String, String>>) actual.get("fields")).containsKey("delimited");
                         assertTrue(nosubfield, String.format("Expected entity: `%s` field to NOT have .delimited subfield: `%s`",
-                                entitySpec.getName(), test.getFieldName()));
+                                entitySpec.getName(), test.fieldName()));
                     }
                     if (test.hasKeywordSubfield()) {
                         assertTrue(((Map<String, Map<String, String>>) actual.get("fields")).containsKey("keyword"),
                                 String.format("Expected entity: `%s` field to have .keyword subfield: `%s`",
-                                        entitySpec.getName(), test.getFieldName()));
+                                        entitySpec.getName(), test.fieldName()));
                     } else {
                         boolean nosubfield = !actual.containsKey("fields")
                                 || !((Map<String, Map<String, String>>) actual.get("fields")).containsKey("keyword");
                         assertTrue(nosubfield, String.format("Expected entity: `%s` field to NOT have .keyword subfield: `%s`",
-                                entitySpec.getName(), test.getFieldName()));
+                                entitySpec.getName(), test.fieldName()));
                     }
                 } else {
                     // this is a subfield therefore cannot have a subfield
                     assertFalse(test.hasKeywordSubfield());
                     assertFalse(test.hasDelimitedSubfield());
 
-                    String[] fieldAndSubfield = test.getFieldName().split("[.]", 2);
+                    String[] fieldAndSubfield = test.fieldName().split("[.]", 2);
 
                     Map<String, Object> actualParent = mappings.get(fieldAndSubfield[0]);
                     Map<String, Object> actualSubfield = ((Map<String, Map<String, Object>>) actualParent.get("fields")).get(fieldAndSubfield[0]);
@@ -168,8 +168,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     String expectedAnalyzer = actualSubfield.get("search_analyzer") != null ? (String) actualSubfield.get("search_analyzer")
                             : "keyword";
 
-                    assertEquals(test.getAnalyzer(), expectedAnalyzer,
-                            String.format("Expected search analyzer to match for field `%s`", test.getFieldName()));
+                    assertEquals(test.analyzer(), expectedAnalyzer,
+                            String.format("Expected search analyzer to match for field `%s`", test.fieldName()));
                 }
             }
         }
@@ -195,7 +195,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         final SearchResult result = search(searchService, "test");
 
         Map<String, Integer> expectedTypes = Map.of(
-                "dataset", 10,
+                "dataset", 13,
                 "chart", 0,
                 "container", 1,
                 "dashboard", 0,
@@ -1132,6 +1132,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "Expected exact match and 1st position");
     }
 
+    // Note: This test can fail if not using .keyword subfields (check for possible query builder regression)
     @Test
     public void testPrefixVsExactCaseSensitivity() {
         List<String> insensitiveExactMatches = List.of("testExactMatchCase", "testexactmatchcase", "TESTEXACTMATCHCASE");

@@ -240,9 +240,7 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {
-    "databricks-cli==0.17.3",
-}
+databricks_cli = {"databricks-cli==0.17.3", "pyspark", "requests"}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -371,7 +369,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
-    "unity-catalog": databricks_cli | {"requests"},
+    "unity-catalog": databricks_cli | sqllineage_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.

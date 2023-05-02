@@ -165,7 +165,7 @@ def test_make_usage_workunit():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=True,
@@ -200,7 +200,7 @@ def test_query_formatting():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=True,
         include_top_n_queries=True,
@@ -233,7 +233,7 @@ def test_query_trimming():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=top_n_queries,
         format_sql_queries=False,
         include_top_n_queries=True,
@@ -276,7 +276,7 @@ def test_make_usage_workunit_include_top_n_queries():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=False,
