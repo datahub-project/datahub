@@ -1,5 +1,5 @@
 <configuration scan="true" scanPeriod="120 seconds">
-    <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/gms}"/>
+    <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/datahub-upgrade}"/>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
