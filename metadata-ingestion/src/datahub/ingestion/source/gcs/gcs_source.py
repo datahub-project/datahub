@@ -89,7 +89,8 @@ class GCSSource(Source):
     2. Make sure you meet following requirements to generate HMAC key - https://cloud.google.com/storage/docs/authentication/managing-hmackeys#before-you-begin
     3. Create an HMAC key for service account created above - https://cloud.google.com/storage/docs/authentication/managing-hmackeys#create .
 
-    To ingest datasets from your data lake, you need to provide the dataset path format specifications using [path_specs](https://datahubproject.io/docs/generated/ingestion/sources/gcs/#path-specs) configuration in ingestion recipe.
+    To ingest datasets from your data lake, you need to provide the dataset path format specifications using `path_specs` configuration in ingestion recipe.
+    Refer section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/gcs/#path-specs) for examples.
     """
 
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):

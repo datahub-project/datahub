@@ -210,7 +210,8 @@ class S3Source(Source):
     JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
     We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
-    To ingest datasets from your data lake, you need to provide the dataset path format specifications using [path_specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) configuration in ingestion recipe.
+    To ingest datasets from your data lake, you need to provide the dataset path format specifications using `path_specs` configuration in ingestion recipe.
+    Refer section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) for examples.
 
     Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
     Enabling profiling will slow down ingestion runs.
