@@ -44,6 +44,7 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
             '--version', "v${version}",
             '--dump-logs-on-failure'
     ]
+
     commandLine 'bash', '-c', cmd.join(" ")
 }
 

@@ -81,7 +81,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(_esIndexBuilder, _entityRegistry, _indexConvention, _settingsBuilder);
     ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention, false,
-        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration);
+        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, null);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
     ESWriteDAO writeDAO =
         new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, _bulkProcessor, 1);

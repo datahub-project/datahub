@@ -312,6 +312,17 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
 
+ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
+    aspect.get_aspect_name(): aspect
+    for aspect in ASPECT_CLASSES
+}}
+
+from typing_extensions import TypedDict
+
+class AspectBag(TypedDict, total=False):
+    {f'{newline}    '.join(f"{aspect['Aspect']['name']}: {aspect['name']}Class" for aspect in aspects)}
+
+
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f',{newline}    '.join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect['Aspect'].get('keyForEntity'))}
 }}

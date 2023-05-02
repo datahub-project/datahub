@@ -26,8 +26,9 @@ class DatasetContainerSubTypes(str, Enum):
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
     DATABRICKS_METASTORE = "Metastore"
-    S3_FOLDER = "Folder"
+    FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
+    GCS_BUCKET = "GCS bucket"
 
 
 class BIContainerSubTypes(str, Enum):

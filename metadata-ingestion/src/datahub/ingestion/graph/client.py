@@ -1,5 +1,6 @@
 import json
 import logging
+import textwrap
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -15,12 +16,14 @@ from typing_extensions import Literal
 from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mce_builder import Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.schema_classes import (
+    ASPECT_NAME_MAP,
+    AspectBag,
     BrowsePathsClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
@@ -65,6 +68,27 @@ class DatahubClientConfig(ConfigModel):
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
+
+
+def _graphql_entity_type(entity_type: str) -> str:
+    """Convert the entity types into GraphQL "EntityType" enum values."""
+
+    # Hard-coded special cases.
+    if entity_type == "corpuser":
+        return "CORP_USER"
+
+    # Convert camelCase to UPPER_UNDERSCORE.
+    entity_type = (
+        "".join(["_" + c.lower() if c.isupper() else c for c in entity_type])
+        .lstrip("_")
+        .upper()
+    )
+
+    # Strip the "DATA_HUB_" prefix.
+    if entity_type.startswith("DATA_HUB_"):
+        entity_type = entity_type[len("DATA_HUB_") :]
+
+    return entity_type
 
 
 class DataHubGraph(DatahubRestEmitter):
@@ -330,6 +354,9 @@ class DataHubGraph(DatahubRestEmitter):
         response.raise_for_status()
         return response.json()
 
+    @deprecated(
+        reason="Use get_aspect for a single aspect or get_entity_semityped for a full entity."
+    )
     def get_aspects_for_entity(
         self,
         entity_urn: str,
@@ -337,7 +364,11 @@ class DataHubGraph(DatahubRestEmitter):
         aspect_types: List[Type[Aspect]],
     ) -> Dict[str, Optional[Aspect]]:
         """
-        Get multiple aspects for an entity. To get a single aspect for an entity, use the `get_aspect_v2` method.
+        Get multiple aspects for an entity.
+
+        Deprecated in favor of `get_aspect` (single aspect) or `get_entity_semityped` (full
+        entity without manually specifying a list of aspects).
+
         Warning: Do not use this method to determine if an entity exists!
         This method will always return an entity, even if it doesn't exist. This is an issue with how DataHub server
         responds to these calls, and will be fixed automatically when the server-side issue is fixed.
@@ -357,8 +388,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         result: Dict[str, Optional[Aspect]] = {}
         for aspect_type in aspect_types:
-            record_schema = aspect_type.RECORD_SCHEMA
-            aspect_type_name = record_schema.props["Aspect"]["name"]
+            aspect_type_name = aspect_type.get_aspect_name()
 
             aspect_json = response_json.get("aspects", {}).get(aspect_type_name)
             if aspect_json:
@@ -367,6 +397,37 @@ class DataHubGraph(DatahubRestEmitter):
                 result[aspect_type_name] = aspect_type.from_obj(post_json_obj["value"])
             else:
                 result[aspect_type_name] = None
+
+        return result
+
+    def get_entity_semityped(self, entity_urn: str) -> AspectBag:
+        """Get all non-timeseries aspects for an entity (experimental).
+
+        This method is called "semityped" because it returns aspects as a dictionary of
+        properly typed objects. While the returned dictionary is constrained using a TypedDict,
+        the return type is still fairly loose.
+
+        Warning: Do not use this method to determine if an entity exists! This method will always return
+        something, even if the entity doesn't actually exist in DataHub.
+
+        :param entity_urn: The urn of the entity
+        :returns: A dictionary of aspect name to aspect value. If an aspect is not found, it will
+            not be present in the dictionary. The entity's key aspect will always be present.
+        """
+
+        response_json = self.get_entity_raw(entity_urn)
+
+        # Now, we parse the response into proper aspect objects.
+        result: AspectBag = {}
+        for aspect_name, aspect_json in response_json.get("aspects", {}).items():
+            aspect_type = ASPECT_NAME_MAP.get(aspect_name)
+            if aspect_type is None:
+                logger.warning(f"Ignoring unknown aspect type {aspect_name}")
+                continue
+
+            post_json_obj = post_json_transform(aspect_json)
+            aspect_value = aspect_type.from_obj(post_json_obj["value"])
+            result[aspect_name] = aspect_value  # type: ignore
 
         return result
 
@@ -465,33 +526,69 @@ class DataHubGraph(DatahubRestEmitter):
             yield x["entity"]
 
     def get_urns_by_filter(
-        self, platform: str, batch_size: int = 10000
+        self,
+        *,
+        entity_types: Optional[List[str]] = None,
+        platform: Optional[str] = None,
+        batch_size: int = 10000,
     ) -> Iterable[str]:
+        """Fetch all urns that match the given filters.
+
+        Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
+        Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+
+        :param entity_types: List of entity types to include. If None, all entity types will be returned.
+        :param platform: Platform to filter on. If None, all platforms will be returned.
+        """
+
+        types: Optional[List[str]] = None
+        if entity_types is not None:
+            if not entity_types:
+                raise ValueError("entity_types cannot be an empty list")
+
+            types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
+
         # Does not filter on env, because env is missing in dashboard / chart urns and custom properties
         # For containers, use { field: "customProperties", values: ["instance=env}"], condition:EQUAL }
         # For others, use { field: "origin", values: ["env"], condition:EQUAL }
 
-        query = """
-        query scrollEntitiesForPlatform($platform: String!, $batchSize: Int!, $scrollId: String) {
-          scrollAcrossEntities(input: { query: "*", count:$batchSize,
-            scrollId: $scrollId,
-            orFilters: [
-              {and: [{
-                field: "platform.keyword",
-                values: [$platform],
-                condition: EQUAL,
-              }]}
+        andFilters = []
+        if platform:
+            andFilters += [
+                {
+                    "field": "platform.keyword",
+                    "values": [make_data_platform_urn(platform)],
+                    "condition": "EQUAL",
+                }
             ]
-          }) {
-            nextScrollId
-            searchResults {
-              entity {
-                urn
-              }
+        orFilters = [{"and": andFilters}]
+
+        query = textwrap.dedent(
+            """
+            query scrollUrnsWithFilters(
+                $types: [EntityType!],
+                $orFilters: [AndFilterInput!],
+                $batchSize: Int!,
+                $scrollId: String) {
+
+                scrollAcrossEntities(input: {
+                    query: "*",
+                    count: $batchSize,
+                    scrollId: $scrollId,
+                    types: $types,
+                    orFilters: $orFilters,
+                    searchFlags: { skipHighlighting: true }
+                }) {
+                    nextScrollId
+                    searchResults {
+                        entity {
+                            urn
+                        }
+                    }
+                }
             }
-          }
-        }
-        """
+            """
+        )
 
         # Set scroll_id to False to enter while loop
         scroll_id: Union[Literal[False], str, None] = False
@@ -499,7 +596,8 @@ class DataHubGraph(DatahubRestEmitter):
             response = self.execute_graphql(
                 query,
                 variables={
-                    "platform": f"urn:li:dataPlatform:{platform}",
+                    "types": types,
+                    "orFilters": orFilters,
                     "batchSize": batch_size,
                     "scrollId": scroll_id or None,
                 },
