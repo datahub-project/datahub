@@ -451,7 +451,9 @@ class BigQueryUsageExtractor:
                     user_freq=entry.user_freq,
                     column_freq=entry.column_freq,
                     bucket_duration=self.config.bucket_duration,
-                    urn_builder=lambda resource: resource.to_urn(self.config.env),
+                    resource_urn_builder=lambda resource: resource.to_urn(
+                        self.config.env
+                    ),
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
                 )

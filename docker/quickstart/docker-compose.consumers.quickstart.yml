@@ -12,7 +12,7 @@ services:
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - MAE_CONSUMER_ENABLED=true
-    - PE_CONSUMER_ENABLED=true
+    - PE_CONSUMER_ENABLED=false
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
@@ -41,7 +41,7 @@ services:
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - EBEAN_DATASOURCE_HOST=mysql:3306
     - EBEAN_DATASOURCE_PASSWORD=datahub
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - EBEAN_DATASOURCE_USERNAME=datahub
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200

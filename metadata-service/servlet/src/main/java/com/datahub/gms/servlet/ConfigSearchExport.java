@@ -66,7 +66,7 @@ public class ConfigSearchExport extends HttpServlet {
             .filter(Optional::isPresent)
             .forEach(entitySpecOpt -> {
               EntitySpec entitySpec = entitySpecOpt.get();
-              SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec, searchConfiguration)
+              SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, null)
                       .getSearchRequest("*", null, null, 0, 0, new SearchFlags()
                               .setFulltext(true).setSkipHighlighting(true).setSkipAggregates(true));
 
