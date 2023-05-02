@@ -98,16 +98,11 @@ the glossary file, and how to ingest it into DataHub, check out the [Business Gl
 
 DataHub supports 2 different kinds of relationships _between_ individual Glossary Terms: **Inherits From** and **Contains**. 
 
-**Contains** can be used to relate two Glossary Terms when one may be a superset of another. 
-For example:
+**Contains** can be used to relate two Glossary Terms when one is a _superset_ of or _consists_ of another.
+For example: **Address** Term _Contains_ **Zip Code** Term, **Street** Term, & **City** Term (_Has-A_ style relationship)
 
-**Address** Term _Contains_ **Zip Code** Term, **Street** Term, **City** Term (_Has-A_ style relationship)
-
-**Inherits** can be used to relate two Glossary Terms when one is be a sub-type or sub-category of another. 
-
-For example:
-
-**Email** Term _Inherits From_  **PII** Term (_Is-A_ style relationship)
+**Inherits** can be used to relate two Glossary Terms when one is a _sub-type_ or _sub-category_ of another.
+For example: **Email** Term _Inherits From_  **PII** Term (_Is-A_ style relationship)
 
 These relationship types allow you to map the concepts existing within your organization, enabling you to
 change the mapping between concepts behind the scenes, without needing to change the Glossary Terms
