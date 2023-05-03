@@ -19,7 +19,7 @@ import {
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
-import { useDownloadScrollSearchResults } from './utils/useDownloadScrollSearchResults';
+import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 
 type SearchPageParams = {
@@ -84,7 +84,7 @@ export const SearchPage = () => {
     // download the correct results given the current context.
     // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
     // TODO: Revisit this pattern -- what can we push down?
-    const { refetch: refetchForDownload } = useDownloadScrollSearchResults({
+    const { refetch: refetchForDownload } = useDownloadScrollAcrossEntitiesSearchResults({
         variables: {
             input: {
                 types: entityFilters,

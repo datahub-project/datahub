@@ -18,7 +18,7 @@ import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
-import { useDownloadScrollSearchResults } from '../../../../../search/utils/useDownloadScrollSearchResults';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import {
     DownloadSearchResultsParams,
     DownloadSearchResultsInput,
@@ -119,7 +119,7 @@ export const EmbeddedListSearch = ({
     searchBarInputStyle,
     skipCache,
     useGetSearchResults = useWrappedSearchResults,
-    useGetDownloadSearchResults = useDownloadScrollSearchResults,
+    useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
     resetShouldRefetch,
 }: Props) => {
