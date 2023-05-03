@@ -15,7 +15,7 @@ from datahub.ingestion.source.ldap import parse_groups, parse_ldap_dn, parse_use
             "group_name",
         ),
         (
-            b"cn=comma group (one\, two\, three),ou=Groups,dc=internal,dc=machines",
+            b"cn=comma group (one\\, two\\, three),ou=Groups,dc=internal,dc=machines",
             "comma group (one, two, three)",
         ),
     ],
