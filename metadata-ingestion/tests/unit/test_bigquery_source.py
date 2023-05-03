@@ -113,7 +113,7 @@ def test_get_projects_with_project_ids(client_mock):
     assert client_mock.list_projects.call_count == 0
 
 
-def test_get_projects_with_project_ids_overrides_project_id_pattern() -> None:
+def test_get_projects_with_project_ids_overrides_project_id_pattern():
     config = BigQueryV2Config.parse_obj(
         {
             "project_ids": ["test-project", "test-project-2"],
@@ -161,7 +161,7 @@ def test_get_projects_by_list(client_mock):
 
 
 @patch.object(BigQueryDataDictionary, "get_projects")
-def test_get_projects_filter_by_pattern(get_projects_mock) -> None:
+def test_get_projects_filter_by_pattern(get_projects_mock):
     get_projects_mock.return_value = [
         BigqueryProject("test-project", "Test Project"),
         BigqueryProject("test-project-2", "Test Project 2"),
@@ -178,7 +178,7 @@ def test_get_projects_filter_by_pattern(get_projects_mock) -> None:
 
 
 @patch.object(BigQueryDataDictionary, "get_projects")
-def test_get_projects_list_empty(get_projects_mock) -> None:
+def test_get_projects_list_empty(get_projects_mock):
     get_projects_mock.return_value = []
 
     config = BigQueryV2Config.parse_obj(
@@ -192,7 +192,7 @@ def test_get_projects_list_empty(get_projects_mock) -> None:
 
 @patch.object(BigQueryDataDictionary, "get_projects")
 def test_get_projects_list_failure(
-    get_projects_mock, caplog: pytest.LogCaptureFixture
+    get_projects_mock: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
     error_str = "my error"
     get_projects_mock.side_effect = GoogleAPICallError(error_str)
@@ -211,7 +211,7 @@ def test_get_projects_list_failure(
 
 
 @patch.object(BigQueryDataDictionary, "get_projects")
-def test_get_projects_list_fully_filtered(get_projects_mock) -> None:
+def test_get_projects_list_fully_filtered(get_projects_mock):
     get_projects_mock.return_value = [BigqueryProject("test-project", "Test Project")]
 
     config = BigQueryV2Config.parse_obj(
