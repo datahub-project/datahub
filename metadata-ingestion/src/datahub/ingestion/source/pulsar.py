@@ -385,7 +385,9 @@ class PulsarSource(StatefulIngestionSourceBase):
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
                     documentSchema=schema.schema_str if schema is not None else "",
+                    documentSchemaType=schema.schema_type if schema is not None else "",
                     keySchema=None,
+                    keySchemaType=None,
                 ),
                 fields=fields,
             )
