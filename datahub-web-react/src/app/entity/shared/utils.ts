@@ -147,6 +147,7 @@ export const handleBatchError = (urns, e, defaultMessage) => {
     return defaultMessage;
 };
 
+// put all of the fineGrainedLineages for a given entity and its siblings into one array so we have all of it in one place
 export function getFineGrainedLineageWithSiblings(
     entityData: GenericEntityProperties | null,
     getGenericEntityProperties: (type: EntityType, data: Entity) => GenericEntityProperties | null,

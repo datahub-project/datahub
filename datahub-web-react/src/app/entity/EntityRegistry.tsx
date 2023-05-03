@@ -132,6 +132,7 @@ export default class EntityRegistry {
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
+        // combine fineGrainedLineages from this node as well as its siblings
         const fineGrainedLineages = getFineGrainedLineageWithSiblings(
             genericEntityProperties,
             (t: EntityType, d: EntityInterface) => this.getGenericEntityProperties(t, d),
