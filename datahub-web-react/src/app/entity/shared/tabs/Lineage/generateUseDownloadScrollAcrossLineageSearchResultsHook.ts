@@ -10,7 +10,7 @@ import {
  * Generates a hook which can be used to download Scroll Across Lineage Results to CSV inside the
  * Download as CSV modal.
  */
-export default function generateUseDownloadLineageSearchResultsHook({
+export default function generateUseDownloadSearchAcrossLineageSearchResultsHook({
     urn,
     direction,
     startTimeMillis,
@@ -23,7 +23,7 @@ export default function generateUseDownloadLineageSearchResultsHook({
     skipCache?: boolean;
     setSkipCache?: (skipCache: boolean) => void;
 }) {
-    return function useGetDownloadSearchResultsViaScrollAcrossLineage(params: DownloadSearchResultsParams) {
+    return function useDownloadSearchAcrossLineageSearchResults(params: DownloadSearchResultsParams) {
         const { data, loading, error, refetch } = useGetDownloadScrollAcrossLineageResultsQuery({
             ...params,
             variables: {
