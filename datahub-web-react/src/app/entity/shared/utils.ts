@@ -1,6 +1,6 @@
 import * as QueryString from 'query-string';
 
-import { MatchedField } from '../../../types.generated';
+import { Entity, EntityType, MatchedField } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { GenericEntityProperties } from './types';
@@ -146,3 +146,19 @@ export const handleBatchError = (urns, e, defaultMessage) => {
     }
     return defaultMessage;
 };
+
+export function getFineGrainedLineageWithSiblings(
+    entityData: GenericEntityProperties | null,
+    getGenericEntityProperties: (type: EntityType, data: Entity) => GenericEntityProperties | null,
+) {
+    const fineGrainedLineages = [...(entityData?.fineGrainedLineages || [])];
+    entityData?.siblings?.siblings?.forEach((sibling) => {
+        if (sibling) {
+            const genericSiblingProps = getGenericEntityProperties(sibling.type, sibling);
+            if (genericSiblingProps && genericSiblingProps.fineGrainedLineages) {
+                fineGrainedLineages.push(...genericSiblingProps.fineGrainedLineages);
+            }
+        }
+    });
+    return fineGrainedLineages;
+}
