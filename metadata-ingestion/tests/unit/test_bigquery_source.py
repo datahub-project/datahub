@@ -1,11 +1,13 @@
 import json
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, Optional, cast
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
 from datahub.ingestion.api.common import PipelineContext
@@ -111,6 +113,21 @@ def test_get_projects_with_project_ids(client_mock):
     assert client_mock.list_projects.call_count == 0
 
 
+def test_get_projects_with_project_ids_overrides_project_id_pattern() -> None:
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_ids": ["test-project", "test-project-2"],
+            "project_id_pattern": {"deny": ["^test-project$"]},
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    projects = source._get_projects(MagicMock())
+    assert projects == [
+        BigqueryProject(id="test-project", name="test-project"),
+        BigqueryProject(id="test-project-2", name="test-project-2"),
+    ]
+
+
 @patch("google.cloud.bigquery.client.Client")
 def test_get_projects_with_single_project_id(client_mock):
     config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
@@ -122,7 +139,7 @@ def test_get_projects_with_single_project_id(client_mock):
 
 
 @patch("google.cloud.bigquery.client.Client")
-def test_get_projects(client_mock):
+def test_get_projects_by_list(client_mock):
     client_mock.list_projects.return_value = [
         SimpleNamespace(
             project_id="test-1",
@@ -141,6 +158,69 @@ def test_get_projects(client_mock):
         BigqueryProject("test-2", "two"),
     ]
     assert client_mock.list_projects.call_count == 1
+
+
+@patch.object(BigQueryDataDictionary, "get_projects")
+def test_get_projects_filter_by_pattern(get_projects_mock) -> None:
+    get_projects_mock.return_value = [
+        BigqueryProject("test-project", "Test Project"),
+        BigqueryProject("test-project-2", "Test Project 2"),
+    ]
+
+    config = BigQueryV2Config.parse_obj(
+        {"project_id_pattern": {"deny": ["^test-project$"]}}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    projects = source._get_projects(MagicMock())
+    assert projects == [
+        BigqueryProject(id="test-project-2", name="Test Project 2"),
+    ]
+
+
+@patch.object(BigQueryDataDictionary, "get_projects")
+def test_get_projects_list_empty(get_projects_mock) -> None:
+    get_projects_mock.return_value = []
+
+    config = BigQueryV2Config.parse_obj(
+        {"project_id_pattern": {"deny": ["^test-project$"]}}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    projects = source._get_projects(MagicMock())
+    assert len(source.report.failures) == 1
+    assert projects == []
+
+
+@patch.object(BigQueryDataDictionary, "get_projects")
+def test_get_projects_list_failure(
+    get_projects_mock, caplog: pytest.LogCaptureFixture
+) -> None:
+    error_str = "my error"
+    get_projects_mock.side_effect = GoogleAPICallError(error_str)
+
+    config = BigQueryV2Config.parse_obj(
+        {"project_id_pattern": {"deny": ["^test-project$"]}}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    caplog.records.clear()
+    with caplog.at_level(logging.ERROR):
+        projects = source._get_projects(MagicMock())
+        assert len(caplog.records) == 1
+        assert error_str in caplog.records[0].msg
+    assert len(source.report.failures) == 1
+    assert projects == []
+
+
+@patch.object(BigQueryDataDictionary, "get_projects")
+def test_get_projects_list_fully_filtered(get_projects_mock) -> None:
+    get_projects_mock.return_value = [BigqueryProject("test-project", "Test Project")]
+
+    config = BigQueryV2Config.parse_obj(
+        {"project_id_pattern": {"deny": ["^test-project$"]}}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    projects = source._get_projects(MagicMock())
+    assert len(source.report.failures) == 0
+    assert projects == []
 
 
 def test_simple_upstream_table_generation():
