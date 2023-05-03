@@ -1,10 +1,6 @@
 import pytest
 
-from datahub.ingestion.source.ldap import (
-    parse_users,
-    parse_groups,
-    parse_ldap_dn
-)
+from datahub.ingestion.source.ldap import parse_users, parse_groups, parse_ldap_dn
 
 
 @pytest.mark.parametrize(
