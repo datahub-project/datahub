@@ -280,16 +280,19 @@ New Entities Created: {'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.Sampl
 External Entities Affected: None
 Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
+
 ### user
-The `user` command allows you to interact with the User entity. 
-It currently supports the `upsert` operation, which can be used to create a new user or update an existing one. 
-For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/modifying-dataset-owners.md#upsert-users).
+
+The `user` command allows you to interact with the User entity.
+It currently supports the `upsert` operation, which can be used to create a new user or update an existing one.
+For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
 
 ```shell
 datahub user upsert -f users.yaml
 ```
 
 An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
+
 ```yaml
 - id: bar@acryl.io
   first_name: The
@@ -306,11 +309,11 @@ An example of `users.yaml` would look like the following. You can refer to the [
   picture_link: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/datahub-logo-color-stable.svg"
 ```
 
-
 ### group
+
 The `group` command allows you to interact with the Group entity.
-It currently supports  the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users. 
-For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/modifying-dataset-owners.md#upsert-users).
+It currently supports the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users.
+For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
 
 ```shell
 datahub group upsert -f group.yaml
