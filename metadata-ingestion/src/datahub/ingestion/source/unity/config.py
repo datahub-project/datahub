@@ -20,7 +20,9 @@ class UnityCatalogSourceConfig(
     StatefulIngestionConfigBase, BaseUsageConfig, DatasetSourceConfigMixin
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
-    workspace_url: str = pydantic.Field(description="Databricks workspace url")
+    workspace_url: str = pydantic.Field(
+        description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
+    )
     workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
