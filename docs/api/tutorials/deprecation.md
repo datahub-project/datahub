@@ -1,15 +1,15 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Modifying Deprecation
+# Deprecation
 
-## Why Would You Use Deprecation?
+## Why Would You Deprecate Datasets?
 
-Deprecation indicates the status of an entity. For datasets, keeping the deprecation status up-to-date is important to inform users and downstream systems of changes to the dataset's availability or reliability. By updating the status, you can prevent issues and ensure users have access to the most reliable data.
+The Deprecation feature on DataHub indicates the status of an entity. For datasets, keeping the deprecation status up-to-date is important to inform users and downstream systems of changes to the dataset's availability or reliability. By updating the status, you can communicate changes proactively, prevent issues and ensure users are always using highly trusted data assets.
 
 ### Goal Of This Guide
 
-This guide will show you how to read or update deprecation status of a dataset `fct_users_created`.
+This guide will show you how to read or update deprecation status of a dataset.
 
 ## Prerequisites
 
@@ -22,8 +22,7 @@ If you attempt to manipulate entities that do not exist, your operation will fai
 In this guide, we will be using data from a sample ingestion.
 :::
 
-
-## Read Deprecation 
+## Read Deprecation
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -79,18 +78,16 @@ Expected Response:
 }
 ```
 
-
 </TabItem>
 
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_deprecation.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
-
-
-
 
 ## Update Deprecation
 
@@ -147,16 +144,12 @@ Expected Response:
 { "data": { "removeTag": true }, "extensions": {} }
 ```
 
-
 </TabItem>
 
 <TabItem value="python" label="Python">
 
-> Coming Soon!
-
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcomes of Updating Deprecation
 
