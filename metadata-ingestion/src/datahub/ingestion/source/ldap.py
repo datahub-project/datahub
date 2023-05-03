@@ -480,5 +480,9 @@ def parse_ldap_dn(input_clean: bytes) -> str:
     """
     Converts an LDAP DN of format b'cn=group_name,ou=Groups,dc=internal,dc=machines'
     or b'uid=username,ou=Groups,dc=internal,dc=machines' to group name or username.
+    Inputs which are not valid LDAP DNs are simply decoded and returned as strings.
     """
-    return ldap.dn.str2dn(input_clean, flags=ldap.DN_FORMAT_LDAPV3)[0][0][1]
+    if ldap.dn.is_dn(input_clean):
+        return ldap.dn.str2dn(input_clean, flags=ldap.DN_FORMAT_LDAPV3)[0][0][1]
+    else:
+        return input_clean.decode()
