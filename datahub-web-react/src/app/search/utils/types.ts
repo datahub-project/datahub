@@ -1,4 +1,4 @@
-import { AndFilterInput, EntityType, FacetFilterInput, FacetMetadata, SearchFlags } from '../../../types.generated';
+import { AndFilterInput, EntityType, FacetMetadata, SearchFlags } from '../../../types.generated';
 import { SearchResultInterface } from '../../entity/shared/components/styled/search/types';
 
 /**
