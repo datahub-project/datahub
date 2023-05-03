@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Modifying Terms on Datasets
+# Terms
 
 ## Why Would You Use Terms on Datasets?
 
@@ -11,11 +11,12 @@ For more information about terms, refer to [About DataHub Business Glossary](/do
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-- Create: create a term named `Rate of Return`.
-- Read : read terms attached to a dataset `SampleHiveDataset`.
-- Add: add a `CustomerAccount` term to `user_name` column of a dataset named `fct_users_created`.
-- Remove: remove a term `CustomerAccount` from the `user_name` column of a dataset called `fct_users_created`.
+This guide will show you how to
+
+- Create: create a term.
+- Read : read terms attached to a dataset.
+- Add: add a term to a column of a dataset or a dataset itself.
+- Remove: remove a term from a dataset.
 
 ## Prerequisites
 
@@ -110,7 +111,7 @@ datahub get --urn "urn:li:glossaryTerm:rateofreturn" --aspect glossaryTermInfo
 }
 ```
 
-## Read Terms 
+## Read Terms
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -161,7 +162,6 @@ If you see the following response, the operation was successful:
 </TabItem>
 <TabItem value="curl" label="Curl">
 
-
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
@@ -178,33 +178,22 @@ Expected Response:
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_terms.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
 
-
-
 ## Add Terms
 
+### Add Terms to a dataset
+
 The following code shows you how can add terms to a dataset.
-In the following code, we add a term `Legacy` to a dataset named `fct_users_created`.
+In the following code, we add a term `Rate of Return` to a dataset named `fct_users_created`.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
-
-```python
-mutation addTerms {
-    addTerms(
-      input: {
-        termUrns: ["urn:li:glossaryTerm:rateofreturn"],
-        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-        subResourceType:DATASET_FIELD,
-        subResource:"user_name"})
-}
-```
-
-Note that you can also add a term on a dataset if you don't specify `subResourceType` and `subResource`.
 
 ```json
 mutation addTerms {
@@ -254,16 +243,58 @@ Expected Response:
 </TabItem>
 </Tabs>
 
+### Add Terms to a Column of a Dataset
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL">
+
+```json
+mutation addTerms {
+    addTerms(
+      input: {
+        termUrns: ["urn:li:glossaryTerm:rateofreturn"],
+        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+        subResourceType:DATASET_FIELD,
+        subResource:"user_name"})
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "mutation addTerms { addTerms(input: { termUrns: [\"urn:li:glossaryTerm:rateofreturn\"], resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\", subResourceType: DATASET_FIELD, subResource: \"user_name\" }) }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{ "data": { "addTerms": true }, "extensions": {} }
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_column_term.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
 ### Expected Outcome of Adding Terms
 
-You can now see `Legacy` term has been added to `user_name` column.
+You can now see `Rate of Return` term has been added to `user_name` column.
 
 ![term-added](../../imgs/apis/tutorials/term-added.png)
 
 ## Remove Terms
 
 The following code remove a term from a dataset.
-After running this code, `Legacy` term will be removed from a `user_name` column.
+After running this code, `Rate of Return` term will be removed from a `user_name` column.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -319,7 +350,9 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_remove_term_execute_graphql.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
