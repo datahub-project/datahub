@@ -7,7 +7,7 @@ const filtersExist = (filters, orFilters) => {
     return filters?.length || orFilters?.length;
 };
 
-export default function generateUseDownloadScrollAcrossLineageSearchResultsHook({
+export default function generateUseSearchResultsViaRelationshipHook({
     urn,
     direction,
     startTimeMillis,
@@ -22,7 +22,7 @@ export default function generateUseDownloadScrollAcrossLineageSearchResultsHook(
     skipCache?: boolean;
     setSkipCache?: (skipCache: boolean) => void;
 }) {
-    return function useDownloadScrollAcrossLineageSearchResults(params: GetSearchResultsParams) {
+    return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
         const {
             variables: {
                 input: { types, query, start, count, filters, orFilters },
