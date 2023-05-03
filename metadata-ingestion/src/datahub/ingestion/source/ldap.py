@@ -1,6 +1,5 @@
 """LDAP Source"""
 import dataclasses
-import re
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
@@ -478,6 +477,8 @@ def parse_groups(attrs: Dict[str, Any], filter_key: str) -> List[str]:
 
 
 def parse_ldap_dn(input_clean: bytes) -> str:
-    """Converts an LDAP DN of format b'cn=group_name,ou=Groups,dc=internal,dc=machines' 
-    or b'uid=username,ou=Groups,dc=internal,dc=machines' to group name or username."""
+    """
+    Converts an LDAP DN of format b'cn=group_name,ou=Groups,dc=internal,dc=machines'
+    or b'uid=username,ou=Groups,dc=internal,dc=machines' to group name or username.
+    """
     return ldap.dn.str2dn(input_clean, flags=ldap.DN_FORMAT_LDAPV3)[0][0][1]

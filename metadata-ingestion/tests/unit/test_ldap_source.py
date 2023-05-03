@@ -1,6 +1,10 @@
 import pytest
 
-from datahub.ingestion.source.ldap import parse_users, parse_groups, parse_ldap_dn
+from datahub.ingestion.source.ldap import (
+    parse_users,
+    parse_groups,
+    parse_ldap_dn
+)
 
 
 @pytest.mark.parametrize(
@@ -21,10 +25,7 @@ from datahub.ingestion.source.ldap import parse_users, parse_groups, parse_ldap_
     ],
 )
 def test_parse_ldap_dn(input, expected):
-    assert (
-        parse_ldap_dn(input)
-        == expected
-    )
+    assert parse_ldap_dn(input) == expected
 
 
 @pytest.mark.parametrize(
