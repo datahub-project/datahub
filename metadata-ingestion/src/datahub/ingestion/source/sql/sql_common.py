@@ -666,15 +666,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             inspector, schema, table
         )
 
-        # Tablename might be different from the real table if we ran some normalisation ont it.
+        # Tablename might be different from the real table if we ran some normalisation on it.
         # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
+        # Table is the last item in the BigQuery dataset name
         normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
+
+        if self.platform == "bigquery":
+            splits = dataset_name.split(".")
+            if splits:
+                normalised_table = splits[-1]
+                if properties and normalised_table != table:
+                    properties["original_table_name"] = table
 
         dataset_properties = DatasetPropertiesClass(
             name=normalised_table,
