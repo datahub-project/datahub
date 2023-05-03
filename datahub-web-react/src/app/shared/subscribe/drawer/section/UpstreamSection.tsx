@@ -1,6 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { getEntityPath } from '../../../../entity/shared/containers/profile/utils';
+import { EntityType } from '../../../../../types.generated';
+import { ReactComponent as LinkOut } from '../../../../../images/link-out.svg';
 
 const UpstreamContainer = styled.div`
     margin-top: 32px;
@@ -34,14 +39,50 @@ const SubtitleText = styled(Typography.Text)`
     grid-row: 2;
 `;
 
-export default function UpstreamSection() {
+interface Props {
+    entityUrn: string;
+    entityType: EntityType;
+    subscribeToUpstream: boolean;
+    setSubscribeToUpstream: (subscribeToUpstream: boolean) => void;
+    upstreamCount: number;
+}
+
+export default function UpstreamSection({
+    entityUrn,
+    entityType,
+    subscribeToUpstream,
+    setSubscribeToUpstream,
+    upstreamCount,
+}: Props) {
+    const entityRegistry = useEntityRegistry();
+    // TODO: The filter degree may need to be more than 1 in the future
+    const upstreamLineageTabPath: string = getEntityPath(
+        entityType,
+        entityUrn,
+        entityRegistry,
+        false,
+        false,
+        'Lineage',
+        {
+            filter_degree___false___EQUAL___0: '1',
+        },
+    );
+
     return (
         <>
             <UpstreamContainer>
-                <UpstreamSwitch size="small" />
+                <UpstreamSwitch
+                    size="small"
+                    checked={subscribeToUpstream}
+                    onChange={(checked) => setSubscribeToUpstream(checked)}
+                />
                 <TitleText>Subscribe to changes for all upstream entities</TitleText>
                 <SubtitleText>
-                    There are currently 9 upstream entities, but this will change as upstream lineage changes.
+                    There are currently{' '}
+                    <Link to={upstreamLineageTabPath} target="_blank" rel="noopener noreferrer">
+                        {`${upstreamCount} upstream entities.`}
+                        <LinkOut style={{ marginLeft: '4px' }} />
+                    </Link>
                 </SubtitleText>
             </UpstreamContainer>
         </>

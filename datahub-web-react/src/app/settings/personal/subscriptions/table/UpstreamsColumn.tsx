@@ -1,33 +1,28 @@
 import React from 'react';
-import { Switch, Typography } from 'antd';
+import { CheckCircleFilled, StopOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { DataHubSubscription, SubscriptionType } from '../../../../../types.generated';
 
 const UpstreamsColumnContainer = styled.div`
     display: flex;
     flex-direction: row;
+    justify-content: center;
     align-items: center;
     gap: 8px;
 `;
 
-const UpstreamText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
-    font-size: 14px;
-    line-height: 20px;
-    font-weight: 500;
-`;
-
 interface Props {
-    record: any;
+    subscription: DataHubSubscription;
 }
 
-export function UpstreamsColumn({ record }: Props) {
-    const isSubscribedToUpstreams: boolean = record.subscribedToUpstreams;
-    const upstreamsCount: number = record.numUpstreams;
+export function UpstreamsColumn({ subscription }: Props) {
+    const isSubscribedToUpstreams: boolean = subscription.subscriptionTypes.includes(
+        SubscriptionType.UpstreamEntityChange,
+    );
 
     return (
         <UpstreamsColumnContainer>
-            <Switch size="small" checked={isSubscribedToUpstreams} />
-            <UpstreamText>{upstreamsCount} upstream entities</UpstreamText>
+            {isSubscribedToUpstreams ? <CheckCircleFilled /> : <StopOutlined />}
         </UpstreamsColumnContainer>
     );
 }

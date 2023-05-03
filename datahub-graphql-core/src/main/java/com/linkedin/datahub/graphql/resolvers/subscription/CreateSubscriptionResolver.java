@@ -37,8 +37,8 @@ public class CreateSubscriptionResolver implements DataFetcher<CompletableFuture
         final String entityUrnString = input.getEntityUrn();
         final SubscriptionTypeArray subscriptionTypes = mapSubscriptionTypes(input.getSubscriptionTypes());
         final EntityChangeTypeArray entityChangeTypes = mapEntityChangeTypes(input.getEntityChangeTypes());
-        final SubscriptionNotificationConfig notificationConfig =
-            mapSubscriptionNotificationConfig(input.getNotificationConfig());
+        final SubscriptionNotificationConfig notificationConfig = input.getNotificationConfig() == null
+            ? null : mapSubscriptionNotificationConfig(input.getNotificationConfig());
         final String groupUrnString = input.getGroupUrn();
 
         if (groupUrnString != null && !canManageGroupSubscriptions(groupUrnString, context)) {

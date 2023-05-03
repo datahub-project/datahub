@@ -21,6 +21,10 @@ enum EntityChangeType {
     */
     ASSERTION_FAILED
     /**
+    * Incident status changes.
+    */
+    INCIDENT_RAISED
+    /**
     * Test status changes.
     */
     TEST_FAILED
@@ -32,6 +36,10 @@ enum EntityChangeType {
     * Ingestion status changes.
     */
     INGESTION_FAILED
+    /**
+    * Documentation change.
+    */
+    DOCUMENTATION_CHANGE
     /**
     * Ownership changes. Added or removed.
     */

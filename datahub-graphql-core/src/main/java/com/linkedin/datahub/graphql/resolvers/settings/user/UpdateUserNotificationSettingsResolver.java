@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
-import com.linkedin.datahub.graphql.generated.UpdateGroupNotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateUserNotificationSettingsInput;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpUserSettings;
@@ -29,8 +29,8 @@ public class UpdateUserNotificationSettingsResolver implements DataFetcher<Compl
       final QueryContext context = environment.getContext();
       final Authentication authentication = context.getAuthentication();
       final String userUrnString = context.getActorUrn();
-      final UpdateGroupNotificationSettingsInput input =
-          bindArgument(environment.getArgument("input"), UpdateGroupNotificationSettingsInput.class);
+      final UpdateUserNotificationSettingsInput input =
+          bindArgument(environment.getArgument("input"), UpdateUserNotificationSettingsInput.class);
       final NotificationSettingsInput notificationSettingsInput = input.getNotificationSettings();
 
       try {

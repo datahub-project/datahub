@@ -106,6 +106,12 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
                             description
                             email
                         }
+                        properties {
+                            displayName
+                            description
+                            email
+                            slack
+                        }
                     }
                     relationships(input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }) {
                         start

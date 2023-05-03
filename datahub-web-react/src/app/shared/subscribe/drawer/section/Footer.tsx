@@ -12,27 +12,39 @@ const FooterContainer = styled.div`
     gap: 8px;
 `;
 
+const FooterButton = styled(Button)`
+    display: inline-flex;
+    align-items: center;
+`;
+
 const FooterButtonLabel = styled(Typography.Text)<{ color: string }>`
     font-family: 'Manrope', sans-serif;
     font-size: 14px;
-    line-height: 22px;
     font-weight: 400;
     color: ${({ color }) => color};
 `;
 
 interface Props {
-    onClose: () => void;
+    isSubscribed: boolean;
+    allowEditing: boolean;
+    onCancelOrUnsubscribe: () => void;
+    onUpdate: () => void;
 }
 
-export default function Footer({ onClose }: Props) {
+export default function Footer({ isSubscribed, allowEditing, onCancelOrUnsubscribe, onUpdate }: Props) {
+    const leftButtonText: string = isSubscribed ? 'Unsubscribe' : 'Cancel';
+    const leftButtonColor: string = isSubscribed ? '#FF4D4F' : 'rgba(0, 0, 0, 0.88)';
+    const subscribeButtonText: string = isSubscribed ? 'Update' : 'Subscribe';
+    const allowSubscribe: boolean = isSubscribed || allowEditing;
+
     return (
         <FooterContainer>
-            <Button onClick={onClose}>
-                <FooterButtonLabel color="rgba(0, 0, 0, 0.88)">Cancel</FooterButtonLabel>
-            </Button>
-            <Button type="primary" onClick={onClose}>
-                <FooterButtonLabel color="white">Subscribe</FooterButtonLabel>
-            </Button>
+            <FooterButton onClick={onCancelOrUnsubscribe}>
+                <FooterButtonLabel color={leftButtonColor}>{leftButtonText}</FooterButtonLabel>
+            </FooterButton>
+            <FooterButton type="primary" onClick={onUpdate} disabled={!allowSubscribe}>
+                <FooterButtonLabel color="white">{subscribeButtonText}</FooterButtonLabel>
+            </FooterButton>
         </FooterContainer>
     );
 }

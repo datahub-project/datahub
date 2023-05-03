@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import { useGetUserGroupsQuery } from '../../../../../graphql/user.generated';
 import { useUserContext } from '../../../../context/useUserContext';
 import { CorpGroup, EntityRelationship } from '../../../../../types.generated';
+import { getGroupName } from '../../../../settings/personal/utils';
 
 const SelectGroupContainer = styled.div`
     margin-top: 32px;
@@ -24,7 +25,12 @@ const GroupSelect = styled(Select)`
     width: 100%;
 `;
 
-export default function SelectGroupSection() {
+interface Props {
+    groupUrn?: string;
+    setGroupUrn?: (groupUrn: string) => void;
+}
+
+export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
     const authenticatedUserUrn = useUserContext()?.user?.urn;
     const { data: groupsData } = useGetUserGroupsQuery({
         skip: !authenticatedUserUrn,
@@ -34,7 +40,7 @@ export default function SelectGroupSection() {
     const convertGroupRelationshipToOption = (relationship: EntityRelationship) => {
         const group: CorpGroup = relationship?.entity as CorpGroup;
         return {
-            label: group?.name,
+            label: getGroupName(group),
             value: group?.urn,
         };
     };
@@ -47,7 +53,14 @@ export default function SelectGroupSection() {
         <>
             <SelectGroupContainer>
                 <TitleText>Group to notify</TitleText>
-                <GroupSelect placeholder="Select a group" options={options} />
+                <GroupSelect
+                    placeholder="Select a group"
+                    options={options}
+                    value={groupUrn}
+                    onSelect={(value) => {
+                        setGroupUrn?.(value as string);
+                    }}
+                />
             </SelectGroupContainer>
         </>
     );

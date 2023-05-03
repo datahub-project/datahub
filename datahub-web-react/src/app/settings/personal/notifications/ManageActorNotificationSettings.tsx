@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
-import UserEditProfileModal from '../../../entity/user/UserEditProfileModal';
-import GroupEditModal from '../../../entity/group/GroupEditModal';
 import { SinkSettingsSection } from './section/SinkSettingsSection';
+import {
+    useGetGlobalSettingsQuery,
+    useGetGroupNotificationSettingsQuery,
+    useGetUserNotificationSettingsQuery,
+    useUpdateGroupNotificationSettingsMutation,
+    useUpdateUserNotificationSettingsMutation,
+} from '../../../../graphql/settings.generated';
+import { updateGroupNotificationSettingsFunction, updateUserNotificationSettingsFunction } from './utils';
 
 const NotificationSettingsTitle = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -22,74 +28,65 @@ const NotificationSettingsContainer = styled.div`
 
 type Props = {
     isPersonal: boolean;
+    groupUrn?: string;
+    groupName?: string;
 };
 
 /**
  * Component used for managing actor notification settings.
  */
-export const ManageActorNotificationSettings = ({ isPersonal }: Props) => {
-    const [showEditSettings, setShowEditSettings] = useState(false);
+export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName }: Props) => {
+    const { data: globalSettings } = useGetGlobalSettingsQuery();
+    const slackSinkEnabled = globalSettings?.globalSettings?.integrationSettings?.slackSettings?.enabled || true;
+
+    const { data: userNotificationSettings, refetch: refetchUserNotificationSettings } =
+        useGetUserNotificationSettingsQuery({ skip: !isPersonal });
+    const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
+    const { data: groupNotificationSettings, refetch: refetchGroupNotificationSettings } =
+        useGetGroupNotificationSettingsQuery({
+            skip: isPersonal || !groupUrn,
+            variables: { input: { groupUrn: groupUrn || '' } },
+        });
+    const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
+    const userHandle = userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
+    const channels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
+    const groupChannel = channels?.length ? channels[0] : undefined;
+
+    const onUpdateUserNotificationSettings = (newUserHandle: string) => {
+        updateUserNotificationSettingsFunction(
+            newUserHandle,
+            updateUserNotificationSettings,
+            refetchUserNotificationSettings,
+        );
+    };
+
+    const onUpdateGroupNotificationSettings = (newGroupChannel: string) => {
+        updateGroupNotificationSettingsFunction(
+            groupUrn || '',
+            newGroupChannel,
+            updateGroupNotificationSettings,
+            refetchGroupNotificationSettings,
+        );
+    };
+
     const pageTitle = isPersonal ? 'My Notifications' : 'Group Notifications';
-    const actorDescription = isPersonal ? 'you are' : 'the group is';
-    const userModalData = {
-        urn: '',
-        name: '',
-        title: '',
-        team: '',
-        email: '',
-        image: '',
-        slack: '',
-        phone: '',
-    };
-
-    const groupModalData = {
-        urn: '',
-        email: '',
-        slack: '',
-    };
-
-    const emailSinkTitle = 'Email Notifications';
-    const emailSinkDescription = (
-        <>
-            Receive email notifications for entities {actorDescription} subscribed to at
-            <b> your.email@yourcompany.com</b>
-        </>
-    );
-
-    const slackSinkTitle = 'Slack Notifications';
-    const slackSinkDescription = (
-        <>
-            Receive Slack notifications for entities {actorDescription} subscribed to at <b>U12345678</b>
-        </>
-    );
+    const slackSinkTitle = 'Slack';
+    const slackSinkSettingValue = isPersonal ? userHandle : groupChannel;
+    const updateSinkSetting = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
     return (
         <>
             <NotificationSettingsTitle>{pageTitle}</NotificationSettingsTitle>
             <NotificationSettingsContainer>
                 <SinkSettingsSection
-                    sinkTitle={emailSinkTitle}
-                    sinkDescription={emailSinkDescription}
-                    setShowEditSettings={setShowEditSettings}
-                />
-                <SinkSettingsSection
-                    sinkTitle={slackSinkTitle}
-                    sinkDescription={slackSinkDescription}
-                    setShowEditSettings={setShowEditSettings}
+                    isPersonal={isPersonal}
+                    sinkEnabled={slackSinkEnabled}
+                    sinkName={slackSinkTitle}
+                    sinkSettingValue={slackSinkSettingValue}
+                    updateSinkSetting={updateSinkSetting}
+                    groupName={groupName}
                 />
             </NotificationSettingsContainer>
-            <UserEditProfileModal
-                visible={showEditSettings && isPersonal}
-                onClose={() => setShowEditSettings(false)}
-                onSave={() => setShowEditSettings(false)}
-                editModalData={userModalData}
-            />
-            <GroupEditModal
-                visible={showEditSettings && !isPersonal}
-                onClose={() => setShowEditSettings(false)}
-                onSave={() => setShowEditSettings(false)}
-                editModalData={groupModalData}
-            />
         </>
     );
 };

@@ -3,7 +3,7 @@ import { Col, Row } from 'antd';
 import styled from 'styled-components/macro';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { OriginType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
+import { OriginType, EntityRelationshipsResult, Ownership, CorpGroup } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { decodeUrn } from '../shared/utils';
@@ -12,16 +12,19 @@ import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
 import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
+import { getGroupName } from '../../settings/personal/utils';
+import { ManageActorSubscriptions } from '../../settings/personal/subscriptions/ManageActorSubscriptions';
 
 const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
     Assets = 'Assets',
     Members = 'Members',
+    Notifications = 'Notifications',
     Subscriptions = 'Subscriptions',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members, TabType.Subscriptions];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members, TabType.Notifications, TabType.Subscriptions];
 
 const MEMBER_PAGE_SIZE = 15;
 
@@ -54,6 +57,7 @@ export default function GroupProfile() {
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
     const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
+    const groupName = data?.corpGroup ? getGroupName(data?.corpGroup as CorpGroup) : undefined;
 
     const getTabs = () => {
         return [
@@ -83,9 +87,17 @@ export default function GroupProfile() {
                 },
             },
             {
+                name: TabType.Notifications,
+                path: TabType.Notifications.toLocaleLowerCase(),
+                content: <ManageActorNotifications isPersonal={false} groupUrn={urn} groupName={groupName} />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
                 name: TabType.Subscriptions,
                 path: TabType.Subscriptions.toLocaleLowerCase(),
-                content: <ManageActorNotifications isPersonal={false} />,
+                content: <ManageActorSubscriptions isPersonal={false} groupUrn={urn} />,
                 display: {
                     enabled: () => true,
                 },
@@ -104,11 +116,7 @@ export default function GroupProfile() {
             data?.corpGroup?.name ||
             data?.corpGroup?.info?.displayName ||
             undefined,
-        name:
-            data?.corpGroup?.properties?.displayName ||
-            data?.corpGroup?.name ||
-            data?.corpGroup?.info?.displayName ||
-            undefined,
+        name: groupName,
         email: data?.corpGroup?.editableProperties?.email || data?.corpGroup?.properties?.email || undefined,
         slack: data?.corpGroup?.editableProperties?.slack || data?.corpGroup?.properties?.slack || undefined,
         aboutText:

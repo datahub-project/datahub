@@ -39,9 +39,9 @@ public class ListSubscriptionsResolverTest {
     final QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
 
     final ListSubscriptionsInput input = new ListSubscriptionsInput();
-    input.setActorUrn(USER_URN_STRING);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
     final SubscriptionNotificationConfig notificationConfig = new SubscriptionNotificationConfig();
@@ -52,7 +52,7 @@ public class ListSubscriptionsResolverTest {
 
   @Test
   public void testListSubscriptionsExceptionThrown() {
-    when(_subscriptionService.listSubscriptions(eq(USER_URN), eq(_authentication))).thenThrow(
+    when(_subscriptionService.listSubscriptions(eq(USER_URN), anyInt(), anyInt(), eq(_authentication))).thenThrow(
         new RuntimeException("Failed to list subscriptions"));
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -60,7 +60,7 @@ public class ListSubscriptionsResolverTest {
 
   @Test
   public void testListSubscriptions() throws Exception {
-    when(_subscriptionService.listSubscriptions(eq(USER_URN), eq(_authentication))).thenReturn(
+    when(_subscriptionService.listSubscriptions(eq(USER_URN), anyInt(), anyInt(), eq(_authentication))).thenReturn(
         ImmutableMap.of(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1, SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2));
 
     final List<DataHubSubscription> subscriptions =

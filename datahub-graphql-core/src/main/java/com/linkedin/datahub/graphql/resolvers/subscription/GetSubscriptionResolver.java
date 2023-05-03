@@ -6,16 +6,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
-import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
-import com.linkedin.datahub.graphql.generated.ListSubscriptionsResult;
+import com.linkedin.datahub.graphql.generated.GetSubscriptionInput;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
 import com.linkedin.subscription.SubscriptionInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
@@ -23,39 +20,34 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
 @RequiredArgsConstructor
-public class ListSubscriptionsResolver implements DataFetcher<CompletableFuture<ListSubscriptionsResult>> {
-  final SubscriptionService _subscriptionService;
+public class GetSubscriptionResolver implements DataFetcher<CompletableFuture<DataHubSubscription>> {
+  private final SubscriptionService _subscriptionService;
 
   @Override
-  public CompletableFuture<ListSubscriptionsResult> get(DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<DataHubSubscription> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
-    final ListSubscriptionsInput input = bindArgument(environment.getArgument("input"), ListSubscriptionsInput.class);
-    final int start = input.getStart() == null ? 0 : input.getStart();
-    final int count = input.getCount() == null ? 10 : input.getCount();
+    final GetSubscriptionInput input = bindArgument(environment.getArgument("input"), GetSubscriptionInput.class);
+    final String entityUrnString = input.getEntityUrn();
     final String groupUrnString = input.getGroupUrn();
     final String actorUrnString = groupUrnString == null ? context.getActorUrn() : groupUrnString;
     return CompletableFuture.supplyAsync(() -> {
       try {
         if (groupUrnString != null && !canManageGroupSubscriptions(groupUrnString, context)) {
           throw new RuntimeException(
-              String.format("Unauthorized to list subscriptions for group %s", groupUrnString));
+              String.format("Unauthorized to get subscription for group %s", groupUrnString));
         }
 
+        final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
         final Urn actorUrn = UrnUtils.getUrn(actorUrnString);
-        final Map<Urn, SubscriptionInfo> subscriptions =
-            _subscriptionService.listSubscriptions(actorUrn, start, count, authentication);
 
-        final List<DataHubSubscription> dataHubSubscriptions = subscriptions
-            .entrySet().stream()
-            .map(DataHubSubscriptionMapper::map)
-            .collect(Collectors.toList());
-        final ListSubscriptionsResult result = new ListSubscriptionsResult();
-        result.setSubscriptions(dataHubSubscriptions);
+        final Map.Entry<Urn, SubscriptionInfo> subscription =
+            _subscriptionService.getSubscription(entityUrn, actorUrn, authentication);
 
-        return result;
+        return subscription == null ? null : DataHubSubscriptionMapper.map(subscription);
       } catch (Exception e) {
-        throw new RuntimeException("Failed to list subscriptions", e);
+        throw new RuntimeException(
+            String.format("Failed to get subscription for actor %s and entity %s", actorUrnString, entityUrnString), e);
       }
     });
   }

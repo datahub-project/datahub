@@ -1,14 +1,42 @@
-import React from 'react';
+import React, { Key, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Drawer, Typography } from 'antd';
-import { CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../entity/shared/EntityContext';
+import { CloseCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import NotificationTypesSection from './section/NotificationTypesSection';
 import UpstreamSection from './section/UpstreamSection';
 import NotificationRecipientSection from './section/NotificationRecipientSection';
 import Footer from './section/Footer';
 import SelectGroupSection from './section/SelectGroupSection';
+import {
+    updateGroupNotificationSettingsFunction,
+    updateUserNotificationSettingsFunction,
+} from '../../../settings/personal/notifications/utils';
+import {
+    DataHubSubscription,
+    EntityChangeType,
+    EntityType,
+    NotificationSettingsInput,
+    NotificationSinkType,
+    SubscriptionType,
+} from '../../../../types.generated';
+import {
+    createSubscriptionFunction,
+    getDefaultCheckedKeys,
+    getEntityChangeTypesFromCheckedKeys,
+    updateSubscriptionFunction,
+} from './utils';
+import {
+    useCreateSubscriptionMutation,
+    useUpdateSubscriptionMutation,
+} from '../../../../graphql/subscriptions.generated';
+import {
+    useGetGroupNotificationSettingsQuery,
+    useGetUserNotificationSettingsQuery,
+    useUpdateGroupNotificationSettingsMutation,
+    useUpdateUserNotificationSettingsMutation,
+} from '../../../../graphql/settings.generated';
+import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -26,64 +54,237 @@ const SubscriptionTitle = styled(Typography.Text)`
     font-weight: 400;
 `;
 
-const IngestionInfoContainer = styled.div`
-    margin-top: 24px;
-    margin-left: 8px;
-    display: grid;
-    align-items: baseline;
-    column-gap: 10px;
-`;
-
-const IngestionInfoIcon = styled(InfoCircleOutlined)`
-    grid-row: 1;
-    grid-column: 1;
-`;
-
-const IngestionInfoText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
-    font-size: 12px;
-    line-height: 20px;
-    font-weight: 400;
-    color: ${ANTD_GRAY[8]};
-    grid-row: 1;
-    grid-column: 2;
-`;
-
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     isPersonal: boolean;
+    groupUrn?: string;
+    setGroupUrn?: (groupUrn: string | undefined) => void;
+    entityUrn: string;
+    entityName: string;
+    entityType: EntityType;
+    isSubscribed: boolean;
+    subscription: DataHubSubscription | undefined;
+    refetchGetSubscription?: () => void;
+    refetchEntitySubscriptionSummary?: () => void;
+    onDeleteSubscription: () => void;
 }
 
-export default function SubscriptionDrawer({ isOpen, onClose, isPersonal }: Props) {
-    const { entityData } = useEntityData();
-    const entityName = entityData?.name || '';
+export default function SubscriptionDrawer({
+    isOpen,
+    onClose,
+    isPersonal,
+    groupUrn,
+    setGroupUrn,
+    entityUrn,
+    entityName,
+    entityType,
+    isSubscribed,
+    subscription,
+    refetchGetSubscription,
+    refetchEntitySubscriptionSummary,
+    onDeleteSubscription,
+}: Props) {
+    const [checkedKeys, setCheckedKeys] = useState<Key[]>(
+        subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType),
+    );
+    const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(
+        subscription?.subscriptionTypes.includes(SubscriptionType.UpstreamEntityChange) || false,
+    );
+    const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>(
+        subscription?.notificationConfig?.sinkTypes || [],
+    );
+    const [allowEditing, setAllowEditing] = useState<boolean>(
+        notificationSinkTypes.includes(NotificationSinkType.Slack),
+    );
+
+    const [saveSlackSinkAsDefault, setSaveSlackSinkAsDefault] = useState<boolean>(false);
+    const [customSlackSink, setCustomSlackSink] = useState<string | undefined>(undefined);
+    const [createSubscription] = useCreateSubscriptionMutation();
+    const [updateSubscription] = useUpdateSubscriptionMutation();
+    const subscriptionTypes = subscribeToUpstream
+        ? [SubscriptionType.EntityChange, SubscriptionType.UpstreamEntityChange]
+        : [SubscriptionType.EntityChange];
+
+    // Fetch the lineage counts for the entity.
+    const { data: lineageCountData } = useGetLineageCountsQuery({
+        variables: {
+            urn: entityUrn,
+        },
+    });
+
+    const upstreamTotal = (lineageCountData?.entity as any)?.upstream?.total || 0;
+    const upstreamFiltered = (lineageCountData?.entity as any)?.upstream?.filtered || 0;
+    const upstreamCount = upstreamTotal - upstreamFiltered;
+
+    useEffect(() => {
+        if (subscription?.entityChangeTypes) {
+            setCheckedKeys(subscription.entityChangeTypes);
+        } else {
+            setCheckedKeys(getDefaultCheckedKeys(entityType));
+        }
+
+        if (
+            subscription?.subscriptionTypes &&
+            subscription?.subscriptionTypes.includes(SubscriptionType.UpstreamEntityChange)
+        ) {
+            setSubscribeToUpstream(true);
+        } else {
+            setSubscribeToUpstream(false);
+        }
+
+        if (subscription?.notificationConfig?.sinkTypes) {
+            setNotificationSinkTypes(subscription.notificationConfig.sinkTypes);
+        } else {
+            setNotificationSinkTypes([]);
+        }
+    }, [subscription, entityType]);
+
+    useEffect(() => {
+        if (isPersonal) {
+            setGroupUrn?.(undefined);
+        }
+    }, [isPersonal, setGroupUrn]);
+
+    const refetch = () => {
+        refetchEntitySubscriptionSummary?.();
+        refetchGetSubscription?.();
+    };
+
+    const entityChangeTypes: EntityChangeType[] = getEntityChangeTypesFromCheckedKeys(checkedKeys);
+    const notificationSettings: NotificationSettingsInput | undefined = customSlackSink
+        ? {
+              slackSettings: {
+                  userHandle: isPersonal ? customSlackSink : undefined,
+                  channels: isPersonal ? undefined : [customSlackSink],
+              },
+          }
+        : undefined;
+
+    const onCreateSubscription = () => {
+        createSubscriptionFunction(
+            createSubscription,
+            refetch,
+            groupUrn || undefined,
+            entityUrn,
+            subscriptionTypes,
+            entityChangeTypes,
+            notificationSinkTypes,
+            notificationSettings,
+        );
+    };
+
+    const onUpdateSubscription = () => {
+        updateSubscriptionFunction(
+            updateSubscription,
+            refetch,
+            subscription,
+            subscriptionTypes,
+            entityChangeTypes,
+            notificationSinkTypes,
+            notificationSettings,
+        );
+    };
+
+    const onUpsertSubscription = isSubscribed ? onUpdateSubscription : onCreateSubscription;
+    const showBottomDrawerSection = isPersonal || groupUrn;
+
+    // Section for updating notification settings
+    const { data: userNotificationSettings, refetch: refetchUserNotificationSettings } =
+        useGetUserNotificationSettingsQuery({ skip: !isPersonal });
+    const { data: groupNotificationSettings, refetch: refetchGroupNotificationSettings } =
+        useGetGroupNotificationSettingsQuery({
+            skip: isPersonal || !groupUrn,
+            variables: { input: { groupUrn: groupUrn || '' } },
+        });
+
+    const userHandle = userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
+    const channels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
+    const groupChannel = channels?.length ? channels[0] : undefined;
+    const slackSinkDefaultValue = isPersonal ? userHandle : groupChannel;
+
+    const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
+    const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
+    const onUpdateUserNotificationSettings = (newUserHandle: string) => {
+        updateUserNotificationSettingsFunction(
+            newUserHandle,
+            updateUserNotificationSettings,
+            refetchUserNotificationSettings,
+        );
+    };
+
+    const onUpdateGroupNotificationSettings = (newGroupChannel: string) => {
+        updateGroupNotificationSettingsFunction(
+            groupUrn || '',
+            newGroupChannel,
+            updateGroupNotificationSettings,
+            refetchGroupNotificationSettings,
+        );
+    };
+
+    const updateSinkSetting = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
+
+    // Final update functions
+    const onUpdateFooter = () => {
+        onUpsertSubscription();
+        if (saveSlackSinkAsDefault) {
+            updateSinkSetting(customSlackSink || '');
+        }
+        onClose();
+    };
+
+    const onCancelOrUnsubscribe = () => {
+        if (isSubscribed) {
+            onDeleteSubscription();
+        }
+        onClose();
+    };
+
     return (
-        <>
-            <SubscribeDrawer
-                width={512}
-                footer={<Footer onClose={onClose} />}
-                open={isOpen}
-                onClose={onClose}
-                closable={false}
-            >
-                <SubscriptionTitleContainer>
-                    <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
-                    <Button type="text" onClick={onClose}>
-                        <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
-                    </Button>
-                </SubscriptionTitleContainer>
-                {!isPersonal && <SelectGroupSection />}
-                <NotificationTypesSection />
-                <IngestionInfoContainer>
-                    <IngestionInfoIcon />
-                    <IngestionInfoText>
-                        You will be notified as soon as DataHub is aware of changes based on ingestion frequency.
-                    </IngestionInfoText>
-                </IngestionInfoContainer>
-                <UpstreamSection />
-                <NotificationRecipientSection isPersonal={isPersonal} />
-            </SubscribeDrawer>
-        </>
+        <SubscribeDrawer
+            width={512}
+            footer={
+                <Footer
+                    isSubscribed={isSubscribed}
+                    allowEditing={allowEditing}
+                    onCancelOrUnsubscribe={onCancelOrUnsubscribe}
+                    onUpdate={onUpdateFooter}
+                />
+            }
+            open={isOpen}
+            onClose={onClose}
+            closable={false}
+        >
+            <SubscriptionTitleContainer>
+                <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
+                <Button type="link" onClick={onClose}>
+                    <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
+                </Button>
+            </SubscriptionTitleContainer>
+            {!isPersonal && <SelectGroupSection groupUrn={groupUrn} setGroupUrn={setGroupUrn} />}
+            {showBottomDrawerSection && (
+                <>
+                    <NotificationTypesSection checkedKeys={checkedKeys} setCheckedKeys={setCheckedKeys} />
+                    <UpstreamSection
+                        entityUrn={entityUrn}
+                        entityType={entityType}
+                        subscribeToUpstream={subscribeToUpstream}
+                        setSubscribeToUpstream={setSubscribeToUpstream}
+                        upstreamCount={upstreamCount}
+                    />
+                    <NotificationRecipientSection
+                        isPersonal={isPersonal}
+                        slackSinkDefaultValue={slackSinkDefaultValue}
+                        setCustomSlackSink={setCustomSlackSink}
+                        notificationSinkTypes={notificationSinkTypes}
+                        setNotificationSinkTypes={setNotificationSinkTypes}
+                        allowEditing={allowEditing}
+                        setAllowEditing={setAllowEditing}
+                        saveSlackSinkAsDefault={saveSlackSinkAsDefault}
+                        setSaveSlackSinkAsDefault={setSaveSlackSinkAsDefault}
+                    />
+                </>
+            )}
+        </SubscribeDrawer>
     );
 }

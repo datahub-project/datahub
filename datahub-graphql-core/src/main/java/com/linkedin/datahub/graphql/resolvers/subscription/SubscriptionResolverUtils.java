@@ -11,35 +11,50 @@ import com.linkedin.subscription.EntityChangeTypeArray;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class SubscriptionResolverUtils {
   @Nonnull
   public static SubscriptionTypeArray mapSubscriptionTypes(@Nonnull List<SubscriptionType> subscriptionTypes) {
-    return subscriptionTypes
-        .stream()
-        .map(subscriptionType -> com.linkedin.subscription.SubscriptionType.valueOf(subscriptionType.toString()))
-        .collect(Collectors.toCollection(SubscriptionTypeArray::new));
+    final SubscriptionTypeArray result = new SubscriptionTypeArray();
+    for (SubscriptionType subscriptionType : subscriptionTypes) {
+      try {
+        result.add(com.linkedin.subscription.SubscriptionType.valueOf(subscriptionType.toString()));
+      } catch (IllegalArgumentException e) {
+        log.warn(String.format("Unable to map subscription type: %s. Skipping...", subscriptionType));
+      }
+    }
+    return result;
   }
 
   @Nonnull
   public static EntityChangeTypeArray mapEntityChangeTypes(@Nonnull List<EntityChangeType> entityChangeTypes) {
-    return entityChangeTypes
-        .stream()
-        .map(entityChangeType -> com.linkedin.subscription.EntityChangeType.valueOf(entityChangeType.toString()))
-        .collect(Collectors.toCollection(EntityChangeTypeArray::new));
+    final EntityChangeTypeArray result = new EntityChangeTypeArray();
+    for (EntityChangeType entityChangeType : entityChangeTypes) {
+      try {
+        result.add(com.linkedin.subscription.EntityChangeType.valueOf(entityChangeType.toString()));
+      } catch (IllegalArgumentException e) {
+        log.warn(String.format("Unable to map entity change type: %s. Skipping...", entityChangeType));
+      }
+    }
+    return result;
   }
 
   @Nonnull
   public static SubscriptionNotificationConfig mapSubscriptionNotificationConfig(
       @Nonnull com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfigInput notificationConfig) {
     final SubscriptionNotificationConfig result = new SubscriptionNotificationConfig();
-    final NotificationSinkTypeArray sinkTypes = notificationConfig.getSinkTypes()
-        .stream()
-        .map(sinkType -> NotificationSinkType.valueOf(sinkType.toString()))
-        .collect(Collectors.toCollection(NotificationSinkTypeArray::new));
+    final NotificationSinkTypeArray sinkTypes = new NotificationSinkTypeArray();
+    for (com.linkedin.datahub.graphql.generated.NotificationSinkType sinkType : notificationConfig.getSinkTypes()) {
+      try {
+        sinkTypes.add(NotificationSinkType.valueOf(sinkType.toString()));
+      } catch (IllegalArgumentException e) {
+        log.warn(String.format("Unable to map notification sink type: %s. Skipping...", sinkType));
+      }
+    }
     result.setSinkTypes(sinkTypes);
 
     if (notificationConfig.getNotificationSettings() != null) {

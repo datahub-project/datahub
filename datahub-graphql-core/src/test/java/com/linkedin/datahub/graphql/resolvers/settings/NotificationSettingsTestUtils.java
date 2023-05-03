@@ -6,7 +6,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
-import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.identity.CorpUserSettings;
 import java.util.List;
 

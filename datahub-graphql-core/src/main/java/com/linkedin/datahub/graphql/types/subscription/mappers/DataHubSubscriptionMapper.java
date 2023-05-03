@@ -2,11 +2,14 @@ package com.linkedin.datahub.graphql.types.subscription.mappers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
+import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.subscription.SubscriptionInfo;
@@ -18,8 +21,8 @@ import javax.annotation.Nonnull;
 
 
 public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, SubscriptionInfo>, DataHubSubscription> {
-  private static final String UNKNOWN_ENTITY_TYPE = "UNKNOWN";
   public static final DataHubSubscriptionMapper INSTANCE = new DataHubSubscriptionMapper();
+  public static final AuditStampMapper AUDIT_STAMP_MAPPER = new AuditStampMapper();
 
   public static DataHubSubscription map(final Map.Entry<Urn, SubscriptionInfo> subscription) {
     return INSTANCE.apply(subscription);
@@ -32,6 +35,8 @@ public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, Sub
     final DataHubSubscription result = new DataHubSubscription();
     result.setActorUrn(subscriptionInfo.getActorUrn().toString());
     result.setSubscriptionUrn(subscriptionUrn.toString());
+    result.setCreatedOn(AUDIT_STAMP_MAPPER.apply(subscriptionInfo.getCreatedOn()));
+    result.setUpdatedOn(AUDIT_STAMP_MAPPER.apply(subscriptionInfo.getUpdatedOn()));
 
     final List<SubscriptionType> subscriptionTypes = subscriptionInfo.getTypes()
         .stream()
@@ -39,9 +44,8 @@ public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, Sub
         .collect(Collectors.toList());
     result.setSubscriptionTypes(subscriptionTypes);
 
-    final String entityUrnString =
-        subscriptionInfo.hasEntityUrn() ? subscriptionInfo.getEntityUrn().toString() : UNKNOWN_ENTITY_TYPE;
-    result.setEntityUrn(entityUrnString);
+    final Entity entity = UrnToEntityMapper.map(subscriptionInfo.getEntityUrn());
+    result.setEntity(entity);
 
     final List<EntityChangeType> entityChangeTypes =
         subscriptionInfo.hasEntityChangeTypes() ? subscriptionInfo.getEntityChangeTypes()

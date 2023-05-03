@@ -54,6 +54,7 @@ import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
+import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
@@ -65,6 +66,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
+import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryNodesResult;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryTermsResult;
@@ -276,11 +278,15 @@ import com.linkedin.datahub.graphql.resolvers.settings.group.GetGroupNotificatio
 import com.linkedin.datahub.graphql.resolvers.settings.group.UpdateGroupNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.GetUserNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.CreateSubscriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.DeleteSubscriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.GetEntitySubscriptionSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.GetSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.ListSubscriptionsResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.UpdateSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
@@ -974,8 +980,14 @@ public class GmsGraphQLEngine {
             .dataFetcher("getGroupNotificationSettings", new GetGroupNotificationSettingsResolver(this.settingsService))
 >>>>>>> 92236e6601 (add resolvers for getting and updating notification settings)
             // Subscriptions not in OSS
+            .dataFetcher("getSubscription", new GetSubscriptionResolver(this.subscriptionService))
             .dataFetcher("listSubscriptions", new ListSubscriptionsResolver(this.subscriptionService))
+<<<<<<< HEAD
 >>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
+=======
+            .dataFetcher("getEntitySubscriptionSummary",
+                new GetEntitySubscriptionSummaryResolver(this.subscriptionService, this.groupService))
+>>>>>>> 5ce0b795b8 (hook up notifications UI to backend (#1274))
         );
     }
 
@@ -1133,10 +1145,19 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
             // Notifications not in OSS
+<<<<<<< HEAD
             .dataFetcher("updateGroupNotificationSettings", new UpdateGroupNotificationSettingsResolver(this.settingsService))
+=======
+            .dataFetcher("updateUserNotificationSettings",
+                new UpdateUserNotificationSettingsResolver(this.settingsService))
+            .dataFetcher("updateGroupNotificationSettings",
+                new UpdateGroupNotificationSettingsResolver(this.settingsService))
+>>>>>>> 5ce0b795b8 (hook up notifications UI to backend (#1274))
             // Subscriptions not in OSS
             .dataFetcher("createSubscription", new CreateSubscriptionResolver(this.subscriptionService))
             .dataFetcher("updateSubscription", new UpdateSubscriptionResolver(this.subscriptionService))
+            .dataFetcher("deleteSubscription",
+                new DeleteSubscriptionResolver(this.subscriptionService, this.entityClient))
         );
     }
 
@@ -1253,7 +1274,18 @@ public class GmsGraphQLEngine {
             .type("ActionRequest", typeWiring -> typeWiring.dataFetcher("entity",
                 new EntityTypeResolver(new ArrayList<>(entityTypes),
                     (env) -> ((ActionRequest) env.getSource()).getEntity()))
-            );
+            )
+            .type("DataHubSubscription",
+                typeWiring -> typeWiring.dataFetcher("entity", new EntityTypeResolver(entityTypes,
+                    (env) -> ((DataHubSubscription) env.getSource()).getEntity()))
+            )
+            .type("EntitySubscriptionSummary",
+                typeWiring -> typeWiring.dataFetcher("topGroups", new EntityTypeBatchResolver(entityTypes,
+                    (env) -> ((EntitySubscriptionSummary) env.getSource()).getTopGroups()
+                        .stream()
+                        .map(group -> (Entity) group)
+                        .collect(
+                            Collectors.toList()))));
     }
 
     /**

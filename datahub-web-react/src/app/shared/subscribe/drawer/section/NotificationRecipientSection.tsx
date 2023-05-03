@@ -1,13 +1,17 @@
-import React from 'react';
-import { Input, Switch, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Checkbox, Form, Input, Radio, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
+import { NotificationSinkType } from '../../../../../types.generated';
+import {
+    isGroupSlackChannelValid,
+    isUserSlackHandleValid,
+    validateGroupSlackChannel,
+    validateSlackUserHandle,
+} from '../../../../settings/personal/utils';
 
-const EMAIL_TOP_ROW = 1;
-const EMAIL_BOTTOM_ROW = 2;
-const SLACK_TOP_ROW = 4;
-const SLACK_BOTTOM_ROW = 5;
-const SLACK_FOOTER_ROW = 6;
+const SLACK_TOP_ROW = 1;
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -44,43 +48,148 @@ const NotificationTypeText = styled(Typography.Text)<{ row: number }>`
     grid-row: ${({ row }) => row};
 `;
 
-const StyledInput = styled(Input)<{ row: number }>`
-    grid-column: 2;
-    grid-row: ${({ row }) => row};
-    max-width: 300px;
+const StyledFormItem = styled(Form.Item)`
+    margin-bottom: 0px;
 `;
 
-const InputFooterText = styled(Typography.Text)`
+const StyledInput = styled(Input)`
+    grid-column: 2;
+    max-width: 300px;
+    border-color: ${ANTD_GRAY[8]};
+`;
+
+const StyledCheckbox = styled(Checkbox)<{ row: number }>`
+    grid-column: 2;
+    margin-left: 24px;
+    grid-row: ${({ row }) => row};
+    border: 0.3px solid #ffffff;
+`;
+
+const SaveAsDefaultText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
     font-size: 14px;
-    line-height: 20px;
+    line-height: 22px;
     font-weight: 400;
     color: ${ANTD_GRAY[8]};
-    grid-column: 2;
-    grid-row: ${SLACK_FOOTER_ROW};
 `;
 
 interface Props {
     isPersonal: boolean;
+    slackSinkDefaultValue?: string;
+    notificationSinkTypes: NotificationSinkType[];
+    setNotificationSinkTypes: (notificationSinkTypes: NotificationSinkType[]) => void;
+    allowEditing: boolean;
+    setAllowEditing: (allowEditing: boolean) => void;
+    setCustomSlackSink: (customSlackSink: string | undefined) => void;
+    saveSlackSinkAsDefault: boolean;
+    setSaveSlackSinkAsDefault: (saveSlackSinkAsDefault: boolean) => void;
 }
 
-export default function NotificationRecipientSection({ isPersonal }: Props) {
-    const verticalEllipsis = String.fromCharCode(8942);
-    const slackFooterText = isPersonal
-        ? `Find your member ID from the ${verticalEllipsis} menu in your Slack profile`
-        : 'Find the channel ID at the bottom of About in the channel details';
+export default function NotificationRecipientSection({
+    isPersonal,
+    slackSinkDefaultValue,
+    notificationSinkTypes,
+    setNotificationSinkTypes,
+    allowEditing,
+    setAllowEditing,
+    setCustomSlackSink,
+    saveSlackSinkAsDefault,
+    setSaveSlackSinkAsDefault,
+}: Props) {
+    const { data: globalSettings } = useGetGlobalSettingsQuery();
+    const slackSinkEnabled = globalSettings?.globalSettings?.integrationSettings?.slackSettings?.enabled || true;
+
+    const [inputSlackValue, setInputSlackValue] = useState<string>(isPersonal ? '@' : '#');
+    const [useDefaultSlackSink, setUseDefaultSlackSink] = useState<boolean>(true);
+    const defaultText = `Use default: ${slackSinkDefaultValue}`;
+    const inputSlackValueIsValid = isPersonal
+        ? isUserSlackHandleValid(inputSlackValue)
+        : isGroupSlackChannelValid(inputSlackValue);
+
+    useEffect(() => {
+        if (saveSlackSinkAsDefault) {
+            setCustomSlackSink(inputSlackValue);
+        } else {
+            setCustomSlackSink(undefined);
+        }
+    }, [saveSlackSinkAsDefault, inputSlackValue, setCustomSlackSink]);
     return (
         <>
             <NotificationRecipientContainer>
                 <NotificationRecipientTitle>Send notifications via</NotificationRecipientTitle>
                 <NotificationSwitchContainer>
-                    <StyledSwitch row={EMAIL_TOP_ROW} size="small" />
-                    <NotificationTypeText row={EMAIL_TOP_ROW}> Email Notifications </NotificationTypeText>
-                    <StyledInput row={EMAIL_BOTTOM_ROW} placeholder="engineering@example.com" />
-                    <StyledSwitch row={SLACK_TOP_ROW} size="small" />
+                    <StyledSwitch
+                        row={SLACK_TOP_ROW}
+                        size="small"
+                        checked={allowEditing}
+                        onChange={(checked) => {
+                            setAllowEditing(checked);
+                            if (checked) {
+                                setNotificationSinkTypes([...notificationSinkTypes, NotificationSinkType.Slack]);
+                            } else {
+                                setNotificationSinkTypes([]);
+                            }
+                        }}
+                    />
                     <NotificationTypeText row={SLACK_TOP_ROW}> Slack Notifications </NotificationTypeText>
-                    <StyledInput row={SLACK_BOTTOM_ROW} placeholder="U123456" />
-                    <InputFooterText>{slackFooterText}</InputFooterText>
+                    <Radio.Group
+                        disabled={!allowEditing || !slackSinkEnabled}
+                        style={{ gridRow: SLACK_TOP_ROW + 2, gridColumn: 2 }}
+                        value={useDefaultSlackSink && slackSinkDefaultValue ? 'default' : 'custom'}
+                        onChange={(e) => {
+                            if (e.target.value === 'default') {
+                                setUseDefaultSlackSink(true);
+                                setCustomSlackSink(undefined);
+                            } else if (e.target.value === 'custom') {
+                                setUseDefaultSlackSink(false);
+                                setCustomSlackSink(inputSlackValue);
+                            }
+                        }}
+                    >
+                        <Space direction="vertical">
+                            {slackSinkDefaultValue && <Radio value="default">{defaultText}</Radio>}
+                            <Radio value="custom">
+                                <Form>
+                                    <StyledFormItem
+                                        name="slackFormValue"
+                                        rules={[
+                                            ({ getFieldValue }) => ({
+                                                validator() {
+                                                    const fieldValue = getFieldValue('slackFormValue');
+                                                    return isPersonal
+                                                        ? validateSlackUserHandle(fieldValue)
+                                                        : validateGroupSlackChannel(fieldValue);
+                                                },
+                                            }),
+                                        ]}
+                                    >
+                                        <StyledInput
+                                            placeholder={isPersonal ? '@user' : '#channel'}
+                                            disabled={!allowEditing || !slackSinkEnabled}
+                                            value={inputSlackValue}
+                                            status={inputSlackValueIsValid ? undefined : 'error'}
+                                            onChange={(e) => {
+                                                setInputSlackValue(e.target.value);
+                                                if (!useDefaultSlackSink) {
+                                                    setCustomSlackSink(e.target.value);
+                                                }
+                                            }}
+                                        />
+                                    </StyledFormItem>
+                                </Form>
+                            </Radio>
+                        </Space>
+                    </Radio.Group>
+                    {!slackSinkDefaultValue && (
+                        <StyledCheckbox
+                            row={slackSinkDefaultValue ? SLACK_TOP_ROW + 5 : SLACK_TOP_ROW + 4}
+                            onChange={() => {
+                                setSaveSlackSinkAsDefault(!saveSlackSinkAsDefault);
+                            }}
+                        >
+                            <SaveAsDefaultText>Save as default</SaveAsDefaultText>
+                        </StyledCheckbox>
+                    )}
                 </NotificationSwitchContainer>
             </NotificationRecipientContainer>
         </>

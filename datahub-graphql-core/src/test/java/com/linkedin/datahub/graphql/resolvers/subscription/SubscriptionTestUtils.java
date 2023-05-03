@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.subscription;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
@@ -55,7 +57,9 @@ public class SubscriptionTestUtils {
       .setTypes(SUBSCRIPTION_TYPES_1)
       .setEntityUrn(ENTITY_URN_1)
       .setEntityChangeTypes(ENTITY_CHANGE_TYPES_1)
-      .setNotificationConfig(NOTIFICATION_CONFIG);
+      .setNotificationConfig(NOTIFICATION_CONFIG)
+      .setCreatedOn(new AuditStamp().setTime(0L).setActor(USER_URN))
+      .setUpdatedOn(new AuditStamp().setTime(0L).setActor(USER_URN));
   public static final String SUBSCRIPTION_URN_2_STRING = "urn:li:subscription:2";
   public static final Urn SUBSCRIPTION_URN_2 = UrnUtils.getUrn(SUBSCRIPTION_URN_2_STRING);
   public static final SubscriptionTypeArray SUBSCRIPTION_TYPES_2 =
@@ -67,7 +71,9 @@ public class SubscriptionTestUtils {
       .setTypes(SUBSCRIPTION_TYPES_2)
       .setEntityUrn(ENTITY_URN_2)
       .setEntityChangeTypes(ENTITY_CHANGE_TYPES_2)
-      .setNotificationConfig(NOTIFICATION_CONFIG);
+      .setNotificationConfig(NOTIFICATION_CONFIG)
+      .setCreatedOn(new AuditStamp().setTime(0L).setActor(USER_URN))
+      .setUpdatedOn(new AuditStamp().setTime(0L).setActor(USER_URN));
 
   public static SubscriptionNotificationConfig getMappedNotificationConfig() {
     final SubscriptionNotificationConfig notificationConfig = new SubscriptionNotificationConfig();
@@ -87,7 +93,9 @@ public class SubscriptionTestUtils {
     final DataHubSubscription mappedSubscription1 = new DataHubSubscription();
     mappedSubscription1.setActorUrn(USER_URN_STRING);
     mappedSubscription1.setSubscriptionUrn(SUBSCRIPTION_URN_1_STRING);
-    mappedSubscription1.setEntityUrn(ENTITY_URN_1_STRING);
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(ENTITY_URN_1_STRING);
+    mappedSubscription1.setEntity(dataset);
     mappedSubscription1.setSubscriptionTypes(
         ImmutableList.of(SubscriptionType.ENTITY_CHANGE, SubscriptionType.UPSTREAM_ENTITY_CHANGE));
     mappedSubscription1.setEntityChangeTypes(
@@ -101,7 +109,9 @@ public class SubscriptionTestUtils {
     final DataHubSubscription mappedSubscription2 = new DataHubSubscription();
     mappedSubscription2.setActorUrn(USER_URN_STRING);
     mappedSubscription2.setSubscriptionUrn(SUBSCRIPTION_URN_2_STRING);
-    mappedSubscription2.setEntityUrn(ENTITY_URN_2_STRING);
+    final Dataset dataset = new Dataset();
+    dataset.setUrn(ENTITY_URN_2_STRING);
+    mappedSubscription2.setEntity(dataset);
     mappedSubscription2.setSubscriptionTypes(ImmutableList.of(SubscriptionType.ENTITY_CHANGE));
     mappedSubscription2.setEntityChangeTypes(
         ImmutableList.of(EntityChangeType.GLOSSARY_TERM_CHANGE, EntityChangeType.TAG_CHANGE));

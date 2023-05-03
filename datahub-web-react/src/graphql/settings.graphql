@@ -15,11 +15,19 @@ query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
 }
 
 mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsInput!) {
-    updateUserNotificationSettings(input: $input)
+    updateUserNotificationSettings(input: $input) {
+        slackSettings {
+            userHandle
+        }
+    }
 }
 
 mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettingsInput!) {
-    updateGroupNotificationSettings(input: $input)
+    updateGroupNotificationSettings(input: $input) {
+        slackSettings {
+            channels
+        }
+    }
 }
 
 query getGlobalSettings {

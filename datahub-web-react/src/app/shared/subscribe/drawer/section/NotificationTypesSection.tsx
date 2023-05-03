@@ -4,7 +4,7 @@ import { Tree, Typography } from 'antd';
 import { DataNode } from 'antd/es/tree';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { getDefaultSelectedKeys, getTreeDataForEntity } from '../utils';
+import { getTreeDataForEntity } from '../utils';
 
 const NotificationTypesContainer = styled.div`
     margin-top: 32px;
@@ -28,12 +28,14 @@ const TreeContainer = styled.div`
     }
 `;
 
-export default function NotificationTypesSection() {
+interface Props {
+    checkedKeys: Key[];
+    setCheckedKeys: (checkedKeys: Key[]) => void;
+}
+
+export default function NotificationTypesSection({ checkedKeys, setCheckedKeys }: Props) {
     const { entityType } = useEntityData();
-    const defaultCheckedKeys: string[] = getDefaultSelectedKeys(entityType);
     const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
-    const [checkedKeys, setCheckedKeys] = useState<Key[]>(defaultCheckedKeys);
-    const [selectedKeys, setSelectedKeys] = useState<Key[]>(defaultCheckedKeys);
     const [autoExpandParent, setAutoExpandParent] = useState<boolean>(true);
 
     const onExpand = (expandedKeysValue: Key[]) => {
@@ -43,10 +45,6 @@ export default function NotificationTypesSection() {
 
     const onCheck = (checkedKeysValue: any, _info: any) => {
         setCheckedKeys(checkedKeysValue as Key[]);
-    };
-
-    const onSelect = (selectedKeysValue: Key[], _info: any) => {
-        setSelectedKeys(selectedKeysValue);
     };
 
     const treeData: DataNode[] = getTreeDataForEntity(entityType);
@@ -64,8 +62,6 @@ export default function NotificationTypesSection() {
                     autoExpandParent={autoExpandParent}
                     onCheck={onCheck}
                     checkedKeys={checkedKeys}
-                    onSelect={onSelect}
-                    selectedKeys={selectedKeys}
                     treeData={treeData}
                 />
             </TreeContainer>

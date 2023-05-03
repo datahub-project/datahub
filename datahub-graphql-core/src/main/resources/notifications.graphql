@@ -1,61 +1,116 @@
 extend type Query {
     """
-    Get a user's Notification Settings
+    Get a user's Notification Settings. Returns null if the user does not have any Notification Settings.
     """
     getUserNotificationSettings: NotificationSettings
 
     """
-    Get a group's Notification Settings
+    Get a group's Notification Settings. Returns null if the group does not have any Notification Settings.
     """
     getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings
 
     """
-    List an actor's subscriptions
+    Get a subscription for an entity pair.
+    """
+    getSubscription(input: GetSubscriptionInput!): DataHubSubscription
+
+    """
+    List an actor's subscriptions.
     """
     listSubscriptions(input: ListSubscriptionsInput!): ListSubscriptionsResult!
+
+    """
+    Get summary statistics of all subscriptions tied to an entity.
+    """
+    getEntitySubscriptionSummary(input: GetEntitySubscriptionSummaryInput!): EntitySubscriptionSummary!
 }
 
 extend type Mutation {
     """
-    Update a user's Notification Settings
+    Update a user's Notification Settings.
     """
     updateUserNotificationSettings(input: UpdateUserNotificationSettingsInput!): NotificationSettings!
 
     """
-    Update a user's Notification Settings
+    Update a user's Notification Settings.
     """
     updateGroupNotificationSettings(input: UpdateGroupNotificationSettingsInput!): NotificationSettings!
 
     """
-    Create a subscription
+    Create a subscription.
     """
     createSubscription(input: CreateSubscriptionInput!): DataHubSubscription!
 
     """
-    Update a subscription
+    Update a subscription.
     """
     updateSubscription(input: UpdateSubscriptionInput!): DataHubSubscription!
+
+    """
+    Delete a subscription.
+    """
+    deleteSubscription(input: DeleteSubscriptionInput!): Boolean!
 }
 
 input GetGroupNotificationSettingsInput {
     """
-    The group's Urn
+    The group's Urn.
     """
     groupUrn: String!
 }
 
+input GetSubscriptionInput {
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
+
+    """
+    (Optional) The group's Urn.
+    """
+    groupUrn: String
+}
+
 input ListSubscriptionsInput {
     """
-    The actor's Urn.
+    (Optional) The group's Urn.
     """
-    actorUrn: String!
+    groupUrn: String
+
+    """
+    (Optional) The starting offset of the result set returned. Defaults to 0.
+    """
+    start: Int
+
+    """
+    (Optional) The maximum number of results to be returned. Defaults to 10.
+    """
+    count: Int
+}
+
+input GetEntitySubscriptionSummaryInput {
+    """
+    The urn of the entity that the subscription is for.
+    """
+    entityUrn: String!
+
+    """
+    The maximum number of subscriptions to return. This will be computed separately for users and groups.
+    Defaults to 100.
+    """
+    numMaxSubscriptions: Int
+
+    """
+    The number of top groups to display in the summary. Defaults to 5.
+    """
+    numTopGroups: Int
 }
 
 type ListSubscriptionsResult {
     """
     The list of subscriptions.
     """
-    subscriptions: [DataHubSubscription]!
+    subscriptions: [DataHubSubscription!]!
 }
 
 input UpdateUserNotificationSettingsInput {
@@ -79,16 +134,16 @@ input UpdateGroupNotificationSettingsInput {
 
 input NotificationSettingsInput {
     """
-    (Optional) Slack Notification Settings
+    Slack Notification Settings
     """
-    slackSettings: SlackNotificationSettingsInput
+    slackSettings: SlackNotificationSettingsInput!
 }
 
 type NotificationSettings {
     """
-    (Optional) Slack Notification Settings
+    Slack Notification Settings
     """
-    slackSettings: SlackNotificationSettings
+    slackSettings: SlackNotificationSettings!
 }
 
 input SlackNotificationSettingsInput {
@@ -171,11 +226,17 @@ input SubscriptionNotificationConfigInput {
     sinkTypes: [NotificationSinkType!]!
 
     """
-    The subscription's Notification Settings.
+    (Optional) The subscription's Notification Settings.
     """
     notificationSettings: NotificationSettingsInput
 }
 
+input DeleteSubscriptionInput {
+    """
+    The subscription urn.
+    """
+    subscriptionUrn: String!
+}
 
 
 type DataHubSubscription {
@@ -190,24 +251,34 @@ type DataHubSubscription {
     subscriptionUrn: String!
 
     """
-    The urn of the entity that the subscription is for.
+    The entity that the subscription is for.
     """
-    entityUrn: String!
+    entity: Entity!
 
     """
     The subscription's types
     """
-    subscriptionTypes: [SubscriptionType]!
+    subscriptionTypes: [SubscriptionType!]!
 
     """
     Change types that trigger a notification for the subscription.
     """
-    entityChangeTypes: [EntityChangeType]!
+    entityChangeTypes: [EntityChangeType!]!
+
+    """
+    Created on Audit Stamp.
+    """
+    createdOn: AuditStamp!
+
+    """
+    Updated on Audit Stamp.
+    """
+    updatedOn: AuditStamp!
 
     """
     Notification configuration.
     """
-    notificationConfig: SubscriptionNotificationConfig!
+    notificationConfig: SubscriptionNotificationConfig
 }
 
 enum SubscriptionType {
@@ -243,6 +314,11 @@ enum EntityChangeType {
     ASSERTION_FAILED
 
     """
+    Incident raised.
+    """
+    INCIDENT_RAISED
+
+    """
     Test failure.
     """
     TEST_FAILED
@@ -256,6 +332,11 @@ enum EntityChangeType {
     Ingestion failure.
     """
     INGESTION_FAILED
+
+    """
+    Documentation changes. Added, removed, or proposed.
+    """
+    DOCUMENTATION_CHANGE
 
     """
     Ownership changes. Added or removed.
@@ -277,7 +358,7 @@ type SubscriptionNotificationConfig {
     """
     Sink types that notifications for the subscription are sent to.
     """
-    sinkTypes: [NotificationSinkType]!
+    sinkTypes: [NotificationSinkType!]!
 
     """
     (Optional) The subscription's Notification Settings.
@@ -290,4 +371,31 @@ enum NotificationSinkType {
     Slack
     """
     SLACK
+}
+
+type EntitySubscriptionSummary {
+    """
+    Whether the user is subscribed to the entity.
+    """
+    isUserSubscribed: Boolean!
+
+    """
+    Whether the user belongs to a group that is subscribed to the entity.
+    """
+    isUserSubscribedViaGroup: Boolean!
+
+    """
+    The number of user subscriptions for the entity.
+    """
+    numUserSubscriptions: Int!
+
+    """
+    The number of group subscriptions for the entity.
+    """
+    numGroupSubscriptions: Int!
+
+    """
+    The top groups that have subscriptions for the entity.
+    """
+    topGroups: [CorpGroup!]!
 }

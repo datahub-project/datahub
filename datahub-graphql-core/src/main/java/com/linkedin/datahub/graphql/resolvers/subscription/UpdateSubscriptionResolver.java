@@ -55,6 +55,7 @@ public class UpdateSubscriptionResolver implements DataFetcher<CompletableFuture
         }
 
         final Map.Entry<Urn, SubscriptionInfo> subscription = _subscriptionService.updateSubscription(
+            actorUrn,
             subscriptionUrn,
             subscriptionInfo,
             subscriptionTypes,

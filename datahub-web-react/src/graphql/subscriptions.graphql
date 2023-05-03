@@ -1,7 +1,30 @@
+query getSubscription($input: GetSubscriptionInput!) {
+    getSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
 query listSubscriptions($input: ListSubscriptionsInput!) {
     listSubscriptions(input: $input) {
         subscriptions {
             ...subscriptionFields
+        }
+    }
+}
+
+query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
+    getEntitySubscriptionSummary(input: $input) {
+        isUserSubscribed
+        numUserSubscriptions
+        numGroupSubscriptions
+        topGroups {
+            name
+            info {
+                displayName
+            }
+            properties {
+                displayName
+            }
         }
     }
 }
@@ -18,12 +41,63 @@ mutation updateSubscription($input: UpdateSubscriptionInput!) {
     }
 }
 
+mutation deleteSubscription($input: DeleteSubscriptionInput!) {
+    deleteSubscription(input: $input)
+}
+
 fragment subscriptionFields on DataHubSubscription {
     actorUrn
     subscriptionUrn
-    entityUrn
+    entity {
+        urn
+        type
+        ... on Dataset {
+            name
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+                properties {
+                    logoUrl
+                }
+            }
+        }
+        ... on Dashboard {
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Chart {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+    }
     subscriptionTypes
     entityChangeTypes
+    createdOn {
+        time
+    }
+    updatedOn {
+        time
+    }
     notificationConfig {
         sinkTypes
         notificationSettings {

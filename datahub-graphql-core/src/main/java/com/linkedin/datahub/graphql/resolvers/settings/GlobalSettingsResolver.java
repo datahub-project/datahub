@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.secret.SecretService;
@@ -30,8 +29,7 @@ public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<Glo
 
     final QueryContext context = environment.getContext();
 
-    if (SettingsMapper.canManageGlobalSettings(context)) {
-      return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(() -> {
         try {
           GlobalSettingsInfo globalSettings = SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
           return _settingsMapper.mapGlobalSettings(globalSettings);
@@ -39,7 +37,5 @@ public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<Glo
           throw new RuntimeException("Failed to retrieve Global Settings", e);
         }
       });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

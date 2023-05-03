@@ -1,6 +1,5 @@
 namespace com.linkedin.event.notification
 
-import com.linkedin.common.ActorType
 import com.linkedin.common.Urn
 
 /**

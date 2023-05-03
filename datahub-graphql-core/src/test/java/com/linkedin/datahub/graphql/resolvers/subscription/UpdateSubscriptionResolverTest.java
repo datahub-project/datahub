@@ -15,6 +15,7 @@ import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsTestUtils.SLACK_USER_HANDLE;
+import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.USER_URN;
 import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.USER_URN_STRING;
 import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionTestUtils.*;
 import static org.mockito.Mockito.*;
@@ -85,6 +86,7 @@ public class UpdateSubscriptionResolverTest {
         eq(_authentication)))
         .thenReturn(SUBSCRIPTION_INFO_1);
     when(_subscriptionService.updateSubscription(
+        eq(USER_URN),
         eq(SUBSCRIPTION_URN_1),
         eq(SUBSCRIPTION_INFO_1),
         eq(SUBSCRIPTION_TYPES_1),
@@ -103,6 +105,7 @@ public class UpdateSubscriptionResolverTest {
         eq(_authentication)))
         .thenReturn(SUBSCRIPTION_INFO_1);
     when(_subscriptionService.updateSubscription(
+        eq(USER_URN),
         eq(SUBSCRIPTION_URN_1),
         eq(SUBSCRIPTION_INFO_1),
         eq(SUBSCRIPTION_TYPES_1),

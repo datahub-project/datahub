@@ -4,6 +4,7 @@ import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.gener
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
 import { validateSlackHandle } from '../../settings/personal/utils';
+import { validateSlackUserHandle } from '../../settings/personal/utils';
 
 type PropsData = {
     name: string | undefined;
@@ -219,7 +220,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         { min: 2, max: 50 },
                         ({ getFieldValue }) => ({
                             validator() {
-                                return validateSlackHandle(getFieldValue('slack'));
+                                return validateSlackUserHandle(getFieldValue('slack'));
                             },
                         }),
                     ]}

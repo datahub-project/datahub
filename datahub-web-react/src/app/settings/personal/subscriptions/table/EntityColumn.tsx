@@ -1,23 +1,29 @@
 import React from 'react';
-import { Image, Tooltip, Typography } from 'antd';
-import { DashboardOutlined } from '@ant-design/icons';
+import { Button, Tooltip, Typography } from 'antd';
 import styled from 'styled-components/macro';
-import useGetSourceLogoUrl from '../../../../ingest/source/builder/useGetSourceLogoUrl';
-import { capitalizeFirstLetter } from '../../../../shared/textUtil';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { DataHubSubscription, EntityType } from '../../../../../types.generated';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { IconStyleType } from '../../../../entity/Entity';
+import { getEntityLogo } from '../../utils';
 
 const EntityColumnContainer = styled.div`
+    margin-bottom: 16px;
+`;
+
+const ContentContainer = styled.div`
     display: flex;
+    flex-direction: row;
+    justify-content: center;
     align-items: center;
     gap: 8px;
 `;
 
-const PreviewImage = styled(Image)`
+const PlatformTypeContainer = styled.div`
+    max-width: 28px;
     max-height: 28px;
     width: auto;
-    object-fit: contain;
-    margin: 0px;
-    background-color: transparent;
+    height: auto;
 `;
 
 const EntityNameContainer = styled.div`
@@ -49,30 +55,36 @@ const EntityNameText = styled(Typography.Text)`
 `;
 
 interface Props {
-    record: any;
+    subscription: DataHubSubscription;
 }
 
-export function EntityColumn({ record }: Props) {
-    const platformType = record.platform;
-    const iconUrl = useGetSourceLogoUrl(platformType);
-    const typeDisplayName = capitalizeFirstLetter(platformType);
+export function EntityColumn({ subscription }: Props) {
+    const { entity } = subscription;
+    const entityRegistry = useEntityRegistry();
+    const entityType: EntityType = entity.type;
+    const entityUrn: string = entity.urn;
+    const entityTypeDisplayName = entityRegistry.getEntityName(entityType);
+    const entityName: string = entityRegistry.getDisplayName(entityType, entity);
+    const entityTypeIcon = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
+    const entityUrl = entityRegistry.getEntityUrl(entityType, entityUrn);
+    const { label: platformTypeDisplayName, icon: platformIcon } = getEntityLogo(entity, entityType, entityRegistry);
 
     return (
         <EntityColumnContainer>
-            {iconUrl ? (
-                <Tooltip overlay={typeDisplayName}>
-                    <PreviewImage preview={false} src={iconUrl} alt={platformType || ''} />
-                </Tooltip>
-            ) : (
-                <EntityTypeText>{typeDisplayName}</EntityTypeText>
-            )}
-            <EntityNameContainer>
-                <EntityTypeContainer>
-                    <DashboardOutlined />
-                    <EntityTypeText>{record.entityType}</EntityTypeText>
-                </EntityTypeContainer>
-                <EntityNameText>{record.entityName}</EntityNameText>
-            </EntityNameContainer>
+            <Button type="link" href={entityUrl}>
+                <ContentContainer>
+                    <PlatformTypeContainer>
+                        <Tooltip overlay={platformTypeDisplayName}>{platformIcon}</Tooltip>
+                    </PlatformTypeContainer>
+                    <EntityNameContainer>
+                        <EntityTypeContainer>
+                            {entityTypeIcon}
+                            <EntityTypeText>{entityTypeDisplayName}</EntityTypeText>
+                        </EntityTypeContainer>
+                        <EntityNameText>{entityName}</EntityNameText>
+                    </EntityNameContainer>
+                </ContentContainer>
+            </Button>
         </EntityColumnContainer>
     );
 }

@@ -1,5 +1,6 @@
 namespace com.linkedin.subscription
 
+import com.linkedin.common.AuditStamp
 import com.linkedin.common.Urn
 
 /**
@@ -18,15 +19,33 @@ record SubscriptionInfo {
     actorUrn: Urn
 
     /**
+    * Actor type
+    */
+    @Searchable = {
+        "fieldType": "KEYWORD"
+    }
+    actorType: string
+
+    /**
      * The subscription types.
      */
     @Searchable = {
         "/*" : {
             "fieldName": "subscriptionTypes",
-            "fieldType": "TEXT"
+            "fieldType": "KEYWORD"
         }
     }
     types: array[SubscriptionType]
+
+    /**
+    * AuditStamp for when the subscription was created
+    */
+    createdOn: AuditStamp
+
+    /**
+    * AuditStamp for when the subscription was updated
+    */
+    updatedOn: AuditStamp
 
     /**
     * Optional entity Urn
@@ -42,10 +61,12 @@ record SubscriptionInfo {
     @Searchable = {
         "/*" : {
             "fieldName": "entityChangeTypes",
-            "fieldType": "TEXT"
+            "fieldType": "KEYWORD"
         }
     }
     entityChangeTypes: optional array[EntityChangeType]
+
+
 
    /**
     * Optional notification config.

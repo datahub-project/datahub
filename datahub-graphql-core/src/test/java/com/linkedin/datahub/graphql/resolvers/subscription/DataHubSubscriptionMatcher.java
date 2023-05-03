@@ -20,7 +20,7 @@ public class DataHubSubscriptionMatcher implements ArgumentMatcher<DataHubSubscr
   public boolean matches(final DataHubSubscription actual) {
     return _expected.getActorUrn().equals(actual.getActorUrn())
         && _expected.getSubscriptionUrn().equals(actual.getSubscriptionUrn())
-        && _expected.getEntityUrn().equals(actual.getEntityUrn())
+        && _expected.getEntity().getUrn().equals(actual.getEntity().getUrn())
         && listMatches(_expected.getSubscriptionTypes(), actual.getSubscriptionTypes())
         && listMatches(_expected.getEntityChangeTypes(), actual.getEntityChangeTypes())
         && notificationConfigMatches(_expected.getNotificationConfig(), actual.getNotificationConfig());

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { ManageActorNotificationSettings } from './ManageActorNotificationSettings';
-import { ManageActorSubscriptions } from '../subscriptions/ManageActorSubscriptions';
 
 const PageContainer = styled.div`
     padding-top: 20px;
@@ -20,18 +19,19 @@ const VerticalSpacer = styled.div`
 
 type Props = {
     isPersonal: boolean;
+    groupUrn?: string;
+    groupName?: string;
 };
 
 /**
  * Component used for managing actor notifications and subscriptions
  */
-export const ManageActorNotifications = ({ isPersonal }: Props) => {
+export const ManageActorNotifications = ({ isPersonal, groupUrn, groupName }: Props) => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <ManageActorNotificationSettings isPersonal={isPersonal} />
+                <ManageActorNotificationSettings isPersonal={isPersonal} groupUrn={groupUrn} groupName={groupName} />
                 <VerticalSpacer />
-                <ManageActorSubscriptions isPersonal={isPersonal} />
             </PageHeaderContainer>
         </PageContainer>
     );

@@ -2,12 +2,10 @@ package com.linkedin.metadata.service;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.ActorType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserAppearanceSettings;
