@@ -116,7 +116,7 @@ class PostgresConfig(BasicSQLAlchemyConfig):
         default="postgres",
         description=(
             "Initial database used to query for the list of databases, when ingesting multiple databases. "
-            "Note: this is overwritten by the `database` and `sqlalchemy_uri` config params."
+            "Note: this is not used if `database` or `sqlalchemy_uri` are provided."
         ),
     )
 
