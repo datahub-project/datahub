@@ -2,6 +2,7 @@ import React from 'react';
 import { LineageDirection } from '../../../../../types.generated';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
 import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
+import generateUseDownloadLineageSearchResultsHook from './generateUseDownloadSearchResultsHook';
 
 type Props = {
     urn: string;
@@ -29,6 +30,14 @@ export const ImpactAnalysis = ({
     return (
         <EmbeddedListSearchSection
             useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
+                urn,
+                direction,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
+            })}
+            useGetDownloadSearchResults={generateUseDownloadLineageSearchResultsHook({
                 urn,
                 direction,
                 startTimeMillis: finalStartTimeMillis,
