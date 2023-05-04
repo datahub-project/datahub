@@ -117,7 +117,7 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.DESCRIPTIONS,
-    "For only Avro schema set description as top level doc field",
+    "Set dataset description to top level doc field for Avro schema",
 )
 @capability(
     SourceCapability.PLATFORM_INSTANCE,

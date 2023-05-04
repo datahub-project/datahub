@@ -159,7 +159,6 @@
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
                                 "documentSchema": "",
-                                "documentSchemaType": "",
                                 "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
                                 "keySchemaType": "AVRO"
                             }

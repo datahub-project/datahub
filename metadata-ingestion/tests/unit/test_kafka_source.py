@@ -342,7 +342,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                     0
                 ].schema.schema_str
             )
-            # Make syre the schema_type matches for the key schema.
+            # Make sure the schema_type matches for the key schema.
             assert (
                 schemaMetadataAspect.platformSchema.keySchemaType
                 == topic_subject_schema_map[schemaMetadataAspect.schemaName][

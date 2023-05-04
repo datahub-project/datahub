@@ -384,8 +384,8 @@ class PulsarSource(StatefulIngestionSourceBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
-                    documentSchemaType=schema.schema_type if schema is not None else "",
+                    documentSchema=schema.schema_str if schema else "",
+                    documentSchemaType=schema.schema_type if schema else None,
                     keySchema=None,
                     keySchemaType=None,
                 ),

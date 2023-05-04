@@ -13,7 +13,7 @@ record KafkaSchema {
   /**
    * The native kafka document schema type. This can be AVRO/PROTOBUF/JSON.
    */
-  documentSchemaType: string
+  documentSchemaType: optional string
 
   /**
    * The native kafka key schema as retrieved from Schema Registry
