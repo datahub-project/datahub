@@ -27,6 +27,7 @@ import powerbiLogo from '../../../../images/powerbilogo.png';
 import modeLogo from '../../../../images/modelogo.png';
 import databricksLogo from '../../../../images/databrickslogo.png';
 import verticaLogo from '../../../../images/verticalogo.png';
+import mlflowLogo from '../../../../images/mlflowlogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -61,6 +62,8 @@ export const MARIA_DB = 'mariadb';
 export const MARIA_DB_URN = `urn:li:dataPlatform:${MARIA_DB}`;
 export const METABASE = 'metabase';
 export const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
+export const MLFLOW = 'mlflow';
+export const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
 export const MODE = 'mode';
 export const MODE_URN = `urn:li:dataPlatform:${MODE}`;
 export const MONGO_DB = 'mongodb';
@@ -115,6 +118,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [METABASE_URN]: metabaseLogo,
+    [MLFLOW_URN]: mlflowLogo,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,

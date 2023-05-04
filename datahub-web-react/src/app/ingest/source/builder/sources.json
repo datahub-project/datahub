@@ -175,6 +175,13 @@
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
     },
     {
+        "urn": "urn:li:dataPlatform:mlflow",
+        "name": "mlflow",
+        "displayName": "MLflow",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mlflow/",
+        "recipe": "source:\n  type: mlflow\n  config:\n    tracking_uri: tracking_uri"
+    },
+    {
         "urn": "urn:li:dataPlatform:mode",
         "name": "mode",
         "displayName": "Mode",
