@@ -73,7 +73,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    f. **Add Security Group to Workspace:** Navigate to `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member
 
       <p align="center">
-   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/workspace-window.png"/>
+   <img width="75%" alt="workspace-window-underlined" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/workspace-window-undrlined.png"/>
       </p>
 
 ## Next Steps
