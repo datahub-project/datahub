@@ -24,6 +24,8 @@ public enum DataHubUsageEventType {
   RECOMMENDATION_CLICK_EVENT("RecommendationClickEvent"),
   HOME_PAGE_RECOMMENDATION_CLICK_EVENT("HomePageRecommendationClickEvent"),
   HOME_PAGE_EXPLORE_ALL_CLICK_EVENT("HomePageExploreAllClickEvent"),
+  SEARCH_BAR_EXPLORE_ALL_CLICK_EVENT("SearchBarExploreAllClickEvent"),
+  SEARCH_RESULTS_EXPLORE_ALL_CLICK_EVENT("SearchResultsExploreAllClickEvent"),
   SEARCH_ACROSS_LINEAGE_EVENT("SearchAcrossLineageEvent"),
   SEARCH_ACROSS_LINEAGE_RESULTS_VIEW_EVENT("SearchAcrossLineageResultsViewEvent"),
   DOWNLOAD_AS_CSV_EVENT("DownloadAsCsvEvent"),
