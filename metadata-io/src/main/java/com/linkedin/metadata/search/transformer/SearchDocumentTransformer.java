@@ -222,7 +222,7 @@ public class SearchDocumentTransformer {
       }
     });
     String aggregatedValue = String.join(BROWSE_PATH_V2_DELIMITER, stringValues);
-    // ensure container path starts with our delimiter if it's not empty
+    // ensure browse path v2 starts with our delimiter if it's not empty
     if (!aggregatedValue.equals("") && !aggregatedValue.startsWith(BROWSE_PATH_V2_DELIMITER)) {
       aggregatedValue = BROWSE_PATH_V2_DELIMITER + aggregatedValue;
     }

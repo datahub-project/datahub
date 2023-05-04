@@ -334,7 +334,7 @@ public class SettingsBuilder {
             .put(TOKENIZER, PATH_HIERARCHY_TOKENIZER)
             .build());
 
-    // Analyzer for matching container path
+    // Analyzer for matching browse path v2
     analyzers.put(BROWSE_PATH_V2_HIERARCHY_ANALYZER, ImmutableMap.<String, Object>builder()
             .put(TOKENIZER, PATH_HIERARCHY_TOKENIZER)
             .build());
