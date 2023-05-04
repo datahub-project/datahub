@@ -63,7 +63,9 @@ public enum DataHubUsageEventType {
   UPDATE_QUERY_EVENT("UpdateQueryEvent"),
   SELECT_AUTO_COMPLETE_OPTION("SelectAutoCompleteOption"),
   SELECT_QUICK_FILTER_EVENT("SelectQuickFilterEvent"),
-  DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent");
+  DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent"),
+  CHROME_EXTENSION_PROFILE_VIEW_EVENT("ChromeExtensionProfileViewEvent"),
+  CHROME_EXTENSION_VIEW_IN_DATAHUB_EVENT("ChromeExtensionViewInDataHubEvent");
 
   private final String type;
 

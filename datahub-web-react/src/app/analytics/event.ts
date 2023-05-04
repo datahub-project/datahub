@@ -64,6 +64,8 @@ export enum EventType {
     SelectAutoCompleteOption,
     SelectQuickFilterEvent,
     DeselectQuickFilterEvent,
+    ChromeExtensionProfileViewEvent,
+    ChromeExtensionViewInDataHubEvent,
 }
 
 /**
@@ -495,6 +497,18 @@ export interface DeselectQuickFilterEvent extends BaseEvent {
     quickFilterValue: string;
 }
 
+export interface ChromeExtensionProfileViewEvent extends BaseEvent {
+    type: EventType.ChromeExtensionProfileViewEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
+export interface ChromeExtensionViewInDataHubEvent extends BaseEvent {
+    type: EventType.ChromeExtensionViewInDataHubEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -557,4 +571,6 @@ export type Event =
     | DeleteQueryEvent
     | SelectAutoCompleteOption
     | SelectQuickFilterEvent
-    | DeselectQuickFilterEvent;
+    | DeselectQuickFilterEvent
+    | ChromeExtensionProfileViewEvent
+    | ChromeExtensionViewInDataHubEvent;
