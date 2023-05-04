@@ -14,7 +14,9 @@ else
             librdkafka-devel \
             openldap-devel \
             cyrus-sasl-devel \
-            openldap-clients
+            openldap-clients \
+            sqlite-devel.x86_64 \
+            xz-devel.x86_64
     else
         $sudo_cmd apt-get update && $sudo_cmd apt-get install -y \
             librdkafka-dev \
