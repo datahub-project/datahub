@@ -24,7 +24,7 @@ services:
     depends_on:
       - zookeeper
       - broker
-      - schema-registry
+      - schema-registry # -datahub-gms
       - kafka-rest-proxy
 
   kibana:

@@ -20,7 +20,7 @@ import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_url_and_token
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
@@ -870,6 +870,27 @@ def download_compose_files(
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
+    if kafka_setup:
+        kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
+
+        default_kafka_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
+        )
+        with open(
+            default_kafka_compose_file, "wb"
+        ) if default_kafka_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(kafka_setup_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
 
 
 def valid_restore_options(
@@ -924,8 +945,6 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
             footer="Try running `datahub docker quickstart` first.",
         )
 
-    gms_host, gms_token = get_url_and_token()
-
     # Run ingestion.
     click.echo("Starting ingestion...")
     recipe: dict = {
@@ -937,10 +956,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         },
         "sink": {
             "type": "datahub-rest",
-            "config": {
-                "server": gms_host,
-                "token": gms_token,
-            },
+            "config": {"server": "http://localhost:8080"},
         },
     }
 

@@ -27,7 +27,7 @@ public class MappingsBuilderTest {
                             "analyzer", "partial_urn_component"))));
     assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
     assertTrue(properties.containsKey("browsePaths"));
-    assertTrue(properties.containsKey("containerPath"));
+    assertTrue(properties.containsKey("browsePathV2"));
     // KEYWORD
     Map<String, Object> keyPart3Field = (Map<String, Object>) properties.get("keyPart3");
     assertEquals(keyPart3Field.get("type"), "keyword");

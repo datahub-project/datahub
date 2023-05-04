@@ -54,7 +54,7 @@ public class SettingsBuilder {
 
   // Analyzers
   public static final String BROWSE_PATH_HIERARCHY_ANALYZER = "browse_path_hierarchy";
-  public static final String CONTAINER_PATH_HIERARCHY_ANALYZER = "container_path_hierarchy";
+  public static final String BROWSE_PATH_V2_HIERARCHY_ANALYZER = "browse_path_v2_hierarchy";
   public static final String KEYWORD_LOWERCASE_ANALYZER = "custom_keyword";
   public static final String PARTIAL_ANALYZER = "partial";
   public static final String SLASH_PATTERN_ANALYZER = "slash_pattern";
@@ -323,7 +323,7 @@ public class SettingsBuilder {
             .put(FILTER, ImmutableList.of(LOWERCASE))
             .build());
 
-    // Analyzer for splitting by unit-separator (used to get depth of containerPath)
+    // Analyzer for splitting by unit-separator (used to get depth of browsePathV2)
     analyzers.put(UNIT_SEPARATOR_PATTERN_ANALYZER, ImmutableMap.<String, Object>builder()
             .put(TOKENIZER, UNIT_SEPARATOR_TOKENIZER)
             .put(FILTER, ImmutableList.of(LOWERCASE))
@@ -335,7 +335,7 @@ public class SettingsBuilder {
             .build());
 
     // Analyzer for matching container path
-    analyzers.put(CONTAINER_PATH_HIERARCHY_ANALYZER, ImmutableMap.<String, Object>builder()
+    analyzers.put(BROWSE_PATH_V2_HIERARCHY_ANALYZER, ImmutableMap.<String, Object>builder()
             .put(TOKENIZER, PATH_HIERARCHY_TOKENIZER)
             .build());
 

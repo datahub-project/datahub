@@ -84,6 +84,9 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       log.info("Latest system update version: {}", event.getVersion());
       if (expectedVersion.equals(event.getVersion())) {
         IS_UPDATED.getAndSet(true);
+      } else if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+        log.warn("Wait for system update is disabled. Proceeding with startup.");
+        IS_UPDATED.getAndSet(true);
       } else {
         log.warn("System version is not up to date: {}. Waiting for datahub-upgrade to complete...", expectedVersion);
       }

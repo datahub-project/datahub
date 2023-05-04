@@ -141,7 +141,13 @@ echo "Topic Creation Complete."
 # End Topic Creation Logic
 ############################################################
 
-kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --entity-type topics --entity-name _schemas --alter --add-config cleanup.policy=compact
+## If using confluent schema registry as a standalone component, then configure compact cleanup policy.
+if [[ $USE_CONFLUENT_SCHEMA_REGISTRY == "TRUE" ]]; then
+    kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER \
+      --entity-type topics \
+      --entity-name _schemas \
+      --alter --add-config cleanup.policy=compact
+fi
 
 # Make sure the retention.ms config for $DATAHUB_UPGRADE_HISTORY_TOPIC_NAME is configured to infinite
 # Please see the bug report below for details

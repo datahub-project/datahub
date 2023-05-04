@@ -42,7 +42,7 @@ public class SearchDocumentTransformer {
   // Maximum customProperties value length
   private final int maxValueLength;
 
-   private static final String CONTAINER_PATH_DELIMITER = "␟";
+   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
   public Optional<String> transformSnapshot(final RecordTemplate snapshot, final EntitySpec entitySpec,
       final Boolean forDelete) {
@@ -129,9 +129,9 @@ public class SearchDocumentTransformer {
     }
 
     if (isArray || (valueType == DataSchema.Type.MAP && fieldType != FieldType.OBJECT)) {
-      if (fieldType == FieldType.CONTAINER_PATH) {
-        String containerPathValue = getContainerPathValue(fieldValues);
-        searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(containerPathValue));
+      if (fieldType == FieldType.BROWSE_PATH_V2) {
+        String browsePathV2Value = getBrowsePathV2Value(fieldValues);
+        searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(browsePathV2Value));
       } else {
         ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
         fieldValues.subList(0, Math.min(fieldValues.size(), maxArrayLength))
@@ -210,21 +210,21 @@ public class SearchDocumentTransformer {
   }
 
   /**
-   * The containerPath aspect is a list of objects and the @Searchable annotation specifies a
+   * The browsePathsV2 aspect is a list of objects and the @Searchable annotation specifies a
    * list of strings that we receive. However, we want to aggregate those strings and store
    * as a single string in ElasticSearch so we can do prefix matching against it.
    */
-  private String getContainerPathValue(@Nonnull final List<Object> fieldValues) {
+  private String getBrowsePathV2Value(@Nonnull final List<Object> fieldValues) {
     List<String> stringValues = new ArrayList<>();
     fieldValues.subList(0, Math.min(fieldValues.size(), maxArrayLength)).forEach(value -> {
       if (value instanceof String) {
         stringValues.add((String) value);
       }
     });
-    String aggregatedValue = String.join(CONTAINER_PATH_DELIMITER, stringValues);
+    String aggregatedValue = String.join(BROWSE_PATH_V2_DELIMITER, stringValues);
     // ensure container path starts with our delimiter if it's not empty
-    if (!aggregatedValue.equals("") && !aggregatedValue.startsWith(CONTAINER_PATH_DELIMITER)) {
-      aggregatedValue = CONTAINER_PATH_DELIMITER + aggregatedValue;
+    if (!aggregatedValue.equals("") && !aggregatedValue.startsWith(BROWSE_PATH_V2_DELIMITER)) {
+      aggregatedValue = BROWSE_PATH_V2_DELIMITER + aggregatedValue;
     }
     return aggregatedValue;
   }
