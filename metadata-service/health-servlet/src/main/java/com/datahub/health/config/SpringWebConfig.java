@@ -15,7 +15,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 
 @EnableWebMvc
-@OpenAPIDefinition(servers = {@Server(url = "/health/", description = "Default Server URL")})
+@OpenAPIDefinition(info = @Info(title="DataHub OpenAPI", version = "1.0.1"),
+			servers = {@Server(url = "/health/", description = "Default Server URL")})
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
 
