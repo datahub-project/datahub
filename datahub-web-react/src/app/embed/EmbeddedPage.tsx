@@ -33,7 +33,7 @@ export default function EmbeddedPage({ entityType }: Props) {
 
     useEffect(() => {
         analytics.event({
-            type: EventType.ChromeExtensionProfileViewEvent,
+            type: EventType.EmbedProfileViewEvent,
             entityType,
             entityUrn: urn,
         });

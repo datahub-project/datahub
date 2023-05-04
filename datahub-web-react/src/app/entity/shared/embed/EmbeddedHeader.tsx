@@ -65,7 +65,7 @@ export default function EmbeddedHeader() {
 
     function trackClickViewInDataHub() {
         analytics.event({
-            type: EventType.ChromeExtensionViewInDataHubEvent,
+            type: EventType.EmbedProfileViewInDataHubEvent,
             entityType,
             entityUrn: entityData?.urn || '',
         });
