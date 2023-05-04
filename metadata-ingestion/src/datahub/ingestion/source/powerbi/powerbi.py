@@ -51,7 +51,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
-    ChartKeyClass,
     ContainerClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -445,9 +444,11 @@ class Mapper:
             name=tile.get_urn_part(),
         )
 
-        logger.info(f"{Constant.CHART_URN}={chart_urn}")
+        logger.debug(f"chart_urn={chart_urn}")
 
         ds_input: List[str] = self.to_urn_set(ds_mcps)
+        if ds_input:
+            breakpoint()
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
@@ -476,41 +477,22 @@ class Mapper:
             customProperties=tile_custom_properties(tile),
         )
 
-        info_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
-            entity_urn=chart_urn,
-            aspect_name=Constant.CHART_INFO,
-            aspect=chart_info_instance,
-        )
-
         # removed status mcp
-        status_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
-            entity_urn=chart_urn,
-            aspect_name=Constant.STATUS,
-            aspect=StatusClass(removed=False),
-        )
+        status_aspect = StatusClass(removed=False)
 
-        # ChartKey status
-        chart_key_instance = ChartKeyClass(
-            dashboardTool=self.__config.platform_name,
-            chartId=Constant.CHART_ID.format(tile.id),
-        )
+        # TODO: Add once charts support subtypes.
+        # chart_subtype = SubTypesClass(typeNames=[BIChartSubTypes.POWERBI_TILE])
 
-        chart_key_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
-            entity_urn=chart_urn,
-            aspect_name=Constant.CHART_KEY,
-            aspect=chart_key_instance,
-        )
         browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
-        browse_path_mcp = self.new_mcp(
-            entity_type=Constant.CHART,
-            entity_urn=chart_urn,
-            aspect_name=Constant.BROWSERPATH,
-            aspect=browse_path,
+
+        result_mcps = MetadataChangeProposalWrapper.construct_many(
+            entityUrn=chart_urn,
+            aspects=[
+                chart_info_instance,
+                status_aspect,
+                browse_path,
+            ],
         )
-        result_mcps = [info_mcp, status_mcp, chart_key_mcp, browse_path_mcp]
 
         self.append_container_mcp(
             result_mcps,
@@ -868,7 +850,7 @@ class Mapper:
                 name=page.get_urn_part(),
             )
 
-            logger.debug(f"{Constant.CHART_URN}={chart_urn}")
+            logger.debug(f"chart_urn={chart_urn}")
 
             ds_input: List[str] = self.to_urn_set(ds_mcps)
 
@@ -882,28 +864,20 @@ class Mapper:
                 customProperties={Constant.ORDER: str(page.order)},
             )
 
-            info_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
-                entity_urn=chart_urn,
-                aspect_name=Constant.CHART_INFO,
-                aspect=chart_info_instance,
-            )
+            status_aspect = StatusClass(removed=False)
 
-            # removed status mcp
-            status_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
-                entity_urn=chart_urn,
-                aspect_name=Constant.STATUS,
-                aspect=StatusClass(removed=False),
-            )
+            # TODO: Add once charts support subtypes.
+            # chart_subtype = SubTypesClass(typeNames=[BIChartSubTypes.POWERBI_PAGE])
             browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
-            browse_path_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
-                entity_urn=chart_urn,
-                aspect_name=Constant.BROWSERPATH,
-                aspect=browse_path,
+
+            list_of_mcps = MetadataChangeProposalWrapper.construct_many(
+                entityUrn=chart_urn,
+                aspects=[
+                    chart_info_instance,
+                    status_aspect,
+                    browse_path,
+                ],
             )
-            list_of_mcps = [info_mcp, status_mcp, browse_path_mcp]
 
             self.append_container_mcp(
                 list_of_mcps,

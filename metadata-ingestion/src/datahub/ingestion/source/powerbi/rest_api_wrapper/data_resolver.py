@@ -340,7 +340,7 @@ class DataResolverBase(ABC):
         tiles: List[Tile] = [
             Tile(
                 id=instance.get(Constant.ID),
-                title=instance.get(Constant.TITLE),
+                title=instance.get(Constant.TITLE, instance.get(Constant.ID)),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 dataset_id=instance.get(Constant.DATASET_ID),
                 **new_dataset_or_report(instance),

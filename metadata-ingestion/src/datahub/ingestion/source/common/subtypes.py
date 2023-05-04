@@ -41,3 +41,8 @@ class BIContainerSubTypes(str, Enum):
 class BIAssetSubTypes(str, Enum):
     # Generic SubTypes
     REPORT = "Report"
+
+
+class BIChartSubTypes(str, Enum):
+    POWERBI_TILE = "PowerBI Tile"
+    POWERBI_PAGE = "PowerBI Page"

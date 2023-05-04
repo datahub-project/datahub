@@ -47,11 +47,12 @@ class PowerBiAPI:
             tenant_id=self.__config.tenant_id,
         )
 
-    def log_http_error(self, message: str) -> Any:
-        logger.warning(message)
-        _, e, _ = sys.exc_info()
+    def log_http_error(self, e: Exception, message: str) -> Any:
         if isinstance(e, requests.exceptions.HTTPError):
-            logger.warning(f"HTTP status-code = {e.response.status_code}")
+            logger.warning(f"{message}. HTTP status-code = {e.response.status_code}")
+            logger.info(f"Error body = {e.response.text}")
+        else:
+            logger.warning(message)
 
         logger.debug(msg=message, exc_info=e)
 
@@ -126,11 +127,11 @@ class PowerBiAPI:
                 entity=entity_name,
                 entity_id=entity_id,
             )
-        except:  # It will catch all type of exception
-            e = self.log_http_error(
-                message=f"Unable to fetch users for {entity_name}({entity_id})."
+        except Exception as e:
+            self.log_http_error(
+                e, message=f"Unable to fetch users for {entity_name}({entity_id})."
             )
-            if data_resolver.is_permission_error(cast(Exception, e)):
+            if data_resolver.is_permission_error(e):
                 logger.warning(
                     f"{entity_name} users would not get ingested as admin permission is not enabled on "
                     "configured Azure AD Application",
@@ -153,9 +154,9 @@ class PowerBiAPI:
         reports: List[Report] = []
         try:
             reports = self._get_resolver().get_reports(workspace)
-        except:
+        except Exception as e:
             self.log_http_error(
-                message=f"Unable to fetch reports for workspace {workspace.name}"
+                e, message=f"Unable to fetch reports for workspace {workspace.name}"
             )
 
         def fill_ownership() -> None:
@@ -193,8 +194,8 @@ class PowerBiAPI:
         groups: List[dict] = []
         try:
             groups = self._get_resolver().get_groups()
-        except:
-            self.log_http_error(message="Unable to fetch list of workspaces")
+        except Exception as e:
+            self.log_http_error(e, message="Unable to fetch list of workspaces")
 
         workspaces = [
             Workspace(
@@ -230,8 +231,10 @@ class PowerBiAPI:
                 )
                 for workspace_id in modified_workspace_ids
             ]
-        except:
-            self.log_http_error(message="Unable to fetch list of modified workspaces")
+        except Exception as e:
+            self.log_http_error(
+                e, message="Unable to fetch list of modified workspaces"
+            )
         return workspaces
 
     def _get_scan_result(self, workspace_ids: List[str]) -> Any:
@@ -240,9 +243,9 @@ class PowerBiAPI:
             scan_id = self.__admin_api_resolver.create_scan_job(
                 workspace_ids=workspace_ids
             )
-        except:
-            e = self.log_http_error(message=f"Unable to fetch get scan result.")
-            if data_resolver.is_permission_error(cast(Exception, e)):
+        except Exception as e:
+            self.log_http_error(e, message=f"Unable to fetch get scan result.")
+            if data_resolver.is_permission_error(e):
                 logger.warning(
                     "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "
                     "API. "
