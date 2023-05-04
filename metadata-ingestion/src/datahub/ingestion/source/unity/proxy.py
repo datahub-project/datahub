@@ -5,9 +5,13 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
+from databricks.sdk import WorkspaceClient
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
+from datahub.ingestion.source.unity.proxy_profiling import (
+    UnityCatalogProxyProfilingMixin,
+)
 from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     DATA_TYPE_REGISTRY,
@@ -28,21 +32,29 @@ from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class UnityCatalogApiProxy:
+class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
+    _workspace_client: WorkspaceClient
     _unity_catalog_api: UnityCatalogApi
-    _workspace_url: str
     report: UnityCatalogReport
+    warehouse_id: str
 
     def __init__(
-        self, workspace_url: str, personal_access_token: str, report: UnityCatalogReport
+        self,
+        workspace_url: str,
+        personal_access_token: str,
+        warehouse_id: Optional[str],
+        report: UnityCatalogReport,
     ):
+        self._workspace_client = WorkspaceClient(
+            host=workspace_url, token=personal_access_token
+        )
         self._unity_catalog_api = UnityCatalogApi(
             ApiClient(
                 host=workspace_url,
                 token=personal_access_token,
             )
         )
-        self._workspace_url = workspace_url
+        self.warehouse_id = warehouse_id or ""
         self.report = report
 
     def check_connectivity(self) -> bool:
@@ -110,6 +122,7 @@ class UnityCatalogApiProxy:
             yield self._create_table(schema=schema, obj=table)
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
+        # TODO: Replace with self._workspace_client.service_principals.list() when it supports pagination
         start_index = 1  # Unfortunately 1-indexed
         items_per_page = 0
         total_results = float("inf")

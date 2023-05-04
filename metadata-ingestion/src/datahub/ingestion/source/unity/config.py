@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
-from typing import Dict, Optional
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
 
 import pydantic
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -12,12 +13,57 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
+    StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
+class UnityCatalogProfilerConfig(ConfigModel):
+    # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
+    enabled: bool = Field(
+        default=False, description="Whether profiling should be done."
+    )
+
+    warehouse_id: Optional[str] = pydantic.Field(
+        description="SQL Warehouse id, for running profiling queries."
+    )
+
+    # These settings will override the ones below.
+    profile_table_level_only: bool = Field(
+        default=False,
+        description="Whether to perform profiling at table-level only or include column-level profiling as well.",
+    )
+
+    pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns to filter tables (or specific columns) for profiling during ingestion. "
+            "Note that only tables allowed by the `table_pattern` will be considered."
+        ),
+    )
+
+    max_wait_secs: int = Field(
+        default=int(timedelta(hours=1).total_seconds()),
+        description="Maximum time to wait for an ANALYZE TABLE query to complete.",
+    )
+
+    max_workers: int = Field(
+        default=5 * (os.cpu_count() or 4),
+        description="Number of worker threads to use for profiling. Set to 1 to disable.",
+    )
+
+    @pydantic.root_validator
+    def warehouse_id_required_for_profiling(cls, values: Dict[str, Any]) -> None:
+        if values.get("enabled") and not values.get("warehouse_id"):
+            raise ValueError("warehouse_id must be set when profiling is enabled.")
+        return values
+
+
 class UnityCatalogSourceConfig(
-    StatefulIngestionConfigBase, BaseUsageConfig, DatasetSourceConfigMixin
+    StatefulIngestionConfigBase,
+    BaseUsageConfig,
+    DatasetSourceConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(description="Databricks workspace url")
@@ -72,6 +118,10 @@ class UnityCatalogSourceConfig(
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistics.",
+    )
+
+    profiling: UnityCatalogProfilerConfig = Field(
+        default=UnityCatalogProfilerConfig(), description="Data profiling configuration"
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(

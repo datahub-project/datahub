@@ -206,3 +206,44 @@ class Query:
     # User whose credentials were used to run the query
     executed_as_user_id: str
     executed_as_user_name: str
+
+
+@dataclass
+class TableProfile:
+    num_rows: Optional[int]
+    num_columns: Optional[int]
+    total_size: Optional[int]
+    column_profiles: List["ColumnProfile"]
+
+    def __bool__(self):
+        return any(
+            (
+                self.num_rows is not None,
+                self.num_columns is not None,
+                self.total_size is not None,
+                any(self.column_profiles),
+            )
+        )
+
+
+@dataclass
+class ColumnProfile:
+    name: str
+    null_count: Optional[int]
+    distinct_count: Optional[int]
+    min: Optional[str]
+    max: Optional[str]
+
+    version: Optional[str]
+    avg_len: Optional[str]
+    max_len: Optional[str]
+
+    def __bool__(self):
+        return any(
+            (
+                self.null_count is not None,
+                self.distinct_count is not None,
+                self.min is not None,
+                self.max is not None,
+            )
+        )
