@@ -225,6 +225,9 @@ class KafkaSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
+        AVRO = "AVRO"
+        DOC_KEY = "doc"
+
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic
         platform_urn = make_data_platform_urn(self.platform)
@@ -262,11 +265,11 @@ class KafkaSource(StatefulIngestionSourceBase):
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
-            and schema_metadata.platformSchema.documentSchemaType == "AVRO"
+            and schema_metadata.platformSchema.documentSchemaType == AVRO
         ):
             # Point to note: description get set only if document schema(value-schema) is present
             description = json.loads(schema_metadata.platformSchema.documentSchema).get(
-                "doc"
+                DOC_KEY
             )
 
         dataset_properties = DatasetPropertiesClass(
