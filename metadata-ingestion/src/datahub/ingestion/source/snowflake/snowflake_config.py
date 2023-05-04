@@ -29,8 +29,8 @@ logger = logging.Logger(__name__)
 DEFAULT_UPSTREAMS_DENY_LIST = [
     r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
     r".*__DBT_TMP$",  # dbt
-    rf".*\.SEGMENT_{UUID_REGEX}$",  # segment
-    rf".*\.STAGING_.*_{UUID_REGEX}$",  # stitch
+    rf".*\.SEGMENT_{UUID_REGEX}",  # segment
+    rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
 ]
 
 

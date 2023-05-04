@@ -1,6 +1,9 @@
 from typing import List, Optional
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_UPSTREAMS_DENY_LIST,
+)
 
 
 def create_deny_regex_sql_filter(
@@ -453,7 +456,7 @@ class SnowflakeQuery:
         end_time_millis: int,
         include_view_lineage: bool = True,
         include_column_lineage: bool = True,
-        upstreams_deny_pattern: List[str] = [],
+        upstreams_deny_pattern: List[str] = DEFAULT_UPSTREAMS_DENY_LIST,
     ) -> str:
         if include_column_lineage:
             return SnowflakeQuery.table_upstreams_with_column_lineage(
