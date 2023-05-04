@@ -447,8 +447,6 @@ class Mapper:
         logger.debug(f"chart_urn={chart_urn}")
 
         ds_input: List[str] = self.to_urn_set(ds_mcps)
-        if ds_input:
-            breakpoint()
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
