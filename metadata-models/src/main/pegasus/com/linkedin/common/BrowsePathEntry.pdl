@@ -1,7 +1,7 @@
 namespace com.linkedin.common
 
 /**
- * Represents a single level in an entity's browsePathsV2
+ * Represents a single level in an entity's browsePathV2
  */
 record BrowsePathEntry {
   /**
