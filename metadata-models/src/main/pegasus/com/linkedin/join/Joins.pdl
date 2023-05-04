@@ -1,0 +1,15 @@
+namespace com.linkedin.join
+import com.linkedin.common.JoinUrn
+
+/**
+ * Joins information of an entity.
+ */
+@Aspect = {
+  "name": "joins"
+}
+record Joins {
+  /**
+   * Join
+   */
+  joins: array[JoinUrn]
+}

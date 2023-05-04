@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Join
+ */
+@Aspect = {
+  "name": "joinKey"
+}
+record JoinKey {
+  /*
+  * Unique guid for Join
+  */
+  @Searchable = {
+    "fieldType": "TEXT",
+  }
+  joinId: string
+
+}

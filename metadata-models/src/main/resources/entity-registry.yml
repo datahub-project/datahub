@@ -419,6 +419,19 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
+  - name: join
+    category: core
+    doc: Join Dataset Fields
+    keyAspect: joinKey
+    aspects:
+      - joinProperties
+      - editableJoinProperties
+      - ownership
+      - status
+      - container
+      - globalTags
+      - glossaryTerms
+      - browsePaths
   - name: query
     category: core
     keyAspect: queryKey

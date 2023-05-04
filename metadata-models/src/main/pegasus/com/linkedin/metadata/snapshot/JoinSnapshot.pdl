@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.JoinUrn
+import com.linkedin.metadata.aspect.JoinAspect
+
+/**
+ * A metadata snapshot for a specific join entity.
+ */
+@Entity = {
+  "name": "join",
+  "keyAspect": "joinKey"
+}
+record JoinSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: JoinUrn
+
+  /**
+   * The list of metadata aspects associated with the Join. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[JoinAspect]
+}

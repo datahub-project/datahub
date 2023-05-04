@@ -1,0 +1,69 @@
+namespace com.linkedin.join
+
+import com.linkedin.common.TimeStamp
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.CustomProperties
+
+/**
+ * Properties associated with a Join
+ */
+@Aspect = {
+  "name": "joinProperties"
+}
+record JoinProperties includes CustomProperties {
+
+  /**
+   * Display name of the Join
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: optional string
+
+  /**
+  * First dataset in the join (no directionality)
+  */
+   @Relationship = {
+     "name": "joinA",
+     "entityTypes": [ "dataset" ]
+   }
+  datasetA: DatasetUrn
+
+  /**
+  * Second dataset in the join (no directionality)
+  */
+   @Relationship = {
+     "name": "joinB",
+     "entityTypes": [ "dataset" ]
+   }
+  datasetB: DatasetUrn
+
+  /**
+   * Array of JoinFieldMapping
+   */
+  joinFieldMappings: array[JoinFieldMapping]
+
+  /**
+   * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  created: optional TimeStamp
+
+  /**
+   * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional TimeStamp
+}

@@ -1,0 +1,18 @@
+namespace com.linkedin.join
+
+import com.linkedin.dataset.SchemaFieldPath
+
+/**
+ * Field Mapping about a join between two datasets
+ */
+record JoinFieldMapping {
+  /**
+   * All fields from dataset A that are required for the join to dataset B
+   */
+  fieldMapping: array[FieldMap]
+
+  /**
+   *  Any transformation logic or notes pertaining to this specific join
+   */
+  details: string
+}
