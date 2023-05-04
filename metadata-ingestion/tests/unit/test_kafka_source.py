@@ -205,7 +205,7 @@ def test_close(mock_kafka, mock_admin_client):
 
 
 @patch(
-    "datahub.ingestion.source.kafka.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
@@ -372,7 +372,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     ],
 )
 @patch(
-    "datahub.ingestion.source.kafka.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
