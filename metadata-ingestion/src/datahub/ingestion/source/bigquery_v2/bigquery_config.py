@@ -102,7 +102,11 @@ class BigQueryV2Config(
     )
     project_ids: List[str] = Field(
         default_factory=list,
-        description="Ingests specified project_ids. Use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account.",
+        description=(
+            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
+            "don't want to give project resourcemanager.projects.list to your service account. "
+            "Overrides `project_id_pattern`."
+        ),
     )
 
     project_on_behalf: Optional[str] = Field(

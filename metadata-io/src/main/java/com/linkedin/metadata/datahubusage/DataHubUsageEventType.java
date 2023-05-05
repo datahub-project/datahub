@@ -65,7 +65,9 @@ public enum DataHubUsageEventType {
   UPDATE_QUERY_EVENT("UpdateQueryEvent"),
   SELECT_AUTO_COMPLETE_OPTION("SelectAutoCompleteOption"),
   SELECT_QUICK_FILTER_EVENT("SelectQuickFilterEvent"),
-  DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent");
+  DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent"),
+  EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
+  EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent");
 
   private final String type;
 

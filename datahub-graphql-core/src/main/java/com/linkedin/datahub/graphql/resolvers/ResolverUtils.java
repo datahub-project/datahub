@@ -31,7 +31,8 @@ import org.slf4j.LoggerFactory;
 public class ResolverUtils {
 
     private static final Set<String> KEYWORD_EXCLUDED_FILTERS = ImmutableSet.of(
-        "runId"
+        "runId",
+        "_entityType"
     );
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
