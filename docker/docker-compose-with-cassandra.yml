@@ -37,7 +37,7 @@ services:
     depends_on:
       - broker
     ports:
-      - "8081:8081"
+      - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
 
   elasticsearch:
     image: elasticsearch:7.10.1

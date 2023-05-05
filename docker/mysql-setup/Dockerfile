@@ -12,7 +12,7 @@ RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 FROM alpine:3
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
-RUN apk add --no-cache mysql-client bash
+RUN apk add --no-cache mysql-client bash mariadb-connector-c
 
 COPY docker/mysql-setup/init.sql /init.sql
 COPY docker/mysql-setup/init.sh /init.sh

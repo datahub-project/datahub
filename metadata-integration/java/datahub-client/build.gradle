@@ -1,5 +1,5 @@
 plugins {
-    id("com.palantir.git-version") apply false
+  id("com.palantir.git-version") apply false
 }
 apply plugin: 'java'
 apply plugin: 'com.github.johnrengelman.shadow'
@@ -11,48 +11,51 @@ apply plugin: 'org.hidetake.swagger.generator'
 apply from: "../versioning.gradle"
 import org.apache.tools.ant.filters.ReplaceTokens
 
+
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
+  javaCompiler = javaToolchains.compilerFor {
+    languageVersion = JavaLanguageVersion.of(8)
+  }
 }
 tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
+  javaLauncher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(8)
+  }
 }
 
 dependencies {
 
-    implementation project(':metadata-models')
-    compile externalDependency.avro_1_7
-    constraints {
-      implementation('commons-collections:commons-collections:3.2.2') {
-        because 'Vulnerability Issue'
-      }
+  implementation project(':metadata-models')
+  implementation(externalDependency.kafkaAvroSerializer) {
+    exclude group: "org.apache.avro"
+  }
+  compile externalDependency.avro_1_7
+  constraints {
+    implementation('commons-collections:commons-collections:3.2.2') {
+      because 'Vulnerability Issue'
     }
-    compileOnly externalDependency.httpAsyncClient
-    implementation externalDependency.jacksonDataBind
-    implementation externalDependency.javaxValidation
-    runtimeOnly externalDependency.jna
-    implementation externalDependency.springContext
-    implementation externalDependency.swaggerAnnotations
-    implementation(externalDependency.kafkaAvroSerializer) {
-      exclude group: "org.apache.avro"
-    }
+  }
 
-    implementation externalDependency.slf4jApi
-    compileOnly externalDependency.lombok
-    annotationProcessor externalDependency.lombok
-    testCompile externalDependency.mockito
-    testCompile externalDependency.mockServer
-    testCompile externalDependency.mockServerClient
-    testCompile externalDependency.testContainers
-    testCompile externalDependency.httpAsyncClient
+  compileOnly externalDependency.httpAsyncClient
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.javaxValidation
+  runtimeOnly externalDependency.jna
+  implementation externalDependency.springContext
+  implementation externalDependency.swaggerAnnotations
 
-    swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  testCompile externalDependency.mockito
+  testCompile externalDependency.mockServer
+  testCompile externalDependency.mockServerClient
+  testCompile externalDependency.testContainers
+  testCompile externalDependency.httpAsyncClient
+  testRuntime externalDependency.logbackClassic
+
+  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
 
 task copyAvroSchemas {
@@ -65,9 +68,8 @@ task copyAvroSchemas {
 
 compileJava.dependsOn copyAvroSchemas
 
-
 jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
+  dependsOn test // tests are required to run before generating the report
 }
 
 test {
@@ -78,17 +80,16 @@ test {
 }
 
 task checkShadowJar(type: Exec) {
-   commandLine 'sh', '-c', 'scripts/check_jar.sh'
+  commandLine 'sh', '-c', 'scripts/check_jar.sh'
 }
 
-
 shadowJar {
-  zip64=true
+  zip64 = true
   archiveClassifier = ''
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**',
-          '**/LICENSE', '**/LICENSE.txt', '**/NOTICE', '**/NOTICE.txt')
+      '**/LICENSE', '**/LICENSE.txt', '**/NOTICE', '**/NOTICE.txt')
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
@@ -124,41 +125,42 @@ shadowJar {
   relocate 'org.I0Itec.zkclient', 'datahub.shaded.org.I0Itec.zkclient'
   relocate 'net.jpountz', 'datahub.shaded.net.jpountz'
   relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
+  relocate 'common.message', 'datahub.shaded.common.message'
+  relocate 'org.glassfish', 'datahub.shaded.org.glassfish'
   relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
- 
+
   finalizedBy checkShadowJar
 }
 
 checkShadowJar {
-   dependsOn shadowJar
+  dependsOn shadowJar
 }
 
 assemble {
-    dependsOn shadowJar
+  dependsOn shadowJar
 }
 
 task sourcesJar(type: Jar) {
-     archiveClassifier = 'sources'
-     from sourceSets.main.allSource
+  archiveClassifier = 'sources'
+  from sourceSets.main.allSource
 }
 
 task javadocJar(type: Jar) {
-    archiveClassifier = 'javadoc'
-    from javadoc
+  archiveClassifier = 'javadoc'
+  from javadoc
 }
-
 
 publishing {
   publications {
-    shadow(MavenPublication) {
-      publication -> project.shadow.component(publication)
+    shadow(MavenPublication) { publication ->
+      project.shadow.component(publication)
       pom {
         name = 'Datahub Client'
         group = 'io.acryl'
         artifactId = 'datahub-client'
         description = 'DataHub Java client for metadata integration'
         url = 'https://datahubproject.io'
-        artifacts = [ shadowJar, javadocJar, sourcesJar ]
+        artifacts = [shadowJar, javadocJar, sourcesJar]
 
         scm {
           connection = 'scm:git:git://github.com/datahub-project/datahub.git'
@@ -200,34 +202,30 @@ publishing {
 }
 
 signing {
-    def signingKey = findProperty("signingKey")
-    def signingPassword = System.getenv("SIGNING_PASSWORD")
-    useInMemoryPgpKeys(signingKey, signingPassword)
-    sign publishing.publications.shadow
+  def signingKey = findProperty("signingKey")
+  def signingPassword = System.getenv("SIGNING_PASSWORD")
+  useInMemoryPgpKeys(signingKey, signingPassword)
+  sign publishing.publications.shadow
 }
 
 nexusStaging {
-    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
-    username = System.getenv("NEXUS_USERNAME")
-    password = System.getenv("NEXUS_PASSWORD")
+  serverUrl = "https://s01.oss.sonatype.org/service/local/"
+  //required only for projects registered in Sonatype after 2021-02-24
+  username = System.getenv("NEXUS_USERNAME")
+  password = System.getenv("NEXUS_PASSWORD")
 }
 
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
-  it.setInputFile(
-      file(
-          "${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api.yaml"
-      )
-  )
+  it.setInputFile(file("${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api.yaml"))
   it.setOutputDir(file("$projectDir/generated"))
   it.setLanguage("spring")
   it.setComponents(['models'])
   it.setTemplateDir(file("$projectDir/src/main/resources/JavaSpring"))
-  it.setAdditionalProperties([
-      "group-id" : "io.datahubproject",
-      "dateLibrary" : "java8",
-      "java8" : "true",
-      "modelPropertyNaming" : "original",
-      "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
+  it.setAdditionalProperties(["group-id"           : "io.datahubproject",
+                              "dateLibrary"        : "java8",
+                              "java8"              : "true",
+                              "modelPropertyNaming": "original",
+                              "modelPackage"       : "io.datahubproject.openapi.generated"] as Map<String, String>)
 
   dependsOn ':metadata-models:generateJsonSchema'
 }

@@ -1,6 +1,6 @@
 package com.linkedin.metadata;
 
-import com.datahub.test.BrowsePaths;
+import com.datahub.test.TestBrowsePaths;
 import com.datahub.test.KeyPartEnum;
 import com.datahub.test.SearchFeatures;
 import com.datahub.test.SimpleNestedRecord1;
@@ -52,7 +52,7 @@ public class TestEntityUtil {
     Urn urn = getTestEntityUrn();
     snapshot.setUrn(urn);
 
-    BrowsePaths browsePaths = new BrowsePaths().setPaths(new StringArray(ImmutableList.of("/a/b/c", "d/e/f")));
+    TestBrowsePaths browsePaths = new TestBrowsePaths().setPaths(new StringArray(ImmutableList.of("/a/b/c", "d/e/f")));
     SearchFeatures searchFeatures = new SearchFeatures().setFeature1(2).setFeature2(1);
 
     TestEntityAspectArray aspects = new TestEntityAspectArray(

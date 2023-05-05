@@ -47,8 +47,8 @@ pip install --upgrade acryl-datahub[mysql]
 ### Step 3: Write a Recipe
 
 [Recipes](metadata-ingestion/README.md#recipes) are yaml configuration files that serve as input to the Metadata Ingestion framework. Each recipe file define a single source to read from and a single destination to push the metadata.
-The two most important pieces of the file are the _source_ and \_sin*k configuration blocks.
-The \_source* configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](metadata-ingestion/README.md#sources) documentation.
+The two most important pieces of the file are the _source_ and _sink_ configuration blocks.
+The _source_ configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](metadata-ingestion/README.md#sources) documentation.
 The _sink_ configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](metadata-ingestion/README.md#sinks) documentation.
 In Acryl DataHub deployments, you _must_ use a sink of type `datahub-rest`, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
 

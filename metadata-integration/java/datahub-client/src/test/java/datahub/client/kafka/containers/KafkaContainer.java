@@ -72,9 +72,13 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
             String.format("PLAINTEXT://localhost:%s", getMappedPort(KAFKA_LOCAL_PORT)));
   }
 
+  public String getInternalBootstrapServers() {
+    return String.format("PLAINTEXT://%s:%s", networkAlias, KAFKA_INTERNAL_PORT);
+  }
+
   @Override
   protected void doStart() {
-    withCommand("sh", "-c", "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + STARTER_SCRIPT);
+    withCommand("sh", "-c", "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + "sh " + STARTER_SCRIPT);
 
     super.doStart();
   }

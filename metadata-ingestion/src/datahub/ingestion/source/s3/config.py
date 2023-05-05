@@ -5,13 +5,11 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws.path_spec import PathSpec
+from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
 
 # hide annoying debug errors from py4j
@@ -19,10 +17,8 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
-    path_specs: List[PathSpec] = Field(
-        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
-    )
+class DataLakeSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
+
     platform: str = Field(
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
@@ -39,7 +35,7 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     # Whether or not to create in datahub from the s3 object
     use_s3_object_tags: Optional[bool] = Field(
         None,
-        description="# Whether or not to create tags in datahub from the s3 object",
+        description="Whether or not to create tags in datahub from the s3 object",
     )
 
     # Whether to update the table schema when schema in files within the partitions are updated
