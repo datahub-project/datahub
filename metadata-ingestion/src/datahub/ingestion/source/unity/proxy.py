@@ -5,6 +5,13 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.sql import (
+    QueryFilter,
+    QueryInfo,
+    QueryStatementType,
+    QueryStatus,
+)
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
@@ -15,10 +22,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     Column,
     Metastore,
     Query,
-    QueryStatus,
     Schema,
     ServicePrincipal,
-    StatementType,
     Table,
     TableReference,
 )
@@ -28,8 +33,22 @@ from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class QueryFilterWithStatementTypes(QueryFilter):
+    statement_types: List[QueryStatementType]
+
+    def as_dict(self) -> dict:
+        return {**super().as_dict(), "statement_types": self.statement_types}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":
+        v = super().from_dict(d)
+        v.statement_types = d["statement_types"]
+        return v
+
+
 class UnityCatalogApiProxy:
     _unity_catalog_api: UnityCatalogApi
+    _workspace_client: WorkspaceClient
     _workspace_url: str
     report: UnityCatalogReport
 
@@ -128,32 +147,30 @@ class UnityCatalogApiProxy:
         start_time: datetime,
         end_time: datetime,
     ) -> Iterable[Query]:
-        # This is a _complete_ hack. The source code of perform_query
-        # bundles data into query params if method == "GET", but we need it passed as the body.
-        # To get around this, we set method to lowercase "get".
-        # I still prefer this over duplicating the code in perform_query.
-        method = "get"
-        path = "/sql/history/queries"
-        data: Dict[str, Any] = {
-            "include_metrics": False,
-            "max_results": 1000,  # Max batch size
-        }
-        filter_by = {
-            "query_start_time_range": {
-                "start_time_ms": start_time.timestamp() * 1000,
-                "end_time_ms": end_time.timestamp() * 1000,
-            },
-            "statuses": [QueryStatus.FINISHED.value],
-            "statement_types": list(ALLOWED_STATEMENT_TYPES),
-        }
-        response: dict = self._unity_catalog_api.client.client.perform_query(
-            method, path, {**data, "filter_by": filter_by}
+        """Returns all queries that were run between start_time and end_time with relevant statement_type.
+
+        Raises:
+            DatabricksError: If the query history API returns an error.
+        """
+        filter_by = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": start_time.timestamp() * 1000,
+                    "end_time_ms": end_time.timestamp() * 1000,
+                },
+                "statuses": [QueryStatus.FINISHED],
+                "statement_types": list(ALLOWED_STATEMENT_TYPES),
+            }
         )
-        yield from self._create_queries(response["res"])
-        while response["has_next_page"]:
-            response = self._unity_catalog_api.client.client.perform_query(
-                method, path, {**data, "next_page_token": response["next_page_token"]}
-            )
+        response = self._workspace_client.query_history.list(
+            filter_by=filter_by, include_metrics=False, max_results=1000
+        )
+        for query_info in response:
+            try:
+                yield self._create_query(query_info)
+            except Exception as e:
+                logger.warning(f"Error parsing query: {e}")
+                self.report.report_warning("query-parse", str(e))
 
     def list_lineages_by_table(self, table_name=None, headers=None):
         """
@@ -326,24 +343,16 @@ class UnityCatalogApiProxy:
             active=obj.get("active"),
         )
 
-    def _create_queries(self, lst: List[dict]) -> Iterable[Query]:
-        for obj in lst:
-            try:
-                yield self._create_query(obj)
-            except Exception as e:
-                logger.warning(f"Error parsing query: {e}")
-                self.report.report_warning("query-parse", str(e))
-
     @staticmethod
-    def _create_query(obj: dict) -> Query:
+    def _create_query(info: QueryInfo) -> Query:
         return Query(
-            query_id=obj["query_id"],
-            query_text=obj["query_text"],
-            statement_type=StatementType(obj["statement_type"]),
-            start_time=datetime.utcfromtimestamp(obj["query_start_time_ms"] / 1000),
-            end_time=datetime.utcfromtimestamp(obj["query_end_time_ms"] / 1000),
-            user_id=obj["user_id"],
-            user_name=obj["user_name"],
-            executed_as_user_id=obj["executed_as_user_id"],
-            executed_as_user_name=obj["executed_as_user_name"],
+            query_id=info.query_id,
+            query_text=info.query_text,
+            statement_type=info.statement_type,
+            start_time=datetime.utcfromtimestamp(info.query_start_time_ms / 1000),
+            end_time=datetime.utcfromtimestamp(info.query_end_time_ms / 1000),
+            user_id=info.user_id,
+            user_name=info.user_name,
+            executed_as_user_id=info.executed_as_user_id,
+            executed_as_user_name=info.executed_as_user_name,
         )
