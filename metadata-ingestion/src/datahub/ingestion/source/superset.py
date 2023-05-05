@@ -11,7 +11,9 @@ from pydantic.fields import Field
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -85,7 +87,10 @@ class SupersetConfig(StatefulIngestionConfigBase):
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
 
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="Superset Stateful Ingestion Config."
+    )
 
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
@@ -136,6 +141,9 @@ def get_filter_name(filter_obj):
 @platform_name("Superset")
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -147,6 +155,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     config: SupersetConfig
     report: StaleEntityRemovalSourceReport
     platform = "superset"
+    stale_entity_removal_handler: StaleEntityRemovalHandler
 
     def __hash__(self):
         return id(self)
@@ -408,15 +417,15 @@ class SupersetSource(StatefulIngestionSourceBase):
 
                 yield wu
 
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        yield from self.emit_dashboard_mces()
+        yield from self.emit_chart_mces()
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
             auto_status_aspect(self.get_workunits_internal()),
         )
-
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_chart_mces()
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
