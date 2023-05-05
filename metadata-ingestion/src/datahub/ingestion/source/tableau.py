@@ -1395,8 +1395,8 @@ class TableauSource(StatefulIngestionSourceBase):
                             )
                         )
             except Exception as e:
-                self.report.report_failure(
-                    key="mode-query",
+                self.report.report_warning(
+                    key="csql-lineage",
                     reason=f"Unable to retrieve lineage from query. "
                     f"Query: {query} "
                     f"Reason: {str(e)} ",
