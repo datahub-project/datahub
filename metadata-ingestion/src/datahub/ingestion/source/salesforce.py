@@ -61,6 +61,7 @@ logger = logging.getLogger(__name__)
 class SalesforceAuthType(Enum):
     USERNAME_PASSWORD = "USERNAME_PASSWORD"
     DIRECT_ACCESS_TOKEN = "DIRECT_ACCESS_TOKEN"
+    JSON_WEB_TOKEN = "JSON_WEB_TOKEN"
 
 
 class SalesforceProfilingConfig(ConfigModel):
@@ -80,9 +81,9 @@ class SalesforceConfig(DatasetSourceConfigMixin):
     # Username, Password Auth
     username: Optional[str] = Field(description="Salesforce username")
     password: Optional[str] = Field(description="Password for Salesforce user")
-    security_token: Optional[str] = Field(
-        description="Security token for Salesforce username"
-    )
+    consumer_key: Optional[str] = Field(description="Consumer key for Salesforce JSON web token access")
+    private_key: Optional[str] = Field(description="Private key as a string for Salesforce JSON web token access")
+    security_token: Optional[str] = Field(description="Security token for Salesforce username")
     # client_id, client_secret not required
 
     # Direct - Instance URL, Access Token Auth
@@ -226,6 +227,26 @@ class SalesforceSource(Source):
                     username=self.config.username,
                     password=self.config.password,
                     security_token=self.config.security_token,
+                    session=self.session,
+                    domain="test" if self.config.is_sandbox else None,
+                )
+
+            elif self.config.auth is SalesforceAuthType.JSON_WEB_TOKEN:
+                logger.debug("Json Web Token provided in the config")
+                assert (
+                    self.config.username is not None
+                ), "Config username is required for JSON_WEB_TOKEN auth"
+                assert (
+                    self.config.consumer_key is not None
+                ), "Config consumer_key is required for JSON_WEB_TOKEN auth"
+                assert (
+                    self.config.private_key is not None
+                ), "Config private_key is required for JSON_WEB_TOKEN auth"
+
+                self.sf = Salesforce(
+                    username=self.config.username,
+                    consumer_key=self.config.consumer_key,
+                    privatekey=self.config.private_key,
                     session=self.session,
                     domain="test" if self.config.is_sandbox else None,
                 )
