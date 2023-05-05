@@ -81,9 +81,15 @@ class SalesforceConfig(DatasetSourceConfigMixin):
     # Username, Password Auth
     username: Optional[str] = Field(description="Salesforce username")
     password: Optional[str] = Field(description="Password for Salesforce user")
-    consumer_key: Optional[str] = Field(description="Consumer key for Salesforce JSON web token access")
-    private_key: Optional[str] = Field(description="Private key as a string for Salesforce JSON web token access")
-    security_token: Optional[str] = Field(description="Security token for Salesforce username")
+    consumer_key: Optional[str] = Field(
+        description="Consumer key for Salesforce JSON web token access"
+    )
+    private_key: Optional[str] = Field(
+        description="Private key as a string for Salesforce JSON web token access"
+    )
+    security_token: Optional[str] = Field(
+        description="Security token for Salesforce username"
+    )
     # client_id, client_secret not required
 
     # Direct - Instance URL, Access Token Auth
