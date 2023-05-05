@@ -267,7 +267,10 @@ class KafkaSource(StatefulIngestionSourceBase):
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
             and schema_metadata.platformSchema.documentSchemaType == AVRO
         ):
-            # Point to note: description get set only if document schema(value-schema) is present
+            # Point to note:
+            # documentSchema and keySchema both can have the doc, however we are retrieving doc
+            # from documentSchema and setting it as dataset description.
+            # doc is optional property in both i.e. documentSchema and keySchema
             description = json.loads(schema_metadata.platformSchema.documentSchema).get(
                 DOC_KEY
             )
