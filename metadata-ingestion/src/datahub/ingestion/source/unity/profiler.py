@@ -38,10 +38,9 @@ class UnityCatalogProfiler:
                     executor.submit(self.process_table, ref) for ref in table_refs
                 ]
                 for future in as_completed(futures):
-                    wu: MetadataWorkUnit = future.result()
+                    wu: Optional[MetadataWorkUnit] = future.result()
                     if wu:
                         self.report.num_profile_workunits_emitted += 1
-                        logger.info(f"SUCCESS {wu.metadata.entityUrn}")
                         yield wu
         except Exception as e:
             self.report.report_warning("profiling", str(e))
@@ -49,12 +48,14 @@ class UnityCatalogProfiler:
             return
 
     def process_table(self, ref: TableReference) -> Optional[MetadataWorkUnit]:
-        table_profile = self.proxy.get_table_stats(ref, self.config.max_wait_secs)
+        table_profile = self.proxy.get_table_stats(
+            ref, self.config.max_wait_secs, self.config.call_analyze
+        )
         if table_profile:
             return self.gen_dataset_profile_workunit(ref, table_profile)
         elif table_profile is not None:
             self.report.profile_table_empty.append(str(ref))
-            return None
+        return None
 
     def gen_dataset_profile_workunit(
         self, ref: TableReference, table_profile: TableProfile

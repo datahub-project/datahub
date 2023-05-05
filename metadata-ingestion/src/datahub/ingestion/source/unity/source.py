@@ -28,7 +28,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from databricks.sdk.service.catalog import TableType
 from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
@@ -222,6 +221,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        wait_on_warehouse = None
         if self.config.profiling.enabled:
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
@@ -246,6 +246,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from usage_extractor.run(self.table_refs | self.view_refs)
 
         if self.config.profiling.enabled:
+            assert wait_on_warehouse
             timeout = timedelta(seconds=self.config.profiling.max_wait_secs)
             wait_on_warehouse.result(timeout)
             profiling_extractor = UnityCatalogProfiler(

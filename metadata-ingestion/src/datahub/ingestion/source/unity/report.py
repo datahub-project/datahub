@@ -4,7 +4,7 @@ from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.lossy_collections import LossyList, LossyDict
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 
 @dataclass

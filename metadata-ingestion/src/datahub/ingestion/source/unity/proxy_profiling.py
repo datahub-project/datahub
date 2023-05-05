@@ -51,7 +51,7 @@ class UnityCatalogProxyProfilingMixin:
             return None
 
     def get_table_stats(
-        self, ref: TableReference, max_wait_secs: int
+        self, ref: TableReference, max_wait_secs: int, call_analyze: bool
     ) -> Optional[TableProfile]:
         """Returns profiling information for a table.
 
@@ -68,13 +68,14 @@ class UnityCatalogProxyProfilingMixin:
         # Currently uses databricks sdk, which is synchronous
         # If we need to improve performance, we can manually make requests via aiohttp
         try:
-            response = self._analyze_table(ref)
-            success = self._check_analyze_table_statement_status(
-                response, max_wait_secs
-            )
-            if not success:
-                self.report.profile_table_timeouts.append(str(ref))
-                return None
+            if call_analyze:
+                response = self._analyze_table(ref)
+                success = self._check_analyze_table_statement_status(
+                    response, max_wait_secs
+                )
+                if not success:
+                    self.report.profile_table_timeouts.append(str(ref))
+                    return None
             return self._get_table_profile(ref)
         except DatabricksError as e:
             self.report.profile_table_errors.setdefault(str(e), LossyList()).append(
