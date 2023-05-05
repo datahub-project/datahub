@@ -24,8 +24,8 @@ class UnityCatalogProfilerConfig(ConfigModel):
         default=False, description="Whether profiling should be done."
     )
 
-    warehouse_id: Optional[str] = pydantic.Field(
-        description="SQL Warehouse id, for running profiling queries."
+    warehouse_id: Optional[str] = Field(
+        default=None, description="SQL Warehouse id, for running profiling queries."
     )
 
     # These settings will override the ones below.
