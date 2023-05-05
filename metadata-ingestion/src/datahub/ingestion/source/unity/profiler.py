@@ -32,14 +32,21 @@ class UnityCatalogProfiler:
     def get_workunits(
         self, table_refs: Collection[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
-        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            futures = [executor.submit(self.process_table, ref) for ref in table_refs]
-            for future in as_completed(futures):
-                wu: MetadataWorkUnit = future.result()
-                if wu:
-                    self.report.num_profile_workunits_emitted += 1
-                    logger.info(f"SUCCESS {wu.metadata.entityUrn}")
-                    yield wu
+        try:
+            with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+                futures = [
+                    executor.submit(self.process_table, ref) for ref in table_refs
+                ]
+                for future in as_completed(futures):
+                    wu: MetadataWorkUnit = future.result()
+                    if wu:
+                        self.report.num_profile_workunits_emitted += 1
+                        logger.info(f"SUCCESS {wu.metadata.entityUrn}")
+                        yield wu
+        except Exception as e:
+            self.report.report_warning("profiling", str(e))
+            logger.warning(f"Unexpected error during profiling: {e}", exc_info=True)
+            return
 
     def process_table(self, ref: TableReference) -> Optional[MetadataWorkUnit]:
         table_profile = self.proxy.get_table_stats(ref, self.config.max_wait_secs)

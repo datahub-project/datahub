@@ -4,7 +4,7 @@ from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyList, LossyDict
 
 
 @dataclass
@@ -26,6 +26,8 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
 
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
     profile_table_empty: LossyList[str] = field(default_factory=LossyList)
-    num_profile_table_failures: int = 0
+    profile_table_errors: LossyDict[str, LossyList[str]] = field(
+        default_factory=LossyDict
+    )
     num_profile_failed_int_casts: int = 0
     num_profile_workunits_emitted: int = 0

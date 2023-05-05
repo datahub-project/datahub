@@ -21,6 +21,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.lossy_collections import LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -76,8 +77,9 @@ class UnityCatalogProxyProfilingMixin:
                 return None
             return self._get_table_profile(ref)
         except DatabricksError as e:
-            self.report.num_profile_table_failures += 1
-            self.report.report_warning("profiling", f"{ref}: {e.error_code} - {e}")
+            self.report.profile_table_errors.setdefault(str(e), LossyList()).append(
+                str(ref)
+            )
             logger.warning(
                 f"Failure during profiling {ref}: ({e.error_code}) {e}", exc_info=True
             )
