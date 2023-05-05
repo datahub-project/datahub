@@ -12,9 +12,9 @@ class RedshiftQuery:
 
     list_schemas: str = """SELECT distinct n.nspname AS "schema_name",
         'local' as schema_type,
-    	null as schema_owner_name,
-    	'' as schema_option,
-    	null as external_database
+        null as schema_owner_name,
+        '' as schema_option,
+        null as external_database
         FROM pg_catalog.pg_class c
         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
