@@ -299,25 +299,25 @@ class CSVEnricherSource(Source):
             raise ValueError(
                 f"Entity Type {entityType} cannot be operated on using csv-enricher"
             )
-
+        current_editable_properties: Optional[
+            Union[
+                EditableDatasetPropertiesClass,
+                EditableContainerPropertiesClass,
+                EditableChartPropertiesClass,
+                EditableMLPrimaryKeyPropertiesClass,
+                EditableMLModelPropertiesClass,
+                EditableMLModelGroupPropertiesClass,
+                EditableMLFeatureTablePropertiesClass,
+                EditableMLFeaturePropertiesClass,
+                EditableDashboardPropertiesClass,
+                EditableDataJobPropertiesClass,
+                EditableDataFlowPropertiesClass,
+                EditableNotebookPropertiesClass,
+            ]
+        ] = None
         if self.ctx.graph and not self.should_overwrite:
             # Get the existing editable properties for the entity from the DataHub graph
-            current_editable_properties: Optional[
-                Union[
-                    EditableDatasetPropertiesClass,
-                    EditableContainerPropertiesClass,
-                    EditableChartPropertiesClass,
-                    EditableMLPrimaryKeyPropertiesClass,
-                    EditableMLModelPropertiesClass,
-                    EditableMLModelGroupPropertiesClass,
-                    EditableMLFeatureTablePropertiesClass,
-                    EditableMLFeaturePropertiesClass,
-                    EditableDashboardPropertiesClass,
-                    EditableDataJobPropertiesClass,
-                    EditableDataFlowPropertiesClass,
-                    EditableNotebookPropertiesClass,
-                ]
-            ] = self.ctx.graph.get_aspect(
+            current_editable_properties = self.ctx.graph.get_aspect(
                 entity_urn=entity_urn,
                 aspect_type=entityClass,
             )
