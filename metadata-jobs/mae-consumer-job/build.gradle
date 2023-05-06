@@ -11,15 +11,22 @@ ext {
 }
 
 dependencies {
-    compile project(':metadata-jobs:mae-consumer')
+    implementation project(':metadata-jobs:mae-consumer')
     // TODO: Extract PE consumer into separate pod.
-    compile project(':metadata-jobs:pe-consumer')
-
-    compile(externalDependency.springBootStarterWeb) {
+    implementation project(':metadata-jobs:pe-consumer')
+    implementation(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }
-    compile externalDependency.springBootStarterJetty
-    compile externalDependency.springKafka
+    implementation externalDependency.springBootStarterJetty
+    implementation externalDependency.springKafka
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.log4j2Api
+    compileOnly externalDependency.lombok
+    implementation externalDependency.logbackClassic
+
+    testImplementation externalDependency.springBootTest
+    testCompile externalDependency.mockito
+    testCompile externalDependency.testng
 }
 
 bootJar {

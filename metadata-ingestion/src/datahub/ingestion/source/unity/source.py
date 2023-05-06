@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -53,7 +53,9 @@ from datahub.ingestion.source.unity.proxy import (
     Schema,
     ServicePrincipal,
 )
+from datahub.ingestion.source.unity.proxy_types import TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageUpstreamType,
@@ -93,10 +95,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
+@capability(SourceCapability.USAGE_STATS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
-@capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` configs")
+@capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
@@ -151,6 +154,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Global map of service principal application id -> ServicePrincipal
         self.service_principals: Dict[str, ServicePrincipal] = {}
+        # Global set of table refs
+        self.table_refs: Set[TableReference] = set()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -190,6 +195,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.build_service_principal_map()
         yield from self.process_metastores()
 
+        if self.config.include_usage_statistics:
+            usage_extractor = UnityCatalogUsageExtractor(
+                config=self.config,
+                report=self.report,
+                proxy=self.unity_catalog_api_proxy,
+                table_urn_builder=self.gen_dataset_urn,
+                user_urn_builder=self.gen_user_urn,
+            )
+            yield from usage_extractor.run(self.table_refs)
+
     def build_service_principal_map(self) -> None:
         try:
             for sp in self.unity_catalog_api_proxy.service_principals():
@@ -222,7 +237,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, metastore: proxy.Metastore
     ) -> Iterable[MetadataWorkUnit]:
         for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
-            if not self.config.catalog_pattern.allowed(catalog.name):
+            if not self.config.catalog_pattern.allowed(catalog.id):
                 self.report.catalogs.dropped(catalog.id)
                 continue
 
@@ -233,7 +248,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_schemas(self, catalog: proxy.Catalog) -> Iterable[MetadataWorkUnit]:
         for schema in self.unity_catalog_api_proxy.schemas(catalog=catalog):
-            if not self.config.schema_pattern.allowed(schema.name):
+            if not self.config.schema_pattern.allowed(schema.id):
                 self.report.schemas.dropped(schema.id)
                 continue
 
@@ -244,26 +259,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_tables(self, schema: proxy.Schema) -> Iterable[MetadataWorkUnit]:
         for table in self.unity_catalog_api_proxy.tables(schema=schema):
-            filter_table_name = (
-                f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
-            )
-
-            if not self.config.table_pattern.allowed(filter_table_name):
+            if not self.config.table_pattern.allowed(table.ref.qualified_table_name):
                 self.report.tables.dropped(table.id, type=table.type)
                 continue
 
+            self.table_refs.add(table.ref)
             yield from self.process_table(table, schema)
-
             self.report.tables.processed(table.id, type=table.type)
 
     def process_table(
         self, table: proxy.Table, schema: proxy.Schema
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_urn: str = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            platform_instance=self.platform_instance_name,
-            name=table.id,
-        )
+        dataset_urn = self.gen_dataset_urn(table.ref)
         yield from self.add_table_to_dataset_container(dataset_urn, schema)
 
         table_props = self._create_table_property_aspect(table)
@@ -314,24 +321,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[UpstreamLineageClass]:
         upstreams: List[UpstreamClass] = []
         finegrained_lineages: List[FineGrainedLineage] = []
-        for upstream in sorted(table.upstreams.keys()):
-            upstream_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                f"{table.schema.catalog.metastore.id}.{upstream}",
-                self.platform_instance_name,
-            )
+        for upstream_ref, downstream_to_upstream_cols in sorted(
+            table.upstreams.items()
+        ):
+            upstream_urn = self.gen_dataset_urn(upstream_ref)
 
-            for col in sorted(table.upstreams[upstream].keys()):
-                fl = FineGrainedLineage(
+            finegrained_lineages.extend(
+                FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[
                         make_schema_field_urn(upstream_urn, upstream_col)
-                        for upstream_col in sorted(table.upstreams[upstream][col])
+                        for upstream_col in sorted(u_cols)
                     ],
                     downstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    downstreams=[make_schema_field_urn(dataset_urn, col)],
+                    downstreams=[make_schema_field_urn(dataset_urn, d_col)],
                 )
-                finegrained_lineages.append(fl)
+                for d_col, u_cols in sorted(downstream_to_upstream_cols.items())
+            )
 
             upstream_table = UpstreamClass(
                 upstream_urn,
@@ -374,12 +380,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return DomainsClass(domains=[domain_urn])
 
-    def gen_user_urn(self, user: Optional[str]) -> Optional[str]:
+    def get_owner_urn(self, user: Optional[str]) -> Optional[str]:
         if self.config.include_ownership and user is not None:
-            if user in self.service_principals:
-                user = self.service_principals[user].display_name
-            return make_user_urn(user)
+            return self.gen_user_urn(user)
         return None
+
+    def gen_user_urn(self, user: str) -> str:
+        if user in self.service_principals:
+            user = self.service_principals[user].display_name
+        return make_user_urn(user)
+
+    def gen_dataset_urn(self, table_ref: TableReference) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=self.platform_instance_name,
+            name=str(table_ref),
+        )
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
@@ -392,7 +408,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             parent_container_key=self.gen_catalog_key(catalog=schema.catalog),
             domain_urn=domain_urn,
             description=schema.comment,
-            owner_urn=self.gen_user_urn(schema.owner),
+            owner_urn=self.get_owner_urn(schema.owner),
         )
 
     def gen_metastore_containers(
@@ -407,7 +423,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.DATABRICKS_METASTORE],
             domain_urn=domain_urn,
             description=metastore.comment,
-            owner_urn=self.gen_user_urn(metastore.owner),
+            owner_urn=self.get_owner_urn(metastore.owner),
         )
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
@@ -422,7 +438,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             domain_urn=domain_urn,
             parent_container_key=metastore_container_key,
             description=catalog.comment,
-            owner_urn=self.gen_user_urn(catalog.owner),
+            owner_urn=self.get_owner_urn(catalog.owner),
         )
 
     def gen_schema_key(self, schema: Schema) -> PlatformKey:
@@ -540,7 +556,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def _create_table_ownership_aspect(
         self, table: proxy.Table
     ) -> Optional[OwnershipClass]:
-        owner_urn = self.gen_user_urn(table.owner)
+        owner_urn = self.get_owner_urn(table.owner)
         if owner_urn is not None:
             return OwnershipClass(
                 owners=[
