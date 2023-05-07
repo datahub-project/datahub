@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Union, cast
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
@@ -49,7 +50,6 @@ class RedshiftProfiler(GenericProfiler):
             Dict[str, Dict[str, List[RedshiftView]]],
         ],
     ) -> Iterable[MetadataWorkUnit]:
-
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.profiling.enabled:
@@ -63,7 +63,6 @@ class RedshiftProfiler(GenericProfiler):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
                 for table in tables[db].get(schema, {}):
-
                     # Emit the profile work unit
                     profile_request = self.get_redshift_profile_request(
                         table, schema, db
@@ -100,12 +99,9 @@ class RedshiftProfiler(GenericProfiler):
                         dataset_urn, int(datetime.now().timestamp() * 1000)
                     )
 
-                yield wrap_aspect_as_workunit(
-                    "dataset",
-                    dataset_urn,
-                    "datasetProfile",
-                    profile,
-                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=profile
+                ).as_workunit()
 
     def get_redshift_profile_request(
         self,

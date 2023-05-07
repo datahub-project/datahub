@@ -107,7 +107,12 @@ class RedshiftLineageExtractor:
         parser = LineageRunner(query)
 
         for table in parser.source_tables:
-            source_schema, source_table = str(table).split(".")
+            matches = len(str(table).split("."))
+            if matches == 3:
+                db_name, source_schema, source_table = str(table).split(".")
+            elif matches == 2:
+                source_schema, source_table = str(table).split(".")
+
             if source_schema == "<default>":
                 source_schema = str(self.config.default_schema)
 
@@ -316,11 +321,10 @@ class RedshiftLineageExtractor:
                     or schema not in all_tables[db]
                     or not any(table == t.name for t in all_tables[db][schema])
                 ):
-                    self.warn(
-                        logger,
-                        "missing-table",
-                        f"{source.path} missing table",
+                    logger.debug(
+                        f"{source.path} missing table, dropping from lineage.",
                     )
+                    self.report.num_lineage_table_dropped += 1
                     continue
 
             targe_source.append(source)
