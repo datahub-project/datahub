@@ -15,6 +15,6 @@ python -c 'from tests.cypress.integration_test import ingest_data; ingest_data()
 cd tests/cypress
 npm install
 
-source ./set-cypress-creds.sh
+source ../../set-cypress-creds.sh
 
 npx cypress open

@@ -45,6 +45,7 @@ import org.springframework.context.annotation.Scope;
 @Import({DataHubAuthorizerFactory.class})
 public class AuthorizerChainFactory {
   @Autowired
+  @Qualifier("configurationProvider")
   private ConfigurationProvider configurationProvider;
 
   @Autowired

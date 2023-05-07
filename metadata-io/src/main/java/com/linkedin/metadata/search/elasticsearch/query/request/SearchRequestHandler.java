@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -94,11 +95,13 @@ public class SearchRequestHandler {
   private final SearchQueryBuilder _searchQueryBuilder;
 
 
-  private SearchRequestHandler(@Nonnull EntitySpec entitySpec, @Nonnull SearchConfiguration configs) {
-    this(ImmutableList.of(entitySpec), configs);
+  private SearchRequestHandler(@Nonnull EntitySpec entitySpec, @Nonnull SearchConfiguration configs,
+                               @Nullable CustomSearchConfiguration customSearchConfiguration) {
+    this(ImmutableList.of(entitySpec), configs, customSearchConfiguration);
   }
 
-  private SearchRequestHandler(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchConfiguration configs) {
+  private SearchRequestHandler(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchConfiguration configs,
+                               @Nullable CustomSearchConfiguration customSearchConfiguration) {
     _entitySpecs = entitySpecs;
     List<SearchableAnnotation> annotations = getSearchableAnnotations();
     _facetFields = getFacetFields(annotations);
@@ -107,16 +110,20 @@ public class SearchRequestHandler {
         .filter(SearchableAnnotation::isAddToFilters)
         .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
     _highlights = getHighlights();
-    _searchQueryBuilder = new SearchQueryBuilder(configs);
+    _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _configs = configs;
   }
 
-  public static SearchRequestHandler getBuilder(@Nonnull EntitySpec entitySpec, @Nonnull SearchConfiguration configs) {
-    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(ImmutableList.of(entitySpec), k -> new SearchRequestHandler(entitySpec, configs));
+  public static SearchRequestHandler getBuilder(@Nonnull EntitySpec entitySpec, @Nonnull SearchConfiguration configs,
+                                                @Nullable CustomSearchConfiguration customSearchConfiguration) {
+    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
+            ImmutableList.of(entitySpec), k -> new SearchRequestHandler(entitySpec, configs, customSearchConfiguration));
   }
 
-  public static SearchRequestHandler getBuilder(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchConfiguration configs) {
-    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(ImmutableList.copyOf(entitySpecs), k -> new SearchRequestHandler(entitySpecs, configs));
+  public static SearchRequestHandler getBuilder(@Nonnull List<EntitySpec> entitySpecs, @Nonnull SearchConfiguration configs,
+                                                @Nullable CustomSearchConfiguration customSearchConfiguration) {
+    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
+            ImmutableList.copyOf(entitySpecs), k -> new SearchRequestHandler(entitySpecs, configs, customSearchConfiguration));
   }
 
   private List<SearchableAnnotation> getSearchableAnnotations() {
