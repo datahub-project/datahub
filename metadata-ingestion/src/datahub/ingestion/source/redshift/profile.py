@@ -5,7 +5,6 @@ from typing import Dict, Iterable, List, Optional, Union, cast
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.redshift.config import RedshiftConfig
