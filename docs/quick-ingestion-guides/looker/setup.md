@@ -4,79 +4,122 @@ title: Setup
 
 # Looker Ingestion Guide: Setup & Prerequisites
 
-In order to configure ingestion from Looker, you'll first have to ensure you have an API key with permission to access the Looker resources.
+In order to configure ingestion from Looker, you'll first have to ensure you have an API key to access the Looker resources.
 
 ## Looker Prerequisites
 Follow below steps to create API key.
 
 1. **Login:** Login to https://&lt;instance-name&gt;.cloud.looker.com/browse. Replace &lt;instance-name&gt; by your looker instance name. For example  https://abc.cloud.looker.com/browse
 
-2. **Create an Azure AD app:** Follow below steps to create an Azure AD app
-
-   a. Login to https://portal.azure.com
-
-   b. Go to `Azure Active Directory`
-
-   c. Navigate to `App registrations`
-
-   d. Click on `+ New registration`
-
-   e. On `Register an application` window fill the `Name` of application says `Looker-app-connector` and keep other default as is
+2. **Admin Panel:** Navigate to `Admin Panel` on looker home page.
 
       <p align="center">
-   <img width="75%" alt="app_registration" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/app-registration.png"/>
+   <img width="75%" alt="Looker home page" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-home-page.png"/>
       </p>
 
-   f. On `Register an application` window click on `Register`
-
-   g. The Azure portal will open up the `Looker-app-connector` window as shown below. On this screen note down the `Application (client) ID` and click on `Add a certificate or secret` to generate a secret for the `Application (client) ID`
+3. **Roles Panel:** Search for `Roles` on `Admin Panel` and click `Roles` to open `Roles Panel`.
 
       <p align="center">
-   <img width="75%" alt="Looker_app_connector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-connector-window.png"/>
+   <img width="75%" alt="Looker roles search" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-roles-search.png"/>
       </p>
 
-   f. On `Looker-connector-app | Certificates & secrets` window generate the client secret and note down the `Secret`
+4. **Create A New Permission Set:** On `Role Panel` follow below steps to create a `New Permission Set`.
 
-3. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Group.
-
-   a. Go to `Azure Active Directory`
-
-   b. Navigate to `Groups` and click on `New group`
-
-   c. On `New group` window fill out the `Group type`,&nbsp; `Group name`, &nbsp;`Group description`. &nbsp;`Group type` should be set to `Security` . &nbsp; `New group` window is shown in below screenshot.
+   a. Go to `New Permission Set`
 
       <p align="center">
-   <img width="75%" alt="Looker_app_connector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/new-group-window.png"/>
+   <img width="75%" alt="Looker new permission set" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-new-permission-set-button.png"/>
       </p>
 
-   d. On `New group` window click on `No members selected` and add `Azure AD app` i.e. _Looker-connector-app_ as member
 
-   f. On `New group` window click on `Create` to create the security group `Looker-connector-app-security-group`.
+   b. Set name for  `New Permission Set`, says `DataHub Connector Permission Set` and select following permissions
 
-4. **Assign privileges to Looker-connector-app-security-group:** You need to add the created security group into Looker portal to grant resource access. Follow below steps to assign privileges to your security group.
+      - access_data
+      - see_lookml_dashboards
+      - see_looks
+      - see_user_dashboards
+      - explore
+      - see_sql
+      - see_lookml
+      - clear_cache_refresh
+      - manage_models
+      - see_datagroups
+      - see_pdts
+      - see_queries
+      - see_schedules
+      - see_system_activity
+      - see_users
 
-   a. Login to https://app.Looker.com/
-
-   b. Go to `Settings` -> `Admin Portal`
-
-   c. On `Admin Portal` navigate to `Tenant settings` as shown in below screenshot.
+    Scroll down and select all permissions mentioned above & click `New Permission Set` 
 
       <p align="center">
-   <img width="75%" alt="Looker_admin_portal" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-admin-portal.png"/>
+   <img width="75%" alt="Looker permission set window" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-permission-set-window.png"/>
       </p>
 
-   d. **Enable Looker API:** Under `Tenant settings` -> `Developer settings` -> `Allow service principals to use Power BI APIs` add the previously created security group i.e. _Looker-connector-app-security-group_ into `Specific security groups (Recommended)`
+5. **Create A Role:** On `Role Panel` follow below steps to create a new role.
 
-   e. **Enable Admin API Settings:** Under `Tenant settings` -> `Admin API settings` enable the following options
-
-   - `Allow service principals to use read-only admin APIs`
-   - `Enhance admin APIs responses with detailed metadata`
-   - `Enhance admin APIs responses with DAX and mashup expressions`
-
-   f. **Add Security Group to Workspace:** Navigate to `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `Looker-connector-app-security-group` as member
+   a. Go to `New Role`
 
       <p align="center">
-   <img width="75%" alt="workspace-window-underlined" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/workspace-window-undrlined.png"/>
+   <img width="75%" alt="Looker new role button" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-new-role-button.png"/>
+      </p>
+
+
+   b. Set name for `New Role`, says `DataHub Extractor` and set following fields on this window. 
+
+      - Set `Permission Set` to permission set created in previous step i.e `DataHub Connector Permission Set` 
+      - `Model Set` to `All`
+
+    Scroll down & click `New Role` 
+
+      <p align="center">
+   <img width="75%" alt="Looker new role window" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-new-role-window.png"/>
+      </p>
+
+6. **Create A New User:** On `Admin Panel` follow below steps to create a new user.
+
+   a. Search for `Users` and click `Users` to open `Users Panel`
+
+      <p align="center">
+   <img width="75%" alt="Looker user search" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-user-search.png"/>
+      </p>
+
+   b. Click `Add Users`. 
+
+      <p align="center">
+   <img width="75%" alt="Looker add user" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-add-user-button.png"/>
+      </p>
+
+
+   c. On `Adding a new user` set detail in following fields. 
+
+      - Add user's `Email Addresses` 
+      - Set `Roles` to the role created in previous step i.e. `DataHub Extractor`
+
+    click `Save` 
+
+      <p align="center">
+   <img width="75%" alt="Looker new user window" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-add-new-user.png"/>
+      </p>
+
+6. **Create An API Key:** On `User Panel` follow below steps to create an API key.
+
+   a. Click on newly created user on `User Panel`
+
+      <p align="center">
+   <img width="75%" alt="Looker user panel" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-user-panel.png"/>
+      </p>
+
+   b. Click `Edit Keys` to open `API Key Panel`. 
+
+      <p align="center">
+   <img width="75%" alt="Looker user view" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-user-view.png"/>
+      </p>
+
+
+   c. On `API Key Panel` click `New API Key` to generate a new `Client Id` and `Client Secret`.
+      <p align="center">
+   <img width="75%" alt="Looker new api key" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/looker-api-key.png"/>
       </p>
 
 ## Next Steps

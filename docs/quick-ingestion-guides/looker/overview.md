@@ -16,8 +16,6 @@ Upon completing this guide, you will have a recurring ingestion pipeline that wi
 * Owners of Dashboards
 * Table & Column level lineage
 
-
-
 *To learn more about setting these advanced values, check out the [Looker Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/Looker).*
 
 ## Next Steps

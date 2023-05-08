@@ -25,28 +25,28 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
 3. Create a client id secret
 
-  This will securely store your Looker `Application (client) ID` within DataHub
+  This will securely store your Looker `API Key Client ID` within DataHub
 
-   * Enter a name like `POWER_BI_CLIENT_ID` - we will use this later to refer to the `Application (client) ID`
-   * Enter the `Application (client) ID`
+   * Enter a name like `LOOKER_CLIENT_ID` - we will use this later to refer to the `API Key Client ID`
+   * Enter the `API Key Client ID`
    * Optionally add a description
    * Click **Create**
 
 <p align="center">
-   <img width="70%" alt="Application (client) ID" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-client-id-secret.png"/>
+   <img width="70%" alt="API Key Client ID" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-client-id-secret.png"/>
 </p>
 
-4. Create a secret to store the Azure AD Client Secret
+4. Create a secret to store the API Key Client Secret
 
   This will securely store your client secret"
 
-   * Enter a name like `POWER_BI_CLIENT_SECRET` - we will use this later to refer to the client secret
+   * Enter a name like `LOOKER_CLIENT_SECRET` - we will use this later to refer to the client secret
    * Enter the client secret
    * Optionally add a description
    * Click **Create**
 
 <p align="center">
-   <img width="70%" alt="Azure AD app Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-client-secret.png"/>
+   <img width="70%" alt="API Key client secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-client-secret.png"/>
 </p>
 
 ## Configure Recipe
@@ -59,43 +59,35 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 2.  Choose Looker
 
   <p align="center">
-    <img width="70%" alt="Select Looker from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-source-window.png"/>
+    <img width="70%" alt="Select Looker from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-choose-looker.png"/>
   </p>
 
 3.  Enter details into the Looker Recipe
 
     You need to set minimum 3 field in the recipe:
     
-    a. **tenant_id:** This is the unique identifier (GUID) of the Azure Active Directory instance. Tenant Id can be found at: Looker Portal -> Click on `?` at top-right corner -> Click on `About Looker`
+    a. **Base URL:** This is your looker instance URL. For example https://abc.cloud.looker.com
 
-    <p align="center">
-      <img width="70%" alt="Select Looker from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-portal-about-setting-window.png"/>
-    </p>
+    b. **Client ID:** Use the secret LOOKER_CLIENT_ID with the format "${LOOKER_CLIENT_ID}".
 
-    On `About Looker` window copy `ctid`:
-
-    <p align="center">
-      <img width="70%" alt="copy ctid" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-portal-about-window.png"/>
-    </p>
-
-
-    b. **client_id:** Use the secret POWER_BI_CLIENT_ID with the format "${POWER_BI_CLIENT_ID}".
-
-    c. **client_secret:** Use the secret POWER_BI_CLIENT_SECRET with the format "${POWER_BI_CLIENT_SECRET}".
+    c. **Client Secret:** Use the secret LOOKER_CLIENT_SECRET with the format "${LOOKER_CLIENT_SECRET}".
 
 
 
-Optionally, use the `workspace_id_pattern` field to filter for specific workspaces.
+Optionally, use the `dashboard_pattern` and `chart_pattern` fields to filter for specific dashboard and chart.
 
     config:
          ...
-         workspace_id_pattern:
+         dashboard_pattern:
+            allow:
+              - "2"
+         chart_pattern:
             allow:
               - "258829b1-82b1-4bdb-b9fb-6722c718bbd3"
 
 Your recipe should look something like this:
 <p align="center">
-  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-recipe-window.png"/>
+  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-source-recipe.png"/>
 </p>
 
 
@@ -122,13 +114,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 1. Name your ingestion source, then click **Save and Run**
 <p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-ingestion-source-window.png"/>
+  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-source-window.png"/>
 </p>  
 
 You will now find your new ingestion source running
 
 <p align="center">
-  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-ingestion-running.png"/>
+  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-running.png"/>
 </p>  
 
 ## Validate Ingestion Runs
@@ -136,7 +128,7 @@ You will now find your new ingestion source running
 1. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
-  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-ingestion-succeeded.png"/>
+  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-succeeded.png"/>
 </p>  
 
 2. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
