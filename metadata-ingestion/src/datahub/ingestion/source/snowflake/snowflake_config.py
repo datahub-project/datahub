@@ -160,12 +160,12 @@ class SnowflakeV2Config(
         )
 
         # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
-        # as it seems possible with some refractor
+        # as it seems possible with some refactor
         if not include_technical_schema and any(
             [include_profiles, delete_detection_enabled]
         ):
             raise ValueError(
-                "Can not perform Deletion Detection, Profiling without extracting snowflake technical schema.  Set `include_technical_schema` to True or disable Deletion Detection, Lineage Extraction, Profiling."
+                "Cannot perform Deletion Detection or Profiling without extracting snowflake technical schema. Set `include_technical_schema` to True or disable Deletion Detection and Profiling."
             )
 
         return values

@@ -447,7 +447,7 @@ class SnowflakeQuery:
           ) = 1
         """
 
-    # Note on use of `upstreams_deny_pattern`` to ignore temporary tables:
+    # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
     # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
     # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
     @staticmethod
