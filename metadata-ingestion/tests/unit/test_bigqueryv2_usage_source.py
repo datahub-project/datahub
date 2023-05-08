@@ -80,6 +80,10 @@ def test_bigqueryv2_filters():
     )
     expected_filter: str = """resource.type=(\"bigquery_project\" OR \"bigquery_dataset\")
 AND
+timestamp >= \"2021-07-18T23:45:00Z\"
+AND
+timestamp < \"2021-07-20T00:15:00Z\"
+AND
 (
     (
         protoPayload.methodName=
@@ -93,22 +97,12 @@ AND
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
         AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
         AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
-         AND (
-            
-            FALSE
-         OR
-            protoPayload.metadata.tableDataRead.reason = \"JOB\"
-        )
     )
     OR
     (
         protoPayload.metadata.tableDataRead:*
     )
-)
-AND
-timestamp >= \"2021-07-18T23:45:00Z\"
-AND
-timestamp < \"2021-07-20T00:15:00Z\""""  # noqa: W293
+)"""  # noqa: W293
     source = BigQueryUsageExtractor(config, BigQueryV2Report())
     filter: str = source._generate_filter(BQ_AUDIT_V2)
     assert filter == expected_filter
