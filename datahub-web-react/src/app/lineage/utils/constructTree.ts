@@ -73,6 +73,7 @@ export default function constructTree(
             if (!(entity.urn in updatedFetchedEntities)) {
                 updatedFetchedEntities = extendAsyncEntities(
                     {},
+                    {},
                     updatedFetchedEntities,
                     entityRegistry,
                     createEntityAndType(entity),
