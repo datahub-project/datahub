@@ -4,11 +4,14 @@ title: Setup
 
 # Looker Ingestion Guide: Setup & Prerequisites
 
-In order to configure ingestion from Looker, you'll first have to ensure you have an Azure AD app with permission to access the Looker resources.
+In order to configure ingestion from Looker, you'll first have to ensure you have an API key with permission to access the Looker resources.
 
 ## Looker Prerequisites
+Follow below steps to create API key.
 
-1. **Create an Azure AD app:** Follow below steps to create an Azure AD app
+1. **Login:** Login to https://&lt;instance-name&gt;.cloud.looker.com/browse. Replace &lt;instance-name&gt; by your looker instance name. For example  https://abc.cloud.looker.com/browse
+
+2. **Create an Azure AD app:** Follow below steps to create an Azure AD app
 
    a. Login to https://portal.azure.com
 
@@ -34,7 +37,7 @@ In order to configure ingestion from Looker, you'll first have to ensure you hav
 
    f. On `Looker-connector-app | Certificates & secrets` window generate the client secret and note down the `Secret`
 
-2. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Group.
+3. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Group.
 
    a. Go to `Azure Active Directory`
 
@@ -50,7 +53,7 @@ In order to configure ingestion from Looker, you'll first have to ensure you hav
 
    f. On `New group` window click on `Create` to create the security group `Looker-connector-app-security-group`.
 
-3. **Assign privileges to Looker-connector-app-security-group:** You need to add the created security group into Looker portal to grant resource access. Follow below steps to assign privileges to your security group.
+4. **Assign privileges to Looker-connector-app-security-group:** You need to add the created security group into Looker portal to grant resource access. Follow below steps to assign privileges to your security group.
 
    a. Login to https://app.Looker.com/
 

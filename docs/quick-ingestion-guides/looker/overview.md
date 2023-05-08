@@ -10,11 +10,11 @@ This guide will help you set up the Looker connector to begin ingesting metadata
 Upon completing this guide, you will have a recurring ingestion pipeline that will extract metadata from Looker and load it into DataHub. This will include to following Looker asset types:
 
 * Dashboards
-* Tiles 
-* Reports
-* Pages
-* Datasets
-* Lineage 
+* Charts
+* Explores 
+* Schemas 
+* Owners of Dashboards
+* Table & Column level lineage
 
 
 
