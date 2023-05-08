@@ -1,12 +1,17 @@
+import logging
 from abc import ABCMeta, abstractmethod
 from typing import Iterable, Optional
 
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import RecordEnvelope, EndOfStream
+from datahub.ingestion.api.common import RecordEnvelope, EndOfStream, PipelineContext
 from datahub.ingestion.transformer.base_transformer import BaseTransformer, SingleAspectTransformer
 from datahub.metadata.schema_classes import MetadataChangeEventClass, MetadataChangeProposalClass, \
     GenericAspectClass
 from datahub.utilities.urns.urn import Urn
+
+log = logging.getLogger(__name__)
+
 
 
 class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
@@ -15,13 +20,46 @@ class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metacla
     def __init__(self):
         super().__init__()
 
-    @abstractmethod
     def transform_aspect(
+            self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+    ) -> Optional[Aspect]:
+        """Do not implement."""
+        pass
+
+    @abstractmethod
+    def transform_generic_aspect(
             self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
     ) -> Optional[GenericAspectClass]:
-        """Implement this method to transform a single custom aspect for an entity.
+        """Implement this method to transform the single custom aspect for an entity.
         The purpose of this abstract method is to reinforce the use of GenericAspectClass."""
         pass
+
+
+    def _transform_or_record_mcpc(
+            self,
+            envelope: RecordEnvelope[MetadataChangeProposalClass],
+    ) -> Optional[RecordEnvelope[MetadataChangeProposalClass]]:
+        # remember stuff
+        assert envelope.record.entityUrn
+        assert isinstance(self, SingleAspectTransformer)
+        if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:
+            # we have a match on the aspect name, call the specific transform function
+            transformed_aspect = self.transform_generic_aspect(
+                entity_urn=envelope.record.entityUrn,
+                aspect_name=envelope.record.aspectName,
+                aspect=envelope.record.aspect,
+            )
+            self._mark_processed(envelope.record.entityUrn)
+            if transformed_aspect is None:
+                # drop the record
+                log.debug(
+                    f"Dropping record {envelope} as transformation result is None"
+                )
+            envelope.record.aspect = transformed_aspect
+        else:
+            self._record_mcp(envelope.record)
+        return envelope if envelope.record.aspect is not None else None
+
 
     def transform(
             self, record_envelopes: Iterable[RecordEnvelope]
@@ -38,12 +76,12 @@ class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metacla
                 self._record_mce(envelope.record)
             elif isinstance(envelope.record, MetadataChangeProposalWrapper):
                 self._record_mcp(envelope.record)
-            # elif isinstance(envelope.record, MetadataChangeProposalClass):
-            #     return_envelope = self._transform_or_record_mcp(envelope)
-            #     if return_envelope is None:
-            #         continue
-            #     else:
-            #         envelope = return_envelope
+            elif isinstance(envelope.record, MetadataChangeProposalClass):
+                return_envelope = self._transform_or_record_mcpc(envelope)
+                if return_envelope is None:
+                    continue
+                else:
+                    envelope = return_envelope
             elif isinstance(envelope.record, EndOfStream) and isinstance(
                     self, SingleAspectTransformer
             ):
@@ -54,7 +92,7 @@ class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metacla
                         last_seen_mcp = state["seen"].get("mcp")
                         last_seen_mce_system_metadata = state["seen"].get("mce")
 
-                        transformed_aspect = self.transform_aspect(
+                        transformed_aspect = self.transform_generic_aspect(
                             entity_urn=urn,
                             aspect_name=self.aspect_name(),
                             aspect=last_seen_mcp.aspect
