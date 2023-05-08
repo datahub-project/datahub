@@ -339,7 +339,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> redshift_connector.Connection:
         client_options = config.extra_client_options
         host, port = config.host_port.split(":")
-        return redshift_connector.connect(
+        conn = redshift_connector.connect(
             host=host,
             port=int(port),
             user=config.username,
@@ -347,6 +347,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             password=config.password.get_secret_value() if config.password else None,
             **client_options,
         )
+
+        conn.autocommit = True
+
+        return conn
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
@@ -494,7 +498,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 logger.info("process views")
                 if schema.name in self.db_views[schema.database]:
                     for view in self.db_views[schema.database][schema.name]:
-                        logger.info(f"View: {view}")
                         view.columns = schema_columns[schema.name].get(view.name, [])
                         yield from self._process_view(
                             table=view, database=database, schema=schema
