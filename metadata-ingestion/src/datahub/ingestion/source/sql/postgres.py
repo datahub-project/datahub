@@ -150,7 +150,7 @@ class PostgresSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
-            if self.config.database and self.config.database != "":
+            if self.config.database:
                 inspector = inspect(conn)
                 yield inspector
             else:
@@ -162,10 +162,11 @@ class PostgresSource(SQLAlchemySource):
                 for db in databases:
                     if self.config.database_pattern.allowed(db["datname"]):
                         url = self.config.get_sql_alchemy_url(database=db["datname"])
-                        inspector = inspect(
-                            create_engine(url, **self.config.options).connect()
-                        )
-                        yield inspector
+                        with create_engine(
+                            url, **self.config.options
+                        ).connect() as conn:
+                            inspector = inspect(conn)
+                            yield inspector
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits()

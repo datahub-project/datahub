@@ -312,7 +312,10 @@ def default_query_results(query):  # noqa: C901
         ]
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-            1654499820000, 1654586220000, True, True
+            start_time_millis=1654499820000,
+            end_time_millis=1654586220000,
+            include_view_lineage=True,
+            include_column_lineage=True,
         ),
     ):
         return [
@@ -381,7 +384,10 @@ def default_query_results(query):  # noqa: C901
         ]
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-            1654499820000, 1654586220000, False, False
+            start_time_millis=1654499820000,
+            end_time_millis=1654586220000,
+            include_view_lineage=False,
+            include_column_lineage=False,
         ),
     ):
         return [
