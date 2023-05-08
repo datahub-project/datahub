@@ -89,7 +89,7 @@ public class EntitySpecBuilderTest {
 
     // Assert on Aspect Specs
     final Map<String, AspectSpec> aspectSpecMap = testEntitySpec.getAspectSpecMap();
-    assertEquals(4, aspectSpecMap.size());
+    assertEquals(5, aspectSpecMap.size());
     assertTrue(aspectSpecMap.containsKey("testEntityKey"));
     assertTrue(aspectSpecMap.containsKey("testBrowsePaths"));
     assertTrue(aspectSpecMap.containsKey("testEntityInfo"));
