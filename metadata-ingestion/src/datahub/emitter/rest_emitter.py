@@ -88,7 +88,7 @@ class DataHubRestEmitter(Closeable):
             self._session.headers.update(extra_headers)
 
         if ca_certificate_path:
-            self._session.verify = ca_certificate_path
+            self._session.cert = ca_certificate_path
 
         if disable_ssl_verification:
             self._session.verify = False

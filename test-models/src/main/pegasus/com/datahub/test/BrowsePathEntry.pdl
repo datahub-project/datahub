@@ -1,0 +1,19 @@
+namespace com.datahub.test
+
+import com.linkedin.common.Urn
+
+/**
+ * Represents a single level in an entity's browse path
+ */
+record BrowsePathEntry {
+  /**
+   * The ID of the browse path entry. This is what gets stored in the index after URL encoding.
+   * If there's an urn associated with this entry, id and urn will be the same
+   */
+  id: string
+
+  /**
+   * Optional urn pointing to some entity in DataHub
+   */
+  urn: optional Urn
+}
