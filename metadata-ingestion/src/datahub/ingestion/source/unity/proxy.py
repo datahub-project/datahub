@@ -1,11 +1,14 @@
 """
 Manage the communication with DataBricks Server and provide equivalent dataclasses for dependent modules
 """
+import dataclasses
 import logging
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
+from unittest.mock import patch
 
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.core import ApiClient
 from databricks.sdk.service.sql import (
     QueryFilter,
     QueryInfo,
@@ -33,8 +36,9 @@ from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass
 class QueryFilterWithStatementTypes(QueryFilter):
-    statement_types: List[QueryStatementType]
+    statement_types: List[QueryStatementType] = dataclasses.field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {**super().as_dict(), "statement_types": self.statement_types}
@@ -55,11 +59,11 @@ class UnityCatalogApiProxy:
     def __init__(
         self, workspace_url: str, personal_access_token: str, report: UnityCatalogReport
     ):
+        self._workspace_client = WorkspaceClient(
+            host=workspace_url, token=personal_access_token
+        )
         self._unity_catalog_api = UnityCatalogApi(
-            ApiClient(
-                host=workspace_url,
-                token=personal_access_token,
-            )
+            ApiClient(host=workspace_url, token=personal_access_token)
         )
         self._workspace_url = workspace_url
         self.report = report
@@ -158,10 +162,13 @@ class UnityCatalogApiProxy:
                     "start_time_ms": start_time.timestamp() * 1000,
                     "end_time_ms": end_time.timestamp() * 1000,
                 },
-                "statuses": [QueryStatus.FINISHED],
-                "statement_types": list(ALLOWED_STATEMENT_TYPES),
+                "statuses": [QueryStatus.FINISHED.value],
+                "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
             }
         )
+        # WorkspaceClient incorrectly passes params as query params, not body
+        with patch.object(ApiClient, "do", wraps=ApiClient.do) as mock_do:
+            pass
         response = self._workspace_client.query_history.list(
             filter_by=filter_by, include_metrics=False, max_results=1000
         )
