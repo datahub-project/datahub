@@ -64,7 +64,10 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _should_process(
         self,
         record: Union[
-            MetadataChangeEventClass, MetadataChangeProposalWrapper, ControlRecord
+            MetadataChangeEventClass,
+            MetadataChangeProposalWrapper,
+            MetadataChangeProposalClass,
+            ControlRecord
         ],
     ) -> bool:
         if isinstance(record, ControlRecord):
