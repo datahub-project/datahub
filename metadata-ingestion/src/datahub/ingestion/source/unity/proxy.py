@@ -166,18 +166,44 @@ class UnityCatalogApiProxy:
                 "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
             }
         )
-        # WorkspaceClient incorrectly passes params as query params, not body
-        with patch.object(ApiClient, "do", wraps=ApiClient.do) as mock_do:
-            pass
-        response = self._workspace_client.query_history.list(
-            filter_by=filter_by, include_metrics=False, max_results=1000
-        )
-        for query_info in response:
+        for query_info in self._query_history(filter_by=filter_by):
             try:
                 yield self._create_query(query_info)
             except Exception as e:
                 logger.warning(f"Error parsing query: {e}")
                 self.report.report_warning("query-parse", str(e))
+
+    def _query_history(
+        self,
+        filter_by: QueryFilterWithStatementTypes,
+        max_results: int = 1000,
+        include_metrics: bool = False,
+    ) -> Iterable[QueryInfo]:
+        """Manual implementation of the query_history.list() endpoint.
+
+        Needed because:
+        - WorkspaceClient incorrectly passes params as query params, not body
+        - It does not paginate correctly -- needs to remove filter_by argument
+        Remove if these issues are fixed.
+        """
+        method = "GET"
+        path = "/api/2.0/sql/history/queries"
+        body: Dict[str, Any] = {
+            "include_metrics": include_metrics,
+            "max_results": max_results,  # Max batch size
+        }
+
+        response: dict = self._workspace_client.api_client.do(
+            method, path, body={**body, "filter_by": filter_by.as_dict()}
+        )
+        while True:
+            if "res" not in response or not response["res"]:
+                return
+            for v in response["res"]:
+                yield QueryInfo.from_dict(v)
+            response = self._workspace_client.api_client.do(
+                method, path, body={**body, "page_token": response["next_page_token"]}
+            )
 
     def list_lineages_by_table(self, table_name=None, headers=None):
         """
