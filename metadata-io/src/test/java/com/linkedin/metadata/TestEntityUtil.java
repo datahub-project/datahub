@@ -1,6 +1,9 @@
 package com.linkedin.metadata;
 
 import com.datahub.test.TestBrowsePaths;
+import com.datahub.test.TestBrowsePathsV2;
+import com.datahub.test.BrowsePathEntry;
+import com.datahub.test.BrowsePathEntryArray;
 import com.datahub.test.KeyPartEnum;
 import com.datahub.test.SearchFeatures;
 import com.datahub.test.SimpleNestedRecord1;
@@ -53,12 +56,18 @@ public class TestEntityUtil {
     snapshot.setUrn(urn);
 
     TestBrowsePaths browsePaths = new TestBrowsePaths().setPaths(new StringArray(ImmutableList.of("/a/b/c", "d/e/f")));
+    BrowsePathEntryArray browsePathV2Entries = new BrowsePathEntryArray();
+    BrowsePathEntry entry1 = new BrowsePathEntry().setId("levelOne");
+    BrowsePathEntry entry2 = new BrowsePathEntry().setId("levelTwo");
+    browsePathV2Entries.add(entry1);
+    browsePathV2Entries.add(entry2);
+    TestBrowsePathsV2 browsePathsV2 = new TestBrowsePathsV2().setPath(browsePathV2Entries);
     SearchFeatures searchFeatures = new SearchFeatures().setFeature1(2).setFeature2(1);
 
     TestEntityAspectArray aspects = new TestEntityAspectArray(
         ImmutableList.of(TestEntityAspect.create(getTestEntityKey(urn)),
             TestEntityAspect.create(getTestEntityInfo(urn)), TestEntityAspect.create(browsePaths),
-            TestEntityAspect.create(searchFeatures)));
+            TestEntityAspect.create(searchFeatures), TestEntityAspect.create(browsePathsV2)));
     snapshot.setAspects(aspects);
     return snapshot;
   }
