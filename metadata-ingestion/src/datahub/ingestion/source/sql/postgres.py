@@ -97,10 +97,12 @@ class ViewLineageEntry(BaseModel):
     dependent_schema: str
 
 
-class PostgresConfig(BasicSQLAlchemyConfig):
-    # defaults
+class BasePostgresConfig(BasicSQLAlchemyConfig):
     scheme = Field(default="postgresql+psycopg2", description="database scheme")
     schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
+
+
+class PostgresConfig(BasePostgresConfig):
     include_view_lineage = Field(
         default=False, description="Include table lineage for views"
     )
@@ -111,6 +113,10 @@ class PostgresConfig(BasicSQLAlchemyConfig):
             "Regex patterns for databases to filter in ingestion. "
             "Note: this is not used if `database` or `sqlalchemy_uri` are provided."
         ),
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description="database (catalog). If set to Null, all databases will be considered for ingestion.",
     )
     init_database: Optional[str] = Field(
         default="postgres",

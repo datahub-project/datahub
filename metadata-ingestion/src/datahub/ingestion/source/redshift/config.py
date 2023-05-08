@@ -8,7 +8,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.source.aws.path_spec import PathSpec
-from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.sql.postgres import BasePostgresConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -60,7 +60,7 @@ class RedshiftUsageConfig(BaseUsageConfig, StatefulUsageConfigMixin):
 
 
 class RedshiftConfig(
-    PostgresConfig,
+    BasePostgresConfig,
     DatasetLineageProviderConfigBase,
     S3DatasetLineageProviderConfigBase,
     RedshiftUsageConfig,
