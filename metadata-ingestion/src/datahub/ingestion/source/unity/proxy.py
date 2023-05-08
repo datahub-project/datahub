@@ -5,10 +5,8 @@ import dataclasses
 import logging
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
-from unittest.mock import patch
 
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.core import ApiClient
 from databricks.sdk.service.sql import (
     QueryFilter,
     QueryInfo,
