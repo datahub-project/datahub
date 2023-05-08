@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { FacetFilterInput, EntityType } from '../../types.generated';
+import { FacetFilterInput } from '../../types.generated';
 import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
-import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
+import { UnionType } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
@@ -43,12 +43,7 @@ export const SearchPage = () => {
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     const filters: Array<FacetFilterInput> = useFilters(params);
-    const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
-        (filter) => filter.field !== ENTITY_FILTER_NAME,
-    );
-    const entityFilters: Array<EntityType> = filters
-        .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => (filter.values || []).map((value) => value?.toUpperCase() as EntityType));
+    const filtersWithoutEntities: Array<FacetFilterInput> = filters;
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -62,7 +57,7 @@ export const SearchPage = () => {
     } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: entityFilters,
+                types: [],
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
@@ -85,7 +80,7 @@ export const SearchPage = () => {
     const { refetch } = useGetDownloadScrollResultsQuery({
         variables: {
             input: {
-                types: entityFilters,
+                types: [],
                 query,
                 viewUrn,
                 count: SearchCfg.RESULTS_PER_PAGE,
@@ -160,7 +155,7 @@ export const SearchPage = () => {
             {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
             <SearchResults
                 unionType={unionType}
-                entityFilters={entityFilters}
+                entityFilters={[]}
                 filtersWithoutEntities={filtersWithoutEntities}
                 callSearchOnVariables={callSearchOnVariables}
                 page={page}

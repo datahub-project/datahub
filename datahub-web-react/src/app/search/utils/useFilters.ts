@@ -6,6 +6,13 @@ import { FacetFilterInput, FilterOperator } from '../../../types.generated';
 import { decodeComma } from '../../entity/shared/utils';
 import { URL_PARAM_SEPARATOR } from './filtersToQueryStringParams';
 
+function ifLegacyFieldNameTranslate(fieldName) {
+    if (fieldName === 'entity') {
+        return '_entityType';
+    }
+    return fieldName;
+}
+
 export default function useFilters(params: QueryString.ParsedQuery<string>): Array<FacetFilterInput> {
     return useMemo(() => {
         return (
@@ -17,7 +24,7 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                     // remove the `filter_` prefix
                     const fieldIndex = key.replace(FILTER_URL_PREFIX, '');
                     const fieldParts = fieldIndex.split(URL_PARAM_SEPARATOR);
-                    const field = fieldParts[0];
+                    const field = ifLegacyFieldNameTranslate(fieldParts[0]);
                     const negated = fieldParts[1] === 'true';
                     const condition = fieldParts[2] || FilterOperator.Equal;
                     if (!value) return null;

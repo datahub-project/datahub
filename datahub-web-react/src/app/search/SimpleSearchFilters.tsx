@@ -2,8 +2,9 @@ import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
+import { ENTITY_FILTER_NAME } from './utils/constants';
 
-const TOP_FILTERS = ['degree', 'entity', 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
+const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
 interface Props {
     facets: Array<FacetMetadata>;
@@ -47,6 +48,8 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
         if (TOP_FILTERS.indexOf(facetB.field) === -1) return -1;
         return TOP_FILTERS.indexOf(facetA.field) - TOP_FILTERS.indexOf(facetB.field);
     });
+
+    console.log(sortedFacets);
 
     return (
         <>

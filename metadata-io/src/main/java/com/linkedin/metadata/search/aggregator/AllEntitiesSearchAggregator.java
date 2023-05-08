@@ -126,7 +126,7 @@ public class AllEntitiesSearchAggregator {
     Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations);
 
     // Finally, Add a custom Entity aggregation (appears as the first filter) -- this should never be truncated
-    finalAggregations.put("entity", new AggregationMetadata().setName("entity")
+    finalAggregations.put("_entityType", new AggregationMetadata().setName("_entityType")
         .setDisplayName("Type")
         .setAggregations(new LongMap(numResultsPerEntity))
         .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
