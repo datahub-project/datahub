@@ -78,7 +78,7 @@ export const DatasetStatsSummary = ({
             >
                 <StatText color={displayedColor}>
                     <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                    Updated {toRelativeTimeString(lastUpdatedMs)}
+                    Data last updated {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>
         ),
