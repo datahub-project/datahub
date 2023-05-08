@@ -42,4 +42,4 @@ jobs:
           publish: ${{ github.ref == 'refs/heads/master' }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,arm64v8
