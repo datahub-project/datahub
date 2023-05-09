@@ -59,7 +59,6 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
@@ -86,14 +85,14 @@ public class SearchRequestHandler {
   private static final String REMOVED = "removed";
 
   private static final String URN_FILTER = "urn";
+
   private final List<EntitySpec> _entitySpecs;
-  private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;
   private final Map<String, String> _filtersToDisplayName;
   private final SearchConfiguration _configs;
   private final SearchQueryBuilder _searchQueryBuilder;
-
+  private final AggregationQueryBuilder _aggregationQueryBuilder;
 
   private SearchRequestHandler(@Nonnull EntitySpec entitySpec, @Nonnull SearchConfiguration configs,
                                @Nullable CustomSearchConfiguration customSearchConfiguration) {
@@ -104,13 +103,13 @@ public class SearchRequestHandler {
                                @Nullable CustomSearchConfiguration customSearchConfiguration) {
     _entitySpecs = entitySpecs;
     List<SearchableAnnotation> annotations = getSearchableAnnotations();
-    _facetFields = getFacetFields(annotations);
     _defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     _filtersToDisplayName = annotations.stream()
         .filter(SearchableAnnotation::isAddToFilters)
         .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
+    _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
     _configs = configs;
   }
 
@@ -209,7 +208,7 @@ public class SearchRequestHandler {
             .must(getQuery(input, finalSearchFlags.isFulltext()))
             .must(filterQuery));
     if (!finalSearchFlags.isSkipAggregates()) {
-      getAggregations(facets).forEach(searchSourceBuilder::aggregation);
+      _aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
     if (!finalSearchFlags.isSkipHighlighting()) {
       searchSourceBuilder.highlighter(_highlights);
@@ -248,7 +247,7 @@ public class SearchRequestHandler {
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).must(filterQuery));
-    getAggregations().forEach(searchSourceBuilder::aggregation);
+    _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     searchRequest.source(searchSourceBuilder);
@@ -338,34 +337,6 @@ public class SearchRequestHandler {
 
   private QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
     return _searchQueryBuilder.buildQuery(_entitySpecs, query, fulltext);
-  }
-
-  private List<AggregationBuilder> getAggregations() {
-    return getAggregations(null);
-  }
-
-  /**
-   * Get aggregations for a search request for the given facets provided, and if none are provided, then get aggregations for all.
-   */
-  private List<AggregationBuilder> getAggregations(@Nullable List<String> facets) {
-    if (facets != null) {
-      facets.forEach(facet -> {
-        if (!_facetFields.contains(facet)) {
-          log.warn(String.format("Provided facet for search filter aggregations that doesn't exist. Provided: %s; Available: %s", facet, _facetFields));
-        }
-      });
-    }
-    List<AggregationBuilder> aggregationBuilders = new ArrayList<>();
-    for (String facet : _facetFields) {
-      if (facets != null && !facets.contains(facet)) {
-        continue;
-      }
-      // All facet fields must have subField keyword
-      AggregationBuilder aggBuilder =
-          AggregationBuilders.terms(facet).field(ESUtils.toKeywordField(facet, false)).size(_configs.getMaxTermBucketSize());
-      aggregationBuilders.add(aggBuilder);
-    }
-    return aggregationBuilders;
   }
 
   @VisibleForTesting

@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SearchUtil {
   private static final String URN_PREFIX = "urn:";
+  public static final String AGGREGATION_SEPARATOR_CHAR = "␞";
+  public static final String INDEX_VIRTUAL_FIELD = "_entityType";
 
   private SearchUtil() {
   }

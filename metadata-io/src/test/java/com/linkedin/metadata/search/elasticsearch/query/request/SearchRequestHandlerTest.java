@@ -5,6 +5,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,6 +41,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler.*;
+import static com.linkedin.metadata.utils.SearchUtil.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -91,7 +94,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testSearchRequestHandler() {
     SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
-            10,  new SearchFlags().setFulltext(false), null);
+        10,  new SearchFlags().setFulltext(false), null);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -108,11 +111,35 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(fields.size(), 20);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-                "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
+            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
     highlightableFields.forEach(field -> {
       assertTrue(fields.contains(field), "Missing: " + field);
       assertTrue(fields.contains(field + ".*"), "Missing: " + field + ".*");
     });
+  }
+
+  @Test
+  public void testAggregationsInSearch() {
+    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
+    SearchRequest searchRequest = requestHandler.getSearchRequest("*", null, null, 0,
+            10,  new SearchFlags().setFulltext(true), List.of("textFieldOverride", "_entityType", String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR), "not_a_facet"));
+    SearchSourceBuilder sourceBuilder = searchRequest.source();
+    // Filters
+    Collection<AggregationBuilder> aggregationBuilders =
+        sourceBuilder.aggregations().getAggregatorFactories();
+    assertEquals(aggregationBuilders.size(), 3);
+    for(AggregationBuilder builder : aggregationBuilders) {
+      if (builder.getName().equals("textFieldOverride") || builder.getName().equals("_entityType")) {
+        assertTrue(builder.getSubAggregations().isEmpty());
+      } else if (builder.getName().equals(String.format("_entityType%stextFieldOverride",
+          AGGREGATION_SEPARATOR_CHAR))) {
+        assertEquals(builder.getSubAggregations().size(), 1);
+        Optional<AggregationBuilder> subAgg = builder.getSubAggregations().stream().findFirst();
+        assertTrue(subAgg.isPresent());
+        assertEquals(subAgg.get().getName(), String.format("_entityType%stextFieldOverride",
+          AGGREGATION_SEPARATOR_CHAR));
+      }
+    }
   }
 
   @Test

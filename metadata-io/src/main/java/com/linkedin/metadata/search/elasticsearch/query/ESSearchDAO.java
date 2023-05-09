@@ -44,6 +44,8 @@ import org.elasticsearch.client.core.CountRequest;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.utils.SearchUtil.*;
+
 
 /**
  * A search DAO for Elasticsearch backend.
@@ -297,7 +299,7 @@ public class ESSearchDAO {
       IndexConvention indexConvention) {
     return new ConjunctiveCriterion().setAnd(
         conjunctiveCriterion.getAnd().stream().map(
-                criterion -> criterion.getField().equalsIgnoreCase("_entityType")
+                criterion -> criterion.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
                     ? transformEntityTypeCriterion(criterion, indexConvention)
                     : criterion)
             .collect(Collectors.toCollection(CriterionArray::new)));
