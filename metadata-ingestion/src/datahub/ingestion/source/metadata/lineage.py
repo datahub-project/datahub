@@ -26,13 +26,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
