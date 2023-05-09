@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Modifying Domains On Dataset
+# Domains
 
 ## Why Would You Use Domains?
 
@@ -10,19 +10,19 @@ For more information about domains, refer to [About DataHub Domains](/docs/domai
 
 ### Goal Of This Guide
 
-This guide will show you how to 
-* create a domain named `Marketing`
-* read domains attached to a dataset `fct_users_created`.
-* add a dataset named `fct_users_created` to a domain named `Marketing`.
-* remove the domain `Marketing` from the `fct_users_created` dataset.
+This guide will show you how to
+
+- Create a domain.
+- Read domains attached to a dataset.
+- Add a dataset to a domain
+- Remove the domain from a dataset.
 
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
 
-## Create Domain 
-
+## Create Domain
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -75,7 +75,6 @@ Expected Response:
 You can now see `Marketing` domain has been created under `Govern > Domains`.
 
 ![domain-created](../../imgs/apis/tutorials/domain-created.png)
-
 
 ## Read Domains
 
@@ -151,13 +150,14 @@ Expected Response:
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_query_domain.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
 
-
-## Add Domains 
+## Add Domains
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -198,27 +198,20 @@ Expected Response:
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon!
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_domain_execute_graphql.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
 
-With GraphQL
+### Expected Outcomes of Adding Domain
 
-:::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access `graphql`.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
-:::
+You can now see `Marketing` domain has been added to the dataset.
 
-### Expected Outcomes of Adding Domain 
+![domain-added](../../imgs/apis/tutorials/domain-added.png)
 
-You can now see `CustomerAccount` domain has been added to `user_name` column.
-
-![tag-added](../../imgs/apis/tutorials/tag-added.png)
-
-
-## Remove Domains 
-
+## Remove Domains
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -255,11 +248,12 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 </TabItem>
 <TabItem value="python" label="Python">
 
-> Coming Soon! 
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_remove_domain_execute_graphql.py show_path_as_comment }}
+```
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcomes of Removing Domain
 
