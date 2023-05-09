@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Button, Input, Modal } from 'antd';
 import { useLocation } from 'react-router';
+import { Button, Input, Modal, Spin, notification } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import { EntityType, AndFilterInput } from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
@@ -15,6 +16,7 @@ type Props = {
     filters: AndFilterInput[];
     query: string;
     viewUrn?: string;
+    totalResults?: number;
     setIsDownloadingCsv: (isDownloadingCsv: boolean) => any;
     showDownloadAsCsvModal: boolean;
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
@@ -28,6 +30,7 @@ export default function DownloadAsCsvModal({
     filters,
     query,
     viewUrn,
+    totalResults,
     setIsDownloadingCsv,
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
@@ -39,9 +42,27 @@ export default function DownloadAsCsvModal({
         entitySearchIsEmbeddedWithin ? `${entitySearchIsEmbeddedWithin.name}_impact.csv` : 'results.csv',
     );
     const entityRegistry = useEntityRegistry();
+    const openNotification = () => {
+        notification.info({
+            message: 'Preparing download',
+            description: totalResults
+                ? `Creating CSV with ${totalResults} entities to download`
+                : 'Creating CSV to download',
+            placement: 'bottomRight',
+            duration: null,
+            icon: <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />,
+        });
+    };
+
+    const closeNotification = () => {
+        setTimeout(() => {
+            notification.destroy();
+        }, 3000);
+    };
 
     const triggerCsvDownload = (filename) => {
         setIsDownloadingCsv(true);
+        openNotification();
 
         let nextScrollId: string | null = null;
         let accumulatedResults: string[][] = [];
@@ -73,6 +94,7 @@ export default function DownloadAsCsvModal({
                     fetchNextPage();
                 } else {
                     setIsDownloadingCsv(false);
+                    closeNotification();
                     downloadRowsAsCsv(
                         getSearchCsvDownloadHeader(refetchData?.searchResults[0]),
                         accumulatedResults,
