@@ -91,7 +91,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testSearchRequestHandler() {
     SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
-            10,  new SearchFlags().setFulltext(false));
+            10,  new SearchFlags().setFulltext(false), null);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -160,7 +160,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     } else {
       testQuery =
           (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithoutRemovedCondition, null,
-              0, 10, new SearchFlags().setFulltext(false)).source().query();
+              0, 10, new SearchFlags().setFulltext(false), null).source().query();
     }
     return testQuery;
   }
@@ -207,7 +207,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     } else {
       queryWithRemoved =
           (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
-              null, 0, 10, new SearchFlags().setFulltext(false)).source().query();
+              null, 0, 10, new SearchFlags().setFulltext(false), null).source().query();
     }
     return queryWithRemoved;
   }
@@ -401,7 +401,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
 
     return (BoolQueryBuilder) requestHandler
-        .getSearchRequest("", filter, null, 0, 10,  new SearchFlags().setFulltext(false))
+        .getSearchRequest("", filter, null, 0, 10,  new SearchFlags().setFulltext(false), null)
         .source()
         .query();
   }

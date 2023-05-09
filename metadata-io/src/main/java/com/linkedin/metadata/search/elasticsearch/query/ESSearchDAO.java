@@ -129,11 +129,12 @@ public class ESSearchDAO {
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param searchFlags Structured or full text search modes, plus other misc options
+   * @param facets list of facets we want aggregations for
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     final String finalInput = input.isEmpty() ? "*" : input;
     Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -141,7 +142,7 @@ public class ESSearchDAO {
     // Step 1: construct the query
     final SearchRequest searchRequest = SearchRequestHandler
             .getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
-            .getSearchRequest(finalInput, transformedFilters, sortCriterion, from, size, searchFlags);
+            .getSearchRequest(finalInput, transformedFilters, sortCriterion, from, size, searchFlags, facets);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
     searchRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well

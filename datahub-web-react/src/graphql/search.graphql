@@ -869,3 +869,11 @@ query getEntityMentionNode($urn: String!) {
         ...searchResultFields
     }
 }
+
+query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
+    aggregateAcrossEntities(input: $input) {
+        facets {
+            ...facetFields
+        }
+    }
+}

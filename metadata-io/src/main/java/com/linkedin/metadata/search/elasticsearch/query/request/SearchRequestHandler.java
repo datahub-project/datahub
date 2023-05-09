@@ -187,13 +187,14 @@ public class SearchRequestHandler {
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param searchFlags Various flags controlling search query options
+   * @param facets list of facets we want aggregations for
    * @return a valid search request
    */
   @Nonnull
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
                                         @Nullable SortCriterion sortCriterion, int from, int size,
-                                        @Nullable SearchFlags searchFlags) {
+                                        @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     SearchFlags finalSearchFlags = applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
 
     SearchRequest searchRequest = new SearchRequest();
@@ -208,7 +209,7 @@ public class SearchRequestHandler {
             .must(getQuery(input, finalSearchFlags.isFulltext()))
             .must(filterQuery));
     if (!finalSearchFlags.isSkipAggregates()) {
-      getAggregations().forEach(searchSourceBuilder::aggregation);
+      getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
     if (!finalSearchFlags.isSkipHighlighting()) {
       searchSourceBuilder.highlighter(_highlights);
@@ -340,8 +341,25 @@ public class SearchRequestHandler {
   }
 
   private List<AggregationBuilder> getAggregations() {
+    return getAggregations(null);
+  }
+
+  /**
+   * Get aggregations for a search request for the given facets provided, and if none are provided, then get aggregations for all.
+   */
+  private List<AggregationBuilder> getAggregations(@Nullable List<String> facets) {
+    if (facets != null) {
+      facets.forEach(facet -> {
+        if (!_facetFields.contains(facet)) {
+          log.warn(String.format("Provided facet for search filter aggregations that doesn't exist. Provided: %s; Available: %s", facet, _facetFields));
+        }
+      });
+    }
     List<AggregationBuilder> aggregationBuilders = new ArrayList<>();
     for (String facet : _facetFields) {
+      if (facets != null && !facets.contains(facet)) {
+        continue;
+      }
       // All facet fields must have subField keyword
       AggregationBuilder aggBuilder =
           AggregationBuilders.terms(facet).field(ESUtils.toKeywordField(facet, false)).size(_configs.getMaxTermBucketSize());
