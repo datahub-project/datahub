@@ -76,8 +76,8 @@ def test_config_redaction():
 
 
 def test_shared_defaults():
-    c1 = UnityCatalogSourceConfig(token="s", workspace_url="s")
-    c2 = UnityCatalogSourceConfig(token="s", workspace_url="s")
+    c1 = UnityCatalogSourceConfig(token="s", workspace_url="https://workspace_url")
+    c2 = UnityCatalogSourceConfig(token="s", workspace_url="https://workspace_url")
 
     assert c2.catalog_pattern.allow == [".*"]
     c1.catalog_pattern.allow += ["foo"]

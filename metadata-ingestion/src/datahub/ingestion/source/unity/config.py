@@ -20,7 +20,9 @@ class UnityCatalogSourceConfig(
     StatefulIngestionConfigBase, BaseUsageConfig, DatasetSourceConfigMixin
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
-    workspace_url: str = pydantic.Field(description="Databricks workspace url")
+    workspace_url: str = pydantic.Field(
+        description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
+    )
     workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
@@ -33,17 +35,17 @@ class UnityCatalogSourceConfig(
 
     catalog_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for catalogs to filter in ingestion. Specify regex to match the catalog name",
+        description="Regex patterns for catalogs to filter in ingestion. Specify regex to match the full `metastore.catalog` name.",
     )
 
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
+        description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`.",
     )
 
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in catalog.schema.table format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
@@ -83,3 +85,11 @@ class UnityCatalogSourceConfig(
         if (datetime.now(timezone.utc) - v).days > 30:
             raise ValueError("Query history is only maintained for 30 days.")
         return v
+
+    @pydantic.validator("workspace_url")
+    def workspace_url_should_start_with_http_scheme(cls, workspace_url: str) -> str:
+        if not workspace_url.lower().startswith(("http://", "https://")):
+            raise ValueError(
+                "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
+            )
+        return workspace_url

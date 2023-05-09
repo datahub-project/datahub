@@ -340,6 +340,7 @@ class SnowflakeLineageExtractor(
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            upstreams_deny_pattern=self.config.upstreams_deny_pattern,
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
         )
