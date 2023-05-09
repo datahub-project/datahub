@@ -107,7 +107,7 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
         inputs = [mce_dataset, mce_datajob, EndOfStream()]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(input, metadata={}) for input in inputs]
+                [RecordEnvelope(i, metadata={}) for i in inputs]
             )
         )
 
@@ -133,7 +133,7 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
         inputs = [mcpw_dataset, mcpw_datajob, EndOfStream()]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(input, metadata={}) for input in inputs]
+                [RecordEnvelope(i, metadata={}) for i in inputs]
             )
         )
 
@@ -159,7 +159,7 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
         inputs = [mcpc_dataset, mcpc_datajob, EndOfStream()]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(input, metadata={}) for input in inputs]
+                [RecordEnvelope(i, metadata={}) for i in inputs]
             )
         )
 
@@ -198,7 +198,7 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
         ]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(input, metadata={}) for input in inputs]
+                [RecordEnvelope(i, metadata={}) for i in inputs]
             )
         )
 
@@ -266,7 +266,7 @@ class TestDummyRemoveGenericAspectTransformer(unittest.TestCase):
         ]
         outputs = list(
             DummyRemoveGenericAspectTransformer().transform(
-                [RecordEnvelope(input, metadata={}) for input in inputs]
+                [RecordEnvelope(i, metadata={}) for i in inputs]
             )
         )
 
