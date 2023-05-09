@@ -118,7 +118,7 @@ class PostgresConfig(BasePostgresConfig):
         default=None,
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
     )
-    init_database: Optional[str] = Field(
+    initial_database: Optional[str] = Field(
         default="postgres",
         description=(
             "Initial database used to query for the list of databases, when ingesting multiple databases. "
@@ -156,8 +156,10 @@ class PostgresSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
-        # init_database is overwritten in url if database or sqlalchemy_uri are provided
-        url = self.config.get_sql_alchemy_url(database=self.config.init_database)
+        # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
+        url = self.config.get_sql_alchemy_url(
+            database=self.config.database or self.config.initial_database
+        )
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:

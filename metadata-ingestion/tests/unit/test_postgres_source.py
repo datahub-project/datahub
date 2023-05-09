@@ -10,9 +10,9 @@ def _base_config():
 
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
-def test_init_database(create_engine_mock):
+def test_initial_database(create_engine_mock):
     config = PostgresConfig.parse_obj(_base_config())
-    assert config.init_database == "postgres"
+    assert config.initial_database == "postgres"
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
@@ -26,7 +26,7 @@ def test_get_inspectors_multiple_databases(create_engine_mock):
     )
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
-    config = PostgresConfig.parse_obj({**_base_config(), "init_database": "db0"})
+    config = PostgresConfig.parse_obj({**_base_config(), "initial_database": "db0"})
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 3
