@@ -42,6 +42,6 @@ services:
     - 9089:9090
     volumes:
     - ../monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml
-version: '2.3'
+version: '3.9'
 volumes:
   grafana-storage: null

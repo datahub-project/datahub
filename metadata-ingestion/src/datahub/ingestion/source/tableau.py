@@ -1371,27 +1371,36 @@ class TableauSource(StatefulIngestionSourceBase):
             and tableau_constant.CONNECTION_TYPE in database
         ):
             upstream_tables = []
-            parser = LineageRunner(csql.get(tableau_constant.QUERY))
+            query = csql.get(tableau_constant.QUERY)
+            parser = LineageRunner(query)
 
-            for table in parser.source_tables:
-                split_table = str(table).split(".")
-                if len(split_table) == 2:
-                    datset = make_table_urn(
-                        env=self.config.env,
-                        upstream_db=database.get(tableau_constant.NAME),
-                        connection_type=database.get(
-                            tableau_constant.CONNECTION_TYPE, ""
-                        ),
-                        schema=split_table[0],
-                        full_name=split_table[1],
-                        platform_instance_map=self.config.platform_instance_map,
-                        lineage_overrides=self.config.lineage_overrides,
-                    )
-                    upstream_tables.append(
-                        UpstreamClass(
-                            type=DatasetLineageType.TRANSFORMED, dataset=datset
+            try:
+                for table in parser.source_tables:
+                    split_table = str(table).split(".")
+                    if len(split_table) == 2:
+                        datset = make_table_urn(
+                            env=self.config.env,
+                            upstream_db=database.get(tableau_constant.NAME),
+                            connection_type=database.get(
+                                tableau_constant.CONNECTION_TYPE, ""
+                            ),
+                            schema=split_table[0],
+                            full_name=split_table[1],
+                            platform_instance_map=self.config.platform_instance_map,
+                            lineage_overrides=self.config.lineage_overrides,
                         )
-                    )
+                        upstream_tables.append(
+                            UpstreamClass(
+                                type=DatasetLineageType.TRANSFORMED, dataset=datset
+                            )
+                        )
+            except Exception as e:
+                self.report.report_warning(
+                    key="csql-lineage",
+                    reason=f"Unable to retrieve lineage from query. "
+                    f"Query: {query} "
+                    f"Reason: {str(e)} ",
+                )
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
             yield self.get_metadata_change_proposal(
                 csql_urn,
