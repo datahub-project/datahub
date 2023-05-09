@@ -175,7 +175,7 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
         env="PROD",
     )
 
-    # DataPlatform aspect should not be present when platform_instance is configured
+    # DataPlatform aspect should not be present when platform_instance is not configured
     data_platform_aspects = [
         asp for asp in proposed_snap.aspects if type(asp) == DataPlatformInstanceClass
     ]
