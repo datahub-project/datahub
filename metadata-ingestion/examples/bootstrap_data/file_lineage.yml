@@ -2,28 +2,23 @@
 version: 1
 lineage:
   - entity:
-      name: topic3
+      name: fct_users_deleted
       type: dataset
-      env: DEV
-      platform: kafka
+      env: PROD
+      platform: hive
     upstream:
       - entity:
-          name: topic2
+          name: fct_users_created
           type: dataset
-          env: DEV
-          platform: kafka
-      - entity:
-          name: topic1
-          type: dataset
-          env: DEV
-          platform: kafka
+          env: PROD
+          platform: hive
     fineGrainedLineages:
       - upstreamType: FIELD_SET
         upstreams:
-          - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)
+          - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)
         downstreamType: FIELD
         downstreams:
-          - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)
+          - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_name)
         confidenceScore: 0.9
         transformOperation: func1
 

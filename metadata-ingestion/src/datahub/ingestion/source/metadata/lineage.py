@@ -54,7 +54,7 @@ class EntityConfig(EnvConfigMixin):
 
 
 class FineGrainedLineageConfig(ConfigModel):
-    upstreamType: str
+    upstreamType: str = "NONE"
     upstreams: Optional[List[str]]
     downstreamType: str
     downstreams: Optional[List[str]]
@@ -176,7 +176,6 @@ def _get_lineage_mcp(
     # if this entity has upstream nodes defined, we'll want to do some work.
     # if no upstream nodes are present, we don't emit an MCP for it.
     if not entity_node.upstream:
-        # TODO If this is not optional then why is it marked as Optional in Config?
         return None
 
     entity = entity_node.entity
@@ -233,6 +232,7 @@ def _get_lineage_mcp(
             )
         )
 
+    print(new_fine_grained_lineages)
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
         aspect=models.UpstreamLineageClass(
