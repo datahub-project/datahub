@@ -54,9 +54,11 @@ public class SettingsBuilder {
 
   // Analyzers
   public static final String BROWSE_PATH_HIERARCHY_ANALYZER = "browse_path_hierarchy";
+  public static final String BROWSE_PATH_V2_HIERARCHY_ANALYZER = "browse_path_v2_hierarchy";
   public static final String KEYWORD_LOWERCASE_ANALYZER = "custom_keyword";
   public static final String PARTIAL_ANALYZER = "partial";
   public static final String SLASH_PATTERN_ANALYZER = "slash_pattern";
+  public static final String UNIT_SEPARATOR_PATTERN_ANALYZER = "unit_separator_pattern";
   public static final String TEXT_ANALYZER = "word_delimited";
   public static final String TEXT_SEARCH_ANALYZER = "query_word_delimited";
   public static final String KEYWORD_ANALYZER = "keyword";
@@ -102,6 +104,7 @@ public class SettingsBuilder {
   public static final String MAIN_TOKENIZER = "main_tokenizer";
   public static final String PATH_HIERARCHY_TOKENIZER = "path_hierarchy";
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
+  public static final String UNIT_SEPARATOR_TOKENIZER = "unit_separator_tokenizer";
   // Do not remove the space, needed for multi-term synonyms
   public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of(
           "([a-z0-9 _-]{2,})",
@@ -283,6 +286,13 @@ public class SettingsBuilder {
                 .put(PATTERN, "[/]")
                 .build());
 
+
+    tokenizers.put(UNIT_SEPARATOR_TOKENIZER,
+        ImmutableMap.<String, Object>builder()
+                .put(TYPE, PATTERN)
+                .put(PATTERN, "[␟]")
+                .build());
+
     // Tokenize by whitespace and most special chars
     tokenizers.put(MAIN_TOKENIZER,
             ImmutableMap.<String, Object>builder()
@@ -313,8 +323,19 @@ public class SettingsBuilder {
             .put(FILTER, ImmutableList.of(LOWERCASE))
             .build());
 
+    // Analyzer for splitting by unit-separator (used to get depth of browsePathV2)
+    analyzers.put(UNIT_SEPARATOR_PATTERN_ANALYZER, ImmutableMap.<String, Object>builder()
+            .put(TOKENIZER, UNIT_SEPARATOR_TOKENIZER)
+            .put(FILTER, ImmutableList.of(LOWERCASE))
+            .build());
+
     // Analyzer for matching browse path
     analyzers.put(BROWSE_PATH_HIERARCHY_ANALYZER, ImmutableMap.<String, Object>builder()
+            .put(TOKENIZER, PATH_HIERARCHY_TOKENIZER)
+            .build());
+
+    // Analyzer for matching browse path v2
+    analyzers.put(BROWSE_PATH_V2_HIERARCHY_ANALYZER, ImmutableMap.<String, Object>builder()
             .put(TOKENIZER, PATH_HIERARCHY_TOKENIZER)
             .build());
 

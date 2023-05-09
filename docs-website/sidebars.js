@@ -144,6 +144,7 @@ module.exports = {
         "docs/deploy/gcp",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/deploy/environment-vars",
         {
           Authentication: [
             "docs/authentication/README",
@@ -307,16 +308,16 @@ module.exports = {
         },
         "metadata-integration/java/as-a-library",
         {
-          "Getting Started: APIs & SDKs": [
-            "docs/api/tutorials/modifying-dataset-tags",
-            "docs/api/tutorials/modifying-dataset-terms",
-            "docs/api/tutorials/modifying-dataset-owners",
-            "docs/api/tutorials/modifying-dataset-domains",
-            "docs/api/tutorials/modifying-datasets",
-            "docs/api/tutorials/modifying-dataset-lineage",
-            "docs/api/tutorials/modifying-dataset-deprecation",
-            "docs/api/tutorials/modifying-dataset-descriptions",
-            "docs/api/tutorials/modifying-dataset-custom-properties",
+          "API and SDK Guides": [
+            "docs/api/tutorials/datasets",
+            "docs/api/tutorials/lineage",
+            "docs/api/tutorials/tags",
+            "docs/api/tutorials/terms",
+            "docs/api/tutorials/owners",
+            "docs/api/tutorials/domains",
+            "docs/api/tutorials/deprecation",
+            "docs/api/tutorials/descriptions",
+            "docs/api/tutorials/custom-properties",
           ],
         },
         {
@@ -545,6 +546,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_6",
             "docs/managed-datahub/release-notes/v_0_2_5",
             "docs/managed-datahub/release-notes/v_0_2_4",
             "docs/managed-datahub/release-notes/v_0_2_3",

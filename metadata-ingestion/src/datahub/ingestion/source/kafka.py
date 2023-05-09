@@ -138,7 +138,8 @@ class KafkaSource(StatefulIngestionSourceBase):
         try:
             schema_registry_class: Type = import_path(config.schema_registry_class)
             return schema_registry_class.create(config, report)
-        except (ImportError, AttributeError):
+        except Exception as e:
+            logger.debug(e, exc_info=e)
             raise ImportError(config.schema_registry_class)
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
