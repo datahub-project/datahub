@@ -169,7 +169,6 @@ export const AdvancedFilterSelectValueModal = ({
     }
 
     if (filterField === ENTITY_FILTER_NAME) {
-        console.log({ initialValues });
         return (
             <ChooseEntityTypeModal
                 title="Filter by Entity Type"

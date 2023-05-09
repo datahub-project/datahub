@@ -53,8 +53,6 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
         return TOP_FILTERS.indexOf(facetA.field) - TOP_FILTERS.indexOf(facetB.field);
     });
 
-    console.log(sortedFacets);
-
     return (
         <>
             {sortedFacets.map((facet) => (
