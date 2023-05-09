@@ -11,10 +11,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver.*;
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 
 
 public class MapperUtils {
+
+  public static final String ENTITY_FILTER_NAME = "_entityType";
 
   private MapperUtils() {
 
@@ -28,7 +31,7 @@ public class MapperUtils {
 
   public static FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {
     final FacetMetadata facetMetadata = new FacetMetadata();
-    boolean isEntityTypeFilter = aggregationMetadata.getName().equals("entity");
+    boolean isEntityTypeFilter = aggregationMetadata.getName().equals(ENTITY_FILTER_NAME);
     facetMetadata.setField(aggregationMetadata.getName());
     facetMetadata.setDisplayName(
         Optional.ofNullable(aggregationMetadata.getDisplayName()).orElse(aggregationMetadata.getName()));

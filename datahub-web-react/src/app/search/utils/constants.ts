@@ -3,6 +3,8 @@ export const SEARCH_FOR_ENTITY_PREFIX = 'SEARCH__';
 export const EXACT_SEARCH_PREFIX = 'EXACT__';
 
 export const ENTITY_FILTER_NAME = '_entityType';
+export const LEGACY_ENTITY_FILTER_NAME = 'entity';
+export const ENTITY_INDEX_FILTER_NAME = '_index';
 export const TAGS_FILTER_NAME = 'tags';
 export const GLOSSARY_TERMS_FILTER_NAME = 'glossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
