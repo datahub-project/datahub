@@ -190,7 +190,6 @@ def _get_lineage_mcp(
 
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
-        # TODO Decide how to use this preserve upstream for fine grained lineage stuff
         old_upstream_lineage = get_aspects_for_entity(
             entity_urn=entity_urn,
             aspects=["upstreamLineage"],
