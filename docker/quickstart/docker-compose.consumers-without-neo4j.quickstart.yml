@@ -10,7 +10,7 @@ services:
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - MAE_CONSUMER_ENABLED=true
-    - PE_CONSUMER_ENABLED=true
+    - PE_CONSUMER_ENABLED=false
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
@@ -53,4 +53,4 @@ services:
     image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9090:9090
-version: '2.3'
+version: '3.9'

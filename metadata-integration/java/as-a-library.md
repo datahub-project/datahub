@@ -4,6 +4,8 @@ In some cases, you might want to construct Metadata events directly and use prog
 
 The [`io.acryl:datahub-client`](https://mvnrepository.com/artifact/io.acryl/datahub-client) Java package offers REST emitter API-s, which can be easily used to emit metadata from your JVM-based systems. For example, the Spark lineage integration uses the Java emitter to emit metadata events from Spark jobs.
 
+> **Pro Tip!** Throughout our API guides, we have examples of using Java API SDK. 
+> Lookout for the `| Java |` tab within our tutorials.
 
 ## Installation
 

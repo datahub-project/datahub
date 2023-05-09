@@ -58,6 +58,12 @@ class DatahubRestHook(BaseHook):
         host = conn.host
         if host is None:
             raise AirflowException("host parameter is required")
+        if conn.port:
+            if ":" in host:
+                raise AirflowException(
+                    "host parameter should not contain a port number if the port is specified separately"
+                )
+            host = f"{host}:{conn.port}"
         password = conn.password
         timeout_sec = conn.extra_dejson.get("timeout_sec")
         return (host, password, timeout_sec)
