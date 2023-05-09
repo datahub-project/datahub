@@ -87,20 +87,15 @@ class GenericAspectTransformer(
             elif isinstance(envelope.record, EndOfStream) and isinstance(
                 self, SingleAspectTransformer
             ):
-                # walk through state and call transform for any unprocessed entities
                 for urn, state in self.entity_map.items():
                     if "seen" in state:
-                        # call transform on this entity_urn
                         last_seen_mcp = state["seen"].get("mcp")
                         last_seen_mce_system_metadata = state["seen"].get("mce")
 
                         transformed_aspect = self.transform_generic_aspect(
                             entity_urn=urn,
                             aspect_name=self.aspect_name(),
-                            aspect=last_seen_mcp.aspect
-                            if last_seen_mcp
-                            and last_seen_mcp.aspectName == self.aspect_name()
-                            else None,
+                            aspect=None,
                         )
                         if transformed_aspect:
                             # for end of stream records, we modify the workunit-id
