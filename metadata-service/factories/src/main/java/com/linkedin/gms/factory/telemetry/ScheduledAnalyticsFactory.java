@@ -4,6 +4,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.version.GitVersion;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,7 +23,7 @@ public class ScheduledAnalyticsFactory {
     @ConditionalOnProperty("telemetry.enabledServer")
     public DailyReport dailyReport(@Qualifier("elasticSearchRestHighLevelClient") RestHighLevelClient elasticClient,
         @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
-        ConfigurationProvider configurationProvider, EntityService entityService) {
-        return new DailyReport(indexConvention, elasticClient, configurationProvider, entityService);
+        ConfigurationProvider configurationProvider, EntityService entityService, GitVersion gitVersion) {
+        return new DailyReport(indexConvention, elasticClient, configurationProvider, entityService, gitVersion);
     }
 }
