@@ -20,7 +20,7 @@ record JoinProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
-  name: optional string
+  name: string
 
   /**
   * First dataset in the join (no directionality)

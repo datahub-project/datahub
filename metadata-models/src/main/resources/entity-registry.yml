@@ -420,12 +420,12 @@ entities:
     aspects:
       - dataHubViewInfo
   - name: join
-    category: core
     doc: Join Dataset Fields
     keyAspect: joinKey
     aspects:
       - joinProperties
       - editableJoinProperties
+      - institutionalMemory
       - ownership
       - status
       - container
