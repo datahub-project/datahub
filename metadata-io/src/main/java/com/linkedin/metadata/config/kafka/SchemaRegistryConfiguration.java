@@ -8,4 +8,6 @@ public class SchemaRegistryConfiguration {
   private String type;
 
   private String url;
+
+  private boolean systemUpdate;
 }

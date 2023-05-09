@@ -66,7 +66,7 @@ public class EventUtils {
   private static final Schema ORIGINAL_PE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/PlatformEvent.avsc");
 
-  private static final Schema ORIGINAL_DUHE_AVRO_SCHEMA =
+  public static final Schema ORIGINAL_DUHE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/DataHubUpgradeHistoryEvent.avsc");
 
   private static final Schema RENAMED_MCE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataChangeEvent.SCHEMA$;

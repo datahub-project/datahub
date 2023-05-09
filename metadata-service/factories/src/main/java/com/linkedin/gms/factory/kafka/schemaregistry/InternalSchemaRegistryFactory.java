@@ -39,8 +39,12 @@ public class InternalSchemaRegistryFactory {
     props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaConfiguration
         .getSchemaRegistry().getUrl());
 
-    log.info("Creating internal registry configuration for url {}", kafkaConfiguration.getSchemaRegistry().getUrl());
-    return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
+    if (kafkaConfiguration.getSchemaRegistry().isSystemUpdate()) {
+      return new SchemaRegistryConfig(MockDUHESerializer.class, KafkaAvroDeserializer.class, props);
+    } else {
+      log.info("Creating internal registry configuration for url {}", kafkaConfiguration.getSchemaRegistry().getUrl());
+      return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
+    }
   }
 
   @Bean(name = "schemaRegistryService")
