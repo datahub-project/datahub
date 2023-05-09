@@ -4,40 +4,46 @@ from typing import Iterable, Optional
 
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import RecordEnvelope, EndOfStream, PipelineContext
-from datahub.ingestion.transformer.base_transformer import BaseTransformer, SingleAspectTransformer
-from datahub.metadata.schema_classes import MetadataChangeEventClass, MetadataChangeProposalClass, \
-    GenericAspectClass
+from datahub.ingestion.api.common import EndOfStream, RecordEnvelope
+from datahub.ingestion.transformer.base_transformer import (
+    BaseTransformer,
+    SingleAspectTransformer,
+)
+from datahub.metadata.schema_classes import (
+    GenericAspectClass,
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+)
 from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
 
 
-
-class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
+class GenericAspectTransformer(
+    BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta
+):
     """Transformer that does transform custom aspects using GenericAspectClass."""
 
     def __init__(self):
         super().__init__()
 
     def transform_aspect(
-            self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
         """Do not implement."""
         pass
 
     @abstractmethod
     def transform_generic_aspect(
-            self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
+        self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
     ) -> Optional[GenericAspectClass]:
         """Implement this method to transform the single custom aspect for an entity.
         The purpose of this abstract method is to reinforce the use of GenericAspectClass."""
         pass
 
-
     def _transform_or_record_mcpc(
-            self,
-            envelope: RecordEnvelope[MetadataChangeProposalClass],
+        self,
+        envelope: RecordEnvelope[MetadataChangeProposalClass],
     ) -> Optional[RecordEnvelope[MetadataChangeProposalClass]]:
         # remember stuff
         assert envelope.record.entityUrn
@@ -60,9 +66,8 @@ class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metacla
             self._record_mcp(envelope.record)
         return envelope if envelope.record.aspect is not None else None
 
-
     def transform(
-            self, record_envelopes: Iterable[RecordEnvelope]
+        self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         """
         This method overrides the original one from BaseTransformer in order to support
@@ -83,7 +88,7 @@ class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metacla
                 else:
                     envelope = return_envelope
             elif isinstance(envelope.record, EndOfStream) and isinstance(
-                    self, SingleAspectTransformer
+                self, SingleAspectTransformer
             ):
                 # walk through state and call transform for any unprocessed entities
                 for urn, state in self.entity_map.items():
@@ -97,7 +102,7 @@ class GenericAspectTransformer(BaseTransformer, SingleAspectTransformer, metacla
                             aspect_name=self.aspect_name(),
                             aspect=last_seen_mcp.aspect
                             if last_seen_mcp
-                               and last_seen_mcp.aspectName == self.aspect_name()
+                            and last_seen_mcp.aspectName == self.aspect_name()
                             else None,
                         )
                         if transformed_aspect:
