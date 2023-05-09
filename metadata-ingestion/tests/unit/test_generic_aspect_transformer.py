@@ -71,14 +71,14 @@ def make_mcpc(
     )
 
 
-class DummyAddGenericAspectTransformer(GenericAspectTransformer):
+class DummyGenericAspectTransformer(GenericAspectTransformer):
     def __init__(self):
         super().__init__()
 
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
-    ) -> "DummyAddGenericAspectTransformer":
+    ) -> "DummyGenericAspectTransformer":
         return cls()
 
     def entity_types(self) -> List[str]:
@@ -90,20 +90,23 @@ class DummyAddGenericAspectTransformer(GenericAspectTransformer):
     def transform_generic_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
     ) -> Optional[GenericAspectClass]:
+        value = (
+            aspect.value if aspect else json.dumps({"customAspect": 10}).encode("utf-8")
+        )
         result_aspect = GenericAspectClass(
             contentType="application/json",
-            value=json.dumps({"customAspect": 10}).encode("utf-8"),
+            value=value,
         )
         return result_aspect
 
 
-class AddGenericAspectTransformer(unittest.TestCase):
+class TestDummyGenericAspectTransformer(unittest.TestCase):
     def test_add_generic_aspect_when_mce_received(self):
         mce_dataset = make_mce_dataset()
         mce_datajob = make_mce_datajob()
         inputs = [mce_dataset, mce_datajob, EndOfStream()]
         outputs = list(
-            DummyAddGenericAspectTransformer().transform(
+            DummyGenericAspectTransformer().transform(
                 [RecordEnvelope(input, metadata={}) for input in inputs]
             )
         )
@@ -129,7 +132,7 @@ class AddGenericAspectTransformer(unittest.TestCase):
         )
         inputs = [mcpw_dataset, mcpw_datajob, EndOfStream()]
         outputs = list(
-            DummyAddGenericAspectTransformer().transform(
+            DummyGenericAspectTransformer().transform(
                 [RecordEnvelope(input, metadata={}) for input in inputs]
             )
         )
@@ -155,7 +158,7 @@ class AddGenericAspectTransformer(unittest.TestCase):
         )
         inputs = [mcpc_dataset, mcpc_datajob, EndOfStream()]
         outputs = list(
-            DummyAddGenericAspectTransformer().transform(
+            DummyGenericAspectTransformer().transform(
                 [RecordEnvelope(input, metadata={}) for input in inputs]
             )
         )
@@ -174,37 +177,6 @@ class AddGenericAspectTransformer(unittest.TestCase):
         # Verify that the last entry is EndOfStream
         assert inputs[2] == outputs[3].record
 
-
-class DummyModifyGenericAspectTransformer(GenericAspectTransformer):
-    def __init__(self):
-        super().__init__()
-
-    @classmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "DummyModifyGenericAspectTransformer":
-        return cls()
-
-    def entity_types(self) -> List[str]:
-        return ["dataset"]
-
-    def aspect_name(self) -> str:
-        return "customAspect"
-
-    def transform_generic_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
-    ) -> Optional[GenericAspectClass]:
-        value = (
-            aspect.value if aspect else json.dumps({"customAspect": 10}).encode("utf-8")
-        )
-        result_aspect = GenericAspectClass(
-            contentType="application/json",
-            value=value,
-        )
-        return result_aspect
-
-
-class ModifyGenericAspectTransformer(unittest.TestCase):
     def test_modify_generic_aspect_when_mcpc_received(self):
         mcpc_dataset_without_custom_aspect = make_mcpc()
         mcpc_dataset_with_custom_aspect = make_mcpc(
@@ -225,7 +197,7 @@ class ModifyGenericAspectTransformer(unittest.TestCase):
             EndOfStream(),
         ]
         outputs = list(
-            DummyModifyGenericAspectTransformer().transform(
+            DummyGenericAspectTransformer().transform(
                 [RecordEnvelope(input, metadata={}) for input in inputs]
             )
         )
@@ -272,7 +244,7 @@ class DummyRemoveGenericAspectTransformer(GenericAspectTransformer):
         return None
 
 
-class RemoveGenericAspectTransformer(unittest.TestCase):
+class TestDummyRemoveGenericAspectTransformer(unittest.TestCase):
     def test_remove_generic_aspect_when_mcpc_received(self):
         mcpc_dataset_without_custom_aspect = make_mcpc()
         mcpc_dataset_with_custom_aspect = make_mcpc(

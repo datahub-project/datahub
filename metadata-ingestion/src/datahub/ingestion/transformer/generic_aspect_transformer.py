@@ -45,11 +45,9 @@ class GenericAspectTransformer(
         self,
         envelope: RecordEnvelope[MetadataChangeProposalClass],
     ) -> Optional[RecordEnvelope[MetadataChangeProposalClass]]:
-        # remember stuff
         assert envelope.record.entityUrn
         assert isinstance(self, SingleAspectTransformer)
         if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:
-            # we have a match on the aspect name, call the specific transform function
             transformed_aspect = self.transform_generic_aspect(
                 entity_urn=envelope.record.entityUrn,
                 aspect_name=envelope.record.aspectName,
@@ -57,7 +55,6 @@ class GenericAspectTransformer(
             )
             self._mark_processed(envelope.record.entityUrn)
             if transformed_aspect is None:
-                # drop the record
                 log.debug(
                     f"Dropping record {envelope} as transformation result is None"
                 )
