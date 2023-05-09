@@ -44,6 +44,7 @@ describe('LineageTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },

@@ -163,7 +163,7 @@ class RedshiftDataDictionary:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
 
-        # This query needs to run separately as we can't join witht the main query because it works with
+        # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
         enriched_table = RedshiftDataDictionary.enrich_tables(conn)
 
