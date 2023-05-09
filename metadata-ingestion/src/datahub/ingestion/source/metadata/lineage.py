@@ -231,7 +231,6 @@ def _get_lineage_mcp(
             )
         )
 
-    print(new_fine_grained_lineages)
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
         aspect=models.UpstreamLineageClass(
