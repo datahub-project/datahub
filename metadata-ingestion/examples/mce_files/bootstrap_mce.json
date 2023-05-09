@@ -860,9 +860,9 @@
               ],
               "fineGrainedLineages": [{
                 "upstreamType": "FIELD_SET",
-                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)"],
+                "downstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)"],
                 "downstreamType": "FIELD",
-                "downstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"],
+                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"],
                 "confidenceScore": 1.0
               }]
             }
