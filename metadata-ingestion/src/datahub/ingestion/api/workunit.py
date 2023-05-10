@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union, overload
+from typing import Iterable, Optional, Union, overload, TypeVar, Type, List
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
@@ -7,7 +7,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass
+from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
+
+A = TypeVar("A", bound=_Aspect)
 
 
 @dataclass
@@ -85,6 +87,22 @@ class MetadataWorkUnit(WorkUnit):
         else:
             assert self.metadata.entityUrn
             return self.metadata.entityUrn
+
+    def get_aspects_of_type(self, aspect_cls: Type[A]) -> List[A]:
+        aspects: list
+        if isinstance(self.metadata, MetadataChangeEvent):
+            aspects = self.metadata.proposedSnapshot.aspects
+        elif isinstance(self.metadata, MetadataChangeProposalWrapper):
+            aspects = [self.metadata.aspect]
+        elif isinstance(self.metadata, MetadataChangeProposal):
+            # Can't get aspects from MetadataChangeProposal
+            # It seems this is only used by mcp_patch_builder
+            # So this method does not collect patches
+            aspects = []
+        else:
+            raise ValueError(f"Unexpected type {type(self.metadata)}")
+
+        return [a for a in aspects if isinstance(a, aspect_cls)]
 
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
         from datahub.emitter.mcp_builder import mcps_from_mce

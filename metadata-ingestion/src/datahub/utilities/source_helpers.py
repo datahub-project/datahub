@@ -1,4 +1,6 @@
-from typing import Callable, Iterable, Optional, Set, TypeVar, Union
+import logging
+from collections import defaultdict
+from typing import Callable, Iterable, Optional, Set, TypeVar, Union, Dict, List
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
@@ -12,10 +14,15 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     StatusClass,
     TagKeyClass,
+    ContainerClass,
+    BrowsePathsV2Class,
+    BrowsePathEntryClass,
 )
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
+
+logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
@@ -147,4 +154,45 @@ def auto_materialize_referenced_tags(
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
+        ).as_workunit()
+
+
+def auto_browse_path_v2(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Generate BrowsePathsV2 from Container and BrowsePaths aspects."""
+
+    container_urns = set()
+    parents = {}
+    children: Dict[str, List[str]] = defaultdict(list)
+    for wu in stream:
+        yield wu
+
+        urn = wu.get_urn()
+        if guess_entity_type(urn) == "container":
+            container_urns.add(urn)
+
+        container_aspects = wu.get_aspects_of_type(ContainerClass)
+        for aspect in container_aspects:
+            parent = aspect.container
+            parents[urn] = parent
+            children[parent].append(urn)
+
+    # Yield browse paths v2 in topological order
+    paths: Dict[str, List[str]] = {}  # Maps urn -> list of urns in path
+    nodes = container_urns - parents.keys()  # Start with root containers
+    while nodes:
+        node = nodes.pop()
+        nodes.update(children[node])
+
+        if node not in parents:  # root
+            paths[node] = []
+        else:
+            parent = parents[node]
+            paths[node] = [*paths[parent], parent]
+        yield MetadataChangeProposalWrapper(
+            entityUrn=node,
+            aspect=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
+            ),
         ).as_workunit()
