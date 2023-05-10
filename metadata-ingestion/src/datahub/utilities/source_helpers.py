@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Callable, Iterable, Optional, Set, TypeVar, Union, Dict, List
+from typing import Callable, Dict, Iterable, List, Optional, Set, TypeVar, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
@@ -10,13 +10,13 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    ContainerClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
     TagKeyClass,
-    ContainerClass,
-    BrowsePathsV2Class,
-    BrowsePathEntryClass,
 )
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
