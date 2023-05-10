@@ -318,6 +318,7 @@ module.exports = {
             "docs/api/tutorials/deprecation",
             "docs/api/tutorials/descriptions",
             "docs/api/tutorials/custom-properties",
+            "docs/api/tutorials/ml",
           ],
         },
         {
