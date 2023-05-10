@@ -1,6 +1,5 @@
-from typing import Tuple
-
 from dataclasses import dataclass, field
+from typing import Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
