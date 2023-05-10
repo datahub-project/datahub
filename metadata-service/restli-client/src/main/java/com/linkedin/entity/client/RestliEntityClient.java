@@ -419,7 +419,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
       @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
-    return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication);
+    return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication, null);
   }
 
   /**
