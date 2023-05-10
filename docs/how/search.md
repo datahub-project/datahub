@@ -179,6 +179,58 @@ for integrations and programmatic use-cases.
 ```
 
 
+For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://datahubproject.io/docs/graphql/queries/#scrollacrossentities): 
+
+```
+# Example query
+{
+  scrollAcrossEntities(input: { types: [DATASET], query: "*", count: 10}) {
+    nextScrollId
+    count
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+This will return a response containing a `nextScrollId` value which must be used in subsequent queries to retrieve more data, i.e:
+```
+{
+  scrollAcrossEntities(input: 
+    { types: [DATASET], query: "*", count: 10,
+    scrollId: "eyJzb3J0IjpbMy4wLCJ1cm46bGk6ZGF0YXNldDoodXJuOmxpOmRhdGFQbGF0Zm9ybTpiaWdxdWVyeSxiaWdxdWVyeS1wdWJsaWMtZGF0YS5jb3ZpZDE5X2dlb3RhYl9tb2JpbGl0eV9pbXBhY3QucG9ydF90cmFmZmljLFBST0QpIl0sInBpdElkIjpudWxsLCJleHBpcmF0aW9uVGltZSI6MH0="}
+  ) {
+    nextScrollId
+    count
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+
+This process repeats until no further `nextScrollId` are returned. Note that these subsequent operations must be performed during `keepAlive` time period which tells elasticsearch how long to keep internal scroll pointers for.
+
 ### DataHub Blog
 * [Using DataHub for Search & Discovery](https://blog.datahubproject.io/using-datahub-for-search-discovery-fa309089be22)
 
