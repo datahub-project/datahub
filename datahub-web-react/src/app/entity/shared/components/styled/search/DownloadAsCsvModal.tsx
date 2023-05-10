@@ -1,23 +1,16 @@
 import React, { useState } from 'react';
 import { Button, Input, Modal } from 'antd';
 import { useLocation } from 'react-router';
-
-import {
-    EntityType,
-    AndFilterInput,
-    ScrollAcrossEntitiesInput,
-    ScrollResults,
-} from '../../../../../../types.generated';
+import { EntityType, AndFilterInput } from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData } from '../../../EntityContext';
 import analytics, { EventType } from '../../../../../analytics';
+import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
 
 type Props = {
-    callSearchOnVariables: (variables: {
-        input: ScrollAcrossEntitiesInput;
-    }) => Promise<ScrollResults | null | undefined>;
+    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     entityFilters: EntityType[];
     filters: AndFilterInput[];
     query: string;
@@ -30,7 +23,7 @@ type Props = {
 const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 500;
 
 export default function DownloadAsCsvModal({
-    callSearchOnVariables,
+    downloadSearchResults,
     entityFilters,
     filters,
     query,
@@ -49,11 +42,8 @@ export default function DownloadAsCsvModal({
 
     const triggerCsvDownload = (filename) => {
         setIsDownloadingCsv(true);
-        console.log('preparing your csv');
 
         let nextScrollId: string | null = null;
-        let downloadPage = 0;
-        // let total = 0;
         let accumulatedResults: string[][] = [];
 
         analytics.event({
@@ -64,25 +54,21 @@ export default function DownloadAsCsvModal({
         });
 
         function fetchNextPage() {
-            console.log('fetch page number ', downloadPage);
-            callSearchOnVariables({
-                input: {
-                    scrollId: nextScrollId,
-                    types: entityFilters,
-                    query,
-                    count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
-                    orFilters: filters,
-                    viewUrn,
-                },
+            downloadSearchResults({
+                scrollId: nextScrollId,
+                types: entityFilters,
+                query,
+                count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
+                orFilters: filters,
+                viewUrn,
             }).then((refetchData) => {
-                console.log('fetched data for page number ', downloadPage);
                 accumulatedResults = [
                     ...accumulatedResults,
                     ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry),
                 ];
+                // If we have a "next offset", then we continue.
+                // Otherwise, we terminate fetching.
                 if (refetchData?.nextScrollId) {
-                    downloadPage += 1;
-                    // total = refetchData?.total;
                     nextScrollId = refetchData?.nextScrollId;
                     fetchNextPage();
                 } else {

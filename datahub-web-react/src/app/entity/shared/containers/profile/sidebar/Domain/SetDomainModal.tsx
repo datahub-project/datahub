@@ -108,7 +108,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setSelectedDomain(undefined);
     };
 
-    const onOk = async () => {
+    const onOk = () => {
         if (!selectedDomain) {
             return;
         }
