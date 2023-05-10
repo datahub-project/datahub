@@ -30,7 +30,7 @@ public class InternalSchemaRegistryFactory {
   /**
    * Configure Kafka Producer/Consumer processes with a custom schema registry.
    */
-  @Bean
+  @Bean("schemaRegistryConfig")
   @Nonnull
   protected SchemaRegistryConfig getInstance(@Qualifier("configurationProvider") ConfigurationProvider provider) {
     Map<String, Object> props = new HashMap<>();
@@ -39,12 +39,8 @@ public class InternalSchemaRegistryFactory {
     props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaConfiguration
         .getSchemaRegistry().getUrl());
 
-    if (kafkaConfiguration.getSchemaRegistry().isSystemUpdate()) {
-      return new SchemaRegistryConfig(MockDUHESerializer.class, KafkaAvroDeserializer.class, props);
-    } else {
-      log.info("Creating internal registry configuration for url {}", kafkaConfiguration.getSchemaRegistry().getUrl());
-      return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
-    }
+    log.info("Creating internal registry configuration for url {}", kafkaConfiguration.getSchemaRegistry().getUrl());
+    return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
   }
 
   @Bean(name = "schemaRegistryService")

@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.kafka.schemaregistry;
+package com.linkedin.metadata.boot.kafka;
 
 import com.linkedin.metadata.EventUtils;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
@@ -17,7 +17,7 @@ import java.util.Map;
 @Slf4j
 public class MockDUHESerializer extends KafkaAvroSerializer {
 
-    private static final String DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT = "DataHubUpgradeHistory_v1-value";
+    static final String DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT = "DataHubUpgradeHistory_v1-value";
 
     public MockDUHESerializer() {
         buildMockSchemaRegistryClient();

@@ -222,7 +222,6 @@ kafka:
     #awsGlue:
     #  region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
     #  registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
-    systemUpdate: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:false}
   schema:
     registry:
       security:

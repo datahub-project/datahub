@@ -3,6 +3,8 @@ package com.linkedin.metadata.kafka.hook.spring;
 import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
+import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -51,6 +53,12 @@ public class MCLSpringTestConfiguration {
 
   @MockBean(name = "dataHubUpgradeKafkaListener")
   public DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener;
+
+  @MockBean(name = "duheSchemaRegistryConfig")
+  public SchemaRegistryConfig schemaRegistryConfig;
+
+  @MockBean(name = "duheKafkaConsumerFactory")
+  public KafkaEventConsumerFactory kafkaEventConsumerFactory;
 
   @MockBean
   public SchemaRegistryService schemaRegistryService;
