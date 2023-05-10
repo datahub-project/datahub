@@ -85,6 +85,8 @@ public class Config extends HttpServlet {
 
     ConfigurationProvider configProvider = getConfigProvider(ctx);
 
+    config.put("baseUrl", configProvider.getBaseUrl());
+
     Map<String, Object> telemetryConfig = new HashMap<String, Object>() {{
       put("enabledCli", configProvider.getTelemetry().enabledCli);
       put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
