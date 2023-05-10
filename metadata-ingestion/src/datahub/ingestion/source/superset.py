@@ -192,7 +192,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         if test_response.status_code == 200:
             pass
             # TODO(Gabe): how should we message about this error?
-        
+
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,

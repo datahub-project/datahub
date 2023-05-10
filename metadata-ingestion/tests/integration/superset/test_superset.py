@@ -1,23 +1,23 @@
-from unittest.mock import patch
-from datahub.ingestion.run.pipeline import Pipeline
 from typing import Any, Dict, Optional, cast
-from freezegun import freeze_time
+from unittest.mock import patch
+
 import pytest
+from freezegun import freeze_time
 
-from tests.test_helpers import mce_helpers
-
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.superset import SupersetSource
+from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
-
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
@@ -26,6 +26,7 @@ def get_current_checkpoint_from_pipeline(
     return superset_source.get_current_checkpoint(
         superset_source.stale_entity_removal_handler.job_id
     )
+
 
 def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
     api_vs_response = {
@@ -39,7 +40,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         "mock://mock-domain.superset.com/api/v1/dashboard/": {
             "method": "GET",
             "status_code": 200,
-            "json": { 
+            "json": {
                 "count": 2,
                 "result": [
                     {
@@ -68,12 +69,12 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         "mock://mock-domain.superset.com/api/v1/chart/": {
             "method": "GET",
             "status_code": 200,
-            "json": { 
+            "json": {
                 "count": 4,
                 "result": [
                     {
                         "id": "10",
-                        "changed_by": { 
+                        "changed_by": {
                             "username": "test_username_1",
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
@@ -125,12 +126,12 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         "mock://mock-domain.superset.com/api/v1/dataset/20": {
             "method": "GET",
             "status_code": 200,
-            "json": { 
+            "json": {
                 "result": {
                     "schema": "test_schema_name",
                     "table_name": "test_table_name",
-                    "database": { 
-                        "id": "30", 
+                    "database": {
+                        "id": "30",
                         "database_name": "test_database_name",
                     },
                 },
@@ -139,7 +140,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         "mock://mock-domain.superset.com/api/v1/database/30": {
             "method": "GET",
             "status_code": 200,
-            "json": { 
+            "json": {
                 "result": {
                     "sqlalchemy_uri": "test_sqlalchemy_uri",
                 },
@@ -200,7 +201,9 @@ def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_superset_stateful_ingest(pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph):
+def test_superset_stateful_ingest(
+    pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
@@ -237,7 +240,7 @@ def test_superset_stateful_ingest(pytestconfig, tmp_path, mock_time, requests_mo
         "mock://mock-domain.superset.com/api/v1/dashboard/": {
             "method": "GET",
             "status_code": 200,
-            "json": { 
+            "json": {
                 "count": 2,
                 "result": [
                     {
@@ -270,7 +273,9 @@ def test_superset_stateful_ingest(pytestconfig, tmp_path, mock_time, requests_mo
         assert checkpoint1.state
 
         # Remove one dashboard from the superset config.
-        register_mock_api(request_mock=requests_mock, override_data=dashboard_endpoint_override)
+        register_mock_api(
+            request_mock=requests_mock, override_data=dashboard_endpoint_override
+        )
 
         # Capture MCEs of second run to validate Status(removed=true)
         deleted_mces_path = f"{tmp_path}/superset_deleted_mces.json"
