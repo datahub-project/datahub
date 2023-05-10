@@ -164,7 +164,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 # Include information about the entity that failed.
                 record = record_envelope.record
                 if isinstance(record, MetadataChangeProposalWrapper):
-                    entity_id = record.entityUrn
+                    entity_id = record.as_workunit().id
                     e.info["id"] = entity_id
                 elif isinstance(record, MetadataChangeEvent):
                     entity_id = record.proposedSnapshot.urn

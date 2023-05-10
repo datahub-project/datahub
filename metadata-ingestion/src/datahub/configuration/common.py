@@ -103,6 +103,14 @@ class PermissiveConfigModel(ConfigModel):
         extra = Extra.allow
 
 
+class ConnectionModel(BaseModel):
+    """Represents the config associated with a connection"""
+
+    class Config:
+        extra = Extra.allow
+        underscore_attrs_are_private = True
+
+
 class TransformerSemantics(ConfigEnum):
     """Describes semantics for aspect changes"""
 

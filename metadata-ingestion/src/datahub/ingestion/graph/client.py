@@ -118,6 +118,18 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
 
+    @property
+    def frontend_base_url(self) -> str:
+        """Get the public-facing base url of the frontend
+
+        This url can be used to construct links to the frontend. The url will not include a trailing slash.
+        """
+
+        base_url = self.server_config.get("baseUrl")
+        if not base_url:
+            raise ValueError("baseUrl not found in server config")
+        return base_url
+
     def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
         try:
             response = self._session.get(url, params=params)
