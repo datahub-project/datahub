@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
@@ -21,6 +21,8 @@ import { useUserContext } from '../context/useUserContext';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
+import BrowseSidebar from './BrowseSidebar';
+import ToggleSidebarButton from './ToggleSidebarButton';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     display: flex;
@@ -61,7 +63,7 @@ const PaginationControlContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.div`
-    padding-left: 32px;
+    padding-left: 24px;
     padding-right: 32px;
     height: 47px;
     border-bottom: 1px solid;
@@ -69,6 +71,12 @@ const PaginationInfoContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+`;
+
+const LeftControlsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
 `;
 
 const SearchResultsRecommendationsContainer = styled.div`
@@ -148,7 +156,10 @@ export const SearchResults = ({
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
-    const { showSearchFiltersV2 } = appConfig.config.featureFlags;
+    const { showSearchFiltersV2, showBrowseV2 } = appConfig.config.featureFlags;
+
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const toggleSidebar = useCallback(() => setIsSidebarOpen((open) => !open), []);
 
     return (
         <>
@@ -167,9 +178,11 @@ export const SearchResults = ({
                             />
                         </div>
                     )}
+                    {showBrowseV2 && <BrowseSidebar visible={isSidebarOpen} width={360} />}
                     <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
                         <PaginationInfoContainer>
-                            <>
+                            <LeftControlsContainer>
+                                {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
                                     Showing{' '}
                                     <b>
@@ -187,7 +200,7 @@ export const SearchResults = ({
                                         totalResults={totalResults}
                                     />
                                 </SearchMenuContainer>
-                            </>
+                            </LeftControlsContainer>
                         </PaginationInfoContainer>
                         {isSelectMode && (
                             <StyledTabToolbar>

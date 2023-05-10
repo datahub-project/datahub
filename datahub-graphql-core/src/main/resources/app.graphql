@@ -384,6 +384,11 @@ type FeatureFlagsConfig {
   Whether search filters V2 should be shown or the default filter side-panel
   """
   showSearchFiltersV2: Boolean!
+
+  """
+  Whether browse V2 sidebar should be shown
+  """
+  showBrowseV2: Boolean!
 }
 
 """
