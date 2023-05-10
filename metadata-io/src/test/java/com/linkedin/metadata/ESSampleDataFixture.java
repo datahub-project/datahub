@@ -99,8 +99,10 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
             @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
     ) throws IOException {
-        CustomConfiguration customConfiguration = new CustomConfiguration(true, "search_config_fixture_test.yml");
-        CustomSearchConfiguration customSearchConfiguration = customConfiguration.customSearchConfiguration(new YAMLMapper());
+        CustomConfiguration customConfiguration = new CustomConfiguration();
+        customConfiguration.setEnabled(true);
+        customConfiguration.setFile("search_config_fixture_test.yml");
+        CustomSearchConfiguration customSearchConfiguration = customConfiguration.resolve(new YAMLMapper());
 
         ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, customSearchConfiguration);
