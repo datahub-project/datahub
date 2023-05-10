@@ -4,13 +4,20 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.configuration.common import OauthConfiguration
+from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
     SnowflakeCloudProvider,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_UPSTREAMS_DENY_LIST,
+    SnowflakeV2Config,
+)
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    create_deny_regex_sql_filter,
+)
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
@@ -571,4 +578,29 @@ def test_snowflake_object_access_entry_missing_object_id():
             "objectDomain": "View",
             "objectName": "SOME.OBJECT.NAME",
         }
+    )
+
+
+def test_snowflake_query_create_deny_regex_sql():
+    assert create_deny_regex_sql_filter([], ["col"]) == ""
+    assert (
+        create_deny_regex_sql_filter([".*tmp.*"], ["col"])
+        == "NOT RLIKE(col,'.*tmp.*','i')"
+    )
+
+    assert (
+        create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col"])
+        == "NOT RLIKE(col,'.*tmp.*','i') AND NOT RLIKE(col,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+    )
+
+    assert (
+        create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col1", "col2"])
+        == "NOT RLIKE(col1,'.*tmp.*','i') AND NOT RLIKE(col1,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(col2,'.*tmp.*','i') AND NOT RLIKE(col2,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+    )
+
+    assert (
+        create_deny_regex_sql_filter(
+            DEFAULT_UPSTREAMS_DENY_LIST, ["upstream_table_name"]
+        )
+        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
     )

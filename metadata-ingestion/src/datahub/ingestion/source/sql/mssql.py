@@ -244,11 +244,12 @@ class SQLServerSource(SQLAlchemySource):
                 for db in databases:
                     if self.config.database_pattern.allowed(db["name"]):
                         url = self.config.get_sql_alchemy_url(current_db=db["name"])
-                        inspector = inspect(
-                            create_engine(url, **self.config.options).connect()
-                        )
-                        self.current_database = db["name"]
-                        yield inspector
+                        with create_engine(
+                            url, **self.config.options
+                        ).connect() as conn:
+                            inspector = inspect(conn)
+                            self.current_database = db["name"]
+                            yield inspector
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
