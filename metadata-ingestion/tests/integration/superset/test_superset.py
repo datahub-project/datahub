@@ -241,7 +241,7 @@ def test_superset_stateful_ingest(
             "method": "GET",
             "status_code": 200,
             "json": {
-                "count": 2,
+                "count": 1,
                 "result": [
                     {
                         "id": "1",
