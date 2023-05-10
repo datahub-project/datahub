@@ -1196,9 +1196,7 @@ def test_server_to_platform_map(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
-def test_pages_by_report(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+def test_pages_by_report(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1213,7 +1211,7 @@ def test_pages_by_report(
             },
         },
     )
-    
+
     output_path: str = f"{tmp_path}powerbi_pages_by_report_mces.json"
 
     pipeline = Pipeline.create(
@@ -1270,13 +1268,13 @@ def test_pages_by_report_failed(
                 "json": {
                     "error": {
                         "code": "InvalidRequest",
-                        "message": "Request is currently not supported for RDL reports"
+                        "message": "Request is currently not supported for RDL reports",
                     }
                 },
             },
         },
     )
-    
+
     output_path: str = f"{tmp_path}powerbi_pages_by_report_failed_mces.json"
 
     pipeline = Pipeline.create(
