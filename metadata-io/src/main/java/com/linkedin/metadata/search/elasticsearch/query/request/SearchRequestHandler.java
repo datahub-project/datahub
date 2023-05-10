@@ -107,6 +107,7 @@ public class SearchRequestHandler {
     _filtersToDisplayName = annotations.stream()
         .filter(SearchableAnnotation::isAddToFilters)
         .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
+    _filtersToDisplayName.put("_entityType", "Entity Type");
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);

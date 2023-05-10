@@ -98,11 +98,17 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
     // Filters
-    Optional<AggregationBuilder> aggregationBuilder =
-        sourceBuilder.aggregations().getAggregatorFactories().stream().findFirst();
-    assertTrue(aggregationBuilder.isPresent());
-    TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggregationBuilder.get();
-    assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
+    Collection<AggregationBuilder> aggBuilders = sourceBuilder.aggregations().getAggregatorFactories();
+    // Expect 2 aggregations: textFieldOverride and _index
+   assertEquals(aggBuilders.size(), 2);
+   for (AggregationBuilder aggBuilder : aggBuilders) {
+     if (aggBuilder.getName().equals("textFieldOverride")) {
+       TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
+       assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
+     } else if (!aggBuilder.getName().equals("_entityType")) {
+       fail("Found unexepected aggregation: " + aggBuilder.getName());
+     }
+   }
     // Highlights
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
@@ -130,12 +136,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(aggregationBuilders.size(), 3);
 
     // Expected aggregations
-    AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride").field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
-    AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType").field("_index").size(testQueryConfig.getMaxTermBucketSize());
-    AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index").size(testQueryConfig.getMaxTermBucketSize())
-        .subAggregation(AggregationBuilders.terms(nestedAggString).field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
+    AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride")
+        .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
+    AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType")
+        .field("_index").size(testQueryConfig.getMaxTermBucketSize());
+    AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index")
+        .size(testQueryConfig.getMaxTermBucketSize())
+        .subAggregation(AggregationBuilders.terms(nestedAggString)
+            .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
 
-    for(AggregationBuilder builder : aggregationBuilders) {
+    for (AggregationBuilder builder : aggregationBuilders) {
       if (builder.getName().equals("textFieldOverride") || builder.getName().equals("_entityType")) {
         assertTrue(builder.getSubAggregations().isEmpty());
         if (builder.getName().equalsIgnoreCase("textFieldOverride")) {
