@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot.kafka;
 
 import com.linkedin.metadata.EventUtils;
+import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -20,25 +21,37 @@ import static com.linkedin.metadata.boot.kafka.MockDUHESerializer.DATAHUB_UPGRAD
 public class MockDUHEDeserializer extends KafkaAvroDeserializer {
 
     public MockDUHEDeserializer() {
-        buildMockSchemaRegistryClient();
+        this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
     public MockDUHEDeserializer(SchemaRegistryClient client) {
-        buildMockSchemaRegistryClient();
+        this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
     public MockDUHEDeserializer(SchemaRegistryClient client, Map<String, ?> props) {
         super(client, props);
-        buildMockSchemaRegistryClient();
+        this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
-    private void buildMockSchemaRegistryClient() {
-        this.schemaRegistry = new MockSchemaRegistryClient();
+    private static MockSchemaRegistryClient buildMockSchemaRegistryClient() {
+        MockSchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient2();
         try {
-            this.schemaRegistry.register(DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT,
+            schemaRegistry.register(DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT,
                     new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA));
+            return schemaRegistry;
         } catch (IOException | RestClientException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static class MockSchemaRegistryClient2 extends MockSchemaRegistryClient {
+        /**
+         * Previously used topics can have schema ids > 1 which fully match
+         * however we are replacing that registry so force schema id to 1
+         */
+        @Override
+        public synchronized ParsedSchema getSchemaById(int id) throws IOException, RestClientException {
+            return super.getSchemaById(1);
         }
     }
 }

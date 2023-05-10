@@ -102,4 +102,18 @@ public class KafkaEventConsumerFactory {
 
         return factory;
     }
+
+    @Bean(name = "duheKafkaEventConsumer")
+    protected KafkaListenerContainerFactory<?> duheKafkaEventConsumer(
+            @Qualifier("duheKafkaConsumerFactory") DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory) {
+
+        ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(kafkaConsumerFactory);
+        factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
+        factory.setConcurrency(1);
+
+        log.info("Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");
+        return factory;
+    }
 }

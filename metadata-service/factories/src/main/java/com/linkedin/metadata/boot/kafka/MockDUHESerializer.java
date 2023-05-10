@@ -20,23 +20,24 @@ public class MockDUHESerializer extends KafkaAvroSerializer {
     static final String DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT = "DataHubUpgradeHistory_v1-value";
 
     public MockDUHESerializer() {
-        buildMockSchemaRegistryClient();
+        this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
     public MockDUHESerializer(SchemaRegistryClient client) {
-        buildMockSchemaRegistryClient();
+        this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
     public MockDUHESerializer(SchemaRegistryClient client, Map<String, ?> props) {
         super(client, props);
-        buildMockSchemaRegistryClient();
+        this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
-    private void buildMockSchemaRegistryClient() {
-        this.schemaRegistry = new MockSchemaRegistryClient();
+    private static MockSchemaRegistryClient buildMockSchemaRegistryClient() {
+        MockSchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
         try {
-            this.schemaRegistry.register(DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT,
+            schemaRegistry.register(DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT,
                     new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA));
+            return schemaRegistry;
         } catch (IOException | RestClientException e) {
             throw new RuntimeException(e);
         }

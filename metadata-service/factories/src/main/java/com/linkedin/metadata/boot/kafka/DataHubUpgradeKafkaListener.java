@@ -81,7 +81,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
     }
   }
 
-  @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "kafkaEventConsumer", concurrency = "1")
+  @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "duheKafkaEventConsumer", concurrency = "1")
   public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
