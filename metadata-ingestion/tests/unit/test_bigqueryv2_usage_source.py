@@ -83,17 +83,13 @@ AND
 timestamp >= \"2021-07-18T23:45:00Z\"
 AND
 timestamp < \"2021-07-20T00:15:00Z\"
+AND protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
-        protoPayload.methodName=
-            (
-                \"google.cloud.bigquery.v2.JobService.Query\"
-                OR
-                \"google.cloud.bigquery.v2.JobService.InsertJob\"
-            )
-        AND protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
+        protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
+        AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
         AND
         (
             (
@@ -109,6 +105,7 @@ AND
     OR
     (
         protoPayload.metadata.tableDataRead:*
+        AND protoPayload.metadata.tableDataRead.reason = "JOB"
     )
 )"""  # noqa: W293
     source = BigQueryUsageExtractor(config, BigQueryV2Report())

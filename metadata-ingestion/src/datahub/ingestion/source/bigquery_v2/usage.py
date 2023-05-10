@@ -66,7 +66,6 @@ OPERATION_STATEMENT_TYPES = {
     "UPDATE": OperationTypeClass.UPDATE,
     "DELETE": OperationTypeClass.DELETE,
     "MERGE": OperationTypeClass.UPDATE,
-    "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
     "CREATE_EXTERNAL_TABLE": OperationTypeClass.CREATE,
@@ -155,6 +154,7 @@ def bigquery_audit_metadata_query_template(
             )
             OR
                 JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.tableDataRead") IS NOT NULL
+                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
         )
         {limit_text};
     """
