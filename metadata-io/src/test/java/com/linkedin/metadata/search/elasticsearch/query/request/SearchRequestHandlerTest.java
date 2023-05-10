@@ -33,6 +33,7 @@ import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
@@ -43,9 +44,7 @@ import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 
 @Import(ESTestConfiguration.class)
@@ -121,23 +120,37 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testAggregationsInSearch() {
     SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
+    final String nestedAggString = String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest = requestHandler.getSearchRequest("*", null, null, 0,
-            10,  new SearchFlags().setFulltext(true), List.of("textFieldOverride", "_entityType", String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR), "not_a_facet"));
+            10,  new SearchFlags().setFulltext(true), List.of("textFieldOverride", "_entityType", nestedAggString, AGGREGATION_SEPARATOR_CHAR, "not_a_facet"));
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     // Filters
     Collection<AggregationBuilder> aggregationBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
     assertEquals(aggregationBuilders.size(), 3);
+
+    // Expected aggregations
+    AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride").field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
+    AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType").field("_index").size(testQueryConfig.getMaxTermBucketSize());
+    AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index").size(testQueryConfig.getMaxTermBucketSize())
+        .subAggregation(AggregationBuilders.terms(nestedAggString).field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
+
     for(AggregationBuilder builder : aggregationBuilders) {
       if (builder.getName().equals("textFieldOverride") || builder.getName().equals("_entityType")) {
         assertTrue(builder.getSubAggregations().isEmpty());
-      } else if (builder.getName().equals(String.format("_entityType%stextFieldOverride",
-          AGGREGATION_SEPARATOR_CHAR))) {
+        if (builder.getName().equalsIgnoreCase("textFieldOverride")) {
+          assertEquals(builder, expectedTextFieldAggregationBuilder);
+        } else {
+          assertEquals(builder, expectedEntityTypeAggregationBuilder);
+        }
+      } else if (builder.getName().equals(nestedAggString)) {
         assertEquals(builder.getSubAggregations().size(), 1);
         Optional<AggregationBuilder> subAgg = builder.getSubAggregations().stream().findFirst();
         assertTrue(subAgg.isPresent());
-        assertEquals(subAgg.get().getName(), String.format("_entityType%stextFieldOverride",
-          AGGREGATION_SEPARATOR_CHAR));
+        assertEquals(subAgg.get().getName(), nestedAggString);
+        assertEquals(builder, expectedNestedAggregationBuilder);
+      } else {
+        fail("Found unexpected aggregation builder: " + builder.getName());
       }
     }
   }

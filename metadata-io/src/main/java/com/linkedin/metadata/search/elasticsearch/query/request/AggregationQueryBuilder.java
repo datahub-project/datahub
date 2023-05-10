@@ -40,7 +40,7 @@ public class AggregationQueryBuilder {
 
   private boolean isValidAggregate(String inputFacet) {
     Set<String> facets = Set.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
-    return _facetFields.containsAll(facets);
+    return facets.size() > 0 && _facetFields.containsAll(facets);
   }
 
   private AggregationBuilder facetToAggregationBuilder(String inputFacet) {
@@ -48,6 +48,9 @@ public class AggregationQueryBuilder {
     AggregationBuilder lastAggBuilder = null;
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
+      if (facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)) {
+        facet = "_index";
+      }
       AggregationBuilder aggBuilder =
           AggregationBuilders.terms(inputFacet).field(ESUtils.toKeywordField(facet, false)).size(_configs.getMaxTermBucketSize());
       if (lastAggBuilder != null) {
