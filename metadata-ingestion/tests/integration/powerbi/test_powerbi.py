@@ -1191,3 +1191,119 @@ def test_server_to_platform_map(
     # to process all available upstream lineage even if mapping for platform instance is
     # not provided in server_to_platform_instance map
     dataset_type_mapping_set_to_all_platform(pipeline)
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_pages_by_report(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
+                "method": "POST",
+                "status_code": 403,
+                "json": {},
+            },
+        },
+    )
+    
+    output_path: str = f"{tmp_path}powerbi_pages_by_report_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "platform_instance": "aws-ap-south-1",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_pages_by_report.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_pages_by_report_failed(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
+                "method": "POST",
+                "status_code": 403,
+                "json": {},
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
+                "method": "GET",
+                "status_code": 400,
+                "json": {
+                    "error": {
+                        "code": "InvalidRequest",
+                        "message": "Request is currently not supported for RDL reports"
+                    }
+                },
+            },
+        },
+    )
+    
+    output_path: str = f"{tmp_path}powerbi_pages_by_report_failed_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "platform_instance": "aws-ap-south-1",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_pages_by_report_failed.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
