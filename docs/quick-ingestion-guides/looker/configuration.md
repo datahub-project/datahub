@@ -3,7 +3,7 @@ title: Configuration
 ---
 # Configuring Your Looker Connector to DataHub
 
-Now that you have created a DataHub specific Azure AD app with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
+Now that you have created a DataHub specific API key with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
 ## Configure Secrets
 
@@ -134,19 +134,19 @@ You will now find your new ingestion source running
 2. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
 <p align="center">
-  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-ingestion-history.png"/>
+  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-history.png"/>
 </p>
 
 3. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-ingestion-detail.png"/>
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-detail.png"/>
 </p>  
 
 4. Pick an entity from the list to manually validate if it contains the detail you expected  
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/Looker/Looker-ingestion-assets.png"/>
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-assets.png"/>
 </p>  
 
 **Congratulations!** You've successfully set up Looker as an ingestion source for DataHub!

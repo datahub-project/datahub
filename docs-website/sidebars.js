@@ -81,6 +81,13 @@ module.exports = {
                 "docs/quick-ingestion-guides/powerbi/configuration",
               ],
             },
+            {
+              Looker: [
+                "docs/quick-ingestion-guides/looker/overview",
+                "docs/quick-ingestion-guides/looker/setup",
+                "docs/quick-ingestion-guides/looker/configuration",
+              ],
+            }		  
           ],
         },
         {
