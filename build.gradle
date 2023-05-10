@@ -19,7 +19,6 @@ buildscript {
   ext.logbackClassic = '1.2.12'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
-  ext.kafkaAvroVersion = '5.5.1'
 
   ext.docker_registry = 'linkedin'
 
@@ -135,8 +134,8 @@ project.ext.externalDependency = [
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
-    'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaAvroVersion",
-    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaAvroVersion",
+    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
+    'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
