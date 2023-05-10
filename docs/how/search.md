@@ -178,8 +178,9 @@ for integrations and programmatic use-cases.
 }
 ```
 
+### Searching at Scale
 
-For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://datahubproject.io/docs/graphql/queries/#scrollacrossentities): 
+For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://datahubproject.io/docs/graphql/queries/#scrollacrossentities) GraphQL API: 
 
 ```
 # Example query
@@ -203,7 +204,9 @@ For queries that return more than 10k entities we recommend using the [scrollAcr
   }
 }
 ```
+
 This will return a response containing a `nextScrollId` value which must be used in subsequent queries to retrieve more data, i.e:
+
 ```
 {
   scrollAcrossEntities(input: 
@@ -229,7 +232,8 @@ This will return a response containing a `nextScrollId` value which must be used
 }
 ```
 
-This process repeats until no further `nextScrollId` are returned. Note that these subsequent operations must be performed during `keepAlive` time period which tells elasticsearch how long to keep internal scroll pointers for.
+In order to complete scrolling through all of the results, continue to request data in batches until the `nextScrollId` returned is null or undefined.
+
 
 ### DataHub Blog
 * [Using DataHub for Search & Discovery](https://blog.datahubproject.io/using-datahub-for-search-discovery-fa309089be22)
