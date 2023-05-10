@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from dataclasses import dataclass, field
 
 from datahub.ingestion.api.report import EntityFilterReport
@@ -26,8 +28,9 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
 
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
     profile_table_empty: LossyList[str] = field(default_factory=LossyList)
-    profile_table_errors: LossyDict[str, LossyList[str]] = field(
+    profile_table_errors: LossyDict[str, LossyList[Tuple[str, str]]] = field(
         default_factory=LossyDict
     )
+    num_profile_failed_unsupported_column_type: int = 0
     num_profile_failed_int_casts: int = 0
     num_profile_workunits_emitted: int = 0

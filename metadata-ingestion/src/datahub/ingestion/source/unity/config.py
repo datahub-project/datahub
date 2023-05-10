@@ -28,7 +28,6 @@ class UnityCatalogProfilerConfig(ConfigModel):
         default=None, description="SQL Warehouse id, for running profiling queries."
     )
 
-    # These settings will override the ones below.
     profile_table_level_only: bool = Field(
         default=False,
         description="Whether to perform profiling at table-level only or include column-level profiling as well.",
@@ -37,7 +36,8 @@ class UnityCatalogProfilerConfig(ConfigModel):
     pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
-            "Regex patterns to filter tables (or specific columns) for profiling during ingestion. "
+            "Regex patterns to filter tables for profiling during ingestion. "
+            "Specify regex to match the `catalog.schema.table` format. "
             "Note that only tables allowed by the `table_pattern` will be considered."
         ),
     )
@@ -67,6 +67,10 @@ class UnityCatalogProfilerConfig(ConfigModel):
         if values.get("enabled") and not values.get("warehouse_id"):
             raise ValueError("warehouse_id must be set when profiling is enabled.")
         return values
+
+    @property
+    def include_columns(self):
+        return not self.profile_table_level_only
 
 
 class UnityCatalogSourceConfig(

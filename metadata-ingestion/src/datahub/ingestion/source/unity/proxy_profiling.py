@@ -51,7 +51,12 @@ class UnityCatalogProxyProfilingMixin:
             return None
 
     def get_table_stats(
-        self, ref: TableReference, max_wait_secs: int, call_analyze: bool
+        self,
+        ref: TableReference,
+        *,
+        max_wait_secs: int,
+        call_analyze: bool,
+        include_columns: bool,
     ) -> Optional[TableProfile]:
         """Returns profiling information for a table.
 
@@ -69,26 +74,60 @@ class UnityCatalogProxyProfilingMixin:
         # If we need to improve performance, we can manually make requests via aiohttp
         try:
             if call_analyze:
-                response = self._analyze_table(ref)
+                response = self._analyze_table(ref, include_columns=include_columns)
                 success = self._check_analyze_table_statement_status(
-                    response, max_wait_secs
+                    response, max_wait_secs=max_wait_secs
                 )
                 if not success:
                     self.report.profile_table_timeouts.append(str(ref))
                     return None
-            return self._get_table_profile(ref)
+            return self._get_table_profile(ref, include_columns=include_columns)
         except DatabricksError as e:
-            self.report.profile_table_errors.setdefault(str(e), LossyList()).append(
-                str(ref)
+            # Attempt to parse out generic part of error message
+            msg = str(e)
+            idx = (str(msg).find("`") + 1) or (str(msg).find("'") + 1) or len(str(msg))
+            base_msg = msg[:idx]
+            self.report.profile_table_errors.setdefault(base_msg, LossyList()).append(
+                (str(ref), msg)
             )
             logger.warning(
-                f"Failure during profiling {ref}: ({e.error_code}) {e}", exc_info=True
+                f"Failure during profiling {ref}, {e.kwargs}: ({e.error_code}) {e}",
+                exc_info=True,
             )
-            return None
 
-    def _analyze_table(self, ref: TableReference) -> ExecuteStatementResponse:
+            if (
+                call_analyze
+                and include_columns
+                and self._should_retry_unsupported_column(ref, e)
+            ):
+                return self.get_table_stats(
+                    ref,
+                    max_wait_secs=max_wait_secs,
+                    call_analyze=call_analyze,
+                    include_columns=False,
+                )
+            else:
+                return None
+
+    def _should_retry_unsupported_column(
+        self, ref: TableReference, e: DatabricksError
+    ) -> bool:
+        if "[UNSUPPORTED_FEATURE.ANALYZE_UNSUPPORTED_COLUMN_TYPE]" in str(e):
+            logger.info(
+                f"Attempting to profile table without columns due to unsupported column type: {ref}"
+            )
+            self.report.num_profile_failed_unsupported_column_type += 1
+            return True
+        return False
+
+    def _analyze_table(
+        self, ref: TableReference, include_columns: bool
+    ) -> ExecuteStatementResponse:
+        statement = f"ANALYZE TABLE {ref.schema}.{ref.table} COMPUTE STATISTICS"
+        if include_columns:
+            statement += " FOR ALL COLUMNS"
         response = self._workspace_client.statement_execution.execute_statement(
-            statement=f"ANALYZE TABLE {ref.schema}.{ref.table} COMPUTE STATISTICS FOR ALL COLUMNS",
+            statement=statement,
             catalog=ref.catalog,
             wait_timeout="0s",  # Fetch result asynchronously
             warehouse_id=self.warehouse_id,
@@ -102,14 +141,14 @@ class UnityCatalogProxyProfilingMixin:
         statement_id: str = execute_response.statement_id
         status: StatementStatus = execute_response.status
 
-        backoff = 1  # In seconds
+        backoff_sec = 1
         total_wait_time = 0
         while (
             total_wait_time < max_wait_secs and status.state != StatementState.SUCCEEDED
         ):
-            time.sleep(min(backoff, max_wait_secs - total_wait_time))
-            total_wait_time += backoff
-            backoff *= 2
+            time.sleep(min(backoff_sec, max_wait_secs - total_wait_time))
+            total_wait_time += backoff_sec
+            backoff_sec *= 2
 
             response = self._workspace_client.statement_execution.get_statement(
                 statement_id
@@ -119,21 +158,27 @@ class UnityCatalogProxyProfilingMixin:
 
         return status.state == StatementState.SUCCEEDED
 
-    def _get_table_profile(self, ref: TableReference) -> TableProfile:
+    def _get_table_profile(
+        self, ref: TableReference, include_columns: bool
+    ) -> TableProfile:
         table_info = self._workspace_client.tables.get(ref.qualified_table_name)
-        return self._create_table_profile(table_info)
+        return self._create_table_profile(table_info, include_columns=include_columns)
 
-    def _create_table_profile(self, table_info: TableInfo) -> TableProfile:
+    def _create_table_profile(
+        self, table_info: TableInfo, include_columns: bool
+    ) -> TableProfile:
         # Warning: this implementation is brittle -- dependent on properties that can change
         columns_names = [column.name for column in table_info.columns]
         return TableProfile(
-            num_rows=self._get_int(table_info, "spark.sql.statistics.rowCount"),
+            num_rows=self._get_int(table_info, "spark.sql.statistics.numRows"),
             total_size=self._get_int(table_info, "spark.sql.statistics.totalSize"),
             num_columns=len(columns_names),
             column_profiles=[
                 self._create_column_profile(column, table_info)
                 for column in columns_names
-            ],
+            ]
+            if include_columns
+            else [],
         )
 
     def _create_column_profile(
@@ -186,7 +231,8 @@ class UnityCatalogProxyProfilingMixin:
             StatementState.CLOSED,
         ]:
             raise DatabricksError(
-                f"{key}: {response.status.error.message}",
+                response.status.error.message,
                 error_code=response.status.error.error_code.value,
                 status=response.status.state.value,
+                context=key,
             )

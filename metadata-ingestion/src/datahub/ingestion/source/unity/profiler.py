@@ -33,10 +33,9 @@ class UnityCatalogProfiler:
         self, table_refs: Collection[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
         try:
+            tables = self._filter_tables(table_refs)
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-                futures = [
-                    executor.submit(self.process_table, ref) for ref in table_refs
-                ]
+                futures = [executor.submit(self.process_table, ref) for ref in tables]
                 for future in as_completed(futures):
                     wu: Optional[MetadataWorkUnit] = future.result()
                     if wu:
@@ -47,14 +46,32 @@ class UnityCatalogProfiler:
             logger.warning(f"Unexpected error during profiling: {e}", exc_info=True)
             return
 
+    def _filter_tables(
+        self, table_refs: Collection[TableReference]
+    ) -> Collection[TableReference]:
+        return [
+            ref
+            for ref in table_refs
+            if self.config.pattern.allowed(ref.qualified_table_name)
+        ]
+
     def process_table(self, ref: TableReference) -> Optional[MetadataWorkUnit]:
-        table_profile = self.proxy.get_table_stats(
-            ref, self.config.max_wait_secs, self.config.call_analyze
-        )
-        if table_profile:
-            return self.gen_dataset_profile_workunit(ref, table_profile)
-        elif table_profile is not None:
-            self.report.profile_table_empty.append(str(ref))
+        try:
+            table_profile = self.proxy.get_table_stats(
+                ref,
+                max_wait_secs=self.config.max_wait_secs,
+                call_analyze=self.config.call_analyze,
+                include_columns=self.config.include_columns,
+            )
+            if table_profile:
+                return self.gen_dataset_profile_workunit(ref, table_profile)
+            elif table_profile is not None:  # table_profile is Falsy == empty
+                self.report.profile_table_empty.append(str(ref))
+        except Exception as e:
+            self.report.report_warning("profiling", str(e))
+            logger.warning(
+                f"Unexpected error during profiling table {ref}: {e}", exc_info=True
+            )
         return None
 
     def gen_dataset_profile_workunit(
@@ -70,7 +87,9 @@ class UnityCatalogProfiler:
                 self._gen_dataset_field_profile(row_count, column_profile)
                 for column_profile in table_profile.column_profiles
                 if column_profile  # Drop column profiles with no data
-            ],
+            ]
+            if self.config.include_columns
+            else None,
         )
         return MetadataChangeProposalWrapper(
             entityUrn=self.dataset_urn_builder(ref),
