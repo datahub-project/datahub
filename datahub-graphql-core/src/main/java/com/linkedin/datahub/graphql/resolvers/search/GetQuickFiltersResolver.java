@@ -156,7 +156,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
   }
 
   private QuickFilter mapQuickFilter(@Nonnull final String field, @Nonnull final FilterValue filterValue) {
-    final boolean isEntityTypeFilter = field.equals(ENTITY_FILTER_NAME) || field.equals(LEGACY_ENTITY_FILTER_NAME);
+    final boolean isEntityTypeFilter = field.equals(ENTITY_FILTER_NAME);
     final QuickFilter quickFilter = new QuickFilter();
     quickFilter.setField(field);
     quickFilter.setValue(convertFilterValue(filterValue.getValue(), isEntityTypeFilter));
