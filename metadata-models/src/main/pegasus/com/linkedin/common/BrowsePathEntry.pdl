@@ -1,11 +1,11 @@
 namespace com.linkedin.common
 
 /**
- * Represents a single level in an entity's container path
+ * Represents a single level in an entity's browsePathV2
  */
-record ContainerPathEntry {
+record BrowsePathEntry {
   /**
-   * The ID of the container path entry. This is what gets stored in the index after URL encoding.
+   * The ID of the browse path entry. This is what gets stored in the index.
    * If there's an urn associated with this entry, id and urn will be the same
    */
   id: string

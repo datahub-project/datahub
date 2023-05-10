@@ -76,7 +76,9 @@ class UnityCatalogSourceConfig(
     StatefulProfilingConfigMixin,
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
-    workspace_url: str = pydantic.Field(description="Databricks workspace url")
+    workspace_url: str = pydantic.Field(
+        description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
+    )
     workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
@@ -143,3 +145,11 @@ class UnityCatalogSourceConfig(
         if (datetime.now(timezone.utc) - v).days > 30:
             raise ValueError("Query history is only maintained for 30 days.")
         return v
+
+    @pydantic.validator("workspace_url")
+    def workspace_url_should_start_with_http_scheme(cls, workspace_url: str) -> str:
+        if not workspace_url.lower().startswith(("http://", "https://")):
+            raise ValueError(
+                "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
+            )
+        return workspace_url

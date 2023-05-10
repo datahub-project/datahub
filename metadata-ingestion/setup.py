@@ -245,7 +245,6 @@ databricks_cli = {
     "databricks-sdk>=0.1.1",
     "pyspark",
     "requests",
-    "backoff",
 }
 
 # Note: for all of these, framework_common will be added.

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, TypeVar
 
 import pyspark
+from databricks.sdk.service.sql import QueryStatementType
 from sqllineage.runner import LineageRunner
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -15,7 +16,6 @@ from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     OPERATION_STATEMENT_TYPES,
     Query,
-    StatementType,
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -133,7 +133,7 @@ class UnityCatalogUsageExtractor:
         self, query: Query, table_map: TableMap
     ) -> Optional[QueryTableInfo]:
         table_info = self._parse_query_via_lineage_runner(query.query_text)
-        if table_info is None and query.statement_type == StatementType.SELECT:
+        if table_info is None and query.statement_type == QueryStatementType.SELECT:
             table_info = self._parse_query_via_spark_sql_plan(query.query_text)
 
         if table_info is None:

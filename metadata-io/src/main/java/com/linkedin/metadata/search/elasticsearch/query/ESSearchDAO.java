@@ -296,7 +296,7 @@ public class ESSearchDAO {
       IndexConvention indexConvention) {
     return new ConjunctiveCriterion().setAnd(
         conjunctiveCriterion.getAnd().stream().map(
-                criterion -> criterion.getField().equals("_entityType")
+                criterion -> criterion.getField().equalsIgnoreCase("_entityType")
                     ? transformEntityTypeCriterion(criterion, indexConvention)
                     : criterion)
             .collect(Collectors.toCollection(CriterionArray::new)));
