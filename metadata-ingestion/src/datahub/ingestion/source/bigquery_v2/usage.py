@@ -142,7 +142,12 @@ def bigquery_audit_metadata_query_template(
         AND
         (
             (
-                JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+                JSON_EXTRACT_SCALAR(protopayload_auditlog.methodName) IN
+                    (
+                        "google.cloud.bigquery.v2.JobService.Query",
+                        "google.cloud.bigquery.v2.JobService.InsertJob"
+                    )
+                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
                 AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
                 AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
                 AND (
@@ -153,8 +158,7 @@ def bigquery_audit_metadata_query_template(
                     )
             )
             OR
-                JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.tableDataRead") IS NOT NULL
-                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
+                JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
         )
         {limit_text};
     """

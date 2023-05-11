@@ -87,7 +87,13 @@ AND protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
-        protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
+        protoPayload.methodName=
+            (
+                "google.cloud.bigquery.v2.JobService.Query"
+                OR
+                "google.cloud.bigquery.v2.JobService.InsertJob"
+            )
+        AND protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
         AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
         AND
@@ -103,10 +109,7 @@ AND
         )
     )
     OR
-    (
-        protoPayload.metadata.tableDataRead:*
-        AND protoPayload.metadata.tableDataRead.reason = "JOB"
-    )
+    protoPayload.metadata.tableDataRead.reason = "JOB"
 )"""  # noqa: W293
     source = BigQueryUsageExtractor(config, BigQueryV2Report())
     filter: str = source._generate_filter(BQ_AUDIT_V2)
