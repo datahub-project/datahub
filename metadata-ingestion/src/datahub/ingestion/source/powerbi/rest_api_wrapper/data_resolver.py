@@ -473,7 +473,10 @@ class RegularAPIResolver(DataResolverBase):
 
         # Check if we got response from PowerBi
         if response.status_code != 200:
-            logger.debug(f"Unable to fetch pages for report {report_id}")
+            logger.debug(
+                f"Unable to fetch pages for report {report_id}. \n"
+                f"HTTP status-code:{response.status_code}, text:{response.text}"
+            )
             return []
         response_dict = response.json()
         return [
