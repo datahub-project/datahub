@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Dropdown, Menu } from 'antd';
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { EntityType, AndFilterInput } from '../../../../../../types.generated';
 import DownloadAsCsvButton from './DownloadAsCsvButton';
 import DownloadAsCsvModal from './DownloadAsCsvModal';
@@ -27,6 +27,7 @@ type Props = {
     filters: AndFilterInput[];
     query: string;
     viewUrn?: string;
+    totalResults?: number;
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     setShowSelectMode?: (showSelectMode: boolean) => any;
 };
@@ -38,6 +39,7 @@ export default function SearchExtendedMenu({
     filters,
     query,
     viewUrn,
+    totalResults,
     setShowSelectMode,
 }: Props) {
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
@@ -73,6 +75,7 @@ export default function SearchExtendedMenu({
                 setIsDownloadingCsv={setIsDownloadingCsv}
                 showDownloadAsCsvModal={showDownloadAsCsvModal}
                 setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
+                totalResults={totalResults}
             />
             <Dropdown overlay={menu} trigger={['click']}>
                 <MenuIcon />
