@@ -33,6 +33,34 @@ def test_within_thirty_days():
         )
 
 
+def test_profiling_requires_warehouses_id():
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "profiling": {"enabled": True, "warehouse_id": "my_warehouse_id"},
+        }
+    )
+    assert config.profiling.enabled is True
+
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "profiling": {"enabled": False},
+        }
+    )
+    assert config.profiling.enabled is False
+
+    with pytest.raises(ValueError):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "workspace_url",
+            }
+        )
+
+
 @freeze_time(FROZEN_TIME)
 def test_workspace_url_should_start_with_https():
 
@@ -41,5 +69,6 @@ def test_workspace_url_should_start_with_https():
             {
                 "token": "token",
                 "workspace_url": "workspace_url",
+                "profiling": {"enabled": True},
             }
         )
