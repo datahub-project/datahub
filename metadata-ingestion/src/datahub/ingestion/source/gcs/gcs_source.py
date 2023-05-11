@@ -6,7 +6,7 @@ from pydantic import Field, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -14,12 +14,14 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceCapability, SourceReport
+from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import S3Source
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -28,8 +30,13 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
+)
+from datahub.utilities.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -68,7 +75,7 @@ class GCSSourceConfig(
         return path_specs
 
 
-class GCSSourceReport(StatefulIngestionReport):
+class GCSSourceReport(DataLakeSourceReport):
     pass
 
 
@@ -171,8 +178,16 @@ class GCSSource(StatefulIngestionSourceBase):
 
         return source
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
-        return self.s3_source.get_workunits()
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_workunit_reporter(
+                    self.report,
+                    auto_status_aspect(self.s3_source.get_workunits_internal()),
+                ),
+            )
+        )
 
     def get_report(self):
         return self.report
