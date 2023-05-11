@@ -765,7 +765,7 @@ class S3Source(StatefulIngestionSourceBase):
                     for obj in (
                         bucket.objects.filter(Prefix=f"{dir_to_process}")
                         .page_size(PAGE_SIZE)
-                        .limit(SAMPLE_SIZE)
+                        .limit(sample_size)
                     ):
                         s3_path = self.create_s3_path(obj.bucket_name, obj.key)
                         logger.debug(f"Sampling file: {s3_path}")

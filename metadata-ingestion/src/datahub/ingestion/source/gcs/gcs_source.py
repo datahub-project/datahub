@@ -59,6 +59,11 @@ class GCSSourceConfig(
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
     )
 
+    number_of_files_to_sample: int = Field(
+        default=100,
+        description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("path_specs", always=True)
@@ -144,6 +149,7 @@ class GCSSource(StatefulIngestionSourceBase):
             ),
             env=self.config.env,
             max_rows=self.config.max_rows,
+            number_of_files_to_sample=self.config.number_of_files_to_sample,
         )
         return s3_config
 
