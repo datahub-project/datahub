@@ -12,11 +12,11 @@ type Props = {
 };
 
 // eslint-disable-next-line
-export default function DomainsDropdown({ urns, disabled = false, refetch }: Props) {
+export default function DataProductsDropdown({ urns, disabled = false, refetch }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
-    const batchUnsetDomains = () => {
+    const batchUnsetDataProducts = () => {
         batchSetDataProductMutation({
             variables: {
                 input: {
@@ -26,8 +26,11 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Removed Data Product!', duration: 2 });
-                    refetch?.();
+                    message.loading({ content: 'Loading...', duration: 2 });
+                    setTimeout(() => {
+                        message.success({ content: 'Removed Data Product!', duration: 2 });
+                        refetch?.();
+                    }, 2000);
                 }
             })
             .catch((e) => {
@@ -59,7 +62,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
                                 title: `If you continue, Data Product will be removed for the selected assets.`,
                                 content: `Are you sure you want to unset Data Product for these assets?`,
                                 onOk() {
-                                    batchUnsetDomains();
+                                    batchUnsetDataProducts();
                                 },
                                 onCancel() {},
                                 okText: 'Yes',
@@ -78,6 +81,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
                     onModalClose={() => {
                         setIsEditModalVisible(false);
                     }}
+                    refetch={refetch}
                 />
             )}
         </>

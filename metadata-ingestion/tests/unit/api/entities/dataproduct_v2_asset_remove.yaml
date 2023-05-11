@@ -14,3 +14,15 @@ assets:
 owners:
   - id: urn:li:corpuser:jdoe
     type: BUSINESS_OWNER
+
+properties:
+  version: 2.0
+  classification: pii
+
+tags:
+  - urn:li:tag:awesome
+
+terms:
+  - urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance
+
+external_url: https://github.com/datahub-project/datahub

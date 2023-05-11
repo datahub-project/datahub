@@ -16,6 +16,7 @@ import { useGetDataProductQuery } from '../../../graphql/dataProduct.generated';
 import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub Data Product entity.
@@ -80,6 +81,10 @@ export class DataProductEntity implements Entity<DataProduct> {
                 {
                     name: 'Assets',
                     component: DataProductEntitiesTab,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
             sidebarSections={[

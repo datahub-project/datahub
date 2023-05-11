@@ -175,6 +175,7 @@ export const EntityProfile = <T, U>({
         display: { ...defaultSidebarSection, ...sidebarSection.display },
     }));
 
+    const [shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch] = useState(false);
     const [sidebarWidth, setSidebarWidth] = useState(window.innerWidth * 0.25);
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
     const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
@@ -262,6 +263,8 @@ export const EntityProfile = <T, U>({
                     routeToTab,
                     refetch,
                     lineage,
+                    shouldRefetchEmbeddedListSearch,
+                    setShouldRefetchEmbeddedListSearch,
                 }}
             >
                 <>
@@ -300,6 +303,8 @@ export const EntityProfile = <T, U>({
                 routeToTab,
                 refetch,
                 lineage,
+                shouldRefetchEmbeddedListSearch,
+                setShouldRefetchEmbeddedListSearch,
             }}
         >
             <>

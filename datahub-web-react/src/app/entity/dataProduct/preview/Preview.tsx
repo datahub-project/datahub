@@ -44,6 +44,7 @@ export const Preview = ({
             glossaryTerms={glossaryTerms || undefined}
             entityCount={entityCount}
             externalUrl={externalUrl}
+            displayAssetCount
         />
     );
 };

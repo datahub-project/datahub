@@ -1,3 +1,9 @@
+---
+# Display to h4 headings
+# toc_min_heading_level: 2
+toc_max_heading_level: 4
+---
+
 # DataHub CLI
 
 DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [Acryl Data](https://acryldata.io) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
@@ -30,29 +36,43 @@ If you run into an error, try checking the [_common setup issues_](../metadata-i
 
 Other installation options such as installation from source and running the cli inside a container are available further below in the guide [here](#alternate-installation-options)
 
-## User Guide
+## Starter Commands
 
-The `datahub` cli allows you to do many things, such as quickstarting a DataHub docker instance locally, ingesting metadata from your sources into a DataHub server or a DataHub lite instance, as well as retrieving, modifying and exploring metadata.
+The `datahub` cli allows you to do many things, such as quick-starting a DataHub docker instance locally, ingesting metadata from your sources into a DataHub server or a DataHub lite instance, as well as retrieving, modifying and exploring metadata.
 Like most command line tools, `--help` is your best friend. Use it to discover the capabilities of the cli and the different commands and sub-commands that are supported.
 
 ```console
+datahub --help
 Usage: datahub [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --debug / --no-debug
-  --version             Show the version and exit.
-  --help                Show this message and exit.
+  --debug / --no-debug            Enable debug logging.
+  --log-file FILE                 Enable debug logging.
+  --debug-vars / --no-debug-vars  Show variable values in stack traces. Implies --debug. While we try to avoid
+                                  printing sensitive information like passwords, this may still happen.
+  --version                       Show the version and exit.
+  -dl, --detect-memory-leaks      Run memory leak detection.
+  --help                          Show this message and exit.
 
 Commands:
-  check      Helper commands for checking various aspects of DataHub.
-  delete     Delete metadata from datahub using a single urn or a combination of filters
-  docker     Helper commands for setting up and interacting with a local DataHub instance using Docker.
-  get        Get metadata for an entity with an optional list of aspects to project.
-  ingest     Ingest metadata into DataHub.
-  init       Configure which datahub instance to connect to
-  put        Update a single aspect of an entity
-  telemetry  Toggle telemetry.
-  version    Print version number and exit.
+  actions      <disabled due to missing dependencies>
+  check        Helper commands for checking various aspects of DataHub.
+  dataproduct  A group of commands to interact with the DataProduct entity in DataHub.
+  delete       Delete metadata from datahub using a single urn or a combination of filters
+  docker       Helper commands for setting up and interacting with a local DataHub instance using Docker.
+  exists       A group of commands to check existence of entities in DataHub.
+  get          A group of commands to get metadata from DataHub.
+  group        A group of commands to interact with the Group entity in DataHub.
+  ingest       Ingest metadata into DataHub.
+  init         Configure which datahub instance to connect to
+  lite         A group of commands to work with a DataHub Lite instance
+  migrate      Helper commands for migrating metadata within DataHub.
+  put          A group of commands to put metadata in DataHub.
+  state        Managed state stored in DataHub by stateful ingestion.
+  telemetry    Toggle telemetry.
+  timeline     Get timeline for an entity based on certain categories
+  user         A group of commands to interact with the User entity in DataHub.
+  version      Print version number and exit.
 ```
 
 The following top-level commands listed below are here mainly to give the reader a high-level picture of what are the kinds of things you can accomplish with the cli.
@@ -86,7 +106,7 @@ Running `datahub init` will allow you to customize the datahub instance you are 
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 
-### Environment variables supported
+#### Environment variables supported
 
 The environment variables listed below take precedence over the DataHub CLI config created through the `init` command.
 
@@ -116,10 +136,6 @@ DATAHUB_DEBUG=false
 The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
 The `check` command allows you to check if all plugins are loaded correctly as well as validate an individual MCE-file.
 
-### lite (experimental)
-
-The lite group of commands allow you to run an embedded, lightweight DataHub instance for command line exploration of your metadata. This is intended more for developer tool oriented usage rather than as a production server instance for DataHub. See [DataHub Lite](./datahub_lite.md) for more information about how you can ingest metadata into DataHub Lite and explore your metadata easily.
-
 ### delete
 
 The `delete` command allows you to delete metadata from DataHub. Read this [guide](./how/delete-metadata.md) to understand how you can delete metadata from DataHub.
@@ -130,6 +146,20 @@ Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level
 ```console
 datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --soft
 ```
+
+### exists
+
+**🤝 Version compatibility** : `acryl-datahub>=0.10.2.4`
+
+The exists command can be used to check if an entity exists in DataHub.
+
+```shell
+> datahub exists --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+true
+> datahub exists --urn "urn:li:dataset:(urn:li:dataPlatform:hive,NonExistentHiveDataset,PROD)"
+false
+```
+
 
 ### get
 
@@ -191,8 +221,9 @@ Update succeeded with status 200
 ```
 
 #### put platform
+**🤝 Version Compatibility:** `acryl-datahub>0.8.44.4`
 
-The **put platform** command (available in version>0.8.44.4) instructs `datahub` to create or update metadata about a data platform. This is very useful if you are using a custom data platform, to set up its logo and display name for a native UI experience.
+The **put platform** command instructs `datahub` to create or update metadata about a data platform. This is very useful if you are using a custom data platform, to set up its logo and display name for a native UI experience.
 
 ```shell
 datahub put platform --name longtail_schemas --display_name "Long Tail Schemas" --logo "https://flink.apache.org/img/logo/png/50/color_50.png"
@@ -214,6 +245,206 @@ datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccou
 2022-02-17 14:17:30 - 0.0.0-computed
  MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
 ```
+
+## Entity Specific Commands
+
+### user (User Entity)
+
+The `user` command allows you to interact with the User entity.
+It currently supports the `upsert` operation, which can be used to create a new user or update an existing one.
+For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
+
+```shell
+datahub user upsert -f users.yaml
+```
+
+An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
+
+```yaml
+- id: bar@acryl.io
+  first_name: The
+  last_name: Bar
+  email: bar@acryl.io
+  slack: "@the_bar_raiser"
+  description: "I like raising the bar higher"
+  groups:
+    - foogroup@acryl.io
+- id: datahub
+  slack: "@datahubproject"
+  phone: "1-800-GOT-META"
+  description: "The DataHub Project"
+  picture_link: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/datahub-logo-color-stable.svg"
+```
+
+### group (Group Entity)
+
+The `group` command allows you to interact with the Group entity.
+It currently supports the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users.
+For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
+
+```shell
+datahub group upsert -f group.yaml
+```
+
+An example of `group.yaml` would look like the following. You can refer to the [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
+
+```yaml
+id: foogroup@acryl.io
+display_name: Foo Group
+admins:
+  - datahub
+members:
+  - bar@acryl.io # refer to a user either by id or by urn
+  - id: joe@acryl.io # inline specification of user
+    slack: "@joe_shmoe"
+    display_name: "Joe's Hub"
+```
+
+
+### dataproduct (Data Product Entity)
+
+**🤝 Version Compatibility:** `acryl-datahub>=0.10.2.4`
+
+The dataproduct group of commands allows you to manage the lifecycle of a DataProduct entity on DataHub.
+See the [Data Products](./dataproducts.md) page for more details on what a Data Product is and how DataHub represents it.
+
+```console
+datahub dataproduct --help
+Commands:
+  upsert*          Create or Update a Data Product in DataHub
+  add_asset        Add an asset to a Data Product
+  add_owner        Add an owner to a Data Product
+  delete           Delete a Data Product in DataHub
+  diff             Diff a Data Product file with its twin in DataHub
+  get              Get a Data Product from DataHub and optionally write it to a yaml file
+  remove_asset     Add an asset to a Data Product
+  remove_owner     Remove an owner from a Data Product
+  set_description  Set description for a Data Product in DataHub
+```
+
+Here we detail the sub-commands available under the dataproduct group of commands:
+
+#### upsert
+
+Use this to upsert a data product yaml file into DataHub. This will create the data product if it doesn't exist already. 
+Remember, this will update all the fields that are specified in the yaml file. To keep this file sync-ed with the metadata on DataHub use the [diff](#diff) command to keep the file synced. The format of the yaml file is available [here](./dataproducts.md#creating-a-data-product-yaml--git).
+
+```console
+# Usage
+> datahub dataproduct upsert -f data_product.yaml
+
+```
+
+
+#### diff
+
+Use this to keep a data product yaml file updated from its server-side version in DataHub.
+
+```console
+# Usage
+> datahub dataproduct diff -f data_product.yaml --update
+```
+
+#### get
+
+Use this to get a data product entity from DataHub and optionally write it to a yaml file
+
+```console
+# Usage
+> datahub dataproduct get --urn urn:li:dataProduct:pet_of_the_week --to-file pet_of_the_week_dataproduct.yaml
+{
+  "id": "urn:li:dataProduct:pet_of_the_week",
+  "domain": "urn:li:domain:dcadded3-2b70-4679-8b28-02ac9abc92eb",
+  "assets": [
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)",
+    "urn:li:dashboard:(looker,dashboards.19)",
+    "urn:li:dataFlow:(airflow,snowflake_load,prod)"
+  ],
+  "display_name": "Pet of the Week Campaign",
+  "owners": [
+    {
+      "id": "urn:li:corpuser:jdoe",
+      "type": "BUSINESS_OWNER"
+    }
+  ],
+  "description": "This campaign includes Pet of the Week data.",
+  "tags": [
+    "urn:li:tag:adoption"
+  ],
+  "terms": [
+    "urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance"
+  ],
+  "properties": {
+    "lifecycle": "production",
+    "sla": "7am every day"
+  }
+}
+Data Product yaml written to pet_of_the_week_dataproduct.yaml
+```
+
+#### add_asset
+
+Use this to add a data asset to a Data Product.
+
+```console
+# Usage
+> datahub dataproduct add_asset --urn "urn:li:dataProduct:pet_of_the_week"  --asset "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+```
+
+#### remove_asset
+
+Use this to remove a data asset from a Data Product.
+
+```console
+# Usage
+> datahub dataproduct remove_asset --urn "urn:li:dataProduct:pet_of_the_week"  --asset "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+```
+
+#### add_owner
+
+Use this to add an owner to a Data Product.
+
+```console
+# Usage
+> datahub dataproduct add_owner --urn "urn:li:dataProduct:pet_of_the_week"  --owner "jdoe@longtail.com" --owner-type BUSINESS_OWNER
+```
+
+#### remove_owner
+
+Use this to remove an owner from a Data Product.
+
+```console
+# Usage
+> datahub dataproduct remove_owner --urn "urn:li:dataProduct:pet_of_the_week"  --owner "urn:li:corpUser:jdoe@longtail.com"
+```
+
+#### set_description
+
+Use this to attach rich documentation for a Data Product in DataHub.
+
+```console
+> datahub dataproduct set_description --urn "urn:li:dataProduct:pet_of_the_week" --description "This is the pet dataset"
+# For uploading rich documentation from a markdown file, use the --md-file option
+# > datahub dataproduct set_description --urn "urn:li:dataProduct:pet_of_the_week" --md-file ./pet_of_the_week.md
+```
+
+#### delete
+
+Use this to delete a Data Product from DataHub. Default to `--soft` which preserves metadata, use `--hard` to erase all metadata associated with this Data Product.
+
+```console
+> datahub dataproduct delete --urn "urn:li:dataProduct:pet_of_the_week"
+# For Hard Delete see below:
+# > datahub dataproduct delete --urn "urn:li:dataProduct:pet_of_the_week" --hard
+```
+
+
+## Miscellaneous Admin Commands
+
+### lite (experimental)
+
+The lite group of commands allow you to run an embedded, lightweight DataHub instance for command line exploration of your metadata. This is intended more for developer tool oriented usage rather than as a production server instance for DataHub. See [DataHub Lite](./datahub_lite.md) for more information about how you can ingest metadata into DataHub Lite and explore your metadata easily.
+
 
 ### telemetry
 
@@ -281,57 +512,6 @@ External Entities Affected: None
 Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
 
-### user
-
-The `user` command allows you to interact with the User entity.
-It currently supports the `upsert` operation, which can be used to create a new user or update an existing one.
-For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
-
-```shell
-datahub user upsert -f users.yaml
-```
-
-An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
-
-```yaml
-- id: bar@acryl.io
-  first_name: The
-  last_name: Bar
-  email: bar@acryl.io
-  slack: "@the_bar_raiser"
-  description: "I like raising the bar higher"
-  groups:
-    - foogroup@acryl.io
-- id: datahub
-  slack: "@datahubproject"
-  phone: "1-800-GOT-META"
-  description: "The DataHub Project"
-  picture_link: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/datahub-logo-color-stable.svg"
-```
-
-### group
-
-The `group` command allows you to interact with the Group entity.
-It currently supports the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users.
-For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
-
-```shell
-datahub group upsert -f group.yaml
-```
-
-An example of `group.yaml` would look like the following. You can refer to the [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
-
-```yaml
-id: foogroup@acryl.io
-display_name: Foo Group
-admins:
-  - datahub
-members:
-  - bar@acryl.io # refer to a user either by id or by urn
-  - id: joe@acryl.io # inline specification of user
-    slack: "@joe_shmoe"
-    display_name: "Joe's Hub"
-```
 
 ## Alternate Installation Options
 

@@ -322,8 +322,9 @@ module.exports = {
         },
         {
           type: "category",
-          label: "Datahub CLI",
-          items: ["docs/cli", "docs/datahub_lite"],
+          label: "DataHub CLI",
+          link: { type: "doc", id: "docs/cli" },
+          items: ["docs/datahub_lite"],
         },
         {
           type: "category",
@@ -376,6 +377,7 @@ module.exports = {
         "docs/schema-history",
         // "docs/how/ui-tabs-guide",
         "docs/domains",
+        "docs/dataproducts",
         "docs/glossary/business-glossary",
         "docs/tags",
         "docs/browse",

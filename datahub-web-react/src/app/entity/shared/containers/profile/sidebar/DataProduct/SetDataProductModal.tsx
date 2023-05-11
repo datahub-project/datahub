@@ -26,6 +26,7 @@ interface Props {
     titleOverride?: string;
     onOkOverride?: (result: string) => void;
     setDataProduct?: (dataProduct: DataProduct | null) => void;
+    refetch?: () => void;
 }
 
 export default function SetDataProductModal({
@@ -35,6 +36,7 @@ export default function SetDataProductModal({
     titleOverride,
     onOkOverride,
     setDataProduct,
+    refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
@@ -65,10 +67,14 @@ export default function SetDataProductModal({
             variables: { input: { resourceUrns: urns, dataProductUrn: selectedDataProduct.urn } },
         })
             .then(() => {
-                message.success({ content: 'Updated Data Product!', duration: 2 });
+                message.success({ content: 'Updated Data Product!', duration: 3 });
                 setDataProduct?.(selectedDataProduct);
                 onModalClose();
                 setSelectedDataProduct(null);
+                // refetch is for search results, need to set a timeout
+                setTimeout(() => {
+                    refetch?.();
+                }, 2000);
             })
             .catch((e) => {
                 message.destroy();

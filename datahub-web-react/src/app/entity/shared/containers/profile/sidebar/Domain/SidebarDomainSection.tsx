@@ -12,6 +12,16 @@ import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/E
 
 const StyledButton = styled(Button)`
     display: block;
+    margin-bottom: 8px;
+`;
+
+const ContentWrapper = styled.div<{ displayInline: boolean }>`
+    ${(props) =>
+        props.displayInline &&
+        `
+    display: flex;
+    align-items: center;
+    `}
 `;
 
 interface PropertiesProps {
@@ -64,7 +74,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
         <div>
             <div id={ENTITY_PROFILE_DOMAINS_ID} className="sidebar-domain-section">
                 <SidebarHeader title="Domain" />
-                <div>
+                <ContentWrapper displayInline={!!domain}>
                     {domain && (
                         <DomainLink
                             domain={domain}
@@ -74,6 +84,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                 e.preventDefault();
                                 onRemoveDomain(entityData?.domain?.associatedUrn);
                             }}
+                            fontSize={12}
                         />
                     )}
                     {(!domain || !!updateOnly) && (
@@ -90,7 +101,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             )}
                         </>
                     )}
-                </div>
+                </ContentWrapper>
                 {showModal && (
                     <SetDomainModal
                         urns={[urn]}

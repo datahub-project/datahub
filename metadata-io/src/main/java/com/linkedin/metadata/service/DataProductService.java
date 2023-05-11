@@ -322,13 +322,13 @@ public class DataProductService {
       @Nonnull Authentication authentication,
       @Nonnull Urn actorUrn) {
     try {
-      List<String> relationshipTypes = ImmutableList.of("PartOfDataProduct");
+      List<String> relationshipTypes = ImmutableList.of("DataProductContains");
       EntityRelationships relationships = _graphClient.getRelatedEntities(
           resourceUrn.toString(),
           relationshipTypes,
           RelationshipDirection.INCOMING,
           0,
-          1,
+          10, // should never be more than 1 as long as we only allow one
           actorUrn.toString());
 
       if (relationships.hasRelationships() && relationships.getRelationships().size() > 0) {

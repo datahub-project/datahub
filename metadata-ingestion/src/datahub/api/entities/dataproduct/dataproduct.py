@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import time
 from pathlib import Path
 from typing import (
@@ -50,6 +51,47 @@ class DataProductGenerationConfig(ConfigModel):
     validate_assets: bool = True
 
 
+def print_diff(orig_file, new_file):
+
+    with open(orig_file) as fp:
+        orig_lines = fp.readlines()
+    with open(new_file) as fp:
+        new_lines = fp.readlines()
+
+    for line in difflib.unified_diff(orig_lines, new_lines):
+        print(line)
+
+
+def patch_list(
+    orig_list: Optional[list],
+    new_list: Optional[list],
+    mutable_dictionary: dict,
+    field_name: str,
+) -> bool:
+    update_needed = False
+    if set(orig_list or []) != set(new_list or []):
+        update_needed = True
+        list_elements = [a for a in new_list or []]
+        elements_to_remove = []
+        if field_name not in mutable_dictionary and list_elements:
+            mutable_dictionary[field_name] = []
+        elif field_name in mutable_dictionary and not list_elements:
+            mutable_dictionary[field_name] = None
+        else:
+            for element in mutable_dictionary[field_name]:
+                if element not in list_elements:
+                    elements_to_remove.append(element)
+                else:
+                    list_elements.remove(element)
+
+            for element in elements_to_remove:
+                mutable_dictionary[field_name].remove(element)
+
+            for element_to_add in list_elements:
+                mutable_dictionary[field_name].append(element_to_add)
+    return update_needed
+
+
 class DataProduct(ConfigModel):
     """This is a DataProduct class which represents a DataProduct
 
@@ -96,6 +138,8 @@ class DataProduct(ConfigModel):
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
+    properties: Optional[Dict[str, str]] = None
+    external_url: Optional[str] = None
 
     @pydantic.validator("assets", each_item=True)
     def assets_must_be_urns(cls, v: str) -> str:
@@ -162,6 +206,8 @@ class DataProduct(ConfigModel):
                     )
                     for asset in self.assets
                 ],
+                customProperties=self.properties if self.properties else None,
+                externalUrl=self.external_url if self.external_url else None,
             ),
         )
         yield mcp
@@ -264,6 +310,10 @@ class DataProduct(ConfigModel):
                     yaml_owners.append(
                         DataProduct.Ownership(id=o.owner, type=str(o.type))
                     )
+        glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
+            id, GlossaryTermsClass
+        )
+        tags: Optional[GlobalTagsClass] = graph.get_aspect(id, GlobalTagsClass)
         return DataProduct(
             id=id,
             display_name=data_product_properties.name
@@ -277,6 +327,16 @@ class DataProduct(ConfigModel):
             if data_product_properties
             else None,
             owners=yaml_owners,
+            terms=[term.urn for term in glossary_terms.terms]
+            if glossary_terms
+            else None,
+            tags=[tag.tag for tag in tags.tags] if tags else None,
+            properties=data_product_properties.customProperties
+            if data_product_properties
+            else None,
+            external_url=data_product_properties.externalUrl
+            if data_product_properties
+            else None,
         )
 
     def _patch_ownership(
@@ -362,12 +422,16 @@ class DataProduct(ConfigModel):
         with open(file) as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             orig_dictionary = yaml.load(fp)
-            if original_dataproduct.display_name != self.display_name:
-                update_needed = True
-                orig_dictionary["display_name"] = self.display_name
-            if original_dataproduct.description != self.description:
-                update_needed = True
-                orig_dictionary["description"] = self.description
+            original_dataproduct_dict = original_dataproduct.dict()
+            this_dataproduct_dict = self.dict()
+            for simple_field in ["display_name", "description", "external_url"]:
+                if original_dataproduct_dict.get(
+                    simple_field
+                ) != this_dataproduct_dict.get(simple_field):
+                    update_needed = True
+                    orig_dictionary[simple_field] = this_dataproduct_dict.get(
+                        simple_field
+                    )
 
             if original_dataproduct.domain != self.domain:
                 # we check if the resolved domain urn is the same
@@ -391,6 +455,13 @@ class DataProduct(ConfigModel):
                 for asset_to_add in my_asset_urns:
                     orig_dictionary["assets"].append(asset_to_add)
 
+            update_needed = update_needed or patch_list(
+                original_dataproduct.terms, self.terms, orig_dictionary, "terms"
+            )
+            update_needed = update_needed or patch_list(
+                original_dataproduct.tags, self.tags, orig_dictionary, "tags"
+            )
+
             (ownership_update_needed, new_ownership_list) = self._patch_ownership(
                 original_dataproduct.owners, orig_dictionary.get("owners")
             )
@@ -403,12 +474,28 @@ class DataProduct(ConfigModel):
                         # we leave the owners key in, but set it to None (versus empty list) to make the yaml look better
                         orig_dictionary["owners"] = None
 
+            if this_dataproduct_dict.get("properties") != original_dataproduct_dict.get(
+                "properties"
+            ):
+                update_needed = True
+                if (
+                    self.properties is not None
+                    and original_dataproduct.properties is None
+                ):
+                    original_dataproduct_dict["properties"] = {}
+                for k, v in (self.properties or {}).items():
+                    original_dataproduct_dict["properties"][k] = v
+                for k in original_dataproduct_dict["properties"]:
+                    if k not in (self.properties or {}):
+                        del original_dataproduct_dict["properties"][k]
+
             yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.default_flow_style = False
 
         if update_needed:
             with open(output_file or file, "w") as fp:
                 yaml.dump(orig_dictionary, fp)
+            print_diff(file, output_file)
             return True
         else:
             return False

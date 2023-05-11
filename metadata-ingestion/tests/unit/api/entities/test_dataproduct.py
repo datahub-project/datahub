@@ -113,6 +113,7 @@ def test_dataproduct_from_datahub(
 def test_dataproduct_patch_yaml(
     pytestconfig: pytest.Config, base_mock_graph: MockDataHubGraph, original_file: str
 ) -> None:
+    """Validates that patching data product files by reading from DataHub works as expected"""
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api/entities"
     mock_graph = base_mock_graph
     golden_file = Path(test_resources_dir / "golden_dataproduct_out.json")

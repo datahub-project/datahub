@@ -6,7 +6,11 @@
     "aspectName": "dataProductProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "version": "2.0",
+                "classification": "pii"
+            },
+            "externalUrl": "https://github.com/datahub-project/datahub",
             "name": "Pet of the Week Campaign",
             "description": "This campaign includes Pet of the Week data.",
             "assets": [
@@ -48,6 +52,41 @@
             "domains": [
                 "urn:li:domain:12345"
             ]
+        }
+    }
+},
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:awesome"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance"
+                }
+            ],
+            "auditStamp": {
+                "time": 1681455600000,
+                "actor": "urn:li:corpuser:datahub",
+                "message": "yaml"
+            }
         }
     }
 },

@@ -178,6 +178,7 @@ interface Props {
     domain?: Domain | undefined | null;
     dataProduct?: DataProduct | undefined | null;
     entityCount?: number;
+    displayAssetCount?: boolean;
     dataTestID?: string;
     titleSizePx?: number;
     onClick?: () => void;
@@ -216,6 +217,7 @@ export default function DefaultPreviewCard({
     container,
     deprecation,
     entityCount,
+    displayAssetCount,
     titleSizePx,
     dataTestID,
     externalUrl,
@@ -308,7 +310,7 @@ export default function DefaultPreviewCard({
                         </Tooltip>
                     )}
                     {!!degree && entityCount && <PlatformDivider />}
-                    <EntityCount entityCount={entityCount} />
+                    <EntityCount entityCount={entityCount} displayAssetsText={displayAssetCount} />
                 </TitleContainer>
                 {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
                 {description && description.length > 0 && (

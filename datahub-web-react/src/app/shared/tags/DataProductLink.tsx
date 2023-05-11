@@ -18,26 +18,31 @@ const DomainWrapper = styled.span`
     margin-bottom: 8px;
 `;
 
+const StyledTag = styled(Tag)<{ fontSize?: number }>`
+    ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+`;
+
 interface ContentProps {
     dataProduct: DataProduct;
     name?: string;
     closable?: boolean;
     onClose?: (e: any) => void;
     tagStyle?: any | undefined;
+    fontSize?: number;
 }
 
-function DataProductContent({ dataProduct, name, closable, onClose, tagStyle }: ContentProps) {
+function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fontSize }: ContentProps) {
     const entityRegistry = useEntityRegistry();
 
     const displayName = name || entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct);
 
     return (
-        <Tag style={tagStyle} closable={closable} onClose={onClose}>
+        <StyledTag style={tagStyle} closable={closable} onClose={onClose} fontSize={fontSize}>
             <span style={{ paddingRight: '4px' }}>
-                {entityRegistry.getIcon(EntityType.DataProduct, 10, IconStyleType.ACCENT, ANTD_GRAY[9])}
+                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT, ANTD_GRAY[9])}
             </span>
             {displayName}
-        </Tag>
+        </StyledTag>
     );
 }
 
@@ -48,9 +53,18 @@ export type Props = {
     onClose?: (e: any) => void;
     tagStyle?: any | undefined;
     readOnly?: boolean;
+    fontSize?: number;
 };
 
-export const DataProductLink = ({ dataProduct, name, closable, onClose, tagStyle, readOnly }: Props): JSX.Element => {
+export const DataProductLink = ({
+    dataProduct,
+    name,
+    closable,
+    onClose,
+    tagStyle,
+    readOnly,
+    fontSize,
+}: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const urn = dataProduct?.urn;
 
@@ -64,6 +78,7 @@ export const DataProductLink = ({ dataProduct, name, closable, onClose, tagStyle
                         closable={closable}
                         onClose={onClose}
                         tagStyle={tagStyle}
+                        fontSize={fontSize}
                     />
                 </DomainWrapper>
             </HoverEntityTooltip>
@@ -79,6 +94,7 @@ export const DataProductLink = ({ dataProduct, name, closable, onClose, tagStyle
                     closable={closable}
                     onClose={onClose}
                     tagStyle={tagStyle}
+                    fontSize={fontSize}
                 />
             </DomainLinkContainer>
         </HoverEntityTooltip>

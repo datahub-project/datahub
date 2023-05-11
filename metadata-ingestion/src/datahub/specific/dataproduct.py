@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, TypeVar, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
+    DataProductAssociationClass as DataProductAssociation,
     DataProductPropertiesClass as DataProductProperties,
     GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
@@ -109,4 +110,22 @@ class DataProductPatchBuilder(MetadataPatchProposal):
 
     def remove_custom_property(self, key: str) -> "DataProductPatchBuilder":
         self.custom_properties_patch_helper.remove_property(key)
+        return self
+
+    def add_asset(self, asset_urn: str) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "add",
+            path=f"/assets/{asset_urn}",
+            value=DataProductAssociation(destinationUrn=asset_urn),
+        )
+        return self
+
+    def remove_asset(self, asset_urn: str) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "remove",
+            path=f"/assets/{asset_urn}",
+            value={},
+        )
         return self

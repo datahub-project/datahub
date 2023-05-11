@@ -5,9 +5,11 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -77,6 +79,7 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     } else {
       properties.setNumAssets(0);
     }
+    properties.setCustomProperties(CustomPropertiesMapper.map(dataProductProperties.getCustomProperties(), UrnUtils.getUrn(dataProduct.getUrn())));
 
     dataProduct.setProperties(properties);
   }

@@ -7,6 +7,7 @@ import { EntityCapabilityType } from '../../Entity';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
 import { handleBatchError } from '../utils';
 import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.generated';
+import { useEntityContext } from '../EntityContext';
 
 export enum EntityActionItem {
     /**
@@ -33,6 +34,7 @@ function EntityActions(props: Props) {
     // eslint ignore react/no-unused-prop-types
     const entityRegistry = useEntityRegistry();
     const { urn, actionItems, refetchForEntity } = props;
+    const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const [isBatchAddGlossaryTermModalVisible, setIsBatchAddGlossaryTermModalVisible] = useState(false);
     const [isBatchSetDomainModalVisible, setIsBatchSetDomainModalVisible] = useState(false);
     const [isBatchSetDataProductModalVisible, setIsBatchSetDataProductModalVisible] = useState(false);
@@ -62,6 +64,7 @@ function EntityActions(props: Props) {
                             duration: 2,
                         });
                         refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })
@@ -98,6 +101,7 @@ function EntityActions(props: Props) {
                             duration: 3,
                         });
                         refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })
@@ -132,6 +136,7 @@ function EntityActions(props: Props) {
                             duration: 3,
                         });
                         refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })

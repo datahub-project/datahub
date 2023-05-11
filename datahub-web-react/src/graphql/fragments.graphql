@@ -910,7 +910,7 @@ fragment entityDomain on DomainAssociation {
 }
 
 fragment entityDataProduct on Entity {
-    dataProduct: relationships(input: { types: ["PartOfDataProduct"], direction: INCOMING, start: 0, count: 1 }) {
+    dataProduct: relationships(input: { types: ["DataProductContains"], direction: INCOMING, start: 0, count: 1 }) {
         relationships {
             type
             entity {

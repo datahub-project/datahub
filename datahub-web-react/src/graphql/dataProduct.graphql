@@ -6,6 +6,12 @@ query getDataProduct($urn: String!) {
 
 fragment dataProductFields on DataProduct {
     ...dataProductSearchFields
+    properties {
+        customProperties {
+            key
+            value
+        }
+    }
     institutionalMemory {
         ...institutionalMemoryFields
     }

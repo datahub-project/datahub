@@ -119,7 +119,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                             />
                         ))}
                     </TitleWrapper>
-                    <EntityCount entityCount={entityCount} />
+                    <EntityCount entityCount={entityCount} displayAssetsText={entityType === EntityType.DataProduct} />
                 </MainHeaderContent>
                 <SideHeaderContent>
                     <TopButtonsWrapper>

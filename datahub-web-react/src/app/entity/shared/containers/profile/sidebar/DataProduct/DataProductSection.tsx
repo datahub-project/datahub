@@ -75,6 +75,7 @@ export default function DataProductSection({ readOnly }: Props) {
                         e.preventDefault();
                         onRemoveDataProduct();
                     }}
+                    fontSize={12}
                 />
             )}
             {!dataProduct && (
