@@ -546,14 +546,6 @@ class S3Source(StatefulIngestionSourceBase):
         yield wu
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
-        """Produce an operation aspect for a table.
-        If a last updated time is present, we produce an update operation.
-        Otherwise, we produce a create operation. We do this in addition to
-        setting the last updated time in the dataset properties aspect, as
-        the UI is currently missing the ability to display the last updated
-        from the properties aspect.
-        """
-
         reported_time = int(time.time() * 1000)
 
         operation = OperationClass(
