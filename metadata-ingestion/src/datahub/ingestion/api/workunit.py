@@ -9,7 +9,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
 
-A = TypeVar("A", bound=_Aspect)
+T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 
 
 @dataclass
@@ -88,7 +88,7 @@ class MetadataWorkUnit(WorkUnit):
             assert self.metadata.entityUrn
             return self.metadata.entityUrn
 
-    def get_aspects_of_type(self, aspect_cls: Type[A]) -> List[A]:
+    def get_aspects_of_type(self, aspect_cls: Type[T_Aspect]) -> List[T_Aspect]:
         aspects: list
         if isinstance(self.metadata, MetadataChangeEvent):
             aspects = self.metadata.proposedSnapshot.aspects

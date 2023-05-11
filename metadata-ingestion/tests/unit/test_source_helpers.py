@@ -107,6 +107,18 @@ def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryCla
     ]
 
 
+def _get_browse_paths_from_wu(
+    stream: Iterable[MetadataWorkUnit],
+) -> Dict[str, List[models.BrowsePathEntryClass]]:
+    paths = {}
+    for wu in stream:
+        browse_path_v2 = wu.get_aspects_of_type(models.BrowsePathsV2Class)
+        if browse_path_v2:
+            name = wu.get_urn().split(":")[-1]
+            paths[name] = browse_path_v2[0].path
+    return paths
+
+
 def test_auto_browse_path_v2():
     structure = {
         "one": {
@@ -130,14 +142,32 @@ def test_auto_browse_path_v2():
         sum(len(wu.get_aspects_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
         == 21
     )
-    paths = {}
-    for wu in new_wus:
-        browse_path_v2 = wu.get_aspects_of_type(models.BrowsePathsV2Class)
-        if browse_path_v2:
-            name = wu.get_urn().split(":")[-1]
-            paths[name] = browse_path_v2[0].path
 
+    paths = _get_browse_paths_from_wu(new_wus)
     assert paths["one"] == []
     assert paths["7"] == paths["8"] == _make_browse_path_entries(["two", "c", "v"])
     assert paths["d"] == _make_browse_path_entries(["three"])
     assert paths["i"] == _make_browse_path_entries(["one", "a"])
+
+
+def test_auto_browse_path_v2_ignores_urns_already_with():
+    structure = {"a": {"b": {"c": {"d": ["e"]}}}}
+
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn=make_container_urn("c"),
+        aspect=models.BrowsePathsV2Class(
+            path=_make_browse_path_entries(["custom", "path"])
+        ),
+    )
+    wus = [*auto_status_aspect(_create_container_aspects(structure)), mcp.as_workunit()]
+
+    new_wus = list(auto_browse_path_v2(wus))
+    assert (
+        sum(len(wu.get_aspects_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
+        == 5
+    )
+
+    paths = _get_browse_paths_from_wu(new_wus)
+    assert paths["a"] == []
+    assert paths["c"] == _make_browse_path_entries(["custom", "path"])
+    assert paths["e"] == _make_browse_path_entries(["a", "b", "c", "d"])

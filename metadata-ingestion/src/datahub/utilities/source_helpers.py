@@ -160,10 +160,12 @@ def auto_materialize_referenced_tags(
 def auto_browse_path_v2(
     stream: Iterable[MetadataWorkUnit],
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate BrowsePathsV2 from Container and BrowsePaths aspects."""
+    """Generate BrowsePathsV2 from Container aspects."""
+    # TODO: Generate BrowsePathsV2 from BrowsePaths as well
 
-    container_urns = set()
-    parents = {}
+    ignore_urns: Set[str] = set()
+    container_urns: Set[str] = set()
+    parent_container_map: Dict[str, str] = {}
     children: Dict[str, List[str]] = defaultdict(list)
     for wu in stream:
         yield wu
@@ -175,24 +177,28 @@ def auto_browse_path_v2(
         container_aspects = wu.get_aspects_of_type(ContainerClass)
         for aspect in container_aspects:
             parent = aspect.container
-            parents[urn] = parent
+            parent_container_map[urn] = parent
             children[parent].append(urn)
 
-    # Yield browse paths v2 in topological order
+        if wu.get_aspects_of_type(BrowsePathsV2Class):
+            ignore_urns.add(urn)
+
     paths: Dict[str, List[str]] = {}  # Maps urn -> list of urns in path
-    nodes = container_urns - parents.keys()  # Start with root containers
+    # Yield browse paths v2 in topological order, starting with root containers
+    nodes = container_urns - parent_container_map.keys()
     while nodes:
         node = nodes.pop()
         nodes.update(children[node])
 
-        if node not in parents:  # root
+        if node not in parent_container_map:  # root
             paths[node] = []
         else:
-            parent = parents[node]
+            parent = parent_container_map[node]
             paths[node] = [*paths[parent], parent]
-        yield MetadataChangeProposalWrapper(
-            entityUrn=node,
-            aspect=BrowsePathsV2Class(
-                path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
-            ),
-        ).as_workunit()
+        if node not in ignore_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node,
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
+                ),
+            ).as_workunit()
