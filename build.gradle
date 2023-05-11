@@ -128,7 +128,7 @@ project.ext.externalDependency = [
     'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
-    'json': 'org.json:json:20090211',
+    'json': 'org.json:json:20230227',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
