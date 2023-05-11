@@ -44,10 +44,10 @@ const BrowseSidebar = ({ facets, visible, width }: Props) => {
         [facets],
     );
 
-    const [selected, setSelected] = useState<EntityType>();
+    const [selected, setSelected] = useState<EntityType | null>(null);
 
     const onSelect = useCallback(
-        (entityType: EntityType) => setSelected((current) => (current === entityType ? undefined : entityType)),
+        (entityType: EntityType) => setSelected((current) => (current === entityType ? null : entityType)),
         [],
     );
     return (
