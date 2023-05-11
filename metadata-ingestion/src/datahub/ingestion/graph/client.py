@@ -543,6 +543,7 @@ class DataHubGraph(DatahubRestEmitter):
         *,
         entity_types: Optional[List[str]] = None,
         platform: Optional[str] = None,
+        env: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
     ) -> Iterable[str]:
@@ -550,9 +551,12 @@ class DataHubGraph(DatahubRestEmitter):
 
         Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
         Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+        The same goes for the env filter.
 
         :param entity_types: List of entity types to include. If None, all entity types will be returned.
         :param platform: Platform to filter on. If None, all platforms will be returned.
+        :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         """
 
         types: Optional[List[str]] = None
@@ -562,11 +566,8 @@ class DataHubGraph(DatahubRestEmitter):
 
             types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
 
-        # Does not filter on env, because env is missing in dashboard / chart urns and custom properties
-        # For containers, use { field: "customProperties", values: ["instance=env}"], condition:EQUAL }
-        # For others, use { field: "origin", values: ["env"], condition:EQUAL }
-
-        andFilters = []
+        FilterRule = Dict[str, Any]
+        andFilters: List[FilterRule] = []
 
         # Platform filter.
         if platform:
@@ -580,13 +581,18 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Status filter.
         if status == RemovedStatusFilter.NOT_SOFT_DELETED:
-            # This is the default? TODO check on this.
-            pass
+            andFilters.append(
+                {
+                    "field": "removed",
+                    "values": ["false"],
+                    "condition": "EQUAL",
+                }
+            )
         elif status == RemovedStatusFilter.ONLY_SOFT_DELETED:
             andFilters.append(
                 {
                     "field": "removed",
-                    "value": "true",
+                    "values": ["true"],
                     "condition": "EQUAL",
                 }
             )
@@ -601,7 +607,41 @@ class DataHubGraph(DatahubRestEmitter):
         else:
             raise ValueError(f"Invalid status filter: {status}")
 
-        orFilters = [{"and": andFilters}]
+        orFilters: List[Dict[str, List[FilterRule]]] = [{"and": andFilters}]
+
+        # Env filter.
+        if env:
+            # The env filter is a bit more tricky since it's not always stored
+            # in the same place in ElasticSearch.
+
+            envOrConditions: List[FilterRule] = [
+                # For most entity types, we look at the origin field.
+                {
+                    "field": "origin",
+                    "value": env,
+                    "condition": "EQUAL",
+                },
+                # For containers, we look at the customProperties field.
+                # For any containers created after https://github.com/datahub-project/datahub/pull/8027,
+                # we look for the "env" property. Otherwise, we use the "instance" property.
+                {
+                    "field": "customProperties",
+                    "value": f"env={env}",
+                },
+                {
+                    "field": "customProperties",
+                    "value": f"instance={env}",
+                },
+                # Note that not all entity types have an env (e.g. dashboards / charts).
+                # If the env filter is specified, these will be excluded.
+            ]
+
+            # This matches ALL of the andFilters and at least one of the envOrConditions.
+            orFilters = [
+                {"and": andFilters["and"] + [extraCondition]}
+                for extraCondition in envOrConditions
+                for andFilters in orFilters
+            ]
 
         query = textwrap.dedent(
             """
@@ -617,7 +657,10 @@ class DataHubGraph(DatahubRestEmitter):
                     scrollId: $scrollId,
                     types: $types,
                     orFilters: $orFilters,
-                    searchFlags: { skipHighlighting: true }
+                    searchFlags: {
+                        skipHighlighting: true
+                        skipAggregates: true
+                    }
                 }) {
                     nextScrollId
                     searchResults {
@@ -646,6 +689,11 @@ class DataHubGraph(DatahubRestEmitter):
             scroll_id = data["nextScrollId"]
             for entry in data["searchResults"]:
                 yield entry["entity"]["urn"]
+
+            if scroll_id:
+                logger.debug(
+                    f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
+                )
 
     def get_latest_pipeline_checkpoint(
         self, pipeline_name: str, platform: str
