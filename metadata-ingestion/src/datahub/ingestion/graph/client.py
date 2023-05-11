@@ -1,9 +1,9 @@
+import enum
 import json
 import logging
 import textwrap
 import time
 from dataclasses import dataclass
-from enum import Enum
 from json.decoder import JSONDecodeError
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Union
 
@@ -68,6 +68,19 @@ class DatahubClientConfig(ConfigModel):
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
+
+
+class RemovedStatusFilter(enum.Enum):
+    """Filter for the status of entities during search."""
+
+    NOT_SOFT_DELETED = "NOT_SOFT_DELETED"
+    """Search only entities that have not been marked as deleted."""
+
+    ALL = "ALL"
+    """Search all entities, including deleted entities."""
+
+    ONLY_SOFT_DELETED = "ONLY_SOFT_DELETED"
+    """Search only soft-deleted entities."""
 
 
 def _graphql_entity_type(entity_type: str) -> str:
@@ -530,6 +543,7 @@ class DataHubGraph(DatahubRestEmitter):
         *,
         entity_types: Optional[List[str]] = None,
         platform: Optional[str] = None,
+        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
     ) -> Iterable[str]:
         """Fetch all urns that match the given filters.
@@ -553,6 +567,8 @@ class DataHubGraph(DatahubRestEmitter):
         # For others, use { field: "origin", values: ["env"], condition:EQUAL }
 
         andFilters = []
+
+        # Platform filter.
         if platform:
             andFilters += [
                 {
@@ -561,6 +577,30 @@ class DataHubGraph(DatahubRestEmitter):
                     "condition": "EQUAL",
                 }
             ]
+
+        # Status filter.
+        if status == RemovedStatusFilter.NOT_SOFT_DELETED:
+            # This is the default? TODO check on this.
+            pass
+        elif status == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            andFilters.append(
+                {
+                    "field": "removed",
+                    "value": "true",
+                    "condition": "EQUAL",
+                }
+            )
+        elif status == RemovedStatusFilter.ALL:
+            andFilters.append(
+                {
+                    "field": "removed",
+                    "value": "",  # accept anything regarding removed property (true, false, non-existent)
+                    "condition": "EQUAL",
+                }
+            )
+        else:
+            raise ValueError(f"Invalid status filter: {status}")
+
         orFilters = [{"and": andFilters}]
 
         query = textwrap.dedent(
@@ -590,8 +630,8 @@ class DataHubGraph(DatahubRestEmitter):
             """
         )
 
-        # Set scroll_id to False to enter while loop
-        scroll_id: Union[Literal[False], str, None] = False
+        # Set scroll_id to True to enter while loop
+        scroll_id: Union[Literal[True], str, None] = True
         while scroll_id is not None:
             response = self.execute_graphql(
                 query,
@@ -663,7 +703,9 @@ class DataHubGraph(DatahubRestEmitter):
 
         return result["data"]
 
-    class RelationshipDirection(str, Enum):
+    class RelationshipDirection(str, enum.Enum):
+        # FIXME: Upgrade to enum.StrEnum when we drop support for Python 3.10
+
         INCOMING = "INCOMING"
         OUTGOING = "OUTGOING"
 
