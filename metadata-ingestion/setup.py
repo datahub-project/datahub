@@ -241,7 +241,7 @@ usage_common = {
 }
 
 databricks_cli = {
-    "databricks-cli>=0.17.3",
+    "databricks-cli>=0.17.7",
     "databricks-sdk>=0.1.1",
     "pyspark",
     "requests",
