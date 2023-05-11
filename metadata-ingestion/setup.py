@@ -214,6 +214,7 @@ iceberg_common = {
 
 s3_base = {
     *aws_common,
+    "more-itertools>=8.12.0",
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
