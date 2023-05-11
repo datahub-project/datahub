@@ -979,7 +979,7 @@ def test_admin_access_is_not_allowed(
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"{tmp_path}/golden_test_admin_access_not_allowed_mces.json",
+                    "filename": f"{tmp_path}/powerbi_admin_access_not_allowed_mces.json",
                 },
             },
         }
@@ -991,7 +991,7 @@ def test_admin_access_is_not_allowed(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/golden_test_admin_access_not_allowed_mces.json",
+        output_path=f"{tmp_path}/powerbi_admin_access_not_allowed_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
@@ -1199,7 +1199,7 @@ def test_server_to_platform_map(
     dataset_type_mapping_set_to_all_platform(pipeline)
 
 
-def reports_with_failed_page_request(pipeline: Pipeline) -> None:
+def validate_pipeline(pipeline: Pipeline) -> None:
     mock_workspace: Workspace = Workspace(
         id="64ED5CAD-7C10-4684-8180-826122881108",
         name="demo-workspace",
@@ -1388,4 +1388,4 @@ def test_reports_with_failed_page_request(
         }
     )
 
-    reports_with_failed_page_request(pipeline)
+    validate_pipeline(pipeline)
