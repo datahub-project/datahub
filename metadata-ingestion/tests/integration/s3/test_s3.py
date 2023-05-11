@@ -151,7 +151,7 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
         output_path=f"{tmp_path}/{source_file}",
         golden_path=f"{test_resources_dir}/golden-files/local/golden_mces_{source_file}",
         ignore_paths=[
-            r"root\[\d+\]\['aspect'\]['json'\]['lastUpdatedTimestamp'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
             r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
             # root[41]['aspect']['json']['fieldProfiles'][0]['sampleValues'][0]
             r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",

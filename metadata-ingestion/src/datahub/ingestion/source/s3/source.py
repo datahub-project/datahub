@@ -124,7 +124,6 @@ _field_type_mapping = {
     StructField: RecordTypeClass,
     StructType: RecordTypeClass,
 }
-SAMPLE_SIZE = 100
 PAGE_SIZE = 1000
 
 
@@ -707,7 +706,7 @@ class S3Source(StatefulIngestionSourceBase):
             return folder
 
     def s3_browser(
-        self, path_spec: PathSpec, sample_size: int = SAMPLE_SIZE
+        self, path_spec: PathSpec, sample_size: int
     ) -> Iterable[Tuple[str, datetime, int]]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
