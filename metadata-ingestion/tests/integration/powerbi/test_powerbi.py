@@ -510,8 +510,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "id": "5b218778-e7a5-4d73-8187-f10824047715",
                         "name": "SalesMarketing",
                         "description": "Acryl sales marketing report",
-                        "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                        "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
                     }
                 ]
             },
@@ -524,8 +524,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
                 "name": "SalesMarketing",
                 "description": "Acryl sales marketing report",
-                "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
@@ -979,7 +979,7 @@ def test_admin_access_is_not_allowed(
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"{tmp_path}/powerbi_admin_access_not_allowed_mces.json",
+                    "filename": f"{tmp_path}/golden_test_admin_access_not_allowed_mces.json",
                 },
             },
         }
@@ -991,7 +991,7 @@ def test_admin_access_is_not_allowed(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/powerbi_admin_access_not_allowed_mces.json",
+        output_path=f"{tmp_path}/golden_test_admin_access_not_allowed_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
