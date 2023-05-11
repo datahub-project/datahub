@@ -749,7 +749,7 @@ class SnowflakeQuery:
                 downstream_column_name,
                 ANY_VALUE(query_start_time),
                 query_id,
-                ARRAY_AGG(
+                ARRAY_UNIQUE_AGG(
                     OBJECT_CONSTRUCT(
                         'object_name', upstream_column_table_name,
                         'object_domain', upstream_column_object_domain,
