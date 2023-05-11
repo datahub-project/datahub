@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -24,6 +25,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.r2.RemoteInvocationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -155,6 +157,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         String.format("Browsing entities entityName: %s, path: %s, filters: %s, from: %s, size: %s", entityName,
             path, filters, from, size));
     return esBrowseDAO.browse(entityName, path, filters, from, size);
+  }
+
+  @Nonnull
+  @Override
+  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count){
+    return esBrowseDAO.browseV2(path, filter, input, start, count);
   }
 
   @Nonnull

@@ -292,8 +292,8 @@ public class SettingsBuilder {
 
     tokenizers.put(UNIT_SEPARATOR_TOKENIZER,
         ImmutableMap.<String, Object>builder()
-                .put(TYPE, PATTERN)
-                .put(PATTERN, "[␟]")
+                .put(TYPE, PATH_HIERARCHY_TOKENIZER)
+                .put(DELIMITER, "␟")
                 .build());
 
     tokenizers.put(UNIT_SEPARATOR_PATH_TOKENIZER,

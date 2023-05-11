@@ -1,11 +1,14 @@
 package com.linkedin.metadata.search;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.r2.RemoteInvocationException;
+
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -152,6 +155,18 @@ public interface EntitySearchService {
   @Nonnull
   BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
       int size);
+
+  /**
+   * Gets browse snapshot of a given path
+   *
+   * @param path path being browsed
+   * @param filter browse filter
+   * @param input search query
+   * @param start start offset of first group
+   * @param count max number of results requested
+   */
+  @Nonnull
+  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count);
 
   /**
    * Gets a list of paths for a given urn.

@@ -10,8 +10,12 @@ import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.browse.BrowseResultGroup;
 import com.linkedin.metadata.browse.BrowseResultGroupArray;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -52,9 +56,15 @@ public class ESBrowseDAO {
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
+  @Nonnull
+  private final SearchConfiguration searchConfiguration;
+  @Nullable
+  private final CustomSearchConfiguration customSearchConfiguration;
 
   private static final String BROWSE_PATH = "browsePaths";
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
+  private static final String BROWSE_PATH_V2 = "browsePathV2";
+  private static final String BROWSE_PATH_V2_DEPTH = "browsePathV2.length";
   private static final String URN = "urn";
   private static final String REMOVED = "removed";
 
@@ -335,5 +345,92 @@ public class ESBrowseDAO {
       return Collections.emptyList();
     }
     return (List<String>) sourceMap.get(BROWSE_PATH);
+  }
+
+  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count){
+    try {
+      final SearchResponse groupsResponse;
+      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
+        final String finalInput = input.isEmpty() ? "*" : input;
+        groupsResponse =
+            client.search(constructGroupsSearchRequestV2(path, filter, finalInput), RequestOptions.DEFAULT);
+      }
+
+      final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, start, count);
+      final int numGroups = browseGroupsResult.getTotalGroups();
+
+      return new BrowseResult().setMetadata(
+              new BrowseResultMetadata().setTotalNumEntities(browseGroupsResult.getTotalNumEntities()).setPath(path))
+//          .setEntities(new BrowseResultEntityArray(browseResultEntityList))
+          .setGroups(new BrowseResultGroupArray(browseGroupsResult.getGroups()))
+//          .setNumEntities(numEntities)
+          .setNumGroups(numGroups)
+//          .setNumElements(numGroups + numEntities)
+          .setFrom(start)
+          .setPageSize(count);
+    } catch (Exception e) {
+      log.error("Browse query failed: " + e.getMessage());
+      throw new ESQueryException("Browse query failed: ", e);
+    }
+  }
+
+  @Nonnull
+  private SearchRequest constructGroupsSearchRequestV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
+    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec("dataset"));
+    final SearchRequest searchRequest = new SearchRequest(indexName);
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.size(0);
+    searchSourceBuilder.query(buildQueryStringV2(path, filter, input));
+    searchSourceBuilder.aggregation(buildAggregationsV2(path));
+    searchRequest.source(searchSourceBuilder);
+    return searchRequest;
+  }
+
+  private static int getPathDepthV2(@Nonnull String path) {
+    return StringUtils.countMatches(path, "␟");
+  }
+
+  @Nonnull
+  private QueryBuilder buildQueryStringV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
+    final int browseDepthVal = getPathDepthV2(path);
+
+    final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+
+    // TODO - add entity names to be passed down
+//    EntitySpec entitySpec = entityRegistry.getEntitySpec("dataset");
+//    QueryBuilder query = SearchRequestHandler
+//        .getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
+//        .getQuery(input, false);
+//    queryBuilder.must(query);
+
+    queryBuilder.mustNot(QueryBuilders.termQuery(REMOVED, "true"));
+
+    if (!path.isEmpty()) {
+      // this is our perp
+      queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH_V2, path));
+    }
+
+    queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
+
+//    queryBuilder.must(SearchRequestHandler.getFilterQuery(filter));
+
+    return queryBuilder;
+  }
+
+  @Nonnull
+  private AggregationBuilder buildAggregationsV2(@Nonnull String path) {
+    final String currentLevel = ESUtils.escapeReservedCharacters(path) + "␟.*";
+    final String nextLevel = ESUtils.escapeReservedCharacters(path) + "␟.*␟.*";
+//    final String nextNextLevel = ESUtils.escapeReservedCharacters(path) + "␟.*␟.*␟.*";
+
+    return AggregationBuilders.terms(GROUP_AGG)
+        .field(BROWSE_PATH_V2)
+        .size(AGGREGATION_MAX_SIZE)
+//        .subAggregation(
+//            AggregationBuilders.terms(GROUP_AGG)
+//                .field(BROWSE_PATH_V2)
+//                .size(AGGREGATION_MAX_SIZE)
+//                .includeExclude(new IncludeExclude(nextLevel, nextNextLevel)))
+        .includeExclude(new IncludeExclude(currentLevel, nextLevel));
   }
 }

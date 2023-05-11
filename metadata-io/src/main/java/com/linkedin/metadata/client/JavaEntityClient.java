@@ -190,6 +190,24 @@ public class JavaEntityClient implements EntityClient {
             _cachingEntitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit, null), _entityService);
     }
 
+
+    /**
+     * Gets browse V2 snapshot of a given path
+     *
+     * @param path path being browsed
+     * @param filter browse filter
+     * @param input search query
+     * @param start start offset of first group
+     * @param count max number of results requested
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter,
+         @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
+        // TODO: cache browseV2 results
+        return _entitySearchService.browseV2(path, filter, input, start, count);
+    }
+
     @SneakyThrows
     @Deprecated
     public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)

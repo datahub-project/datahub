@@ -112,6 +112,21 @@ public interface EntityClient {
       @Nullable Map<String, String> requestFilters, int start, int limit, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
+  /**
+   * Gets browse snapshot of a given path
+   *
+   * @param path path being browsed
+   * @param filter browse filter
+   * @param input search query
+   * @param start start offset of first group
+   * @param count max number of results requested
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter,
+     @Nonnull String input, int start, int count, @Nonnull Authentication authentication)
+      throws RemoteInvocationException;
+
   @Deprecated
   public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
