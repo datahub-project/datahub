@@ -159,7 +159,7 @@ export const SearchPage = () => {
                 viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
-                filters={data?.searchAcrossEntities?.facets}
+                facets={data?.searchAcrossEntities?.facets}
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}

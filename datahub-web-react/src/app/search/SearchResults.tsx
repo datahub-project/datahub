@@ -21,7 +21,7 @@ import { useUserContext } from '../context/useUserContext';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
-import BrowseSidebar from './BrowseSidebar';
+import BrowseSidebar from './sidebar/BrowseSidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
@@ -104,7 +104,7 @@ interface Props {
             matchedFields: MatchedField[];
         }[];
     } | null;
-    filters?: Array<FacetMetadata> | null;
+    facets?: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;
     loading: boolean;
     error: any;
@@ -128,7 +128,7 @@ export const SearchResults = ({
     viewUrn,
     page,
     searchResponse,
-    filters,
+    facets,
     selectedFilters,
     loading,
     error,
@@ -169,7 +169,7 @@ export const SearchResults = ({
                     {!showSearchFiltersV2 && (
                         <div id={SEARCH_RESULTS_FILTERS_ID}>
                             <SearchFiltersSection
-                                filters={filters}
+                                filters={facets}
                                 selectedFilters={selectedFilters}
                                 unionType={unionType}
                                 loading={loading}
@@ -178,7 +178,7 @@ export const SearchResults = ({
                             />
                         </div>
                     )}
-                    {showBrowseV2 && <BrowseSidebar visible={isSidebarOpen} width={360} />}
+                    {showBrowseV2 && <BrowseSidebar facets={facets} visible={isSidebarOpen} width={360} />}
                     <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
                         <PaginationInfoContainer>
                             <LeftControlsContainer>
