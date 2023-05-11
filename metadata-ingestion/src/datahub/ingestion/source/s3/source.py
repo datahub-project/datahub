@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import re
+import time
 from collections import OrderedDict
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -49,7 +50,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
 from datahub.ingestion.source.aws.s3_util import (
@@ -63,9 +64,13 @@ from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -81,10 +86,19 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     MapTypeClass,
+    OperationClass,
+    OperationTypeClass,
     OtherSchemaClass,
+    _Aspect,
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -186,7 +200,12 @@ class TableData:
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
-class S3Source(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
+class S3Source(StatefulIngestionSourceBase):
     """
     This plugin extracts:
 
@@ -224,7 +243,7 @@ class S3Source(Source):
     container_WU_creator: ContainerWUCreator
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
@@ -237,6 +256,15 @@ class S3Source(Source):
         telemetry.telemetry_instance.ping(
             "data_lake_config",
             config_report,
+        )
+
+        # Create and register the stateful ingestion use-case handler.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
         )
 
         if config.profiling.enabled:
@@ -517,9 +545,31 @@ class S3Source(Source):
         self.report.report_workunit(wu)
         yield wu
 
+    def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
+        """Produce an operation aspect for a table.
+        If a last updated time is present, we produce an update operation.
+        Otherwise, we produce a create operation. We do this in addition to
+        setting the last updated time in the dataset properties aspect, as
+        the UI is currently missing the ability to display the last updated
+        from the properties aspect.
+        """
+
+        reported_time = int(time.time() * 1000)
+
+        operation = OperationClass(
+            timestampMillis=reported_time,
+            lastUpdatedTimestamp=int(table_data.timestamp.timestamp() * 1000),
+            # actor=make_user_urn(table_data.created_by),
+            operationType=OperationTypeClass.UPDATE,
+        )
+
+        return operation
+
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
+        aspects: list[Optional[_Aspect]] = []
+
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_s3_prefix(table_data.table_path)
@@ -536,11 +586,6 @@ class S3Source(Source):
             self.source_config.env,
         )
 
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],
-        )
-
         customProperties: Optional[Dict[str, str]] = None
         if not path_spec.sample_files:
             customProperties = {
@@ -555,7 +600,7 @@ class S3Source(Source):
             name=table_data.display_name,
             customProperties=customProperties,
         )
-        dataset_snapshot.aspects.append(dataset_properties)
+        aspects.append(dataset_properties)
 
         fields = self.get_fields(table_data, path_spec)
         schema_metadata = SchemaMetadata(
@@ -566,7 +611,8 @@ class S3Source(Source):
             fields=fields,
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
-        dataset_snapshot.aspects.append(schema_metadata)
+        aspects.append(schema_metadata)
+
         if (
             self.source_config.use_s3_bucket_tags
             or self.source_config.use_s3_object_tags
@@ -587,19 +633,23 @@ class S3Source(Source):
                 self.source_config.use_s3_object_tags,
                 self.source_config.verify_ssl,
             )
-            if s3_tags is not None:
-                dataset_snapshot.aspects.append(s3_tags)
+            if s3_tags:
+                aspects.append(s3_tags)
 
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=table_data.table_path, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        operation = self._create_table_operation_aspect(table_data)
+        aspects.append(operation)
+        yield from [
+            mcp.as_workunit()
+            for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dataset_urn,
+                aspects=aspects,
+            )
+        ]
 
         container_wus = self.container_WU_creator.create_container_hierarchy(
             table_data.table_path, dataset_urn
         )
         for wu in container_wus:
-            self.report.report_workunit(wu)
             yield wu
 
         if self.source_config.profiling.enabled:
@@ -664,7 +714,9 @@ class S3Source(Source):
         else:
             return folder
 
-    def s3_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
+    def s3_browser(
+        self, path_spec: PathSpec, sample_size: int = SAMPLE_SIZE
+    ) -> Iterable[Tuple[str, datetime, int]]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource(
@@ -747,7 +799,7 @@ class S3Source(Source):
                         os.path.getmtime(full_path)
                     ), os.path.getsize(full_path)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
             self.source_config.platform,
             self.source_config.platform_instance,
@@ -757,7 +809,9 @@ class S3Source(Source):
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
                 file_browser = (
-                    self.s3_browser(path_spec)
+                    self.s3_browser(
+                        path_spec, self.source_config.number_of_files_to_sample
+                    )
                     if self.is_s3_platform()
                     else self.local_browser(path_spec)
                 )
@@ -837,6 +891,17 @@ class S3Source(Source):
                     **time_percentiles,
                 },
             )
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_workunit_reporter(
+                    self.report,
+                    auto_status_aspect(self.get_workunits_internal()),
+                ),
+            )
+        )
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"

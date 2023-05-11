@@ -11,14 +11,21 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class DataLakeSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
-
+class DataLakeSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+):
     platform: str = Field(
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
@@ -28,6 +35,7 @@ class DataLakeSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
         default=None, description="AWS configuration"
     )
 
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
     # Whether or not to create in datahub from the s3 bucket
     use_s3_bucket_tags: Optional[bool] = Field(
         None, description="Whether or not to create tags in datahub from the s3 bucket"
@@ -64,6 +72,11 @@ class DataLakeSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
     verify_ssl: Union[bool, str] = Field(
         default=True,
         description="Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.",
+    )
+
+    number_of_files_to_sample: int = Field(
+        default=100,
+        description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
     )
 
     _rename_path_spec_to_plural = pydantic_renamed_field(
