@@ -568,7 +568,7 @@ class S3Source(StatefulIngestionSourceBase):
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
-        aspects: list[Optional[_Aspect]] = []
+        aspects: List[Optional[_Aspect]] = []
 
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
