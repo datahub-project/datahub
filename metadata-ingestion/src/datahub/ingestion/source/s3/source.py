@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydeequ
+from more_itertools import peekable
 from pydeequ.analyzers import AnalyzerContext
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
@@ -649,6 +650,20 @@ class S3Source(Source):
                 bucket_name, f"{folder}{folder_split[1]}"
             )
 
+    def get_dir_to_process(self, bucket_name: str, folder: str) -> str:
+        iterator = list_folders(
+            bucket_name=bucket_name,
+            prefix=folder,
+            aws_config=self.source_config.aws_config,
+        )
+        iterator = peekable(iterator)
+        if iterator:
+            for item in iterator:
+                last = item
+            return self.get_dir_to_process(bucket_name=bucket_name, folder=last + "/")
+        else:
+            return folder
+
     def s3_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
@@ -690,9 +705,13 @@ class S3Source(Source):
                     bucket_name, f"{folder}", self.source_config.aws_config
                 ):
                     logger.info(f"Processing folder: {f}")
-
+                    dir_to_process = self.get_dir_to_process(
+                        bucket_name=bucket_name, folder=f
+                    )
+                    logger.info(f"Getting files from folder: {dir_to_process}")
+                    dir_to_process = dir_to_process.rstrip("\\")
                     for obj in (
-                        bucket.objects.filter(Prefix=f"{f}")
+                        bucket.objects.filter(Prefix=f"{dir_to_process}")
                         .page_size(PAGE_SIZE)
                         .limit(SAMPLE_SIZE)
                     ):
