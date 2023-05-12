@@ -7,6 +7,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
                 "number_of_files": "1",
                 "size_in_bytes": "3575"
             },
@@ -2415,6 +2416,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
                 "number_of_files": "1",
                 "size_in_bytes": "1024"
             },
@@ -2899,6 +2901,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
                 "number_of_files": "1",
                 "size_in_bytes": "604"
             },
@@ -3399,6 +3402,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json",
                 "number_of_files": "1",
                 "size_in_bytes": "4646"
             },
@@ -3558,6 +3562,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet",
                 "number_of_files": "1",
                 "size_in_bytes": "4206"
             },
@@ -4012,6 +4017,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv",
                 "number_of_files": "1",
                 "size_in_bytes": "172"
             },
@@ -4325,6 +4331,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv",
                 "number_of_files": "1",
                 "size_in_bytes": "34056"
             },

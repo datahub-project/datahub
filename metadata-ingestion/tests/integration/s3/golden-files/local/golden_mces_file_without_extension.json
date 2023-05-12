@@ -7,6 +7,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small",
                 "number_of_files": "1",
                 "size_in_bytes": "172"
             },

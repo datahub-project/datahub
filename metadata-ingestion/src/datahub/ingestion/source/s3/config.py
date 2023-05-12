@@ -48,7 +48,7 @@ class DataLakeSourceConfig(
 
     # Whether to update the table schema when schema in files within the partitions are updated
     update_schema_on_partition_file_updates: Optional[bool] = Field(
-        default=False,
+        default=True,
         description="Whether to update the table schema when schema in files within the partitions are updated.",
     )
 

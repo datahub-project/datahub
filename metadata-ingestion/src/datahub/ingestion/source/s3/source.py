@@ -578,15 +578,15 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
         customProperties: Optional[Dict[str, str]] = None
+        customProperties = {"schema_inferred_from": str(table_data.full_path)}
+
         if not path_spec.sample_files:
-            customProperties = {
-                "number_of_files": str(table_data.number_of_files),
-                "size_in_bytes": str(table_data.size_in_bytes),
-            }
-        if self.is_s3_platform():
-            if customProperties is None:
-                customProperties = {}
-            customProperties["schema_inferred_from"] = str(table_data.full_path)
+            customProperties.update(
+                {
+                    "number_of_files": str(table_data.number_of_files),
+                    "size_in_bytes": str(table_data.size_in_bytes),
+                }
+            )
 
         dataset_properties = DatasetPropertiesClass(
             description="",
@@ -818,17 +818,6 @@ class S3Source(StatefulIngestionSourceBase):
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
-                        logger.debug(
-                            f"Update schema on partition file updates is set to: {self.source_config.update_schema_on_partition_file_updates!s}"
-                        )
-                        if (
-                            self.source_config.update_schema_on_partition_file_updates
-                            and not path_spec.sample_files
-                        ):
-                            logger.info(
-                                "Will update table schema as file within the partitions has an updated schema."
-                            )
-                            table_dict[table_data.table_path] = table_data
                         table_dict[table_data.table_path].number_of_files = (
                             table_dict[table_data.table_path].number_of_files + 1
                         )
