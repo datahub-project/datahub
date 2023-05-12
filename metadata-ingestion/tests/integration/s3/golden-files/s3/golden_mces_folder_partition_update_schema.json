@@ -6,11 +6,7 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "customProperties": {
-                "number_of_files": "2",
-                "size_in_bytes": "29080",
-                "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json"
-            },
+            "customProperties": {},
             "name": "folder_aaa.pokemon_abilities_json",
             "description": "",
             "tags": []
@@ -559,7 +555,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1683798420000
+            "lastUpdatedTimestamp": 1683882276000
         }
     },
     "systemMetadata": {
