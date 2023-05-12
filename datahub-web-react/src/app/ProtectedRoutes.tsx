@@ -21,7 +21,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                 <Layout>
                     <Switch>
                         <Route exact path="/" render={() => <HomePage />} />
-                        <Route exact path={`${PageRoutes.EMBED_LOOKUP}/:url`} render={() => <EmbedLookup />} />
+                        <Route exact path={PageRoutes.EMBED_LOOKUP} render={() => <EmbedLookup />} />
                         {entityRegistry.getEntities().map((entity) => (
                             <Route
                                 key={`${entity.getPathName()}/${PageRoutes.EMBED}`}
