@@ -583,8 +583,10 @@ class S3Source(StatefulIngestionSourceBase):
                 "number_of_files": str(table_data.number_of_files),
                 "size_in_bytes": str(table_data.size_in_bytes),
             }
-            if self.is_s3_platform():
-                customProperties["table_path"] = str(table_data.table_path)
+        if self.is_s3_platform():
+            if customProperties is None:
+                customProperties = {}
+            customProperties["schema_inferred_from"] = str(table_data.full_path)
 
         dataset_properties = DatasetPropertiesClass(
             description="",

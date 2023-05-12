@@ -9,7 +9,7 @@
             "customProperties": {
                 "number_of_files": "1",
                 "size_in_bytes": "1024",
-                "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro"
             },
             "name": "chord_progressions_avro.avro",
             "description": "",
@@ -149,7 +149,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1683798420000
+            "lastUpdatedTimestamp": 1683887704000
         }
     },
     "systemMetadata": {
@@ -495,7 +495,7 @@
             "customProperties": {
                 "number_of_files": "1",
                 "size_in_bytes": "604",
-                "table_path": "s3://my-test-bucket-2/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv"
+                "schema_inferred_from": "s3://my-test-bucket-2/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv"
             },
             "name": "chord_progressions_csv.csv",
             "description": "",
@@ -635,7 +635,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1683798420000
+            "lastUpdatedTimestamp": 1683887704000
         }
     },
     "systemMetadata": {

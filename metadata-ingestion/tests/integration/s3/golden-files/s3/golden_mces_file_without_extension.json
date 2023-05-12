@@ -9,7 +9,7 @@
             "customProperties": {
                 "number_of_files": "1",
                 "size_in_bytes": "172",
-                "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small"
             },
             "name": "small",
             "description": "",
@@ -127,7 +127,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1683798420000
+            "lastUpdatedTimestamp": 1683887704000
         }
     },
     "systemMetadata": {
