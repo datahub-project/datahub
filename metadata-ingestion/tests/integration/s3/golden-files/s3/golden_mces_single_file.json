@@ -130,8 +130,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"bucket_name\": \"my-test-bucket\"}, \"name\": \"my-test-bucket\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "bucket_name": "my-test-bucket"
+            },
+            "name": "my-test-bucket"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -144,8 +150,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -158,8 +165,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -172,8 +180,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"S3 bucket\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "S3 bucket"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -186,8 +197,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a\"}, \"name\": \"folder_a\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "folder_abs_path": "my-test-bucket/folder_a"
+            },
+            "name": "folder_a"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -200,8 +217,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -214,8 +232,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -228,8 +247,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -242,8 +264,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:2151647ff17bde0f948909d19fa91b9b\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -256,8 +279,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
+            },
+            "name": "folder_aa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -270,8 +299,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -284,8 +314,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -298,8 +329,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -312,8 +346,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -326,8 +361,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -340,8 +381,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -354,8 +396,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -368,8 +411,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -382,8 +428,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -396,8 +443,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

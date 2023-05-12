@@ -440,7 +440,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_id=schema,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_key(self, database: str) -> PlatformKey:
@@ -448,7 +449,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=database,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:

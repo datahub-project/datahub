@@ -117,8 +117,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests\"}, \"name\": \"tests\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests"
+            },
+            "name": "tests"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -131,8 +138,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -145,8 +153,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -159,8 +169,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -173,8 +186,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration\"}, \"name\": \"integration\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration"
+            },
+            "name": "integration"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -187,8 +207,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -201,8 +222,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -215,8 +238,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -229,8 +255,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -243,8 +270,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3\"}, \"name\": \"s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration/s3"
+            },
+            "name": "s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -257,8 +291,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -271,8 +306,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -285,8 +322,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -299,8 +339,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:09bc75f9aaf92d57502aad33cab2e999\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -313,8 +354,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data\"}, \"name\": \"test_data\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration/s3/test_data"
+            },
+            "name": "test_data"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -327,8 +375,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -341,8 +390,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -355,8 +406,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -369,8 +423,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:564adc1710f345e4777dbdc81a4b20db\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -383,8 +438,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system\"}, \"name\": \"local_system\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system"
+            },
+            "name": "local_system"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -397,8 +459,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -411,8 +474,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -425,8 +490,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -439,8 +507,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:c46207c164682005e865a54fcf7f4a9f\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -453,8 +522,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a\"}, \"name\": \"folder_a\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a"
+            },
+            "name": "folder_a"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -467,8 +543,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -481,8 +558,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -495,8 +574,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -509,8 +591,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:fd50ce59cb982671fc700636ab5744e2\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -523,8 +606,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa"
+            },
+            "name": "folder_aa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -537,8 +627,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -551,8 +642,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -565,8 +658,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -579,8 +675,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:34dcc9e05fe0d390619cbe1210771ba1\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -593,8 +690,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -607,8 +711,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -621,8 +726,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -635,8 +742,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -649,8 +759,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:ec0a322960f194cdd055a5a6d5172ecb\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -663,8 +774,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension\"}, \"name\": \"no_extension\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension"
+            },
+            "name": "no_extension"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -677,8 +795,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -691,8 +810,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -705,8 +826,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -719,8 +843,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:46c2438600873ee3264c24c4ac6081b9\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -733,8 +858,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:0715c65c4403307618fe7203ff768eaa\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:0715c65c4403307618fe7203ff768eaa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

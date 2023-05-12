@@ -58,26 +58,24 @@ class PlatformKey(DatahubKey):
     platform: str
     instance: Optional[str] = None
 
+    env: Optional[str] = None
+
     # BUG: In some of our sources, we incorrectly set the platform instance
-    # to the env if no platform instance was specified. Now, we have to maintain
+    # to the env if the platform instance was not specified. Now, we have to maintain
     # backwards compatibility with this bug, which means generating our GUIDs
-    # in the same way. Specifically, we need to use the backcompat value if
-    # the normal instance value is not set.
-    backcompat_instance_for_guid: Optional[str] = Field(default=None, exclude=True)
+    # in the same way.
+    backcompat_env_as_instance: bool = Field(default=False, exclude=True)
 
     def guid_dict(self) -> Dict[str, str]:
-        # FIXME: Notice that we can't use exclude_none=True here. This is because
-        # we need to maintain the insertion order in the dict (so that instance)
-        # comes before the keys from any subclasses. While the guid computation
-        # method uses sort_keys=True, we also use the guid_dict method when
-        # generating custom properties, which are not sorted.
-        bag = self.dict(by_alias=True, exclude_none=False)
+        bag = self.dict(by_alias=True, exclude_none=True, exclude={"env"})
 
-        if self.instance is None:
-            bag["instance"] = self.backcompat_instance_for_guid
+        if self.backcompat_env_as_instance and self.instance is None and self.env is not None:
+            bag["instance"] = self.env
 
-        bag = {k: v for k, v in bag.items() if v is not None}
         return bag
+
+    def property_dict(self) -> Dict[str, str]:
+        return self.dict(by_alias=True, exclude_none=True)
 
 
 class DatabaseKey(PlatformKey):
@@ -207,7 +205,7 @@ def gen_containers(
             name=name,
             description=description,
             customProperties={
-                **container_key.guid_dict(),
+                **container_key.property_dict(),
                 **(extra_properties or {}),
             },
             externalUrl=external_url,
