@@ -42,7 +42,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 import static org.testng.Assert.*;
 

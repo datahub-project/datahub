@@ -69,7 +69,7 @@ import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_SUFFIX;
 import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
-import static com.linkedin.metadata.utils.SearchUtil.createFilterValue;
+import static com.linkedin.metadata.utils.SearchUtil.*;
 
 
 @Slf4j
@@ -107,7 +107,7 @@ public class SearchRequestHandler {
     _filtersToDisplayName = annotations.stream()
         .filter(SearchableAnnotation::isAddToFilters)
         .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
-    _filtersToDisplayName.put("_entityType", "Entity Type");
+    _filtersToDisplayName.put("_entityType", "Type");
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
@@ -490,6 +490,16 @@ public class SearchRequestHandler {
     return searchResultMetadata;
   }
 
+  private String computeDisplayName(String name) {
+    if (_filtersToDisplayName.containsKey(name)) {
+      return _filtersToDisplayName.get(name);
+    } else if (name.contains(AGGREGATION_SEPARATOR_CHAR)) {
+      return Arrays.stream(name.split(AGGREGATION_SEPARATOR_CHAR)).map(_filtersToDisplayName::get).collect(
+          Collectors.joining(AGGREGATION_SEPARATOR_CHAR));
+    }
+    return name;
+  }
+
   private List<AggregationMetadata> extractAggregationMetadata(@Nonnull SearchResponse searchResponse, @Nullable Filter filter) {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
 
@@ -503,7 +513,7 @@ public class SearchRequestHandler {
         continue;
       }
       final AggregationMetadata aggregationMetadata = new AggregationMetadata().setName(entry.getKey())
-          .setDisplayName(_filtersToDisplayName.get(entry.getKey()))
+         .setDisplayName(computeDisplayName(entry.getKey()))
           .setAggregations(new LongMap(oneTermAggResult))
           .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
       aggregationMetadataList.add(aggregationMetadata);
