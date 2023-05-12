@@ -5,26 +5,29 @@ import TabItem from '@theme/TabItem';
 
 ## Why Would You Integrate ML System with DataHub?
 
-The Deprecation feature on DataHub indicates the status of an entity. For datasets, keeping the deprecation status up-to-date is important to inform users and downstream systems of changes to the dataset's availability or reliability. By updating the status, you can communicate changes proactively, prevent issues and ensure users are always using highly trusted data assets.
+Machine learning systems have become a crucial feature in modern data stacks.
+However, the relationships between the different components of a machine learning system, such as features, models, and feature tables, can be complex.
+Thus, it is essential for these systems to be discoverable to facilitate easy access and utilization by other members of the organization.
+
+For more information on ML entities, please refer to the following docs:
+
+- [MlFeature](/docs/generated/metamodel/entities/mlFeature.md)
+- [MlFeatureTable](/docs/generated/metamodel/entities/mlFeatureTable.md)
+- [MlModel](/docs/generated/metamodel/entities/mlModel.md)
+- [MlModelGroup](/docs/generated/metamodel/entities/mlModelGroup.md)
 
 ### Goal Of This Guide
 
 This guide will show you how to
 
-- create ML entities: [MlFeature](/docs/generated/metamodel/entities/mlFeature.md), [MlFeatureTable](/docs/generated/metamodel/entities/mlFeatureTable.md), [MlModel](/docs/generated/metamodel/entities/mlModel.md), [MlModelGroup](/docs/generated/metamodel/entities/mlModelGroup.md)
-- read ML entities
-- attach MlFeatureTable or MlModel to MlFeature
+- Create ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup
+- Read ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup
+- Attach MlFeatureTable or MlModel to MlFeature
 
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
-
-:::note
-Before updating deprecation, you need to ensure the targeted dataset is already present in your datahub.
-If you attempt to manipulate entities that do not exist, your operation will fail.
-In this guide, we will be using data from a sample ingestion.
-:::
 
 ## Create ML Entities
 
@@ -36,6 +39,8 @@ In this guide, we will be using data from a sample ingestion.
 ```python
 {{ inline /metadata-ingestion/examples/library/create_mlfeature.py show_path_as_comment }}
 ```
+
+Note that when creating a feature, you can access a list of data sources using `sources`.
 
 </TabItem>
 </Tabs>
@@ -49,6 +54,8 @@ In this guide, we will be using data from a sample ingestion.
 {{ inline /metadata-ingestion/examples/library/create_mlfeature_table.py show_path_as_comment }}
 ```
 
+Note that when creating a feature table, you can access a list of features using `mlFeatures`.
+
 </TabItem>
 </Tabs>
 
@@ -60,6 +67,9 @@ In this guide, we will be using data from a sample ingestion.
 ```python
 {{ inline /metadata-ingestion/examples/library/create_mlmodel.py show_path_as_comment }}
 ```
+
+Note that when creating a model, you can access a list of features using `mlFeatures`.
+Additionally, you can access the relationship to model groups with `groups`.
 
 </TabItem>
 </Tabs>
@@ -76,6 +86,14 @@ In this guide, we will be using data from a sample ingestion.
 </TabItem>
 </Tabs>
 
+### Expected Outcome of creating entities
+
+You can search the entities in DataHub UI.
+
+![feature-table-created](../../imgs/apis/tutorials/feature-table-created.png)
+
+![model-group-created](../../imgs/apis/tutorials/model-group-created.png)
+
 ## Read ML Entities
 
 ### Read MLFeature
@@ -84,7 +102,7 @@ In this guide, we will be using data from a sample ingestion.
 <TabItem value="graphql" label="GraphQL" default>
 
 ```json
-{
+query {
   mlFeature(urn: "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)"){
     name
     featureNamespace
@@ -100,8 +118,57 @@ In this guide, we will be using data from a sample ingestion.
 }
 ```
 
+Expected response:
+
+```json
+{
+  "data": {
+    "mlFeature": {
+      "name": "test_BOOL_LIST_feature",
+      "featureNamespace": "test_feature_table_all_feature_dtypes",
+      "description": null,
+      "properties": {
+        "description": null,
+        "dataType": "SEQUENCE",
+        "version": null
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
 </TabItem>
 <TabItem value="curl" label="Curl" default>
+
+```json
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": "{ mlFeature(urn: \"urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)\") { name featureNamespace description properties { description dataType version { versionTag } } } }"
+}'
+```
+
+Expected response:
+
+```json
+{
+  "data": {
+    "mlFeature": {
+      "name": "test_BOOL_LIST_feature",
+      "featureNamespace": "test_feature_table_all_feature_dtypes",
+      "description": null,
+      "properties": {
+        "description": null,
+        "dataType": "SEQUENCE",
+        "version": null
+      }
+    }
+  },
+  "extensions": {}
+}
+```
 
 </TabItem>
 <TabItem value="python" label="Python">
@@ -119,7 +186,7 @@ In this guide, we will be using data from a sample ingestion.
 <TabItem value="graphql" label="GraphQL" default>
 
 ```json
-{
+query {
   mlFeatureTable(urn: "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)"){
     name
     description
@@ -136,8 +203,75 @@ In this guide, we will be using data from a sample ingestion.
 }
 ```
 
+Expected Response:
+
+```json
+{
+  "data": {
+    "mlFeatureTable": {
+      "name": "test_feature_table_all_feature_dtypes",
+      "description": null,
+      "platform": {
+        "name": "feast"
+      },
+      "properties": {
+        "description": null,
+        "mlFeatures": [
+          {
+            "name": "test_BOOL_LIST_feature"
+          },
+          ...
+          {
+            "name": "test_STRING_feature"
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
 </TabItem>
 <TabItem value="curl" label="Curl">
+
+```json
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": "{ mlFeatureTable(urn: \"urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)\") { name description platform { name } properties { description mlFeatures { name } } } }"
+}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "mlFeatureTable": {
+      "name": "test_feature_table_all_feature_dtypes",
+      "description": null,
+      "platform": {
+        "name": "feast"
+      },
+      "properties": {
+        "description": null,
+        "mlFeatures": [
+          {
+            "name": "test_BOOL_LIST_feature"
+          },
+          ...
+          {
+            "name": "test_STRING_feature"
+          }
+        ]
+      }
+    }
+  },
+  "extensions": {}
+}
+```
 
 </TabItem>
 <TabItem value="python" label="Python">
@@ -155,7 +289,7 @@ In this guide, we will be using data from a sample ingestion.
 <TabItem value="graphql" label="GraphQL" default>
 
 ```json
-{
+query {
   mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)"){
     name
     description
@@ -173,8 +307,59 @@ In this guide, we will be using data from a sample ingestion.
 }
 ```
 
+Expected Response:
+
+```json
+{
+  "data": {
+    "mlModel": {
+      "name": "scienceModel",
+      "description": "A sample model for predicting some outcome.",
+      "properties": {
+        "description": "A sample model for predicting some outcome.",
+        "version": null,
+        "type": "Naive Bayes classifier",
+        "mlFeatures": null,
+        "groups": []
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
 </TabItem>
 <TabItem value="curl" label="Curl" default>
+
+```json
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": "{ mlModel(urn: \"urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)\") { name description properties { description version type mlFeatures groups { urn name } } } }"
+}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "mlModel": {
+      "name": "scienceModel",
+      "description": "A sample model for predicting some outcome.",
+      "properties": {
+        "description": "A sample model for predicting some outcome.",
+        "version": null,
+        "type": "Naive Bayes classifier",
+        "mlFeatures": null,
+        "groups": []
+      }
+    }
+  },
+  "extensions": {}
+}
+```
 
 </TabItem>
 <TabItem value="python" label="Python">
@@ -192,8 +377,8 @@ In this guide, we will be using data from a sample ingestion.
 <TabItem value="graphql" label="GraphQL" default>
 
 ```json
-{
-  mlModelGroup(urn: "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)"){
+query {
+  mlModelGroup(urn: "urn:li:mlModelGroup:(urn:li:dataPlatform:science,my-model-group,PROD)"){
     name
     description
     platform {
@@ -206,8 +391,57 @@ In this guide, we will be using data from a sample ingestion.
 }
 ```
 
+Expected Response: (Note that this entity does not exist in the sample ingestion and you might want to create this entity first.)
+
+```json
+{
+  "data": {
+    "mlModelGroup": {
+      "name": "my-model-group",
+      "description": "my model group",
+      "platform": {
+        "name": "science"
+      },
+      "properties": {
+        "description": "my model group"
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
 </TabItem>
 <TabItem value="curl" label="Curl">
+
+```json
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": "{ mlModelGroup(urn: \"urn:li:mlModelGroup:(urn:li:dataPlatform:science,my-model-group,PROD)\") { name description platform { name } properties { description } } }"
+}'
+```
+
+Expected Response: (Note that this entity does not exist in the sample ingestion and you might want to create this entity first.)
+
+```json
+{
+  "data": {
+    "mlModelGroup": {
+      "name": "my-model-group",
+      "description": "my model group",
+      "platform": {
+        "name": "science"
+      },
+      "properties": {
+        "description": "my model group"
+      }
+    }
+  },
+  "extensions": {}
+}
+```
 
 </TabItem>
 <TabItem value="python" label="Python">
@@ -219,34 +453,48 @@ In this guide, we will be using data from a sample ingestion.
 </TabItem>
 </Tabs>
 
-## Attach ML Entities
+## Add ML Entities
 
-### Attach MlFeatureTable to MlFeature
-
-<Tabs>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/attach_mlfeature_table_to_mlfeature.py show_path_as_comment }}
-```
-
-</TabItem>
-</Tabs>
-
-### Attach MlModel to MlFeature
+### Add MlFeature to MlFeatureTable
 
 <Tabs>
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/attach_mlmodel_to_mlfeature.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/add_mlfeature_to_mlfeature_table.py show_path_as_comment }}
 ```
 
 </TabItem>
 </Tabs>
 
-### Expected Outcomes of Attaching ML Entities
+### Add MlFeature to MLModel
 
-You can now see the dataset `fct_users_created` has been marked as `Deprecated.`
+<Tabs>
+<TabItem value="python" label="Python">
 
-![tag-removed](../../imgs/apis/tutorials/deprecation-updated.png)
+```python
+{{ inline /metadata-ingestion/examples/library/add_mlfeature_to_mlmodel.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+### Add MLGroup To MLModel
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/add_mlgroup_to_mlmodel.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+### Expected Outcome of Adding ML Entities
+
+You can access to `Features` or `Group` Tab of each entity to view the added entities.
+
+![feature-added-to-model](../../imgs/apis/tutorials/feature-added-to-model.png)
+
+![model-group-added-to-model](../../imgs/apis/tutorials/model-group-added-to-model.png)

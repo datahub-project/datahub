@@ -1,21 +1,29 @@
-properties = {k.capitalize().replace("_", " "): v for k, v in properties.items()}
+import datahub.emitter.mce_builder as builder
+import datahub.metadata.schema_classes as models
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
-# Create properties object for change proposal wrapper
-feature_table_properties = MLFeatureTablePropertiesClass(
-    customProperties=properties,
-    description="Description not provided." if not urn_description else urn_description,
+# Create an emitter to DataHub over REST
+emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={})
+
+dataset_urn = builder.make_dataset_urn(
+    name="fct_users_deleted", platform="hive", env="PROD"
+)
+feature_urn = builder.make_ml_feature_urn(
+    feature_table_name="my-feature-table",
+    feature_name="my-feature",
 )
 
-# MCP creation
-mcp = MetadataChangeProposalWrapper(
-    entityType="mlFeatureTable",
-    changeType=ChangeTypeClass.UPSERT,
-    entityUrn=urn,
-    aspect=feature_table_properties,
+#  Create feature
+metadata_change_proposal = MetadataChangeProposalWrapper(
+    entityType="mlFeature",
+    changeType=models.ChangeTypeClass.UPSERT,
+    entityUrn=feature_urn,
+    aspectName="mlFeatureProperties",
+    aspect=models.MLFeaturePropertiesClass(
+        description="my feature", sources=[dataset_urn], dataType="TEXT"
+    ),
 )
-
-# Create an emitter to the GMS REST API.
-emitter = DatahubRestEmitter(self.gms_endpoint)
 
 # Emit metadata!
-emitter.emit_mcp(mcp)
+emitter.emit(metadata_change_proposal)
