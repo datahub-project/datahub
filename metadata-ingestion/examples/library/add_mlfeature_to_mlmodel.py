@@ -26,7 +26,7 @@ model_properties = graph.get_aspect(
 )
 if model_properties:
     current_features = model_properties.mlFeatures
-    print(f"current_features:", current_features)
+    print("current_features:", current_features)
     if current_features:
         feature_urns += current_features
 

@@ -26,7 +26,7 @@ target_model_properties = graph.get_aspect(
 )
 if target_model_properties:
     current_model_groups = target_model_properties.groups
-    print(f"current_model_groups:", current_model_groups)
+    print("current_model_groups:", current_model_groups)
     if current_model_groups:
         model_group_urns += current_model_groups
 
