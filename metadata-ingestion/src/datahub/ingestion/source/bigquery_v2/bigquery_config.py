@@ -28,6 +28,11 @@ class BigQueryUsageConfig(BaseUsageConfig):
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
     )
 
+    apply_view_usage_to_tables: bool = Field(
+        default=False,
+        description="Whether to apply view's usage to its base tables. If set to True, usage is not applied to views.",
+    )
+
 
 class BigQueryV2Config(
     BigQueryBaseConfig,
