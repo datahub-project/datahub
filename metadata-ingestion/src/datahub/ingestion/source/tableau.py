@@ -2308,7 +2308,10 @@ class TableauSource(StatefulIngestionSourceBase):
                     else None,
                 )
             )
-            if project.parent_id is not None and project.parent_id not in self.tableau_project_registry:
+            if (
+                project.parent_id is not None
+                and project.parent_id not in self.tableau_project_registry
+            ):
                 # Parent project got skipped because of project_pattern.
                 # Let's ingest its container name property to show parent container name on DataHub Portal, otherwise
                 # DataHub Portal will show parent container URN
