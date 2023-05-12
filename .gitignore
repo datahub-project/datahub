@@ -119,5 +119,5 @@ metadata-service/restli-servlet-impl/bin/
 metadata-service/servlet/bin/
 metadata-service/war/bin/
 metadata-utils/bin/
-test-models/bin/main/
-test-models/bin/mainGeneratedDataTemplate/com/datahub/
+test-models/bin/
+
