@@ -13,21 +13,15 @@ from datahub.utilities.parsing_util import (
     get_first_missing_key_any,
 )
 
+BQ_FILTER_RULE_TEMPLATE = "BQ_FILTER_RULE_TEMPLATE"
+
 BQ_AUDIT_V2 = {
-    "BQ_FILTER_REGEX_ALLOW_TEMPLATE": """protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_allow_pattern}"
-""".strip(
-        "\t \n"
-    ),
-    "BQ_FILTER_REGEX_DENY_TEMPLATE": """
-    {logical_operator}
-            NOT (
-                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_deny_pattern}"
-            )
-""".strip(
-        "\t \n"
-    ),
-    "BQ_FILTER_RULE_TEMPLATE": """
+    BQ_FILTER_RULE_TEMPLATE: """
 resource.type=("bigquery_project" OR "bigquery_dataset")
+AND
+timestamp >= "{start_time}"
+AND
+timestamp < "{end_time}"
 AND
 (
     (
@@ -42,22 +36,12 @@ AND
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
         AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
         AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
-         AND (
-            {allow_regex}
-            {deny_regex}
-         OR
-            protoPayload.metadata.tableDataRead.reason = "JOB"
-        )
     )
     OR
     (
         protoPayload.metadata.tableDataRead:*
     )
 )
-AND
-timestamp >= "{start_time}"
-AND
-timestamp < "{end_time}"
 """.strip(
         "\t \n"
     ),
@@ -182,8 +166,9 @@ class BigqueryTableIdentifier:
 class BigQueryTableRef:
     # Handle table time travel. See https://cloud.google.com/bigquery/docs/time-travel
     # See https://cloud.google.com/bigquery/docs/table-decorators#time_decorators
-    # Handling for @0 and @-TIME_OFFSET is apparently missing
-    SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(r"^(.+)@(\d{13})$")
+    SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(
+        "^(.+)@(-?\\d{1,13})(-(-?\\d{1,13})?)?$"
+    )
 
     table_identifier: BigqueryTableIdentifier
 

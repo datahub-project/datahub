@@ -357,9 +357,25 @@ public interface EntityClient {
   public VersionedAspect getAspectOrNull(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
+  default List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
+      @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
+      @Nullable Filter filter, @Nonnull Authentication authentication)
+      throws RemoteInvocationException {
+    return getTimeseriesAspectValues(
+        urn,
+        entity,
+        aspect,
+        startTimeMillis,
+        endTimeMillis,
+        limit,
+        filter,
+        null,
+        authentication);
+  }
+
   public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
       @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull Authentication authentication)
+      @Nullable Filter filter, @Nullable SortCriterion sort, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   @Deprecated

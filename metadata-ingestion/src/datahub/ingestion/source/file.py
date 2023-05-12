@@ -247,23 +247,7 @@ class GenericFileSource(TestableSource):
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
         self.report.current_file_name = path
         path_parsed = parse.urlparse(path)
-        if path_parsed.scheme not in ("file", ""):  # A remote file
-            try:
-                response = requests.get(path)
-                parse_start_time = datetime.datetime.now()
-                data = response.json()
-            except Exception as e:
-                raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
-            if not isinstance(data, list):
-                data = [data]
-            parse_end_time = datetime.datetime.now()
-            self.report.add_parse_time(parse_end_time - parse_start_time)
-            self.report.current_file_size = len(response.content)
-            self.report.current_file_elements_read = 0
-            for i, obj in enumerate(data):
-                yield i, obj
-                self.report.current_file_elements_read += 1
-        else:
+        if path_parsed.scheme not in ("http", "https"):  # A local file
             self.report.current_file_size = os.path.getsize(path)
             if self.config.read_mode == FileReadMode.AUTO:
                 file_read_mode = (
@@ -314,6 +298,22 @@ class GenericFileSource(TestableSource):
                     self.report.current_file_elements_read += 1
                     yield rows_yielded, row
                     parse_start_time = datetime.datetime.now()
+        else:
+            try:
+                response = requests.get(path)
+                parse_start_time = datetime.datetime.now()
+                data = response.json()
+            except Exception as e:
+                raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
+            if not isinstance(data, list):
+                data = [data]
+            parse_end_time = datetime.datetime.now()
+            self.report.add_parse_time(parse_end_time - parse_start_time)
+            self.report.current_file_size = len(response.content)
+            self.report.current_file_elements_read = 0
+            for i, obj in enumerate(data):
+                yield i, obj
+                self.report.current_file_elements_read += 1
 
         self.report.files_completed.append(path)
         self.report.num_files_completed += 1

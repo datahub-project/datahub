@@ -102,7 +102,11 @@ class BigQueryV2Config(
     )
     project_ids: List[str] = Field(
         default_factory=list,
-        description="Ingests specified project_ids. Use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account.",
+        description=(
+            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
+            "don't want to give project resourcemanager.projects.list to your service account. "
+            "Overrides `project_id_pattern`."
+        ),
     )
 
     project_on_behalf: Optional[str] = Field(
@@ -193,7 +197,7 @@ class BigQueryV2Config(
 
     file_backed_cache_size: int = Field(
         hidden_from_docs=True,
-        default=200,
+        default=2000,
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
@@ -264,10 +268,9 @@ class BigQueryV2Config(
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
-        return "|".join(pattern) if self.table_pattern else ""
+        return "|".join(pattern) if pattern else ""
 
-    # TODO: remove run_on_compute when the legacy bigquery source will be deprecated
-    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+    def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:
             return f"bigquery://{self.project_on_behalf}"
         # When project_id is not set, we will attempt to detect the project ID

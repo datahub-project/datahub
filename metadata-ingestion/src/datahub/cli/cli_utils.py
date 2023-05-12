@@ -369,6 +369,7 @@ def get_urns_by_filter(
     include_removed: bool = False,
     only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
+    # TODO: Replace with DataHubGraph call
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
     url = gms_host + endpoint

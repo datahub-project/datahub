@@ -61,13 +61,13 @@ class DataHubRestEmitter(Closeable):
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
-        server_telemetry_id: Optional[str] = None,
         disable_ssl_verification: bool = False,
     ):
+        if not gms_server:
+            raise ConfigurationError("gms server is required")
         self._gms_server = gms_server
         self._token = token
         self.server_config: Dict[str, Any] = {}
-        self.server_telemetry_id: str = ""
 
         self._session = requests.Session()
 
@@ -88,7 +88,7 @@ class DataHubRestEmitter(Closeable):
             self._session.headers.update(extra_headers)
 
         if ca_certificate_path:
-            self._session.verify = ca_certificate_path
+            self._session.cert = ca_certificate_path
 
         if disable_ssl_verification:
             self._session.verify = False

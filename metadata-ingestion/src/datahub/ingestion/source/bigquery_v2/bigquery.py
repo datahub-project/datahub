@@ -492,31 +492,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        logger.info("Getting projects")
         conn: bigquery.Client = get_bigquery_client(self.config)
         self.add_config_to_report()
 
         projects = self._get_projects(conn)
-        if len(projects) == 0:
-            logger.error(
-                "Get projects didn't return any project. "
-                "Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account."
-            )
-            self.report.report_failure(
-                "metadata-extraction",
-                "Get projects didn't return any project. "
-                "Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-            )
+        if not projects:
             return
 
         for project_id in projects:
-            if not self.config.project_id_pattern.allowed(project_id.id):
-                self.report.report_dropped(project_id.id)
-                continue
             logger.info(f"Processing project: {project_id.id}")
-            self.report.set_project_state(project_id.id, "Metadata Extraction")
+            self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
         if self._should_ingest_usage():
@@ -526,7 +511,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self._should_ingest_lineage():
             for project in projects:
-                self.report.set_project_state(project.id, "Lineage Extraction")
+                self.report.set_ingestion_stage(project.id, "Lineage Extraction")
                 yield from self.generate_lineage(project.id)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -584,6 +569,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
+        logger.info("Getting projects")
         if self.config.project_ids or self.config.project_id:
             project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
             return [
@@ -591,20 +577,29 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for project_id in project_ids
             ]
         else:
-            try:
-                return BigQueryDataDictionary.get_projects(conn)
-            except Exception as e:
-                # TODO: Merge with error logging in `get_workunits_internal`
-                trace = traceback.format_exc()
-                logger.error(
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
-                )
-                logger.error(trace)
-                self.report.report_failure(
-                    "metadata-extraction",
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
-                )
-                return []
+            return list(self._get_project_list(conn))
+
+    def _get_project_list(self, conn: bigquery.Client) -> Iterable[BigqueryProject]:
+        try:
+            projects = BigQueryDataDictionary.get_projects(conn)
+        except Exception as e:
+            logger.error(f"Error getting projects. {e}", exc_info=True)
+            projects = []
+
+        if not projects:  # Report failure on exception and if empty list is returned
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project. "
+                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+            return []
+
+        for project in projects:
+            if self.config.project_id_pattern.allowed(project.id):
+                yield project
+            else:
+                self.report.report_dropped(project.id)
 
     def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
@@ -671,7 +666,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.profiling.enabled:
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_project_state(project_id, "Profiling")
+            self.report.set_ingestion_stage(project_id, "Profiling")
             yield from self.profiler.get_workunits(
                 project_id=project_id,
                 tables=db_tables,
@@ -727,13 +722,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_name, project_id, bigquery_dataset.labels
         )
 
-        columns = BigQueryDataDictionary.get_columns_for_dataset(
-            conn,
-            project_id=project_id,
-            dataset_name=dataset_name,
-            column_limit=self.config.column_limit,
-            run_optimized_column_query=self.config.run_optimized_column_query,
-        )
+        columns = None
+        if self.config.include_tables or self.config.include_views:
+            columns = BigQueryDataDictionary.get_columns_for_dataset(
+                conn,
+                project_id=project_id,
+                dataset_name=dataset_name,
+                column_limit=self.config.column_limit,
+                run_optimized_column_query=self.config.run_optimized_column_query,
+            )
 
         if self.config.include_tables:
             db_tables[dataset_name] = list(

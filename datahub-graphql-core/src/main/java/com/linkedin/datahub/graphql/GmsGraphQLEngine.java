@@ -289,6 +289,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.QueryService;
@@ -817,13 +819,13 @@ public class GmsGraphQLEngine {
             .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
-            .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
+            .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService, this.entityClient))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("addOwners", new AddOwnersResolver(entityService))
             .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
-            .dataFetcher("addLink", new AddLinkResolver(entityService))
+            .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
             .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
             .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
@@ -1012,7 +1014,8 @@ public class GmsGraphQLEngine {
                         this.entityClient,
                         "dataset",
                         "operation",
-                        OperationMapper::map
+                        OperationMapper::map,
+                        new SortCriterion().setField(OPERATION_EVENT_TIME_FIELD_NAME).setOrder(SortOrder.DESCENDING)
                     )
                 )
                 .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))

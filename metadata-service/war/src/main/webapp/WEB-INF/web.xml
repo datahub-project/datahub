@@ -22,9 +22,6 @@
   <listener>
     <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
   </listener>
-  <listener>
-    <listener-class>com.linkedin.metadata.boot.OnBootApplicationListener</listener-class>
-  </listener>
 
   <!-- servlet definitions -->
   <servlet>
@@ -58,15 +55,33 @@
     <async-supported>true</async-supported>
   </servlet>
   <servlet>
+    <servlet-name>healthServlet</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <load-on-startup>1</load-on-startup>
+    <async-supported>true</async-supported>
+  </servlet>
+  <servlet>
     <servlet-name>openapiServlet</servlet-name>
     <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
     <load-on-startup>1</load-on-startup>
     <async-supported>true</async-supported>
   </servlet>
-  <!--
-    HttpRequestHandlerServlet loads the "restliServlet" spring bean as a servlet.  For details, see:
-    http://static.springsource.org/spring-framework/docs/3.2.0.RC1/api/org/springframework/web/context/support/HttpRequestHandlerServlet.html
+
+  <!---
+    This is a servlet exclusive to DataHub's implementation of the Confluent OpenAPI spec which is not behind
+    DataHub's authentication layer as it is not compatible with confluent consumers & producers.
   -->
+  <servlet>
+    <servlet-name>schemaRegistryServlet</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <load-on-startup>1</load-on-startup>
+    <async-supported>true</async-supported>
+  </servlet>
+
+  <!--
+  HttpRequestHandlerServlet loads the "restliServlet" spring bean as a servlet.  For details, see:
+  http://static.springsource.org/spring-framework/docs/3.2.0.RC1/api/org/springframework/web/context/support/HttpRequestHandlerServlet.html
+-->
   <servlet>
     <display-name>Restli Spring Servlet</display-name>
     <servlet-name>restliRequestHandler</servlet-name>
@@ -78,6 +93,10 @@
   <servlet-mapping>
     <servlet-name>healthCheck</servlet-name>
     <url-pattern>/health</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>healthServlet</servlet-name>
+    <url-pattern>/health/*</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>config</servlet-name>
@@ -98,6 +117,10 @@
   <servlet-mapping>
     <servlet-name>authServlet</servlet-name>
     <url-pattern>/auth/*</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>schemaRegistryServlet</servlet-name>
+    <url-pattern>/schema-registry/*</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>restliRequestHandler</servlet-name>

@@ -159,7 +159,7 @@ A few things that you will likely do as you start creating new models and creati
 
 The `datahub` cli supports deleting metadata associated with a model as a customization of the `delete` command. 
 
-e.g. `datahub delete --registry-id=mycompany-dq-model:0.0.1` will delete all data written using this registry name and version pair. 
+e.g. `datahub delete by-registry --registry-id=mycompany-dq-model:0.0.1 --hard` will delete all data written using this registry name and version pair. 
 
 ### Evolve the metadata model
 
@@ -170,8 +170,4 @@ As you evolve the metadata model, you can publish new versions of the repository
 Hopefully this repository shows you how easily you can extend and customize DataHub's metadata model!
 
 We will be continuing to make the experience less reliant on core changes to DataHub and reducing the need to fork the main repository.
-
-
-
-
 

@@ -340,6 +340,7 @@ class SnowflakeLineageExtractor(
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            upstreams_deny_pattern=self.config.upstreams_deny_pattern,
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
         )
@@ -374,7 +375,7 @@ class SnowflakeLineageExtractor(
             upstream_table["upstream_object_name"]
         )
         if upstream_name and self._is_dataset_pattern_allowed(
-            upstream_name, upstream_table["upstream_object_domain"]
+            upstream_name, upstream_table["upstream_object_domain"], is_upstream=True
         ):
             upstreams.append(
                 UpstreamClass(
@@ -486,7 +487,9 @@ class SnowflakeLineageExtractor(
                 upstream_col.objectName
                 and upstream_col.columnName
                 and self._is_dataset_pattern_allowed(
-                    upstream_col.objectName, upstream_col.objectDomain
+                    upstream_col.objectName,
+                    upstream_col.objectDomain,
+                    is_upstream=True,
                 )
             ):
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
