@@ -13,7 +13,7 @@ FROM alpine:3
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
-RUN apk add --no-cache mysql-client bash mariadb-connector-c mysql-setup
+RUN apk add --no-cache mysql-client bash mariadb-connector-c msqlite
 
 COPY docker/mysql-setup/init.sql /init.sql
 COPY docker/mysql-setup/init.sh /init.sh
