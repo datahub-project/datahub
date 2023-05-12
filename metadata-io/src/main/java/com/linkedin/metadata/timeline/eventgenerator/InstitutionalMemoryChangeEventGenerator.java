@@ -152,11 +152,16 @@ public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGe
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
+    if (currentValue == null) {
+      throw new IllegalArgumentException("EntityAspect currentValue should not be null");
+    }
+
     if (!previousValue.getAspect().equals(INSTITUTIONAL_MEMORY_ASPECT_NAME) || !currentValue.getAspect()
         .equals(INSTITUTIONAL_MEMORY_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + INSTITUTIONAL_MEMORY_ASPECT_NAME);
     }
-    assert (currentValue != null);
+
     InstitutionalMemory baseInstitutionalMemory = getInstitutionalMemoryFromAspect(previousValue);
     InstitutionalMemory targetInstitutionalMemory = getInstitutionalMemoryFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
