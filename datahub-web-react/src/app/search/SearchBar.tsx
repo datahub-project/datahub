@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Input, AutoComplete, Typography } from 'antd';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { Input, AutoComplete, Typography, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
@@ -19,6 +19,7 @@ import analytics, { Event, EventType } from '../analytics';
 import RecommendedOption from './autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
 import { useUserContext } from '../context/useUserContext';
+import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
@@ -70,7 +71,7 @@ const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
     label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
     options: [
         {
-            value: '',
+            value: 'quick-filter-unique-key',
             type: '',
             label: <QuickFilters />,
             style: { padding: '8px', cursor: 'auto' },
@@ -162,15 +163,32 @@ export const SearchBar = ({
 
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
 
+    const onClickExploreAll = useCallback(() => {
+        analytics.event({ type: EventType.SearchBarExploreAllClickEvent });
+        navigateToSearchUrl({ query: '*', history });
+    }, [history]);
+
     const emptyQueryOptions = useMemo(() => {
-        // Map each module to a set of
-        return (
+        const moduleOptions =
             data?.listRecommendations?.modules.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
-            })) || []
-        );
-    }, [data]);
+            })) || [];
+
+        const exploreAllOption = {
+            value: 'explore-all-unique-key',
+            type: '',
+            label: (
+                <Button type="link" onClick={onClickExploreAll}>
+                    Explore all →
+                </Button>
+            ),
+            style: { marginLeft: 'auto', cursor: 'auto' },
+            disabled: true,
+        };
+
+        return [...moduleOptions, exploreAllOption];
+    }, [data?.listRecommendations?.modules, onClickExploreAll]);
 
     const autoCompleteQueryOptions = useMemo(
         () =>

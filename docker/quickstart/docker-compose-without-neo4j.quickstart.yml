@@ -158,6 +158,7 @@ services:
     - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+    - USE_CONFLUENT_SCHEMA_REGISTRY=TRUE
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     labels:
