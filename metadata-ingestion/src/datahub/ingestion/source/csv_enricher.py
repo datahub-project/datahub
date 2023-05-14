@@ -46,7 +46,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.source_helpers import auto_workunit_reporter
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
 ACTOR = "urn:li:corpuser:ingestion"
@@ -278,7 +278,7 @@ class CSVEnricherSource(Source):
         # If the description is empty, return None.
         if len(description) <= 0:
             return None
-        entityType = entity_urn.replace("urn:li:", "", 1).split(":")[0]
+        entityType = guess_entity_type(entity_urn)
 
         entityClass = {
             "chart": EditableChartPropertiesClass,
@@ -330,18 +330,9 @@ class CSVEnricherSource(Source):
         else:
             current_editable_properties.description = description
 
-        # as not all classes have the same attributes
-        additionalAttributesClass = (
-            EditableDatasetPropertiesClass,
-            EditableChartPropertiesClass,
-            EditableDashboardPropertiesClass,
-            EditableDataJobPropertiesClass,
-            EditableDataFlowPropertiesClass,
-            EditableNotebookPropertiesClass,
-        )
-
-        if isinstance(current_editable_properties, additionalAttributesClass):
+        if hasattr(current_editable_properties, "created"):
             current_editable_properties.created = get_audit_stamp()
+        if hasattr(current_editable_properties, "lastModified"):
             current_editable_properties.lastModified = get_audit_stamp()
 
         return MetadataChangeProposalWrapper(
