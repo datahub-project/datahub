@@ -330,10 +330,11 @@ class CSVEnricherSource(Source):
         else:
             current_editable_properties.description = description
 
-        if hasattr(current_editable_properties, "created"):
-            current_editable_properties.created = get_audit_stamp()
-        if hasattr(current_editable_properties, "lastModified"):
-            current_editable_properties.lastModified = get_audit_stamp()
+        if current_editable_properties:  # to satisfy mypy, else this line is redundant
+            if hasattr(current_editable_properties, "created"):
+                current_editable_properties.created = get_audit_stamp()
+            if hasattr(current_editable_properties, "lastModified"):
+                current_editable_properties.lastModified = get_audit_stamp()
 
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
