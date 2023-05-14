@@ -8,6 +8,9 @@ To begin using the DataHub `graphql` API, please consult the [Getting Started](/
 
 For detailed guidance on using `graphql` for specific use cases, please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison).
 
+> **Pro Tip!** Throughout our API guides, we have examples of using GraphQL API.
+> Lookout for the `| GraphQL |` tab within our tutorials.
+
 ## About GraphQL
 
 [`graphql`](https://graphql.org/) provides a data query language and API with the following characteristics:

@@ -2,8 +2,9 @@
 # https://api-docs.databricks.com/rest/latest/unity-catalog-api-specification-2-1.html?_ga=2.151019001.1795147704.1666247755-2119235717.1666247755
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import Dict, List, Optional
+
+from databricks.sdk.service.sql import QueryStatementType
 
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -42,46 +43,21 @@ DATA_TYPE_REGISTRY: dict = {
 }
 
 
-class StatementType(str, Enum):
-    OTHER = "OTHER"
-    ALTER = "ALTER"
-    ANALYZE = "ANALYZE"
-    COPY = "COPY"
-    CREATE = "CREATE"
-    DELETE = "DELETE"
-    DESCRIBE = "DESCRIBE"
-    DROP = "DROP"
-    EXPLAIN = "EXPLAIN"
-    GRANT = "GRANT"
-    INSERT = "INSERT"
-    MERGE = "MERGE"
-    OPTIMIZE = "OPTIMIZE"
-    REFRESH = "REFRESH"
-    REPLACE = "REPLACE"
-    REVOKE = "REVOKE"
-    SELECT = "SELECT"
-    SET = "SET"
-    SHOW = "SHOW"
-    TRUNCATE = "TRUNCATE"
-    UPDATE = "UPDATE"
-    USE = "USE"
-
-
 # Does not parse other statement types, besides SELECT
 OPERATION_STATEMENT_TYPES = {
-    StatementType.INSERT: OperationTypeClass.INSERT,
-    StatementType.COPY: OperationTypeClass.INSERT,
-    StatementType.UPDATE: OperationTypeClass.UPDATE,
-    StatementType.MERGE: OperationTypeClass.UPDATE,
-    StatementType.DELETE: OperationTypeClass.DELETE,
-    StatementType.TRUNCATE: OperationTypeClass.DELETE,
-    StatementType.CREATE: OperationTypeClass.CREATE,
-    StatementType.REPLACE: OperationTypeClass.CREATE,
-    StatementType.ALTER: OperationTypeClass.ALTER,
-    StatementType.DROP: OperationTypeClass.DROP,
-    StatementType.OTHER: OperationTypeClass.UNKNOWN,
+    QueryStatementType.INSERT: OperationTypeClass.INSERT,
+    QueryStatementType.COPY: OperationTypeClass.INSERT,
+    QueryStatementType.UPDATE: OperationTypeClass.UPDATE,
+    QueryStatementType.MERGE: OperationTypeClass.UPDATE,
+    QueryStatementType.DELETE: OperationTypeClass.DELETE,
+    QueryStatementType.TRUNCATE: OperationTypeClass.DELETE,
+    QueryStatementType.CREATE: OperationTypeClass.CREATE,
+    QueryStatementType.REPLACE: OperationTypeClass.CREATE,
+    QueryStatementType.ALTER: OperationTypeClass.ALTER,
+    QueryStatementType.DROP: OperationTypeClass.DROP,
+    QueryStatementType.OTHER: OperationTypeClass.UNKNOWN,
 }
-ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), StatementType.SELECT}
+ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
 
 
 @dataclass
@@ -185,24 +161,57 @@ class Table(CommonProperty):
         self.ref = TableReference.create(self)
 
 
-class QueryStatus(str, Enum):
-    FINISHED = "FINISHED"
-    RUNNING = "RUNNING"
-    QUEUED = "QUEUED"
-    FAILED = "FAILED"
-    CANCELED = "CANCELED"
-
-
 @dataclass
 class Query:
     query_id: str
     query_text: str
-    statement_type: StatementType
+    statement_type: QueryStatementType
     start_time: datetime
     end_time: datetime
     # User who ran the query
-    user_id: str
+    user_id: int
     user_name: str  # Email or username
     # User whose credentials were used to run the query
-    executed_as_user_id: str
+    executed_as_user_id: int
     executed_as_user_name: str
+
+
+@dataclass
+class TableProfile:
+    num_rows: Optional[int]
+    num_columns: Optional[int]
+    total_size: Optional[int]
+    column_profiles: List["ColumnProfile"]
+
+    def __bool__(self):
+        return any(
+            (
+                self.num_rows is not None,
+                self.num_columns is not None,
+                self.total_size is not None,
+                any(self.column_profiles),
+            )
+        )
+
+
+@dataclass
+class ColumnProfile:
+    name: str
+    null_count: Optional[int]
+    distinct_count: Optional[int]
+    min: Optional[str]
+    max: Optional[str]
+
+    version: Optional[str]
+    avg_len: Optional[str]
+    max_len: Optional[str]
+
+    def __bool__(self):
+        return any(
+            (
+                self.null_count is not None,
+                self.distinct_count is not None,
+                self.min is not None,
+                self.max is not None,
+            )
+        )
