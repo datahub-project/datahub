@@ -6,6 +6,7 @@ import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext
@@ -33,10 +34,6 @@ from datahub.metadata.schema_classes import (
     CorpUserInfoClass,
     CorpUserSnapshotClass,
     GroupMembershipClass,
-)
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 # default mapping for attrs

@@ -4,6 +4,7 @@ from urllib.parse import unquote
 
 from pydantic import Field, SecretStr, validator
 
+from datahub.api.source_helpers import auto_status_aspect, auto_workunit_reporter
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
@@ -21,7 +22,6 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_G
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.source import S3Source
-from datahub.api.source_helpers import auto_status_aspect, auto_workunit_reporter
 
 logger: logging.Logger = logging.getLogger(__name__)
 

@@ -13,6 +13,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -50,10 +51,6 @@ from datahub.metadata.schema_classes import (
     OriginClass,
     OriginTypeClass,
     StatusClass,
-)
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 logger = logging.getLogger(__name__)

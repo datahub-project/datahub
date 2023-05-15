@@ -10,6 +10,11 @@ import click
 import requests
 from pydantic.fields import Field
 
+from datahub.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
@@ -48,11 +53,6 @@ from datahub.metadata.schema_classes import (
     OriginClass,
     OriginTypeClass,
     StatusClass,
-)
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 
 logger = logging.getLogger(__name__)

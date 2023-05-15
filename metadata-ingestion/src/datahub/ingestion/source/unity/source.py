@@ -4,6 +4,11 @@ import time
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
 
+from datahub.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -84,11 +89,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 

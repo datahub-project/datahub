@@ -21,6 +21,7 @@ from tableauserverclient import (
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
@@ -124,10 +125,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 

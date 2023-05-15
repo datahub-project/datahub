@@ -29,6 +29,7 @@ from pydantic import root_validator, validator
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.git import GitInfo
@@ -90,10 +91,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.lossy_collections import LossyList
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)

@@ -21,6 +21,7 @@ import yaml
 from pydantic import validator
 from pydantic.fields import Field
 
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
@@ -100,10 +101,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger = logging.getLogger(__name__)
 

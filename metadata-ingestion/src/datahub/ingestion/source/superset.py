@@ -8,6 +8,7 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -47,10 +48,6 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.utilities import config_clean
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger = logging.getLogger(__name__)
 

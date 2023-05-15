@@ -23,6 +23,7 @@ from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase,
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -92,10 +93,6 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-)
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 logger = logging.getLogger(__name__)

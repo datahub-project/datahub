@@ -9,6 +9,11 @@ from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
+from datahub.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -131,11 +136,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)

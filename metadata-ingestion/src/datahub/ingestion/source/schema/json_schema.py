@@ -15,6 +15,7 @@ from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
@@ -47,10 +48,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
-)
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 

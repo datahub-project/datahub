@@ -15,6 +15,7 @@ from confluent_kafka.admin import (
     TopicMetadata,
 )
 
+from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -59,10 +60,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger = logging.getLogger(__name__)
 
