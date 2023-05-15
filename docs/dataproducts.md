@@ -24,7 +24,8 @@ Data Products can be published to the DataHub catalog for other teams to discove
 
 What you need to create and add data products:
 
-* **Manage Data Product** platform privilege to add data products at the entity level
+* **Manage Data Product** metadata privilege for Domains to create/delete Data Products at the entity level. If a user has this privilege for a given Domain, they will be able to create and delete Data Products underneath it.
+* **Edit Data Product** metadata privilege to add or remove the Data Product for a given entity.
 
 You can create this privileges by creating a new [Metadata Policy](./authorization/policies.md).
 
