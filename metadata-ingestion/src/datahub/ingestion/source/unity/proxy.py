@@ -16,6 +16,9 @@ from databricks.sdk.service.sql import (
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
+from datahub.ingestion.source.unity.proxy_profiling import (
+    UnityCatalogProxyProfilingMixin,
+)
 from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     DATA_TYPE_REGISTRY,
@@ -48,14 +51,19 @@ class QueryFilterWithStatementTypes(QueryFilter):
         return v
 
 
-class UnityCatalogApiProxy:
-    _unity_catalog_api: UnityCatalogApi
+class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     _workspace_client: WorkspaceClient
+    _unity_catalog_api: UnityCatalogApi
     _workspace_url: str
     report: UnityCatalogReport
+    warehouse_id: str
 
     def __init__(
-        self, workspace_url: str, personal_access_token: str, report: UnityCatalogReport
+        self,
+        workspace_url: str,
+        personal_access_token: str,
+        warehouse_id: Optional[str],
+        report: UnityCatalogReport,
     ):
         self._workspace_client = WorkspaceClient(
             host=workspace_url, token=personal_access_token
@@ -63,7 +71,7 @@ class UnityCatalogApiProxy:
         self._unity_catalog_api = UnityCatalogApi(
             ApiClient(host=workspace_url, token=personal_access_token)
         )
-        self._workspace_url = workspace_url
+        self.warehouse_id = warehouse_id or ""
         self.report = report
 
     def check_connectivity(self) -> bool:
@@ -131,6 +139,7 @@ class UnityCatalogApiProxy:
             yield self._create_table(schema=schema, obj=table)
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
+        # TODO: Replace with self._workspace_client.service_principals.list() when it supports pagination
         start_index = 1  # Unfortunately 1-indexed
         items_per_page = 0
         total_results = float("inf")
