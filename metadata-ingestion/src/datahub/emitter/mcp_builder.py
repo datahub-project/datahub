@@ -69,7 +69,11 @@ class PlatformKey(DatahubKey):
     def guid_dict(self) -> Dict[str, str]:
         bag = self.dict(by_alias=True, exclude_none=True, exclude={"env"})
 
-        if self.backcompat_env_as_instance and self.instance is None and self.env is not None:
+        if (
+            self.backcompat_env_as_instance
+            and self.instance is None
+            and self.env is not None
+        ):
             bag["instance"] = self.env
 
         return bag
