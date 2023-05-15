@@ -701,9 +701,10 @@ class S3Source(StatefulIngestionSourceBase):
         )
         iterator = peekable(iterator)
         if iterator:
-            for item in iterator:
-                last = item
-            return self.get_dir_to_process(bucket_name=bucket_name, folder=last + "/")
+            sorted_dirs = sorted(iterator, reverse=True)
+            return self.get_dir_to_process(
+                bucket_name=bucket_name, folder=sorted_dirs[0] + "/"
+            )
         else:
             return folder
 
