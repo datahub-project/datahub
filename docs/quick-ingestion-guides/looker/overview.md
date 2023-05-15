@@ -1,22 +1,37 @@
 ---
 title: Overview
 ---
-# Looker Ingestion Guide: Overview
+# Looker & LookML Ingestion Guide: Overview
 
 ## What You Will Get Out of This Guide
 
-This guide will help you set up the Looker connector to begin ingesting metadata into DataHub.
+This guide will help you set up the Looker & LookML connectors to begin ingesting metadata into DataHub.
+ 
 
-Upon completing this guide, you will have a recurring ingestion pipeline that will extract metadata from Looker and load it into DataHub. This will include to following Looker asset types:
+Upon completing this guide, you will have a recurring ingestion pipeline that will extract metadata from LookML & Looker and load it into DataHub. This will include to following Looker asset types:
+
+**Looker Connector Ingested Assets:**
 
 * Dashboards
 * Charts
 * Explores 
 * Schemas 
 * Owners of Dashboards
-* Table & Column level lineage
+
+    To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the `lookml` connector.
 
 *To learn more about setting these advanced values, check out the [Looker Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/Looker).*
+
+
+**LookML Connector Ingested Assets**
+
+* LookML views from model files in a project
+* Metadata for dimensions
+* Metadata for measures
+* Dimension Groups as tag
+
+
+    To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must also use the `looker` connector.
 
 ## Next Steps
 Continue to the [setup guide](setup.md), where we'll describe the prerequisites.

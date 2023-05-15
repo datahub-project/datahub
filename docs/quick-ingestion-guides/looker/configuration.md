@@ -66,7 +66,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
     You need to set minimum 3 field in the recipe:
     
-    a. **Base URL:** This is your looker instance URL. For example https://abc.cloud.looker.com
+    a. **Base URL:** This is your looker instance URL. For example https://abc.cloud.looker.com.
 
     b. **Client ID:** Use the secret LOOKER_CLIENT_ID with the format "${LOOKER_CLIENT_ID}".
 
@@ -149,6 +149,103 @@ You will now find your new ingestion source running
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-assets.png"/>
 </p>  
 
-**Congratulations!** You've successfully set up Looker as an ingestion source for DataHub!
+# Configuring Your LookML Connector to DataHub
+
+Now that you have created a DataHub specific API key and Deploy Key with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
+
+## Configure Recipe
+1.  Navigate to the **Sources** tab and click **Create new source**
+
+  <p align="center">
+    <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
+  </p>
+
+2.  Choose LooML
+
+  <p align="center">
+    <img width="70%" alt="Select Looker from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-choose-lookml.png"/>
+  </p>
+
+3.  Enter details into the Looker Recipe
+
+    You need to set minimum 5 field in the recipe for this quick ingestion guide:
+    
+    a. **GitHub Repo:** This is your github repository where LookML model are stored. You can provide full URL (example: https://gitlab.com/gitlab-org/gitlab) or organization/repo in this case connector assume it is GitHub repo
+
+    b. **GitHub Deploy Key:** Copy the content of `looker_datahub_deploy_key` and paste into this filed.
+
+    c. **Looker Base URL:** This is your looker instance URL. For example https://abc.cloud.looker.com
+
+    d. **Looker Client ID:** Use the secret LOOKER_CLIENT_ID with the format `${LOOKER_CLIENT_ID}`.
+
+    e. **Looker Client Secret:** Use the secret LOOKER_CLIENT_SECRET with the format `${LOOKER_CLIENT_SECRET}`.
+
+
+Your recipe should look something like this:
+<p align="center">
+  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-source-recipe.png"/>
+</p>
+
+
+After completing the recipe, click **Next**.    
+
+## Schedule Execution
+
+Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your Looker instance.
+
+1. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
+
+<p align="center">
+    <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_schedule.png"/>
+</p>  
+
+2. Ensure you've configured your correct timezone
+<p align="center">
+    <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_timezone.png"/>
+</p>  
+
+3. Click **Next** when you are done
+
+## Finish Up
+
+1. Name your ingestion source, then click **Save and Run**
+<p align="center">
+  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-source-window.png"/>
+</p>  
+
+You will now find your new ingestion source running
+
+<p align="center">
+  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-running.png"/>
+</p>  
+
+## Validate Ingestion Runs
+
+1. View the latest status of ingestion runs on the Ingestion page
+
+<p align="center">
+  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-succeeded.png"/>
+</p>  
+
+2. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
+
+<p align="center">
+  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-history.png"/>
+</p>
+
+3. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
+
+<p align="center">
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-detail.png"/>
+</p>  
+
+4. Pick an entity from the list to manually validate if it contains the detail you expected  
+
+<p align="center">
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-assets.png"/>
+</p>  
+
+
+**Congratulations!** You've successfully set up Looker & LookML as an ingestion source for DataHub!
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
