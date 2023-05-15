@@ -131,7 +131,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
+from datahub.api.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
     auto_workunit_reporter,

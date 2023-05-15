@@ -23,7 +23,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
+from datahub.api.source_helpers import (
     auto_status_aspect,
     auto_workunit,
     auto_workunit_reporter,

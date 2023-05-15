@@ -121,7 +121,7 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
+from datahub.api.source_helpers import (
     auto_materialize_referenced_tags,
     auto_stale_entity_removal,
     auto_status_aspect,

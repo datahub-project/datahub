@@ -44,7 +44,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
-from datahub.utilities.source_helpers import auto_workunit_reporter
+from datahub.api.source_helpers import auto_workunit_reporter
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 

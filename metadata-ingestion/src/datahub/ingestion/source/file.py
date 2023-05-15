@@ -38,7 +38,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
-from datahub.utilities.source_helpers import auto_workunit_reporter
+from datahub.api.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 

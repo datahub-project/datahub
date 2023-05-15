@@ -74,7 +74,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.source_helpers import (
+from datahub.api.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
     auto_workunit_reporter,

@@ -28,7 +28,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.utilities.source_helpers import auto_workunit_reporter
+from datahub.api.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 

@@ -57,7 +57,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
-from datahub.utilities.source_helpers import (
+from datahub.api.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
 )

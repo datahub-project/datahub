@@ -108,7 +108,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.source_helpers import (
+from datahub.api.source_helpers import (
     auto_materialize_referenced_tags,
     auto_stale_entity_removal,
     auto_status_aspect,

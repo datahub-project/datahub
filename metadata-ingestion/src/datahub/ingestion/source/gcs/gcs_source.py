@@ -21,7 +21,7 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_G
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.source import S3Source
-from datahub.utilities.source_helpers import auto_status_aspect, auto_workunit_reporter
+from datahub.api.source_helpers import auto_status_aspect, auto_workunit_reporter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
