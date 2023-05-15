@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { EntityType, FacetMetadata } from '../../../types.generated';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
+import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME } from '../utils/constants';
 import EntityNode from './EntityNode';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
@@ -43,6 +43,14 @@ const BrowseSidebar = ({ facets, visible, width }: Props) => {
                 ?.aggregations.filter((entity) => entity.count > 0) ?? [],
         [facets],
     );
+    const environments = useMemo(() => {
+        return (
+            facets
+                ?.find((facet) => facet.field === ORIGIN_FILTER_NAME)
+                ?.aggregations.filter((entity) => entity.count > 0) ?? []
+        );
+    }, [facets]);
+    console.log(environments);
 
     const [selected, setSelected] = useState<EntityType | null>(null);
 
