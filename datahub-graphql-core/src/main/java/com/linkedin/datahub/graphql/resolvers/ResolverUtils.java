@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers;
 
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.template.StringArray;
@@ -27,6 +28,8 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 public class ResolverUtils {
 
@@ -35,6 +38,10 @@ public class ResolverUtils {
         "_entityType"
     );
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    static {
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    }
 
     private static final Logger _logger = LoggerFactory.getLogger(ResolverUtils.class.getName());
 
