@@ -297,7 +297,7 @@ public class SettingsBuilder {
     tokenizers.put(MAIN_TOKENIZER,
             ImmutableMap.<String, Object>builder()
                     .put(TYPE, PATTERN)
-                    .put(PATTERN, "[(),./:]")
+                    .put(PATTERN, "[(),./:_]")
                     .build());
 
     return tokenizers.build();
