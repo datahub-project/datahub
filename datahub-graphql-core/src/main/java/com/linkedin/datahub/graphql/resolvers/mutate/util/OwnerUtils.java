@@ -1,22 +1,21 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.urn.CorpuserUrn;
-
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
-import com.linkedin.common.OwnershipType;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
+import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
@@ -35,10 +34,11 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 // TODO: Move to consuming from OwnerService
 @Slf4j
 public class OwnerUtils {
-  
+
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
   ));
+  public static final String SYSTEM_ID = "__system__";
 
   private OwnerUtils() { }
 
@@ -76,7 +76,7 @@ public class OwnerUtils {
         entityService,
         new Ownership());
     for (OwnerInput input : owners) {
-      addOwner(ownershipAspect, UrnUtils.getUrn(input.getOwnerUrn()), OwnershipType.valueOf(input.getType().toString()));
+      addOwner(ownershipAspect, UrnUtils.getUrn(input.getOwnerUrn()), input.getType(), UrnUtils.getUrn(input.getOwnershipTypeUrn()));
     }
     return buildMetadataChangeProposal(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
@@ -97,18 +97,30 @@ public class OwnerUtils {
     return buildMetadataChangeProposal(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
-  private static void addOwner(Ownership ownershipAspect, Urn ownerUrn, OwnershipType type) {
+  private static void addOwner(Ownership ownershipAspect, Urn ownerUrn, OwnershipType type, Urn ownershipUrn) {
     if (!ownershipAspect.hasOwners()) {
       ownershipAspect.setOwners(new OwnerArray());
     }
 
     final OwnerArray ownerArray = new OwnerArray(ownershipAspect.getOwners()
         .stream()
-        .filter(owner ->  !(owner.getOwner().equals(ownerUrn) && owner.getType().equals(type)))
+        // Fix ownership in place
+        .filter(owner -> !(owner.getOwner().equals(ownerUrn) && (
+            (owner.getTypeUrn() != null && owner.getTypeUrn().equals(ownershipUrn)) || (owner.getType() != null
+                && owner.getType().equals(com.linkedin.common.OwnershipType.valueOf(type.toString())))
+        )))
         .collect(Collectors.toList()));
 
     Owner newOwner = new Owner();
-    newOwner.setType(type);
+
+    // For backwards compatibility we have to always set the deprecated type.
+    // If the type exists we assume it's an old ownership type that we can map to.
+    // Else if it's a net new custom ownership type set old type to CUSTOM.
+    com.linkedin.common.OwnershipType gmsType = type != null ? com.linkedin.common.OwnershipType.valueOf(type.toString())
+        : com.linkedin.common.OwnershipType.CUSTOM;
+
+    newOwner.setType(gmsType);
+    newOwner.setTypeUrn(ownershipUrn);
     newOwner.setSource(new OwnershipSource().setType(OwnershipSourceType.MANUAL));
     newOwner.setOwner(ownerUrn);
     ownerArray.add(newOwner);
@@ -148,6 +160,7 @@ public class OwnerUtils {
     for (OwnerInput owner : owners) {
       boolean result = validateAddInput(
           UrnUtils.getUrn(owner.getOwnerUrn()),
+          owner.getOwnershipTypeUrn(),
           owner.getOwnerEntityType(),
           resourceUrn,
           entityService);
@@ -160,6 +173,7 @@ public class OwnerUtils {
 
   public static Boolean validateAddInput(
       Urn ownerUrn,
+      String ownershipEntityUrn,
       OwnerEntityType ownerEntityType,
       Urn resourceUrn,
       EntityService entityService
@@ -178,7 +192,12 @@ public class OwnerUtils {
     }
 
     if (!entityService.exists(ownerUrn)) {
-      throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Owner does not exist.", resourceUrn));
+      throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Owner %s does not exist.", resourceUrn, ownerUrn));
+    }
+
+    if (ownershipEntityUrn != null && !entityService.exists(UrnUtils.getUrn(ownershipEntityUrn))) {
+      throw new IllegalArgumentException(String.format("Failed to change ownership type for resource %s. Ownership Type "
+          + "%s does not exist.", resourceUrn, ownershipEntityUrn));
     }
 
     return true;
@@ -187,6 +206,7 @@ public class OwnerUtils {
   public static void validateOwner(
       Urn ownerUrn,
       OwnerEntityType ownerEntityType,
+      Urn ownershipEntityUrn,
       EntityService entityService
   ) {
     if (OwnerEntityType.CORP_GROUP.equals(ownerEntityType) && !Constants.CORP_GROUP_ENTITY_NAME.equals(ownerUrn.getEntityType())) {
@@ -201,6 +221,11 @@ public class OwnerUtils {
 
     if (!entityService.exists(ownerUrn)) {
       throw new IllegalArgumentException(String.format("Failed to change ownership for resource(s). Owner with urn %s does not exist.", ownerUrn));
+    }
+
+    if (!entityService.exists(ownershipEntityUrn)) {
+      throw new IllegalArgumentException(String.format("Failed to change ownership for resource(s). Ownership type with "
+          + "urn %s does not exist.", ownershipEntityUrn));
     }
   }
 
@@ -225,12 +250,18 @@ public class OwnerUtils {
     QueryContext context,
     String urn,
     OwnerEntityType ownerEntityType,
-    com.linkedin.datahub.graphql.generated.OwnershipType ownershipType,
+    OwnershipType ownershipType,
     EntityService entityService) {
     try {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
+      String ownershipTypeUrn = mapOwnershipTypeToEntity(ownershipType);
+
+      if (!entityService.exists(UrnUtils.getUrn(ownershipTypeUrn))) {
+        throw new RuntimeException(String.format("Unknown ownership type urn %s", ownershipTypeUrn));
+      }
+
       addOwnersToResources(
-          ImmutableList.of(new OwnerInput(actorUrn.toString(), ownerEntityType, ownershipType)),
+          ImmutableList.of(new OwnerInput(actorUrn.toString(), ownerEntityType, ownershipType, ownershipTypeUrn)),
           ImmutableList.of(new ResourceRefInput(urn, null, null)),
           actorUrn,
           entityService
@@ -238,5 +269,10 @@ public class OwnerUtils {
     } catch (Exception e) {
       log.error(String.format("Failed to add creator as owner of tag %s", urn), e);
     }
+  }
+
+  public static String mapOwnershipTypeToEntity(OwnershipType type) {
+    final String typeName = SYSTEM_ID + type.name().toLowerCase();
+    return Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, typeName).toString();
   }
 }

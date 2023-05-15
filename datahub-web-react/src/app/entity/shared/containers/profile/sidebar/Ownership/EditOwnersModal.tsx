@@ -1,11 +1,16 @@
-import React, { ReactNode, useEffect, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 
-import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipType } from '../../../../../../../types.generated';
+import {
+    CorpUser,
+    Entity,
+    EntityType,
+    OwnerEntityType,
+    OwnershipTypeEntity,
+} from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
-import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import {
     useBatchAddOwnersMutation,
     useBatchRemoveOwnersMutation,
@@ -14,6 +19,7 @@ import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/searc
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
+import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -34,7 +40,7 @@ export enum OperationType {
 
 type Props = {
     urns: string[];
-    defaultOwnerType?: OwnershipType;
+    defaultOwnerType?: string;
     hideOwnerType?: boolean | undefined;
     operationType?: OperationType;
     onCloseModal: () => void;
@@ -45,7 +51,6 @@ type Props = {
     defaultValues?: { urn: string; entity?: Entity | null }[];
 };
 
-// value: {ownerUrn: string, ownerEntityType: EntityType}
 type SelectedOwner = {
     label: string | React.ReactNode;
     value: {
@@ -102,11 +107,19 @@ export const EditOwnersModal = ({
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
-    const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
+    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
+        variables: {
+            input: {},
+        },
+    });
+    const ownershipTypes = useMemo(() => {
+        return ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
+    }, [ownershipTypesData]);
+
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
         defaultValuesToSelectedOwners(defaultValues || []),
     );
-    const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
+    const [selectedOwnerType, setSelectedOwnerType] = useState<string | undefined>(defaultOwnerType || undefined);
 
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
@@ -119,7 +132,7 @@ export const EditOwnersModal = ({
 
     useEffect(() => {
         if (ownershipTypes) {
-            setSelectedOwnerType(ownershipTypes[0].type);
+            setSelectedOwnerType(ownershipTypes[0]?.urn);
         }
     }, [ownershipTypes]);
 
@@ -152,7 +165,7 @@ export const EditOwnersModal = ({
     const onModalClose = () => {
         setInputValue('');
         setSelectedOwners([]);
-        setSelectedOwnerType(defaultOwnerType || OwnershipType.None);
+        setSelectedOwnerType(defaultOwnerType || undefined);
         onCloseModal();
     };
 
@@ -195,8 +208,8 @@ export const EditOwnersModal = ({
     };
 
     // When a owner type is selected, set the type as selected type.
-    const onSelectOwnerType = (newType: OwnershipType) => {
-        setSelectedOwnerType(newType);
+    const onSelectOwnerType = (urn: string) => {
+        setSelectedOwnerType(urn);
     };
 
     const tagRender = ({ closable, label, onClose }: { closable: boolean; label: ReactNode; onClose: () => void }) => {
@@ -302,7 +315,7 @@ export const EditOwnersModal = ({
             const input = {
                 ownerUrn: selectedActor.value.ownerUrn,
                 ownerEntityType: selectedActor.value.ownerEntityType,
-                type: selectedOwnerType,
+                ownershipTypeUrn: selectedOwnerType,
             };
             return input;
         });
@@ -379,16 +392,22 @@ export const EditOwnersModal = ({
                                 value={selectedOwnerType}
                                 onChange={onSelectOwnerType}
                             >
-                                {ownershipTypes.map((ownerType) => (
-                                    <Select.Option key={ownerType.type} value={ownerType.type}>
-                                        <Typography.Text>{ownerType.name}</Typography.Text>
-                                        <div>
-                                            <Typography.Paragraph style={{ wordBreak: 'break-all' }} type="secondary">
-                                                {ownerType.description}
+                                {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
+                                    const ownershipTypeUrn = ownershipType?.urn || '';
+                                    const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
+                                    const ownershipTypeDescription = ownershipType?.info?.description || '';
+                                    return (
+                                        <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
+                                            <Typography.Text>{ownershipTypeName}</Typography.Text>
+                                            <Typography.Paragraph
+                                                style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
+                                                type="secondary"
+                                            >
+                                                {ownershipTypeDescription}
                                             </Typography.Paragraph>
-                                        </div>
-                                    </Select.Option>
-                                ))}
+                                        </Select.Option>
+                                    );
+                                })}
                             </Select>
                         </Form.Item>
                     </Form.Item>

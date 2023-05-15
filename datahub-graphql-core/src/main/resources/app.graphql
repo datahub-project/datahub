@@ -120,6 +120,11 @@ type PlatformPrivileges {
   Whether the user should be able to create, update, and delete global views.
   """
   manageGlobalViews: Boolean!
+
+  """
+  Whether the user should be able to create, update, and delete ownership types.
+  """
+  manageOwnershipTypes: Boolean!
 }
 
 """
