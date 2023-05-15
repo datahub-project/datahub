@@ -159,6 +159,7 @@ public interface EntitySearchService {
   /**
    * Gets browse snapshot of a given path
    *
+   * @param entityName entity being browsed
    * @param path path being browsed
    * @param filter browse filter
    * @param input search query
@@ -166,7 +167,7 @@ public interface EntitySearchService {
    * @param count max number of results requested
    */
   @Nonnull
-  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count);
+  public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count);
 
   /**
    * Gets a list of paths for a given urn.

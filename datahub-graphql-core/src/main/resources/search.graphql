@@ -1083,6 +1083,11 @@ Input required for browse queries
 """
 input BrowseInputV2 {
   """
+  The browse entity type
+  """
+  type: EntityType!
+
+  """
   The browse path V2 - a list with each entry being part of the browse path V2
   """
   path: [String!]
@@ -1110,7 +1115,7 @@ input BrowseInputV2 {
   """
   The search query string
   """
-  query: String!
+  query: String
 }
 
 """

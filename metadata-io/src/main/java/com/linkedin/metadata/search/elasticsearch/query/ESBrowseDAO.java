@@ -347,13 +347,13 @@ public class ESBrowseDAO {
     return (List<String>) sourceMap.get(BROWSE_PATH);
   }
 
-  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count){
+  public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count){
     try {
       final SearchResponse groupsResponse;
       try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
         final String finalInput = input.isEmpty() ? "*" : input;
         groupsResponse =
-            client.search(constructGroupsSearchRequestV2(path, filter, finalInput), RequestOptions.DEFAULT);
+            client.search(constructGroupsSearchRequestV2(entityName, path, filter, finalInput), RequestOptions.DEFAULT);
       }
 
       final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, start, count);
@@ -375,8 +375,8 @@ public class ESBrowseDAO {
   }
 
   @Nonnull
-  private SearchRequest constructGroupsSearchRequestV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
-    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec("dataset"));
+  private SearchRequest constructGroupsSearchRequestV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
+    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
@@ -421,16 +421,16 @@ public class ESBrowseDAO {
   private AggregationBuilder buildAggregationsV2(@Nonnull String path) {
     final String currentLevel = ESUtils.escapeReservedCharacters(path) + "␟.*";
     final String nextLevel = ESUtils.escapeReservedCharacters(path) + "␟.*␟.*";
-//    final String nextNextLevel = ESUtils.escapeReservedCharacters(path) + "␟.*␟.*␟.*";
+    final String subAggNextLevel = ESUtils.escapeReservedCharacters(path) + "␟.*␟.*␟.*";
 
     return AggregationBuilders.terms(GROUP_AGG)
         .field(BROWSE_PATH_V2)
         .size(AGGREGATION_MAX_SIZE)
-//        .subAggregation(
-//            AggregationBuilders.terms(GROUP_AGG)
-//                .field(BROWSE_PATH_V2)
-//                .size(AGGREGATION_MAX_SIZE)
-//                .includeExclude(new IncludeExclude(nextLevel, nextNextLevel)))
+        .subAggregation(
+            AggregationBuilders.terms(GROUP_AGG)
+                .field(BROWSE_PATH_V2)
+                .size(AGGREGATION_MAX_SIZE)
+                .includeExclude(new IncludeExclude(nextLevel, subAggNextLevel)))
         .includeExclude(new IncludeExclude(currentLevel, nextLevel));
   }
 }

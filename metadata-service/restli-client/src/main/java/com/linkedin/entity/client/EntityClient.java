@@ -115,6 +115,7 @@ public interface EntityClient {
   /**
    * Gets browse snapshot of a given path
    *
+   * @param entityName entity being browsed
    * @param path path being browsed
    * @param filter browse filter
    * @param input search query
@@ -123,7 +124,7 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter,
+  public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
      @Nonnull String input, int start, int count, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 

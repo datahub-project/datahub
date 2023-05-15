@@ -298,6 +298,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   /**
    * Gets browse V2 snapshot of a given path
    *
+   * @param entityName entity being browsed
    * @param path path being browsed
    * @param filter browse filter
    * @param input search query
@@ -306,7 +307,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResult browseV2(@Nonnull String path, @Nullable Filter filter,
+  public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
                                @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
     // TODO: implement here
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
