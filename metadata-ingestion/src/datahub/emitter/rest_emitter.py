@@ -237,11 +237,7 @@ class DataHubRestEmitter(Closeable):
         raw_usage_obj = usageStats.to_obj()
         usage_obj = pre_json_transform(raw_usage_obj)
 
-        snapshot = {
-            "buckets": [
-                usage_obj,
-            ]
-        }
+        snapshot = {"buckets": [usage_obj]}
         payload = json.dumps(snapshot)
         self._emit_generic(url, payload)
 

@@ -32,13 +32,23 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass
+from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
+    DatasetFieldUsageCountsClass,
+    DatasetUserUsageCountsClass,
+    TimeWindowSizeClass,
+    UsageAggregationClass,
+    WindowDurationClass,
+)
 from datahub.utilities.source_helpers import auto_workunit_reporter
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -205,17 +215,19 @@ class GenericFileSource(TestableSource):
             self.report.total_num_files = 1
             return [str(self.config.path)]
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
                 id = f"file://{f}:{i}"
                 if isinstance(obj, UsageAggregationClass):
-                    yield UsageStatsWorkUnit(id, obj)
+                    mcp = self._convert_usage_aggregation_class(obj)
+                    if mcp:
+                        yield MetadataWorkUnit(id, mcp=mcp)
                 elif isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
@@ -235,6 +247,55 @@ class GenericFileSource(TestableSource):
                         yield MetadataWorkUnit(id, mcp_raw=obj)
                 else:
                     yield MetadataWorkUnit(id, mce=obj)
+
+    def _convert_usage_aggregation_class(
+        self, obj: UsageAggregationClass
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        # Legacy usage aggregation only supported dataset usage stats
+        if guess_entity_type(obj.resource) == DatasetUrn.ENTITY_TYPE:
+            aspect = DatasetUsageStatistics(
+                timestampMillis=obj.bucket,
+                eventGranularity=TimeWindowSizeClass(
+                    unit=self._convert_window_to_interval(obj.duration)
+                ),
+                uniqueUserCount=obj.metrics.uniqueUserCount,
+                totalSqlQueries=obj.metrics.totalSqlQueries,
+                topSqlQueries=obj.metrics.topSqlQueries,
+                userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=u.user, count=u.count, userEmail=u.userEmail
+                    )
+                    for u in obj.metrics.users or []
+                    if u.user is not None
+                ],
+                fieldCounts=[
+                    DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
+                    for f in obj.metrics.fields or []
+                ],
+            )
+            return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
+        else:
+            logger.warning(
+                f"Skipping unsupported usage aggregation - invalid entity type: {obj}"
+            )
+            self.report.report_warning("invalid-usage-aggregation", obj.resource)
+            return None
+
+    def _convert_window_to_interval(
+        self, window: Union[str, WindowDurationClass]
+    ) -> str:
+        if window == WindowDurationClass.YEAR:
+            return CalendarIntervalClass.YEAR
+        elif window == WindowDurationClass.MONTH:
+            return CalendarIntervalClass.MONTH
+        elif window == WindowDurationClass.WEEK:
+            return CalendarIntervalClass.WEEK
+        elif window == WindowDurationClass.DAY:
+            return CalendarIntervalClass.DAY
+        elif window == WindowDurationClass.HOUR:
+            return CalendarIntervalClass.HOUR
+        else:
+            raise Exception(f"Unsupported window duration: {window}")
 
     def get_report(self):
         return self.report
