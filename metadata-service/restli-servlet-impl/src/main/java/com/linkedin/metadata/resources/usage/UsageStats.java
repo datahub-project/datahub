@@ -73,6 +73,7 @@ import static com.linkedin.metadata.resources.restli.RestliUtils.*;
  * Rest.li entry point: /usageStats
  */
 @Slf4j
+@Deprecated
 @RestLiSimpleResource(name = "usageStats", namespace = "com.linkedin.usage")
 public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
