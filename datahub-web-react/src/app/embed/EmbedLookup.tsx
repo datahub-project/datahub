@@ -1,45 +1,79 @@
 import React, { useEffect, useMemo } from 'react';
 import { useHistory, useParams } from 'react-router';
+import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import { PageRoutes } from '../../conf/Global';
-import { FilterOperator } from '../../types.generated';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import { generateOrFilters } from '../search/utils/generateOrFilters';
-import { UnionType } from '../search/utils/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { urlEncodeUrn } from '../entity/shared/utils';
+import NonExistentEntityPage from '../entity/shared/entity/NonExistentEntityPage';
+import { ErrorSection } from '../shared/error/ErrorSection';
+import useLookupByUrl from './useLookupByUrl';
 
-interface RouteParams {
+type RouteParams = {
     url: string;
-}
+};
+
+const PageContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    // font-size: 50px;
+`;
+
+const LoadingContainer = styled.div`
+    // font-size: 150px;
+`;
+
+const ErrorContent = () => {
+    useEffect(() => console.log('track error'));
+    return <ErrorSection />;
+};
+
+const NotFoundContent = () => {
+    useEffect(() => console.log('track not found', 'reason=notFound'), []);
+    return <NonExistentEntityPage />;
+};
+
+const MultipleResultsContent = () => {
+    useEffect(() => console.log('track multiple', 'reason=multiple'));
+    return <NonExistentEntityPage />;
+};
+
+const LoadingContent = () => {
+    return (
+        <LoadingContainer>
+            <LoadingOutlined />
+        </LoadingContainer>
+    );
+};
+
+const GoToRoute = ({ url }: { url: string }) => {
+    const history = useHistory();
+    useEffect(() => {
+        if (url) {
+            console.log('routing to', url);
+            history.push(url);
+        }
+    }, [history, url]);
+    return (
+        <LoadingContainer>
+            <LoadingOutlined />
+        </LoadingContainer>
+    );
+};
 
 const EmbedLookup = () => {
-    const history = useHistory();
     const registry = useEntityRegistry();
     const { url: encodedUrl } = useParams<RouteParams>();
     const decodedUrl = decodeURIComponent(encodedUrl);
+    const { data, loading, error } = useLookupByUrl(decodedUrl);
 
-    const { data, loading, error } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: {
-                query: '*',
-                start: 0,
-                count: 2,
-                orFilters: generateOrFilters(
-                    UnionType.OR,
-                    ['externalUrl', 'chartUrl', 'dashboardUrl'].map((field) => ({
-                        field,
-                        values: [decodedUrl],
-                        condition: FilterOperator.Equal,
-                    })),
-                ),
-            },
-        },
-    });
-
+    // todo - better handle if one of these sub-objects was missing
     const results = data?.searchAcrossEntities?.searchResults;
-    const notFound = !!results && results.length === 0;
-    const multipleResults = !!results && results.length > 1;
+    const hasMultipleResults = !!results && results.length > 1;
     const entity = !!results && results.length === 1 ? results[0].entity : null;
+    const isNotFound = !loading && !entity;
 
     const destinationUrl = useMemo(
         () =>
@@ -47,18 +81,23 @@ const EmbedLookup = () => {
         [entity, registry],
     );
 
-    useEffect(() => {
-        if (destinationUrl) {
-            console.log('routing to', destinationUrl, 'from', history.location);
-        }
-    }, [destinationUrl, history.location]);
+    if (1 || loading)
+        return (
+            <PageContainer>
+                <LoadingContent />
+            </PageContainer>
+        );
 
-    if (error) return <div>{JSON.stringify(error)}</div>;
-    if (notFound) return <div>Not found</div>;
-    if (multipleResults) return <div>Multiple results</div>;
-    if (loading || !destinationUrl) return <div>Loading</div>;
+    if (1 || error) return <ErrorContent />;
+    if (1 || isNotFound) return <NotFoundContent />;
+    if (1 || hasMultipleResults) return <MultipleResultsContent />;
+    if (1 || !destinationUrl) return <ErrorContent />;
 
-    return <div>Redirect to {destinationUrl}</div>;
+    return (
+        <PageContainer>
+            <GoToRoute url={destinationUrl} />
+        </PageContainer>
+    );
 };
 
 export default EmbedLookup;
