@@ -380,7 +380,7 @@ public class ESBrowseDAO {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
-    searchSourceBuilder.query(buildQueryStringV2(path, filter, input));
+    searchSourceBuilder.query(buildQueryStringV2(entityName, path, filter, input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
@@ -391,28 +391,26 @@ public class ESBrowseDAO {
   }
 
   @Nonnull
-  private QueryBuilder buildQueryStringV2(@Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
+  private QueryBuilder buildQueryStringV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter, @Nonnull String input) {
     final int browseDepthVal = getPathDepthV2(path);
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
-    // TODO - add entity names to be passed down
-//    EntitySpec entitySpec = entityRegistry.getEntitySpec("dataset");
-//    QueryBuilder query = SearchRequestHandler
-//        .getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
-//        .getQuery(input, false);
-//    queryBuilder.must(query);
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    QueryBuilder query = SearchRequestHandler
+        .getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
+        .getQuery(input, false);
+    queryBuilder.must(query);
 
     queryBuilder.mustNot(QueryBuilders.termQuery(REMOVED, "true"));
 
     if (!path.isEmpty()) {
-      // this is our perp
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH_V2, path));
     }
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-//    queryBuilder.must(SearchRequestHandler.getFilterQuery(filter));
+    queryBuilder.must(SearchRequestHandler.getFilterQuery(filter));
 
     return queryBuilder;
   }
