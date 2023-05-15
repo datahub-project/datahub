@@ -93,6 +93,7 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.utilities.sql_parser import SQLParser
 
@@ -1797,7 +1798,9 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.reporter, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -2115,24 +2118,18 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         f"Generating MCP for view {raw_view['name']}"
                                     )
                                     mce = self._build_dataset_mce(maybe_looker_view)
-                                    workunit = MetadataWorkUnit(
+                                    yield MetadataWorkUnit(
                                         id=f"lookml-view-{maybe_looker_view.id}",
                                         mce=mce,
                                     )
                                     processed_view_files.add(include.include)
-                                    self.reporter.report_workunit(workunit)
-                                    yield workunit
                                     for mcp in self._build_dataset_mcps(
                                         maybe_looker_view
                                     ):
                                         # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                        workunit = MetadataWorkUnit(
-                                            id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
-                                            mcp=mcp,
-                                            treat_errors_as_warnings=True,
+                                        yield mcp.as_workunit(
+                                            treat_errors_as_warnings=True
                                         )
-                                        self.reporter.report_workunit(workunit)
-                                        yield workunit
                                 else:
                                     (
                                         prev_model_name,
@@ -2160,11 +2157,9 @@ class LookMLSource(StatefulIngestionSourceBase):
         ):
             # Emit tag MCEs for measures and dimensions:
             for tag_mce in LookerUtil.get_tag_mces():
-                workunit = MetadataWorkUnit(
+                yield MetadataWorkUnit(
                     id=f"tag-{tag_mce.proposedSnapshot.urn}", mce=tag_mce
                 )
-                self.reporter.report_workunit(workunit)
-                yield workunit
 
     def get_report(self):
         return self.reporter

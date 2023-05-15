@@ -50,6 +50,7 @@ from datahub.utilities import config_clean
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 
 logger = logging.getLogger(__name__)
@@ -310,10 +311,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dashboard_data
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                yield wu
+                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
     def construct_chart_from_chart_data(self, chart_data):
         chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
@@ -412,10 +410,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                yield wu
+                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
@@ -424,7 +419,9 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_report(self) -> StaleEntityRemovalSourceReport:

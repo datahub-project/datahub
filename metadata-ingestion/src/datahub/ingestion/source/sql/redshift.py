@@ -603,13 +603,7 @@ class RedshiftSource(SQLAlchemySource):
                     )
 
                 if lineage_mcp is not None:
-                    lineage_wu = MetadataWorkUnit(
-                        id=f"redshift-{lineage_mcp.entityUrn}-{lineage_mcp.aspectName}",
-                        mcp=lineage_mcp,
-                    )
-                    self.report.report_workunit(lineage_wu)
-
-                    yield lineage_wu
+                    yield lineage_mcp.as_workunit()
 
                 if lineage_properties_aspect:
                     aspects = dataset_snapshot.aspects

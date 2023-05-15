@@ -26,6 +26,7 @@ from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
 )
 from datahub.ingestion.source.aws.sagemaker_processors.lineage import LineageProcessor
 from datahub.ingestion.source.aws.sagemaker_processors.models import ModelProcessor
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 
 @platform_name("SageMaker")
@@ -56,6 +57,9 @@ class SagemakerSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # get common lineage graph
         lineage_processor = LineageProcessor(
             sagemaker_client=self.sagemaker_client, env=self.env, report=self.report

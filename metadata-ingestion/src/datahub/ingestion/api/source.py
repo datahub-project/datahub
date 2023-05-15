@@ -3,16 +3,39 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Generic, Iterable, Optional, Set, Type, TypeVar, Union, cast
+from functools import partial
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from pydantic import BaseModel
+from typing_extensions import Protocol
 
+from datahub.utilities.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
@@ -118,6 +141,9 @@ class TestConnectionReport(Report):
 WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
 ExtractorConfig = TypeVar("ExtractorConfig", bound=ConfigModel)
 
+WorkUnitProcessor = Callable[[Iterable[WorkUnitType]], Iterable[WorkUnitType]]
+MetadataWorkUnitProcessor = WorkUnitProcessor[MetadataWorkUnit]
+
 
 class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
@@ -142,8 +168,12 @@ class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABC
         pass
 
 
+class SourceProtocol(Protocol):
+    stale_entity_removal_handler: Optional[StaleEntityRemovalHandler]
+
+
 @dataclass
-class Source(Closeable, metaclass=ABCMeta):
+class Source(SourceProtocol, Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
     @classmethod
@@ -155,8 +185,30 @@ class Source(Closeable, metaclass=ABCMeta):
         # can't make this method abstract.
         raise NotImplementedError('sources must implement "create"')
 
-    @abstractmethod
+    @property
+    def workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        """A list of functions that transforms the workunits produced by this source.
+
+        Run in order, first in list is applied first. Be careful with order when overriding.
+        """
+        return [
+            auto_status_aspect,
+            partial(auto_materialize_referenced_tags, active=True),
+            partial(auto_workunit_reporter, self.get_report()),
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler)
+            if self.stale_entity_removal_handler
+            else None,
+        ]
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        stream = self.get_workunits_internal()
+        for processor in self.workunit_processors:
+            if processor is not None:
+                stream = processor(stream)
+        return stream
+
+    @abstractmethod
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         pass
 
     @abstractmethod

@@ -55,6 +55,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.config_clean import remove_protocol
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +277,8 @@ class ElasticsearchSource(Source):
     - Column types associated with each index field
     """
 
+    stale_entity_removal_handler = None
+
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
@@ -303,6 +306,9 @@ class ElasticsearchSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         indices = self.client.indices.get_alias()
 
         for index in indices:
@@ -310,24 +316,18 @@ class ElasticsearchSource(Source):
 
             if self.source_config.index_pattern.allowed(index):
                 for mcp in self._extract_mcps(index, is_index=True):
-                    wu = MetadataWorkUnit(id=f"index-{index}", mcp=mcp)
-                    self.report.report_workunit(wu)
-                    yield wu
+                    yield mcp.as_workunit()
             else:
                 self.report.report_dropped(index)
 
         for mcp in self._get_data_stream_index_count_mcps():
-            wu = MetadataWorkUnit(id=f"index-{index}", mcp=mcp)
-            self.report.report_workunit(wu)
-            yield wu
+            yield mcp.as_workunit()
         if self.source_config.ingest_index_templates:
             templates = self.client.indices.get_template()
             for template in templates:
                 if self.source_config.index_template_pattern.allowed(template):
                     for mcp in self._extract_mcps(template, is_index=False):
-                        wu = MetadataWorkUnit(id=f"template-{template}", mcp=mcp)
-                        self.report.report_workunit(wu)
-                        yield wu
+                        yield mcp.as_workunit()
 
     def _get_data_stream_index_count_mcps(
         self,

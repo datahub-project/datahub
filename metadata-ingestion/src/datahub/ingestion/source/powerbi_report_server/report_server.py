@@ -54,6 +54,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 LOGGER = logging.getLogger(__name__)
 
@@ -510,6 +511,9 @@ class PowerBiReportServerDashboardSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
         """
@@ -532,12 +536,7 @@ class PowerBiReportServerDashboardSource(Source):
                 self.report.report_scanned(count=1)
             # Convert PowerBi Report Server Dashboard and child entities
             # to Datahub work unit to ingest into Datahub
-            workunits = self.mapper.to_datahub_work_units(report)
-            for workunit in workunits:
-                # Add workunit to report
-                self.report.report_workunit(workunit)
-                # Return workunit to Datahub Ingestion framework
-                yield workunit
+            yield from self.mapper.to_datahub_work_units(report)
 
     def get_user_info(self, report: Any) -> OwnershipData:
         existing_ownership: List[OwnerClass] = []

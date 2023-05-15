@@ -85,6 +85,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -507,15 +508,10 @@ class S3Source(Source):
 
             self.profiling_times_taken.append(time_taken)
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=table_profiler.profile,
-        )
-        wu = MetadataWorkUnit(
-            id=f"profile-{self.source_config.platform}-{table_data.table_path}", mcp=mcp
-        )
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
@@ -591,16 +587,11 @@ class S3Source(Source):
                 dataset_snapshot.aspects.append(s3_tags)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=table_data.table_path, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield MetadataWorkUnit(id=table_data.table_path, mce=mce)
 
-        container_wus = self.container_WU_creator.create_container_hierarchy(
+        yield from self.container_WU_creator.create_container_hierarchy(
             table_data.table_path, dataset_urn
         )
-        for wu in container_wus:
-            self.report.report_workunit(wu)
-            yield wu
 
         if self.source_config.profiling.enabled:
             yield from self.get_table_profile(table_data, dataset_urn)
@@ -748,6 +739,9 @@ class S3Source(Source):
                     ), os.path.getsize(full_path)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
             self.source_config.platform,
             self.source_config.platform_instance,

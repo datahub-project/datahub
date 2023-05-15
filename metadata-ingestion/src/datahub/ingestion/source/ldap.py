@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 
 # default mapping for attrs
@@ -231,7 +232,9 @@ class LDAPSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -310,9 +313,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                 self.report.report_warning(dn, f"manager LDAP search failed: {e}")
         mce = self.build_corp_user_mce(dn, attrs, manager_ldap)
         if mce:
-            wu = MetadataWorkUnit(dn, mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(dn, mce)
         else:
             self.report.report_dropped(dn)
 
@@ -323,9 +324,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         mce = self.build_corp_group_mce(attrs)
         if mce:
-            wu = MetadataWorkUnit(dn, mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(dn, mce)
         else:
             self.report.report_dropped(dn)
 

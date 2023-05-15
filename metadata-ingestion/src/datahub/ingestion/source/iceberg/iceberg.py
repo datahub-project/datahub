@@ -60,6 +60,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -135,7 +136,9 @@ class IcebergSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -204,9 +207,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         dataset_snapshot.aspects.append(schema_metadata)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
@@ -247,7 +248,7 @@ class IcebergSource(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
-            mcp = MetadataChangeProposalWrapper(
+            return MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
@@ -255,10 +256,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                         self.platform, self.config.platform_instance
                     ),
                 ),
-            )
-            wu = MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
-            self.report.report_workunit(wu)
-            return wu
+            ).as_workunit()
 
         return None
 

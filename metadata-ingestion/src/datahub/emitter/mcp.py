@@ -207,7 +207,9 @@ class MetadataChangeProposalWrapper:
         assert isinstance(mcp, cls)
         return mcp
 
-    def as_workunit(self) -> "MetadataWorkUnit":
+    def as_workunit(
+        self, *, treat_errors_as_warnings: bool = False
+    ) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 
         if self.aspect and self.aspectName in TIMESERIES_ASPECT_MAP:
@@ -220,4 +222,8 @@ class MetadataChangeProposalWrapper:
                 id=f"{self.entityUrn}-{self.aspectName}-{ts}", mcp=self
             )
 
-        return MetadataWorkUnit(id=f"{self.entityUrn}-{self.aspectName}", mcp=self)
+        return MetadataWorkUnit(
+            id=f"{self.entityUrn}-{self.aspectName}",
+            mcp=self,
+            treat_errors_as_warnings=treat_errors_as_warnings,
+        )

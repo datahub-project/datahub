@@ -28,6 +28,7 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,9 @@ class ClickHouseUsageSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets ClickHouse usage stats as work units"""
         access_events = self._get_clickhouse_history()
         # If the query results is empty, we don't want to proceed
@@ -122,9 +126,7 @@ class ClickHouseUsageSource(Source):
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
 
     def _make_usage_query(self) -> str:
         return clickhouse_usage_sql_comment.format(

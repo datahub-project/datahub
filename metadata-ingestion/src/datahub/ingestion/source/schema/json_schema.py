@@ -51,6 +51,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 
@@ -247,10 +248,6 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         )
         self.report = StaleEntityRemovalSourceReport()
 
-    def _report_and_return(self, wu: MetadataWorkUnit) -> MetadataWorkUnit:
-        self.report.report_workunit(wu)
-        return wu
-
     def _load_one_file(
         self, ref_loader: Any, browse_prefix: str, root_dir: Path, file_name: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -287,71 +284,58 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 name=dataset_name,
                 platform_instance=self.config.platform_instance,
             )
-            yield self._report_and_return(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=meta
-                ).as_workunit()
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=meta
+            ).as_workunit()
 
-            # status
-            yield self._report_and_return(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
-                ).as_workunit()
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
+            ).as_workunit()
 
-            # datasetProperties
-            yield self._report_and_return(
-                MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=models.DatasetPropertiesClass(
+                    externalUrl=JsonSchemaTranslator._get_id_from_any_schema(
+                        schema_dict
+                    ),
+                    name=dataset_simple_name,
+                    description=JsonSchemaTranslator._get_description_from_any_schema(
+                        schema_dict
+                    ),
+                ),
+            ).as_workunit()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=models.SubTypesClass(typeNames=[DatasetSubTypes.SCHEMA]),
+            ).as_workunit()
+
+            browse_path = browse_prefix + dirname(schema_type)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=models.BrowsePathsClass(paths=[browse_path]),
+            ).as_workunit()
+
+            if self.config.platform_instance:
+                yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
-                    aspect=models.DatasetPropertiesClass(
-                        externalUrl=JsonSchemaTranslator._get_id_from_any_schema(
-                            schema_dict
+                    aspect=models.DataPlatformInstanceClass(
+                        platform=str(
+                            DataPlatformUrn.create_from_id(self.config.platform)
                         ),
-                        name=dataset_simple_name,
-                        description=JsonSchemaTranslator._get_description_from_any_schema(
-                            schema_dict
+                        instance=make_dataplatform_instance_urn(
+                            platform=self.config.platform,
+                            instance=self.config.platform_instance,
                         ),
                     ),
                 ).as_workunit()
-            )
-
-            # subTypes
-            yield self._report_and_return(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=models.SubTypesClass(typeNames=[DatasetSubTypes.SCHEMA]),
-                ).as_workunit()
-            )
-
-            browse_path = browse_prefix + dirname(schema_type)
-            yield self._report_and_return(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=models.BrowsePathsClass(paths=[browse_path]),
-                ).as_workunit()
-            )
-
-            if self.config.platform_instance:
-                yield self._report_and_return(
-                    MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=models.DataPlatformInstanceClass(
-                            platform=str(
-                                DataPlatformUrn.create_from_id(self.config.platform)
-                            ),
-                            instance=make_dataplatform_instance_urn(
-                                platform=self.config.platform,
-                                instance=self.config.platform_instance,
-                            ),
-                        ),
-                    ).as_workunit()
-                )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

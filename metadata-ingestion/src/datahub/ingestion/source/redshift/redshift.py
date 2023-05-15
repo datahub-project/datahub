@@ -470,7 +470,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
                 sub_types=[DatasetSubTypes.SCHEMA],
-                report=self.report,
             )
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
@@ -727,7 +726,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         yield from add_table_to_schema_container(
             dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(
             dataset_urn=dataset_urn,
@@ -748,7 +746,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
-                report=self.report,
             )
 
     def cache_tables_and_views(self, connection, database):

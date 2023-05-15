@@ -41,6 +41,7 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryMetadataClass,
     TagAssociationClass,
 )
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -132,6 +133,8 @@ class APISource(Source, ABC):
 
     """
 
+    stale_entity_removal_handler = None
+
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext, platform: str):
         super().__init__(ctx)
         self.config = config
@@ -208,13 +211,14 @@ class APISource(Source, ABC):
 
     def build_wu(
         self, dataset_snapshot: DatasetSnapshot, dataset_name: str
-    ) -> Generator[ApiWorkUnit, None, None]:
+    ) -> ApiWorkUnit:
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = ApiWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        return ApiWorkUnit(id=dataset_name, mce=mce)
 
-    def get_workunits(self) -> Iterable[ApiWorkUnit]:  # noqa: C901
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:  # noqa: C901
         config = self.config
 
         sw_dict = self.config.get_swagger()
@@ -247,10 +251,10 @@ class APISource(Source, ABC):
                 # we are lucky! data is defined in the swagger for this endpoint
                 schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
                 dataset_snapshot.aspects.append(schema_metadata)
-                yield from self.build_wu(dataset_snapshot, dataset_name)
+                yield self.build_wu(dataset_snapshot, dataset_name)
             elif (
                 "{" not in endpoint_k
-            ):  # if the API does not explicitely require parameters
+            ):  # if the API does not explicitly require parameters
                 tot_url = clean_url(config.url + self.url_basepath + endpoint_k)
 
                 if config.token:
@@ -268,7 +272,7 @@ class APISource(Source, ABC):
                     schema_metadata = set_metadata(dataset_name, fields2add)
                     dataset_snapshot.aspects.append(schema_metadata)
 
-                    yield from self.build_wu(dataset_snapshot, dataset_name)
+                    yield self.build_wu(dataset_snapshot, dataset_name)
                 else:
                     self.report_bad_responses(response.status_code, key=endpoint_k)
             else:
@@ -291,7 +295,7 @@ class APISource(Source, ABC):
                         schema_metadata = set_metadata(dataset_name, fields2add)
                         dataset_snapshot.aspects.append(schema_metadata)
 
-                        yield from self.build_wu(dataset_snapshot, dataset_name)
+                        yield self.build_wu(dataset_snapshot, dataset_name)
                     else:
                         self.report_bad_responses(response.status_code, key=endpoint_k)
                 else:
@@ -314,7 +318,7 @@ class APISource(Source, ABC):
                         schema_metadata = set_metadata(dataset_name, fields2add)
                         dataset_snapshot.aspects.append(schema_metadata)
 
-                        yield from self.build_wu(dataset_snapshot, dataset_name)
+                        yield self.build_wu(dataset_snapshot, dataset_name)
                     else:
                         self.report_bad_responses(response.status_code, key=endpoint_k)
 

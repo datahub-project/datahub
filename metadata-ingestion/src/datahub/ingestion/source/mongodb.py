@@ -44,6 +44,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +297,9 @@ class MongoDBSource(Source):
         return SchemaFieldDataType(type=TypeClass())
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         platform = "mongodb"
 
         database_names: List[str] = self.mongo_client.list_database_names()
@@ -407,9 +411,7 @@ class MongoDBSource(Source):
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
 
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
     def is_server_version_gte_4_4(self) -> bool:
         try:

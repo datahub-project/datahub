@@ -62,6 +62,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 
 logger = logging.getLogger(__name__)
@@ -196,7 +197,9 @@ class KafkaSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -271,20 +274,16 @@ class KafkaSource(StatefulIngestionSourceBase):
 
         # 5. Emit the datasetSnapshot MCE
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
 
         # 5. Add the subtype aspect marking this as a "topic"
-        subtype_wu = MetadataWorkUnit(
+        yield MetadataWorkUnit(
             id=f"{topic}-subtype",
             mcp=MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
             ),
         )
-        self.report.report_workunit(subtype_wu)
-        yield subtype_wu
 
         domain_urn: Optional[str] = None
 
@@ -296,13 +295,10 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
 
         if domain_urn:
-            wus = add_domain_to_entity_wu(
+            yield from add_domain_to_entity_wu(
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )
-            for wu in wus:
-                self.report.report_workunit(wu)
-                yield wu
 
     def build_custom_properties(
         self,
