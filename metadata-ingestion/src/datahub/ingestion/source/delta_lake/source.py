@@ -292,6 +292,7 @@ class DeltaLakeSource(Source):
         logger.debug(f"Processing folder: {path}")
         delta_table = read_delta_table(path, self.source_config)
         if delta_table:
+            logger.debug(f"Delta table found at: {path}")
             for wu in self.ingest_table(delta_table, path):
                 yield wu
         else:
