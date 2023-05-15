@@ -376,7 +376,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
+        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true).setSkipCache(true);
         return ValidationUtils.validateLineageScrollResult(
             _lineageSearchService.scrollAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
                 sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags), _entityService);
