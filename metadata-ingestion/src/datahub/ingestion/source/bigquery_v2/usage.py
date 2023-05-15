@@ -356,7 +356,7 @@ class BigQueryUsageState(Closeable):
 class BigQueryUsageExtractor:
     """
     This plugin extracts the following:
-    * Statistics on queries issued and tables and columns accessed (excludes views)
+    * Statistics on queries issued and tables and columns accessed
     * Aggregation of these statistics into buckets, by day or hour granularity
 
     :::note
@@ -406,10 +406,12 @@ class BigQueryUsageExtractor:
     def generate_read_audit_events(
         self, query_event_on_view: QueryEvent
     ) -> Iterable[AuditEvent]:
+        """
+        This
+        """
         try:
             tables = self.get_tables_from_query(
                 query_event_on_view.project_id,
-                query_event_on_view.default_dataset,
                 query_event_on_view.query,
             )
             assert tables is not None and len(tables) != 0
@@ -965,7 +967,7 @@ class BigQueryUsageExtractor:
                 )
 
     def get_tables_from_query(
-        self, default_project: str, default_dataset: Optional[str], query: str
+        self, default_project: str, query: str
     ) -> Optional[List[BigQueryTableRef]]:
         if not query:
             return None
@@ -987,17 +989,7 @@ class BigQueryUsageExtractor:
 
         for table in tables:
             parts = table.split(".")
-            if len(parts) == 1 and default_dataset:
-                parsed_tables.add(
-                    BigQueryTableRef(
-                        BigqueryTableIdentifier(
-                            project_id=default_project,
-                            dataset=default_dataset,
-                            table=table,
-                        )
-                    ).get_sanitized_table_ref()
-                )
-            elif len(parts) == 2:
+            if len(parts) == 2:
                 parsed_tables.add(
                     BigQueryTableRef(
                         BigqueryTableIdentifier(

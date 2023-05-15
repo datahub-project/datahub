@@ -30,7 +30,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
     apply_view_usage_to_tables: bool = Field(
         default=False,
-        description="Whether to apply view's usage to its base tables. If set to True, usage is not applied to views.",
+        description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies usage to views / tables mentioned in the query. If set to True, usage is applied to base tables only.",
     )
 
 

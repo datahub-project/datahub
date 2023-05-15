@@ -1,6 +1,7 @@
 import logging
 import random
 from datetime import datetime, timedelta, timezone
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -122,7 +123,7 @@ def query_tables_1_and_2(timestamp: datetime = TS_1, actor: str = ACTOR_1) -> Qu
 
 def query_view_1(timestamp: datetime = TS_1, actor: str = ACTOR_1) -> Query:
     return Query(
-        text="SELECT * FROM view_1",
+        text="SELECT * FROM project-1.database_1.view_1",
         type="SELECT",
         timestamp=timestamp,
         actor=actor,
@@ -155,7 +156,7 @@ def make_operational_workunit(
     ).as_workunit()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def config() -> BigQueryV2Config:
     return BigQueryV2Config(
         file_backed_cache_size=1,
@@ -238,7 +239,7 @@ def test_usage_counts_single_bucket_resource_project(
     ]
 
 
-def test_usage_counts_multiple_buckets_and_resources(
+def test_usage_counts_multiple_buckets_and_resources_view_usage(
     usage_extractor: BigQueryUsageExtractor,
     config: BigQueryV2Config,
 ) -> None:
@@ -338,20 +339,7 @@ def test_usage_counts_multiple_buckets_and_resources(
                         userEmail=ACTOR_1,
                     ),
                 ],
-                fieldCounts=[
-                    DatasetFieldUsageCountsClass(
-                        fieldPath="id",
-                        count=3,
-                    ),
-                    DatasetFieldUsageCountsClass(
-                        fieldPath="name",
-                        count=3,
-                    ),
-                    DatasetFieldUsageCountsClass(
-                        fieldPath="total",
-                        count=3,
-                    ),
-                ],
+                fieldCounts=[],
             ),
         ),
         make_usage_workunit(
@@ -447,20 +435,7 @@ def test_usage_counts_multiple_buckets_and_resources(
                         userEmail=ACTOR_1,
                     ),
                 ],
-                fieldCounts=[
-                    DatasetFieldUsageCountsClass(
-                        fieldPath="id",
-                        count=1,
-                    ),
-                    DatasetFieldUsageCountsClass(
-                        fieldPath="name",
-                        count=1,
-                    ),
-                    DatasetFieldUsageCountsClass(
-                        fieldPath="total",
-                        count=1,
-                    ),
-                ],
+                fieldCounts=[],
             ),
         ),
         make_usage_workunit(
@@ -491,6 +466,231 @@ def test_usage_counts_multiple_buckets_and_resources(
                     ),
                     DatasetFieldUsageCountsClass(
                         fieldPath="table_1_id",
+                        count=1,
+                    ),
+                ],
+            ),
+        ),
+    ]
+
+
+def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
+    usage_extractor: BigQueryUsageExtractor,
+    config: BigQueryV2Config,
+) -> None:
+    config.usage.apply_view_usage_to_tables = True
+    queries = [
+        # TS 1
+        query_table_1_a(TS_1, ACTOR_1),
+        query_table_1_a(TS_1, ACTOR_2),
+        query_table_1_b(TS_1, ACTOR_1),
+        query_tables_1_and_2(TS_1, ACTOR_1),
+        query_tables_1_and_2(TS_1, ACTOR_1),
+        query_tables_1_and_2(TS_1, ACTOR_1),
+        query_view_1(TS_1, ACTOR_1),
+        query_view_1(TS_1, ACTOR_2),
+        query_view_1(TS_1, ACTOR_2),
+        # TS 2
+        query_table_1_a(TS_2, ACTOR_1),
+        query_table_1_a(TS_2, ACTOR_2),
+        query_table_1_b(TS_2, ACTOR_2),
+        query_tables_1_and_2(TS_2, ACTOR_2),
+        query_table_2(TS_2, ACTOR_2),
+        query_view_1(TS_2, ACTOR_1),
+    ]
+    events = generate_events(
+        queries,
+        [PROJECT_1, PROJECT_2],
+        TABLE_TO_PROJECT,
+        config=config,
+        proabability_of_project_mismatch=0.5,
+    )
+
+    workunits = usage_extractor._run(events, TABLE_REFS.values())
+    assert list(workunits) == [
+        # TS 1
+        make_usage_workunit(
+            table=TABLE_1,
+            dataset_usage_statistics=DatasetUsageStatisticsClass(
+                timestampMillis=int(TS_1.timestamp() * 1000),
+                eventGranularity=TimeWindowSizeClass(
+                    unit=BucketDuration.DAY, multiple=1
+                ),
+                totalSqlQueries=9,
+                topSqlQueries=[
+                    query_tables_1_and_2().text,
+                    query_view_1().text,
+                    query_table_1_a().text,
+                    query_table_1_b().text,
+                ],
+                uniqueUserCount=2,
+                userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_1_URN,
+                        count=6,
+                        userEmail=ACTOR_1,
+                    ),
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_2_URN,
+                        count=3,
+                        userEmail=ACTOR_2,
+                    ),
+                ],
+                fieldCounts=[
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="name",
+                        count=9,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="id",
+                        count=8,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="total",
+                        count=3,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="age",
+                        count=2,
+                    ),
+                ],
+            ),
+        ),
+        make_usage_workunit(
+            table=TABLE_2,
+            dataset_usage_statistics=DatasetUsageStatisticsClass(
+                timestampMillis=int(TS_1.timestamp() * 1000),
+                eventGranularity=TimeWindowSizeClass(
+                    unit=BucketDuration.DAY, multiple=1
+                ),
+                totalSqlQueries=6,
+                topSqlQueries=[query_tables_1_and_2().text, query_view_1().text],
+                uniqueUserCount=2,
+                userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_1_URN,
+                        count=4,
+                        userEmail=ACTOR_1,
+                    ),
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_2_URN,
+                        count=2,
+                        userEmail=ACTOR_2,
+                    ),
+                ],
+                fieldCounts=[
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="id",
+                        count=6,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="name",
+                        count=3,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="total",
+                        count=3,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="value",
+                        count=3,
+                    ),
+                ],
+            ),
+        ),
+        # TS 2
+        make_usage_workunit(
+            table=TABLE_1,
+            dataset_usage_statistics=DatasetUsageStatisticsClass(
+                timestampMillis=int(TS_2.timestamp() * 1000),
+                eventGranularity=TimeWindowSizeClass(
+                    unit=BucketDuration.DAY, multiple=1
+                ),
+                totalSqlQueries=5,
+                topSqlQueries=[
+                    query_table_1_a().text,
+                    query_tables_1_and_2().text,
+                    query_view_1().text,
+                    query_table_1_b().text,
+                ],
+                uniqueUserCount=2,
+                userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_2_URN,
+                        count=3,
+                        userEmail=ACTOR_2,
+                    ),
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_1_URN,
+                        count=2,
+                        userEmail=ACTOR_1,
+                    ),
+                ],
+                fieldCounts=[
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="name",
+                        count=5,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="id",
+                        count=4,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="age",
+                        count=2,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="total",
+                        count=1,
+                    ),
+                ],
+            ),
+        ),
+        make_usage_workunit(
+            table=TABLE_2,
+            dataset_usage_statistics=DatasetUsageStatisticsClass(
+                timestampMillis=int(TS_2.timestamp() * 1000),
+                eventGranularity=TimeWindowSizeClass(
+                    unit=BucketDuration.DAY, multiple=1
+                ),
+                totalSqlQueries=3,
+                topSqlQueries=[
+                    query_tables_1_and_2().text,
+                    query_view_1().text,
+                    query_table_2().text,
+                ],
+                uniqueUserCount=2,
+                userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_2_URN,
+                        count=2,
+                        userEmail=ACTOR_2,
+                    ),
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_1_URN,
+                        count=1,
+                        userEmail=ACTOR_1,
+                    ),
+                ],
+                fieldCounts=[
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="id",
+                        count=3,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="value",
+                        count=2,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="name",
+                        count=1,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="table_1_id",
+                        count=1,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="total",
                         count=1,
                     ),
                 ],
@@ -593,6 +793,7 @@ def test_operational_stats(
     config: BigQueryV2Config,
 ) -> None:
     mock.return_value = []
+    config.usage.apply_view_usage_to_tables = True
     config.usage.include_operational_stats = True
     seed_metadata = generate_data(
         num_containers=3,
@@ -641,6 +842,16 @@ def test_operational_stats(
                         ).to_urn("PROD")
                         for field in query.fields_accessed
                         if not field.table.is_view()
+                    )
+                )
+                + list(
+                    dict.fromkeys(  # Preserve order
+                        BigQueryTableRef.from_string_name(
+                            table_refs[parent.name]
+                        ).to_urn("PROD")
+                        for field in query.fields_accessed
+                        if field.table.is_view()
+                        for parent in cast(View, field.table).parents
                     )
                 ),
             ),

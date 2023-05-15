@@ -15,5 +15,5 @@ class SnowflakeUsageConfig(BaseUsageConfig):
     )
     apply_view_usage_to_tables: bool = pydantic.Field(
         default=False,
-        description="Whether to apply view's usage to its base tables. If set to True, usage is not applied to views.",
+        description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
     )
