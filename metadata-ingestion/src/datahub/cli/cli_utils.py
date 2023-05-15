@@ -5,7 +5,17 @@ import os.path
 import sys
 import typing
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import click
 import requests
@@ -19,6 +29,9 @@ from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 log = logging.getLogger(__name__)
 
@@ -320,13 +333,13 @@ def post_rollback_endpoint(
 def post_delete_references_endpoint(
     payload_obj: dict,
     path: str,
-    cached_session_host: Optional[Tuple[Session, str]] = None,
+    graph: "DataHubGraph",
 ) -> Tuple[int, List[Dict]]:
-    session, gms_host = cached_session_host or get_session_and_host()
-    url = gms_host + path
+    url = graph._gms_server + path
 
     payload = json.dumps(payload_obj)
-    response = session.post(url, payload)
+
+    response = graph._session.post(url, payload)
     summary = parse_run_restli_response(response)
     reference_count = summary.get("total", 0)
     related_aspects = summary.get("relatedAspects", [])
@@ -334,14 +347,13 @@ def post_delete_references_endpoint(
 
 
 def post_delete_endpoint(
+    graph: "DataHubGraph",
     payload_obj: dict,
     path: str,
-    cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> typing.Tuple[str, int, int]:
-    session, gms_host = cached_session_host or get_session_and_host()
-    url = gms_host + path
+    url = graph._gms_server + path
 
-    return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
+    return post_delete_endpoint_with_session_and_url(graph._session, url, payload_obj)
 
 
 def post_delete_endpoint_with_session_and_url(

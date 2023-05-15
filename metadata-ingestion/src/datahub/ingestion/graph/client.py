@@ -5,13 +5,12 @@ import textwrap
 import time
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
 from requests.adapters import Response
 from requests.models import HTTPError
-from typing_extensions import Literal
 
 from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
@@ -544,6 +543,7 @@ class DataHubGraph(DatahubRestEmitter):
         entity_types: Optional[List[str]] = None,
         platform: Optional[str] = None,
         env: Optional[str] = None,
+        query: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
     ) -> Iterable[str]:
@@ -565,6 +565,9 @@ class DataHubGraph(DatahubRestEmitter):
                 raise ValueError("entity_types cannot be an empty list")
 
             types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
+
+        # Add the query default of * if no query is specified.
+        query = query or "*"
 
         FilterRule = Dict[str, Any]
         andFilters: List[FilterRule] = []
@@ -643,16 +646,17 @@ class DataHubGraph(DatahubRestEmitter):
                 for andFilters in orFilters
             ]
 
-        query = textwrap.dedent(
+        graphql_query = textwrap.dedent(
             """
             query scrollUrnsWithFilters(
                 $types: [EntityType!],
+                $query: String!,
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
                 $scrollId: String) {
 
                 scrollAcrossEntities(input: {
-                    query: "*",
+                    query: $query,
                     count: $batchSize,
                     scrollId: $scrollId,
                     types: $types,
@@ -673,17 +677,21 @@ class DataHubGraph(DatahubRestEmitter):
             """
         )
 
-        # Set scroll_id to True to enter while loop
-        scroll_id: Union[Literal[True], str, None] = True
-        while scroll_id is not None:
+        first_iter = True
+        scroll_id: Optional[str] = None
+        while first_iter or scroll_id:
+            first_iter = False
+
+            variables = {
+                "types": types,
+                "query": query,
+                "orFilters": orFilters,
+                "batchSize": batch_size,
+                "scrollId": scroll_id,
+            }
             response = self.execute_graphql(
-                query,
-                variables={
-                    "types": types,
-                    "orFilters": orFilters,
-                    "batchSize": batch_size,
-                    "scrollId": scroll_id or None,
-                },
+                graphql_query,
+                variables=variables,
             )
             data = response["scrollAcrossEntities"]
             scroll_id = data["nextScrollId"]
