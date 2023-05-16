@@ -177,7 +177,7 @@ def make_operational_workunit(
     ).as_workunit()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def config() -> BigQueryV2Config:
     return BigQueryV2Config(
         file_backed_cache_size=1,
@@ -493,6 +493,8 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
             ),
         ),
     ]
+    assert usage_extractor.report.num_view_query_events == 5
+    assert usage_extractor.report.num_view_query_events_failed_sql_parsing == 0
 
 
 def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
@@ -721,6 +723,7 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
             ),
         ),
     ]
+    assert usage_extractor.report.num_view_query_events == 0
 
 
 def test_usage_counts_no_query_event(
@@ -902,6 +905,16 @@ def test_get_tables_from_query(usage_extractor):
         usage_extractor.get_tables_from_query(
             PROJECT_1,
             "SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+        )
+    ) == [
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1")),
+    ]
+
+    assert sorted(
+        usage_extractor.get_tables_from_query(
+            PROJECT_1,
+            "CREATE TABLE database_1.new_table AS SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
         )
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),

@@ -437,14 +437,13 @@ class BigQueryUsageExtractor:
                 # Note for View Usage:
                 # If Query Event references a view, bigquery audit logs do not contain Read Event for view
                 # in its audit logs, but only for it base tables. To extract usage for views, we parse the
-                # sql query to find bigquery objects mentioned in the query and generate view Read Events
-                # in our code (`from_query`=True). For such Query Events, we delete the original
+                # sql query to find bigquery tables and views read in the query and generate Read Events
+                # for them in our code (`from_query`=True). For such Query Events, we delete the original
                 # Read Events coming from Bigquery audit logs and keep only generated ones.
 
-                # Caveats with SQL parsing approach used here:
-                # 1. If query parsing completely fails, usage for such query is not considered/counted.
-                # 2. The snowflake objects
-                # 3. Due to limitations of query parsing, field level usage is not available in some cases.
+                # Caveats of SQL parsing approach used here:
+                # 1. If query parsing fails, usage for such query is not considered/counted.
+                # 2. Due to limitations of query parsing, field level usage is not available.
                 # To limit the impact, we use query parsing only for those queries that reference at least
                 # one view. For all other queries, field level usage is available through bigquery audit logs.
                 if (
@@ -454,6 +453,7 @@ class BigQueryUsageExtractor:
                 ):
                     query_event = audit_event.query_event
                     query_event.query_on_view = True
+
                     self.report.num_view_query_events += 1
 
                     for new_event in self.generate_read_events_from_query(query_event):
@@ -469,9 +469,9 @@ class BigQueryUsageExtractor:
                 )
                 self._report_error("store-event", e)
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
-        logger.info(f"Total number of read events generated = {num_generated}.")
 
         if self.report.num_view_query_events > 0:
+            logger.info(f"Total number of read events generated = {num_generated}.")
             usage_state.delete_original_read_events_for_view_query_events()
 
     def _generate_operational_workunits(
@@ -972,8 +972,7 @@ class BigQueryUsageExtractor:
         self, default_project: str, query: str
     ) -> Optional[List[BigQueryTableRef]]:
         """
-        This method attempts to parse bigquery objects mentioned in the query,
-        along with the columns accessed.
+        This method attempts to parse bigquery objects read in the query
         """
         if not query:
             return None
