@@ -268,9 +268,8 @@ class KafkaSource(StatefulIngestionSourceBase):
             and schema_metadata.platformSchema.documentSchemaType == AVRO
         ):
             # Point to note:
-            # Each topic can have documentSchema and keySchema registered. Both schema can have the 
-            # top-level doc present that means doc is optional property in both schema. 
-            # However we are just retrieving doc from documentSchema if present and setting it as dataset description.
+            # In Kafka documentSchema and keySchema both contains "doc" field.
+            # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
             description = json.loads(schema_metadata.platformSchema.documentSchema).get(
                 DOC_KEY
             )
