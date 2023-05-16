@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.UpdateDataProductInput;
 import com.linkedin.datahub.graphql.types.dataproduct.mappers.DataProductMapper;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -53,7 +54,13 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
             input.getName(),
             input.getDescription(),
             authentication);
-        return DataProductMapper.map(_dataProductService.getDataProductEntityResponse(urn, authentication));
+        EntityResponse response = _dataProductService.getDataProductEntityResponse(urn, authentication);
+        if (response != null) {
+          return DataProductMapper.map(response);
+        }
+        // should never happen
+        log.error(String.format("Unable to find data product with urn %s", dataProductUrn));
+        return null;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to update DataProduct with urn %s", dataProductUrn), e);
       }

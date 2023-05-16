@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDataProductInput;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.types.dataproduct.mappers.DataProductMapper;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -46,7 +47,13 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
             input.getProperties().getDescription(),
             authentication);
         _dataProductService.setDomain(dataProductUrn, UrnUtils.getUrn(input.getDomainUrn()), authentication);
-        return DataProductMapper.map(_dataProductService.getDataProductEntityResponse(dataProductUrn, authentication));
+        EntityResponse response = _dataProductService.getDataProductEntityResponse(dataProductUrn, authentication);
+        if (response != null) {
+          return DataProductMapper.map(response);
+        }
+        // should never happen
+        log.error(String.format("Unable to find data product with urn %s", dataProductUrn));
+        return null;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to create a new DataProduct from input %s", input), e);
       }
