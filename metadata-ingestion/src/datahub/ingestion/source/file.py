@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import auto
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
 from urllib import parse
 
 import ijson
@@ -33,22 +33,12 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import (
-    CalendarIntervalClass,
-    DatasetFieldUsageCountsClass,
-    DatasetUserUsageCountsClass,
-    TimeWindowSizeClass,
-    UsageAggregationClass,
-    WindowDurationClass,
-)
+from datahub.metadata.schema_classes import UsageAggregationClass
 from datahub.utilities.source_helpers import auto_workunit_reporter
-from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -225,9 +215,7 @@ class GenericFileSource(TestableSource):
             for i, obj in self.iterate_generic_file(f):
                 id = f"file://{f}:{i}"
                 if isinstance(obj, UsageAggregationClass):
-                    mcp = self._convert_usage_aggregation_class(obj)
-                    if mcp:
-                        yield MetadataWorkUnit(id, mcp=mcp)
+                    logger.warning(f"Dropping deprecated UsageAggregationClass: {obj}")
                 elif isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
@@ -247,55 +235,6 @@ class GenericFileSource(TestableSource):
                         yield MetadataWorkUnit(id, mcp_raw=obj)
                 else:
                     yield MetadataWorkUnit(id, mce=obj)
-
-    def _convert_usage_aggregation_class(
-        self, obj: UsageAggregationClass
-    ) -> Optional[MetadataChangeProposalWrapper]:
-        # Legacy usage aggregation only supported dataset usage stats
-        if guess_entity_type(obj.resource) == DatasetUrn.ENTITY_TYPE:
-            aspect = DatasetUsageStatistics(
-                timestampMillis=obj.bucket,
-                eventGranularity=TimeWindowSizeClass(
-                    unit=self._convert_window_to_interval(obj.duration)
-                ),
-                uniqueUserCount=obj.metrics.uniqueUserCount,
-                totalSqlQueries=obj.metrics.totalSqlQueries,
-                topSqlQueries=obj.metrics.topSqlQueries,
-                userCounts=[
-                    DatasetUserUsageCountsClass(
-                        user=u.user, count=u.count, userEmail=u.userEmail
-                    )
-                    for u in obj.metrics.users or []
-                    if u.user is not None
-                ],
-                fieldCounts=[
-                    DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
-                    for f in obj.metrics.fields or []
-                ],
-            )
-            return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
-        else:
-            logger.warning(
-                f"Skipping unsupported usage aggregation - invalid entity type: {obj}"
-            )
-            self.report.report_warning("invalid-usage-aggregation", obj.resource)
-            return None
-
-    def _convert_window_to_interval(
-        self, window: Union[str, WindowDurationClass]
-    ) -> str:
-        if window == WindowDurationClass.YEAR:
-            return CalendarIntervalClass.YEAR
-        elif window == WindowDurationClass.MONTH:
-            return CalendarIntervalClass.MONTH
-        elif window == WindowDurationClass.WEEK:
-            return CalendarIntervalClass.WEEK
-        elif window == WindowDurationClass.DAY:
-            return CalendarIntervalClass.DAY
-        elif window == WindowDurationClass.HOUR:
-            return CalendarIntervalClass.HOUR
-        else:
-            raise Exception(f"Unsupported window duration: {window}")
 
     def get_report(self):
         return self.report
@@ -404,9 +343,12 @@ class GenericFileSource(TestableSource):
             try:
                 deserialize_start_time = datetime.datetime.now()
                 item = _from_obj_for_file(obj)
-                deserialize_duration = datetime.datetime.now() - deserialize_start_time
-                self.report.add_deserialize_time(deserialize_duration)
-                yield i, item
+                if item is not None:
+                    deserialize_duration = (
+                        datetime.datetime.now() - deserialize_start_time
+                    )
+                    self.report.add_deserialize_time(deserialize_duration)
+                    yield i, item
             except Exception as e:
                 self.report.report_failure(f"path-{i}", str(e))
 
@@ -449,7 +391,7 @@ def _from_obj_for_file(
     MetadataChangeEvent,
     MetadataChangeProposal,
     MetadataChangeProposalWrapper,
-    UsageAggregationClass,
+    None,
 ]:
     item: Union[
         MetadataChangeEvent,
@@ -467,22 +409,25 @@ def _from_obj_for_file(
     if not item.validate():
         raise ValueError(f"failed to parse: {obj}")
 
-    return item
+    if isinstance(item, UsageAggregationClass):
+        logger.warning(f"Dropping deprecated UsageAggregationClass: {item}")
+        return None
+    else:
+        return item
 
 
 def read_metadata_file(
     file: pathlib.Path,
-) -> List[
+) -> Iterable[
     Union[
         MetadataChangeEvent,
         MetadataChangeProposal,
         MetadataChangeProposalWrapper,
-        UsageAggregationClass,
     ]
 ]:
     # This simplified version of the FileSource can be used for testing purposes.
-    records = []
     with file.open("r") as f:
         for obj in json.load(f):
-            records.append(_from_obj_for_file(obj))
-    return records
+            item = _from_obj_for_file(obj)
+            if item:
+                yield item

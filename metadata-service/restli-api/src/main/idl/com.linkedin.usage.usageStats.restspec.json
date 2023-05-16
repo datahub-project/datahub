@@ -1,7 +1,4 @@
 {
-  "annotations" : {
-    "deprecated" : { }
-  },
   "name" : "usageStats",
   "namespace" : "com.linkedin.usage",
   "path" : "/usageStats",
@@ -10,6 +7,9 @@
   "simple" : {
     "supports" : [ ],
     "actions" : [ {
+      "annotations" : {
+        "deprecated" : { }
+      },
       "name" : "batchIngest",
       "parameters" : [ {
         "name" : "buckets",
