@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +41,19 @@ def _get_owner_urn(maybe_urn: str) -> str:
 
 
 def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) -> None:
-    if not graph.exists(urn):
-        click.secho(
-            f"Data Product {urn} does not exist. Will not {operation}.", fg="red"
-        )
+    try:
+        parsed_urn: Urn = Urn.create_from_string(urn)
+        entity_type = parsed_urn.get_type()
+    except Exception:
+        click.secho(f"Provided urn {urn} does not seem valid", fg="red")
         raise click.Abort()
+    else:
+        if not graph.exists(urn):
+            click.secho(
+                f"{entity_type.title()} {urn} does not exist. Will not {operation}.",
+                fg="red",
+            )
+            raise click.Abort()
 
 
 def _print_diff(orig_file, new_file):
@@ -328,9 +337,12 @@ def remove_owner(urn: str, owner_urn: str) -> None:
 @dataproduct.command(name="add_asset", help="Add an asset to a Data Product")
 @click.option("--urn", required=True, type=str)
 @click.option("--asset", required=True, type=str)
+@click.option(
+    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def add_asset(urn: str, asset: str) -> None:
+def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
     """Add asset for a Data Product in DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
@@ -339,6 +351,12 @@ def add_asset(urn: str, asset: str) -> None:
     dataproduct_patcher.add_asset(asset)
     with get_default_graph() as graph:
         _abort_if_non_existent_urn(graph, urn, "add assets")
+        if validate_assets:
+            _abort_if_non_existent_urn(
+                graph,
+                asset,
+                "add assets. Use --no-validate-assets if you want to turn off validation",
+            )
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
 
@@ -346,9 +364,12 @@ def add_asset(urn: str, asset: str) -> None:
 @dataproduct.command(name="remove_asset", help="Add an asset to a Data Product")
 @click.option("--urn", required=True, type=str)
 @click.option("--asset", required=True, type=str)
+@click.option(
+    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def remove_asset(urn: str, asset: str) -> None:
+def remove_asset(urn: str, asset: str, validate_assets: bool) -> None:
     """Remove asset for a Data Product in DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
@@ -357,5 +378,11 @@ def remove_asset(urn: str, asset: str) -> None:
     dataproduct_patcher.remove_asset(asset)
     with get_default_graph() as graph:
         _abort_if_non_existent_urn(graph, urn, "remove assets")
+        if validate_assets:
+            _abort_if_non_existent_urn(
+                graph,
+                asset,
+                "remove assets. Use --no-validate-assets if you want to turn off validation",
+            )
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
