@@ -15,7 +15,6 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetchingEnvironment;
-import io.vavr.collection.Array;
 import junit.framework.TestCase;
 import org.testng.annotations.Test;
 import org.mockito.Mockito;
@@ -90,7 +89,7 @@ public class ResolverUtilsTest extends TestCase {
         .setField("owners")
         .setValues(new StringArray("urn:li:corpuser:chris"))
         .setCondition(Condition.EQUAL);
-    CriterionArray andCriterionArray = new CriterionArray( ImmutableList.of(ownersCriterion));
+    CriterionArray andCriterionArray = new CriterionArray(ImmutableList.of(ownersCriterion));
     final Filter filter = new Filter();
     filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
         new ConjunctiveCriterion().setAnd(andCriterionArray)
