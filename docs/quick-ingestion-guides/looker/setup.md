@@ -121,14 +121,17 @@ Follow below steps to create API key.
 # LookML Ingestion Guide: Setup & Prerequisites
 Follow below steps to create GitHub Deploy Key
 
-1. **Generate a private-public ssh key pair:** This will typically generate two files, e.g. looker_datahub_deploy_key (this is the private key) and looker_datahub_deploy_key.pub (this is the public key)
+1. **Generate a private-public ssh key pair:** This will typically generate two files, e.g. `looker_datahub_deploy_key` (this is the private key) and `looker_datahub_deploy_key.pub` (this is the public 
+key)
 
-      > ssh-keygen -t rsa -f looker_datahub_deploy_key
+   ```bash
+      ssh-keygen -t rsa -f looker_datahub_deploy_key
+   ```
 
 2. **Login to GitHub:** Login to https://github.com 
 
 
-3. **Add Deploy Key:** Navigate to `GitHub Repository` -> `Settings` -> `Deploy Keys` and add public key i.e. looker_datahub_deploy_key.pub as deploy key with read access 
+3. **Add Deploy Key:** Navigate to `GitHub Repository` -> `Settings` -> `Deploy Keys` and add public key *i.e. looker_datahub_deploy_key.pub* as deploy key with read access 
 
       <p align="center">
    <img width="75%" alt="Looker home page" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-deploy-key.png"/>

@@ -68,9 +68,9 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
     
     a. **Base URL:** This is your looker instance URL. For example https://abc.cloud.looker.com.
 
-    b. **Client ID:** Use the secret LOOKER_CLIENT_ID with the format "${LOOKER_CLIENT_ID}".
+    b. **Client ID:** Use the secret LOOKER_CLIENT_ID with the format `${LOOKER_CLIENT_ID}`.
 
-    c. **Client Secret:** Use the secret LOOKER_CLIENT_SECRET with the format "${LOOKER_CLIENT_SECRET}".
+    c. **Client Secret:** Use the secret LOOKER_CLIENT_SECRET with the format `${LOOKER_CLIENT_SECRET}`.
 
 
 
@@ -87,7 +87,7 @@ Optionally, use the `dashboard_pattern` and `chart_pattern` fields to filter for
 
 Your recipe should look something like this:
 <p align="center">
-  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-source-recipe.png"/>
+  <img width="70%" alt="Looker Recipe" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-source-recipe.png"/>
 </p>
 
 
@@ -183,7 +183,7 @@ Now that you have created a DataHub specific API key and Deploy Key with the rel
 
 Your recipe should look something like this:
 <p align="center">
-  <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-source-recipe.png"/>
+  <img width="70%" alt="LookML Recipe" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-source-recipe.png"/>
 </p>
 
 

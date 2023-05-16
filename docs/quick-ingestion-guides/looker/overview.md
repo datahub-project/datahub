@@ -8,7 +8,7 @@ title: Overview
 This guide will help you set up the Looker & LookML connectors to begin ingesting metadata into DataHub.
  
 
-Upon completing this guide, you will have a recurring ingestion pipeline that will extract metadata from LookML & Looker and load it into DataHub. This will include to following Looker asset types:
+Upon completing this guide, you will have a recurring ingestion pipeline that will extract metadata from Looker & LookML and load it into DataHub. This will include to following Looker asset types:
 
 **Looker Connector Ingested Assets:**
 
@@ -30,8 +30,7 @@ Upon completing this guide, you will have a recurring ingestion pipeline that wi
 * Metadata for measures
 * Dimension Groups as tag
 
-
-    To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must also use the `looker` connector.
+    To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker  views, you must also use the `looker` connector.
 
 ## Next Steps
 Continue to the [setup guide](setup.md), where we'll describe the prerequisites.
