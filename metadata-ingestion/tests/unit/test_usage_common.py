@@ -3,6 +3,7 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
+from freezegun import freeze_time
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -16,18 +17,17 @@ from datahub.ingestion.source.usage.usage_common import (
     convert_usage_aggregation_class,
 )
 from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
+    DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
+    DatasetUserUsageCountsClass,
+    FieldUsageCountsClass,
+    TimeWindowSizeClass,
     UsageAggregationClass,
-    WindowDurationClass,
     UsageAggregationMetricsClass,
     UserUsageCountsClass,
-    FieldUsageCountsClass,
-    CalendarIntervalClass,
-    TimeWindowSizeClass,
-    DatasetUserUsageCountsClass,
-    DatasetFieldUsageCountsClass,
+    WindowDurationClass,
 )
-from freezegun import freeze_time
 
 _TestTableRef = str
 

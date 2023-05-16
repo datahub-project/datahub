@@ -5,8 +5,9 @@ import logging
 import os
 from json.decoder import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from deprecated import deprecated
+
 import requests
+from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 

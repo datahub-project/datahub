@@ -29,13 +29,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
     UsageAggregationClass,
     WindowDurationClass,
-    CalendarIntervalClass,
 )
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 from datahub.utilities.urns.dataset_urn import DatasetUrn
