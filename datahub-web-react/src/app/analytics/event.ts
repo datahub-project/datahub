@@ -523,7 +523,7 @@ export interface EmbedProfileViewInDataHubEvent extends BaseEvent {
 export interface EmbedLookupNotFoundEvent extends BaseEvent {
     type: EventType.EmbedLookupNotFoundEvent;
     url: string;
-    reason: string;
+    reason: 'NO_ENTITY_FOUND' | 'MULTIPLE_ENTITIES_FOUND';
 }
 
 /**
