@@ -4,11 +4,6 @@ import time
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
 
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -38,6 +33,11 @@ from datahub.ingestion.api.source import (
     SourceCapability,
     TestableSource,
     TestConnectionReport,
+)
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (

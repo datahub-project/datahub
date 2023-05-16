@@ -15,7 +15,6 @@ import requests
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.api.source_helpers import auto_workunit_reporter
 from datahub.configuration.common import ConfigEnum, ConfigModel, ConfigurationError
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -33,6 +32,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,

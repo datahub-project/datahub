@@ -6,7 +6,6 @@ from pydantic import validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
-from datahub.api.source_helpers import auto_workunit_reporter
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.configuration.common import (
     ConfigModel,
@@ -28,6 +27,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
 logger = logging.getLogger(__name__)

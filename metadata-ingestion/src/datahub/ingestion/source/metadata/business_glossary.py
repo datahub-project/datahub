@@ -8,11 +8,6 @@ from pydantic import validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
-from datahub.api.source_helpers import (
-    auto_status_aspect,
-    auto_workunit,
-    auto_workunit_reporter,
-)
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
@@ -25,6 +20,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_status_aspect,
+    auto_workunit,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.registries.domain_registry import DomainRegistry

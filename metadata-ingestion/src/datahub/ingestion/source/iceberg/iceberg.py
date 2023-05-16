@@ -10,7 +10,6 @@ from iceberg.core.base_table import BaseTable
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
 from iceberg.exceptions import NoSuchTableException
 
-from datahub.api.source_helpers import auto_stale_entity_removal, auto_status_aspect
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -29,6 +28,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.iceberg.iceberg_common import (

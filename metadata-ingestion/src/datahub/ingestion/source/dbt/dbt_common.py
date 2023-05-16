@@ -11,11 +11,6 @@ import pydantic
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.api.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
@@ -35,6 +30,11 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes

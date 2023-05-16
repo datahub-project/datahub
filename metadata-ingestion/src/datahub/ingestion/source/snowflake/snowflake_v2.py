@@ -9,11 +9,6 @@ from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
-from datahub.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -38,6 +33,11 @@ from datahub.ingestion.api.source import (
     SourceReport,
     TestableSource,
     TestConnectionReport,
+)
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
