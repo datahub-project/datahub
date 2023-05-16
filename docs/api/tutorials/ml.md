@@ -61,6 +61,8 @@ Note that when creating a feature table, you can access a list of features using
 
 ### Create MlModel
 
+Please note that an MlModel represents the outcome of a single training run for a model, not the collective results of all model runs.
+
 <Tabs>
 <TabItem value="python" label="Python" default>
 
@@ -75,6 +77,8 @@ Additionally, you can access the relationship to model groups with `groups`.
 </Tabs>
 
 ### Create MlModelGroup
+
+Please note that an MlModelGroup serves as a container for all the runs of a single ML model.
 
 <Tabs>
 <TabItem value="python" label="Python" default>
