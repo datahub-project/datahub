@@ -183,11 +183,13 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     if (baseSchema != null) {
       sortFieldsByPath(baseSchema);
     }
-    sortFieldsByPath(targetSchema);
+    if (targetSchema != null) {
+      sortFieldsByPath(targetSchema);
+    }
 
     // Performs ordinal based diff, primarily based on fixed field ordinals and their types.
     SchemaFieldArray baseFields = (baseSchema != null ? baseSchema.getFields() : new SchemaFieldArray());
-    SchemaFieldArray targetFields = targetSchema.getFields();
+    SchemaFieldArray targetFields = targetSchema != null ?  targetSchema.getFields() : new SchemaFieldArray();
     int baseFieldIdx = 0;
     int targetFieldIdx = 0;
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -412,7 +414,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         (baseSchema != null && baseSchema.getPrimaryKeys() != null) ? new HashSet<>(baseSchema.getPrimaryKeys())
             : new HashSet<>();
     Set<String> targetPrimaryKeys =
-        (targetSchema.getPrimaryKeys() != null) ? new HashSet<>(targetSchema.getPrimaryKeys()) : new HashSet<>();
+        (targetSchema != null && targetSchema.getPrimaryKeys() != null) ? new HashSet<>(targetSchema.getPrimaryKeys()) : new HashSet<>();
     Set<String> removedBaseKeys =
         basePrimaryKeys.stream().filter(key -> !targetPrimaryKeys.contains(key)).collect(Collectors.toSet());
     for (String removedBaseKeyField : removedBaseKeys) {
