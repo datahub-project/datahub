@@ -160,7 +160,7 @@
     "common_name": "FirstName LastName"
   },
   "can_write": true,
-  "database_id": 2,
+  "database_id": 1,
   "enable_embedding": false,
   "collection_id": null,
   "query_type": "native",
