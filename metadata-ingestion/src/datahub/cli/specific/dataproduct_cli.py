@@ -12,10 +12,7 @@ from typing import Optional
 import click
 from click_default_group import DefaultGroup
 
-from datahub.api.entities.dataproduct.dataproduct import (
-    DataProduct,
-    DataProductGenerationConfig,
-)
+from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.cli.delete_cli import delete_one_urn_cmd, delete_references
 from datahub.cli.specific.file_loader import load_file
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
@@ -108,11 +105,7 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
                 )
                 raise click.Abort()
         try:
-            for mcp in data_product.generate_mcp(
-                generation_config=DataProductGenerationConfig(
-                    validate_assets=validate_assets
-                )
-            ):
+            for mcp in data_product.generate_mcp():
                 graph.emit(mcp)
             click.secho(f"Update succeeded for urn {data_product.urn}.", fg="green")
         except Exception as e:

@@ -5,10 +5,7 @@ from typing import Any, Dict
 import pytest
 from freezegun import freeze_time
 
-from datahub.api.entities.dataproduct.dataproduct import (
-    DataProduct,
-    DataProductGenerationConfig,
-)
+from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.metadata.schema_classes import DomainPropertiesClass
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 from tests.test_helpers.mce_helpers import check_golden_file
@@ -62,9 +59,7 @@ def test_dataproduct_from_yaml(
     assert data_product._resolved_domain_urn == "urn:li:domain:12345"
     assert len(data_product.assets) == 3
 
-    for mcp in data_product.generate_mcp(
-        generation_config=DataProductGenerationConfig(validate_assets=False)
-    ):
+    for mcp in data_product.generate_mcp():
         mock_graph.emit(mcp)
 
     output_file = Path(test_resources_dir / "test_dataproduct_out.json")
@@ -90,9 +85,7 @@ def test_dataproduct_from_datahub(
 
     # validate that output looks exactly the same
 
-    for mcp in data_product.generate_mcp(
-        generation_config=DataProductGenerationConfig(validate_assets=False)
-    ):
+    for mcp in data_product.generate_mcp():
         mock_graph.emit(mcp)
 
     output_file = Path(test_resources_dir / "test_dataproduct_to_datahub_out.json")

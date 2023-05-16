@@ -46,10 +46,6 @@ if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 
 
-class DataProductGenerationConfig(ConfigModel):
-    validate_assets: bool = True
-
-
 def patch_list(
     orig_list: Optional[list],
     new_list: Optional[list],
@@ -120,7 +116,7 @@ class DataProduct(ConfigModel):
 
     id: str
     domain: str
-    _resolved_domain_urn: str
+    _resolved_domain_urn: Optional[str]
     assets: List[str]
     display_name: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
@@ -149,11 +145,12 @@ class DataProduct(ConfigModel):
 
     # If domain is an urn, we cache it in the private _resolved_domain_urn field
     # Otherwise, we expect the caller to populate this by using an external DomainRegistry
-    @pydantic.validator("domain")
-    def cache_resolved_domain_urn_if_urn(cls, v: str) -> str:
-        if isinstance(v, str) and v.startswith("urn:li:domain:"):
-            cls._resolved_domain_urn = v
-        return v
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.domain.startswith("urn:li:domain:"):
+            self._resolved_domain_urn = self.domain
+        else:
+            self._resolved_domain_urn = None
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:
         return AuditStampClass(
@@ -175,14 +172,12 @@ class DataProduct(ConfigModel):
                 type=owner.type,
             )
 
-    def generate_mcp(
-        self,
-        generation_config: DataProductGenerationConfig = DataProductGenerationConfig(),
-    ) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
 
-        if generation_config.validate_assets:
-            # pass
-            print(generation_config)
+        if self._resolved_domain_urn is None:
+            raise Exception(
+                f"Unable to generate MCP-s because we were unable to resolve the domain {self.domain} to an urn."
+            )
 
         mcp = MetadataChangeProposalWrapper(
             entityUrn=self.urn,
