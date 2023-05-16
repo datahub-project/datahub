@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import msal
 import requests
+from requests import Response
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -351,6 +352,17 @@ class DataResolverBase(ABC):
 
         return tiles
 
+    @staticmethod
+    def is_http_failure(response: Response, message: str) -> bool:
+        if response.ok:
+            # It is not failure so no need to log the message just return with False
+            return False
+
+        logger.debug(message)
+        logger.debug(f"HTTP Status Code = {response.status_code}")
+        logger.debug(f"HTTP Error Message = {response.text}")
+        return True
+
 
 class RegularAPIResolver(DataResolverBase):
     # Regular access endpoints
@@ -471,13 +483,11 @@ class RegularAPIResolver(DataResolverBase):
             headers=self.get_authorization_header(),
         )
 
-        # Check if we got response from PowerBi
-        if response.status_code != 200:
-            logger.debug(
-                f"Unable to fetch pages for report {report_id}. \n"
-                f"HTTP status-code:{response.status_code}, text:{response.text}"
-            )
+        if DataResolverBase.is_http_failure(
+            response, f"Unable to fetch pages for report {report_id}"
+        ):
             return []
+
         response_dict = response.json()
         return [
             Page(
