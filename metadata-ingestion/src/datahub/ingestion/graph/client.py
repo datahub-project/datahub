@@ -5,11 +5,10 @@ import textwrap
 import time
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
-from requests.adapters import Response
 from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
@@ -130,9 +129,9 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
 
-    def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
+    def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
-            response = self._session.get(url, params=params)
+            response = self._session.request(method, url, **kwargs)
             response.raise_for_status()
             return response.json()
         except HTTPError as e:
@@ -147,24 +146,11 @@ class DataHubGraph(DatahubRestEmitter):
                     "Unable to get metadata from DataHub", {"message": str(e)}
                 ) from e
 
+    def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
+        return self._send_restli_request("GET", url, params=params)
+
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
-        payload = json.dumps(payload_dict)
-        logger.debug(payload)
-        try:
-            response: Response = self._session.post(url, payload)
-            response.raise_for_status()
-            return response.json()
-        except HTTPError as e:
-            try:
-                info = response.json()
-                raise OperationalError(
-                    "Unable to get metadata from DataHub", info
-                ) from e
-            except JSONDecodeError:
-                # If we can't parse the JSON, just raise the original error.
-                raise OperationalError(
-                    "Unable to get metadata from DataHub", {"message": str(e)}
-                ) from e
+        return self._send_restli_request("POST", url, json=payload_dict)
 
     def get_aspect(
         self,
@@ -813,6 +799,18 @@ class DataHubGraph(DatahubRestEmitter):
                 ),
             )
         )
+
+    def _delete_references_to_urn(
+        self, urn: str, dry_run: bool = False
+    ) -> Tuple[int, List[Dict]]:
+        payload_obj = {"urn": urn, "dryRun": dry_run}
+
+        response = self._post_generic(
+            f"{self._gms_server}/entities?action=deleteReferences", payload_obj
+        )
+        reference_count = response.get("total", 0)
+        related_aspects = response.get("relatedAspects", [])
+        return reference_count, related_aspects
 
 
 def get_default_graph() -> DataHubGraph:

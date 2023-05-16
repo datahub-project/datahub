@@ -424,9 +424,4 @@ def delete_references(
     urn: str,
     dry_run: bool = False,
 ) -> Tuple[int, List[Dict]]:
-    payload_obj = {"urn": urn, "dryRun": dry_run}
-    return cli_utils.post_delete_references_endpoint(
-        payload_obj,
-        "/entities?action=deleteReferences",
-        graph=graph,
-    )
+    return graph._delete_references_to_urn(urn, dry_run=dry_run)

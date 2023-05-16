@@ -330,22 +330,6 @@ def post_rollback_endpoint(
     )
 
 
-def post_delete_references_endpoint(
-    payload_obj: dict,
-    path: str,
-    graph: "DataHubGraph",
-) -> Tuple[int, List[Dict]]:
-    url = graph._gms_server + path
-
-    payload = json.dumps(payload_obj)
-
-    response = graph._session.post(url, payload)
-    summary = parse_run_restli_response(response)
-    reference_count = summary.get("total", 0)
-    related_aspects = summary.get("relatedAspects", [])
-    return reference_count, related_aspects
-
-
 def post_delete_endpoint(
     graph: "DataHubGraph",
     payload_obj: dict,
