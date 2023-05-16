@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.impl;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -8,6 +10,7 @@ import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeResult;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -102,22 +105,27 @@ public class DefaultUpgradeManager implements UpgradeManager {
     UpgradeStepResult result = null;
     int maxAttempts = retryCount + 1;
     for (int i = 0; i < maxAttempts; i++) {
-      try {
-        result = step.executable().apply(context);
+      try (Timer.Context completionTimer = MetricUtils.timer(MetricRegistry.name(step.id(), "completionTime")).time()) {
+        try (Timer.Context executionTimer = MetricUtils.timer(MetricRegistry.name(step.id(), "executionTime")).time()) {
+          result = step.executable().apply(context);
+        }
 
         if (result == null) {
           // Failed to even retrieve a result. Create a default failure result.
           result = new DefaultUpgradeStepResult(step.id(), UpgradeStepResult.Result.FAILED);
           context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
+          MetricUtils.counter(MetricRegistry.name(step.id(), "retry")).inc();
         }
 
         if (UpgradeStepResult.Result.SUCCEEDED.equals(result.result())) {
+          MetricUtils.counter(MetricRegistry.name(step.id(), "succeeded")).inc();
           break;
         }
       } catch (Exception e) {
         context.report()
             .addLine(
                 String.format("Caught exception during attempt %s of Step with id %s: %s", i, step.id(), e));
+        MetricUtils.counter(MetricRegistry.name(step.id(), "failed")).inc();
         result = new DefaultUpgradeStepResult(step.id(), UpgradeStepResult.Result.FAILED);
         context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
       }
