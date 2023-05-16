@@ -585,6 +585,7 @@ class MetabaseSource(Source):
             "presto": "catalog",
             "mysql": "dbname",
             "sqlserver": "db",
+            "bigquery-cloud-sdk": "project-id",
         }
 
         dbname = (

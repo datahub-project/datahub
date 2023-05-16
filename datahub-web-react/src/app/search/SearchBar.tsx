@@ -179,16 +179,19 @@ export const SearchBar = ({
             disabled: true,
         };
 
-        return [...moduleOptions, exploreAllOption];
-    }, [data?.listRecommendations?.modules, onClickExploreAll]);
+        const tail = showQuickFilters ? [exploreAllOption] : [];
+
+        return [...moduleOptions, ...tail];
+    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters]);
 
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const autoCompleteQueryOptions = useMemo(() => {
         const query = suggestions.length ? effectiveQuery : '';
-        const selectedQuickFilterLabel = selectedQuickFilter
-            ? getQuickFilterDetails(selectedQuickFilter, entityRegistry).label
-            : '';
+        const selectedQuickFilterLabel =
+            showQuickFilters && selectedQuickFilter
+                ? getQuickFilterDetails(selectedQuickFilter, entityRegistry).label
+                : '';
         const text = query || selectedQuickFilterLabel;
 
         if (!text) return [];
@@ -200,7 +203,7 @@ export const SearchBar = ({
                 type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
             },
         ];
-    }, [suggestions, effectiveQuery, selectedQuickFilter, entityRegistry]);
+    }, [showQuickFilters, suggestions.length, effectiveQuery, selectedQuickFilter, entityRegistry]);
 
     const autoCompleteEntityOptions = useMemo(
         () =>
