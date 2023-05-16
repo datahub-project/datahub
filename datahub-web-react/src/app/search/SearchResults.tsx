@@ -21,7 +21,7 @@ import { useUserContext } from '../context/useUserContext';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
-import BrowseSidebar from './sidebar/BrowseSidebar';
+import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
@@ -178,7 +178,9 @@ export const SearchResults = ({
                             />
                         </div>
                     )}
-                    {showBrowseV2 && <BrowseSidebar facets={facets} visible={isSidebarOpen} width={360} />}
+                    {showBrowseV2 && (
+                        <BrowseSidebar facets={facets} loading={loading} visible={isSidebarOpen} width={360} />
+                    )}
                     <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
                         <PaginationInfoContainer>
                             <LeftControlsContainer>

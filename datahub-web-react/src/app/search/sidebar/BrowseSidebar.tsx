@@ -1,10 +1,11 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { EntityType, FacetMetadata } from '../../../types.generated';
-import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME } from '../utils/constants';
 import EntityNode from './EntityNode';
+import { ENTITY_FILTER_NAME } from '../utils/constants';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -31,52 +32,27 @@ const SidebarBody = styled.div`
 
 type Props = {
     facets?: Array<FacetMetadata> | null;
+    loading: boolean;
     visible: boolean;
     width: number;
 };
 
-const BrowseSidebar = ({ facets, visible, width }: Props) => {
-    const entities = useMemo(
-        () =>
-            facets
-                ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
-                ?.aggregations.filter((entity) => entity.count > 0) ?? [],
-        [facets],
-    );
-    const environments = useMemo(() => {
-        return (
-            facets
-                ?.find((facet) => facet.field === ORIGIN_FILTER_NAME)
-                ?.aggregations.filter((entity) => entity.count > 0) ?? []
-        );
-    }, [facets]);
-    console.log(environments);
+const BrowseSidebar = ({ facets, loading, visible, width }: Props) => {
+    const entities =
+        facets
+            ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
+            ?.aggregations.filter((entity) => entity.count > 0) ?? [];
 
-    const [selected, setSelected] = useState<EntityType | null>(null);
-
-    const onSelect = useCallback(
-        (entityType: EntityType) => setSelected((current) => (current === entityType ? null : entityType)),
-        [],
-    );
     return (
         <Sidebar visible={visible} width={width}>
             <SidebarHeader>
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>
             <SidebarBody>
-                {entities.length ? (
-                    entities.map((entity) => (
-                        <EntityNode
-                            key={entity.value}
-                            entityType={entity.value as EntityType}
-                            count={entity.count}
-                            isSelected={entity.value === selected}
-                            onSelect={onSelect}
-                        />
-                    ))
-                ) : (
-                    <div>No results found</div>
-                )}
+                {loading ? <LoadingOutlined /> : !entities.length && <div>No results found</div>}
+                {entities.map((entity) => (
+                    <EntityNode key={entity.value} entityType={entity.value as EntityType} count={entity.count} />
+                ))}
             </SidebarBody>
         </Sidebar>
     );
