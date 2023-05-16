@@ -9,5 +9,6 @@ services:
       CLICKHOUSE_DB: clickhousedb
     ports:
       - "28123:8123"
+      - "9000"
     volumes:
       - ./setup:/docker-entrypoint-initdb.d
