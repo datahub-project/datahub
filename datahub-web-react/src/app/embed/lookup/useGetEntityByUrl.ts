@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
 import { FilterOperator } from '../../../types.generated';
 import { UnionType } from '../../search/utils/constants';
@@ -28,12 +29,16 @@ const useGetEntityByUrl = (externalUrl: string) => {
     const count = entities.length;
     const entity = count === 1 ? entities[0] : null;
 
-    return {
-        count,
-        entity,
-        loading,
-        error,
-    } as const;
+    return useMemo(
+        () =>
+            ({
+                count,
+                entity,
+                loading,
+                error,
+            } as const),
+        [count, entity, error, loading],
+    );
 };
 
 export default useGetEntityByUrl;

@@ -22,14 +22,14 @@ const PageContainer = styled.div`
 const EmbedLookup = () => {
     const { url: encodedUrl } = useParams<RouteParams>();
     const decodedUrl = decodeURIComponent(encodedUrl);
-    const lookup = useGetEntityByUrl(decodedUrl);
+    const { count, entity, error, loading } = useGetEntityByUrl(decodedUrl);
 
     const getContent = () => {
-        if (lookup.loading) return <LookupLoading />;
-        if (lookup.error) return <ErrorSection />;
-        if (lookup.count === 0 || !lookup.entity) return <LookupNotFound url={encodedUrl} />;
-        if (lookup.count > 1) return <LookupFoundMultiple url={encodedUrl} />;
-        return <GoToLookup entityType={lookup.entity.type} entityUrn={lookup.entity.urn} />;
+        if (loading) return <LookupLoading />;
+        if (error) return <ErrorSection />;
+        if (count === 0 || !entity) return <LookupNotFound url={encodedUrl} />;
+        if (count > 1) return <LookupFoundMultiple url={encodedUrl} />;
+        return <GoToLookup entityType={entity.type} entityUrn={entity.urn} />;
     };
 
     return <PageContainer>{getContent()}</PageContainer>;
