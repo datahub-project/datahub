@@ -188,6 +188,7 @@ module.exports = {
             "docs/how/kafka-config",
             "docs/deploy/confluent-cloud",
             "docs/advanced/no-code-upgrade",
+            " docs/how/jattach-guide.md",
           ],
         },
         "docs/how/updating-datahub",
