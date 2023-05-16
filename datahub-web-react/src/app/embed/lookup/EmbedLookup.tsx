@@ -19,6 +19,8 @@ const PageContainer = styled.div`
     height: 85vh;
 `;
 
+// tableau test: chrome extensions -> load unpacked (unzipped dir)
+// go to our tableau instance and verify it's working
 const EmbedLookup = () => {
     const { url: encodedUrl } = useParams<RouteParams>();
     const decodedUrl = decodeURIComponent(encodedUrl);

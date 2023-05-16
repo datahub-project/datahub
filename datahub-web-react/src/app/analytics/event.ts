@@ -68,7 +68,6 @@ export enum EventType {
     DeselectQuickFilterEvent,
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
-    EmbedLookupRouteEvent,
     EmbedLookupNotFoundEvent,
 }
 
@@ -521,12 +520,6 @@ export interface EmbedProfileViewInDataHubEvent extends BaseEvent {
     entityUrn: string;
 }
 
-export interface EmbedLookupRouteEvent extends BaseEvent {
-    type: EventType.EmbedLookupRouteEvent;
-    entityType: string;
-    entityUrn: string;
-}
-
 export interface EmbedLookupNotFoundEvent extends BaseEvent {
     type: EventType.EmbedLookupNotFoundEvent;
     url: string;
@@ -600,5 +593,4 @@ export type Event =
     | DeselectQuickFilterEvent
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
-    | EmbedLookupRouteEvent
     | EmbedLookupNotFoundEvent;
