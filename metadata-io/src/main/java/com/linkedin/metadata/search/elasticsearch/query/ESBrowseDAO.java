@@ -9,7 +9,10 @@ import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.browse.BrowseResultGroup;
 import com.linkedin.metadata.browse.BrowseResultGroupArray;
+import com.linkedin.metadata.browse.BrowseResultGroupV2;
+import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -45,6 +48,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
@@ -65,6 +69,7 @@ public class ESBrowseDAO {
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
   private static final String BROWSE_PATH_V2 = "browsePathV2";
   private static final String BROWSE_PATH_V2_DEPTH = "browsePathV2.length";
+  private static final String BROWSE_V2_DELIMITER = "␟";
   private static final String URN = "urn";
   private static final String REMOVED = "removed";
 
@@ -76,6 +81,13 @@ public class ESBrowseDAO {
   @Value
   private class BrowseGroupsResult {
     List<BrowseResultGroup> groups;
+    int totalGroups;
+    int totalNumEntities;
+  }
+
+  @Value
+  private class BrowseGroupsResultV2 {
+    List<BrowseResultGroupV2> groups;
     int totalGroups;
     int totalNumEntities;
   }
@@ -347,7 +359,7 @@ public class ESBrowseDAO {
     return (List<String>) sourceMap.get(BROWSE_PATH);
   }
 
-  public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count){
+  public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count){
     try {
       final SearchResponse groupsResponse;
       try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
@@ -356,21 +368,18 @@ public class ESBrowseDAO {
             client.search(constructGroupsSearchRequestV2(entityName, path, filter, finalInput), RequestOptions.DEFAULT);
       }
 
-      final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, start, count);
+      final BrowseGroupsResultV2 browseGroupsResult = extractGroupsResponseV2(groupsResponse, path, start, count);
       final int numGroups = browseGroupsResult.getTotalGroups();
 
-      return new BrowseResult().setMetadata(
+      return new BrowseResultV2().setMetadata(
               new BrowseResultMetadata().setTotalNumEntities(browseGroupsResult.getTotalNumEntities()).setPath(path))
-//          .setEntities(new BrowseResultEntityArray(browseResultEntityList))
-          .setGroups(new BrowseResultGroupArray(browseGroupsResult.getGroups()))
-//          .setNumEntities(numEntities)
+          .setGroups(new BrowseResultGroupV2Array(browseGroupsResult.getGroups()))
           .setNumGroups(numGroups)
-//          .setNumElements(numGroups + numEntities)
           .setFrom(start)
           .setPageSize(count);
     } catch (Exception e) {
-      log.error("Browse query failed: " + e.getMessage());
-      throw new ESQueryException("Browse query failed: ", e);
+      log.error("Browse V2 query failed: " + e.getMessage());
+      throw new ESQueryException("Browse V2 query failed: ", e);
     }
   }
 
@@ -386,8 +395,22 @@ public class ESBrowseDAO {
     return searchRequest;
   }
 
+  /**
+   * Extracts the name of group from path.
+   *
+   * <p>Example: ␟foo␟bar␟baz => baz
+   *
+   * @param path path of the group/entity
+   * @return String
+   */
+  @Nonnull
+  private String getSimpleNameV2(@Nonnull String path) {
+    return path.substring(path.lastIndexOf(BROWSE_V2_DELIMITER) + 1);
+  }
+
+
   private static int getPathDepthV2(@Nonnull String path) {
-    return StringUtils.countMatches(path, "␟");
+    return StringUtils.countMatches(path, BROWSE_V2_DELIMITER);
   }
 
   @Nonnull
@@ -427,8 +450,40 @@ public class ESBrowseDAO {
         .subAggregation(
             AggregationBuilders.terms(GROUP_AGG)
                 .field(BROWSE_PATH_V2)
-                .size(AGGREGATION_MAX_SIZE)
+                .size(1) // only need to know if there are groups below, not how many
                 .includeExclude(new IncludeExclude(nextLevel, subAggNextLevel)))
         .includeExclude(new IncludeExclude(currentLevel, nextLevel));
+  }
+
+  /**
+   * Extracts group search response into browse result metadata.
+   *
+   * @param groupsResponse groups search response
+   * @param path the path which is being browsed
+   * @return {@link BrowseResultMetadata}
+   */
+  @Nonnull
+  private BrowseGroupsResultV2 extractGroupsResponseV2(@Nonnull SearchResponse groupsResponse, @Nonnull String path,
+     int from, int size) {
+    final ParsedTerms groups = groupsResponse.getAggregations().get(GROUP_AGG);
+    final List<BrowseResultGroupV2> groupsAgg = groups.getBuckets()
+        .stream()
+        .map(group -> new BrowseResultGroupV2().setName(getSimpleNameV2(group.getKeyAsString()))
+            .setCount(group.getDocCount()).setHasSubGroups(hasSubGroups(group)))
+        .collect(Collectors.toList());
+
+    // Get the groups that are in the from to from + size range
+    final List<BrowseResultGroupV2> paginatedGroups = groupsAgg.size() <= from ? Collections.emptyList()
+        : groupsAgg.subList(from, Math.min(from + size, groupsAgg.size()));
+    return new BrowseGroupsResultV2(paginatedGroups, groupsAgg.size(),
+        (int) groupsResponse.getHits().getTotalHits().value);
+  }
+
+  private boolean hasSubGroups(Terms.Bucket group) {
+    final ParsedTerms subGroups = group.getAggregations().get(GROUP_AGG);
+    if (subGroups != null) {
+      return subGroups.getBuckets().size() > 0;
+    }
+    return false;
   }
 }

@@ -2,16 +2,15 @@ package com.linkedin.datahub.graphql.resolvers.chart;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.BrowseInput;
 import com.linkedin.datahub.graphql.generated.BrowseInputV2;
-import com.linkedin.datahub.graphql.generated.BrowseResultGroup;
-import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
+import com.linkedin.datahub.graphql.generated.BrowseResultMetadata;
 import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
@@ -21,17 +20,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_V2_DELIMITER;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 @Slf4j
 @RequiredArgsConstructor
-public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseResults>> {
+public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseResultsV2>> {
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
@@ -40,7 +40,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
   private static final int DEFAULT_COUNT = 10;
 
   @Override
-  public CompletableFuture<BrowseResults> get(DataFetchingEnvironment environment) {
+  public CompletableFuture<BrowseResultsV2> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
     final BrowseInputV2 input = bindArgument(environment.getArgument("input"), BrowseInputV2.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
@@ -57,7 +57,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
         final String pathStr = input.getPath().size() > 0 ? BROWSE_PATH_V2_DELIMITER + String.join(BROWSE_PATH_V2_DELIMITER, input.getPath()) : "";
         final Filter filter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
-        BrowseResult browseResults = _entityClient.browseV2(
+        BrowseResultV2 browseResults = _entityClient.browseV2(
             entityName,
             pathStr,
             maybeResolvedView != null
@@ -68,22 +68,37 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
             count,
             environment.getLocalContext()
         );
-
-        BrowseResults results = new BrowseResults();
-        List<BrowseResultGroup> groups = new ArrayList<>();
-        browseResults.getGroups().forEach(group -> {
-          BrowseResultGroup browseGroup = new BrowseResultGroup();
-          browseGroup.setName(group.getName());
-          browseGroup.setCount(group.getCount());
-          groups.add(browseGroup);
-        });
-        results.setGroups(groups);
-
-        return results;
+        return mapBrowseResults(browseResults);
       } catch (Exception e) {
         throw new RuntimeException("Failed to execute browse V2", e);
       }
     });
+  }
+
+  private BrowseResultsV2 mapBrowseResults(BrowseResultV2 browseResults) {
+    BrowseResultsV2 results = new BrowseResultsV2();
+    results.setTotal(browseResults.getNumGroups());
+
+    List<BrowseResultGroupV2> groups = new ArrayList<>();
+    browseResults.getGroups().forEach(group -> {
+      BrowseResultGroupV2 browseGroup = new BrowseResultGroupV2();
+      browseGroup.setName(group.getName());
+      browseGroup.setCount(group.getCount());
+      browseGroup.setHasSubGroups(group.isHasSubGroups());
+      groups.add(browseGroup);
+    });
+    results.setGroups(groups);
+
+    BrowseResultMetadata resultMetadata = new BrowseResultMetadata();
+    resultMetadata.setPath(Arrays.stream(browseResults.getMetadata().getPath()
+        .split(BROWSE_PATH_V2_DELIMITER))
+        .filter(pathComponent -> !"".equals(pathComponent))
+        .collect(Collectors.toList())
+    );
+    resultMetadata.setTotalNumEntities(browseResults.getMetadata().getTotalNumEntities());
+    results.setMetadata(resultMetadata);
+
+    return results;
   }
 }
 

@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -203,8 +204,8 @@ public class JavaEntityClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
-         @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
+    public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
+                                   @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
         // TODO: cache browseV2 results
         return _entitySearchService.browseV2(entityName, path, filter, input, start, count);
     }

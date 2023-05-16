@@ -47,6 +47,7 @@ import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -307,8 +308,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
-                               @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
+  public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
+                                 @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
     // TODO: implement here
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }

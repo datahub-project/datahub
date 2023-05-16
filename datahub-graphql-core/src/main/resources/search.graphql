@@ -1125,7 +1125,7 @@ type BrowseResultsV2 {
   """
   The groups present at the provided browse path V2
   """
-  groups: [BrowseResultGroup!]!
+  groups: [BrowseResultGroupV2!]!
 
   """
   The starting point of paginated results
@@ -1133,12 +1133,12 @@ type BrowseResultsV2 {
   start: Int!
 
   """
-  The number of elements included in the results
+  The number of groups included in the results
   """
   count: Int!
 
   """
-  The total number of browse results under the path with filters applied
+  The total number of browse groups under the path with filters applied
   """
   total: Int!
 
@@ -1146,4 +1146,24 @@ type BrowseResultsV2 {
   Metadata containing resulting browse groups
   """
   metadata: BrowseResultMetadata!
+}
+
+"""
+A group of Entities under a given browse path
+"""
+type BrowseResultGroupV2 {
+  """
+  The path name of a group of browse results
+  """
+  name: String!
+
+  """
+  The number of entities within the group
+  """
+  count: Long!
+
+  """
+  Whether or not there are any more groups underneath this group
+  """
+  hasSubGroups: Boolean!
 }

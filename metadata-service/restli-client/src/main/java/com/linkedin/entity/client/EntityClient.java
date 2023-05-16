@@ -11,6 +11,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -124,8 +125,8 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResult browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
-     @Nonnull String input, int start, int count, @Nonnull Authentication authentication)
+  public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
+                                 @Nonnull String input, int start, int count, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   @Deprecated
