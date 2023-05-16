@@ -237,7 +237,7 @@ def by_filter(
         )
 
     graph = get_default_graph()
-    # TODO add a log message here about the gms server
+    logger.info(f"Using graph: {graph}")
 
     if urn:
         delete_by_urn = True
@@ -264,58 +264,25 @@ def by_filter(
         )
         # TODO: Display a breakdown of urns by entity type.
 
-        if not force:
+        if not force and not dry_run:
             click.confirm(
                 f"This will delete {len(urns)} entities from DataHub. Do you want to continue?",
                 abort=True,
             )
 
     urns_iter = urns
-    if not delete_by_urn:
+    if not delete_by_urn and not dry_run:
         urns_iter = progressbar.progressbar(urns, redirect_stdout=True)
 
     deletion_result = DeletionResult()
     with PerfTimer() as timer:
         for urn in urns_iter:
-            # TODO delete refs
-            if not aspect and guess_entity_type(urn) in {
-                "tag",
-                "corpuser",
-                "corpGroup",
-                # TODO build this out
-            }:
-                # TODO: we should only do this when in hard-delete mode
-                references_count, related_aspects = delete_references(
-                    graph=graph,
-                    urn=urn,
-                    dry_run=True,
-                )
-                remove_references: bool = False
-
-                if (not force) and references_count > 0:
-                    click.echo(
-                        f"This urn was referenced in {references_count} other aspects across your metadata graph:"
-                    )
-                    click.echo(
-                        tabulate(
-                            [x.values() for x in related_aspects],
-                            ["relationship", "entity", "aspect"],
-                            tablefmt="grid",
-                        )
-                    )
-                    remove_references = click.confirm(
-                        "Do you want to delete these references?"
-                    )
-
-                if force or remove_references:
-                    delete_references(graph=graph, urn=urn, dry_run=False)
             one_result = _delete_one_urn(
                 graph=graph,
                 urn=urn,
                 aspect_name=aspect,
                 soft=soft,
                 dry_run=dry_run,
-                # TODO: graph=graph,
             )
             deletion_result.merge(one_result)
 
@@ -374,6 +341,37 @@ def _delete_one_urn(
         num_timeseries_records=UNKNOWN_NUM_RECORDS,
     )
 
+    if (
+        not soft
+        and not aspect_name
+        and guess_entity_type(urn)
+        in {
+            "tag",
+            "corpuser",
+            "corpGroup",
+            "domain",
+            # TODO build this out
+        }
+    ):
+        references_count, related_aspects = delete_references(
+            graph=graph,
+            urn=urn,
+            dry_run=dry_run,
+        )
+
+        if references_count > 0:
+            # TODO update deletion report
+            click.echo(
+                f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+            )
+            # click.echo(
+            #     tabulate(
+            #         [x.values() for x in related_aspects],
+            #         ["relationship", "entity", "aspect"],
+            #         tablefmt="grid",
+            #     )
+            # )
+
     if soft:
         if aspect_name:
             raise click.UsageError(
@@ -419,35 +417,6 @@ def _delete_one_urn(
             logger.info(f"[Dry-run] Would hard-delete {urn}")
 
     return deletion_result
-
-
-# @telemetry.with_telemetry()
-# def delete_one_urn_cmd(
-#     urn: str,
-#     aspect_name: Optional[str] = None,
-#     soft: bool = False,
-#     dry_run: bool = False,
-#     start_time: Optional[datetime] = None,
-#     end_time: Optional[datetime] = None,
-#     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
-#     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
-# ) -> DeletionResult:
-#     """
-#     Wrapper around delete_one_urn because it is also called in a loop via delete_with_filters.
-
-#     This is a separate function that is called only when a single URN is deleted via the CLI.
-#     """
-
-#     return _delete_one_urn(
-#         urn,
-#         soft,
-#         dry_run,
-#         aspect_name,
-#         start_time,
-#         end_time,
-#         cached_session_host,
-#         cached_emitter,
-#     )
 
 
 def delete_references(

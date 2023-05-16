@@ -455,10 +455,6 @@ class DataHubGraph(DatahubRestEmitter):
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
 
-    @property
-    def _scroll_across_entities_endpoint(self):
-        return f"{self.config.server}/entities?action=scrollAcrossEntities"
-
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
 
@@ -493,6 +489,9 @@ class DataHubGraph(DatahubRestEmitter):
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
 
+    @deprecated(
+        reason='Use get_urns_by_filter(entity_types=["container"], ...) instead'
+    )
     def get_container_urns_by_filter(
         self,
         env: Optional[str] = None,

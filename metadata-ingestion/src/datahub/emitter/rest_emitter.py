@@ -276,9 +276,7 @@ class DataHubRestEmitter(Closeable):
             if self._token
             else ""
         )
-        return (
-            f"DataHubRestEmitter: configured to talk to {self._gms_server}{token_str}"
-        )
+        return f"{self.__class__.__name__}: configured to talk to {self._gms_server}{token_str}"
 
     def close(self) -> None:
         self._session.close()
