@@ -144,7 +144,7 @@ function EntityActions(props: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Data Product: \n ${e.message || ''}`,
+                        content: `Failed to add assets to Data Product. An unknown error occurred.`,
                         duration: 3,
                     }),
                 );

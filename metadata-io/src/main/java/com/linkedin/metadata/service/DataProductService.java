@@ -158,12 +158,21 @@ public class DataProductService {
   public Domains getDataProductDomains(@Nonnull final Urn dataProductUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
-    final EntityResponse response = getDataProductEntityResponse(dataProductUrn, authentication);
-    if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
-      return new Domains(response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
+    try {
+      final EntityResponse response = _entityClient.getV2(
+          Constants.DATA_PRODUCT_ENTITY_NAME,
+          dataProductUrn,
+          ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME),
+          authentication
+      );
+      if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
+        return new Domains(response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
+      }
+      // No aspect found
+      return null;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to retrieve DataProduct with urn %s", dataProductUrn), e);
     }
-    // No aspect found
-    return null;
   }
 
   /**

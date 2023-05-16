@@ -45,7 +45,7 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
         _dataProductService.deleteDataProduct(dataProductUrn, authentication);
         return true;
       } catch (Exception e) {
-        throw new RuntimeException("Failed to delete Query", e);
+        throw new RuntimeException("Failed to delete Data Product", e);
       }
     });
   }

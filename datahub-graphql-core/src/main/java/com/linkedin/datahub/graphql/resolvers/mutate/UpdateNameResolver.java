@@ -168,9 +168,6 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           UpdateNameInput input,
           QueryContext context
   ) {
-    if (!DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    }
     try {
       DataProductProperties dataProductProperties = (DataProductProperties) getAspectFromEntity(
               targetUrn.toString(), Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, _entityService, null);
