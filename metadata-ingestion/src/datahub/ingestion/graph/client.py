@@ -733,7 +733,7 @@ class DataHubGraph(DatahubRestEmitter):
             logger.debug(
                 f"Failed to check for existence of urn {entity_urn}", exc_info=e
             )
-            return False
+            raise
 
 
 def get_default_graph() -> DataHubGraph:

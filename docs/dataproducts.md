@@ -1,9 +1,3 @@
----
-title: Data Products
-sidebar_label: Data Products
-slug: /dataproducts
-custom_edit_url: 'https://github.com/datahub-project/datahub/blob/master/docs/dataproducts.md'
----
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';

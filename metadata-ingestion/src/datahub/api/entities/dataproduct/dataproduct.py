@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import difflib
 import time
 from pathlib import Path
 from typing import (
@@ -51,17 +50,6 @@ class DataProductGenerationConfig(ConfigModel):
     validate_assets: bool = True
 
 
-def print_diff(orig_file, new_file):
-
-    with open(orig_file) as fp:
-        orig_lines = fp.readlines()
-    with open(new_file) as fp:
-        new_lines = fp.readlines()
-
-    for line in difflib.unified_diff(orig_lines, new_lines):
-        print(line)
-
-
 def patch_list(
     orig_list: Optional[list],
     new_list: Optional[list],
@@ -92,6 +80,30 @@ def patch_list(
     return update_needed
 
 
+class Ownership(ConfigModel):
+    id: str
+    type: str
+
+    @pydantic.validator("type")
+    def ownership_type_must_be_mappable(cls, v: str) -> str:
+        _ownership_types = [
+            OwnershipTypeClass.BUSINESS_OWNER,
+            OwnershipTypeClass.CONSUMER,
+            OwnershipTypeClass.DATA_STEWARD,
+            OwnershipTypeClass.DATAOWNER,
+            OwnershipTypeClass.DELEGATE,
+            OwnershipTypeClass.DEVELOPER,
+            OwnershipTypeClass.NONE,
+            OwnershipTypeClass.PRODUCER,
+            OwnershipTypeClass.STAKEHOLDER,
+            OwnershipTypeClass.TECHNICAL_OWNER,
+        ]
+        if v.upper() not in _ownership_types:
+            raise ValueError(f"Ownership type {v} not in {_ownership_types}")
+
+        return v.upper()
+
+
 class DataProduct(ConfigModel):
     """This is a DataProduct class which represents a DataProduct
 
@@ -106,47 +118,25 @@ class DataProduct(ConfigModel):
         assets (List[str]): An array of entity urns that are part of the Data Product
     """
 
-    class Ownership(ConfigModel):
-        id: str
-        type: str
-
-        @pydantic.validator("type")
-        def ownership_type_must_be_mappable(cls, v: str) -> str:
-            _ownership_types = [
-                OwnershipTypeClass.BUSINESS_OWNER,
-                OwnershipTypeClass.CONSUMER,
-                OwnershipTypeClass.DATA_STEWARD,
-                OwnershipTypeClass.DATAOWNER,
-                OwnershipTypeClass.DELEGATE,
-                OwnershipTypeClass.DEVELOPER,
-                OwnershipTypeClass.NONE,
-                OwnershipTypeClass.PRODUCER,
-                OwnershipTypeClass.STAKEHOLDER,
-                OwnershipTypeClass.TECHNICAL_OWNER,
-            ]
-            if v.upper() not in _ownership_types:
-                raise ValueError(f"Ownership type {v} not in {_ownership_types}")
-
-            return v.upper()
-
     id: str
     domain: str
     _resolved_domain_urn: str
     assets: List[str]
     display_name: Optional[str] = None
-    owners: Optional[List[Union[str, DataProduct.Ownership]]] = None
+    owners: Optional[List[Union[str, Ownership]]] = None
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None
     external_url: Optional[str] = None
+    _original_yaml_dict: Optional[dict] = None
 
     @pydantic.validator("assets", each_item=True)
     def assets_must_be_urns(cls, v: str) -> str:
         try:
             Urn.create_from_string(v)
         except Exception as e:
-            raise ValueError(f"asset {v} is not an urn", e)
+            raise ValueError(f"asset {v} is not an urn: {e}") from e
 
         return v
 
@@ -172,14 +162,14 @@ class DataProduct(ConfigModel):
             message=message,
         )
 
-    def _mint_owner(self, owner: Union[str, "DataProduct.Ownership"]) -> OwnerClass:
+    def _mint_owner(self, owner: Union[str, Ownership]) -> OwnerClass:
         if isinstance(owner, str):
             return OwnerClass(
                 owner=builder.make_user_urn(owner),
                 type=OwnershipTypeClass.TECHNICAL_OWNER,
             )
         else:
-            assert isinstance(owner, DataProduct.Ownership)
+            assert isinstance(owner, Ownership)
             return OwnerClass(
                 owner=builder.make_user_urn(owner.id),
                 type=owner.type,
@@ -289,6 +279,7 @@ class DataProduct(ConfigModel):
             )
             domain_urn = domain_registry.get_domain_urn(parsed_data_product.domain)
             parsed_data_product._resolved_domain_urn = domain_urn
+            parsed_data_product._original_yaml_dict = orig_dictionary
             return parsed_data_product
 
     @classmethod
@@ -300,16 +291,14 @@ class DataProduct(ConfigModel):
         domains: Optional[DomainsClass] = graph.get_aspect(id, DomainsClass)
         assert domains, "Data Product must have an associated domain. Found none."
         owners: Optional[OwnershipClass] = graph.get_aspect(id, OwnershipClass)
-        yaml_owners: Optional[List[Union[str, DataProduct.Ownership]]] = None
+        yaml_owners: Optional[List[Union[str, Ownership]]] = None
         if owners:
             yaml_owners = []
             for o in owners.owners:
                 if o.type == OwnershipTypeClass.TECHNICAL_OWNER:
                     yaml_owners.append(o.owner)
                 else:
-                    yaml_owners.append(
-                        DataProduct.Ownership(id=o.owner, type=str(o.type))
-                    )
+                    yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
         glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
             id, GlossaryTermsClass
         )
@@ -341,17 +330,19 @@ class DataProduct(ConfigModel):
 
     def _patch_ownership(
         self,
-        original_owners: Optional[List[Union[str, DataProduct.Ownership]]],
+        original_owners: Optional[List[Union[str, Ownership]]],
         original_ownership_list: Optional[List[Any]],
     ) -> Tuple[bool, Optional[List[Any]]]:
         new_owner_type_map = {}
         for new_owner in self.owners or []:
-            if isinstance(new_owner, DataProduct.Ownership):
+            if isinstance(new_owner, Ownership):
                 new_owner_type_map[new_owner.id] = new_owner.type
             else:
                 new_owner_type_map[new_owner] = "TECHNICAL_OWNER"
         owners_matched = set()
-        patches: Dict[str, Union[dict, list]] = {"ADD": [], "DROP": {}, "REPLACE": {}}
+        patches_add: list = []
+        patches_drop: dict = {}
+        patches_replace: dict = {}
 
         if original_owners:
             default_ownership_type = OwnershipTypeClass.TECHNICAL_OWNER
@@ -364,24 +355,24 @@ class DataProduct(ConfigModel):
                     if owner_urn in new_owner_type_map:
                         owners_matched.add(owner_urn)
                         if new_owner_type_map[owner_urn] != default_ownership_type:
-                            patches["REPLACE"][i] = {
+                            patches_replace[i] = {
                                 "id": o,
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
-                        patches["DROP"][i] = o
-                elif isinstance(o, DataProduct.Ownership):
+                        patches_drop[i] = o
+                elif isinstance(o, Ownership):
                     owner_urn = builder.make_user_urn(o.id)
                     original_owner_urns.add(owner_urn)
                     if owner_urn in new_owner_type_map:
                         owners_matched.add(owner_urn)
                         if new_owner_type_map[owner_urn] != o.type:
-                            patches["REPLACE"][i] = {
+                            patches_replace[i] = {
                                 "id": o,
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
-                        patches["DROP"][i] = o
+                        patches_drop[i] = o
 
         # Figure out what if any are new owners to add
         new_owners_to_add = set(o for o in new_owner_type_map) - set(owners_matched)
@@ -389,113 +380,110 @@ class DataProduct(ConfigModel):
             for new_owner in new_owners_to_add:
                 new_owner_type = new_owner_type_map[new_owner]
                 if new_owner_type == OwnershipTypeClass.TECHNICAL_OWNER:
-                    patches["ADD"].append(new_owner)  # type: ignore
+                    patches_add.append(new_owner)
                 else:
-                    patches["ADD"].append(DataProduct.Ownership(id=new_owner, type=new_owner_type).dict())  # type: ignore
+                    patches_add.append(
+                        Ownership(id=new_owner, type=new_owner_type).dict()
+                    )
 
-        mutation_needed = bool(patches["REPLACE"] or patches["DROP"] or patches["ADD"])
+        mutation_needed = bool(patches_replace or patches_drop or patches_add)
         if not mutation_needed:
             return (mutation_needed, original_ownership_list)
         else:
             list_to_manipulate = (
                 original_ownership_list if original_ownership_list is not None else []
             )
-            for replace_index, replace_value in patches["REPLACE"].items():  # type: ignore
+            for replace_index, replace_value in patches_replace.items():
                 list_to_manipulate[replace_index] = replace_value
 
-            for drop_index, drop_value in patches["DROP"].items():  # type: ignore
+            for drop_index, drop_value in patches_drop.items():
                 list_to_manipulate.remove(drop_value)
 
-            for add_value in patches["ADD"]:
+            for add_value in patches_add:
                 list_to_manipulate.append(add_value)
 
             return (mutation_needed, list_to_manipulate)
 
     def patch_yaml(
         self,
-        file: Path,
         original_dataproduct: DataProduct,
-        output_file: Optional[Path] = None,
+        output_file: Path,
     ) -> bool:
 
         update_needed = False
-        with open(file) as fp:
-            yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
-            orig_dictionary = yaml.load(fp)
-            original_dataproduct_dict = original_dataproduct.dict()
-            this_dataproduct_dict = self.dict()
-            for simple_field in ["display_name", "description", "external_url"]:
-                if original_dataproduct_dict.get(
-                    simple_field
-                ) != this_dataproduct_dict.get(simple_field):
-                    update_needed = True
-                    orig_dictionary[simple_field] = this_dataproduct_dict.get(
-                        simple_field
-                    )
+        if not original_dataproduct._original_yaml_dict:
+            raise Exception("Original Data Product was not loaded from yaml")
 
-            if original_dataproduct.domain != self.domain:
-                # we check if the resolved domain urn is the same
-                if original_dataproduct._resolved_domain_urn != self.domain:
-                    update_needed = True
-                    orig_dictionary["domain"] = self.domain
-
-            if set(original_dataproduct.assets) != set(self.assets):
-                update_needed = True
-                my_asset_urns = [a for a in self.assets]
-                assets_to_remove = []
-                for asset_urn in orig_dictionary["assets"]:
-                    if asset_urn not in my_asset_urns:
-                        assets_to_remove.append(asset_urn)
-                    else:
-                        my_asset_urns.remove(asset_urn)
-
-                for asset_to_remove in assets_to_remove:
-                    orig_dictionary["assets"].remove(asset_to_remove)
-
-                for asset_to_add in my_asset_urns:
-                    orig_dictionary["assets"].append(asset_to_add)
-
-            update_needed = update_needed or patch_list(
-                original_dataproduct.terms, self.terms, orig_dictionary, "terms"
-            )
-            update_needed = update_needed or patch_list(
-                original_dataproduct.tags, self.tags, orig_dictionary, "tags"
-            )
-
-            (ownership_update_needed, new_ownership_list) = self._patch_ownership(
-                original_dataproduct.owners, orig_dictionary.get("owners")
-            )
-            if ownership_update_needed:
-                update_needed = True
-                if new_ownership_list:
-                    orig_dictionary["owners"] = new_ownership_list
-                else:
-                    if "owners" in orig_dictionary:
-                        # we leave the owners key in, but set it to None (versus empty list) to make the yaml look better
-                        orig_dictionary["owners"] = None
-
-            if this_dataproduct_dict.get("properties") != original_dataproduct_dict.get(
-                "properties"
+        orig_dictionary = original_dataproduct._original_yaml_dict
+        original_dataproduct_dict = original_dataproduct.dict()
+        this_dataproduct_dict = self.dict()
+        for simple_field in ["display_name", "description", "external_url"]:
+            if original_dataproduct_dict.get(simple_field) != this_dataproduct_dict.get(
+                simple_field
             ):
                 update_needed = True
-                if (
-                    self.properties is not None
-                    and original_dataproduct.properties is None
-                ):
-                    original_dataproduct_dict["properties"] = {}
-                for k, v in (self.properties or {}).items():
-                    original_dataproduct_dict["properties"][k] = v
-                for k in original_dataproduct_dict["properties"]:
-                    if k not in (self.properties or {}):
-                        del original_dataproduct_dict["properties"][k]
+                orig_dictionary[simple_field] = this_dataproduct_dict.get(simple_field)
 
-            yaml.indent(mapping=2, sequence=4, offset=2)
-            yaml.default_flow_style = False
+        if original_dataproduct.domain != self.domain:
+            # we check if the resolved domain urn is the same
+            if original_dataproduct._resolved_domain_urn != self.domain:
+                update_needed = True
+                orig_dictionary["domain"] = self.domain
+
+        if set(original_dataproduct.assets) != set(self.assets):
+            update_needed = True
+            my_asset_urns = [a for a in self.assets]
+            assets_to_remove = []
+            for asset_urn in orig_dictionary["assets"]:
+                if asset_urn not in my_asset_urns:
+                    assets_to_remove.append(asset_urn)
+                else:
+                    my_asset_urns.remove(asset_urn)
+
+            for asset_to_remove in assets_to_remove:
+                orig_dictionary["assets"].remove(asset_to_remove)
+
+            for asset_to_add in my_asset_urns:
+                orig_dictionary["assets"].append(asset_to_add)
+
+        update_needed = update_needed or patch_list(
+            original_dataproduct.terms, self.terms, orig_dictionary, "terms"
+        )
+        update_needed = update_needed or patch_list(
+            original_dataproduct.tags, self.tags, orig_dictionary, "tags"
+        )
+
+        (ownership_update_needed, new_ownership_list) = self._patch_ownership(
+            original_dataproduct.owners, orig_dictionary.get("owners")
+        )
+        if ownership_update_needed:
+            update_needed = True
+            if new_ownership_list:
+                orig_dictionary["owners"] = new_ownership_list
+            else:
+                if "owners" in orig_dictionary:
+                    # we leave the owners key in, but set it to None (versus empty list) to make the yaml look better
+                    orig_dictionary["owners"] = None
+
+        if this_dataproduct_dict.get("properties") != original_dataproduct_dict.get(
+            "properties"
+        ):
+            update_needed = True
+            if self.properties is not None and original_dataproduct.properties is None:
+                original_dataproduct_dict["properties"] = {}
+            for k, v in (self.properties or {}).items():
+                original_dataproduct_dict["properties"][k] = v
+            for k in original_dataproduct_dict["properties"]:
+                if k not in (self.properties or {}):
+                    del original_dataproduct_dict["properties"][k]
+
+        yaml = YAML(typ="rt")
+        yaml.indent(mapping=2, sequence=4, offset=2)
+        yaml.default_flow_style = False
 
         if update_needed:
-            with open(output_file or file, "w") as fp:
+            with open(output_file, "w") as fp:
                 yaml.dump(orig_dictionary, fp)
-            print_diff(file, output_file)
             return True
         else:
             return False
@@ -522,4 +510,4 @@ class DataProduct(ConfigModel):
         )
 
 
-DataProduct.update_forward_refs()
+# DataProduct.update_forward_refs()

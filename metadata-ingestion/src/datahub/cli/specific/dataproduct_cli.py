@@ -1,8 +1,12 @@
+import difflib
 import json
 import logging
 import os
 import pathlib
+import sys
 from pathlib import Path
+from shutil import copyfile
+from tempfile import NamedTemporaryFile
 from typing import Optional
 
 import click
@@ -44,6 +48,18 @@ def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) ->
             f"Data Product {urn} does not exist. Will not {operation}.", fg="red"
         )
         raise click.Abort()
+
+
+def _print_diff(orig_file, new_file):
+
+    with open(orig_file) as fp:
+        orig_lines = fp.readlines()
+    with open(new_file) as fp:
+        new_lines = fp.readlines()
+
+    sys.stdout.writelines(
+        difflib.unified_diff(orig_lines, new_lines, orig_file, new_file)
+    )
 
 
 @click.group(cls=DefaultGroup, default="upsert")
@@ -124,15 +140,21 @@ def diff(file: Path, update: bool) -> None:
             data_product_remote = DataProduct.from_datahub(
                 emitter, data_product_local.urn
             )
-            update_needed = data_product_remote.patch_yaml(
-                file,
-                data_product_local,
-                Path(f"{str(file)}.update.yaml") if not update else file,
-            )
-            if not update_needed:
-                click.secho(f"Update not needed for id {id}.", fg="green")
-            else:
-                click.secho(f"Update needed for id {id}", fg="red")
+            with NamedTemporaryFile(suffix=".yaml") as temp_fp:
+                update_needed = data_product_remote.patch_yaml(
+                    data_product_local,
+                    Path(temp_fp.name),
+                )
+                if not update_needed:
+                    click.secho(f"Update not needed for id {id}.", fg="green")
+                else:
+                    _print_diff(file, temp_fp.name)
+                    if update:
+                        # copy the temp file over to the main file
+                        copyfile(temp_fp.name, file)
+                        click.echo(f"Updated {file} successfully.")
+                    else:
+                        click.secho(f"Update needed for id {id}", fg="red")
 
         except Exception:
             raise

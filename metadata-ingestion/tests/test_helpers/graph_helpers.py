@@ -1,9 +1,10 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -30,23 +31,39 @@ class MockDataHubGraph(DataHubGraph):
         self.entity_graph = entity_graph
 
     def import_file(self, file: Path) -> None:
+        """Imports metadata from any MCE/MCP file. Does not clear prior loaded data.
+        This function can be called repeatedly on the same
+        Mock instance to load up metadata from multiple files."""
         file_source: GenericFileSource = GenericFileSource(
             ctx=PipelineContext(run_id="test"), config=FileSourceConfig(path=str(file))
         )
         for wu in file_source.get_workunits():
             if isinstance(wu, MetadataWorkUnit):
                 metadata = wu.get_metadata().get("metadata")
-                if isinstance(
+                mcps: Iterable[
+                    Union[
+                        MetadataChangeProposal,
+                        MetadataChangeProposalWrapper,
+                    ]
+                ]
+                if isinstance(metadata, MetadataChangeEvent):
+                    mcps = mcps_from_mce(metadata)
+                elif isinstance(
                     metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
                 ):
-                    assert metadata.entityUrn
-                    assert metadata.aspectName
-                    assert metadata.aspect
-                    if metadata.entityUrn not in self.entity_graph:
-                        self.entity_graph[metadata.entityUrn] = {}
-                    self.entity_graph[metadata.entityUrn][
-                        metadata.aspectName
-                    ] = metadata.aspect
+                    mcps = [metadata]
+                else:
+                    raise Exception(
+                        f"Unexpected metadata type {type(metadata)}. Was expecting MCE, MCP or MCPW"
+                    )
+
+                for mcp in mcps:
+                    assert mcp.entityUrn
+                    assert mcp.aspectName
+                    assert mcp.aspect
+                    if mcp.entityUrn not in self.entity_graph:
+                        self.entity_graph[mcp.entityUrn] = {}
+                    self.entity_graph[mcp.entityUrn][mcp.aspectName] = mcp.aspect
 
     def get_aspect(
         self, entity_urn: str, aspect_type: Type[Aspect], version: int = 0

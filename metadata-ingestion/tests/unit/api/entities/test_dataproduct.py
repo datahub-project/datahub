@@ -128,9 +128,7 @@ def test_dataproduct_patch_yaml(
         mock_graph, id="urn:li:dataProduct:pet_of_the_week"
     )
     dataproduct_output_file = Path(test_resources_dir / f"patch_{original_file}")
-    data_product.patch_yaml(
-        data_product_file, original_data_product, dataproduct_output_file
-    )
+    data_product.patch_yaml(original_data_product, dataproduct_output_file)
     dataproduct_golden_file = Path(test_resources_dir / "golden_dataproduct_v2.yaml")
     assert (
         check_yaml_golden_file(
