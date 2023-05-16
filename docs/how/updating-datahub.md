@@ -11,6 +11,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+- The signature of `Source.get_workunits()` is changed from `Iterable[WorkUnit]` to the more restrictive `Iterable[MetadataWorkUnit]`.
 - Legacy usage creation via the `UsageAggregation` aspect, `/usageStats?action=batchIngest` GMS endpoint, and `UsageStatsWorkUnit` metadata-ingestion class are all deprecated.
 
 ### Other notable Changes

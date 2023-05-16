@@ -214,9 +214,7 @@ class GenericFileSource(TestableSource):
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
                 id = f"file://{f}:{i}"
-                if isinstance(obj, UsageAggregationClass):
-                    logger.warning(f"Dropping deprecated UsageAggregationClass: {obj}")
-                elif isinstance(
+                if isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
                     self.report.entity_type_counts[obj.entityType] += 1
@@ -335,7 +333,6 @@ class GenericFileSource(TestableSource):
                 MetadataChangeEvent,
                 MetadataChangeProposalWrapper,
                 MetadataChangeProposal,
-                UsageAggregationClass,
             ],
         ]
     ]:

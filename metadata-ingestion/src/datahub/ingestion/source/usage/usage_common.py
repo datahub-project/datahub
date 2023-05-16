@@ -16,6 +16,7 @@ from typing import (
 )
 
 import pydantic
+from deprecated import deprecated
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -260,6 +261,7 @@ class UsageAggregator(Generic[ResourceType]):
                 )
 
 
+@deprecated
 def convert_usage_aggregation_class(
     obj: UsageAggregationClass,
 ) -> MetadataChangeProposalWrapper:
@@ -296,6 +298,7 @@ def convert_usage_aggregation_class(
         )
 
 
+@deprecated
 def convert_window_to_interval(window: Union[str, WindowDurationClass]) -> str:
     if window == WindowDurationClass.YEAR:
         return CalendarIntervalClass.YEAR
