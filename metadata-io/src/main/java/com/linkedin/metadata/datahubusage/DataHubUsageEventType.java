@@ -67,7 +67,9 @@ public enum DataHubUsageEventType {
   SELECT_QUICK_FILTER_EVENT("SelectQuickFilterEvent"),
   DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent"),
   EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
-  EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent");
+  EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
+  EMBED_LOOKUP_ROUTE_EVENT("EmbedLookupRouteEvent"),
+  EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent");
 
   private final String type;
 

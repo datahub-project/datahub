@@ -7,7 +7,7 @@ import { PageRoutes } from '../conf/Global';
 import EmbeddedPage from './embed/EmbeddedPage';
 import { useEntityRegistry } from './useEntityRegistry';
 import AppProviders from './AppProviders';
-import EmbedLookup from './embed/EmbedLookup';
+import EmbedLookup from './embed/lookup/EmbedLookup';
 
 /**
  * Container for all views behind an authentication wall.
