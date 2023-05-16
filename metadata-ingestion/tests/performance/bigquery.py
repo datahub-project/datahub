@@ -93,16 +93,16 @@ def generate_events(
                 else None,
             )
         )
-        table_accesses = defaultdict(list)
+        table_accesses = defaultdict(set)
         for field in query.fields_accessed:
             if not field.table.is_view():
-                table_accesses[ref_from_table(field.table, table_to_project)].append(
+                table_accesses[ref_from_table(field.table, table_to_project)].add(
                     field.column
                 )
             else:
                 # assuming that same fields are accessed in parent tables
                 for parent in cast(View, field.table).parents:
-                    table_accesses[ref_from_table(parent, table_to_project)].append(
+                    table_accesses[ref_from_table(parent, table_to_project)].add(
                         field.column
                     )
 
@@ -113,7 +113,7 @@ def generate_events(
                     timestamp=query.timestamp,
                     actor_email=query.actor,
                     resource=ref,
-                    fieldsRead=columns,
+                    fieldsRead=list(columns),
                     readReason=random.choice(READ_REASONS),
                     payload=dataclasses.asdict(query)
                     if config.debug_include_full_payloads

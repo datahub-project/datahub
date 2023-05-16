@@ -326,7 +326,7 @@ class BigQueryUsageState(Closeable):
                 column_freq=json.loads(row["column_freq"] or "[]"),
             )
 
-    def delete_read_events_for_view_query_events(self) -> None:
+    def delete_original_read_events_for_view_query_events(self) -> None:
         # CAUTION: Be careful when updating this query
         # Ideally we should clean_active_object_cache python cache here
         self.read_events.sql_query(
@@ -403,12 +403,9 @@ class BigQueryUsageExtractor:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-ingestion", str(e))
 
-    def generate_read_audit_events(
+    def generate_read_events_from_query(
         self, query_event_on_view: QueryEvent
     ) -> Iterable[AuditEvent]:
-        """
-        This
-        """
         try:
             tables = self.get_tables_from_query(
                 query_event_on_view.project_id,
@@ -438,11 +435,18 @@ class BigQueryUsageExtractor:
         for audit_event in events:
             try:
                 # Note for View Usage:
-                # If Query Event references a view, we parse the Query to find for bigquery objects
-                # accessed in the query directly and generate Read Events explicitly.
-                # This is needed, as BigQuery audit logs fo not contain Read events for views,
-                # but only for its base tables. For such Query Events, we delete the original
+                # If Query Event references a view, bigquery audit logs do not contain Read Event for view
+                # in its audit logs, but only for it base tables. To extract usage for views, we parse the
+                # sql query to find bigquery objects mentioned in the query and generate view Read Events
+                # in our code (`from_query`=True). For such Query Events, we delete the original
                 # Read Events coming from Bigquery audit logs and keep only generated ones.
+
+                # Caveats with SQL parsing approach used here:
+                # 1. If query parsing completely fails, usage for such query is not considered/counted.
+                # 2. The snowflake objects
+                # 3. Due to limitations of query parsing, field level usage is not available in some cases.
+                # To limit the impact, we use query parsing only for those queries that reference at least
+                # one view. For all other queries, field level usage is available through bigquery audit logs.
                 if (
                     audit_event.query_event
                     and audit_event.query_event.referencedViews
@@ -452,7 +456,7 @@ class BigQueryUsageExtractor:
                     query_event.query_on_view = True
                     self.report.num_view_query_events += 1
 
-                    for new_event in self.generate_read_audit_events(query_event):
+                    for new_event in self.generate_read_events_from_query(query_event):
                         num_generated += self._store_usage_event(
                             new_event, usage_state, table_refs
                         )
@@ -468,9 +472,7 @@ class BigQueryUsageExtractor:
         logger.info(f"Total number of read events generated = {num_generated}.")
 
         if self.report.num_view_query_events > 0:
-            # find job_name for query_events with view_on_query=True
-            # find read_events with from_query_event=False and job_name in any of above
-            usage_state.delete_read_events_for_view_query_events()
+            usage_state.delete_original_read_events_for_view_query_events()
 
     def _generate_operational_workunits(
         self, usage_state: BigQueryUsageState, table_refs: Collection[str]
@@ -969,6 +971,10 @@ class BigQueryUsageExtractor:
     def get_tables_from_query(
         self, default_project: str, query: str
     ) -> Optional[List[BigQueryTableRef]]:
+        """
+        This method attempts to parse bigquery objects mentioned in the query,
+        along with the columns accessed.
+        """
         if not query:
             return None
 

@@ -135,6 +135,27 @@ def query_view_1(timestamp: datetime = TS_1, actor: str = ACTOR_1) -> Query:
     )
 
 
+def query_view_1_and_table_1(timestamp: datetime = TS_1, actor: str = ACTOR_1) -> Query:
+    return Query(
+        text="""SELECT v.id, v.name, v.total, t.name as name1
+        FROM
+            `project-1.database_1.view_1` as v
+        inner join
+            `project-1.database_1.table_1` as t
+        on
+            v.id=t.id""",
+        type="SELECT",
+        timestamp=timestamp,
+        actor=actor,
+        fields_accessed=[
+            FieldAccess("id", VIEW_1),
+            FieldAccess("name", VIEW_1),
+            FieldAccess("total", VIEW_1),
+            FieldAccess("name", TABLE_1),
+        ],
+    )
+
+
 def make_usage_workunit(
     table: Table, dataset_usage_statistics: DatasetUsageStatisticsClass
 ) -> MetadataWorkUnit:
@@ -261,6 +282,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
         query_tables_1_and_2(TS_2, ACTOR_2),
         query_table_2(TS_2, ACTOR_2),
         query_view_1(TS_2, ACTOR_1),
+        query_view_1_and_table_1(TS_2, ACTOR_1),
     ]
     events = generate_events(
         queries,
@@ -381,11 +403,12 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                 eventGranularity=TimeWindowSizeClass(
                     unit=BucketDuration.DAY, multiple=1
                 ),
-                totalSqlQueries=4,
+                totalSqlQueries=5,
                 topSqlQueries=[
                     query_table_1_a().text,
                     query_tables_1_and_2().text,
                     query_table_1_b().text,
+                    query_view_1_and_table_1().text,
                 ],
                 uniqueUserCount=2,
                 userCounts=[
@@ -396,7 +419,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                     ),
                     DatasetUserUsageCountsClass(
                         user=ACTOR_1_URN,
-                        count=1,
+                        count=2,
                         userEmail=ACTOR_1,
                     ),
                 ],
@@ -423,15 +446,13 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                 eventGranularity=TimeWindowSizeClass(
                     unit=BucketDuration.DAY, multiple=1
                 ),
-                totalSqlQueries=1,
-                topSqlQueries=[
-                    query_view_1().text,
-                ],
+                totalSqlQueries=2,
+                topSqlQueries=[query_view_1().text, query_view_1_and_table_1().text],
                 uniqueUserCount=1,
                 userCounts=[
                     DatasetUserUsageCountsClass(
                         user=ACTOR_1_URN,
-                        count=1,
+                        count=2,
                         userEmail=ACTOR_1,
                     ),
                 ],
@@ -497,6 +518,7 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
         query_tables_1_and_2(TS_2, ACTOR_2),
         query_table_2(TS_2, ACTOR_2),
         query_view_1(TS_2, ACTOR_1),
+        query_view_1_and_table_1(TS_2, ACTOR_1),
     ]
     events = generate_events(
         queries,
@@ -606,34 +628,35 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
                 eventGranularity=TimeWindowSizeClass(
                     unit=BucketDuration.DAY, multiple=1
                 ),
-                totalSqlQueries=5,
+                totalSqlQueries=6,
                 topSqlQueries=[
                     query_table_1_a().text,
                     query_tables_1_and_2().text,
                     query_view_1().text,
                     query_table_1_b().text,
+                    query_view_1_and_table_1().text,
                 ],
                 uniqueUserCount=2,
                 userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_1_URN,
+                        count=3,
+                        userEmail=ACTOR_1,
+                    ),
                     DatasetUserUsageCountsClass(
                         user=ACTOR_2_URN,
                         count=3,
                         userEmail=ACTOR_2,
                     ),
-                    DatasetUserUsageCountsClass(
-                        user=ACTOR_1_URN,
-                        count=2,
-                        userEmail=ACTOR_1,
-                    ),
                 ],
                 fieldCounts=[
                     DatasetFieldUsageCountsClass(
                         fieldPath="name",
-                        count=5,
+                        count=6,
                     ),
                     DatasetFieldUsageCountsClass(
                         fieldPath="id",
-                        count=4,
+                        count=5,
                     ),
                     DatasetFieldUsageCountsClass(
                         fieldPath="age",
@@ -641,7 +664,7 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
                     ),
                     DatasetFieldUsageCountsClass(
                         fieldPath="total",
-                        count=1,
+                        count=2,
                     ),
                 ],
             ),
@@ -653,44 +676,45 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
                 eventGranularity=TimeWindowSizeClass(
                     unit=BucketDuration.DAY, multiple=1
                 ),
-                totalSqlQueries=3,
+                totalSqlQueries=4,
                 topSqlQueries=[
                     query_tables_1_and_2().text,
                     query_view_1().text,
                     query_table_2().text,
+                    query_view_1_and_table_1().text,
                 ],
                 uniqueUserCount=2,
                 userCounts=[
+                    DatasetUserUsageCountsClass(
+                        user=ACTOR_1_URN,
+                        count=2,
+                        userEmail=ACTOR_1,
+                    ),
                     DatasetUserUsageCountsClass(
                         user=ACTOR_2_URN,
                         count=2,
                         userEmail=ACTOR_2,
                     ),
-                    DatasetUserUsageCountsClass(
-                        user=ACTOR_1_URN,
-                        count=1,
-                        userEmail=ACTOR_1,
-                    ),
                 ],
                 fieldCounts=[
                     DatasetFieldUsageCountsClass(
                         fieldPath="id",
-                        count=3,
+                        count=4,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="name",
+                        count=2,
+                    ),
+                    DatasetFieldUsageCountsClass(
+                        fieldPath="total",
+                        count=2,
                     ),
                     DatasetFieldUsageCountsClass(
                         fieldPath="value",
                         count=2,
                     ),
                     DatasetFieldUsageCountsClass(
-                        fieldPath="name",
-                        count=1,
-                    ),
-                    DatasetFieldUsageCountsClass(
                         fieldPath="table_1_id",
-                        count=1,
-                    ),
-                    DatasetFieldUsageCountsClass(
-                        fieldPath="total",
                         count=1,
                     ),
                 ],
@@ -858,4 +882,28 @@ def test_operational_stats(
         )
         for query in queries
         if query.object_modified and query.type in OPERATION_STATEMENT_TYPES.values()
+    ]
+
+
+def test_get_tables_from_query(usage_extractor):
+    assert usage_extractor.get_tables_from_query(
+        PROJECT_1, "SELECT * FROM project-1.database_1.view_1"
+    ) == [
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
+    ]
+
+    assert usage_extractor.get_tables_from_query(
+        PROJECT_1, "SELECT * FROM database_1.view_1"
+    ) == [
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
+    ]
+
+    assert sorted(
+        usage_extractor.get_tables_from_query(
+            PROJECT_1,
+            "SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+        )
+    ) == [
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1")),
     ]
