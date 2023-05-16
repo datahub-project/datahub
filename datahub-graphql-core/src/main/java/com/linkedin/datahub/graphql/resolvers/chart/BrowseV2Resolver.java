@@ -66,7 +66,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
             query,
             start,
             count,
-            environment.getLocalContext()
+            context.getAuthentication()
         );
         return mapBrowseResults(browseResults);
       } catch (Exception e) {
@@ -78,6 +78,8 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
   private BrowseResultsV2 mapBrowseResults(BrowseResultV2 browseResults) {
     BrowseResultsV2 results = new BrowseResultsV2();
     results.setTotal(browseResults.getNumGroups());
+    results.setStart(browseResults.getFrom());
+    results.setCount(browseResults.getPageSize());
 
     List<BrowseResultGroupV2> groups = new ArrayList<>();
     browseResults.getGroups().forEach(group -> {
