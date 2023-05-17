@@ -809,7 +809,13 @@ class DataHubGraph(DatahubRestEmitter):
         run_id: str = "__datahub-graph-client",
         deletion_timestamp: Optional[int] = None,
     ) -> None:
-        """Soft-delete an entity by urn."""
+        """Soft-delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to soft-delete.
+        """
+
+        assert urn
 
         deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
         self.emit_mcp(
@@ -845,6 +851,23 @@ class DataHubGraph(DatahubRestEmitter):
         rows_affected: int = summary.get("rows", 0)
         timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
         return rows_affected, timeseries_rows_affected
+
+    def delete_entity(self, urn: str, hard: bool = False) -> None:
+        """Delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to delete.
+            hard: Whether to hard delete the entity. If False (default), the entity will be soft deleted.
+        """
+
+        if hard:
+            rows_affected, timeseries_rows_affected = self.hard_delete_entity(urn)
+            logger.debug(
+                f"Hard deleted entity {urn} with {rows_affected} rows affected and {timeseries_rows_affected} timeseries rows affected"
+            )
+        else:
+            self.soft_delete_entity(urn)
+            logger.debug(f"Soft deleted entity {urn}")
 
     # TODO: Create hard_delete_aspect once we support that in GMS.
 

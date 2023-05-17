@@ -15,6 +15,6 @@ graph = DataHubGraph(
 dataset_urn = make_dataset_urn(name="fct_users_created", platform="hive")
 
 # Soft-delete the dataset.
-graph.soft_delete_entity(urn=dataset_urn)
+graph.delete_entity(urn=dataset_urn, hard=False)
 
 log.info(f"Deleted dataset {dataset_urn}")
