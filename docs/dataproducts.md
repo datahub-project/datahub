@@ -6,13 +6,20 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability/>
 
-Starting in version `0.10.3` (open-source) and `0.2.8` (Acryl), DataHub supports the concept of **Data Products**. A Data Product is a collection of Data Assets within DataHub that belongs to a specific Domain and can be consumed by other teams or stakeholders within an organization. Data Assets can include Tables, Topics, Views, Pipelines, Charts, Dashboards, and any other entity that is supported by DataHub.
+**🤝 Version compatibility**
+> Open Source DataHub: **0.10.3** | Acryl: **0.2.8**
 
-A Data Product is a key concept in the data mesh architecture. In a data mesh, a Data Product is an autonomous and self-contained unit of data that is owned and managed by a particular domain team. Each Data Product is responsible for defining, publishing, and maintaining its own data assets, as well as ensuring that the data is of high quality and meets the needs of its intended consumers.
+## What are Data Products?
+Data Products are an innovative way to organize and manage your Data Assets, such as Tables, Topics, Views, Pipelines, Charts, Dashboards, etc., within DataHub. These Data Products belong to a specific Domain and can be easily accessed by various teams or stakeholders within your organization.
 
-The benefits of Data Products include the creation of a curated set of logical entities that help with data discovery and governance. By grouping related Data Assets together into a Data Product, data teams can create a cohesive and consistent view of data within a specific domain, which makes it easier for stakeholders to discover and understand the available data. This approach also supports data governance efforts by enabling data teams to manage and control access to Data Products as a whole, ensuring that the data is used appropriately and in compliance with any relevant regulations or policies.
+## Why Data Products?
+A key concept in data mesh architecture, Data Products are independent units of data managed by a specific domain team. They are responsible for defining, publishing, and maintaining their data assets while ensuring high-quality data that meets the needs of its consumers. 
 
-Data Products can be published to the DataHub catalog for other teams to discover and consume within their own Domain. By making data products available through DataHub, data teams can streamline the process of sharing data and reduce the time required to make data-driven decisions within their specific Domain.
+## Benefits of Data Products
+Data Products help in curating a coherent set of logical entities, simplifying data discovery and governance. By grouping related Data Assets into a Data Product, it allows stakeholders to discover and understand available data easily, supporting data governance efforts by managing and controlling access to Data Products. 
+
+## How Can You Use Data Products?
+Data Products can be easily published to the DataHub catalog, allowing other teams to discover and consume them. By doing this, data teams can streamline the process of sharing data, making data-driven decisions faster and more efficient.
 
 ## Data Products Setup, Prerequisites, and Permissions
 
@@ -118,7 +125,7 @@ This allows you to manage your data product definition in git while still allowi
 
 ### Advanced cli commands for managing Data Products
 
-There are many more advanced cli commands for managing Data Products as code. Take a look at the [Data Products section](./cli.md#dataproduct) on the CLI reference guide for more details.
+There are many more advanced cli commands for managing Data Products as code. Take a look at the [Data Products section](./cli.md#dataproduct-data-product-entity) on the CLI reference guide for more details.
 
 
 ### What updates are planned for the Data Products feature?

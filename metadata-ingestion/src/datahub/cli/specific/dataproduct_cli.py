@@ -74,18 +74,8 @@ def dataproduct() -> None:
     pass
 
 
-@dataproduct.command(
-    name="upsert",
-)
-@click.option("-f", "--file", required=True, type=click.Path(exists=True))
-@click.option(
-    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
-)
-@click.option("--external-url", required=False, type=str)
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
-def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
-    """Create or Update a Data Product in DataHub"""
+def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -> None:
+    """Update or Upsert a Data Product in DataHub"""
 
     config_dict = load_file(pathlib.Path(file))
     id = config_dict.get("id") if isinstance(config_dict, dict) else None
@@ -97,7 +87,11 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
             or data_product.external_url
         )
         data_product.external_url = external_url_override
-        if validate_assets:
+        if upsert and not graph.exists(data_product.urn):
+            logger.info(f"Data Product {data_product.urn} does not exist, will create.")
+            upsert = False
+
+        if validate_assets and data_product.assets:
             missing_assets = []
             for asset in data_product.assets:
                 try:
@@ -114,7 +108,7 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
                 )
                 raise click.Abort()
         try:
-            for mcp in data_product.generate_mcp():
+            for mcp in data_product.generate_mcp(upsert=upsert):
                 graph.emit(mcp)
             click.secho(f"Update succeeded for urn {data_product.urn}.", fg="green")
         except Exception as e:
@@ -122,6 +116,38 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
                 f"Update failed for id {id}. due to {e}",
                 fg="red",
             )
+
+
+@dataproduct.command(
+    name="update",
+)
+@click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@click.option(
+    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+)
+@click.option("--external-url", required=False, type=str)
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+def update(file: Path, validate_assets: bool, external_url: str) -> None:
+    """Create or Update a Data Product in DataHub. Use upsert if you want to apply partial updates."""
+
+    mutate(file, validate_assets, external_url, upsert=False)
+
+
+@dataproduct.command(
+    name="upsert",
+)
+@click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@click.option(
+    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+)
+@click.option("--external-url", required=False, type=str)
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
+    """Upsert attributes to a Data Product in DataHub."""
+
+    mutate(file, validate_assets, external_url, upsert=True)
 
 
 @dataproduct.command(

@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
     KafkaAuditHeaderClass,
+    MetadataChangeProposalClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -117,7 +118,7 @@ class DataProduct(ConfigModel):
     id: str
     domain: str
     _resolved_domain_urn: Optional[str]
-    assets: List[str]
+    assets: Optional[List[str]] = None
     display_name: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
     description: Optional[str] = None
@@ -172,30 +173,65 @@ class DataProduct(ConfigModel):
                 type=owner.type,
             )
 
-    def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def _generate_properties_mcp(
+        self, upsert_mode: bool = False
+    ) -> Iterable[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
+        if upsert_mode:
+            dataproduct_patch_builder = DataProductPatchBuilder(self.urn)
+            if self.description is not None:
+                dataproduct_patch_builder.set_description(description=self.description)
+
+            if self.display_name is not None:
+                dataproduct_patch_builder.set_name(name=self.display_name)
+
+            if self.assets is not None:
+                dataproduct_patch_builder.set_assets(
+                    assets=[
+                        DataProductAssociationClass(
+                            destinationUrn=asset,
+                            created=self._mint_auditstamp("yaml"),
+                        )
+                        for asset in self.assets
+                    ]
+                )
+            if self.properties is not None:
+                dataproduct_patch_builder.set_custom_properties(self.properties)
+
+            if self.external_url is not None:
+                dataproduct_patch_builder.set_external_url(
+                    external_url=self.external_url
+                )
+
+            yield from dataproduct_patch_builder.build()
+        else:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=DataProductPropertiesClass(
+                    name=self.display_name,
+                    description=self.description,
+                    assets=[
+                        DataProductAssociationClass(
+                            destinationUrn=asset,
+                            created=self._mint_auditstamp("yaml"),
+                        )
+                        for asset in self.assets or []
+                    ],
+                    customProperties=self.properties if self.properties else None,
+                    externalUrl=self.external_url if self.external_url else None,
+                ),
+            )
+            yield mcp
+
+    def generate_mcp(
+        self, upsert: bool
+    ) -> Iterable[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
 
         if self._resolved_domain_urn is None:
             raise Exception(
                 f"Unable to generate MCP-s because we were unable to resolve the domain {self.domain} to an urn."
             )
 
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=self.urn,
-            aspect=DataProductPropertiesClass(
-                name=self.display_name,
-                description=self.description,
-                assets=[
-                    DataProductAssociationClass(
-                        destinationUrn=asset,
-                        created=self._mint_auditstamp("yaml"),
-                    )
-                    for asset in self.assets
-                ],
-                customProperties=self.properties if self.properties else None,
-                externalUrl=self.external_url if self.external_url else None,
-            ),
-        )
-        yield mcp
+        yield from self._generate_properties_mcp(upsert_mode=upsert)
 
         mcp = MetadataChangeProposalWrapper(
             entityUrn=self.urn,
@@ -247,6 +283,7 @@ class DataProduct(ConfigModel):
     def emit(
         self,
         emitter: Union[DatahubRestEmitter, "DatahubKafkaEmitter"],
+        upsert: bool,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
@@ -255,7 +292,7 @@ class DataProduct(ConfigModel):
         :param emitter: Datahub Emitter to emit the event
         :param callback: The callback method for KafkaEmitter if it is used
         """
-        for mcp in self.generate_mcp():
+        for mcp in self.generate_mcp(upsert=upsert):
             emitter.emit(mcp, callback)
 
     @classmethod
@@ -279,7 +316,6 @@ class DataProduct(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, id: str) -> "DataProduct":
-        # data_product_dict = graph.get_entity_raw(id)
         data_product_properties: Optional[
             DataProductPropertiesClass
         ] = graph.get_aspect(id, DataProductPropertiesClass)
@@ -425,9 +461,9 @@ class DataProduct(ConfigModel):
                 update_needed = True
                 orig_dictionary["domain"] = self.domain
 
-        if set(original_dataproduct.assets) != set(self.assets):
+        if set(original_dataproduct.assets or []) != set(self.assets or []):
             update_needed = True
-            my_asset_urns = [a for a in self.assets]
+            my_asset_urns = [a for a in self.assets or []]
             assets_to_remove = []
             for asset_urn in orig_dictionary["assets"]:
                 if asset_urn not in my_asset_urns:

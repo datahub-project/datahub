@@ -31,6 +31,11 @@ def base_mock_graph(
     return MockDataHubGraph(entity_graph=base_entity_metadata)
 
 
+@pytest.fixture
+def test_resources_dir(pytestconfig: pytest.Config) -> Path:
+    return pytestconfig.rootpath / "tests/unit/api/entities/dataproducts"
+
+
 def check_yaml_golden_file(input_file: str, golden_file: str) -> bool:
     with open(input_file) as input:
         input_lines = input.readlines()
@@ -49,30 +54,46 @@ def check_yaml_golden_file(input_file: str, golden_file: str) -> bool:
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "data_product_filename, upsert,golden_filename",
+    [
+        ("dataproduct.yaml", False, "golden_dataproduct_out.json"),
+        ("dataproduct_upsert.yaml", True, "golden_dataproduct_out_upsert.json"),
+    ],
+    ids=["update", "upsert"],
+)
 def test_dataproduct_from_yaml(
-    pytestconfig: pytest.Config, base_mock_graph: MockDataHubGraph
+    pytestconfig: pytest.Config,
+    test_resources_dir: Path,
+    tmp_path: Path,
+    base_mock_graph: MockDataHubGraph,
+    data_product_filename: str,
+    upsert: bool,
+    golden_filename: str,
 ) -> None:
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api/entities"
-    data_product_file = test_resources_dir / "dataproduct.yaml"
+    data_product_file = test_resources_dir / data_product_filename
     mock_graph = base_mock_graph
     data_product = DataProduct.from_yaml(data_product_file, mock_graph)
     assert data_product._resolved_domain_urn == "urn:li:domain:12345"
+    assert data_product.assets is not None
     assert len(data_product.assets) == 3
 
-    for mcp in data_product.generate_mcp():
+    for mcp in data_product.generate_mcp(upsert=upsert):
         mock_graph.emit(mcp)
 
-    output_file = Path(test_resources_dir / "test_dataproduct_out.json")
+    output_file = Path(tmp_path / "test_dataproduct_out.json")
     mock_graph.sink_to_file(output_file)
-    golden_file = Path(test_resources_dir / "golden_dataproduct_out.json")
+    golden_file = Path(test_resources_dir / golden_filename)
     check_golden_file(pytestconfig, output_file, golden_file)
 
 
 @freeze_time(FROZEN_TIME)
 def test_dataproduct_from_datahub(
-    pytestconfig: pytest.Config, base_mock_graph: MockDataHubGraph
+    pytestconfig: pytest.Config,
+    test_resources_dir: Path,
+    tmp_path: Path,
+    base_mock_graph: MockDataHubGraph,
 ) -> None:
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api/entities"
     mock_graph = base_mock_graph
     golden_file = Path(test_resources_dir / "golden_dataproduct_out.json")
     mock_graph.import_file(golden_file)
@@ -81,14 +102,15 @@ def test_dataproduct_from_datahub(
         mock_graph, id="urn:li:dataProduct:pet_of_the_week"
     )
     assert data_product.domain == "urn:li:domain:12345"
+    assert data_product.assets is not None
     assert len(data_product.assets) == 3
 
     # validate that output looks exactly the same
 
-    for mcp in data_product.generate_mcp():
+    for mcp in data_product.generate_mcp(upsert=False):
         mock_graph.emit(mcp)
 
-    output_file = Path(test_resources_dir / "test_dataproduct_to_datahub_out.json")
+    output_file = Path(tmp_path / "test_dataproduct_to_datahub_out.json")
     mock_graph.sink_to_file(output_file)
     golden_file = Path(test_resources_dir / "golden_dataproduct_out.json")
     check_golden_file(pytestconfig, output_file, golden_file)
@@ -104,15 +126,17 @@ def test_dataproduct_from_datahub(
     ids=["asset_add", "asset_remove"],
 )
 def test_dataproduct_patch_yaml(
-    pytestconfig: pytest.Config, base_mock_graph: MockDataHubGraph, original_file: str
+    pytestconfig: pytest.Config,
+    tmp_path: Path,
+    test_resources_dir: Path,
+    base_mock_graph: MockDataHubGraph,
+    original_file: str,
 ) -> None:
     """Validates that patching data product files by reading from DataHub works as expected"""
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api/entities"
     mock_graph = base_mock_graph
     golden_file = Path(test_resources_dir / "golden_dataproduct_out.json")
     mock_graph.import_file(golden_file)
 
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api/entities"
     data_product_file = test_resources_dir / original_file
     original_data_product: DataProduct = DataProduct.from_yaml(
         data_product_file, mock_graph
@@ -120,7 +144,7 @@ def test_dataproduct_patch_yaml(
     data_product: DataProduct = DataProduct.from_datahub(
         mock_graph, id="urn:li:dataProduct:pet_of_the_week"
     )
-    dataproduct_output_file = Path(test_resources_dir / f"patch_{original_file}")
+    dataproduct_output_file = Path(tmp_path / f"patch_{original_file}")
     data_product.patch_yaml(original_data_product, dataproduct_output_file)
     dataproduct_golden_file = Path(test_resources_dir / "golden_dataproduct_v2.yaml")
     assert (

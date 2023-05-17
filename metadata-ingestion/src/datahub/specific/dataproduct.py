@@ -82,9 +82,16 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         )
         return self
 
-    def set_description(
-        self, description: str, editable: bool = False
-    ) -> "DataProductPatchBuilder":
+    def set_name(self, name: str) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "replace",
+            path="/name",
+            value=name,
+        )
+        return self
+
+    def set_description(self, description: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "replace",
@@ -112,6 +119,17 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper.remove_property(key)
         return self
 
+    def set_assets(
+        self, assets: List[DataProductAssociation]
+    ) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "replace",
+            path="/assets",
+            value=assets,
+        )
+        return self
+
     def add_asset(self, asset_urn: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
@@ -127,5 +145,14 @@ class DataProductPatchBuilder(MetadataPatchProposal):
             "remove",
             path=f"/assets/{asset_urn}",
             value={},
+        )
+        return self
+
+    def set_external_url(self, external_url: str) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "replace",
+            path="/external_url",
+            value=external_url,
         )
         return self
