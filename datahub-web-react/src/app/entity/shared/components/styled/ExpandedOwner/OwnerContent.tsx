@@ -1,5 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
 import { Popover, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Owner } from '../../../../../../types.generated';
