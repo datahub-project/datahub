@@ -52,7 +52,7 @@ Make sure you surround your urn with quotes! If you do not include the quotes, y
 
 If you wish to hard-delete using a curl request you can use something like below. Replace the URN with the URN that you wish to delete
 
-```
+```shell
 curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
 
