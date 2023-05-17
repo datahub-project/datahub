@@ -14,5 +14,14 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 
-  annotationProcessor externalDependency.lombok
+  implementation externalDependency.charle
+  implementation externalDependency.jsonv
+  implementation externalDependency.jetbrains
+
+}
+
+configurations.all{
+  exclude group: "com.charleskorn.kaml",module:"kaml"
+  exclude group: "org.json",module:"json"
+  exclude group: " org.jetbrains.kotlin",module:"kotlin-stdlib"
 }

@@ -36,8 +36,14 @@ dependencies {
   runtime externalDependency.log4j2Api
   runtime externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
-}
 
+  implementation externalDependency.jsonv
+  implementation externalDependency.charle
+}
+configurations.all{
+  exclude group: "com.charleskorn.kaml",module:"kaml"
+  exclude group: "org.json",module:"json"
+}
 configurations {
   jetty9
 }
