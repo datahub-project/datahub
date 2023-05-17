@@ -219,7 +219,9 @@ class MetadataChangeProposalWrapper:
 
             # If the aspect is a timeseries aspect, include the timestampMillis in the ID.
             return MetadataWorkUnit(
-                id=f"{self.entityUrn}-{self.aspectName}-{ts}", mcp=self
+                id=f"{self.entityUrn}-{self.aspectName}-{ts}",
+                mcp=self,
+                treat_errors_as_warnings=treat_errors_as_warnings,
             )
 
         return MetadataWorkUnit(
