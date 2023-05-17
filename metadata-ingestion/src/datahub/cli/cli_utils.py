@@ -5,17 +5,7 @@ import os.path
 import sys
 import typing
 from datetime import datetime
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import click
 import requests
@@ -29,9 +19,6 @@ from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
-
-if TYPE_CHECKING:
-    from datahub.ingestion.graph.client import DataHubGraph
 
 log = logging.getLogger(__name__)
 
@@ -328,33 +315,6 @@ def post_rollback_endpoint(
         unsafe_entity_count,
         unsafe_entities,
     )
-
-
-def post_delete_endpoint(
-    graph: "DataHubGraph",
-    payload_obj: dict,
-    path: str,
-) -> typing.Tuple[str, int, int]:
-    url = graph._gms_server + path
-
-    return post_delete_endpoint_with_session_and_url(graph._session, url, payload_obj)
-
-
-def post_delete_endpoint_with_session_and_url(
-    session: Session,
-    url: str,
-    payload_obj: dict,
-) -> typing.Tuple[str, int, int]:
-    payload = json.dumps(payload_obj)
-
-    response = session.post(url, payload)
-
-    summary = parse_run_restli_response(response)
-    urn: str = summary.get("urn", "")
-    rows_affected: int = summary.get("rows", 0)
-    timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
-
-    return urn, rows_affected, timeseries_rows_affected
 
 
 def get_urns_by_filter(

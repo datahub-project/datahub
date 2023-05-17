@@ -256,9 +256,14 @@ class DataHubRestEmitter(Closeable):
             response.raise_for_status()
         except HTTPError as e:
             try:
-                info = response.json()
+                info: Dict = response.json()
+                logger.debug(
+                    "Full stack trace from DataHub:\n%s", info.get("stackTrace")
+                )
+                info.pop("stackTrace", None)
                 raise OperationalError(
-                    "Unable to emit metadata to DataHub GMS", info
+                    f"Unable to emit metadata to DataHub GMS: {info.get('message')}",
+                    info,
                 ) from e
             except JSONDecodeError:
                 # If we can't parse the JSON, just raise the original error.

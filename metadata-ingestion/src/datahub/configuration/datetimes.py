@@ -1,6 +1,8 @@
 import contextlib
 from datetime import datetime, timedelta, timezone
+from typing import Any, Optional, Union
 
+import click
 import dateutil.parser
 import humanfriendly
 
@@ -57,3 +59,18 @@ def _parse_relative_timespan(input: str) -> timedelta:
     if neg:
         return -timedelta(seconds=seconds)
     return +timedelta(seconds=seconds)
+
+
+class ClickDatetime(click.ParamType):
+    name = "datetime"
+
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> datetime:
+        if isinstance(value, datetime):
+            return value
+
+        try:
+            return parse_user_datetime(value)
+        except ValueError as e:
+            self.fail(str(e), param, ctx)

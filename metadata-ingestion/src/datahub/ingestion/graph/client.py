@@ -4,6 +4,7 @@ import logging
 import textwrap
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from json.decoder import JSONDecodeError
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
 
@@ -784,21 +785,70 @@ class DataHubGraph(DatahubRestEmitter):
             )
             start = start + response.get("count", 0)
 
-    def soft_delete_urn(
+    def soft_delete_entity(
         self,
         urn: str,
-        run_id: str = "soft-delete-urns",
+        run_id: str = "__datahub-graph-client",
+        deletion_timestamp: Optional[int] = None,
     ) -> None:
-        timestamp = int(time.time() * 1000)
+        """Soft-delete an entity by urn."""
+
+        deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
         self.emit_mcp(
             MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=StatusClass(removed=True),
                 systemMetadata=SystemMetadataClass(
-                    runId=run_id, lastObserved=timestamp
+                    runId=run_id, lastObserved=deletion_timestamp
                 ),
             )
         )
+
+    def hard_delete_entity(
+        self,
+        urn: str,
+    ) -> Tuple[int, int]:
+        """Hard delete an entity by urn.
+
+        Returns a tuple of (rows_affected, timeseries_rows_affected).
+        """
+
+        payload_obj: Dict = {"urn": urn}
+        summary = self._post_generic(
+            f"{self._gms_server}/entities?action=delete", payload_obj
+        ).get("value", {})
+
+        rows_affected: int = summary.get("rows", 0)
+        timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
+        return rows_affected, timeseries_rows_affected
+
+    # TODO: Create hard_delete_aspect once we support that in GMS.
+
+    def hard_delete_timeseries_aspect(
+        self,
+        urn: str,
+        aspect_name: str,
+        start_time: Optional[datetime],
+        end_time: Optional[datetime],
+    ) -> int:
+        """Hard delete a specific timeseries aspect from an entity by urn."""
+
+        assert (
+            aspect_name in TIMESERIES_ASPECT_MAP
+        ), "Aspect must be a timeseries aspect"
+
+        payload_obj: Dict = {"urn": urn, "aspectName": aspect_name}
+        if start_time:
+            payload_obj["startTimeMillis"] = int(start_time.timestamp() * 1000)
+        if end_time:
+            payload_obj["endTimeMillis"] = int(end_time.timestamp() * 1000)
+
+        summary = self._post_generic(
+            f"{self._gms_server}/entities?action=delete", payload_obj
+        ).get("value", {})
+
+        timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
+        return timeseries_rows_affected
 
     def _delete_references_to_urn(
         self, urn: str, dry_run: bool = False
@@ -807,7 +857,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         response = self._post_generic(
             f"{self._gms_server}/entities?action=deleteReferences", payload_obj
-        )
+        ).get("value", {})
         reference_count = response.get("total", 0)
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects

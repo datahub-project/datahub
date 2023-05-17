@@ -1,9 +1,8 @@
 import logging
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from random import choices
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Optional
 
 import click
 import progressbar
@@ -11,13 +10,13 @@ from click_default_group import DefaultGroup
 from tabulate import tabulate
 
 from datahub.cli import cli_utils
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.configuration.datetimes import ClickDatetime
+from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.ingestion.graph.client import (
     DataHubGraph,
     RemovedStatusFilter,
     get_default_graph,
 )
-from datahub.metadata.schema_classes import StatusClass, SystemMetadataClass
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
@@ -41,7 +40,6 @@ class DeletionResult:
     num_records: int = 0
     num_timeseries_records: int = 0
     num_entities: int = 0
-    sample_records: Optional[List[List[str]]] = None
 
     def merge(self, another_result: "DeletionResult") -> None:
         self.num_records = (
@@ -51,10 +49,6 @@ class DeletionResult:
         )
         self.num_timeseries_records += another_result.num_timeseries_records
         self.num_entities += another_result.num_entities
-        if another_result.sample_records:
-            if not self.sample_records:
-                self.sample_records = []
-            self.sample_records.extend(another_result.sample_records)
 
 
 @delete.command()
@@ -153,13 +147,13 @@ def by_registry(
 @click.option(
     "--start-time",
     required=False,
-    type=click.DateTime(),
+    type=ClickDatetime(),
     help="the start time (only for timeseries aspects)",
 )
 @click.option(
     "--end-time",
     required=False,
-    type=click.DateTime(),
+    type=ClickDatetime(),
     help="the end time (only for timeseries aspects)",
 )
 @click.option("-n", "--dry-run", required=False, is_flag=True)
@@ -188,17 +182,17 @@ def by_filter(
             raise click.UsageError(
                 "You cannot provide both an urn and a filter rule (platform / env / query)."
             )
-    elif not urn and not (platform or env or query):
+    elif not urn and not (entity_type or platform or env or query):
         raise click.UsageError(
-            "You must provide an urn or a filter (platform / env / query) in order to delete entities."
+            "You must provide an urn or a filter (entity-type / platform / env / query) in order to delete entities."
         )
     elif query:
         logger.warning(
             "Using --query is an advanced feature and can easily delete unintended entities. Please use with caution."
         )
-    elif env and not platform:
+    elif env and not (platform or entity_type):
         logger.warning(
-            f"Using --env without --platform will delete entities from all platforms in the {env} environment. Please use with caution."
+            f"Using --env without other filters will delete all metadata in the {env} environment. Please use with caution."
         )
 
     # Check soft / hard delete flags.
@@ -224,11 +218,29 @@ def by_filter(
         else:
             soft_delete_filter = RemovedStatusFilter.ALL
 
-    # TODO: require time filters on timeseries aspect deletes
-    # and check that they're not set for any other aspect
-
     # TODO: add some validation on entity_type
-    # TODO: add some validation on aspect_type
+
+    # Check the aspect name.
+    if aspect and aspect not in ASPECT_MAP:
+        logger.info(f"Supported aspects: {list(sorted(ASPECT_MAP.keys()))}")
+        raise click.UsageError(
+            f"Unknown aspect {aspect}. Ensure the aspect is in the above list."
+        )
+
+    # Check that start/end time are set if and only if the aspect is a timeseries aspect.
+    if aspect and aspect in TIMESERIES_ASPECT_MAP:
+        if not start_time or not end_time:
+            raise click.UsageError(
+                "You must provide both --start-time and --end-time when deleting a timeseries aspect."
+            )
+    elif start_time or end_time:
+        raise click.UsageError(
+            "You can only provide --start-time and --end-time when deleting a timeseries aspect."
+        )
+    elif aspect:
+        raise click.UsageError(
+            "Aspect-specific deletion is only supported for timeseries aspects. Please delete the full entity or use a rollback instead."
+        )
 
     if not force and not soft and not dry_run:
         click.confirm(
@@ -283,6 +295,8 @@ def by_filter(
                 aspect_name=aspect,
                 soft=soft,
                 dry_run=dry_run,
+                start_time=start_time,
+                end_time=end_time,
             )
             deletion_result.merge(one_result)
 
@@ -307,19 +321,10 @@ def by_filter(
         click.echo(
             f"{deletion_result.num_entities} entities with "
             f"{deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} versioned rows "
-            f"{deletion_result.num_timeseries_records if deletion_result.num_timeseries_records != UNKNOWN_NUM_RECORDS else 'unknown'} timeseries aspects "
+            f"and {deletion_result.num_timeseries_records if deletion_result.num_timeseries_records != UNKNOWN_NUM_RECORDS else 'unknown'} timeseries aspects "
             f"will be affected. "
-            # TODO add timeseries aspect rows
             f"Took {timer.elapsed_seconds()} seconds to evaluate."
         )
-    if deletion_result.sample_records:
-        click.echo(
-            tabulate(deletion_result.sample_records, RUN_TABLE_COLUMNS, tablefmt="grid")
-        )
-
-
-def _get_current_time() -> int:
-    return int(time.time() * 1000.0)
 
 
 def _delete_one_urn(
@@ -330,16 +335,11 @@ def _delete_one_urn(
     aspect_name: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
-    run_id: str = "delete-run-id",
-    deletion_timestamp: Optional[int] = None,
+    run_id: str = "__datahub-delete-cli",
 ) -> DeletionResult:
-    deletion_timestamp = deletion_timestamp or _get_current_time()
 
-    deletion_result = DeletionResult(
-        num_entities=1,
-        num_records=UNKNOWN_NUM_RECORDS,
-        num_timeseries_records=UNKNOWN_NUM_RECORDS,
-    )
+    rows_affected: int = 0
+    ts_rows_affected: int = 0
 
     if (
         not soft
@@ -353,75 +353,77 @@ def _delete_one_urn(
             # TODO build this out
         }
     ):
-        references_count, related_aspects = delete_references(
-            graph=graph,
+        references_count, related_aspects = graph._delete_references_to_urn(
             urn=urn,
             dry_run=dry_run,
         )
 
         if references_count > 0:
-            # TODO update deletion report
-            click.echo(
-                f"This urn was referenced in {references_count} other aspects across your metadata graph:"
-            )
-            # click.echo(
-            #     tabulate(
-            #         [x.values() for x in related_aspects],
-            #         ["relationship", "entity", "aspect"],
-            #         tablefmt="grid",
-            #     )
-            # )
+            if dry_run:
+                logger.info(
+                    f"[Dry-run] Would remove {references_count} references to {urn}"
+                )
 
-    if soft:
-        if aspect_name:
-            raise click.UsageError(
-                "Please provide --hard flag, as aspect values cannot be soft deleted."
-            )
-        # Add removed aspect
-        if not dry_run:
-            graph.emit(
-                MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=StatusClass(removed=True),
-                    systemMetadata=SystemMetadataClass(
-                        runId=run_id, lastObserved=deletion_timestamp
-                    ),
+            logger.debug(
+                f"Full list of references to {urn}\n"
+                + tabulate(
+                    [x.values() for x in related_aspects],
+                    ["relationship", "entity", "aspect"],
                 )
             )
+
+            # TODO update deletion report
+
+    if soft:
+        # entity soft delete
+        assert not aspect_name, "aspects cannot be soft deleted"
+
+        if not dry_run:
+            graph.soft_delete_entity(urn=urn, run_id=run_id)
         else:
             logger.info(f"[Dry-run] Would soft-delete {urn}")
-        deletion_result.num_records = 1
-        deletion_result.num_timeseries_records = 0
 
-    elif not dry_run:
-        payload_obj: Dict[str, Any] = {"urn": urn}
-        if aspect_name:
-            payload_obj["aspectName"] = aspect_name
-        if start_time:
-            payload_obj["startTimeMillis"] = int(round(start_time.timestamp() * 1000))
-        if end_time:
-            payload_obj["endTimeMillis"] = int(round(end_time.timestamp() * 1000))
-        rows_affected: int
-        ts_rows_affected: int
-        urn, rows_affected, ts_rows_affected = cli_utils.post_delete_endpoint(
-            graph,
-            payload_obj,
-            "/entities?action=delete",
+        rows_affected = 1
+
+    elif aspect_name and aspect_name in TIMESERIES_ASPECT_MAP:
+        # hard delete timeseries aspect
+
+        if not dry_run:
+            ts_rows_affected = graph.hard_delete_timeseries_aspect(
+                urn=urn,
+                aspect_name=aspect_name,
+                start_time=start_time,
+                end_time=end_time,
+            )
+        else:
+            logger.info(
+                f"[Dry-run] Would hard-delete {urn} timeseries aspect {aspect_name}"
+            )
+            ts_rows_affected = UNKNOWN_NUM_RECORDS
+
+    elif aspect_name:
+        # hard delete non-timeseries aspect
+
+        # TODO: The backend doesn't support this yet.
+        raise NotImplementedError(
+            "Delete by aspect is not supported yet for non-timeseries aspects. Please delete the full entity or use rollback instead."
         )
-        deletion_result.num_records = rows_affected
-        deletion_result.num_timeseries_records = ts_rows_affected
+        # graph.hard_delete_aspect(urn=urn, aspect_name=aspect_name)
+        # rows_affected = 1
+
     else:
-        if aspect_name:
-            logger.info(f"[Dry-run] Would hard-delete aspect {aspect_name} of {urn}")
+        # full entity hard delete
+        if not dry_run:
+            rows_affected, ts_rows_affected = graph.hard_delete_entity(
+                urn=urn,
+            )
         else:
             logger.info(f"[Dry-run] Would hard-delete {urn}")
+            rows_affected = UNKNOWN_NUM_RECORDS
+            ts_rows_affected = UNKNOWN_NUM_RECORDS
 
-    return deletion_result
-
-
-def delete_references(
-    graph: DataHubGraph,
-    urn: str,
-    dry_run: bool = False,
-) -> Tuple[int, List[Dict]]:
-    return graph._delete_references_to_urn(urn, dry_run=dry_run)
+    return DeletionResult(
+        num_entities=1,
+        num_records=rows_affected,
+        num_timeseries_records=ts_rows_affected,
+    )
