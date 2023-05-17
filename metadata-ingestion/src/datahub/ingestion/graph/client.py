@@ -810,7 +810,11 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> Tuple[int, int]:
         """Hard delete an entity by urn.
 
-        Returns a tuple of (rows_affected, timeseries_rows_affected).
+        Args:
+            urn: The urn of the entity to hard delete.
+
+        Returns:
+            A tuple of (rows_affected, timeseries_rows_affected).
         """
 
         assert urn
@@ -833,7 +837,17 @@ class DataHubGraph(DatahubRestEmitter):
         start_time: Optional[datetime],
         end_time: Optional[datetime],
     ) -> int:
-        """Hard delete a specific timeseries aspect from an entity by urn."""
+        """Hard delete timeseries aspects of an entity.
+
+        Args:
+            urn: The urn of the entity.
+            aspect_name: The name of the timeseries aspect to delete.
+            start_time: The start time of the timeseries data to delete. If not specified, defaults to the beginning of time.
+            end_time: The end time of the timeseries data to delete. If not specified, defaults to the end of time.
+
+        Returns:
+            The number of timeseries rows affected.
+        """
 
         assert urn
         assert aspect_name in TIMESERIES_ASPECT_MAP, "must be a timeseries aspect"
@@ -854,9 +868,26 @@ class DataHubGraph(DatahubRestEmitter):
         timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
         return timeseries_rows_affected
 
-    def _delete_references_to_urn(
+    def delete_references_to_urn(
         self, urn: str, dry_run: bool = False
     ) -> Tuple[int, List[Dict]]:
+        """Delete references to a given entity.
+
+        This is useful for cleaning up references to an entity that is about to be deleted.
+        For example, when deleting a tag, you might use this to remove that tag from all other
+        entities that reference it.
+
+        This does not delete the entity itself.
+
+        Args:
+            urn: The urn of the entity to delete references to.
+            dry_run: If True, do not actually delete the references, just return the count of
+                references and the list of related aspects.
+
+        Returns:
+            A tuple of (reference_count, sample of related_aspects).
+        """
+
         assert urn
 
         payload_obj = {"urn": urn, "dryRun": dry_run}

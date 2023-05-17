@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from random import choices
-from typing import Optional
+from typing import Dict, List, Optional
 
 import click
 import progressbar
@@ -24,9 +24,17 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
-RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
+_RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
+_UNKNOWN_NUM_RECORDS = -1
 
-UNKNOWN_NUM_RECORDS = -1
+_DELETE_WITH_REFERENCES_TYPES = {
+    "tag",
+    "corpuser",
+    "corpGroup",
+    "domain",
+    "glossaryTerm",
+    "glossaryNode",
+}
 
 
 @click.group(cls=DefaultGroup, default="by-filter")
@@ -40,15 +48,17 @@ class DeletionResult:
     num_records: int = 0
     num_timeseries_records: int = 0
     num_entities: int = 0
+    num_referenced_entities: int = 0
 
     def merge(self, another_result: "DeletionResult") -> None:
         self.num_records = (
             self.num_records + another_result.num_records
-            if another_result.num_records != UNKNOWN_NUM_RECORDS
-            else UNKNOWN_NUM_RECORDS
+            if another_result.num_records != _UNKNOWN_NUM_RECORDS
+            else _UNKNOWN_NUM_RECORDS
         )
         self.num_timeseries_records += another_result.num_timeseries_records
         self.num_entities += another_result.num_entities
+        self.num_referenced_entities += another_result.num_referenced_entities
 
 
 @delete.command()
@@ -104,7 +114,58 @@ def by_registry(
             f"Took {timer.elapsed_seconds()} seconds to evaluate."
         )
     if structured_rows:
-        click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
+        click.echo(tabulate(structured_rows, _RUN_TABLE_COLUMNS, tablefmt="grid"))
+
+
+@delete.command()
+@click.option("--urn", required=True, type=str, help="the urn of the entity")
+@click.option("-n", "--dry-run", required=False, is_flag=True)
+@click.option(
+    "-f", "--force", required=False, is_flag=True, help="force the delete if set"
+)
+@telemetry.with_telemetry()
+def references(urn: str, dry_run: bool, force: bool) -> None:
+    """
+    Delete all references to an entity (but not the entity itself).
+    """
+
+    graph = get_default_graph()
+    logger.info(f"Using graph: {graph}")
+
+    references_count, related_aspects = graph.delete_references_to_urn(
+        urn=urn,
+        dry_run=True,
+    )
+
+    if references_count == 0:
+        click.echo(f"No references to {urn} found")
+        return
+
+    click.echo(f"Found {references_count} references to {urn}")
+    sample_msg = (
+        "\nSample of references\n"
+        + tabulate(
+            [x.values() for x in related_aspects],
+            ["relationship", "entity", "aspect"],
+        )
+        + "\n"
+    )
+    click.echo(sample_msg)
+
+    if dry_run:
+        logger.info(f"[Dry-run] Would remove {references_count} references to {urn}")
+    else:
+        if not force:
+            click.confirm(
+                f"This will delete {references_count} references to {urn} from DataHub. Do you want to continue?",
+                abort=True,
+            )
+
+        references_count, _ = graph.delete_references_to_urn(
+            urn=urn,
+            dry_run=False,
+        )
+        logger.info(f"Deleted {references_count} references to {urn}")
 
 
 @delete.command()
@@ -268,10 +329,21 @@ def by_filter(
             )
             return
 
-        logger.info(
-            f"Filter matched {len(urns)} urn(s). Sample: {choices(urns, k=min(5, len(urns)))}"
-        )
-        # TODO: Display a breakdown of urns by entity type.
+        urns_by_type: Dict[str, List[str]] = {}
+        for urn in urns:
+            entity_type = guess_entity_type(urn)
+            urns_by_type.setdefault(entity_type, []).append(urn)
+        if len(urns_by_type) > 1:
+            # Display a breakdown of urns by entity type if there's multiple.
+            click.echo("Filter matched urns of multiple entity types")
+            for entity_type, entity_urns in urns_by_type.items():
+                click.echo(
+                    f"- {len(entity_urns)} {entity_type} urn(s). Sample: {choices(entity_urns, k=min(5, len(entity_urns)))}"
+                )
+        else:
+            click.echo(
+                f"Filter matched {len(urns)} {entity_type} urn(s). Sample: {choices(urns, k=min(5, len(urns)))}"
+            )
 
         if not force and not dry_run:
             click.confirm(
@@ -311,15 +383,17 @@ def by_filter(
                 f"Took {timer.elapsed_seconds()} seconds to {delete_type}"
                 f" {deletion_result.num_records} versioned rows"
                 f" and {deletion_result.num_timeseries_records} timeseries aspect rows"
+                # TODO display num_referenced_entities
                 f" for {deletion_result.num_entities} entities."
             )
     else:
         # dry run reporting
         click.echo(
             f"{deletion_result.num_entities} entities with "
-            f"{deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} versioned rows "
-            f"and {deletion_result.num_timeseries_records if deletion_result.num_timeseries_records != UNKNOWN_NUM_RECORDS else 'unknown'} timeseries aspects "
+            f"{deletion_result.num_records if deletion_result.num_records != _UNKNOWN_NUM_RECORDS else 'unknown'} versioned rows "
+            f"and {deletion_result.num_timeseries_records if deletion_result.num_timeseries_records != _UNKNOWN_NUM_RECORDS else 'unknown'} timeseries aspects "
             f"will be affected. "
+            # TODO display num_referenced_entities
             f"Took {timer.elapsed_seconds()} seconds to evaluate."
         )
 
@@ -334,45 +408,12 @@ def _delete_one_urn(
     end_time: Optional[datetime] = None,
     run_id: str = "__datahub-delete-cli",
 ) -> DeletionResult:
-
     rows_affected: int = 0
     ts_rows_affected: int = 0
-
-    if (
-        not soft
-        and not aspect_name
-        and guess_entity_type(urn)
-        in {
-            "tag",
-            "corpuser",
-            "corpGroup",
-            "domain",
-            # TODO build this out
-        }
-    ):
-        references_count, related_aspects = graph._delete_references_to_urn(
-            urn=urn,
-            dry_run=dry_run,
-        )
-
-        if references_count > 0:
-            if dry_run:
-                logger.info(
-                    f"[Dry-run] Would remove {references_count} references to {urn}"
-                )
-
-            logger.debug(
-                f"Full list of references to {urn}\n"
-                + tabulate(
-                    [x.values() for x in related_aspects],
-                    ["relationship", "entity", "aspect"],
-                )
-            )
-
-            # TODO update deletion report
+    referenced_entities_affected: int = 0
 
     if soft:
-        # entity soft delete
+        # Soft delete of entity.
         assert not aspect_name, "aspects cannot be soft deleted"
 
         if not dry_run:
@@ -383,7 +424,7 @@ def _delete_one_urn(
         rows_affected = 1
 
     elif aspect_name and aspect_name in TIMESERIES_ASPECT_MAP:
-        # hard delete timeseries aspect
+        # Hard delete of timeseries aspect.
 
         if not dry_run:
             ts_rows_affected = graph.hard_delete_timeseries_aspect(
@@ -396,31 +437,43 @@ def _delete_one_urn(
             logger.info(
                 f"[Dry-run] Would hard-delete {urn} timeseries aspect {aspect_name}"
             )
-            ts_rows_affected = UNKNOWN_NUM_RECORDS
+            ts_rows_affected = _UNKNOWN_NUM_RECORDS
 
     elif aspect_name:
-        # hard delete non-timeseries aspect
+        # Hard delete of non-timeseries aspect.
 
         # TODO: The backend doesn't support this yet.
         raise NotImplementedError(
             "Delete by aspect is not supported yet for non-timeseries aspects. Please delete the full entity or use rollback instead."
         )
-        # graph.hard_delete_aspect(urn=urn, aspect_name=aspect_name)
-        # rows_affected = 1
 
     else:
-        # full entity hard delete
+        # Full entity hard delete.
+        assert not soft and not aspect_name
+
         if not dry_run:
             rows_affected, ts_rows_affected = graph.hard_delete_entity(
                 urn=urn,
             )
         else:
             logger.info(f"[Dry-run] Would hard-delete {urn}")
-            rows_affected = UNKNOWN_NUM_RECORDS
-            ts_rows_affected = UNKNOWN_NUM_RECORDS
+            rows_affected = _UNKNOWN_NUM_RECORDS
+            ts_rows_affected = _UNKNOWN_NUM_RECORDS
+
+        # For full entity deletes, we also might clean up references to the entity.
+        if guess_entity_type(urn) in _DELETE_WITH_REFERENCES_TYPES:
+            referenced_entities_affected, _ = graph.delete_references_to_urn(
+                urn=urn,
+                dry_run=dry_run,
+            )
+            if dry_run and referenced_entities_affected > 0:
+                logger.info(
+                    f"[Dry-run] Would remove {referenced_entities_affected} references to {urn}"
+                )
 
     return DeletionResult(
         num_entities=1,
         num_records=rows_affected,
         num_timeseries_records=ts_rows_affected,
+        num_referenced_entities=referenced_entities_affected,
     )
