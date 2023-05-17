@@ -3281,6 +3281,7 @@ export const mocks = [
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
                         manageGlobalViews: true,
+                        manageOwnershipTypes: true,
                     },
                 },
             },
