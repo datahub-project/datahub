@@ -16,10 +16,12 @@ from datahub.cli.cli_utils import (
 )
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
+from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.specific.dataproduct_cli import dataproduct
 from datahub.cli.specific.group_cli import group
 from datahub.cli.specific.user_cli import user
 from datahub.cli.state_cli import state
@@ -146,6 +148,7 @@ datahub.add_command(check)
 datahub.add_command(docker)
 datahub.add_command(ingest)
 datahub.add_command(delete)
+datahub.add_command(exists)
 datahub.add_command(get)
 datahub.add_command(put)
 datahub.add_command(state)
@@ -154,6 +157,7 @@ datahub.add_command(migrate)
 datahub.add_command(timeline)
 datahub.add_command(user)
 datahub.add_command(group)
+datahub.add_command(dataproduct)
 
 try:
     from datahub.cli.lite_cli import lite

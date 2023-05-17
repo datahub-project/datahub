@@ -1,5 +1,5 @@
 import React from 'react';
-import { EntityType, Owner } from '../../../../types.generated';
+import { DataProduct, EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -11,6 +11,7 @@ export const Preview = ({
     owners,
     logoUrl,
     platformName,
+    dataProduct,
     platformInstanceId,
 }: {
     urn: string;
@@ -19,6 +20,7 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     logoUrl?: string | null;
     platformName?: string | null;
+    dataProduct?: DataProduct | null;
     platformInstanceId?: string;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -34,6 +36,7 @@ export const Preview = ({
             logoUrl={logoUrl || undefined}
             platform={platformName || ''}
             platformInstanceId={platformInstanceId}
+            dataProduct={dataProduct}
             logoComponent={entityRegistry.getIcon(EntityType.MlfeatureTable, 20, IconStyleType.HIGHLIGHT)}
         />
     );

@@ -33,6 +33,7 @@ import { DomainEntity } from './app/entity/domain/DomainEntity';
 import { ContainerEntity } from './app/entity/container/ContainerEntity';
 import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity';
+import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
 
 /*
     Construct Apollo Client
@@ -114,6 +115,7 @@ const App: React.VFC = () => {
         register.register(new ContainerEntity());
         register.register(new GlossaryNodeEntity());
         register.register(new DataPlatformEntity());
+        register.register(new DataProductEntity());
         return register;
     }, []);
 

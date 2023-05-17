@@ -18,7 +18,7 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -28,6 +28,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -280,13 +281,15 @@ class SalesforceSource(Source):
                 )
             )
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         sObjects = self.get_salesforce_objects()
 
         for sObject in sObjects:
             yield from self.get_salesforce_object_workunits(sObject)
 
-    def get_salesforce_object_workunits(self, sObject: dict) -> Iterable[WorkUnit]:
+    def get_salesforce_object_workunits(
+        self, sObject: dict
+    ) -> Iterable[MetadataWorkUnit]:
         sObjectName = sObject["QualifiedApiName"]
 
         if not self.config.object_pattern.allowed(sObjectName):
@@ -367,7 +370,7 @@ class SalesforceSource(Source):
 
     def get_domain_workunit(
         self, dataset_name: str, datasetUrn: str
-    ) -> Iterable[WorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         domain_urn: Optional[str] = None
 
         for domain, pattern in self.config.domain.items():
@@ -379,7 +382,7 @@ class SalesforceSource(Source):
                 domain_urn=domain_urn, entity_urn=datasetUrn
             )
 
-    def get_platform_instance_workunit(self, datasetUrn: str) -> WorkUnit:
+    def get_platform_instance_workunit(self, datasetUrn: str) -> MetadataWorkUnit:
         dataPlatformInstance = DataPlatformInstanceClass(
             builder.make_data_platform_urn(self.platform),
             instance=builder.make_dataplatform_instance_urn(
@@ -393,7 +396,7 @@ class SalesforceSource(Source):
 
     def get_operation_workunit(
         self, customObject: dict, datasetUrn: str
-    ) -> Iterable[WorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         reported_time: int = int(time.time() * 1000)
 
         if customObject.get("CreatedBy") and customObject.get("CreatedDate"):
@@ -440,7 +443,7 @@ class SalesforceSource(Source):
 
     def get_properties_workunit(
         self, sObject: dict, customObject: Dict[str, str], datasetUrn: str
-    ) -> WorkUnit:
+    ) -> MetadataWorkUnit:
         propertyLabels = {
             # from EntityDefinition
             "DurableId": "Durable Id",
@@ -477,7 +480,9 @@ class SalesforceSource(Source):
             entityUrn=datasetUrn, aspect=datasetProperties
         ).as_workunit()
 
-    def get_subtypes_workunit(self, sObjectName: str, datasetUrn: str) -> WorkUnit:
+    def get_subtypes_workunit(
+        self, sObjectName: str, datasetUrn: str
+    ) -> MetadataWorkUnit:
         subtypes: List[str] = []
         if sObjectName.endswith("__c"):
             subtypes.append(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT)
@@ -490,7 +495,7 @@ class SalesforceSource(Source):
 
     def get_profile_workunit(
         self, sObjectName: str, datasetUrn: str
-    ) -> Iterable[WorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         # Here approximate record counts as returned by recordCount API are used as rowCount
         # In future, count() SOQL query may be used instead, if required, might be more expensive
         sObject_records_count_url = (
@@ -615,7 +620,7 @@ class SalesforceSource(Source):
 
     def get_schema_metadata_workunit(
         self, sObjectName: str, sObject: dict, customObject: dict, datasetUrn: str
-    ) -> Iterable[WorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         sObject_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
