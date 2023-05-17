@@ -138,14 +138,9 @@ The `check` command allows you to check if all plugins are loaded correctly as w
 
 ### delete
 
-The `delete` command allows you to delete metadata from DataHub. Read this [guide](./how/delete-metadata.md) to understand how you can delete metadata from DataHub.
-:::info
-Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Container, it will not automatically delete the children, you will instead need to delete each child by URN in addition to deleting the parent.
-:::
+The `delete` command allows you to delete metadata from DataHub.
 
-```console
-datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --soft
-```
+Read the [metadata deletion guide](./how/delete-metadata.md) to understand how you the `delete` command.
 
 ### exists
 
@@ -534,11 +529,11 @@ Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_event
 
 ### Using docker
 
-[![Docker Hub](https://img.shields.io/docker/pulls/linkedin/datahub-ingestion?style=plastic)](https://hub.docker.com/r/linkedin/datahub-ingestion)
-[![datahub-ingestion docker](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml)
+[![Docker Hub](https://img.shields.io/docker/pulls/acryldata/datahub-ingestion?style=plastic)](https://hub.docker.com/r/acryldata/datahub-ingestion)
+[![datahub-ingestion docker](https://github.com/acryldata/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/acryldata/datahub/actions/workflows/docker-ingestion.yml)
 
 If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
-We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
+We have prebuilt images available on [Docker hub](https://hub.docker.com/r/acryldata/datahub-ingestion). All plugins will be installed and enabled automatically.
 
 You can use the `datahub-ingestion` docker image as explained in [Docker Images](../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
 
