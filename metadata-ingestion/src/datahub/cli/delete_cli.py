@@ -5,6 +5,7 @@ from random import choices
 from typing import Dict, List, Optional
 
 import click
+import humanfriendly
 import progressbar
 from click_default_group import DefaultGroup
 from tabulate import tabulate
@@ -59,6 +60,27 @@ class DeletionResult:
         self.num_timeseries_records += another_result.num_timeseries_records
         self.num_entities += another_result.num_entities
         self.num_referenced_entities += another_result.num_referenced_entities
+
+    def format_message(self, *, dry_run: bool, soft: bool, time_sec: float) -> str:
+        counters = (
+            f"{self.num_entities} entities"
+            f" (impacts {self._value_or_unknown(self.num_records)} versioned rows"
+            f" and {self._value_or_unknown(self.num_timeseries_records)} timeseries aspect rows)"
+        )
+        if self.num_referenced_entities > 0:
+            counters += (
+                f" and cleaned up {self.num_referenced_entities} referenced entities"
+            )
+
+        if not dry_run:
+            delete_type = "Soft deleted" if soft else "Hard deleted"
+            return f"{delete_type} {counters} in {humanfriendly.format_timespan(time_sec)}."
+        else:
+            return f"[Dry-run] Would delete {counters}."
+
+    @classmethod
+    def _value_or_unknown(self, value: int) -> str:
+        return str(value) if value != _UNKNOWN_NUM_RECORDS else "an unknown number of"
 
 
 @delete.command()
@@ -370,32 +392,11 @@ def by_filter(
             deletion_result.merge(one_result)
 
     # Report out a summary of the deletion result.
-    if not dry_run:
-        if (
-            deletion_result.num_entities == 0
-            and deletion_result.num_records == 0
-            and deletion_result.num_timeseries_records == 0
-        ):
-            click.echo("Nothing deleted")
-        else:
-            delete_type = "soft delete" if soft else "hard delete"
-            click.echo(
-                f"Took {timer.elapsed_seconds()} seconds to {delete_type}"
-                f" {deletion_result.num_records} versioned rows"
-                f" and {deletion_result.num_timeseries_records} timeseries aspect rows"
-                # TODO display num_referenced_entities
-                f" for {deletion_result.num_entities} entities."
-            )
-    else:
-        # dry run reporting
-        click.echo(
-            f"{deletion_result.num_entities} entities with "
-            f"{deletion_result.num_records if deletion_result.num_records != _UNKNOWN_NUM_RECORDS else 'unknown'} versioned rows "
-            f"and {deletion_result.num_timeseries_records if deletion_result.num_timeseries_records != _UNKNOWN_NUM_RECORDS else 'unknown'} timeseries aspects "
-            f"will be affected. "
-            # TODO display num_referenced_entities
-            f"Took {timer.elapsed_seconds()} seconds to evaluate."
+    click.echo(
+        deletion_result.format_message(
+            dry_run=dry_run, soft=soft, time_sec=timer.elapsed_seconds()
         )
+    )
 
 
 def _delete_one_urn(
