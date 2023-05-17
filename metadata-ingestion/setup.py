@@ -57,6 +57,7 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
+    "ruamel.yaml"
 }
 
 rest_common = {"requests", "requests_file"}

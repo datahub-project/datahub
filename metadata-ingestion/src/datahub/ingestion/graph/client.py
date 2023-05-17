@@ -23,6 +23,7 @@ from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
+    KEY_ASPECTS,
     AspectBag,
     BrowsePathsClass,
     DatasetPropertiesClass,
@@ -716,6 +717,23 @@ class DataHubGraph(DatahubRestEmitter):
                 ),
             )
         )
+
+    def exists(self, entity_urn: str) -> bool:
+        entity_urn_parsed: Urn = Urn.create_from_string(entity_urn)
+        try:
+            key_aspect_class = KEY_ASPECTS.get(entity_urn_parsed.get_type())
+            if key_aspect_class:
+                result = self.get_aspect(entity_urn, key_aspect_class)
+                return result is not None
+            else:
+                raise Exception(
+                    f"Failed to find key class for entity type {entity_urn_parsed.get_type()} for urn {entity_urn}"
+                )
+        except Exception as e:
+            logger.debug(
+                f"Failed to check for existence of urn {entity_urn}", exc_info=e
+            )
+            raise
 
 
 def get_default_graph() -> DataHubGraph:
