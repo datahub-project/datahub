@@ -9,32 +9,31 @@ To follow this guide you need to use [DataHub CLI](../cli.md).
 
 Read on to find out how to perform these kinds of deletes.
 
-_Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._ 
-
+_Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._
 
 :::info
-Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Domain, it will not delete those children, you will instead need to delete each child by URN in addition to deleting the parent. 
+Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Domain, it will not delete those children, you will instead need to delete each child by URN in addition to deleting the parent.
 :::
+
 ## Delete By Urn
 
 To delete all the data related to a single entity, run
 
 ### Soft Delete (the default)
 
-This sets the `Status` aspect of the entity to `Removed`, which hides the entity and all its aspects from being returned by the UI.
-```
+This sets the `status` aspect of the entity to `Removed`, which hides the entity and all its aspects from being returned by the UI.
+
+```shell
 datahub delete --urn "<my urn>"
-```
-or
-```
+# Same as above.
 datahub delete --urn "<my urn>" --soft
 ```
 
 ### Hard Delete
 
-This physically deletes all rows for all aspects of the entity. This action cannot be undone, so execute this only after you are sure you want to delete all data associated with this entity. 
+This physically deletes all rows for all aspects of the entity. This action cannot be undone, so execute this only after you are sure you want to delete all data associated with this entity.
 
-```
+```shell
 datahub delete --urn "<my urn>" --hard
 ```
 
@@ -45,9 +44,9 @@ You can optionally add `-n` or `--dry-run` to execute a dry run before issuing t
 You can optionally add `-f` or `--force` to skip confirmations
 You can optionally add `--only-soft-deleted` flag to remove soft-deleted items only.
 
- :::note
+:::note
 
-Make sure you surround your urn with quotes! If you do not include the quotes, your terminal may misinterpret the command._
+Make sure you surround your urn with quotes! If you do not include the quotes, your terminal may misinterpret the command.
 
 :::
 
@@ -59,44 +58,50 @@ curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn
 
 ## Delete by filters
 
-_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). 
-
+_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`)._
 
 ### Delete all Datasets from the Snowflake platform
-```
-datahub delete --entity_type dataset --platform snowflake
+
+```shell
+datahub delete --entity-type dataset --platform snowflake
 ```
 
 ### Delete all containers for a particular platform
-```
-datahub delete --entity_type container --platform s3
+
+```shell
+datahub delete --entity-type container --platform s3
 ```
 
 ### Delete all datasets in the DEV environment
-```
-datahub delete --env DEV --entity_type dataset
+
+```shell
+datahub delete --env DEV --entity-type dataset
 ```
 
 ### Delete all Pipelines and Tasks in the DEV environment
-```
-datahub delete --env DEV --entity_type "dataJob"
-datahub delete --env DEV --entity_type "dataFlow"
+
+```shell
+datahub delete --env DEV --entity-type "dataJob"
+datahub delete --env DEV --entity-type "dataFlow"
 ```
 
 ### Delete all bigquery datasets in the PROD environment
-```
-datahub delete --env PROD --entity_type dataset --platform bigquery
+
+```shell
+datahub delete --env PROD --entity-type dataset --platform bigquery
 ```
 
 ### Delete all looker dashboards and charts
-```
-datahub delete --entity_type dashboard --platform looker
-datahub delete --entity_type chart --platform looker
+
+```shell
+datahub delete --entity-type dashboard --platform looker
+datahub delete --entity-type chart --platform looker
 ```
 
 ### Delete all datasets that match a query
-```
-datahub delete --entity_type dataset --query "_tmp"
+
+```shell
+datahub delete --entity-type dataset --query "_tmp"
 ```
 
 ## Rollback Ingestion Run
@@ -105,26 +110,27 @@ The second way to delete metadata is to identify entities (and the aspects affec
 
 To view the ids of the most recent set of ingestion batches, execute
 
-```
+```shell
 datahub ingest list-runs
 ```
 
 That will print out a table of all the runs. Once you have an idea of which run you want to roll back, run
 
-```
+```shell
 datahub ingest show --run-id <run-id>
 ```
 
 to see more info of the run.
 
-Alternately, you can execute a dry-run rollback to achieve the same outcome. 
-```
+Alternately, you can execute a dry-run rollback to achieve the same outcome.
+
+```shell
 datahub ingest rollback --dry-run --run-id <run-id>
 ```
 
 Finally, once you are sure you want to delete this data forever, run
 
-```
+```shell
 datahub ingest rollback --run-id <run-id>
 ```
 
@@ -136,7 +142,8 @@ This deletes both the versioned and the timeseries aspects associated with these
 > **_NOTE:_** Preservation of unsafe entities has been added in datahub `0.8.32`. Read on to understand what it means and how it works.
 
 In some cases, entities that were initially ingested by a run might have had further modifications to their metadata (e.g. adding terms, tags, or documentation) through the UI or other means. During a roll back of the ingestion that initially created these entities (technically, if the key aspect for these entities are being rolled back), the ingestion process will analyse the metadata graph for aspects that will be left "dangling" and will:
-1. Leave these aspects untouched in the database, and soft-delete the entity. A re-ingestion of these entities will result in this additional metadata becoming visible again in the UI, so you don't lose any of your work. 
+
+1. Leave these aspects untouched in the database, and soft-delete the entity. A re-ingestion of these entities will result in this additional metadata becoming visible again in the UI, so you don't lose any of your work.
 2. The datahub cli will save information about these unsafe entities as a CSV for operators to later review and decide on next steps (keep or remove).
 
 The rollback command will report how many entities have such aspects and save as a CSV the urns of these entities under a rollback reports directory, which defaults to `rollback_reports` under the current directory where the cli is run, and can be configured further using the `--reports-dir` command line arg.

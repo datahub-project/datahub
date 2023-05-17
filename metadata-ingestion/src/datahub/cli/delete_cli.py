@@ -112,8 +112,7 @@ def by_registry(
 @click.option(
     "-a",
     "--aspect",
-    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
-    "--aspect_name",
+    # This option is inconsistent with rest of CLI but kept for backward compatibility
     "--aspect-name",
     required=False,
     type=str,
@@ -136,8 +135,6 @@ def by_registry(
     "-p", "--platform", required=False, type=str, help="the platform of the entity"
 )
 @click.option(
-    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
-    "--entity_type",
     "--entity-type",
     required=False,
     type=str,

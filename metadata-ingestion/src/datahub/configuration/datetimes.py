@@ -1,6 +1,6 @@
 import contextlib
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import click
 import dateutil.parser
@@ -15,6 +15,14 @@ def parse_user_datetime(input: str) -> datetime:
 
     It will always return a datetime aware object in UTC.
     """
+
+    # Special cases.
+    if input == "now":
+        return datetime.now(tz=timezone.utc)
+    elif input == "min":
+        return datetime.min.replace(tzinfo=timezone.utc)
+    elif input == "max":
+        return datetime.max.replace(tzinfo=timezone.utc)
 
     # First try parsing as a timestamp.
     with contextlib.suppress(ValueError):
