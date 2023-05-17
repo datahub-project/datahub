@@ -3181,6 +3181,11 @@ enum OwnershipType {
     NONE
 
     """
+    Associated ownership type is a custom ownership type. Please check OwnershipTypeEntity urn for custom value.
+    """
+    CUSTOM
+
+    """
     A person or group that owns the data.
     Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
