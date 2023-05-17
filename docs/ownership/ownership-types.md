@@ -41,11 +41,11 @@ Custom Ownership Types can be managed using the UI, via a graphQL command or ing
 ### Managing Custom Ownership Types
 
 <Tabs>
-  <TabItem value="UI" label="UI" default>
+  <TabItem value="ui" label="UI" default>
 To manage a Custom Ownership type, first navigate to the DataHub Admin page:
 
 <p align="center">
-    <img width="70%"  src="file:///Users/pedro/Desktop/ownership/manage-view.png" />
+    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/manage-view.png" />
 </p>
     
 Then navigate to the `Ownership Types` tab under the `Management` section. 
@@ -54,14 +54,14 @@ To create a new type simply click '+ Create new Ownership Type'.
 This will open a new modal where you can configure your Ownership Type. Inside the form, you can choose a name for your Ownership Type. You can also add descriptions for your ownership types to help other users more easily understand their meaning. Don't worry, this can be changed later.
     
 <p align="center">
-    <img width="70%"  src="file:///Users/pedro/Desktop/ownership/ownership-type-create.png" />
+    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-create.png" />
 </p>
     
 Once you've chosen a name and a description, click 'Save' to create the new Ownership Type.
 
 You can also edit and delete types in this UI by click on the ellipsis in the management view for the type you wish to change/delete.
   </TabItem>
-  <TabItem value="CLI" label="Cli" default>
+  <TabItem value="cli" label="Cli" default>
 Just like all other DataHub metadata entities, DataHub ships with a JSON-based custom ownership type spec for defining and managing Data Products as code.
 
 Here is an example of a custom ownership type named "Architect":
@@ -151,15 +151,13 @@ You can assign an owner with a custom ownership type to an entity either using t
 On an Entity's profile page, use the right sidebar to locate the Owners section. 
 
 <p align="center">
-  <img width="70%"  src="file:///Users/pedro/Desktop/ownership/ownership-type-set-part1.png" />
-  <!-- <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/a84499c124c9123d6831a0e6ad8dd8caf70203a0/imgs/data_products/dataproducts-set.png"/> -->
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-set-part1.png" />
 </p>
 
 Click 'Add Owners', select the owner you want and then search for the Data Product you'd like to add this asset to. When you're done, click 'Add'.
 
 <p align="center">
-  <img width="70%"  src="file:///Users/pedro/Desktop/ownership/ownership-type-set-part2.png" />
-  <!-- <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/a84499c124c9123d6831a0e6ad8dd8caf70203a0/imgs/data_products/dataproducts-set.png"/> -->
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-set-part2.png" />
 </p>
 To remove ownership from an asset, click the 'x' icon on the Owner label.
 
