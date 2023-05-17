@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import validator
 from pydantic.fields import Field
@@ -28,7 +28,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +100,12 @@ class LineageFileSource(Source):
         lineage_config = LineageConfig.parse_obj(config)
         return lineage_config
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         config = self.load_lineage_config(self.config.file)
         logger.debug(config)
         for entity_node in config.lineage:

@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import auto
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
 from urllib import parse
 
 import ijson
@@ -33,7 +33,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -205,18 +205,16 @@ class GenericFileSource(TestableSource):
             self.report.total_num_files = 1
             return [str(self.config.path)]
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
                 id = f"file://{f}:{i}"
-                if isinstance(obj, UsageAggregationClass):
-                    yield UsageStatsWorkUnit(id, obj)
-                elif isinstance(
+                if isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
                     self.report.entity_type_counts[obj.entityType] += 1
@@ -335,7 +333,6 @@ class GenericFileSource(TestableSource):
                 MetadataChangeEvent,
                 MetadataChangeProposalWrapper,
                 MetadataChangeProposal,
-                UsageAggregationClass,
             ],
         ]
     ]:
@@ -343,9 +340,12 @@ class GenericFileSource(TestableSource):
             try:
                 deserialize_start_time = datetime.datetime.now()
                 item = _from_obj_for_file(obj)
-                deserialize_duration = datetime.datetime.now() - deserialize_start_time
-                self.report.add_deserialize_time(deserialize_duration)
-                yield i, item
+                if item is not None:
+                    deserialize_duration = (
+                        datetime.datetime.now() - deserialize_start_time
+                    )
+                    self.report.add_deserialize_time(deserialize_duration)
+                    yield i, item
             except Exception as e:
                 self.report.report_failure(f"path-{i}", str(e))
 
@@ -388,7 +388,7 @@ def _from_obj_for_file(
     MetadataChangeEvent,
     MetadataChangeProposal,
     MetadataChangeProposalWrapper,
-    UsageAggregationClass,
+    None,
 ]:
     item: Union[
         MetadataChangeEvent,
@@ -406,22 +406,25 @@ def _from_obj_for_file(
     if not item.validate():
         raise ValueError(f"failed to parse: {obj}")
 
-    return item
+    if isinstance(item, UsageAggregationClass):
+        logger.warning(f"Dropping deprecated UsageAggregationClass: {item}")
+        return None
+    else:
+        return item
 
 
 def read_metadata_file(
     file: pathlib.Path,
-) -> List[
+) -> Iterable[
     Union[
         MetadataChangeEvent,
         MetadataChangeProposal,
         MetadataChangeProposalWrapper,
-        UsageAggregationClass,
     ]
 ]:
     # This simplified version of the FileSource can be used for testing purposes.
-    records = []
     with file.open("r") as f:
         for obj in json.load(f):
-            records.append(_from_obj_for_file(obj))
-    return records
+            item = _from_obj_for_file(obj)
+            if item:
+                yield item
