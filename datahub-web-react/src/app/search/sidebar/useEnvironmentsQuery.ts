@@ -26,7 +26,7 @@ const useEnvironmentsQuery = () => {
     const environments =
         data?.aggregateAcrossEntities?.facets
             ?.find((facet) => facet.field === ORIGIN_FILTER_NAME)
-            ?.aggregations.filter((entity) => entity.count > 0) ?? [];
+            ?.aggregations.filter((aggregation) => aggregation.count > 0) ?? [];
 
     return [fetchEnvironments, { loading, error, environments } as const] as const;
 };

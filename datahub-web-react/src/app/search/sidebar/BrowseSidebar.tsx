@@ -41,7 +41,7 @@ const BrowseSidebar = ({ facets, loading, visible, width }: Props) => {
     const entities =
         facets
             ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
-            ?.aggregations.filter((entity) => entity.count > 0) ?? [];
+            ?.aggregations.filter((aggregation) => aggregation.count > 0) ?? [];
 
     return (
         <Sidebar visible={visible} width={width}>

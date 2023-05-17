@@ -12,14 +12,14 @@ import EnvironmentNode from './EnvironmentNode';
 import useEnvironmentsQuery from './useEnvironmentsQuery';
 import DelayedLoading from './DelayedLoading';
 
-const Header = styled.div<{ isSelected: boolean }>`
+const Header = styled.div<{ isOpen: boolean }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
     user-select: none;
     padding-top: 16px;
-    border-bottom: ${(props) => `1px solid ${props.isSelected ? ANTD_GRAY[2] : ANTD_GRAY[4]}`};
+    border-bottom: ${(props) => `1px solid ${props.isOpen ? ANTD_GRAY[2] : ANTD_GRAY[4]}`};
 `;
 
 const HeaderLeft = styled.div`
@@ -47,15 +47,15 @@ type Props = {
 
 const EntityNode = ({ entityType, count }: Props) => {
     const registry = useEntityRegistry();
-    const [isSelected, setIsSelected] = useState<boolean>(false);
-    const onSelect = useCallback(() => setIsSelected((current) => !current), []);
-    const color = isSelected ? ANTD_GRAY[9] : ANTD_GRAY[7];
+    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
+    const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
     const [fetchAggregations, { loading, error, environments }] = useEnvironmentsQuery();
 
     useEffect(() => {
-        if (!isSelected) return;
+        if (!isOpen) return;
         fetchAggregations(entityType);
-    }, [entityType, fetchAggregations, isSelected]);
+    }, [entityType, fetchAggregations, isOpen]);
 
     // For local testing as we're building out the browsev2 sidebar
     const showEnvironmentOverride = true;
@@ -63,29 +63,25 @@ const EntityNode = ({ entityType, count }: Props) => {
 
     return (
         <ExpandableNode
-            isOpen={isSelected}
+            isOpen={isOpen}
             header={
-                <Header isSelected={isSelected} onClick={onSelect}>
+                <Header isOpen={isOpen} onClick={onClickHeader}>
                     <HeaderLeft>
                         {registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
                         <Title color={color}>{registry.getCollectionName(entityType as EntityType)}</Title>
                         <Count color={color}>{formatNumber(count)}</Count>
                     </HeaderLeft>
-                    {isSelected ? <UpCircleOutlined style={{ color }} /> : <DownCircleOutlined style={{ color }} />}
+                    {isOpen ? <UpCircleOutlined style={{ color }} /> : <DownCircleOutlined style={{ color }} />}
                 </Header>
             }
             body={
                 <Body>
                     {loading && <DelayedLoading />}
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    {environments.map((env) => (
-                        <EnvironmentNode
-                            key={env.value}
-                            environment={env.value}
-                            count={env.count}
-                            showHeader={showEnvironment}
-                        />
-                    ))}
+                    {showEnvironment &&
+                        environments.map((env) => (
+                            <EnvironmentNode key={env.value} environment={env.value} count={env.count} />
+                        ))}
                 </Body>
             }
         />

@@ -6,8 +6,8 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 
-const Header = styled.div<{ showHeader: boolean }>`
-    display: ${(props) => (props.showHeader ? 'flex' : 'none')};
+const Header = styled.div`
+    display: flex;
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
@@ -36,21 +36,20 @@ const Body = styled.div``;
 type Props = {
     environment: string;
     count: number;
-    showHeader: boolean;
 };
 
-const EnvironmentNode = ({ environment, count, showHeader }: Props) => {
-    const [isSelected, setIsSelected] = useState<boolean>(false);
-    const onSelect = useCallback(() => setIsSelected((current) => !current), []);
+const EnvironmentNode = ({ environment, count }: Props) => {
+    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
     const color = ANTD_GRAY[9];
 
     return (
         <ExpandableNode
-            isOpen={!showHeader || isSelected}
+            isOpen={isOpen}
             header={
-                <Header showHeader={showHeader} onClick={onSelect}>
+                <Header onClick={onClickHeader}>
                     <HeaderLeft>
-                        {isSelected ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
+                        {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
                         <Title color={color}>{environment}</Title>
                     </HeaderLeft>
                     <Count color={color}>{formatNumber(count)}</Count>
