@@ -156,7 +156,7 @@ class Source(Closeable, metaclass=ABCMeta):
         raise NotImplementedError('sources must implement "create"')
 
     @abstractmethod
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         pass
 
     @abstractmethod

@@ -426,4 +426,15 @@ entities:
       - queryProperties
       - querySubjects
       - status
+  - name: dataProduct
+    category: core
+    keyAspect: dataProductKey
+    aspects:
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
+      - dataProductProperties
+      - institutionalMemory
+      - status
 events:
