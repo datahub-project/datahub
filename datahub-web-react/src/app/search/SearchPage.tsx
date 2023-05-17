@@ -19,6 +19,7 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types
 import SearchFilters from './filters/SearchFilters';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 import { useAppConfig } from '../useAppConfig';
+import SearchProvider from './context/SearchProvider';
 
 /**
  * A search results page.
