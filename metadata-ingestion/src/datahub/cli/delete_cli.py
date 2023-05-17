@@ -259,71 +259,15 @@ def by_filter(
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
-    # Check urn / filters.
-    if urn:
-        if entity_type or platform or env or query:
-            raise click.UsageError(
-                "You cannot provide both an urn and a filter rule (entity-type / platform / env / query)."
-            )
-    elif not urn and not (entity_type or platform or env or query):
-        raise click.UsageError(
-            "You must provide either an urn or at least one filter (entity-type / platform / env / query) in order to delete entities."
-        )
-    elif query:
-        logger.warning(
-            "Using --query is an advanced feature and can easily delete unintended entities. Please use with caution."
-        )
-    elif env and not (platform or entity_type):
-        logger.warning(
-            f"Using --env without other filters will delete all metadata in the {env} environment. Please use with caution."
-        )
-
-    # Check soft / hard delete flags.
-    # Note: aspect not None ==> hard delete,
-    #    but aspect is None ==> could be either soft or hard delete
-    if soft:
-        if aspect:
-            raise click.UsageError(
-                "You cannot provide an aspect name when performing a soft delete. Use --hard to perform a hard delete."
-            )
-
-        if only_soft_deleted:
-            raise click.UsageError(
-                "You cannot provide --only-soft-deleted when performing a soft delete. Use --hard to perform a hard delete."
-            )
-
-        soft_delete_filter = RemovedStatusFilter.NOT_SOFT_DELETED
-    else:
-        # For hard deletes, we will always include the soft-deleted entities, and
-        # can optionally filter to exclude non-soft-deleted entities.
-        if only_soft_deleted:
-            soft_delete_filter = RemovedStatusFilter.ONLY_SOFT_DELETED
-        else:
-            soft_delete_filter = RemovedStatusFilter.ALL
-
+    # Validate the cli arguments.
+    _validate_user_urn_and_filters(
+        urn=urn, entity_type=entity_type, platform=platform, env=env, query=query
+    )
+    soft_delete_filter = _validate_user_soft_delete_flags(
+        soft=soft, aspect=aspect, only_soft_deleted=only_soft_deleted
+    )
+    _validate_user_aspect_flags(aspect=aspect, start_time=start_time, end_time=end_time)
     # TODO: add some validation on entity_type
-
-    # Check the aspect name.
-    if aspect and aspect not in ASPECT_MAP:
-        logger.info(f"Supported aspects: {list(sorted(ASPECT_MAP.keys()))}")
-        raise click.UsageError(
-            f"Unknown aspect {aspect}. Ensure the aspect is in the above list."
-        )
-
-    # Check that start/end time are set if and only if the aspect is a timeseries aspect.
-    if aspect and aspect in TIMESERIES_ASPECT_MAP:
-        if not start_time or not end_time:
-            raise click.UsageError(
-                "You must provide both --start-time and --end-time when deleting a timeseries aspect."
-            )
-    elif start_time or end_time:
-        raise click.UsageError(
-            "You can only provide --start-time and --end-time when deleting a timeseries aspect."
-        )
-    elif aspect:
-        raise click.UsageError(
-            "Aspect-specific deletion is only supported for timeseries aspects. Please delete the full entity or use a rollback instead."
-        )
 
     if not force and not soft and not dry_run:
         click.confirm(
@@ -334,6 +278,7 @@ def by_filter(
     graph = get_default_graph()
     logger.info(f"Using graph: {graph}")
 
+    # Determine which urns to delete.
     if urn:
         delete_by_urn = True
         urns = [urn]
@@ -380,6 +325,7 @@ def by_filter(
     if not delete_by_urn and not dry_run:
         urns_iter = progressbar.progressbar(urns, redirect_stdout=True)
 
+    # Run the deletion.
     deletion_result = DeletionResult()
     with PerfTimer() as timer:
         for urn in urns_iter:
@@ -400,6 +346,91 @@ def by_filter(
             dry_run=dry_run, soft=soft, time_sec=timer.elapsed_seconds()
         )
     )
+
+
+def _validate_user_urn_and_filters(
+    urn: Optional[str],
+    entity_type: Optional[str],
+    platform: Optional[str],
+    env: Optional[str],
+    query: Optional[str],
+) -> None:
+    # Check urn / filters options.
+    if urn:
+        if entity_type or platform or env or query:
+            raise click.UsageError(
+                "You cannot provide both an urn and a filter rule (entity-type / platform / env / query)."
+            )
+    elif not urn and not (entity_type or platform or env or query):
+        raise click.UsageError(
+            "You must provide either an urn or at least one filter (entity-type / platform / env / query) in order to delete entities."
+        )
+    elif query:
+        logger.warning(
+            "Using --query is an advanced feature and can easily delete unintended entities. Please use with caution."
+        )
+    elif env and not (platform or entity_type):
+        logger.warning(
+            f"Using --env without other filters will delete all metadata in the {env} environment. Please use with caution."
+        )
+
+
+def _validate_user_soft_delete_flags(
+    soft: bool, aspect: Optional[str], only_soft_deleted: bool
+) -> RemovedStatusFilter:
+    # Check soft / hard delete flags.
+    # Note: aspect not None ==> hard delete,
+    #    but aspect is None ==> could be either soft or hard delete
+
+    if soft:
+        if aspect:
+            raise click.UsageError(
+                "You cannot provide an aspect name when performing a soft delete. Use --hard to perform a hard delete."
+            )
+
+        if only_soft_deleted:
+            raise click.UsageError(
+                "You cannot provide --only-soft-deleted when performing a soft delete. Use --hard to perform a hard delete."
+            )
+
+        soft_delete_filter = RemovedStatusFilter.NOT_SOFT_DELETED
+    else:
+        # For hard deletes, we will always include the soft-deleted entities, and
+        # can optionally filter to exclude non-soft-deleted entities.
+        if only_soft_deleted:
+            soft_delete_filter = RemovedStatusFilter.ONLY_SOFT_DELETED
+        else:
+            soft_delete_filter = RemovedStatusFilter.ALL
+
+    return soft_delete_filter
+
+
+def _validate_user_aspect_flags(
+    aspect: Optional[str],
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
+) -> None:
+    # Check the aspect name.
+    if aspect and aspect not in ASPECT_MAP:
+        logger.info(f"Supported aspects: {list(sorted(ASPECT_MAP.keys()))}")
+        raise click.UsageError(
+            f"Unknown aspect {aspect}. Ensure the aspect is in the above list."
+        )
+
+    # Check that start/end time are set if and only if the aspect is a timeseries aspect.
+    if aspect and aspect in TIMESERIES_ASPECT_MAP:
+        if not start_time or not end_time:
+            raise click.UsageError(
+                "You must provide both --start-time and --end-time when deleting a timeseries aspect."
+            )
+    elif start_time or end_time:
+        raise click.UsageError(
+            "You can only provide --start-time and --end-time when deleting a timeseries aspect."
+        )
+    elif aspect:
+        raise click.UsageError(
+            "Aspect-specific deletion is only supported for timeseries aspects. Please delete the full entity or use a rollback instead."
+        )
 
 
 def _delete_one_urn(
