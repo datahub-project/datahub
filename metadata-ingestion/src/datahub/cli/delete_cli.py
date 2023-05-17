@@ -175,13 +175,13 @@ def by_filter(
 
     # Check urn / filters.
     if urn:
-        if platform or env or query:
+        if entity_type or platform or env or query:
             raise click.UsageError(
-                "You cannot provide both an urn and a filter rule (platform / env / query)."
+                "You cannot provide both an urn and a filter rule (entity-type / platform / env / query)."
             )
     elif not urn and not (entity_type or platform or env or query):
         raise click.UsageError(
-            "You must provide an urn or a filter (entity-type / platform / env / query) in order to delete entities."
+            "You must provide either an urn or at least one filter (entity-type / platform / env / query) in order to delete entities."
         )
     elif query:
         logger.warning(
@@ -193,8 +193,8 @@ def by_filter(
         )
 
     # Check soft / hard delete flags.
-    # Note: aspect_name not None ==> hard delete,
-    # but aspect_name is None could be either soft or hard delete
+    # Note: aspect not None ==> hard delete,
+    #    but aspect is None ==> could be either soft or hard delete
     if soft:
         if aspect:
             raise click.UsageError(

@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 import click
 import requests
 import yaml
+from deprecated import deprecated
 from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
@@ -317,6 +318,7 @@ def post_rollback_endpoint(
     )
 
 
+@deprecated(reason="Use DataHubGraph.get_urns_by_filter instead")
 def get_urns_by_filter(
     platform: Optional[str],
     env: Optional[str] = None,

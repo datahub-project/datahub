@@ -813,6 +813,8 @@ class DataHubGraph(DatahubRestEmitter):
         Returns a tuple of (rows_affected, timeseries_rows_affected).
         """
 
+        assert urn
+
         payload_obj: Dict = {"urn": urn}
         summary = self._post_generic(
             f"{self._gms_server}/entities?action=delete", payload_obj
@@ -833,11 +835,13 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> int:
         """Hard delete a specific timeseries aspect from an entity by urn."""
 
-        assert (
-            aspect_name in TIMESERIES_ASPECT_MAP
-        ), "Aspect must be a timeseries aspect"
+        assert urn
+        assert aspect_name in TIMESERIES_ASPECT_MAP, "must be a timeseries aspect"
 
-        payload_obj: Dict = {"urn": urn, "aspectName": aspect_name}
+        payload_obj: Dict = {
+            "urn": urn,
+            "aspectName": aspect_name,
+        }
         if start_time:
             payload_obj["startTimeMillis"] = int(start_time.timestamp() * 1000)
         if end_time:
@@ -853,6 +857,8 @@ class DataHubGraph(DatahubRestEmitter):
     def _delete_references_to_urn(
         self, urn: str, dry_run: bool = False
     ) -> Tuple[int, List[Dict]]:
+        assert urn
+
         payload_obj = {"urn": urn, "dryRun": dry_run}
 
         response = self._post_generic(
