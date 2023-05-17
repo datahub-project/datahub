@@ -816,9 +816,6 @@ class S3Source(StatefulIngestionSourceBase):
                     table_data = self.extract_table_data(
                         path_spec, file, timestamp, size
                     )
-                    logger.error(
-                        f"Processing file {file} with timestamp {timestamp} and size {size}"
-                    )
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
@@ -833,9 +830,6 @@ class S3Source(StatefulIngestionSourceBase):
                             table_dict[table_data.table_path].timestamp
                             < table_data.timestamp
                         ):
-                            logger.error(
-                                f"Timestamp is not the latest using {table_data.table_path}"
-                            )
                             table_dict[
                                 table_data.table_path
                             ].full_path = table_data.full_path
