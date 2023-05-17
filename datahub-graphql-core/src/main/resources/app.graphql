@@ -181,6 +181,11 @@ type AppConfig {
   Configurations related to DataHub Views
   """
   viewsConfig: ViewsConfig!
+
+  """
+  Feature flags telling the UI whether a feature is enabled or not
+  """
+  featureFlags: FeatureFlagsConfig!
 }
 
 """
@@ -358,6 +363,17 @@ type ViewsConfig {
   Whether Views feature is enabled
   """
   enabled: Boolean!
+}
+
+"""
+Configurations related to DataHub Views feature
+"""
+type FeatureFlagsConfig {
+  """
+  Whether read only mode is enabled on an instance.
+  Right now this only affects ability to edit user profile image URL but can be extended.
+  """
+  readOnlyModeEnabled: Boolean!
 }
 
 """

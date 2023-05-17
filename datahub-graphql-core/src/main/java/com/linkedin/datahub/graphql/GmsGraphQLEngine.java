@@ -693,7 +693,8 @@ public class GmsGraphQLEngine {
                     this.telemetryConfiguration,
                     this.testsConfiguration,
                     this.datahubConfiguration,
-                    this.viewsConfiguration
+                    this.viewsConfiguration,
+                    this.featureFlags
                 ))
             .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
             .dataFetcher("search", new SearchResolver(this.entityClient))
