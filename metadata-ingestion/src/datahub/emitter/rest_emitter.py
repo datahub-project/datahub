@@ -7,6 +7,7 @@ from json.decoder import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import requests
+from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
@@ -231,17 +232,14 @@ class DataHubRestEmitter(Closeable):
 
         self._emit_generic(url, payload)
 
+    @deprecated
     def emit_usage(self, usageStats: UsageAggregation) -> None:
         url = f"{self._gms_server}/usageStats?action=batchIngest"
 
         raw_usage_obj = usageStats.to_obj()
         usage_obj = pre_json_transform(raw_usage_obj)
 
-        snapshot = {
-            "buckets": [
-                usage_obj,
-            ]
-        }
+        snapshot = {"buckets": [usage_obj]}
         payload = json.dumps(snapshot)
         self._emit_generic(url, payload)
 

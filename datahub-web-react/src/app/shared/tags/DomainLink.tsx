@@ -6,6 +6,7 @@ import { Domain, EntityType } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
 import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;
@@ -17,26 +18,31 @@ const DomainWrapper = styled.span`
     margin-bottom: 8px;
 `;
 
+const StyledTag = styled(Tag)<{ fontSize?: number }>`
+    ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+`;
+
 interface DomainContentProps {
     domain: Domain;
     name?: string;
     closable?: boolean;
     onClose?: (e: any) => void;
     tagStyle?: any | undefined;
+    fontSize?: number;
 }
 
-function DomainContent({ domain, name, closable, onClose, tagStyle }: DomainContentProps) {
+function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize }: DomainContentProps) {
     const entityRegistry = useEntityRegistry();
 
     const displayName = name || entityRegistry.getDisplayName(EntityType.Domain, domain);
 
     return (
-        <Tag style={tagStyle} closable={closable} onClose={onClose}>
+        <StyledTag style={tagStyle} closable={closable} onClose={onClose} fontSize={fontSize}>
             <span style={{ paddingRight: '4px' }}>
-                {entityRegistry.getIcon(EntityType.Domain, 10, IconStyleType.ACCENT)}
+                {entityRegistry.getIcon(EntityType.Domain, fontSize || 10, IconStyleType.ACCENT, ANTD_GRAY[9])}
             </span>
             {displayName}
-        </Tag>
+        </StyledTag>
     );
 }
 
@@ -47,9 +53,10 @@ export type Props = {
     onClose?: (e: any) => void;
     tagStyle?: any | undefined;
     readOnly?: boolean;
+    fontSize?: number;
 };
 
-export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly }: Props): JSX.Element => {
+export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly, fontSize }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const urn = domain?.urn;
 
@@ -63,6 +70,7 @@ export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly
                         closable={closable}
                         onClose={onClose}
                         tagStyle={tagStyle}
+                        fontSize={fontSize}
                     />
                 </DomainWrapper>
             </HoverEntityTooltip>
@@ -72,7 +80,14 @@ export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly
     return (
         <HoverEntityTooltip entity={domain}>
             <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)}>
-                <DomainContent domain={domain} name={name} closable={closable} onClose={onClose} tagStyle={tagStyle} />
+                <DomainContent
+                    domain={domain}
+                    name={name}
+                    closable={closable}
+                    onClose={onClose}
+                    tagStyle={tagStyle}
+                    fontSize={fontSize}
+                />
             </DomainLinkContainer>
         </HoverEntityTooltip>
     );

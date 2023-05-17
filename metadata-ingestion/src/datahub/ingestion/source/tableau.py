@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -371,6 +371,7 @@ class TableauProject:
     name: str
     description: str
     parent_id: Optional[str]
+    parent_name: Optional[str]  # Name of parent project
     path: List[str]
 
 
@@ -484,9 +485,17 @@ class TableauSource(StatefulIngestionSourceBase):
                     id=project.id,
                     name=project.name,
                     parent_id=project.parent_id,
+                    parent_name=None,
                     description=project.description,
                     path=[],
                 )
+            # Set parent project name
+            for project_id, project in all_project_map.items():
+                if (
+                    project.parent_id is not None
+                    and project.parent_id in all_project_map
+                ):
+                    project.parent_name = all_project_map[project.parent_id].name
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
@@ -2288,15 +2297,34 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
         for _id, project in self.tableau_project_registry.items():
-            project_workunits = gen_containers(
-                container_key=self.gen_project_key(_id),
-                name=project.name,
-                description=project.description,
-                sub_types=[tableau_constant.PROJECT],
-                parent_container_key=self.gen_project_key(project.parent_id)
-                if project.parent_id
-                else None,
+            project_workunits = list(
+                gen_containers(
+                    container_key=self.gen_project_key(_id),
+                    name=project.name,
+                    description=project.description,
+                    sub_types=[tableau_constant.PROJECT],
+                    parent_container_key=self.gen_project_key(project.parent_id)
+                    if project.parent_id
+                    else None,
+                )
             )
+            if (
+                project.parent_id is not None
+                and project.parent_id not in self.tableau_project_registry
+            ):
+                # Parent project got skipped because of project_pattern.
+                # Let's ingest its container name property to show parent container name on DataHub Portal, otherwise
+                # DataHub Portal will show parent container URN
+                project_workunits.extend(
+                    list(
+                        gen_containers(
+                            container_key=self.gen_project_key(project.parent_id),
+                            name=cast(str, project.parent_name),
+                            sub_types=[tableau_constant.PROJECT],
+                        )
+                    )
+                )
+
             for wu in project_workunits:
                 self.report.report_workunit(wu)
                 yield wu

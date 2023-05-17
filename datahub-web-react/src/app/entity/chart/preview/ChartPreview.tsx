@@ -11,6 +11,7 @@ import {
     ParentContainersResult,
     Deprecation,
     ChartStatsSummary,
+    DataProduct,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -28,6 +29,7 @@ export const ChartPreview = ({
     tags,
     glossaryTerms,
     domain,
+    dataProduct,
     container,
     insights,
     logoUrl,
@@ -49,6 +51,7 @@ export const ChartPreview = ({
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     container?: Container | null;
     insights?: Array<SearchInsight> | null;
     logoUrl?: string | null;
@@ -78,6 +81,7 @@ export const ChartPreview = ({
             owners={owners}
             glossaryTerms={glossaryTerms || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             container={container || undefined}
             insights={insights}
             parentContainers={parentContainers}
