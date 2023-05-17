@@ -248,11 +248,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            test_report.basic_connectivity = CapabilityReport(capable=True)
-            test_report.capability_report = {}
-
             config = LookerDashboardSourceConfig.parse_obj_allow_extras(config_dict)
             permissions = LookerAPI(config).get_available_permissions()
+
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.capability_report = {}
 
             BASIC_INGEST_REQUIRED_PERMISSIONS = {
                 # TODO: Make this a bit more granular.
