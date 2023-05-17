@@ -299,8 +299,7 @@ class DeltaLakeSource(Source):
             if not path.endswith("/"):
                 path = path + "/"
             for folder in get_folders(path):
-                newpath = folder.split("/")[-1]
-                yield from self.process_folder(path + newpath, get_folders)
+                yield from self.process_folder(path + folder.split("/")[-1], get_folders)
 
     def s3_get_folders(self, path: str) -> Iterable[str]:
         if self.source_config.s3 is not None:
