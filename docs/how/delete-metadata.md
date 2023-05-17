@@ -1,48 +1,87 @@
 # Removing Metadata from DataHub
 
-There are a two ways to delete metadata from DataHub:
-
-1. Delete metadata attached to entities by providing a specific urn or filters that identify a set of entities
-2. Delete metadata created by a single ingestion run
-
+:::tip
 To follow this guide you need to use [DataHub CLI](../cli.md).
-
-Read on to find out how to perform these kinds of deletes.
-
-_Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._
-
-:::info
-Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Domain, it will not delete those children, you will instead need to delete each child by URN in addition to deleting the parent.
 :::
 
-## Delete By Urn
+There are a two ways to delete metadata from DataHub:
 
-To delete all the data related to a single entity, run
+1. Delete metadata attached to entities by providing a specific urn or filters that identify a set of urns (delete CLI).
+2. Delete metadata created by a single ingestion run (rollback).
 
-### Soft Delete (the default)
+:::warning
+Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding.
+:::
 
-This sets the `status` aspect of the entity to `Removed`, which hides the entity and all its aspects from being returned by the UI.
+## Delete CLI Usage
+
+:::info
+
+Deleting metadata using DataHub's CLI is a simple, systems-level action. If you attempt to delete an entity with children, such as a container, it will not delete those children. Instead, you will need to delete each child by URN in addition to deleting the parent.
+
+As of datahub v0.10.2.3, hard deleting tags, glossary terms, and users will also remove references to those entities across the metadata graph.
+
+:::
+
+All the commands below support the following options:
+
+- `-n/--dry-run`: Execute a dry run instead of the actual delete.
+- `--force`: Skip confirmation prompts.
+
+### Selecting entities to delete
+
+You can either provide a single urn to delete, or use filters to select a set of entities to delete.
 
 ```shell
+# Soft delete a single urn.
 datahub delete --urn "<my urn>"
-# Same as above.
-datahub delete --urn "<my urn>" --soft
+
+# Soft delete by filters.
+datahub delete --platform snowflake
+datahub delete --platform looker --entity-type chart
+datahub delete --platform bigquery --env PROD
 ```
 
-### Hard Delete
+When performing hard-deletes, you can optionally add `--only-soft-deleted` flag to only hard delete entities that were previously soft-deleted.
 
-This physically deletes all rows for all aspects of the entity. This action cannot be undone, so execute this only after you are sure you want to delete all data associated with this entity.
+### Performing the delete
+
+#### Soft delete an entity (default)
+
+By default, the delete command will perform a soft delete.
+
+This will set the `status` aspect's `removed` field to `true`, which will hide the entity from the UI. However, you'll still be able to view the entity's metadata in the UI with a direct link.
+
+```shell
+# The `--soft` flag is redundant since it's the default.
+datahub delete --urn "<my urn>" --soft
+# or using a filter
+datahub delete --platform snowflake --soft
+```
+
+#### Hard delete an entity
+
+This will physically delete all rows for all aspects of the entity. This action cannot be undone, so execute this only after you are sure you want to delete all data associated with this entity.
 
 ```shell
 datahub delete --urn "<my urn>" --hard
+# or using a filter
+datahub delete --platform snowflake --hard
 ```
 
-As of datahub v0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
-For now, this behaviour must be opted into by a prompt that will appear for you to manually accept or deny.
+#### Hard delete a timeseries aspect
 
-You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
-You can optionally add `-f` or `--force` to skip confirmations
-You can optionally add `--only-soft-deleted` flag to remove soft-deleted items only.
+It's also possible to delete a range of timeseries aspect data for an entity without deleting the entire entity.
+
+For these deletes, the aspect and time ranges are required. You can delete all data for a timeseries aspect by providing `--start-time min --end-time max`.
+
+```shell
+datahub delete --urn "<my urn>" --aspect <aspect name> --start-time '-30 days' --end-time '-7 days'
+# or using a filter
+datahub delete --platform snowflake --entity-type dataset --aspect datasetProfile --start-time '0' --end-time '2023-01-01'
+```
+
+## Delete CLI Examples
 
 :::note
 
@@ -50,58 +89,99 @@ Make sure you surround your urn with quotes! If you do not include the quotes, y
 
 :::
 
-If you wish to hard-delete using a curl request you can use something like below. Replace the URN with the URN that you wish to delete
+_Note: All these commands below support the dry-run option (`-n/--dry-run`) and the skip confirmations option (`--force`)._
+
+#### Soft delete a single entity
 
 ```shell
-curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
+datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
 ```
 
-## Delete by filters
-
-_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`)._
-
-### Delete all Datasets from the Snowflake platform
+#### Hard delete a single entity
 
 ```shell
-datahub delete --entity-type dataset --platform snowflake
+datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)" --hard
 ```
 
-### Delete all containers for a particular platform
+#### Delete everything from the Snowflake DEV environment
+
+```shell
+datahub delete --platform snowflake --env DEV
+```
+
+#### Delete all BigQuery datasets in the PROD environment
+
+```shell
+# Note: this will leave BigQuery containers intact.
+datahub delete --env PROD --entity-type dataset --platform bigquery
+```
+
+#### Delete all pipelines and tasks from Airflow
+
+```shell
+datahub delete --platform "airflow"
+```
+
+#### Delete all containers for a particular platform
 
 ```shell
 datahub delete --entity-type container --platform s3
 ```
 
-### Delete all datasets in the DEV environment
+#### Delete everything in the DEV environment
 
 ```shell
-datahub delete --env DEV --entity-type dataset
+# This is a pretty broad filter, so make sure you know what you're doing!
+datahub delete --env DEV
 ```
 
-### Delete all Pipelines and Tasks in the DEV environment
+#### Delete all Looker dashboards and charts
 
 ```shell
-datahub delete --env DEV --entity-type "dataJob"
-datahub delete --env DEV --entity-type "dataFlow"
+datahub delete --platform looker
 ```
 
-### Delete all bigquery datasets in the PROD environment
+#### Delete all Looker charts (but not dashboards)
 
 ```shell
-datahub delete --env PROD --entity-type dataset --platform bigquery
+datahub delete --platform looker --entity-type chart
 ```
 
-### Delete all looker dashboards and charts
+#### Clean up old datasetProfiles
 
 ```shell
-datahub delete --entity-type dashboard --platform looker
-datahub delete --entity-type chart --platform looker
+datahub delete --entity-type dataset --aspect datasetProfile --start-time 'min' --end-time '-60 days'
 ```
 
-### Delete all datasets that match a query
+#### Delete a tag
 
 ```shell
+# Soft delete.
+datahub delete --urn 'urn:li:tag:Legacy' --soft
+
+# Or, using a hard delete. This will automatically clean up all tag associations.
+datahub delete --urn 'urn:li:tag:Legacy' --hard
+```
+
+#### Delete all datasets that match a query
+
+```shell
+# Note: the query is an advanced feature, but can sometimes select extra entities - use it with caution!
 datahub delete --entity-type dataset --query "_tmp"
+```
+
+#### Hard delete everything in Snowflake that was previously soft-deleted
+
+```shell
+datahub delete --platform snowflake --only-soft-deleted --hard
+```
+
+## Deletes using the SDK and APIs
+
+If you wish to hard-delete using a curl request you can use something like below. Replace the URN with the URN that you wish to delete
+
+```shell
+curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
 
 ## Rollback Ingestion Run
@@ -138,8 +218,6 @@ to rollback all aspects added with this run and all entities created by this run
 This deletes both the versioned and the timeseries aspects associated with these entities.
 
 ### Unsafe Entities and Rollback
-
-> **_NOTE:_** Preservation of unsafe entities has been added in datahub `0.8.32`. Read on to understand what it means and how it works.
 
 In some cases, entities that were initially ingested by a run might have had further modifications to their metadata (e.g. adding terms, tags, or documentation) through the UI or other means. During a roll back of the ingestion that initially created these entities (technically, if the key aspect for these entities are being rolled back), the ingestion process will analyse the metadata graph for aspects that will be left "dangling" and will:
 

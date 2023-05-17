@@ -40,7 +40,10 @@ _DELETE_WITH_REFERENCES_TYPES = {
 
 @click.group(cls=DefaultGroup, default="by-filter")
 def delete() -> None:
-    """Delete metadata from DataHub."""
+    """Delete metadata from DataHub.
+
+    See https://datahubproject.io/docs/how/delete-metadata for more detailed docs.
+    """
     pass
 
 
@@ -80,7 +83,7 @@ class DeletionResult:
 
     @classmethod
     def _value_or_unknown(self, value: int) -> str:
-        return str(value) if value != _UNKNOWN_NUM_RECORDS else "an unknown number of"
+        return str(value) if value <= _UNKNOWN_NUM_RECORDS else "an unknown number of"
 
 
 @delete.command()

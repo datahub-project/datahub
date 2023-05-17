@@ -1,4 +1,5 @@
 import contextlib
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -6,14 +7,21 @@ import click
 import dateutil.parser
 import humanfriendly
 
+logger = logging.getLogger(__name__)
+
 
 def parse_user_datetime(input: str) -> datetime:
     """Parse absolute and relative time strings into datetime objects.
 
-    This parses strings like "2022-01-01 01:02:03" and "+10m"
+    This parses strings like "2022-01-01 01:02:03" and "-7 days"
     and timestamps like "1630440123".
 
-    It will always return a datetime aware object in UTC.
+    Args:
+        input: A string representing a datetime or relative time.
+
+    Returns:
+        A timezone-aware datetime object in UTC. If the input specifies a different
+        timezone, it will be converted to UTC.
     """
 
     # Special cases.
@@ -63,10 +71,12 @@ def _parse_relative_timespan(input: str) -> timedelta:
         neg = True
 
     seconds = humanfriendly.parse_timespan(input)
-
+    delta = timedelta(seconds=seconds)
     if neg:
-        return -timedelta(seconds=seconds)
-    return +timedelta(seconds=seconds)
+        delta = -delta
+
+    logger.debug(f'Parsed "{input}" as {delta}.')
+    return delta
 
 
 class ClickDatetime(click.ParamType):
