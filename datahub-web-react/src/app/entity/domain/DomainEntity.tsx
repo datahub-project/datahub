@@ -12,6 +12,7 @@ import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import DataProductsTab from './DataProductsTab/DataProductsTab';
 // import { EntityActionItem } from '../shared/entity/EntityActions';
 
 /**
@@ -77,6 +78,10 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
+                },
+                {
+                    name: 'Data Products',
+                    component: DataProductsTab,
                 },
             ]}
             sidebarSections={[
