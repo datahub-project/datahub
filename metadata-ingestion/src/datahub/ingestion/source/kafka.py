@@ -56,6 +56,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    KafkaSchemaClass,
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -114,6 +115,10 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Set dataset description to top level doc field for Avro schema",
+)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "For multiple Kafka clusters, use the platform_instance configuration",
@@ -220,6 +225,9 @@ class KafkaSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
+        AVRO = "AVRO"
+        DOC_KEY = "doc"
+
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic
         platform_urn = make_data_platform_urn(self.platform)
@@ -252,13 +260,26 @@ class KafkaSource(StatefulIngestionSourceBase):
             topic, topic_detail, extra_topic_config
         )
 
+        # 4. Set dataset's description as top level doc, if topic schema type is avro
+        description = None
+        if (
+            schema_metadata is not None
+            and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
+            and schema_metadata.platformSchema.documentSchemaType == AVRO
+        ):
+            # Point to note:
+            # In Kafka documentSchema and keySchema both contains "doc" field.
+            # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
+            description = json.loads(schema_metadata.platformSchema.documentSchema).get(
+                DOC_KEY
+            )
+
         dataset_properties = DatasetPropertiesClass(
-            name=topic,
-            customProperties=custom_props,
+            name=topic, customProperties=custom_props, description=description
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        # 4. Attach dataPlatformInstance aspect.
+        # 5. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:
             dataset_snapshot.aspects.append(
                 DataPlatformInstanceClass(
@@ -269,13 +290,13 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-        # 5. Emit the datasetSnapshot MCE
+        # 6. Emit the datasetSnapshot MCE
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
         self.report.report_workunit(wu)
         yield wu
 
-        # 5. Add the subtype aspect marking this as a "topic"
+        # 7. Add the subtype aspect marking this as a "topic"
         subtype_wu = MetadataWorkUnit(
             id=f"{topic}-subtype",
             mcp=MetadataChangeProposalWrapper(
@@ -288,7 +309,7 @@ class KafkaSource(StatefulIngestionSourceBase):
 
         domain_urn: Optional[str] = None
 
-        # 6. Emit domains aspect MCPW
+        # 8. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(
