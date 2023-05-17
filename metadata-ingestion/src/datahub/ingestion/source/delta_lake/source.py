@@ -11,7 +11,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -317,7 +317,7 @@ class DeltaLakeSource(Source):
             break
         return
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
             self.source_config.platform,
             self.source_config.platform_instance,

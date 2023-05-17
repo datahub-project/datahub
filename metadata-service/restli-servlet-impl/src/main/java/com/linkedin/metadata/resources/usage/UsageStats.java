@@ -110,6 +110,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       _entityRegistry.getEntitySpec(USAGE_STATS_ENTITY_NAME).getAspectSpec(USAGE_STATS_ASPECT_NAME);
 
   @Action(name = ACTION_BATCH_INGEST)
+  @Deprecated
   @Nonnull
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {

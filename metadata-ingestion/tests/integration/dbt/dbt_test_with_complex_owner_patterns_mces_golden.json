@@ -670,7 +670,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -836,7 +837,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -1023,7 +1025,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -1150,7 +1153,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -1289,7 +1293,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -1433,7 +1438,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -1644,7 +1650,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -1807,7 +1814,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -1988,7 +1996,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -2151,7 +2160,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
@@ -2314,7 +2324,8 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Source"
+                "Source",
+                "source"
             ]
         }
     },
