@@ -243,7 +243,6 @@ export class ChartEntity implements Entity<Chart> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Chart}
-            // todo(josh.eilers) - test this query
             useEntityQuery={useGetChartQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
