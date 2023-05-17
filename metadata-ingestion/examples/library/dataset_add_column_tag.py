@@ -34,9 +34,9 @@ def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
 
 
 # Inputs -> the column, dataset and the tag to set
-column = "address.zipcode"
-dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
-tag_to_add = make_tag_urn("location")
+column = "user_name"
+dataset_urn = make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
+tag_to_add = make_tag_urn("deprecated")
 
 
 # First we get the current editable schema metadata

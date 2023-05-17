@@ -24,6 +24,8 @@ export enum EventType {
     RecommendationClickEvent,
     HomePageRecommendationClickEvent,
     HomePageExploreAllClickEvent,
+    SearchBarExploreAllClickEvent,
+    SearchResultsExploreAllClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
@@ -64,6 +66,8 @@ export enum EventType {
     SelectAutoCompleteOption,
     SelectQuickFilterEvent,
     DeselectQuickFilterEvent,
+    EmbedProfileViewEvent,
+    EmbedProfileViewInDataHubEvent,
 }
 
 /**
@@ -361,6 +365,14 @@ export interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
 
+export interface SearchBarExploreAllClickEvent extends BaseEvent {
+    type: EventType.SearchBarExploreAllClickEvent;
+}
+
+export interface SearchResultsExploreAllClickEvent extends BaseEvent {
+    type: EventType.SearchResultsExploreAllClickEvent;
+}
+
 // Business glossary events
 
 export interface CreateGlossaryEntityEvent extends BaseEvent {
@@ -495,6 +507,18 @@ export interface DeselectQuickFilterEvent extends BaseEvent {
     quickFilterValue: string;
 }
 
+export interface EmbedProfileViewEvent extends BaseEvent {
+    type: EventType.EmbedProfileViewEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
+export interface EmbedProfileViewInDataHubEvent extends BaseEvent {
+    type: EventType.EmbedProfileViewInDataHubEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -508,6 +532,8 @@ export type Event =
     | SearchEvent
     | HomePageSearchEvent
     | HomePageExploreAllClickEvent
+    | SearchBarExploreAllClickEvent
+    | SearchResultsExploreAllClickEvent
     | SearchResultsViewEvent
     | SearchResultClickEvent
     | BrowseResultClickEvent
@@ -557,4 +583,6 @@ export type Event =
     | DeleteQueryEvent
     | SelectAutoCompleteOption
     | SelectQuickFilterEvent
-    | DeselectQuickFilterEvent;
+    | DeselectQuickFilterEvent
+    | EmbedProfileViewEvent
+    | EmbedProfileViewInDataHubEvent;
