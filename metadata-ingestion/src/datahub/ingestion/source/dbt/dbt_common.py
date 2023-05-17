@@ -1350,6 +1350,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         subtypes: List[str] = [node.node_type.capitalize()]
+        if node.node_type == "source":
+            # In the siblings association hook, we previously looked for an exact
+            # match of "source" to determine if a node was a source. While we now
+            # also check for a capitalized "Source" subtype, this maintains compatibility
+            # with older GMS versions.
+            subtypes.append("source")
         if node.materialization == "table":
             subtypes.append(DatasetSubTypes.TABLE)
 

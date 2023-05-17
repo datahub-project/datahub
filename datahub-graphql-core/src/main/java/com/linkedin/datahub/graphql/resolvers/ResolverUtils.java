@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
@@ -16,6 +17,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.HashMap;
@@ -189,5 +191,23 @@ public class ResolverUtils {
             return originalField;
         }
         return ESUtils.toKeywordField(originalField, skipKeywordSuffix);
+    }
+
+    public static Filter buildFilterWithUrns(@Nonnull Set<Urn> urns, @Nullable Filter inputFilters) {
+        Criterion urnMatchCriterion = new Criterion().setField("urn")
+            .setValue("")
+            .setValues(new StringArray(urns.stream().map(Object::toString).collect(Collectors.toList())));
+        if (inputFilters == null) {
+            return QueryUtils.newFilter(urnMatchCriterion);
+        }
+
+        // Add urn match criterion to each or clause
+        if (inputFilters.getOr() != null && !inputFilters.getOr().isEmpty()) {
+            for (ConjunctiveCriterion conjunctiveCriterion : inputFilters.getOr()) {
+                conjunctiveCriterion.getAnd().add(urnMatchCriterion);
+            }
+            return inputFilters;
+        }
+        return QueryUtils.newFilter(urnMatchCriterion);
     }
 }
