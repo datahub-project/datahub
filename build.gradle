@@ -18,6 +18,7 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.2.12'
   ext.hadoop3Version = '3.3.5'
+  ext.kafkaVersion = '2.3.0'
 
   ext.docker_registry = 'linkedin'
 
@@ -135,7 +136,7 @@ project.ext.externalDependency = [
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
-    'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
+    'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
