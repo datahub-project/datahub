@@ -2,7 +2,9 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Callable, Iterable, List
+from functools import cached_property
+from typing import Callable, Iterable, List, Dict
+from urllib.parse import urlparse
 
 from deltalake import DeltaTable
 
@@ -101,12 +103,16 @@ class DeltaLakeSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.report = DeltaLakeSourceReport()
+        if self.source_config.is_s3:
+            if self.source_config.s3.aws_config is None:
+                raise ValueError("AWS Config must be provided for S3 base path.")
+            self.s3_client = self.source_config.s3.aws_config.get_s3_client()
+
         # self.profiling_times_taken = []
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
         }
-        config_report = config_report
 
         telemetry.telemetry_instance.ping(
             "delta_lake_config",
@@ -286,33 +292,62 @@ class DeltaLakeSource(Source):
 
         yield from self._create_operation_aspect_wu(delta_table, dataset_urn)
 
-    def process_folder(
-        self, path: str, get_folders: Callable[[str], Iterable[str]]
-    ) -> Iterable[MetadataWorkUnit]:
+    @cached_property
+    def storage_options(self) -> Dict[str, str]:
+        if (
+            self.source_config.is_s3
+            and self.source_config.s3 is not None
+            and self.source_config.s3.aws_config is not None
+        ):
+            aws_config = self.source_config.s3.aws_config
+            creds = aws_config.get_credentials()
+            opts = {
+                "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
+                "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
+                "AWS_SESSION_TOKEN": creds.get("aws_session_token", ""),
+                # Allow http connections, this is required for minio
+                "AWS_STORAGE_ALLOW_HTTP": "true",
+            }
+            if self.source_config.s3.aws_config.aws_region:
+                opts["AWS_REGION"] = aws_config.aws_region
+            if self.source_config.s3.aws_config.aws_endpoint_url:
+                opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
+            return opts
+        else:
+            return {}
+
+    def process_folder(self, path: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"Processing folder: {path}")
-        delta_table = read_delta_table(path, self.source_config)
+        delta_table = read_delta_table(path, self.storage_options, self.source_config)
         if delta_table:
             logger.debug(f"Delta table found at: {path}")
             for wu in self.ingest_table(delta_table, path):
                 yield wu
         else:
-            for folder in get_folders(path):
-                yield from self.process_folder(path + "/" + folder, get_folders)
+            for folder in self.get_folders(path):
+                yield from self.process_folder(folder)
+
+    def get_folders(self, path: str):
+        if self.source_config.is_s3:
+            return self.s3_get_folders(path)
+        else:
+            return self.local_get_folders(path)
 
     def s3_get_folders(self, path: str) -> Iterable[str]:
-        if self.source_config.s3 is not None:
-            yield from list_folders_path(path, self.source_config.s3.aws_config)
+        parse_result = urlparse(path)
+        for page in self.s3_client.get_paginator("list_objects_v2").paginate(
+            Bucket=parse_result.netloc, Prefix=parse_result.path[1:], Delimiter="/"
+        ):
+            for o in page.get("CommonPrefixes", []):
+                yield f"{parse_result.scheme}://{parse_result.netloc}/{o.get('Prefix')}"
 
     def local_get_folders(self, path: str) -> Iterable[str]:
         if not os.path.isdir(path):
             raise FileNotFoundError(
                 f"{path} does not exist or is not a directory. Please check base_path configuration."
             )
-        for _, folders, _ in os.walk(path):
-            for folder in folders:
-                yield folder
-            break
-        return
+        for folder in os.listdir(path):
+            yield os.path.join(path, folder)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
@@ -320,11 +355,7 @@ class DeltaLakeSource(Source):
             self.source_config.platform_instance,
             self.source_config.env,
         )
-        get_folders = (
-            self.s3_get_folders if self.source_config.is_s3 else self.local_get_folders
-        )
-        for wu in self.process_folder(self.source_config.complete_path, get_folders):
-            yield wu
+        yield from self.process_folder(self.source_config.complete_path)
 
     def get_report(self) -> SourceReport:
         return self.report
