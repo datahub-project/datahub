@@ -2,10 +2,10 @@ import logging
 import os
 import time
 from datetime import datetime
-from functools import cached_property
 from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
+from cached_property import cached_property
 from deltalake import DeltaTable
 
 from datahub.emitter.mce_builder import (
