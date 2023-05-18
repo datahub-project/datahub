@@ -138,7 +138,7 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
-          platforms: linux/amd64,arm64v8
+          platforms: linux/amd64,linux/arm64/v8
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -196,7 +196,7 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
-          platforms: linux/amd64,arm64v8
+          platforms: linux/amd64,linux/arm64/v8
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -254,7 +254,7 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
-          platforms: linux/amd64,arm64v8
+          platforms: linux/amd64,linux/arm64/v8
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
