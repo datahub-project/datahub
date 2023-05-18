@@ -1,7 +1,7 @@
 # Removing Metadata from DataHub
 
 :::tip
-To follow this guide you need to use [DataHub CLI](../cli.md).
+To follow this guide, you'll need the [DataHub CLI](../cli.md).
 :::
 
 There are a two ways to delete metadata from DataHub:
@@ -9,8 +9,11 @@ There are a two ways to delete metadata from DataHub:
 1. Delete metadata attached to entities by providing a specific urn or filters that identify a set of urns (delete CLI).
 2. Delete metadata created by a single ingestion run (rollback).
 
-:::warning
-Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding.
+:::caution Be careful when deleting metadata
+
+- Always use `--dry-run` to test your delete command before executing it.
+- Prefer reversible soft deletes (`--soft`) over irreversible hard deletes (`--hard`).
+
 :::
 
 ## Delete CLI Usage
@@ -18,8 +21,6 @@ Deleting metadata should only be done with care. Always use `--dry-run` to under
 :::info
 
 Deleting metadata using DataHub's CLI is a simple, systems-level action. If you attempt to delete an entity with children, such as a container, it will not delete those children. Instead, you will need to delete each child by URN in addition to deleting the parent.
-
-As of datahub v0.10.2.3, hard deleting tags, glossary terms, and users will also remove references to those entities across the metadata graph.
 
 :::
 
@@ -54,7 +55,7 @@ This will set the `status` aspect's `removed` field to `true`, which will hide t
 
 ```shell
 # The `--soft` flag is redundant since it's the default.
-datahub delete --urn "<my urn>" --soft
+datahub delete --urn "<urn>" --soft
 # or using a filter
 datahub delete --platform snowflake --soft
 ```
@@ -69,6 +70,8 @@ datahub delete --urn "<my urn>" --hard
 datahub delete --platform snowflake --hard
 ```
 
+As of datahub v0.10.2.3, hard deleting tags, glossary terms, users, and groups will also remove references to those entities across the metadata graph.
+
 #### Hard delete a timeseries aspect
 
 It's also possible to delete a range of timeseries aspect data for an entity without deleting the entire entity.
@@ -81,6 +84,14 @@ datahub delete --urn "<my urn>" --aspect <aspect name> --start-time '-30 days' -
 datahub delete --platform snowflake --entity-type dataset --aspect datasetProfile --start-time '0' --end-time '2023-01-01'
 ```
 
+The start and end time fields filter on the `timestampMillis` field of the timeseries aspect. Allowed start and end times formats:
+
+- `YYYY-MM-DD`: a specific date
+- `YYYY-MM-DD HH:mm:ss`: a specific timestamp, assumed to be in UTC unless otherwise specified
+- `+/-<number> <unit>` (e.g. `-7 days`): a relative time, where `<number>` is an integer and `<unit>` is one of `days`, `hours`, `minutes`, `seconds`
+- `ddddddddd` (e.g. `1684384045`): a unix timestamp
+- `min`, `max`, `now`: special keywords
+
 ## Delete CLI Examples
 
 :::note
@@ -89,7 +100,7 @@ Make sure you surround your urn with quotes! If you do not include the quotes, y
 
 :::
 
-_Note: All these commands below support the dry-run option (`-n/--dry-run`) and the skip confirmations option (`--force`)._
+_Note: All of the commands below support `--dry-run` and `--force` (skips confirmation prompts)._
 
 #### Soft delete a single entity
 
@@ -178,9 +189,16 @@ datahub delete --platform snowflake --only-soft-deleted --hard
 
 ## Deletes using the SDK and APIs
 
-If you wish to hard-delete using a curl request you can use something like below. Replace the URN with the URN that you wish to delete
+The Python SDK's [DataHubGraph](../../python-sdk/clients.md) client supports deletes via the following methods:
+
+- `soft_delete_entity`
+- `hard_delete_entity`
+- `hard_delete_timeseries_aspect`
+
+Deletes via the REST API are also possible, although we recommend using the SDK instead.
 
 ```shell
+# hard-delete an entity by urn
 curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
 
