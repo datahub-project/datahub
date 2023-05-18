@@ -1,7 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME, UnionType } from '../utils/constants';
-import { EntityType, QueryAggregateAcrossEntitiesArgs } from '../../../types.generated';
+import {
+    EntityType,
+    FacetFilterInput,
+    QueryAggregateAcrossEntitiesArgs,
+    AndFilterInput,
+} from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import { generateOrFilters } from '../utils/generateOrFilters';
 
@@ -10,6 +15,18 @@ type Props = {
     environment?: string | null;
     facets: string[];
     skip: boolean;
+};
+
+const applyFilterOverrides = (overrides: Array<FacetFilterInput>, orFilters: Array<AndFilterInput>) => {
+    if (!orFilters.length) return generateOrFilters(UnionType.AND, overrides);
+
+    return orFilters.map((orFilter) =>
+        orFilter.and
+            ? {
+                  and: [...orFilter.and, ...overrides],
+              }
+            : orFilter,
+    );
 };
 
 const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) => {
@@ -22,19 +39,10 @@ const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) 
 
     const { query, orFilters: orFiltersWithoutOverrides, viewUrn } = useGetSearchQueryInputs(excludedFields);
 
-    const orFiltersWithOverrides: ReturnType<typeof generateOrFilters> = useMemo(() => {
-        const newFilters = [...generateOrFilters(UnionType.AND, filterOverrides)];
-
-        if (!orFiltersWithoutOverrides.length) return newFilters;
-
-        return orFiltersWithoutOverrides.map((orFilter) =>
-            orFilter.and
-                ? {
-                      and: [...orFilter.and, ...filterOverrides],
-                  }
-                : orFilter,
-        );
-    }, [filterOverrides, orFiltersWithoutOverrides]);
+    const orFiltersWithOverrides: ReturnType<typeof generateOrFilters> = useMemo(
+        () => applyFilterOverrides(filterOverrides, orFiltersWithoutOverrides),
+        [filterOverrides, orFiltersWithoutOverrides],
+    );
 
     const variables: QueryAggregateAcrossEntitiesArgs = useMemo(
         () => ({
