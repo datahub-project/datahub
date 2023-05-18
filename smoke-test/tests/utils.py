@@ -1,7 +1,7 @@
 import functools
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import subprocess
 import time
 from typing import Any, Dict, List, Tuple
@@ -206,7 +206,7 @@ def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
 
 
 def get_strftime_from_timestamp_millis(ts_millis: int) -> str:
-    return datetime.fromtimestamp(ts_millis / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.fromtimestamp(ts_millis / 1000, tz=timezone.utc).isoformat()
 
 
 def create_datahub_step_state_aspect(

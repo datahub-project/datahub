@@ -55,14 +55,18 @@ class DeletionResult:
     num_referenced_entities: int = 0
 
     def merge(self, another_result: "DeletionResult") -> None:
-        self.num_records = (
-            self.num_records + another_result.num_records
-            if another_result.num_records != _UNKNOWN_NUM_RECORDS
-            else _UNKNOWN_NUM_RECORDS
+        self.num_records = self._sum_handle_unknown(
+            self.num_records, another_result.num_records
         )
-        self.num_timeseries_records += another_result.num_timeseries_records
-        self.num_entities += another_result.num_entities
-        self.num_referenced_entities += another_result.num_referenced_entities
+        self.num_timeseries_records = self._sum_handle_unknown(
+            self.num_timeseries_records, another_result.num_timeseries_records
+        )
+        self.num_entities = self._sum_handle_unknown(
+            self.num_entities, another_result.num_entities
+        )
+        self.num_referenced_entities = self._sum_handle_unknown(
+            self.num_referenced_entities, another_result.num_referenced_entities
+        )
 
     def format_message(self, *, dry_run: bool, soft: bool, time_sec: float) -> str:
         counters = (
@@ -82,8 +86,14 @@ class DeletionResult:
             return f"[Dry-run] Would delete {counters}."
 
     @classmethod
-    def _value_or_unknown(self, value: int) -> str:
-        return str(value) if value <= _UNKNOWN_NUM_RECORDS else "an unknown number of"
+    def _value_or_unknown(cls, value: int) -> str:
+        return str(value) if value != _UNKNOWN_NUM_RECORDS else "an unknown number of"
+
+    @classmethod
+    def _sum_handle_unknown(cls, value1: int, value2: int) -> int:
+        if value1 == _UNKNOWN_NUM_RECORDS or value2 == _UNKNOWN_NUM_RECORDS:
+            return _UNKNOWN_NUM_RECORDS
+        return value1 + value2
 
 
 @delete.command()
@@ -276,7 +286,7 @@ def by_filter(
         )
 
     graph = get_default_graph()
-    logger.info(f"Using graph: {graph}")
+    logger.info(f"Using {graph}")
 
     # Determine which urns to delete.
     if urn:
@@ -457,6 +467,7 @@ def _delete_one_urn(
             logger.info(f"[Dry-run] Would soft-delete {urn}")
 
         rows_affected = 1
+        ts_rows_affected = 0
 
     elif aspect_name and aspect_name in TIMESERIES_ASPECT_MAP:
         # Hard delete of timeseries aspect.
