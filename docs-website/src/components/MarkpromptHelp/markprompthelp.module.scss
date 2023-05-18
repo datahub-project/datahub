@@ -40,22 +40,24 @@ button {
 
 .MarkpromptButton {
   display: flex;
+  align-items: center;
+  font-weight: bold;
   cursor: pointer;
   border-radius: 99999px;
   color: var(--markprompt-primaryForeground);
   background-color: var(--markprompt-primary);
-  padding: 0.75rem;
+  padding: 0.75rem 1.5rem 0.75rem 1rem;
   position: fixed;
   bottom: 1rem;
   right: 1rem;
-  width: 60px;
-  height: 60px;
+  height: 30px;
 
   transition-property: opacity;
   transition-duration: 200ms;
   svg {
-    width: 100%;
+    width: 2rem;
     height: auto;
+    margin-right: 0.5rem;
     fill: currentColor;
   }
 }

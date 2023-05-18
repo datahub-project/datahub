@@ -14,7 +14,7 @@ const MarkpromptHelp = () => {
   return (
     <Markprompt.Root projectKey={siteConfig.customFields.markpromptProjectKey} model="gpt-4">
       <Markprompt.Trigger aria-label="Open Markprompt" className={styles.MarkpromptButton}>
-        <BotIcon />
+        <BotIcon /> Ask our AI
       </Markprompt.Trigger>
       <Markprompt.Portal>
         <Markprompt.Overlay className={styles.MarkpromptOverlay} />
