@@ -381,7 +381,7 @@ module.exports = {
         "docs/dataproducts",
         "docs/glossary/business-glossary",
         "docs/tags",
-        "docs/ownership/ownership-types"
+        "docs/ownership/ownership-types",
         "docs/browse",
         "docs/authorization/access-policies-guide",
         "docs/features/dataset-usage-and-query-history",

@@ -29,10 +29,10 @@ Additionally, they can be managed through DataHub's Admin UI and then used for o
 
 What you need to create and add data products:
 
-* **Manage Ownership Types** metadata privilege to create/delete/update Ownership Types Products at the platform level. These can be granted by a [Platform Policy](../authorization/policies.md).
+* **Manage Ownership Types** metadata privilege to create/delete/update Ownership Types Products at the platform level. These can be granted by a [Platform Policy](./../authorization/policies.md#platform-policies).
 * **Edit Owners** metadata privilege to add or remove an owner with an associated custom ownership type for a given entity.
 
-You can create this privileges by creating a new [Metadata Policy](./authorization/policies.md).
+You can create this privileges by creating a new [Metadata Policy](./../authorization/policies.md#metadata-policies).
 
 ## Using Custom Ownership Types
 
@@ -42,16 +42,23 @@ Custom Ownership Types can be managed using the UI, via a graphQL command or ing
 
 <Tabs>
   <TabItem value="ui" label="UI" default>
+
 To manage a Custom Ownership type, first navigate to the DataHub Admin page:
+<p></p>
 
 <p align="center">
     <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/manage-view.png" />
 </p>
     
-Then navigate to the `Ownership Types` tab under the `Management` section. 
+Then navigate to the `Ownership Types` tab under the `Management` section.
+
 To create a new type simply click '+ Create new Ownership Type'.
-    
-This will open a new modal where you can configure your Ownership Type. Inside the form, you can choose a name for your Ownership Type. You can also add descriptions for your ownership types to help other users more easily understand their meaning. Don't worry, this can be changed later.
+
+This will open a new modal where you can configure your Ownership Type.
+
+Inside the form, you can choose a name for your Ownership Type. You can also add descriptions for your ownership types to help other users more easily understand their meaning. 
+
+Don't worry, this can be changed later.
     
 <p align="center">
     <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-create.png" />
@@ -61,8 +68,9 @@ Once you've chosen a name and a description, click 'Save' to create the new Owne
 
 You can also edit and delete types in this UI by click on the ellipsis in the management view for the type you wish to change/delete.
   </TabItem>
-  <TabItem value="cli" label="Cli" default>
-Just like all other DataHub metadata entities, DataHub ships with a JSON-based custom ownership type spec for defining and managing Data Products as code.
+  <TabItem value="cli" label="CLI" default>
+Just like all other DataHub metadata entities DataHub ships with a JSON-based custom ownership type spec, for defining and managing Data Products as code.
+
 
 Here is an example of a custom ownership type named "Architect":
 
@@ -93,6 +101,7 @@ datahub ingest -c recipe.yaml
 ```
 
 For any update you wish to do, simply update the json file and re-ingest via the cli.
+
 To delete the ownership type, simply run a [delete command](../how/delete-metadata.md#soft-delete-the-default) for the urn of the ownership type in question, in this case `urn:li:ownershipType:architect`.
 
   </TabItem>  
@@ -139,7 +148,9 @@ If you see the following response, the operation was successful:
 }
 ```
 
-There are also `updateOwnershipType`, `deleteOwnershipType` and `listOwnershipTypes` for CRUD operations. Feel free to read our [GraphQL reference documentation](../api/graphql/overview.md) on these endpoints.
+There are also `updateOwnershipType`, `deleteOwnershipType` and `listOwnershipTypes` endpoints for CRUD operations. 
+
+Feel free to read our [GraphQL reference documentation](../api/graphql/overview.md) on these endpoints.
   </TabItem>
 </Tabs>
 
@@ -159,11 +170,12 @@ Click 'Add Owners', select the owner you want and then search for the Data Produ
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e14d8cdc641dd69131bccc53909d7ffdc9d6aac5/imgs/ownership/ownership-type-set-part2.png" />
 </p>
+
 To remove ownership from an asset, click the 'x' icon on the Owner label.
 
-> Notice: Adding or removing an Owner to an asset requires the `Edit Owners` Metadata Privilege, which can be granted
-> by a [Policy](authorization/policies.md).
 
+> Notice: Adding or removing an Owner to an asset requires the `Edit Owners` Metadata Privilege, which can be granted
+> by a [Policy](./../authorization/policies.md).
 
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
