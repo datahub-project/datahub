@@ -428,7 +428,7 @@ public class ESBrowseDAO {
     queryBuilder.mustNot(QueryBuilders.termQuery(REMOVED, "true"));
 
     if (!path.isEmpty()) {
-      queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH_V2, path));
+      queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));
     }
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
