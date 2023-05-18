@@ -31,12 +31,15 @@ public class SearchUtil {
   }
 
   public static FilterValue createFilterValue(String value, Long facetCount, Boolean isFilteredOn) {
+    // TODO(indy): test this
+    String[] aggregationTokens = value.split(AGGREGATION_SEPARATOR_CHAR);
     FilterValue result = new FilterValue().setValue(value).setFacetCount(facetCount).setFiltered(isFilteredOn);
-    if (value.startsWith(URN_PREFIX)) {
+    String lastValue = aggregationTokens[aggregationTokens.length - 1];
+    if (lastValue.startsWith(URN_PREFIX)) {
       try {
-        result.setEntity(Urn.createFromString(value));
+        result.setEntity(Urn.createFromString(lastValue));
       } catch (URISyntaxException e) {
-        log.error("Failed to create urn for filter value: {}", value);
+        log.error("Failed to create urn for filter value: {}", lastValue);
       }
     }
     return result;

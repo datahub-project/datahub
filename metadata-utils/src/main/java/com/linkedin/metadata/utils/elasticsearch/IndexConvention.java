@@ -4,6 +4,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.EntitySpec;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 /**
@@ -32,4 +33,12 @@ public interface IndexConvention {
 
   @Nonnull
   String getAllTimeseriesAspectIndicesPattern();
+
+  /**
+   * Inverse of getEntityIndexName
+   * @param indexName The index name to parse
+   * @return a string, the entity name that that index is for
+   */
+  @Nullable
+  String getEntityName(String indexName);
 }

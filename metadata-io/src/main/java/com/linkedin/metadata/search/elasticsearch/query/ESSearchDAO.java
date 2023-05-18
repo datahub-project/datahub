@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -16,6 +17,8 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
@@ -25,6 +28,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -85,15 +89,48 @@ public class ESSearchDAO {
       log.debug("Executing request {}: {}", id, searchRequest);
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler
+      return transformIndexIntoEntityName(SearchRequestHandler
               .getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
-              .extractResult(searchResponse, filter, from, size);
+              .extractResult(searchResponse, filter, from, size));
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     } finally {
       log.debug("Returning from request {}.", id);
     }
+  }
+
+  private String transformIndexToken(String name, int entityTypeIdx) {
+    if (entityTypeIdx < 0) {
+      return name;
+    }
+    String[] tokens = name.split(AGGREGATION_SEPARATOR_CHAR);
+    if (entityTypeIdx < tokens.length) {
+      tokens[entityTypeIdx] = indexConvention.getEntityName(tokens[entityTypeIdx]);
+    }
+    return String.join(AGGREGATION_SEPARATOR_CHAR, tokens);
+  }
+
+  private AggregationMetadata transformAggregationMetadata(@Nonnull AggregationMetadata aggMeta, int entityTypeIdx) {
+    if (entityTypeIdx >= 0) {
+      aggMeta.setAggregations(new LongMap(
+          aggMeta.getAggregations().entrySet().stream().collect(
+              Collectors.toMap(entry -> transformIndexToken(entry.getKey(), entityTypeIdx),
+                  entry -> entry.getValue()))));
+    }
+    return aggMeta;
+  }
+
+  private SearchResult transformIndexIntoEntityName(SearchResult result) {
+    // TODO(indy): test this
+    AggregationMetadataArray aggArray = result.getMetadata().getAggregations();
+    List<AggregationMetadata> newAggs = new ArrayList<>();
+    for (AggregationMetadata aggMeta : aggArray) {
+      List<String> aggregateFacets = List.of(aggMeta.getName().split(AGGREGATION_SEPARATOR_CHAR));
+      int entityTypeIdx = aggregateFacets.indexOf(INDEX_VIRTUAL_FIELD);
+      newAggs.add(transformAggregationMetadata(aggMeta, entityTypeIdx));
+    }
+    return result.setMetadata(result.getMetadata().setAggregations(new AggregationMetadataArray(newAggs)));
   }
 
   @Nonnull

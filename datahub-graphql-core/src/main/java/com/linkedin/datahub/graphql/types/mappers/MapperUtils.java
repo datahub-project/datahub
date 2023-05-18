@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
+import static com.linkedin.metadata.utils.SearchUtil.*;
 
 
 public class MapperUtils {
@@ -28,7 +29,8 @@ public class MapperUtils {
 
   public static FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {
     final FacetMetadata facetMetadata = new FacetMetadata();
-    boolean isEntityTypeFilter = aggregationMetadata.getName().equals("entity");
+    List<String> aggregationFacets = List.of(aggregationMetadata.getName().split(AGGREGATION_SEPARATOR_CHAR));
+    boolean isEntityTypeFilter = aggregationFacets.contains("entity");
     facetMetadata.setField(aggregationMetadata.getName());
     facetMetadata.setDisplayName(
         Optional.ofNullable(aggregationMetadata.getDisplayName()).orElse(aggregationMetadata.getName()));

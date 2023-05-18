@@ -12,7 +12,10 @@ import org.apache.commons.lang3.StringUtils;
 
 // Default implementation of search index naming convention
 public class IndexConventionImpl implements IndexConvention {
+  // Map from Entity name -> Index name
   private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
+  // Map from Index name -> Entity name (inverse of above)
+  private final Map<String, String> entityNameMapping = new ConcurrentHashMap<>();
   private final Optional<String> _prefix;
   private final String _getAllEntityIndicesPattern;
   private final String _getAllTimeseriesIndicesPattern;
@@ -32,6 +35,14 @@ public class IndexConventionImpl implements IndexConvention {
 
   private String createIndexName(String baseName) {
     return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName).toLowerCase();
+  }
+
+  private String extractEntityName(String indexName) {
+    // TODO(indy): Test this
+    String indexSuffix = ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION;
+    return indexName.substring(
+        _prefix.map(prefix -> prefix + "_").orElse("").length(),
+        indexName.indexOf(indexSuffix));
   }
 
   @Override
@@ -60,7 +71,9 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getEntityIndexName(String entityName) {
-    return this.getIndexName(entityName + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
+    String indexName = this.getIndexName(entityName + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
+    entityNameMapping.putIfAbsent(entityName, indexName);
+    return indexName;
   }
 
   @Nonnull
@@ -80,5 +93,11 @@ public class IndexConventionImpl implements IndexConvention {
   @Override
   public String getAllTimeseriesAspectIndicesPattern() {
     return _getAllTimeseriesIndicesPattern;
+  }
+
+  @Nullable
+  @Override
+  public String getEntityName(String indexName) {
+    return extractEntityName(indexName);
   }
 }
