@@ -15,6 +15,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -33,10 +37,6 @@ from datahub.metadata.schema_classes import (
     CorpUserInfoClass,
     CorpUserSnapshotClass,
     GroupMembershipClass,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 # default mapping for attrs
