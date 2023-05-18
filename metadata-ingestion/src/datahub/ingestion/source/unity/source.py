@@ -3,6 +3,8 @@ import re
 import time
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
+from urllib.parse import urlparse
+from databricks.sdk.service.catalog import DataSourceFormat
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -39,6 +41,8 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.delta_lake import DeltaLakeSource
+from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -81,6 +85,7 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
+    SiblingsClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -344,6 +349,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.unity_catalog_api_proxy.table_lineage(table)
             lineage = self._generate_lineage_aspect(dataset_urn, table)
 
+        siblings: Optional[SiblingsClass] = None
+        if (
+            table.data_source_format == DataSourceFormat.DELTA.value
+            and table.storage_location is not None
+        ):
+            lineage = lineage or UpstreamLineageClass(upstreams=[])
+            lineage.upstreams.append(self._generate_delta_lake_upstream(table))
+
         yield from [
             mcp.as_workunit()
             for mcp in MetadataChangeProposalWrapper.construct_many(
@@ -357,6 +370,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     domain,
                     ownership,
                     lineage,
+                    siblings,
                 ],
             )
         ]
@@ -418,6 +432,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             return UpstreamLineageClass(upstreams=upstreams)
         else:
             return None
+
+    def _generate_delta_lake_upstream(self, table: Table) -> UpstreamClass:
+        parsed_url = urlparse(table.storage_location)
+        delta_lake_resource_name = f"{parsed_url.netloc}{parsed_url.path}"
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            "delta-lake",
+            delta_lake_resource_name,
+            None,
+            self.config.env,
+        )
+        return UpstreamClass(dataset=dataset_urn, type=DatasetLineageTypeClass.VIEW)
 
     def _get_domain_aspect(self, dataset_name: str) -> Optional[DomainsClass]:
         domain_urn = self._gen_domain_urn(dataset_name)
@@ -534,6 +559,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         custom_properties: dict = {}
         if table.storage_location is not None:
             custom_properties["storage_location"] = table.storage_location
+
         if table.data_source_format is not None:
             custom_properties["data_source_format"] = table.data_source_format
 
