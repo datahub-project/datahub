@@ -5,7 +5,7 @@ import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata, EntityType } from '../../../types.generated';
+import { AggregationMetadata } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
@@ -44,19 +44,16 @@ type Props = {
     depth: number;
 };
 
-const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation, depth }: Props) => {
+const PlatformNode = ({ entityAggregation: __, environmentAggregation: _, platformAggregation, depth }: Props) => {
     const registry = useEntityRegistry();
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const onClickHeader = useCallback(() => {
+        setIsOpen((current) => !current);
+    }, []);
     const color = ANTD_GRAY[9];
-    const entityType = entityAggregation.value as EntityType;
 
     const loading = false;
     const error = null;
-
-    const onClickHeader = useCallback(() => {
-        console.log(entityType, environmentAggregation, platformAggregation.value);
-        setIsOpen((current) => !current);
-    }, [entityType, environmentAggregation, platformAggregation.value]);
 
     const { icon, label } = platformAggregation.entity
         ? getFilterIconAndLabel(

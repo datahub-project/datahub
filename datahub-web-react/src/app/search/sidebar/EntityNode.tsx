@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { DownCircleOutlined, UpCircleOutlined } from '@ant-design/icons';
@@ -45,25 +45,20 @@ type Props = {
     entityAggregation: AggregationMetadata;
 };
 
-const facets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
+const childrenFacets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
 
 const EntityNode = ({ entityAggregation }: Props) => {
+    const entityType = entityAggregation.value as EntityType;
     const depth = 0;
     const registry = useEntityRegistry();
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
     const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
-    const [fetchAggregations, { loaded, error, called, environmentAggregations, platformAggregations }] =
-        useAggregationsQuery();
-    const entityType = entityAggregation.value as EntityType;
-
-    const onClickHeader = useCallback(() => {
-        if (!called) fetchAggregations(entityType, facets);
-        setIsOpen((current) => !current);
-    }, [called, entityType, fetchAggregations]);
-
-    useEffect(() => {
-        if (isOpen && called) fetchAggregations(entityType, facets);
-    }, [called, entityType, fetchAggregations, isOpen]);
+    const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
+        entityType,
+        facets: childrenFacets,
+        skip: !isOpen,
+    });
 
     const forceEnvironments = false;
     const singleEnvironment = environmentAggregations.length > 0 ? environmentAggregations[0] : null;

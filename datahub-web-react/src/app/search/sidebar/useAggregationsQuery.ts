@@ -1,29 +1,35 @@
-import { useCallback } from 'react';
-import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
+import { useMemo } from 'react';
+import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { EntityType } from '../../../types.generated';
+import { EntityType, QueryAggregateAcrossEntitiesArgs } from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 
-const useAggregationsQuery = () => {
-    const { query, orFilters, viewUrn } = useGetSearchQueryInputs();
-    const [fetchAggregations, { data, loading, called, error }] = useAggregateAcrossEntitiesLazyQuery();
+type Props = {
+    entityType: EntityType;
+    facets: string[];
+    skip: boolean;
+};
 
-    const fetchAggregationsApi = useCallback(
-        (entityType: EntityType, facets: Array<string>) => {
-            fetchAggregations({
-                variables: {
-                    input: {
-                        types: [entityType],
-                        query,
-                        orFilters,
-                        viewUrn,
-                        facets,
-                    },
-                },
-            });
-        },
-        [fetchAggregations, query, orFilters, viewUrn],
+const useAggregationsQuery = ({ entityType, facets, skip }: Props) => {
+    const { query, orFilters, viewUrn } = useGetSearchQueryInputs();
+
+    const variables: QueryAggregateAcrossEntitiesArgs = useMemo(
+        () => ({
+            input: {
+                types: [entityType],
+                query,
+                orFilters,
+                viewUrn,
+                facets,
+            },
+        }),
+        [entityType, facets, orFilters, query, viewUrn],
     );
+
+    const { data, loading, called, error } = useAggregateAcrossEntitiesQuery({
+        skip,
+        variables,
+    });
 
     const environmentAggregations =
         data?.aggregateAcrossEntities?.facets
@@ -35,10 +41,14 @@ const useAggregationsQuery = () => {
             ?.find((facet) => facet.field === PLATFORM_FILTER_NAME)
             ?.aggregations.filter((aggregation) => aggregation.count > 0) ?? [];
 
-    return [
-        fetchAggregationsApi,
-        { loading, loaded: !!data || !!error, error, called, environmentAggregations, platformAggregations } as const,
-    ] as const;
+    return {
+        loading,
+        loaded: !!data || !!error,
+        error,
+        called,
+        environmentAggregations,
+        platformAggregations,
+    } as const;
 };
 
 export default useAggregationsQuery;
