@@ -321,7 +321,7 @@ class DeltaLakeSource(Source):
         delta_table = read_delta_table(path, self.storage_options, self.source_config)
         if delta_table:
             logger.debug(f"Delta table found at: {path}")
-            for wu in self.ingest_table(delta_table, path):
+            for wu in self.ingest_table(delta_table, path.rstrip("/")):
                 yield wu
         else:
             for folder in self.get_folders(path):
