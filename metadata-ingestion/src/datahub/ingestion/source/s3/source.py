@@ -796,6 +796,7 @@ class S3Source(StatefulIngestionSourceBase):
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
+                dirs.sort()
                 for file in sorted(files):
                     full_path = os.path.join(root, file)
                     yield full_path, datetime.utcfromtimestamp(
