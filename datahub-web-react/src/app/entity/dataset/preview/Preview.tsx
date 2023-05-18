@@ -12,6 +12,7 @@ import {
     Maybe,
     Deprecation,
     DatasetStatsSummary,
+    DataProduct,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -32,6 +33,7 @@ export const Preview = ({
     owners,
     globalTags,
     domain,
+    dataProduct,
     deprecation,
     snippet,
     insights,
@@ -57,6 +59,7 @@ export const Preview = ({
     platformInstanceId?: string;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     deprecation?: Deprecation | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
@@ -90,6 +93,7 @@ export const Preview = ({
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
+            dataProduct={dataProduct}
             container={container || undefined}
             deprecation={deprecation}
             snippet={snippet}

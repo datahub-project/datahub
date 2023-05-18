@@ -5,7 +5,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { ThemeProvider } from 'styled-components';
-import { Helmet } from 'react-helmet';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 import './App.less';
 import { Routes } from './app/Routes';
 import EntityRegistry from './app/entity/EntityRegistry';
@@ -33,6 +33,7 @@ import { DomainEntity } from './app/entity/domain/DomainEntity';
 import { ContainerEntity } from './app/entity/container/ContainerEntity';
 import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity';
+import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
 
 /*
     Construct Apollo Client
@@ -114,22 +115,25 @@ const App: React.VFC = () => {
         register.register(new ContainerEntity());
         register.register(new GlossaryNodeEntity());
         register.register(new DataPlatformEntity());
+        register.register(new DataProductEntity());
         return register;
     }, []);
 
     return (
-        <ThemeProvider theme={dynamicThemeConfig}>
-            <Router>
-                <Helmet>
-                    <title>{dynamicThemeConfig.content.title}</title>
-                </Helmet>
-                <EntityRegistryContext.Provider value={entityRegistry}>
-                    <ApolloProvider client={client}>
-                        <Routes />
-                    </ApolloProvider>
-                </EntityRegistryContext.Provider>
-            </Router>
-        </ThemeProvider>
+        <HelmetProvider>
+            <ThemeProvider theme={dynamicThemeConfig}>
+                <Router>
+                    <Helmet>
+                        <title>{dynamicThemeConfig.content.title}</title>
+                    </Helmet>
+                    <EntityRegistryContext.Provider value={entityRegistry}>
+                        <ApolloProvider client={client}>
+                            <Routes />
+                        </ApolloProvider>
+                    </EntityRegistryContext.Provider>
+                </Router>
+            </ThemeProvider>
+        </HelmetProvider>
     );
 };
 

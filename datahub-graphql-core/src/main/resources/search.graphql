@@ -50,6 +50,11 @@ extend type Query {
   Retrieve the browse paths corresponding to an entity
   """
   browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+
+  """
+  List Data Product assets for a given urn
+  """
+  listDataProductAssets(urn: String!, input: SearchAcrossEntitiesInput!): SearchResults
 }
 
 """

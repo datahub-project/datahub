@@ -25,7 +25,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
@@ -186,7 +185,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregation,
             ]
         ],
         write_callback: WriteCallback,

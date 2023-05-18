@@ -43,6 +43,10 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
@@ -92,10 +96,6 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -248,11 +248,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            test_report.basic_connectivity = CapabilityReport(capable=True)
-            test_report.capability_report = {}
-
             config = LookerDashboardSourceConfig.parse_obj_allow_extras(config_dict)
             permissions = LookerAPI(config).get_available_permissions()
+
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.capability_report = {}
 
             BASIC_INGEST_REQUIRED_PERMISSIONS = {
                 # TODO: Make this a bit more granular.

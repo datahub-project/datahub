@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
 import { Entity, EntityType, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
 import { SearchCfg } from '../../conf';
@@ -162,6 +162,7 @@ export const SearchResults = ({
                                         query={query}
                                         viewUrn={viewUrn}
                                         setShowSelectMode={setIsSelectMode}
+                                        totalResults={totalResults}
                                     />
                                 </SearchMenuContainer>
                             </>

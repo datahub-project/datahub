@@ -9,6 +9,8 @@ import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 
 const EntityTitle = styled(Typography.Title)`
     margin-right: 10px;
+    width: 90%;
+    max-width: 650px;
 
     &&& {
         margin-bottom: 0;
@@ -40,7 +42,7 @@ function EntityName(props: Props) {
 
     const [updateName] = useUpdateNameMutation();
 
-    const handleSaveName = async (name: string) => {
+    const handleSaveName = (name: string) => {
         setUpdatedName(name);
         updateName({ variables: { input: { name, urn } } })
             .then(() => {
