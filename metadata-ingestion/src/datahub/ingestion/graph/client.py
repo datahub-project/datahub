@@ -571,11 +571,16 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Status filter.
         if status == RemovedStatusFilter.NOT_SOFT_DELETED:
+            # Subtle: in some cases (e.g. when the dataset doesn't have a status aspect), the
+            # removed field is simply not present in the ElasticSearch document. Ideally this
+            # would be a "removed" : "false" filter, but that doesn't work. Instead, we need to
+            # use a negated filter.
             andFilters.append(
                 {
                     "field": "removed",
-                    "values": ["false"],
+                    "values": ["true"],
                     "condition": "EQUAL",
+                    "negated": True,
                 }
             )
         elif status == RemovedStatusFilter.ONLY_SOFT_DELETED:
@@ -587,13 +592,8 @@ class DataHubGraph(DatahubRestEmitter):
                 }
             )
         elif status == RemovedStatusFilter.ALL:
-            andFilters.append(
-                {
-                    "field": "removed",
-                    "value": "",  # accept anything regarding removed property (true, false, non-existent)
-                    "condition": "EQUAL",
-                }
-            )
+            # We don't need to add a filter for this case.
+            pass
         else:
             raise ValueError(f"Invalid status filter: {status}")
 
@@ -740,6 +740,9 @@ class DataHubGraph(DatahubRestEmitter):
         if variables:
             body["variables"] = variables
 
+        logger.debug(
+            f"Executing graphql query: {query} with variables: {json.dumps(variables)}"
+        )
         result = self._post_generic(url, body)
         if result.get("errors"):
             raise GraphError(f"Error executing graphql query: {result['errors']}")
