@@ -303,6 +303,7 @@ public class JavaEntityClient implements EntityClient {
         return ValidationUtils.validateSearchResult(
                 _entitySearchService.search(entity, input, filter, sortCriterion, start, count, searchFlags), _entityService);
     }
+
     /**
      * Searches for entities matching to a given query and filters across multiple entity types
      *

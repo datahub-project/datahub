@@ -191,6 +191,8 @@ input AggregateAcrossEntitiesInput {
 
   """
   The list of facets to get aggregations for. If list is empty or null, get aggregations for all facets
+  Sub-aggregations can be specified with the unicode character ␞ (U+241E) as a delimiter between the subtypes.
+  e.g. _entityType␞owners
   """
   facets: [String]
 

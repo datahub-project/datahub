@@ -60,6 +60,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -107,7 +108,7 @@ public class SearchRequestHandler {
     _filtersToDisplayName = annotations.stream()
         .filter(SearchableAnnotation::isAddToFilters)
         .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
-    _filtersToDisplayName.put("_entityType", "Type");
+    _filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
@@ -502,25 +503,22 @@ public class SearchRequestHandler {
 
   private List<AggregationMetadata> extractAggregationMetadata(@Nonnull SearchResponse searchResponse, @Nullable Filter filter) {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
-
     if (searchResponse.getAggregations() == null) {
       return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
     }
-
     for (Map.Entry<String, Aggregation> entry : searchResponse.getAggregations().getAsMap().entrySet()) {
       final Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue());
       if (oneTermAggResult.isEmpty()) {
         continue;
       }
       final AggregationMetadata aggregationMetadata = new AggregationMetadata().setName(entry.getKey())
-         .setDisplayName(computeDisplayName(entry.getKey()))
+          .setDisplayName(computeDisplayName(entry.getKey()))
           .setAggregations(new LongMap(oneTermAggResult))
           .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
       aggregationMetadataList.add(aggregationMetadata);
     }
-
     return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
-  }
+    }
 
   @WithSpan
   public static Map<String, Long> extractTermAggregations(@Nonnull SearchResponse searchResponse,
@@ -534,6 +532,37 @@ public class SearchRequestHandler {
       return Collections.emptyMap();
     }
     return extractTermAggregations((ParsedTerms) aggregation);
+  }
+
+  /**
+   * Adds nested sub-aggregation values to the aggregated results
+   * @param aggs The aggregations to traverse. Could be null (base case)
+   * @return A map from names to aggregation count values
+   */
+  @Nonnull
+  private static Map<String, Long> recursivelyAddNestedSubAggs(@Nullable Aggregations aggs) {
+    final Map<String, Long> aggResult = new HashMap<>();
+
+    if (aggs != null) {
+      for (Map.Entry<String, Aggregation> entry : aggs.getAsMap().entrySet()) {
+        ParsedTerms terms = (ParsedTerms) entry.getValue();
+        List<? extends Terms.Bucket> bucketList = terms.getBuckets();
+
+        for (Terms.Bucket bucket : bucketList) {
+          String key = bucket.getKeyAsString();
+          // Gets filtered sub aggregation doc count if exist
+          Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
+          for (Map.Entry<String, Long> subAggEntry: subAggs.entrySet()) {
+            aggResult.put(key + AGGREGATION_SEPARATOR_CHAR + subAggEntry.getKey(), subAggEntry.getValue());
+          }
+          long docCount = bucket.getDocCount();
+          if (docCount > 0) {
+            aggResult.put(key, docCount);
+          }
+        }
+      }
+    }
+    return aggResult;
   }
 
   /**
@@ -551,6 +580,10 @@ public class SearchRequestHandler {
     for (Terms.Bucket bucket : bucketList) {
       String key = bucket.getKeyAsString();
       // Gets filtered sub aggregation doc count if exist
+      Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
+      for (Map.Entry<String, Long> subAggEntry : subAggs.entrySet()) {
+        aggResult.put(String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, subAggEntry.getKey()), subAggEntry.getValue());
+      }
       long docCount = bucket.getDocCount();
       if (docCount > 0) {
         aggResult.put(key, docCount);

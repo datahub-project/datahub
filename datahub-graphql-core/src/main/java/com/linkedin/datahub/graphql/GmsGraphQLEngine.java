@@ -203,6 +203,7 @@ import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.CreateInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.GetInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
+import com.linkedin.datahub.graphql.resolvers.search.AggregateAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver;
@@ -689,6 +690,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("scrollAcrossEntities", new ScrollAcrossEntitiesResolver(this.entityClient, this.viewService))
             .dataFetcher("searchAcrossLineage", new SearchAcrossLineageResolver(this.entityClient))
             .dataFetcher("scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
+            .dataFetcher("aggregateAcrossEntities", new AggregateAcrossEntitiesResolver(this.entityClient, this.viewService))
             .dataFetcher("autoComplete", new AutoCompleteResolver(searchableTypes))
             .dataFetcher("autoCompleteForMultiple", new AutoCompleteForMultipleResolver(searchableTypes, this.viewService))
             .dataFetcher("browse", new BrowseResolver(browsableTypes))

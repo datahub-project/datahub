@@ -723,6 +723,10 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
         String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
+        expectedFacets = Set.of(singleNestedFacet);
+        SearchResult testResultSingleNested = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
+
         expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
         SearchResult testResultNested = search(searchService, "cypress", List.copyOf(expectedFacets));
         assertEquals(testResultNested.getMetadata().getAggregations().size(), 4);
@@ -733,10 +737,10 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
 
-        List<AggregationMetadata> nestedAggs = testResultNested.getMetadata().getAggregations().stream().filter(
+        List<AggregationMetadata> expectedNestedAgg = testResultNested.getMetadata().getAggregations().stream().filter(
             agg -> agg.getName().equals(singleNestedFacet)).collect(Collectors.toList());
-        assertEquals(nestedAggs.size(), 1);
-        AggregationMetadata nestedAgg = nestedAggs.get(0);
+        assertEquals(expectedNestedAgg.size(), 1);
+        AggregationMetadata nestedAgg = expectedNestedAgg.get(0);
         assertEquals(nestedAgg.getDisplayName(), String.format("Type%sOwned By", AGGREGATION_SEPARATOR_CHAR));
     }
 
