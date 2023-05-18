@@ -1,5 +1,5 @@
 import pathlib
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from deltalake import DeltaTable, PyDeltaTableError
 

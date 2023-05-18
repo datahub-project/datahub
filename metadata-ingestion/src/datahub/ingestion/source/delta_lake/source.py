@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 from functools import cached_property
-from typing import Callable, Iterable, List, Dict
+from typing import Callable, Dict, Iterable, List
 from urllib.parse import urlparse
 
 from deltalake import DeltaTable
@@ -104,7 +104,10 @@ class DeltaLakeSource(Source):
         self.source_config = config
         self.report = DeltaLakeSourceReport()
         if self.source_config.is_s3:
-            if self.source_config.s3.aws_config is None:
+            if (
+                self.source_config.s3 is None
+                or self.source_config.s3.aws_config is None
+            ):
                 raise ValueError("AWS Config must be provided for S3 base path.")
             self.s3_client = self.source_config.s3.aws_config.get_s3_client()
 
@@ -308,9 +311,9 @@ class DeltaLakeSource(Source):
                 # Allow http connections, this is required for minio
                 "AWS_STORAGE_ALLOW_HTTP": "true",
             }
-            if self.source_config.s3.aws_config.aws_region:
+            if aws_config.aws_region:
                 opts["AWS_REGION"] = aws_config.aws_region
-            if self.source_config.s3.aws_config.aws_endpoint_url:
+            if aws_config.aws_endpoint_url:
                 opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
             return opts
         else:
@@ -327,7 +330,7 @@ class DeltaLakeSource(Source):
             for folder in self.get_folders(path):
                 yield from self.process_folder(folder)
 
-    def get_folders(self, path: str):
+    def get_folders(self, path: str) -> Iterable[str]:
         if self.source_config.is_s3:
             return self.s3_get_folders(path)
         else:
