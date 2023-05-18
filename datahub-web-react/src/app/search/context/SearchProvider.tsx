@@ -1,5 +1,5 @@
 import React, { ReactNode, useEffect, useMemo } from 'react';
-import SearchContext from './SearchContext';
+import { SearchContext } from './SearchContext';
 
 type Props = {
     children: ReactNode;

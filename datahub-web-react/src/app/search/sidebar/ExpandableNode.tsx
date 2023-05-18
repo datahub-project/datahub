@@ -1,8 +1,9 @@
 import React, { ReactNode, memo } from 'react';
 import styled from 'styled-components';
 
-const Layout = styled.div``;
-
+const Layout = styled.div<{ depth: number }>`
+    margin-left: ${(props) => props.depth * 8}px;
+`;
 const HeaderContainer = styled.div``;
 
 const BodyGridExpander = styled.div<{ isOpen: boolean }>`
@@ -18,13 +19,14 @@ const BodyContainer = styled.div`
 
 type Props = {
     isOpen: boolean;
+    depth?: number;
     header: ReactNode;
     body: ReactNode;
 };
 
-const ExpandableNode = ({ isOpen, header, body }: Props) => {
+const ExpandableNode = ({ isOpen, depth = 0, header, body }: Props) => {
     return (
-        <Layout>
+        <Layout depth={depth}>
             <HeaderContainer>{header}</HeaderContainer>
             <BodyGridExpander isOpen={isOpen}>
                 <BodyContainer>{body}</BodyContainer>

@@ -1,9 +1,8 @@
 import React, { memo } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { EntityType, FacetMetadata } from '../../../types.generated';
+import { FacetMetadata } from '../../../types.generated';
 import EntityNode from './EntityNode';
 import { ENTITY_FILTER_NAME } from '../utils/constants';
 
@@ -21,27 +20,23 @@ const SidebarHeader = styled.div`
     padding-left: 24px;
     height: 47px;
     border-bottom: 1px solid ${(props) => props.theme.styles['border-color-base']};
-    white-space: nowrap;
 `;
 
 const SidebarBody = styled.div`
     padding-left: 24px;
     padding-right: 12px;
-    white-space: nowrap;
 `;
 
 type Props = {
     facets?: Array<FacetMetadata> | null;
-    loading: boolean;
     visible: boolean;
     width: number;
 };
 
-const BrowseSidebar = ({ facets, loading, visible, width }: Props) => {
-    const entities =
-        facets
-            ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
-            ?.aggregations.filter((aggregation) => aggregation.count > 0) ?? [];
+const BrowseSidebar = ({ facets, visible, width }: Props) => {
+    const entityAggregations = facets
+        ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
+        ?.aggregations.filter((aggregation) => aggregation.count > 0);
 
     return (
         <Sidebar visible={visible} width={width}>
@@ -49,10 +44,11 @@ const BrowseSidebar = ({ facets, loading, visible, width }: Props) => {
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>
             <SidebarBody>
-                {loading ? <LoadingOutlined /> : !entities.length && <div>No results found</div>}
-                {entities.map((entity) => (
-                    <EntityNode key={entity.value} entityType={entity.value as EntityType} count={entity.count} />
-                ))}
+                {entityAggregations && !entityAggregations.length && <div>No results found</div>}
+                {entityAggregations &&
+                    entityAggregations.map((entityAggregation) => (
+                        <EntityNode key={entityAggregation.value} entityAggregation={entityAggregation} />
+                    ))}
             </SidebarBody>
         </Sidebar>
     );

@@ -178,9 +178,7 @@ export const SearchResults = ({
                             />
                         </div>
                     )}
-                    {showBrowseV2 && (
-                        <BrowseSidebar facets={facets} loading={loading} visible={isSidebarOpen} width={360} />
-                    )}
+                    {showBrowseV2 && <BrowseSidebar facets={facets} visible={isSidebarOpen} width={360} />}
                     <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
                         <PaginationInfoContainer>
                             <LeftControlsContainer>

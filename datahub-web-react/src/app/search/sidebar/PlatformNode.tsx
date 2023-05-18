@@ -6,9 +6,9 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import { AggregationMetadata, EntityType } from '../../../types.generated';
-import useAggregationsQuery from './useAggregationsQuery';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
-import PlatformNode from './PlatformNode';
 
 const Header = styled.div`
     display: flex;
@@ -39,51 +39,57 @@ const Body = styled.div``;
 
 type Props = {
     entityAggregation: AggregationMetadata;
-    environmentAggregation: AggregationMetadata;
+    environmentAggregation: AggregationMetadata | null;
+    platformAggregation: AggregationMetadata;
+    depth: number;
 };
 
-const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
-    const depth = 0;
+const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation, depth }: Props) => {
+    const registry = useEntityRegistry();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const color = ANTD_GRAY[9];
     const entityType = entityAggregation.value as EntityType;
 
-    const [fetchAggregations, { loaded, error, called, platformAggregations }] = useAggregationsQuery();
+    const loading = false;
+    const error = null;
 
     const onClickHeader = useCallback(() => {
-        if (called) fetchAggregations(entityType, [PLATFORM_FILTER_NAME]);
+        console.log(entityType, environmentAggregation, platformAggregation.value);
         setIsOpen((current) => !current);
-    }, [called, entityType, fetchAggregations]);
+    }, [entityType, environmentAggregation, platformAggregation.value]);
+
+    const { icon, label } = platformAggregation.entity
+        ? getFilterIconAndLabel(
+              PLATFORM_FILTER_NAME,
+              platformAggregation.value,
+              registry,
+              platformAggregation.entity,
+              16,
+          )
+        : { label: platformAggregation.value, icon: null };
 
     return (
         <ExpandableNode
-            isOpen={isOpen && loaded}
+            isOpen={isOpen && !loading}
             depth={depth}
             header={
                 <Header onClick={onClickHeader}>
                     <HeaderLeft>
                         {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
-                        <Title color={color}>{environmentAggregation.value}</Title>
+                        {icon}
+                        <Title color={color}>{label}</Title>
                     </HeaderLeft>
-                    <Count color={color}>{formatNumber(environmentAggregation.count)}</Count>
+                    <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
                 </Header>
             }
             body={
                 <Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    {platformAggregations.map((platform) => (
-                        <PlatformNode
-                            key={platform.value}
-                            entityAggregation={entityAggregation}
-                            environmentAggregation={environmentAggregation}
-                            platformAggregation={platform}
-                            depth={depth + 1}
-                        />
-                    ))}
+                    Child content
                 </Body>
             }
         />
     );
 };
 
-export default memo(EnvironmentNode);
+export default memo(PlatformNode);
