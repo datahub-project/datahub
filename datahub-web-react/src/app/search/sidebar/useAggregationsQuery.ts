@@ -3,30 +3,51 @@ import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.gen
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { EntityType, QueryAggregateAcrossEntitiesArgs } from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
+import { generateOrFilters } from '../utils/generateOrFilters';
 
 type Props = {
     entityType: EntityType;
+    environment?: string | null;
     facets: string[];
     skip: boolean;
 };
 
-const useAggregationsQuery = ({ entityType, facets, skip }: Props) => {
-    const { query, orFilters, viewUrn } = useGetSearchQueryInputs();
+const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) => {
+    const filterOverrides = useMemo(
+        () => [...(typeof environment !== 'undefined' ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : [])],
+        [environment],
+    );
+    const filterFieldsToOverride = useMemo(() => filterOverrides.map((f) => f.field), [filterOverrides]);
+
+    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(filterFieldsToOverride);
+
+    // todo - clean up this is bananas
+    const orFiltersWithOverrides: ReturnType<typeof generateOrFilters> = useMemo(
+        () =>
+            orFilters.map((orFilter) =>
+                orFilter.and
+                    ? {
+                          and: [...orFilter.and, ...filterOverrides],
+                      }
+                    : orFilter,
+            ),
+        [filterOverrides, orFilters],
+    );
 
     const variables: QueryAggregateAcrossEntitiesArgs = useMemo(
         () => ({
             input: {
                 types: [entityType],
                 query,
-                orFilters,
+                orFilters: orFiltersWithOverrides,
                 viewUrn,
                 facets,
             },
         }),
-        [entityType, facets, orFilters, query, viewUrn],
+        [entityType, facets, orFiltersWithOverrides, query, viewUrn],
     );
 
-    const [fetchAggregations, { data, loading, called, error }] = useAggregateAcrossEntitiesLazyQuery({
+    const [fetchAggregations, { data, loading, error }] = useAggregateAcrossEntitiesLazyQuery({
         fetchPolicy: 'cache-first',
         variables,
     });
@@ -49,7 +70,6 @@ const useAggregationsQuery = ({ entityType, facets, skip }: Props) => {
         loading,
         loaded: !!data || !!error,
         error,
-        called,
         environmentAggregations,
         platformAggregations,
     } as const;

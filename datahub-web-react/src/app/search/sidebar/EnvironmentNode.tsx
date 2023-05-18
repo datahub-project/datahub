@@ -46,6 +46,7 @@ const childrenFacets = [PLATFORM_FILTER_NAME];
 
 const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;
+    const environment = environmentAggregation.value;
     const depth = 0;
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
@@ -53,6 +54,7 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
         entityType,
+        environment,
         facets: childrenFacets,
         skip: !isOpen,
     });
