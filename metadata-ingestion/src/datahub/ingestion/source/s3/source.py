@@ -706,7 +706,7 @@ class S3Source(Source):
                 ):
                     logger.info(f"Processing folder: {f}")
                     dir_to_process = self.get_dir_to_process(
-                        bucket_name=bucket_name, folder=f
+                        bucket_name=bucket_name, folder=f + "/"
                     )
                     logger.info(f"Getting files from folder: {dir_to_process}")
                     dir_to_process = dir_to_process.rstrip("\\")
