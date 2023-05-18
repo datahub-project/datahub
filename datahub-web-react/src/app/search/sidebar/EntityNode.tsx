@@ -61,7 +61,6 @@ const EntityNode = ({ entityAggregation }: Props) => {
     });
 
     const forceEnvironments = false;
-    const singleEnvironment = environmentAggregations.length > 0 ? environmentAggregations[0] : null;
     const hasMultipleEnvironments = environmentAggregations.length > 1 || forceEnvironments;
 
     return (
@@ -93,7 +92,7 @@ const EntityNode = ({ entityAggregation }: Props) => {
                               <PlatformNode
                                   key={platform.value}
                                   entityAggregation={entityAggregation}
-                                  environmentAggregation={singleEnvironment}
+                                  environmentAggregation={null}
                                   platformAggregation={platform}
                                   depth={depth + 1}
                               />

@@ -30,6 +30,13 @@ const Title = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
+const PlatformIconContainer = styled.div`
+    width: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
@@ -79,7 +86,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                 <Header onClick={onClickHeader}>
                     <HeaderLeft>
                         {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
-                        {icon}
+                        <PlatformIconContainer>{icon}</PlatformIconContainer>
                         <Title color={color}>{label}</Title>
                     </HeaderLeft>
                     <Count color={color}>{formatNumber(platformAggregation.count)}</Count>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
-import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
+import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME, UnionType } from '../utils/constants';
 import { EntityType, QueryAggregateAcrossEntitiesArgs } from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import { generateOrFilters } from '../utils/generateOrFilters';
@@ -14,25 +14,27 @@ type Props = {
 
 const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) => {
     const filterOverrides = useMemo(
-        () => [...(typeof environment !== 'undefined' ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : [])],
+        () => [...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : [])],
         [environment],
     );
-    const filterFieldsToOverride = useMemo(() => filterOverrides.map((f) => f.field), [filterOverrides]);
 
-    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(filterFieldsToOverride);
+    const excludedFields = useMemo(() => filterOverrides.map((filter) => filter.field), [filterOverrides]);
 
-    // todo - clean up this is bananas
-    const orFiltersWithOverrides: ReturnType<typeof generateOrFilters> = useMemo(
-        () =>
-            orFilters.map((orFilter) =>
-                orFilter.and
-                    ? {
-                          and: [...orFilter.and, ...filterOverrides],
-                      }
-                    : orFilter,
-            ),
-        [filterOverrides, orFilters],
-    );
+    const { query, orFilters: orFiltersWithoutOverrides, viewUrn } = useGetSearchQueryInputs(excludedFields);
+
+    const orFiltersWithOverrides: ReturnType<typeof generateOrFilters> = useMemo(() => {
+        const newFilters = [...generateOrFilters(UnionType.AND, filterOverrides)];
+
+        if (!orFiltersWithoutOverrides.length) return newFilters;
+
+        return orFiltersWithoutOverrides.map((orFilter) =>
+            orFilter.and
+                ? {
+                      and: [...orFilter.and, ...filterOverrides],
+                  }
+                : orFilter,
+        );
+    }, [filterOverrides, orFiltersWithoutOverrides]);
 
     const variables: QueryAggregateAcrossEntitiesArgs = useMemo(
         () => ({
