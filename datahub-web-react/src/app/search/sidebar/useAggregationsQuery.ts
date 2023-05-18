@@ -26,7 +26,10 @@ const useAggregationsQuery = ({ entityType, facets, skip }: Props) => {
         [entityType, facets, orFilters, query, viewUrn],
     );
 
-    const [fetchAggregations, { data, loading, called, error }] = useAggregateAcrossEntitiesLazyQuery({ variables });
+    const [fetchAggregations, { data, loading, called, error }] = useAggregateAcrossEntitiesLazyQuery({
+        fetchPolicy: 'cache-first',
+        variables,
+    });
 
     useEffect(() => {
         if (!skip) fetchAggregations();
