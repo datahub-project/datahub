@@ -216,3 +216,13 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
         self.custom_properties_patch_helper.remove_property(key)
         return self
+
+    def set_display_name(self, display_name: str) -> "DatasetPatchBuilder":
+        if display_name is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "replace",
+                path="/name",
+                value=display_name,
+            )
+        return self
