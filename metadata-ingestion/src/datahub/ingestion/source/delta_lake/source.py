@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
-from cached_property import cached_property
 from deltalake import DeltaTable
 
 from datahub.emitter.mce_builder import (
@@ -98,6 +97,7 @@ class DeltaLakeSource(Source):
     report: DeltaLakeSourceReport
     profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
+    storage_options: Dict[str, str]
 
     def __init__(self, config: DeltaLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -295,8 +295,7 @@ class DeltaLakeSource(Source):
 
         yield from self._create_operation_aspect_wu(delta_table, dataset_urn)
 
-    @cached_property
-    def storage_options(self) -> Dict[str, str]:
+    def get_storage_options(self) -> Dict[str, str]:
         if (
             self.source_config.is_s3
             and self.source_config.s3 is not None
@@ -358,6 +357,7 @@ class DeltaLakeSource(Source):
             self.source_config.platform_instance,
             self.source_config.env,
         )
+        self.storage_options = self.get_storage_options()
         yield from self.process_folder(self.source_config.complete_path)
 
     def get_report(self) -> SourceReport:
