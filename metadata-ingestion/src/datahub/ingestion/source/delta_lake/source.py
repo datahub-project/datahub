@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 from functools import cached_property
-from typing import Callable, Dict, Iterable, List
+from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
 from deltalake import DeltaTable
@@ -24,7 +24,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders_path
+from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_key_prefix,
@@ -305,8 +305,8 @@ class DeltaLakeSource(Source):
             aws_config = self.source_config.s3.aws_config
             creds = aws_config.get_credentials()
             opts = {
-                "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
-                "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
+                "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id") or "",
+                "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key") or "",
                 "AWS_SESSION_TOKEN": creds.get("aws_session_token", ""),
                 # Allow http connections, this is required for minio
                 "AWS_STORAGE_ALLOW_HTTP": "true",
