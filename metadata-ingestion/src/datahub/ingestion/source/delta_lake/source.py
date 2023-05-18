@@ -306,7 +306,7 @@ class DeltaLakeSource(Source):
             opts = {
                 "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id") or "",
                 "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key") or "",
-                "AWS_SESSION_TOKEN": creds.get("aws_session_token", ""),
+                "AWS_SESSION_TOKEN": creds.get("aws_session_token") or "",
                 # Allow http connections, this is required for minio
                 "AWS_STORAGE_ALLOW_HTTP": "true",
             }
