@@ -75,7 +75,8 @@ def touch_local_files(pytestconfig):
     )
     current_time_sec = datetime.now().timestamp()
     for root, _dirs, files in os.walk(test_resources_dir):
-        for file in files:
+        _dirs.sort()
+        for file in sorted(files):
             current_time_sec += 10
             full_path = os.path.join(root, file)
             os.utime(full_path, times=(current_time_sec, current_time_sec))
