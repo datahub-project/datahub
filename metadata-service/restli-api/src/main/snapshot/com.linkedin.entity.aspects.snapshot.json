@@ -1780,7 +1780,7 @@
           } ]
         }
       },
-      "doc" : "Fine-grained column-level lineages",
+      "doc" : "Fine-grained column-level lineages\nNot currently supported in the UI\nUse UpstreamLineage aspect for datasets to express Column Level Lineage for the UI",
       "optional" : true
     } ],
     "Aspect" : {
@@ -2679,9 +2679,19 @@
             "type" : "string",
             "doc" : "The native kafka document schema. This is a human readable avro document schema."
           }, {
+            "name" : "documentSchemaType",
+            "type" : "string",
+            "doc" : "The native kafka document schema type. This can be AVRO/PROTOBUF/JSON.",
+            "optional" : true
+          }, {
             "name" : "keySchema",
             "type" : "string",
             "doc" : "The native kafka key schema as retrieved from Schema Registry",
+            "optional" : true
+          }, {
+            "name" : "keySchemaType",
+            "type" : "string",
+            "doc" : "The native kafka key schema type. This can be AVRO/PROTOBUF/JSON.",
             "optional" : true
           } ]
         }, {
@@ -2746,7 +2756,8 @@
               "Searchable" : {
                 "boostScore" : 5.0,
                 "fieldName" : "fieldPaths",
-                "fieldType" : "TEXT"
+                "fieldType" : "TEXT",
+                "queryByDefault" : "true"
               }
             }, {
               "name" : "jsonPath",
