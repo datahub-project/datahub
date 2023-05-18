@@ -31,6 +31,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
@@ -108,11 +113,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -1350,9 +1350,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         subtypes: List[str] = [node.node_type.capitalize()]
+        if node.node_type == "source":
+            # In the siblings association hook, we previously looked for an exact
+            # match of "source" to determine if a node was a source. While we now
+            # also check for a capitalized "Source" subtype, this maintains compatibility
+            # with older GMS versions.
+            subtypes.append("source")
         if node.materialization == "table":
             subtypes.append(DatasetSubTypes.TABLE)
-        elif node.materialization == "view":
+
+        if node.node_type == "model" or node.node_type == "snapshot":
+            # We need to add the view subtype so that the view properties tab shows up in the UI.
             subtypes.append(DatasetSubTypes.VIEW)
 
         return MetadataChangeProposalWrapper(

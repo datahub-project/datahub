@@ -199,6 +199,7 @@ def run(
 
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
+    connection_report = None
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
         logger.info(connection_report.as_json())

@@ -17,12 +17,24 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DomainsClass,
+    EditableChartPropertiesClass,
+    EditableContainerPropertiesClass,
+    EditableDashboardPropertiesClass,
+    EditableDataFlowPropertiesClass,
+    EditableDataJobPropertiesClass,
     EditableDatasetPropertiesClass,
+    EditableMLFeaturePropertiesClass,
+    EditableMLFeatureTablePropertiesClass,
+    EditableMLModelGroupPropertiesClass,
+    EditableMLModelPropertiesClass,
+    EditableMLPrimaryKeyPropertiesClass,
+    EditableNotebookPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
@@ -33,9 +45,8 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
-from datahub.utilities.source_helpers import auto_workunit_reporter
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
 ACTOR = "urn:li:corpuser:ingestion"
@@ -264,29 +275,66 @@ class CSVEnricherSource(Source):
         # Check if there is a description to add. If not, return None.
         if not description:
             return None
-
         # If the description is empty, return None.
         if len(description) <= 0:
             return None
+        entityType = guess_entity_type(entity_urn)
 
-        current_editable_properties: Optional[EditableDatasetPropertiesClass] = None
+        entityClass = {
+            "chart": EditableChartPropertiesClass,
+            "dataset": EditableDatasetPropertiesClass,
+            "container": EditableContainerPropertiesClass,
+            "mlPrimaryKey": EditableMLPrimaryKeyPropertiesClass,
+            "mlModel": EditableMLModelPropertiesClass,
+            "mlModelGroup": EditableMLModelGroupPropertiesClass,
+            "mlFeatureTable": EditableMLFeatureTablePropertiesClass,
+            "mlFeature": EditableMLFeaturePropertiesClass,
+            "dashboard": EditableDashboardPropertiesClass,
+            "datajob": EditableDataJobPropertiesClass,
+            "dataflow": EditableDataFlowPropertiesClass,
+            "notebook": EditableNotebookPropertiesClass,
+        }.get(entityType, None)
+
+        if not entityClass:
+            raise ValueError(
+                f"Entity Type {entityType} cannot be operated on using csv-enricher"
+            )
+        current_editable_properties: Optional[
+            Union[
+                EditableDatasetPropertiesClass,
+                EditableContainerPropertiesClass,
+                EditableChartPropertiesClass,
+                EditableMLPrimaryKeyPropertiesClass,
+                EditableMLModelPropertiesClass,
+                EditableMLModelGroupPropertiesClass,
+                EditableMLFeatureTablePropertiesClass,
+                EditableMLFeaturePropertiesClass,
+                EditableDashboardPropertiesClass,
+                EditableDataJobPropertiesClass,
+                EditableDataFlowPropertiesClass,
+                EditableNotebookPropertiesClass,
+            ]
+        ] = None
         if self.ctx.graph and not self.should_overwrite:
             # Get the existing editable properties for the entity from the DataHub graph
             current_editable_properties = self.ctx.graph.get_aspect(
                 entity_urn=entity_urn,
-                aspect_type=EditableDatasetPropertiesClass,
+                aspect_type=entityClass,
             )
 
         if not current_editable_properties:
             # If we want to overwrite or there are no existing editable dataset properties, create a new object
-            current_editable_properties = EditableDatasetPropertiesClass(
-                created=get_audit_stamp(),
-                lastModified=get_audit_stamp(),
+            current_editable_properties = entityClass(
                 description=description,
             )
         else:
             current_editable_properties.description = description
-            current_editable_properties.lastModified = get_audit_stamp()
+
+        if current_editable_properties:  # to satisfy mypy, else this line is redundant
+            if hasattr(current_editable_properties, "created"):
+                current_editable_properties.created = get_audit_stamp()
+            if hasattr(current_editable_properties, "lastModified"):
+                current_editable_properties.lastModified = get_audit_stamp()
 
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -546,12 +594,7 @@ class CSVEnricherSource(Source):
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
         parsed_location = parse.urlparse(self.config.filename)
-        if parsed_location.scheme in ("file", ""):
-            with open(
-                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
-            ) as f:
-                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
-        else:
+        if parsed_location.scheme in ("http", "https"):
             try:
                 resp = requests.get(self.config.filename)
                 decoded_content = resp.content.decode("utf-8-sig")
@@ -564,6 +607,11 @@ class CSVEnricherSource(Source):
                 raise ConfigurationError(
                     f"Cannot read remote file {self.config.filename}, error:{e}"
                 )
+        else:
+            with open(
+                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
+            ) as f:
+                rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
 
         for row in rows:
             # We need the resource to move forward

@@ -1,6 +1,27 @@
-from typing import Optional
+from typing import List, Optional
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_UPSTREAMS_DENY_LIST,
+)
+
+
+def create_deny_regex_sql_filter(
+    upstreams_deny_pattern: List[str], filter_cols: List[str]
+) -> str:
+    upstream_sql_filter = (
+        " AND ".join(
+            [
+                (f"NOT RLIKE({col_name},'{regexp}','i')")
+                for col_name in filter_cols
+                for regexp in upstreams_deny_pattern
+            ]
+        )
+        if upstreams_deny_pattern
+        else ""
+    )
+
+    return upstream_sql_filter
 
 
 class SnowflakeQuery:
@@ -426,20 +447,30 @@ class SnowflakeQuery:
           ) = 1
         """
 
+    # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
+    # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
+    # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
     @staticmethod
     def table_to_table_lineage_history_v2(
         start_time_millis: int,
         end_time_millis: int,
         include_view_lineage: bool = True,
         include_column_lineage: bool = True,
+        upstreams_deny_pattern: List[str] = DEFAULT_UPSTREAMS_DENY_LIST,
     ) -> str:
         if include_column_lineage:
             return SnowflakeQuery.table_upstreams_with_column_lineage(
-                start_time_millis, end_time_millis, include_view_lineage
+                start_time_millis,
+                end_time_millis,
+                upstreams_deny_pattern,
+                include_view_lineage,
             )
         else:
             return SnowflakeQuery.table_upstreams_only(
-                start_time_millis, end_time_millis, include_view_lineage
+                start_time_millis,
+                end_time_millis,
+                upstreams_deny_pattern,
+                include_view_lineage,
             )
 
     @staticmethod
@@ -668,6 +699,7 @@ class SnowflakeQuery:
     def table_upstreams_with_column_lineage(
         start_time_millis: int,
         end_time_millis: int,
+        upstreams_deny_pattern: List[str],
         include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
@@ -675,6 +707,12 @@ class SnowflakeQuery:
             if include_view_lineage
             else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
+
+        upstream_sql_filter = create_deny_regex_sql_filter(
+            upstreams_deny_pattern,
+            ["upstream_table_name", "upstream_column_table_name"],
+        )
+
         return f"""
         WITH column_lineage_history AS (
             SELECT
@@ -703,6 +741,7 @@ class SnowflakeQuery:
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         column_upstream_jobs AS (
             SELECT
@@ -710,7 +749,7 @@ class SnowflakeQuery:
                 downstream_column_name,
                 ANY_VALUE(query_start_time),
                 query_id,
-                ARRAY_AGG(
+                ARRAY_UNIQUE_AGG(
                     OBJECT_CONSTRUCT(
                         'object_name', upstream_column_table_name,
                         'object_domain', upstream_column_object_domain,
@@ -747,7 +786,7 @@ class SnowflakeQuery:
                     'upstream_object_domain', h.upstream_table_domain
                 )
             ) AS "UPSTREAM_TABLES",
-            ARRAY_AGG(
+            ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
                 'column_name', column_upstreams.downstream_column_name,
                 'upstreams', column_upstreams.upstreams
@@ -759,18 +798,27 @@ class SnowflakeQuery:
                 on h.downstream_table_name = column_upstreams.downstream_table_name
             GROUP BY
                 h.downstream_table_name
+            ORDER BY
+                h.downstream_table_name
         """
 
+    # See Note on temporary tables above.
     @staticmethod
     def table_upstreams_only(
         start_time_millis: int,
         end_time_millis: int,
+        upstreams_deny_pattern: List[str],
         include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
             if include_view_lineage
             else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
+        )
+
+        upstream_sql_filter = create_deny_regex_sql_filter(
+            upstreams_deny_pattern,
+            ["upstream_table_name"],
         )
         return f"""
             WITH table_lineage_history AS (
@@ -794,6 +842,7 @@ class SnowflakeQuery:
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
                 )
             SELECT
                 downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
@@ -807,5 +856,7 @@ class SnowflakeQuery:
                 FROM
                     table_lineage_history
                 GROUP BY
+                    downstream_table_name
+                ORDER BY
                     downstream_table_name
             """

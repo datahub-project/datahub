@@ -103,7 +103,10 @@ class SnowflakeCommonMixin:
         self: SnowflakeCommonProtocol,
         dataset_name: Optional[str],
         dataset_type: Optional[str],
+        is_upstream: bool = False,
     ) -> bool:
+        if is_upstream and not self.config.validate_upstreams_against_patterns:
+            return True
         if not dataset_type or not dataset_name:
             return True
         dataset_params = dataset_name.split(".")
@@ -199,7 +202,7 @@ class SnowflakeCommonMixin:
         self: SnowflakeCommonProtocol, user_name: str, user_email: Optional[str]
     ) -> str:
         if user_email:
-            return user_email.split("@")[0]
+            return self.snowflake_identifier(user_email.split("@")[0])
         return self.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
