@@ -51,6 +51,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
 from datahub.ingestion.source.aws.s3_util import (
@@ -93,12 +99,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -594,17 +594,26 @@ class S3Source(StatefulIngestionSourceBase):
             customProperties=customProperties,
         )
         aspects.append(dataset_properties)
-
-        fields = self.get_fields(table_data, path_spec)
-        schema_metadata = SchemaMetadata(
-            schemaName=table_data.display_name,
-            platform=data_platform_urn,
-            version=0,
-            hash="",
-            fields=fields,
-            platformSchema=OtherSchemaClass(rawSchema=""),
-        )
-        aspects.append(schema_metadata)
+        if table_data.size_in_bytes > 0:
+            try:
+                fields = self.get_fields(table_data, path_spec)
+                schema_metadata = SchemaMetadata(
+                    schemaName=table_data.display_name,
+                    platform=data_platform_urn,
+                    version=0,
+                    hash="",
+                    fields=fields,
+                    platformSchema=OtherSchemaClass(rawSchema=""),
+                )
+                aspects.append(schema_metadata)
+            except Exception as e:
+                logger.error(
+                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
+                )
+        else:
+            logger.info(
+                f"Skipping schema extraction for empty file {table_data.full_path}"
+            )
 
         if (
             self.source_config.use_s3_bucket_tags
@@ -829,7 +838,7 @@ class S3Source(StatefulIngestionSourceBase):
                         if (
                             table_dict[table_data.table_path].timestamp
                             < table_data.timestamp
-                        ):
+                        ) and (table_data.size_in_bytes > 0):
                             table_dict[
                                 table_data.table_path
                             ].full_path = table_data.full_path

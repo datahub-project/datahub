@@ -15,6 +15,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
@@ -31,12 +37,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
-)
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
