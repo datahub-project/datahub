@@ -19,7 +19,7 @@ const BodyContainer = styled.div`
 
 type Props = {
     isOpen: boolean;
-    depth?: number;
+    depth: number;
     header: ReactNode;
     body: ReactNode;
 };
