@@ -5,6 +5,7 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -47,9 +48,9 @@ class DataLakeSourceConfig(
     )
 
     # Whether to update the table schema when schema in files within the partitions are updated
-    update_schema_on_partition_file_updates: Optional[bool] = Field(
-        default=True,
-        description="Whether to update the table schema when schema in files within the partitions are updated.",
+    _update_schema_on_partition_file_updates_deprecation = pydantic_field_deprecated(
+        "update_schema_on_partition_file_updates",
+        message="update_schema_on_partition_file_updates is deprecated. This behaviour is the default now.",
     )
 
     profile_patterns: AllowDenyPattern = Field(
