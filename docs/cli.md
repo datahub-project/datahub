@@ -140,7 +140,7 @@ The `check` command allows you to check if all plugins are loaded correctly as w
 
 The `delete` command allows you to delete metadata from DataHub.
 
-Read the [metadata deletion guide](./how/delete-metadata.md) to understand how you the `delete` command.
+The [metadata deletion guide](./how/delete-metadata.md) covers the various options for the delete command.
 
 ### exists
 

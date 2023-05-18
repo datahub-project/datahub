@@ -37,13 +37,15 @@ You can either provide a single urn to delete, or use filters to select a set of
 # Soft delete a single urn.
 datahub delete --urn "<my urn>"
 
-# Soft delete by filters.
+# Soft delete using a filter.
 datahub delete --platform snowflake
+
+# Filters can be combined, which will select entities that match all filters.
 datahub delete --platform looker --entity-type chart
 datahub delete --platform bigquery --env PROD
 ```
 
-When performing hard-deletes, you can optionally add `--only-soft-deleted` flag to only hard delete entities that were previously soft-deleted.
+When performing hard deletes, you can optionally add the `--only-soft-deleted` flag to only hard delete entities that were previously soft deleted.
 
 ### Performing the delete
 
@@ -181,7 +183,7 @@ datahub delete --urn 'urn:li:tag:Legacy' --hard
 datahub delete --entity-type dataset --query "_tmp"
 ```
 
-#### Hard delete everything in Snowflake that was previously soft-deleted
+#### Hard delete everything in Snowflake that was previously soft deleted
 
 ```shell
 datahub delete --platform snowflake --only-soft-deleted --hard
@@ -198,7 +200,7 @@ The Python SDK's [DataHubGraph](../../python-sdk/clients.md) client supports del
 Deletes via the REST API are also possible, although we recommend using the SDK instead.
 
 ```shell
-# hard-delete an entity by urn
+# hard delete an entity by urn
 curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
 
@@ -239,7 +241,7 @@ This deletes both the versioned and the timeseries aspects associated with these
 
 In some cases, entities that were initially ingested by a run might have had further modifications to their metadata (e.g. adding terms, tags, or documentation) through the UI or other means. During a roll back of the ingestion that initially created these entities (technically, if the key aspect for these entities are being rolled back), the ingestion process will analyse the metadata graph for aspects that will be left "dangling" and will:
 
-1. Leave these aspects untouched in the database, and soft-delete the entity. A re-ingestion of these entities will result in this additional metadata becoming visible again in the UI, so you don't lose any of your work.
+1. Leave these aspects untouched in the database, and soft delete the entity. A re-ingestion of these entities will result in this additional metadata becoming visible again in the UI, so you don't lose any of your work.
 2. The datahub cli will save information about these unsafe entities as a CSV for operators to later review and decide on next steps (keep or remove).
 
 The rollback command will report how many entities have such aspects and save as a CSV the urns of these entities under a rollback reports directory, which defaults to `rollback_reports` under the current directory where the cli is run, and can be configured further using the `--reports-dir` command line arg.
