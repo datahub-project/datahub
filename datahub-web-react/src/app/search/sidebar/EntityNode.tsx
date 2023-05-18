@@ -47,7 +47,6 @@ type Props = {
 
 const facets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
 
-// todo consider passing in aggregation object in here instead of more consistency with Platform
 const EntityNode = ({ entityAggregation }: Props) => {
     const depth = 0;
     const registry = useEntityRegistry();
@@ -63,14 +62,12 @@ const EntityNode = ({ entityAggregation }: Props) => {
     }, [called, entityType, fetchAggregations]);
 
     useEffect(() => {
-        if (!isOpen) return;
-        if (!called) return;
-        fetchAggregations(entityType, facets);
+        if (isOpen && called) fetchAggregations(entityType, facets);
     }, [called, entityType, fetchAggregations, isOpen]);
 
     const forceEnvironments = false;
-    const singleEnvironment = environmentAggregations.length === 1 ? environmentAggregations[0] : null;
-    const showEnvironments = environmentAggregations.length > 1 || forceEnvironments;
+    const singleEnvironment = environmentAggregations.length > 0 ? environmentAggregations[0] : null;
+    const hasMultipleEnvironments = environmentAggregations.length > 1 || forceEnvironments;
 
     return (
         <ExpandableNode
@@ -89,7 +86,7 @@ const EntityNode = ({ entityAggregation }: Props) => {
             body={
                 <Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    {showEnvironments
+                    {hasMultipleEnvironments
                         ? environmentAggregations.map((environmentAggregation) => (
                               <EnvironmentNode
                                   key={environmentAggregation.value}

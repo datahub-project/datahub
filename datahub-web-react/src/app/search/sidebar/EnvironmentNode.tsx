@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
@@ -42,6 +42,8 @@ type Props = {
     environmentAggregation: AggregationMetadata;
 };
 
+const facets = [PLATFORM_FILTER_NAME];
+
 const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
     const depth = 0;
     const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -51,9 +53,13 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
     const [fetchAggregations, { loaded, error, called, platformAggregations }] = useAggregationsQuery();
 
     const onClickHeader = useCallback(() => {
-        if (called) fetchAggregations(entityType, [PLATFORM_FILTER_NAME]);
+        if (!called) fetchAggregations(entityType, facets);
         setIsOpen((current) => !current);
     }, [called, entityType, fetchAggregations]);
+
+    useEffect(() => {
+        if (isOpen && called) fetchAggregations(entityType, facets);
+    }, [called, entityType, fetchAggregations, isOpen]);
 
     return (
         <ExpandableNode
