@@ -4,6 +4,7 @@ import time
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
 from urllib.parse import urlparse
+
 from databricks.sdk.service.catalog import DataSourceFormat
 
 from datahub.emitter.mce_builder import (
@@ -41,8 +42,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.delta_lake import DeltaLakeSource
-from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -81,11 +80,11 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldClass,
     SchemaMetadataClass,
+    SiblingsClass,
     SubTypesClass,
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
-    SiblingsClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -435,7 +434,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def _generate_delta_lake_upstream(self, table: Table) -> UpstreamClass:
         parsed_url = urlparse(table.storage_location)
-        delta_lake_resource_name = f"{parsed_url.netloc}{parsed_url.path}"
+        delta_lake_resource_name = str(parsed_url.netloc) + str(parsed_url.path)
         dataset_urn = make_dataset_urn_with_platform_instance(
             "delta-lake",
             delta_lake_resource_name,
