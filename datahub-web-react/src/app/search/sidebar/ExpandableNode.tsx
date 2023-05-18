@@ -10,6 +10,7 @@ const BodyGridExpander = styled.div<{ isOpen: boolean }>`
     display: grid;
     grid-template-rows: ${(props) => (props.isOpen ? '1fr' : '0fr')};
     transition: grid-template-rows 0.2s;
+    /* overflow: scroll; */
     overflow: hidden;
 `;
 

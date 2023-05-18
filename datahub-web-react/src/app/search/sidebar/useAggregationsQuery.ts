@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
+import { useEffect, useMemo } from 'react';
+import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { EntityType, QueryAggregateAcrossEntitiesArgs } from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
@@ -26,10 +26,11 @@ const useAggregationsQuery = ({ entityType, facets, skip }: Props) => {
         [entityType, facets, orFilters, query, viewUrn],
     );
 
-    const { data, loading, called, error } = useAggregateAcrossEntitiesQuery({
-        skip,
-        variables,
-    });
+    const [fetchAggregations, { data, loading, called, error }] = useAggregateAcrossEntitiesLazyQuery({ variables });
+
+    useEffect(() => {
+        if (!skip) fetchAggregations();
+    }, [fetchAggregations, skip]);
 
     const environmentAggregations =
         data?.aggregateAcrossEntities?.facets
