@@ -298,7 +298,9 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static void sortFieldsByPath(SchemaMetadata schemaMetadata) {
-    assert (schemaMetadata != null);
+    if (schemaMetadata == null) {
+      throw new IllegalArgumentException("SchemaMetadata should not be null");
+    }
     List<SchemaField> schemaFields = new ArrayList<>(schemaMetadata.getFields());
     schemaFields.sort(Comparator.comparing(SchemaField::getFieldPath));
     schemaMetadata.setFields(new SchemaFieldArray(schemaFields));
@@ -453,7 +455,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
 
     SchemaMetadata baseSchema = getSchemaMetadataFromAspect(previousValue);
     SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
-    assert (targetSchema != null);
+
+    if (targetSchema == null) {
+      throw new IllegalStateException("SchemaMetadata targetSchema should not be null");
+    }
+
     List<ChangeEvent> changeEvents;
     try {
       changeEvents = new ArrayList<>(
