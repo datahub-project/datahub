@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.AuthConfig;
+import com.linkedin.datahub.graphql.generated.ChromeExtensionConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.LineageConfig;
@@ -18,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
+import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -47,6 +49,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final TestsConfiguration _testsConfiguration;
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
+  private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -59,7 +62,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final TelemetryConfiguration telemetryConfiguration,
       final TestsConfiguration testsConfiguration,
       final DataHubConfiguration datahubConfiguration,
-      final ViewsConfiguration viewsConfiguration) {
+      final ViewsConfiguration viewsConfiguration,
+      final ChromeExtensionConfiguration chromeExtensionConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -71,6 +75,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _testsConfiguration = testsConfiguration;
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
+    _chromeExtensionConfiguration = chromeExtensionConfiguration;
   }
 
   @Override
@@ -141,6 +146,11 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final ViewsConfig viewsConfig = new ViewsConfig();
     viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
     appConfig.setViewsConfig(viewsConfig);
+
+    final ChromeExtensionConfig chromeExtensionConfig = new ChromeExtensionConfig();
+    chromeExtensionConfig.setEnabled(_chromeExtensionConfiguration.isEnabled());
+    chromeExtensionConfig.setLineageEnabled(_chromeExtensionConfiguration.isLineageEnabled());
+    appConfig.setChromeExtensionConfig(chromeExtensionConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

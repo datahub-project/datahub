@@ -22,6 +22,7 @@ export const DESCRIPTION_FILTER_NAME = 'description';
 export const REMOVED_FILTER_NAME = 'removed';
 export const ORIGIN_FILTER_NAME = 'origin';
 export const DEGREE_FILTER_NAME = 'degree';
+export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 
 export const FILTERS_TO_TRUNCATE = [
     TAGS_FILTER_NAME,

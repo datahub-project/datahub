@@ -2,12 +2,12 @@ import { orange } from '@ant-design/colors';
 import { DownOutlined, WarningFilled } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
+import { Dataset } from '../../../../../types.generated';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { ANTD_GRAY } from '../../constants';
 import { getDisplayedEntityType } from '../../containers/profile/header/utils';
 import { useEntityData } from '../../EntityContext';
 import FailingAssertions from './FailingAssertions';
-import { UpstreamSummary } from './utils';
 
 const TextWrapper = styled.span`
     font-size: 16px;
@@ -42,10 +42,18 @@ const StyledArrow = styled(DownOutlined)<{ isOpen: boolean }>`
 `;
 
 interface Props {
-    upstreamSummary: UpstreamSummary;
+    datasetsWithFailingAssertions: Dataset[];
+    totalDatasetsWithFailingAssertions: number;
+    fetchMoreAssertionsData: () => void;
+    isLoadingAssertions: boolean;
 }
 
-export default function FailingInputs({ upstreamSummary }: Props) {
+export default function FailingInputs({
+    datasetsWithFailingAssertions,
+    totalDatasetsWithFailingAssertions,
+    fetchMoreAssertionsData,
+    isLoadingAssertions,
+}: Props) {
     const [areFailingDetailsVisible, setAreFailingDetailsVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { entityData, entityType } = useEntityData();
@@ -58,7 +66,18 @@ export default function FailingInputs({ upstreamSummary }: Props) {
             <FailingDetailsWrapper onClick={() => setAreFailingDetailsVisible(!areFailingDetailsVisible)}>
                 details <StyledArrow isOpen={areFailingDetailsVisible} />
             </FailingDetailsWrapper>
-            {areFailingDetailsVisible && <FailingAssertions upstreamSummary={upstreamSummary} />}
+            {areFailingDetailsVisible && (
+                <>
+                    {datasetsWithFailingAssertions.length > 0 && (
+                        <FailingAssertions
+                            datasetsWithFailingAssertions={datasetsWithFailingAssertions}
+                            totalDatasetsWithFailingAssertions={totalDatasetsWithFailingAssertions}
+                            fetchMoreAssertionsData={fetchMoreAssertionsData}
+                            isLoadingAssertions={isLoadingAssertions}
+                        />
+                    )}
+                </>
+            )}
         </div>
     );
 }

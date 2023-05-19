@@ -11,6 +11,7 @@ import com.datahub.authorization.role.RoleService;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -69,6 +70,7 @@ public class GmsGraphQLEngineArgs {
     QueryService queryService;
     FeatureFlags featureFlags;
     DataProductService dataProductService;
+    ChromeExtensionConfiguration chromeExtensionConfiguration;
 
     //any fork specific args should go below this line
 }

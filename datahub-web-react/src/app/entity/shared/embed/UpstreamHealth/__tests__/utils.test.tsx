@@ -55,18 +55,6 @@ const dataset2WithAssertions = {
 };
 
 describe('utils', () => {
-    it('should extract an upstream summary with assertions properly', () => {
-        const upstreamSummary = utils.extractUpstreamSummary([
-            dataset1WithAssertions,
-            dataset2WithAssertions,
-            dataset3,
-        ]);
-
-        expect(upstreamSummary.passingUpstreams).toBe(1);
-        expect(upstreamSummary.failingUpstreams).toBe(1);
-        expect(upstreamSummary.datasetsWithFailingAssertions).toMatchObject([dataset1WithAssertions]);
-    });
-
     it('should get the number of assertions failing with some passing and some failing', () => {
         const numAssertionsFailing = utils.getNumAssertionsFailing(dataset1WithAssertions as any as Dataset);
 

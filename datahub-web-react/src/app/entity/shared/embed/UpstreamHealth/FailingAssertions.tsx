@@ -1,31 +1,56 @@
+import { LoadingOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { Dataset } from '../../../../../types.generated';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import FailingEntity from './FailingEntity';
-import { getNumAssertionsFailing, UpstreamSummary } from './utils';
+import { getNumAssertionsFailing } from './utils';
 
-const FailingSectionWrapper = styled.div`
+export const FailingSectionWrapper = styled.div`
     margin: 5px 0 0 34px;
     font-size: 14px;
     color: black;
 `;
 
-const FailingDataWrapper = styled.div`
+export const FailingDataWrapper = styled.div`
     margin-left: 20px;
 `;
 
+export const LoadMoreButton = styled(Button)`
+    border: none;
+    padding: 0;
+    box-shadow: none;
+`;
+
+export const LoadingWrapper = styled.div`
+    // set width and height to what our load more button is
+    width: 68px;
+    height: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
 interface Props {
-    upstreamSummary: UpstreamSummary;
+    datasetsWithFailingAssertions: Dataset[];
+    totalDatasetsWithFailingAssertions: number;
+    fetchMoreAssertionsData: () => void;
+    isLoadingAssertions: boolean;
 }
 
-export default function FailingAssertions({ upstreamSummary }: Props) {
-    const { datasetsWithFailingAssertions } = upstreamSummary;
+export default function FailingAssertions({
+    datasetsWithFailingAssertions,
+    totalDatasetsWithFailingAssertions,
+    fetchMoreAssertionsData,
+    isLoadingAssertions,
+}: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
         <FailingSectionWrapper>
-            {datasetsWithFailingAssertions.length} data source{datasetsWithFailingAssertions.length > 1 && 's'} with
-            failing assertions
+            {totalDatasetsWithFailingAssertions} data source{totalDatasetsWithFailingAssertions > 1 && 's'} with failing
+            assertions
             <FailingDataWrapper>
                 {datasetsWithFailingAssertions.map((dataset) => {
                     const totalNumAssertions = dataset.assertions?.assertions.length;
@@ -39,6 +64,18 @@ export default function FailingAssertions({ upstreamSummary }: Props) {
                         />
                     );
                 })}
+                {totalDatasetsWithFailingAssertions > datasetsWithFailingAssertions.length && (
+                    <>
+                        {isLoadingAssertions && (
+                            <LoadingWrapper>
+                                <LoadingOutlined />
+                            </LoadingWrapper>
+                        )}
+                        {!isLoadingAssertions && (
+                            <LoadMoreButton onClick={fetchMoreAssertionsData}>+ Load more</LoadMoreButton>
+                        )}
+                    </>
+                )}
             </FailingDataWrapper>
         </FailingSectionWrapper>
     );

@@ -9,6 +9,7 @@ const DatasetWrapper = styled.div`
     display: flex;
     align-items: center;
     margin-top: 3px;
+    overflow: hidden;
 `;
 
 const AssertionsSummaryWrapper = styled.span`
@@ -21,11 +22,13 @@ const AssertionsSummaryWrapper = styled.span`
     margin-left: 5px;
     padding: 0 3px;
     letter-spacing: 0.2px;
+    white-space: nowrap;
 `;
 
 const StyledLink = styled(Typography.Link)`
     align-items: center;
     display: flex;
+    overflow: hidden;
     img {
         margin-right: 3px;
     }
@@ -46,7 +49,9 @@ export default function FailingEntity({ link, displayName, contentText }: Props)
         <DatasetWrapper>
             <StyledLink href={link} target="_blank" rel="noopener noreferrer">
                 <StyledIcon component={ExternalLink} />
-                {displayName}
+                <Typography.Text ellipsis={{ tooltip: true }} style={{ color: 'inherit' }}>
+                    {displayName}
+                </Typography.Text>
             </StyledLink>
             <AssertionsSummaryWrapper>{contentText}</AssertionsSummaryWrapper>
         </DatasetWrapper>

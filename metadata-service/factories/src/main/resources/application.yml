@@ -304,3 +304,7 @@ cache:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
       lightningThreshold: ${CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD:300}
+
+chromeExtension:
+  enabled: ${CHROME_EXTENSION_ENABLED:true}
+  lineageEnabled: ${CHROME_EXTENSION_LINEAGE_ENABLED:true}

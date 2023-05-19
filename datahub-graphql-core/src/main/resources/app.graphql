@@ -1,22 +1,22 @@
 # DataHub UI Application-Specific GraphQL Types
 
 extend type Query {
-    """
-    Fetch details associated with the authenticated user, provided via an auth cookie or header
-    """
-    me: AuthenticatedUser
+  """
+  Fetch details associated with the authenticated user, provided via an auth cookie or header
+  """
+  me: AuthenticatedUser
 
-    """
-    Fetch configurations
-    Used by DataHub UI
-    """
-    appConfig: AppConfig
+  """
+  Fetch configurations
+  Used by DataHub UI
+  """
+  appConfig: AppConfig
 
-    """
-    Fetch the Global Settings related to the Views feature.
-    Requires the 'Manage Global Views' Platform Privilege.
-    """
-    globalViewsSettings: GlobalViewsSettings
+  """
+  Fetch the Global Settings related to the Views feature.
+  Requires the 'Manage Global Views' Platform Privilege.
+  """
+  globalViewsSettings: GlobalViewsSettings
 }
 
 extend type Mutation {
@@ -181,6 +181,11 @@ type AppConfig {
   Configurations related to DataHub Views
   """
   viewsConfig: ViewsConfig!
+
+  """
+  Configuration related to the DataHub Chrome Extension
+  """
+  chromeExtensionConfig: ChromeExtensionConfig!
 }
 
 """
@@ -252,7 +257,6 @@ type AuthConfig {
   """
   tokenAuthEnabled: Boolean!
 }
-
 
 """
 Configurations related to the Policies Feature
@@ -380,4 +384,19 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Configurations related to DataHub Chrome extension
+"""
+type ChromeExtensionConfig {
+  """
+  Whether the Chrome Extension is enabled
+  """
+  enabled: Boolean!
+
+  """
+  Whether lineage is enabled
+  """
+  lineageEnabled: Boolean!
 }

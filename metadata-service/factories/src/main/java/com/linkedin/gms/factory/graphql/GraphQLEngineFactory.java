@@ -198,6 +198,7 @@ public class GraphQLEngineFactory {
     args.setLineageService(_lineageService);
     args.setQueryService(_queryService);
     args.setFeatureFlags(_configProvider.getFeatureFlags());
+    args.setChromeExtensionConfiguration(_configProvider.getChromeExtension());
     args.setDataProductService(_dataProductService);
     return new GmsGraphQLEngine(
             args

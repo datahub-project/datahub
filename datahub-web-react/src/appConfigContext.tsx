@@ -37,6 +37,10 @@ export const DEFAULT_APP_CONFIG = {
     viewsConfig: {
         enabled: false,
     },
+    chromeExtensionConfig: {
+        enabled: false,
+        lineageEnabled: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{
