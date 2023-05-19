@@ -2,7 +2,6 @@ import concurrent.futures
 import datetime
 import json
 import logging
-import os
 from json import JSONDecodeError
 from typing import (
     Any,
@@ -20,12 +19,8 @@ from typing import (
 
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase, Query
-from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
-from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.common import PipelineContext
@@ -47,7 +42,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
     InputFieldElement,
-    LookerCommonConfig,
     LookerDashboard,
     LookerDashboardElement,
     LookerDashboardSourceReport,
@@ -59,17 +53,15 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
 )
+from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
-    LookerAPIConfig,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -99,73 +91,6 @@ from datahub.utilities.source_helpers import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class LookerDashboardSourceConfig(
-    LookerAPIConfig,
-    LookerCommonConfig,
-    StatefulIngestionConfigBase,
-    EnvConfigMixin,
-):
-    _removed_github_info = pydantic_removed_field("github_info")
-
-    dashboard_pattern: AllowDenyPattern = Field(
-        AllowDenyPattern.allow_all(),
-        description="Patterns for selecting dashboard ids that are to be included",
-    )
-    chart_pattern: AllowDenyPattern = Field(
-        AllowDenyPattern.allow_all(),
-        description="Patterns for selecting chart ids that are to be included",
-    )
-    include_deleted: bool = Field(
-        False, description="Whether to include deleted dashboards."
-    )
-    extract_owners: bool = Field(
-        True,
-        description="When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty for dashboards and charts.",
-    )
-    actor: Optional[str] = Field(
-        None,
-        description="This config is deprecated in favor of `extract_owners`. Previously, was the actor to use in ownership properties of ingested metadata.",
-    )
-    strip_user_ids_from_email: bool = Field(
-        False,
-        description="When enabled, converts Looker user emails of the form name@domain.com to urn:li:corpuser:name when assigning ownership",
-    )
-    skip_personal_folders: bool = Field(
-        False,
-        description="Whether to skip ingestion of dashboards in personal folders. Setting this to True will only ingest dashboards in the Shared folder space.",
-    )
-    max_threads: int = Field(
-        os.cpu_count() or 40,
-        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
-    )
-    external_base_url: Optional[str] = Field(
-        None,
-        description="Optional URL to use when constructing external URLs to Looker if the `base_url` is not the correct one to use. For example, `https://looker-public.company.com`. If not provided, the external base URL will default to `base_url`.",
-    )
-    extract_usage_history: bool = Field(
-        True,
-        description="Whether to ingest usage statistics for dashboards. Setting this to True will query looker system activity explores to fetch historical dashboard usage.",
-    )
-    # TODO - stateful ingestion to autodetect usage history interval
-    extract_usage_history_for_interval: str = Field(
-        "30 days",
-        description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
-    )
-    extract_embed_urls: bool = Field(
-        True,
-        description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI. Embeds must be enabled inside of Looker to use this feature.",
-    )
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description=""
-    )
-
-    @validator("external_base_url", pre=True, always=True)
-    def external_url_defaults_to_api_config_base_url(
-        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
-    ) -> Optional[str]:
-        return v or values.get("base_url")
 
 
 @platform_name("Looker")
@@ -207,7 +132,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter = LookerDashboardSourceReport()
         self.looker_api: LookerAPI = LookerAPI(self.source_config)
         self.user_registry = LookerUserRegistry(self.looker_api)
-        self.explore_registry = LookerExploreRegistry(self.looker_api, self.reporter)
+        self.explore_registry = LookerExploreRegistry(self.looker_api, self.reporter, self.source_config)
         self.reporter._looker_explore_registry = self.explore_registry
         self.reporter._looker_api = self.looker_api
 
