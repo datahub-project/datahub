@@ -464,7 +464,10 @@ public class ESAggregatedStatsDAO {
     // 3.1 Do a DFS of the aggregation tree and generate the rows.
     rowGenHelper(filterAgg.getAggregations(), 0, groupingBuckets.length, rows, rowAcc,
         ImmutableList.copyOf(groupingBuckets), ImmutableList.copyOf(aggregationSpecs), aspectSpec);
-    assert (rowAcc.isEmpty());
+
+    if (!rowAcc.isEmpty()) {
+      throw new IllegalStateException("Expected stack to be empty.");
+    }
 
     resultTable.setRows(new StringArrayArray(rows));
     return resultTable;
