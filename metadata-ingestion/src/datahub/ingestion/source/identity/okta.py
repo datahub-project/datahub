@@ -24,6 +24,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -50,11 +55,6 @@ from datahub.metadata.schema_classes import (
     OriginClass,
     OriginTypeClass,
     StatusClass,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 
 logger = logging.getLogger(__name__)

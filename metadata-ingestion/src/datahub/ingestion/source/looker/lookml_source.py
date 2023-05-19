@@ -46,6 +46,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
@@ -90,11 +95,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)

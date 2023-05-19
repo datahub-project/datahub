@@ -31,6 +31,11 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.json_ref_patch import title_swapping_callback
 from datahub.ingestion.extractor.json_schema_util import (
@@ -47,11 +52,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 

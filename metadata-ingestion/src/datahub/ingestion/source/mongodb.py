@@ -21,6 +21,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
@@ -44,7 +45,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 

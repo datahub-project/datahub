@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -40,7 +41,6 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.source_helpers import auto_workunit_reporter
 from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)

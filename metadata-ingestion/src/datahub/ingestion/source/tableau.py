@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -47,6 +47,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source import tableau_constant
 from datahub.ingestion.source.common.subtypes import (
@@ -124,11 +128,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -372,6 +371,7 @@ class TableauProject:
     name: str
     description: str
     parent_id: Optional[str]
+    parent_name: Optional[str]  # Name of parent project
     path: List[str]
 
 
@@ -485,9 +485,17 @@ class TableauSource(StatefulIngestionSourceBase):
                     id=project.id,
                     name=project.name,
                     parent_id=project.parent_id,
+                    parent_name=None,
                     description=project.description,
                     path=[],
                 )
+            # Set parent project name
+            for project_id, project in all_project_map.items():
+                if (
+                    project.parent_id is not None
+                    and project.parent_id in all_project_map
+                ):
+                    project.parent_name = all_project_map[project.parent_id].name
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
@@ -2266,6 +2274,18 @@ class TableauSource(StatefulIngestionSourceBase):
                 if project.parent_id
                 else None,
             )
+            if (
+                project.parent_id is not None
+                and project.parent_id not in self.tableau_project_registry
+            ):
+                # Parent project got skipped because of project_pattern.
+                # Let's ingest its container name property to show parent container name on DataHub Portal, otherwise
+                # DataHub Portal will show parent container URN
+                yield from gen_containers(
+                    container_key=self.gen_project_key(project.parent_id),
+                    name=cast(str, project.parent_name),
+                    sub_types=[tableau_constant.PROJECT],
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.server is None or not self.server.is_signed_in():

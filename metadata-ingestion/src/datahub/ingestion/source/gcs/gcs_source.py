@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 from urllib.parse import unquote
 
 from pydantic import Field, SecretStr, validator
@@ -14,15 +14,30 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import S3Source
-from datahub.utilities.source_helpers import auto_status_aspect, auto_workunit_reporter
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -32,7 +47,9 @@ class HMACKey(ConfigModel):
     hmac_access_secret: SecretStr = Field(description="Secret")
 
 
-class GCSSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
+class GCSSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+):
     credential: HMACKey = Field(
         description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",
     )
@@ -41,6 +58,13 @@ class GCSSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
         default=100,
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
     )
+
+    number_of_files_to_sample: int = Field(
+        default=100,
+        description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
@@ -56,7 +80,7 @@ class GCSSourceConfig(DatasetSourceConfigMixin, PathSpecsConfigMixin):
         return path_specs
 
 
-class GCSSourceReport(SourceReport):
+class GCSSourceReport(DataLakeSourceReport):
     pass
 
 
@@ -66,7 +90,7 @@ class GCSSourceReport(SourceReport):
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
-class GCSSource(Source):
+class GCSSource(StatefulIngestionSourceBase):
     """
     This connector extracting datasets located on Google Cloud Storage. Supported file types are as follows:
 
@@ -95,10 +119,17 @@ class GCSSource(Source):
     """
 
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = GCSSourceReport()
         self.s3_source = self.create_equivalent_s3_source(ctx)
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -118,6 +149,7 @@ class GCSSource(Source):
             ),
             env=self.config.env,
             max_rows=self.config.max_rows,
+            number_of_files_to_sample=self.config.number_of_files_to_sample,
         )
         return s3_config
 
@@ -145,7 +177,6 @@ class GCSSource(Source):
         return self.s3_source_overrides(S3Source(config, ctx))
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:
-
         source.source_config.platform = PLATFORM_GCS
 
         source.is_s3_platform = lambda: True  # type: ignore
@@ -154,8 +185,14 @@ class GCSSource(Source):
         return source
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        yield from auto_workunit_reporter(
-            self.report, auto_status_aspect(self.s3_source.get_workunits())
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_workunit_reporter(
+                    self.report,
+                    auto_status_aspect(self.s3_source.get_workunits_internal()),
+                ),
+            )
         )
 
     def get_report(self):

@@ -19,6 +19,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql import sql_common
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -47,11 +52,6 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 
 logger = logging.getLogger(__name__)
 

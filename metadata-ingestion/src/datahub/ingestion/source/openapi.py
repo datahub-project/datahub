@@ -18,6 +18,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.openapi_parser import (
     clean_url,
@@ -41,7 +42,6 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryMetadataClass,
     TagAssociationClass,
 )
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger: logging.Logger = logging.getLogger(__name__)
 

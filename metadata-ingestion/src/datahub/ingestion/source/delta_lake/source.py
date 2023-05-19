@@ -2,7 +2,8 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Callable, Iterable, List
+from typing import Dict, Iterable, List
+from urllib.parse import urlparse
 
 from deltalake import DeltaTable
 
@@ -21,8 +22,9 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders_path
+from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_key_prefix,
@@ -52,7 +54,6 @@ from datahub.metadata.schema_classes import (
     OtherSchemaClass,
 )
 from datahub.telemetry import telemetry
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -97,17 +98,25 @@ class DeltaLakeSource(Source):
     report: DeltaLakeSourceReport
     profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
+    storage_options: Dict[str, str]
 
     def __init__(self, config: DeltaLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
         self.report = DeltaLakeSourceReport()
+        if self.source_config.is_s3:
+            if (
+                self.source_config.s3 is None
+                or self.source_config.s3.aws_config is None
+            ):
+                raise ValueError("AWS Config must be provided for S3 base path.")
+            self.s3_client = self.source_config.s3.aws_config.get_s3_client()
+
         # self.profiling_times_taken = []
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
         }
-        config_report = config_report
 
         telemetry.telemetry_instance.ping(
             "delta_lake_config",
@@ -276,33 +285,61 @@ class DeltaLakeSource(Source):
 
         yield from self._create_operation_aspect_wu(delta_table, dataset_urn)
 
-    def process_folder(
-        self, path: str, get_folders: Callable[[str], Iterable[str]]
-    ) -> Iterable[MetadataWorkUnit]:
+    def get_storage_options(self) -> Dict[str, str]:
+        if (
+            self.source_config.is_s3
+            and self.source_config.s3 is not None
+            and self.source_config.s3.aws_config is not None
+        ):
+            aws_config = self.source_config.s3.aws_config
+            creds = aws_config.get_credentials()
+            opts = {
+                "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id") or "",
+                "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key") or "",
+                "AWS_SESSION_TOKEN": creds.get("aws_session_token") or "",
+                # Allow http connections, this is required for minio
+                "AWS_STORAGE_ALLOW_HTTP": "true",
+            }
+            if aws_config.aws_region:
+                opts["AWS_REGION"] = aws_config.aws_region
+            if aws_config.aws_endpoint_url:
+                opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
+            return opts
+        else:
+            return {}
+
+    def process_folder(self, path: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"Processing folder: {path}")
-        delta_table = read_delta_table(path, self.source_config)
+        delta_table = read_delta_table(path, self.storage_options, self.source_config)
         if delta_table:
             logger.debug(f"Delta table found at: {path}")
-            for wu in self.ingest_table(delta_table, path):
+            for wu in self.ingest_table(delta_table, path.rstrip("/")):
                 yield wu
         else:
-            for folder in get_folders(path):
-                yield from self.process_folder(path + "/" + folder, get_folders)
+            for folder in self.get_folders(path):
+                yield from self.process_folder(folder)
+
+    def get_folders(self, path: str) -> Iterable[str]:
+        if self.source_config.is_s3:
+            return self.s3_get_folders(path)
+        else:
+            return self.local_get_folders(path)
 
     def s3_get_folders(self, path: str) -> Iterable[str]:
-        if self.source_config.s3 is not None:
-            yield from list_folders_path(path, self.source_config.s3.aws_config)
+        parse_result = urlparse(path)
+        for page in self.s3_client.get_paginator("list_objects_v2").paginate(
+            Bucket=parse_result.netloc, Prefix=parse_result.path[1:], Delimiter="/"
+        ):
+            for o in page.get("CommonPrefixes", []):
+                yield f"{parse_result.scheme}://{parse_result.netloc}/{o.get('Prefix')}"
 
     def local_get_folders(self, path: str) -> Iterable[str]:
         if not os.path.isdir(path):
             raise FileNotFoundError(
                 f"{path} does not exist or is not a directory. Please check base_path configuration."
             )
-        for _, folders, _ in os.walk(path):
-            for folder in folders:
-                yield folder
-            break
-        return
+        for folder in os.listdir(path):
+            yield os.path.join(path, folder)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_workunit_reporter(self.report, self.get_workunits_internal())
@@ -313,11 +350,8 @@ class DeltaLakeSource(Source):
             self.source_config.platform_instance,
             self.source_config.env,
         )
-        get_folders = (
-            self.s3_get_folders if self.source_config.is_s3 else self.local_get_folders
-        )
-        for wu in self.process_folder(self.source_config.complete_path, get_folders):
-            yield wu
+        self.storage_options = self.get_storage_options()
+        yield from self.process_folder(self.source_config.complete_path)
 
     def get_report(self) -> SourceReport:
         return self.report

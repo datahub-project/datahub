@@ -11,6 +11,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceConfig,
@@ -26,7 +27,6 @@ from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
 )
 from datahub.ingestion.source.aws.sagemaker_processors.lineage import LineageProcessor
 from datahub.ingestion.source.aws.sagemaker_processors.models import ModelProcessor
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 
 @platform_name("SageMaker")

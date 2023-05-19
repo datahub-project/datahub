@@ -27,6 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -52,7 +53,6 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest

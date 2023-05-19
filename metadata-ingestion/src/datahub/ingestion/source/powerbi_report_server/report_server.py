@@ -26,6 +26,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
@@ -54,7 +55,6 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 LOGGER = logging.getLogger(__name__)
 

@@ -28,6 +28,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.iceberg.iceberg_common import (
@@ -56,11 +61,6 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 
 LOGGER = logging.getLogger(__name__)

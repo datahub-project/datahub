@@ -1,6 +1,6 @@
 import sys
 
-from datahub.utilities.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 
 if sys.version_info < (3, 8):
     raise ImportError("Feast is only supported on Python 3.8+")

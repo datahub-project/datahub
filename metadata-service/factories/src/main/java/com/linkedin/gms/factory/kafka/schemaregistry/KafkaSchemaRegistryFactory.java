@@ -44,7 +44,7 @@ public class KafkaSchemaRegistryFactory {
   @Value("${kafka.schema.registry.security.protocol:}")
   private String securityProtocol;
 
-  @Bean
+  @Bean("schemaRegistryConfig")
   @Nonnull
   protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();

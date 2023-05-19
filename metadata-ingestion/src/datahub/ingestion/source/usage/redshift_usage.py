@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
 from datahub.ingestion.source.usage.usage_common import (
@@ -31,7 +32,6 @@ from datahub.ingestion.source.usage.usage_common import (
     GenericAggregatedDataset,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 

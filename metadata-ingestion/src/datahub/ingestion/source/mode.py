@@ -25,6 +25,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -47,7 +48,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 
 class ModeAPIConfig(ConfigModel):

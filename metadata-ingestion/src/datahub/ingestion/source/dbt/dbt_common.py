@@ -31,6 +31,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
@@ -108,12 +114,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)

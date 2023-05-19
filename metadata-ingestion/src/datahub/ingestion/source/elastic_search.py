@@ -31,6 +31,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -55,7 +56,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.config_clean import remove_protocol
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 
