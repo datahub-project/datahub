@@ -1,17 +1,17 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
-                "number_of_files": "2",
-                "size_in_bytes": "8412"
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+                "number_of_files": "3",
+                "size_in_bytes": "3446"
             },
-            "name": "food_parquet",
+            "name": "food_csv",
             "description": "",
             "tags": []
         }
@@ -23,12 +23,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "food_parquet",
+            "schemaName": "food_csv",
             "platform": "urn:li:dataPlatform:file",
             "version": 0,
             "created": {
@@ -66,7 +66,7 @@
                             "com.linkedin.schema.BooleanType": {}
                         }
                     },
-                    "nativeDataType": "bool",
+                    "nativeDataType": "boolean",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -78,7 +78,7 @@
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "int64",
+                    "nativeDataType": "integer",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -102,7 +102,7 @@
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "int64",
+                    "nativeDataType": "integer",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -116,7 +116,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -127,7 +127,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1650458499430
+            "lastUpdatedTimestamp": 1684478149906
         }
     },
     "systemMetadata": {
@@ -778,7 +778,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -793,7 +793,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -883,8 +883,8 @@
                 },
                 {
                     "fieldPath": "weight",
-                    "uniqueCount": 10,
-                    "uniqueProportion": 0.14285714285714285,
+                    "uniqueCount": 9,
+                    "uniqueProportion": 0.12857142857142856,
                     "nullCount": 0,
                     "nullProportion": 0.0,
                     "distinctValueFrequencies": [
@@ -1097,17 +1097,17 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
                 "number_of_files": "2",
-                "size_in_bytes": "3446"
+                "size_in_bytes": "8412"
             },
-            "name": "food_csv",
+            "name": "food_parquet",
             "description": "",
             "tags": []
         }
@@ -1119,12 +1119,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "food_csv",
+            "schemaName": "food_parquet",
             "platform": "urn:li:dataPlatform:file",
             "version": 0,
             "created": {
@@ -1162,7 +1162,7 @@
                             "com.linkedin.schema.BooleanType": {}
                         }
                     },
-                    "nativeDataType": "boolean",
+                    "nativeDataType": "bool",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1174,7 +1174,7 @@
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "integer",
+                    "nativeDataType": "int64",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1198,7 +1198,7 @@
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "integer",
+                    "nativeDataType": "int64",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -1212,7 +1212,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1223,7 +1223,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1651257861692
+            "lastUpdatedTimestamp": 1684478179906
         }
     },
     "systemMetadata": {
@@ -1233,7 +1233,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1248,7 +1248,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -1338,8 +1338,8 @@
                 },
                 {
                     "fieldPath": "weight",
-                    "uniqueCount": 9,
-                    "uniqueProportion": 0.12857142857142856,
+                    "uniqueCount": 10,
+                    "uniqueProportion": 0.14285714285714285,
                     "nullCount": 0,
                     "nullProportion": 0.0,
                     "distinctValueFrequencies": [
