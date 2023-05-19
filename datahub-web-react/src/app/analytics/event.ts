@@ -1,4 +1,5 @@
 import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
 
 /**
@@ -523,7 +524,7 @@ export interface EmbedProfileViewInDataHubEvent extends BaseEvent {
 export interface EmbedLookupNotFoundEvent extends BaseEvent {
     type: EventType.EmbedLookupNotFoundEvent;
     url: string;
-    reason: 'NO_ENTITY_FOUND' | 'MULTIPLE_ENTITIES_FOUND';
+    reason: EmbedLookupNotFoundReason;
 }
 
 /**
