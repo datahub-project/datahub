@@ -15,6 +15,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 
@@ -35,12 +36,14 @@ public class DeleteOwnershipTypeResolverTest {
     QueryContext mockContext = getMockAllowContext(TEST_UNAUTHORIZED_USER.toString());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("deleteReferences"))).thenReturn(true);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockService, Mockito.times(1)).deleteOwnershipType(
         Mockito.eq(TEST_URN),
+        anyBoolean(),
         Mockito.any(Authentication.class)
     );
   }
@@ -54,12 +57,14 @@ public class DeleteOwnershipTypeResolverTest {
     QueryContext mockContext = getMockDenyContext(TEST_UNAUTHORIZED_USER.toString());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("deleteReferences"))).thenReturn(true);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).get());
 
     Mockito.verify(mockService, Mockito.times(0)).deleteOwnershipType(
         Mockito.eq(TEST_URN),
+        anyBoolean(),
         Mockito.any(Authentication.class)
     );
   }
@@ -70,6 +75,7 @@ public class DeleteOwnershipTypeResolverTest {
     OwnershipTypeService mockService = Mockito.mock(OwnershipTypeService.class);
     Mockito.doThrow(RuntimeException.class).when(mockService).deleteOwnershipType(
         Mockito.any(),
+        anyBoolean(),
         Mockito.any(Authentication.class));
 
     DeleteOwnershipTypeResolver resolver = new DeleteOwnershipTypeResolver(mockService);
@@ -78,6 +84,7 @@ public class DeleteOwnershipTypeResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("deleteReferences"))).thenReturn(true);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

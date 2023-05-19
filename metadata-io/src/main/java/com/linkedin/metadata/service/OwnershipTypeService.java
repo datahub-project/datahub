@@ -138,7 +138,9 @@ public class OwnershipTypeService extends BaseService {
    * @param urn the urn of the Ownership Type
    * @param authentication the current authentication
    */
-  public void deleteOwnershipType(@Nonnull Urn urn, @Nonnull Authentication authentication) {
+  public void deleteOwnershipType(@Nonnull Urn urn, boolean deleteReferences, @Nonnull Authentication authentication) {
+    Objects.requireNonNull(urn, "Ownership TypeUrn must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
     try {
       if (isSystemOwnershipType(urn)) {
         log.info("Soft deleting ownership type: {}", urn);
@@ -147,8 +149,10 @@ public class OwnershipTypeService extends BaseService {
         this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(urn, Constants.STATUS_ASPECT_NAME,
                 statusAspect), authentication, false);
       } else {
-        this.entityClient.deleteEntity(Objects.requireNonNull(urn, "Ownership TypeUrn must not be null"),
-            Objects.requireNonNull(authentication, "authentication must not be null"));
+        this.entityClient.deleteEntity(urn, authentication);
+        if (deleteReferences) {
+          this.entityClient.deleteEntityReferences(urn, authentication);
+        }
       }
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to delete Ownership Type with urn %s", urn), e);

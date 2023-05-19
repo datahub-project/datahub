@@ -257,9 +257,14 @@ public class OwnershipTypeServiceTest {
         mockClient,
         Mockito.mock(Authentication.class));
 
-    service.deleteOwnershipType(TEST_OWNERSHIP_TYPE_URN, mockAuthentication());
+    service.deleteOwnershipType(TEST_OWNERSHIP_TYPE_URN, true, mockAuthentication());
 
     Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
+        Mockito.eq(TEST_OWNERSHIP_TYPE_URN),
+        Mockito.any(Authentication.class)
+    );
+
+    Mockito.verify(mockClient, Mockito.times(1)).deleteEntityReferences(
         Mockito.eq(TEST_OWNERSHIP_TYPE_URN),
         Mockito.any(Authentication.class)
     );
@@ -279,7 +284,8 @@ public class OwnershipTypeServiceTest {
     );
 
     // Throws wrapped exception
-    Assert.assertThrows(RuntimeException.class, () -> service.deleteOwnershipType(TEST_OWNERSHIP_TYPE_URN, mockAuthentication()));
+    Assert.assertThrows(RuntimeException.class,
+        () -> service.deleteOwnershipType(TEST_OWNERSHIP_TYPE_URN, false, mockAuthentication()));
   }
 
   @Test

@@ -21,8 +21,8 @@ mutation updateOwnershipType($urn: String!, $input: UpdateOwnershipTypeInput!) {
     }
 }
 
-mutation deleteOwnershipType($urn: String!) {
-    deleteOwnershipType(urn: $urn)
+mutation deleteOwnershipType($urn: String!, $deleteReferences: Boolean) {
+    deleteOwnershipType(urn: $urn, deleteReferences: $deleteReferences)
 }
 
 fragment ownershipTypeFields on OwnershipTypeEntity {

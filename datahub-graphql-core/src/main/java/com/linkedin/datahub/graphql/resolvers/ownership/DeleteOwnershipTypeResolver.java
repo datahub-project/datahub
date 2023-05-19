@@ -24,6 +24,9 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
     final QueryContext context = environment.getContext();
     final String ownershipTypeUrn = environment.getArgument("urn");
     final Urn urn = UrnUtils.getUrn(ownershipTypeUrn);
+    // By default, delete references
+    final boolean deleteReferences =
+        environment.getArgument("deleteReferences") == null ? true : environment.getArgument("deleteReferences");
 
     if (!AuthorizationUtils.canManageOwnershipTypes(context)) {
       throw new AuthorizationException(
@@ -32,8 +35,8 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        _ownershipTypeService.deleteOwnershipType(urn, context.getAuthentication());
-        log.info(String.format("Successfully deleted View %s with urn", urn));
+        _ownershipTypeService.deleteOwnershipType(urn, deleteReferences, context.getAuthentication());
+        log.info(String.format("Successfully deleted ownership type %s with urn", urn));
         return true;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to delete ownership type with urn %s", ownershipTypeUrn), e);

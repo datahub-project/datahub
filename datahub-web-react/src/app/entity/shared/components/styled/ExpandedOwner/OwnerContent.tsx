@@ -73,17 +73,12 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
     const ownerDisplayName = entityRegistry.getDisplayName(ownerEntityType, ownerEntity);
     let ownershipTypeName;
     let ownershipTypeDescription;
-    if (
-        owner.ownershipType !== undefined &&
-        owner.ownershipType !== null &&
-        owner.ownershipType.info !== undefined &&
-        owner.ownershipType.info !== null
-    ) {
-        ownershipTypeName = owner.ownershipType.info!.name;
+    if (owner.ownershipType && owner.ownershipType.info) {
+        ownershipTypeName = owner.ownershipType.info.name;
         ownershipTypeDescription = owner.ownershipType.info.description;
-    } else if (owner.type !== undefined && owner.type !== null) {
-        ownershipTypeName = getNameFromType(owner.type!);
-        ownershipTypeDescription = getDescriptionFromType(owner.type!);
+    } else if (owner.type) {
+        ownershipTypeName = getNameFromType(owner.type);
+        ownershipTypeDescription = getDescriptionFromType(owner.type);
     }
 
     const avatar: React.ReactNode = (

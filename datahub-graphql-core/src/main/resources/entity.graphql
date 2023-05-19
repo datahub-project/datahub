@@ -680,7 +680,7 @@ type Mutation {
     """
     deleteOwnershipType(
         "Urn of the Custom Ownership Type to remove."
-        urn: String!): Boolean
+        urn: String!, deleteReferences: Boolean): Boolean
 }
 
 """
