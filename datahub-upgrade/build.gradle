@@ -16,7 +16,6 @@ dependencies {
   compile project(':metadata-service:factories')
   compile project(':metadata-service:restli-client')
   implementation externalDependency.charle
-  implementation externalDependency.jsonv
 
   compile externalDependency.javaxInject
   compile(externalDependency.hadoopClient) {
@@ -25,8 +24,7 @@ dependencies {
     exclude group: "org.apache.htrace", module: "htrace-core4"
     exclude group: "org.eclipse.jetty", module: "jetty-util"
     exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
-    exclude group: "com.charleskorn.kaml",module:"kaml"
-    exclude group: "org.json",module:"json"
+    exclude group: "com.charleskorn.kaml", module:"kaml"
 
   }
 

@@ -7,7 +7,7 @@ buildscript {
   ext.springBootVersion = '2.5.12'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
-  ext.graphQLJavaVersion = '19.0'
+  ext.graphQLJavaVersion = '19.4'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '7.10.2'
   ext.jacksonVersion = '2.13.5'
@@ -89,7 +89,7 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:' + elasticsearchVersion,
     'elasticSearchTransport': 'org.elasticsearch.client:transport:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'graphqlJava': 'com.graphql-java:graphql-java:19.4',
+    'graphqlJava': "com.graphql-java:graphql-java:$graphQLJavaVersion",
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:' + graphQLJavaVersion,
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.3',
@@ -205,7 +205,6 @@ project.ext.externalDependency = [
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
-    'jsonv': 'org.json:json:20230227',
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
