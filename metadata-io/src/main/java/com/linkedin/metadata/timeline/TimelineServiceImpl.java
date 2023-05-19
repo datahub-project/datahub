@@ -413,7 +413,10 @@ public class TimelineServiceImpl implements TimelineService {
     SemanticVersion curGroupVersion = null;
     long transactionId = FIRST_TRANSACTION_ID - 1;
     for (Map.Entry<Long, List<ChangeTransaction>> entry : changeTransactionsMap.entrySet()) {
-      assert (transactionId < entry.getKey());
+      if (transactionId >= entry.getKey()) {
+        throw new IllegalArgumentException(String.format("transactionId should be < previous. %s >= %s",
+                transactionId, entry.getKey()));
+      }
       transactionId = entry.getKey();
       SemanticChangeType highestChangeInGroup = SemanticChangeType.NONE;
       ChangeTransaction highestChangeTransaction = entry.getValue().stream()
