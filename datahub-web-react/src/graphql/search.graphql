@@ -893,6 +893,8 @@ query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
         facets {
             ...facetFields
         }
+    }
+}
 
 query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
     listDataProductAssets(urn: $urn, input: $input) {
