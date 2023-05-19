@@ -7,7 +7,6 @@ import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.search.SearchEntity;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
