@@ -39,7 +39,9 @@ dependencies {
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
-  compile externalDependency.mixpanel
+  compile (externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
 
   annotationProcessor externalDependency.lombok
 
