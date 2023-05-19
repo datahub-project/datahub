@@ -1284,7 +1284,7 @@ def test_reports_with_failed_page_request(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     """
-    Here we don't need to run the pipeline. We need to verify all reports are getting fetch in case any page request failed
+    Test that all reports are fetched even if a single page request fails
     """
     register_mock_api(
         request_mock=requests_mock,

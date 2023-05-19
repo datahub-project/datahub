@@ -34,6 +34,17 @@ def is_permission_error(e: Exception) -> bool:
     return e.response.status_code == 401 or e.response.status_code == 403
 
 
+def is_http_failure(response: Response, message: str) -> bool:
+    if response.ok:
+        # It is not failure so no need to log the message just return with False
+        return False
+
+    logger.info(message)
+    logger.debug(f"HTTP Status Code = {response.status_code}")
+    logger.debug(f"HTTP Error Message = {response.text}")
+    return True
+
+
 class DataResolverBase(ABC):
     SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
     BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/groups"
@@ -352,17 +363,6 @@ class DataResolverBase(ABC):
 
         return tiles
 
-    @staticmethod
-    def is_http_failure(response: Response, message: str) -> bool:
-        if response.ok:
-            # It is not failure so no need to log the message just return with False
-            return False
-
-        logger.debug(message)
-        logger.debug(f"HTTP Status Code = {response.status_code}")
-        logger.debug(f"HTTP Error Message = {response.text}")
-        return True
-
 
 class RegularAPIResolver(DataResolverBase):
     # Regular access endpoints
@@ -483,9 +483,7 @@ class RegularAPIResolver(DataResolverBase):
             headers=self.get_authorization_header(),
         )
 
-        if DataResolverBase.is_http_failure(
-            response, f"Unable to fetch pages for report {report_id}"
-        ):
+        if is_http_failure(response, f"Unable to fetch pages for report {report_id}"):
             return []
 
         response_dict = response.json()
