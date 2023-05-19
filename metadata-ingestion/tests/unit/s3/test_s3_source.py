@@ -37,6 +37,12 @@ def test_partition_comparator_with_padded_numeric_partition():
     assert partitioned_folder_comparator(folder1, folder2) == -1
 
 
+def test_partition_comparator_with_equal_sign_in_name():
+    folder1 = "month=12"
+    folder2 = "year=0"
+    assert partitioned_folder_comparator(folder1, folder2) == -1
+
+
 def test_partition_comparator_with_string_partition():
     folder1 = "year=year2020"
     folder2 = "year=year2021"
