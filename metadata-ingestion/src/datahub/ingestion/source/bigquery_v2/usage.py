@@ -66,7 +66,7 @@ OPERATION_STATEMENT_TYPES = {
     "UPDATE": OperationTypeClass.UPDATE,
     "DELETE": OperationTypeClass.DELETE,
     "MERGE": OperationTypeClass.UPDATE,
-    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
     "CREATE_EXTERNAL_TABLE": OperationTypeClass.CREATE,
     "CREATE_SNAPSHOT_TABLE": OperationTypeClass.CREATE,
@@ -112,12 +112,6 @@ def bigquery_audit_metadata_query_template(
     :param limit: maximum number of events to query for
     :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
     """
-    allow_filter = """
-      AND EXISTS (SELECT *
-              from UNNEST(JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
-                                             "$.jobChange.job.jobStats.queryStats.referencedTables")) AS x
-              where REGEXP_CONTAINS(x, r'(projects/.*/datasets/.*/tables/.*)'))
-    """
 
     limit_text = f"limit {limit}" if limit else ""
 
@@ -144,15 +138,27 @@ def bigquery_audit_metadata_query_template(
             AND timestamp < "{{end_time}}"
         )
         {shard_condition}
-        AND (
-                (
-                    protopayload_auditlog.serviceName="bigquery.googleapis.com"
-                    AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-                    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-                    {allow_filter}
-                )
+        AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
+        AND
+        (
+            (
+                JSON_EXTRACT_SCALAR(protopayload_auditlog.methodName) IN
+                    (
+                        "google.cloud.bigquery.v2.JobService.Query",
+                        "google.cloud.bigquery.v2.JobService.InsertJob"
+                    )
+                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
+                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+                AND (
+                        JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
+                                                            "$.jobChange.job.jobStats.queryStats.referencedTables") IS NOT NULL
+                    OR
+                        JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig.destinationTable") IS NOT NULL
+                    )
+            )
             OR
-            JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
+                JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
         )
         {limit_text};
     """
@@ -628,7 +634,7 @@ class BigQueryUsageExtractor:
         )
         self.report.log_entry_end_time = end_time
         filter = audit_templates[BQ_FILTER_RULE_TEMPLATE].format(
-            start_time=start_time, end_time=end_time, allow_regex="", deny_regex="FALSE"
+            start_time=start_time, end_time=end_time
         )
         return filter
 

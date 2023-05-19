@@ -164,6 +164,11 @@ public class PoliciesConfig {
       "Edit Domain",
       "The ability to edit the Domain of an entity.");
 
+  public static final Privilege EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_DATA_PRODUCTS",
+      "Edit Data Product",
+      "The ability to edit the Data Product of an entity.");
+
   public static final Privilege EDIT_ENTITY_DEPRECATION_PRIVILEGE = Privilege.of(
       "EDIT_DEPRECATION_PRIVILEGE",
       "Edit Deprecation",
@@ -208,6 +213,7 @@ public class PoliciesConfig {
       EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
       EDIT_ENTITY_STATUS_PRIVILEGE,
       EDIT_ENTITY_DOMAINS_PRIVILEGE,
+      EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
       EDIT_ENTITY_DEPRECATION_PRIVILEGE,
       EDIT_ENTITY_PRIVILEGE,
       DELETE_ENTITY_PRIVILEGE
@@ -415,12 +421,29 @@ public class PoliciesConfig {
   );
 
   // Domain Privileges
+  public static final Privilege MANAGE_DATA_PRODUCTS_PRIVILEGE = Privilege.of(
+      "MANAGE_DATA_PRODUCTS",
+      "Manage Data Products",
+      "The ability to create, edit, and delete Data Products within a Domain");
+
+
+  // Domain Privileges
   public static final ResourcePrivileges DOMAIN_PRIVILEGES = ResourcePrivileges.of(
       "domain",
       "Domains",
       "Domains created on DataHub",
       ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE,
-          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE)
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE, MANAGE_DATA_PRODUCTS_PRIVILEGE)
+  );
+
+  // Data Product Privileges
+  public static final ResourcePrivileges DATA_PRODUCT_PRIVILEGES = ResourcePrivileges.of(
+      "dataProduct",
+      "Data Products",
+      "Data Products created on DataHub",
+      ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE, EDIT_ENTITY_TAGS_PRIVILEGE,
+          EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE, EDIT_ENTITY_DOMAINS_PRIVILEGE)
   );
 
   // Glossary Term Privileges
@@ -492,7 +515,8 @@ public class PoliciesConfig {
       GLOSSARY_NODE_PRIVILEGES,
       CORP_GROUP_PRIVILEGES,
       CORP_USER_PRIVILEGES,
-      NOTEBOOK_PRIVILEGES
+      NOTEBOOK_PRIVILEGES,
+      DATA_PRODUCT_PRIVILEGES
   );
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
