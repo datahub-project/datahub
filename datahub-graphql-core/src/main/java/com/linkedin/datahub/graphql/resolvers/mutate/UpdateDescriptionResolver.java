@@ -5,7 +5,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.SiblingsUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -27,6 +29,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @RequiredArgsConstructor
 public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -60,6 +63,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateMlFeatureDescription(targetUrn, input, environment.getContext());
       case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
         return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
+      case Constants.DATA_PRODUCT_ENTITY_NAME:
+        return updateDataProductDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format("Failed to update description. Unsupported resource type %s provided.", targetUrn));
@@ -190,8 +195,10 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateGlossaryTermDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
     return CompletableFuture.supplyAsync(() -> {
-
-      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+      final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)
+          && !GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)
+      ) {
         throw new AuthorizationException(
             "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
@@ -214,8 +221,10 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateGlossaryNodeDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
     return CompletableFuture.supplyAsync(() -> {
-
-      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+      final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)
+          && !GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)
+      ) {
         throw new AuthorizationException(
             "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
@@ -259,7 +268,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       }
     });
   }
-  
+
   private CompletableFuture<Boolean> updateNotebookDescription(Urn targetUrn, DescriptionUpdateInput input,
       QueryContext context) {
     return CompletableFuture.supplyAsync(() -> {
@@ -398,6 +407,31 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         DescriptionUtils.updateMlFeatureTableDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateDataProductDescription(Urn targetUrn, DescriptionUpdateInput input,
+      QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateDataProductDescription(
             input.getDescription(),
             targetUrn,
             actor,

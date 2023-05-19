@@ -55,8 +55,12 @@ extend type Query {
   Aggregate across DataHub entities
   """
   aggregateAcrossEntities(input: AggregateAcrossEntitiesInput!): AggregateResults
-  }
 
+  """
+  List Data Product assets for a given urn
+  """
+  listDataProductAssets(urn: String!, input: SearchAcrossEntitiesInput!): SearchResults
+}
 
 """
 Input arguments for a full text search query

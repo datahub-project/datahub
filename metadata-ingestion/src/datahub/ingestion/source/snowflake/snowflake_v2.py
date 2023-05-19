@@ -34,8 +34,13 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
+from datahub.ingestion.glossary.classification_mixin import ClassificationHandler
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -130,12 +135,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -214,7 +215,6 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     supported=True,
 )
 class SnowflakeV2Source(
-    ClassificationMixin,
     SnowflakeQueryMixin,
     SnowflakeConnectionMixin,
     SnowflakeCommonMixin,
@@ -289,8 +289,10 @@ class SnowflakeV2Source(
                 config, self.report, self.profiling_state_handler
             )
 
-        if self.is_classification_enabled():
-            self.classifiers = self.get_classifiers()
+        if self.config.classification.enabled:
+            self.classification_handler = ClassificationHandler(
+                self.config, self.report
+            )
 
         # Caches tables for a single database. Consider moving to disk or S3 when possible.
         self.db_tables: Dict[str, List[SnowflakeTable]] = {}
@@ -868,7 +870,13 @@ class SnowflakeV2Source(
     def fetch_sample_data_for_classification(
         self, table, schema_name, db_name, dataset_name
     ):
-        if table.columns and self.is_classification_enabled_for_table(dataset_name):
+        if (
+            table.columns
+            and self.config.classification.enabled
+            and self.classification_handler.is_classification_enabled_for_table(
+                dataset_name
+            )
+        ):
             try:
                 table.sample_data = self.get_sample_values_for_table(
                     table.name, schema_name, db_name
@@ -1206,17 +1214,20 @@ class SnowflakeV2Source(
         return foreign_keys
 
     def classify_snowflake_table(self, table, dataset_name, schema_metadata):
-        if isinstance(
-            table, SnowflakeTable
-        ) and self.is_classification_enabled_for_table(dataset_name):
+        if (
+            isinstance(table, SnowflakeTable)
+            and self.config.classification.enabled
+            and self.classification_handler.is_classification_enabled_for_table(
+                dataset_name
+            )
+        ):
             if table.sample_data is not None:
                 table.sample_data.columns = [
                     self.snowflake_identifier(col) for col in table.sample_data.columns
                 ]
-            logger.debug(f"Classifying Table {dataset_name}")
 
             try:
-                self.classify_schema_fields(
+                self.classification_handler.classify_schema_fields(
                     dataset_name,
                     schema_metadata,
                     table.sample_data.to_dict(orient="list")
@@ -1428,16 +1439,24 @@ class SnowflakeV2Source(
     # that would be expensive, hence not done.
     def get_sample_values_for_table(self, table_name, schema_name, db_name):
         # Create a cursor object.
-        cur = self.get_connection().cursor()
-        NUM_SAMPLED_ROWS = 1000
-        # Execute a statement that will generate a result set.
-        sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+        logger.debug(
+            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
+        )
+        with PerfTimer() as timer:
+            cur = self.get_connection().cursor()
+            NUM_SAMPLED_ROWS = 1000
+            # Execute a statement that will generate a result set.
+            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
 
-        cur.execute(sql)
-        # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
+            cur.execute(sql)
+            # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
 
-        dat = cur.fetchall()
-        df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+            dat = cur.fetchall()
+            df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+            time_taken = timer.elapsed_seconds()
+            logger.debug(
+                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name}; took {time_taken:.3f} seconds"
+            )
 
         return df
 
