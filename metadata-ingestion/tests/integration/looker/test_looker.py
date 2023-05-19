@@ -62,7 +62,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                         "extract_usage_history": False,
                         "view_project_map": {
                             "underlying_view": "looker-hub",
-                        }
+                        },
                     },
                 },
                 "sink": {

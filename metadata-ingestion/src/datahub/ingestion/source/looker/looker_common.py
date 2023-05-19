@@ -7,16 +7,7 @@ import re
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import User, WriteQuery
@@ -28,8 +19,11 @@ from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig, NamingPatternMapping, \
-    LookerCommonConfig
+from datahub.ingestion.source.looker.looker_config import (
+    LookerCommonConfig,
+    LookerDashboardSourceConfig,
+    NamingPatternMapping,
+)
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
@@ -634,7 +628,9 @@ class LookerExplore:
                 fields=view_fields,
                 upstream_views=list(
                     ProjectInclude(
-                        project=_BASE_PROJECT_NAME if view_name not in source_config.view_project_map else source_config.view_project_map[view_name],
+                        project=_BASE_PROJECT_NAME
+                        if view_name not in source_config.view_project_map
+                        else source_config.view_project_map[view_name],
                         include=view_name,
                     )
                     for view_name in views

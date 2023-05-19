@@ -1,24 +1,17 @@
 import dataclasses
 import os
 import re
+from typing import Any, Dict, List, Optional, Union
 
 import pydantic
-
-from typing import Optional, Dict, Any, List, Union
-
+from pydantic import Field, validator
 from typing_extensions import ClassVar
 
-from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import ConfigurationError
-
-from pydantic import Field, validator
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.source.looker.looker_lib_wrapper import (
-    LookerAPIConfig,
-)
+from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPIConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -114,7 +107,7 @@ class LookerCommonConfig(DatasetSourceConfigMixin):
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more "
-                    "discoverable. When disabled, adds this information to the description of the column.",
+        "discoverable. When disabled, adds this information to the description of the column.",
     )
     platform_name: str = Field(
         "looker", description="Default platform name. Don't change."
@@ -147,22 +140,22 @@ class LookerDashboardSourceConfig(
     extract_owners: bool = Field(
         True,
         description="When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty "
-                    "for dashboards and charts.",
+        "for dashboards and charts.",
     )
     actor: Optional[str] = Field(
         None,
         description="This config is deprecated in favor of `extract_owners`. Previously, was the actor to use in "
-                    "ownership properties of ingested metadata.",
+        "ownership properties of ingested metadata.",
     )
     strip_user_ids_from_email: bool = Field(
         False,
         description="When enabled, converts Looker user emails of the form name@domain.com to urn:li:corpuser:name "
-                    "when assigning ownership",
+        "when assigning ownership",
     )
     skip_personal_folders: bool = Field(
         False,
         description="Whether to skip ingestion of dashboards in personal folders. Setting this to True will only "
-                    "ingest dashboards in the Shared folder space.",
+        "ingest dashboards in the Shared folder space.",
     )
     max_threads: int = Field(
         os.cpu_count() or 40,
@@ -171,24 +164,24 @@ class LookerDashboardSourceConfig(
     external_base_url: Optional[str] = Field(
         None,
         description="Optional URL to use when constructing external URLs to Looker if the `base_url` is not the "
-                    "correct one to use. For example, `https://looker-public.company.com`. If not provided, "
-                    "the external base URL will default to `base_url`.",
+        "correct one to use. For example, `https://looker-public.company.com`. If not provided, "
+        "the external base URL will default to `base_url`.",
     )
     extract_usage_history: bool = Field(
         True,
         description="Whether to ingest usage statistics for dashboards. Setting this to True will query looker system "
-                    "activity explores to fetch historical dashboard usage.",
+        "activity explores to fetch historical dashboard usage.",
     )
     # TODO - stateful ingestion to autodetect usage history interval
     extract_usage_history_for_interval: str = Field(
         "30 days",
         description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage "
-                    "history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
+        "history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
     )
     extract_embed_urls: bool = Field(
         True,
         description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI. Embeds must be "
-                    "enabled inside of Looker to use this feature.",
+        "enabled inside of Looker to use this feature.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
@@ -196,7 +189,7 @@ class LookerDashboardSourceConfig(
     view_project_map: Dict[str, str] = Field(
         {},
         description="A map of view-name to looker project. If your project is using view in explore and that view is "
-                    "included from project dependency then add view-name as key and project-name as value",
+        "included from project dependency then add view-name as key and project-name as value",
     )
 
     @validator("external_base_url", pre=True, always=True)

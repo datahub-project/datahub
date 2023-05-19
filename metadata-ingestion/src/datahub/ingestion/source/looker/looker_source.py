@@ -54,9 +54,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewFieldType,
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
-from datahub.ingestion.source.looker.looker_lib_wrapper import (
-    LookerAPI,
-)
+from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -132,7 +130,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter = LookerDashboardSourceReport()
         self.looker_api: LookerAPI = LookerAPI(self.source_config)
         self.user_registry = LookerUserRegistry(self.looker_api)
-        self.explore_registry = LookerExploreRegistry(self.looker_api, self.reporter, self.source_config)
+        self.explore_registry = LookerExploreRegistry(
+            self.looker_api, self.reporter, self.source_config
+        )
         self.reporter._looker_explore_registry = self.explore_registry
         self.reporter._looker_api = self.looker_api
 
