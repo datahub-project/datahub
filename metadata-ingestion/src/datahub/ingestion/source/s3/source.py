@@ -188,9 +188,9 @@ def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
     try:
         # Stripping = from the folder names as it most probably partition name part like year=2021
         if "=" in folder1 and "=" in folder2:
-            if folder1.split("=")[0] == folder2.split("=")[0]:
-                folder1 = folder1.split("=")[1]
-                folder2 = folder2.split("=")[1]
+            if folder1.split("=", 1)[0] == folder2.split("=", 1)[0]:
+                folder1 = folder1.split("=", 1)[1]
+                folder2 = folder2.split("=", 1)[1]
 
         num_folder1 = int(folder1)
         num_folder2 = int(folder2)
