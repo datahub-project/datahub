@@ -37,8 +37,7 @@ public interface IndexConvention {
   /**
    * Inverse of getEntityIndexName
    * @param indexName The index name to parse
-   * @return a string, the entity name that that index is for
+   * @return a string, the entity name that that index is for, or empty if one cannot be extracted
    */
-  @Nullable
-  String getEntityName(String indexName);
+  Optional<String> getEntityName(String indexName);
 }

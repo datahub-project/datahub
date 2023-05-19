@@ -14,8 +14,6 @@ import org.apache.commons.lang3.StringUtils;
 public class IndexConventionImpl implements IndexConvention {
   // Map from Entity name -> Index name
   private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
-  // Map from Index name -> Entity name (inverse of above)
-  private final Map<String, String> entityNameMapping = new ConcurrentHashMap<>();
   private final Optional<String> _prefix;
   private final String _getAllEntityIndicesPattern;
   private final String _getAllTimeseriesIndicesPattern;
@@ -37,12 +35,18 @@ public class IndexConventionImpl implements IndexConvention {
     return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName).toLowerCase();
   }
 
-  private String extractEntityName(String indexName) {
-    // TODO(indy): Test this
+  private Optional<String> extractEntityName(String indexName) {
+    String prefixString =_prefix.map(prefix -> prefix + "_").orElse("") ;
+    if (!indexName.startsWith(prefixString)) {
+      return Optional.empty();
+    }
     String indexSuffix = ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION;
-    return indexName.substring(
-        _prefix.map(prefix -> prefix + "_").orElse("").length(),
-        indexName.indexOf(indexSuffix));
+    int prefixIndex = prefixString.length();
+    int suffixIndex = indexName.indexOf(indexSuffix);
+    if (prefixIndex < suffixIndex) {
+      return Optional.of(indexName.substring(prefixIndex, suffixIndex));
+    }
+    return Optional.empty();
   }
 
   @Override
@@ -71,9 +75,7 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getEntityIndexName(String entityName) {
-    String indexName = this.getIndexName(entityName + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
-    entityNameMapping.putIfAbsent(entityName, indexName);
-    return indexName;
+    return this.getIndexName(entityName + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
   }
 
   @Nonnull
@@ -97,7 +99,7 @@ public class IndexConventionImpl implements IndexConvention {
 
   @Nullable
   @Override
-  public String getEntityName(String indexName) {
+  public Optional<String> getEntityName(String indexName) {
     return extractEntityName(indexName);
   }
 }

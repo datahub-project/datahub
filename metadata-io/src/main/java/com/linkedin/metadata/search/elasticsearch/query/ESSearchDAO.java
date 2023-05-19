@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
@@ -106,7 +108,7 @@ public class ESSearchDAO {
     }
     String[] tokens = name.split(AGGREGATION_SEPARATOR_CHAR);
     if (entityTypeIdx < tokens.length) {
-      tokens[entityTypeIdx] = indexConvention.getEntityName(tokens[entityTypeIdx]);
+      tokens[entityTypeIdx] = indexConvention.getEntityName(tokens[entityTypeIdx]).orElse(tokens[entityTypeIdx]);
     }
     return String.join(AGGREGATION_SEPARATOR_CHAR, tokens);
   }
@@ -115,14 +117,20 @@ public class ESSearchDAO {
     if (entityTypeIdx >= 0) {
       aggMeta.setAggregations(new LongMap(
           aggMeta.getAggregations().entrySet().stream().collect(
-              Collectors.toMap(entry -> transformIndexToken(entry.getKey(), entityTypeIdx),
-                  entry -> entry.getValue()))));
+              Collectors.toMap(entry -> transformIndexToken(entry.getKey(), entityTypeIdx), Map.Entry::getValue))));
+      aggMeta.setFilterValues(
+          new FilterValueArray(
+              aggMeta.getFilterValues().stream().map(
+                  filterValue -> filterValue.setValue(transformIndexToken(filterValue.getValue(), entityTypeIdx)))
+                  .collect(Collectors.toList())
+          ));
+
     }
     return aggMeta;
   }
 
-  private SearchResult transformIndexIntoEntityName(SearchResult result) {
-    // TODO(indy): test this
+  @VisibleForTesting
+  SearchResult transformIndexIntoEntityName(SearchResult result) {
     AggregationMetadataArray aggArray = result.getMetadata().getAggregations();
     List<AggregationMetadata> newAggs = new ArrayList<>();
     for (AggregationMetadata aggMeta : aggArray) {
