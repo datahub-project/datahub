@@ -67,7 +67,8 @@ public class SearchUtils {
           EntityType.CORP_GROUP,
           EntityType.CONTAINER,
           EntityType.DOMAIN,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.DATA_PRODUCT);
 
   /**
    * Entities that are part of autocomplete by default in Auto Complete Across Entities
@@ -87,7 +88,8 @@ public class SearchUtils {
           EntityType.TAG,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.DATA_PRODUCT);
 
   /**
    * A prioritized list of source filter types used to generate quick filters

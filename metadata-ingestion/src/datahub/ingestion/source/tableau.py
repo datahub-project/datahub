@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -47,6 +47,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source import tableau_constant
 from datahub.ingestion.source.common.subtypes import (
@@ -124,10 +128,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -371,6 +371,7 @@ class TableauProject:
     name: str
     description: str
     parent_id: Optional[str]
+    parent_name: Optional[str]  # Name of parent project
     path: List[str]
 
 
@@ -484,9 +485,17 @@ class TableauSource(StatefulIngestionSourceBase):
                     id=project.id,
                     name=project.name,
                     parent_id=project.parent_id,
+                    parent_name=None,
                     description=project.description,
                     path=[],
                 )
+            # Set parent project name
+            for project_id, project in all_project_map.items():
+                if (
+                    project.parent_id is not None
+                    and project.parent_id in all_project_map
+                ):
+                    project.parent_name = all_project_map[project.parent_id].name
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
@@ -1371,27 +1380,36 @@ class TableauSource(StatefulIngestionSourceBase):
             and tableau_constant.CONNECTION_TYPE in database
         ):
             upstream_tables = []
-            parser = LineageRunner(csql.get(tableau_constant.QUERY))
+            query = csql.get(tableau_constant.QUERY)
+            parser = LineageRunner(query)
 
-            for table in parser.source_tables:
-                split_table = str(table).split(".")
-                if len(split_table) == 2:
-                    datset = make_table_urn(
-                        env=self.config.env,
-                        upstream_db=database.get(tableau_constant.NAME),
-                        connection_type=database.get(
-                            tableau_constant.CONNECTION_TYPE, ""
-                        ),
-                        schema=split_table[0],
-                        full_name=split_table[1],
-                        platform_instance_map=self.config.platform_instance_map,
-                        lineage_overrides=self.config.lineage_overrides,
-                    )
-                    upstream_tables.append(
-                        UpstreamClass(
-                            type=DatasetLineageType.TRANSFORMED, dataset=datset
+            try:
+                for table in parser.source_tables:
+                    split_table = str(table).split(".")
+                    if len(split_table) == 2:
+                        datset = make_table_urn(
+                            env=self.config.env,
+                            upstream_db=database.get(tableau_constant.NAME),
+                            connection_type=database.get(
+                                tableau_constant.CONNECTION_TYPE, ""
+                            ),
+                            schema=split_table[0],
+                            full_name=split_table[1],
+                            platform_instance_map=self.config.platform_instance_map,
+                            lineage_overrides=self.config.lineage_overrides,
                         )
-                    )
+                        upstream_tables.append(
+                            UpstreamClass(
+                                type=DatasetLineageType.TRANSFORMED, dataset=datset
+                            )
+                        )
+            except Exception as e:
+                self.report.report_warning(
+                    key="csql-lineage",
+                    reason=f"Unable to retrieve lineage from query. "
+                    f"Query: {query} "
+                    f"Reason: {str(e)} ",
+                )
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
             yield self.get_metadata_change_proposal(
                 csql_urn,
@@ -2279,15 +2297,34 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
         for _id, project in self.tableau_project_registry.items():
-            project_workunits = gen_containers(
-                container_key=self.gen_project_key(_id),
-                name=project.name,
-                description=project.description,
-                sub_types=[tableau_constant.PROJECT],
-                parent_container_key=self.gen_project_key(project.parent_id)
-                if project.parent_id
-                else None,
+            project_workunits = list(
+                gen_containers(
+                    container_key=self.gen_project_key(_id),
+                    name=project.name,
+                    description=project.description,
+                    sub_types=[tableau_constant.PROJECT],
+                    parent_container_key=self.gen_project_key(project.parent_id)
+                    if project.parent_id
+                    else None,
+                )
             )
+            if (
+                project.parent_id is not None
+                and project.parent_id not in self.tableau_project_registry
+            ):
+                # Parent project got skipped because of project_pattern.
+                # Let's ingest its container name property to show parent container name on DataHub Portal, otherwise
+                # DataHub Portal will show parent container URN
+                project_workunits.extend(
+                    list(
+                        gen_containers(
+                            container_key=self.gen_project_key(project.parent_id),
+                            name=cast(str, project.parent_name),
+                            sub_types=[tableau_constant.PROJECT],
+                        )
+                    )
+                )
+
             for wu in project_workunits:
                 self.report.report_workunit(wu)
                 yield wu

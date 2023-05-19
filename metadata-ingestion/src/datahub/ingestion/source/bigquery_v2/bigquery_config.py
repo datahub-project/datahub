@@ -268,10 +268,9 @@ class BigQueryV2Config(
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
-        return "|".join(pattern) if self.table_pattern else ""
+        return "|".join(pattern) if pattern else ""
 
-    # TODO: remove run_on_compute when the legacy bigquery source will be deprecated
-    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+    def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:
             return f"bigquery://{self.project_on_behalf}"
         # When project_id is not set, we will attempt to detect the project ID

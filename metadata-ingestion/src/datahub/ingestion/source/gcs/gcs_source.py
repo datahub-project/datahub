@@ -6,7 +6,7 @@ from pydantic import Field, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -15,13 +15,17 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.source import S3Source
-from datahub.utilities.source_helpers import auto_status_aspect, auto_workunit_reporter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -152,7 +156,7 @@ class GCSSource(Source):
 
         return source
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from auto_workunit_reporter(
             self.report, auto_status_aspect(self.s3_source.get_workunits())
         )

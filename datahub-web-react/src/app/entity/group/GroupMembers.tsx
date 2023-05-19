@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Col, Dropdown, Menu, message, Modal, Pagination, Row, Empty, Button, Typography } from 'antd';
+import { Col, Dropdown, message, Modal, Pagination, Row, Empty, Button, Typography, MenuProps } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
@@ -155,28 +155,28 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     const total = relationships?.total || 0;
     const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
 
-    const onMemberMenuClick = (e, urnID) => {
-        // TODO: add for make owner if required, else remove it
-        if (e.key === 'remove') {
-            onRemoveMember(urnID);
-        }
-    };
-
-    const menu = (urnID) => {
-        return (
-            <Menu onClick={(e) => onMemberMenuClick(e, urnID)}>
-                <Menu.Item disabled key="make">
+    const getItems = (urnID: string): MenuProps['items'] => {
+        return [
+            {
+                key: 'make',
+                disabled: true,
+                label: (
                     <span>
                         <UserAddOutlined /> Make owner
                     </span>
-                </Menu.Item>
-                <Menu.Item disabled={isExternalGroup} key="remove">
+                ),
+            },
+            {
+                key: 'remove',
+                disabled: isExternalGroup,
+                onClick: () => onRemoveMember(urnID),
+                label: (
                     <span>
                         <UserDeleteOutlined /> Remove from Group
                     </span>
-                </Menu.Item>
-            </Menu>
-        );
+                ),
+            },
+        ];
     };
 
     return (
@@ -210,7 +210,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                                 </MemberColumn>
                                 <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
                                     <MemberEditIcon>
-                                        <Dropdown overlay={menu(item.urn)}>
+                                        <Dropdown menu={{ items: getItems(item.urn) }}>
                                             <MoreOutlined />
                                         </Dropdown>
                                     </MemberEditIcon>
