@@ -88,6 +88,14 @@ class UnityCatalogSourceConfig(
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
+    ingest_all_metastores: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Ingest all metastores that match `metastore_id_pattern`, which requires the account admin role. "
+            "By default, only ingests the workspace's currently assigned metastore."
+        ),
+    )
+
     metastore_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for metastore id to filter in ingestion.",
