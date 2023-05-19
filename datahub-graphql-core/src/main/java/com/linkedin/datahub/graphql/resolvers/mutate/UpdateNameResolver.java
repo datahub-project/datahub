@@ -7,8 +7,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.DomainProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -53,6 +56,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           return updateDomainName(targetUrn, input, environment.getContext());
         case Constants.CORP_GROUP_ENTITY_NAME:
           return updateGroupName(targetUrn, input, environment.getContext());
+        case Constants.DATA_PRODUCT_ENTITY_NAME:
+          return updateDataProductName(targetUrn, input, environment.getContext());
         default:
           throw new RuntimeException(
               String.format("Failed to update name. Unsupported resource type %s provided.", targetUrn));
@@ -156,5 +161,44 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       }
     }
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private Boolean updateDataProductName(
+          Urn targetUrn,
+          UpdateNameInput input,
+          QueryContext context
+  ) {
+    try {
+      DataProductProperties dataProductProperties = (DataProductProperties) getAspectFromEntity(
+              targetUrn.toString(), Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, _entityService, null);
+      if (dataProductProperties == null) {
+        throw new IllegalArgumentException("Data Product does not exist");
+      }
+
+      Domains dataProductDomains = (Domains) getAspectFromEntity(
+          targetUrn.toString(), Constants.DOMAINS_ASPECT_NAME, _entityService, null);
+      if (dataProductDomains != null && dataProductDomains.hasDomains() && dataProductDomains.getDomains().size() > 0) {
+        // get first domain since we only allow one domain right now
+        Urn domainUrn = UrnUtils.getUrn(dataProductDomains.getDomains().get(0).toString());
+        // if they can't edit a data product from either the parent domain permission or from permission on the data product itself, throw error
+        if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, domainUrn)
+            && !DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
+          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
+      } else {
+        // should not happen since data products need to have a domain
+        if (!DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
+          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
+      }
+
+      dataProductProperties.setName(input.getName());
+      Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      persistAspect(targetUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties, actor, _entityService);
+
+      return true;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
+    }
   }
 }
