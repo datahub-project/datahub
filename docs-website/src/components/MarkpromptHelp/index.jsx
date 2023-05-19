@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import { usePluginData } from "@docusaurus/useGlobalData";
 import styles from "./markprompthelp.module.scss";
-
 import * as Markprompt from "@markprompt/react";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
@@ -120,19 +120,27 @@ const Caret = () => {
   return <span className={styles.caret} />;
 };
 
-const capitalize = (text) => {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-};
+const getReferenceInfo = (referenceId) => {
+  const contentDocsData = usePluginData("docusaurus-plugin-content-docs");
+  const docs = contentDocsData.versions?.[0]?.docs;
 
-const removeFileExtension = (fileName) => {
-  const lastDotIndex = fileName.lastIndexOf(".");
-  if (lastDotIndex === -1) {
-    return fileName;
+  const lastDotIndex = referenceId.lastIndexOf(".");
+  if (lastDotIndex !== -1) {
+    referenceId = referenceId.substring(0, lastDotIndex);
   }
-  return fileName.substring(0, lastDotIndex);
+  const docItem = docs?.find((doc) => doc.id === referenceId);
+
+  const url = docItem?.path;
+  const title = url?.replace("/docs/generated/", "")?.replace("/docs/", "");
+
+  return { url, title };
 };
 
 const Reference = ({ referenceId, index }) => {
+  const { title, url } = getReferenceInfo(referenceId);
+
+  if (!url) return null;
+
   return (
     <li
       key={referenceId}
@@ -141,7 +149,9 @@ const Reference = ({ referenceId, index }) => {
         animationDelay: `${100 * index}ms`,
       }}
     >
-      <a href={removeFileExtension(referenceId)}>{capitalize(removeFileExtension(referenceId.split("/").slice(-1)[0]))}</a>
+      <a href={url} target="_blank">
+        {title || url}
+      </a>
     </li>
   );
 };
