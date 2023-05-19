@@ -1,14 +1,9 @@
 import { useEffect, useMemo } from 'react';
 import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
-import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME, UnionType } from '../utils/constants';
-import {
-    EntityType,
-    FacetFilterInput,
-    QueryAggregateAcrossEntitiesArgs,
-    AndFilterInput,
-} from '../../../types.generated';
+import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
+import { EntityType, QueryAggregateAcrossEntitiesArgs } from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import { generateOrFilters } from '../utils/generateOrFilters';
+import applyOrFilterOverrides from '../utils/applyOrFilterOverrides';
 
 type Props = {
     entityType: EntityType;
@@ -17,30 +12,18 @@ type Props = {
     skip: boolean;
 };
 
-const applyFilterOverrides = (overrides: Array<FacetFilterInput>, orFilters: Array<AndFilterInput>) => {
-    if (!orFilters.length) return generateOrFilters(UnionType.AND, overrides);
-
-    return orFilters.map((orFilter) =>
-        orFilter.and
-            ? {
-                  and: [...orFilter.and, ...overrides],
-              }
-            : orFilter,
-    );
-};
-
 const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) => {
     const filterOverrides = useMemo(
         () => [...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : [])],
         [environment],
     );
 
-    const excludedFields = useMemo(() => filterOverrides.map((filter) => filter.field), [filterOverrides]);
+    const excludedFilterFields = useMemo(() => filterOverrides.map((filter) => filter.field), [filterOverrides]);
 
-    const { query, orFilters: orFiltersWithoutOverrides, viewUrn } = useGetSearchQueryInputs(excludedFields);
+    const { query, orFilters: orFiltersWithoutOverrides, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
 
-    const orFiltersWithOverrides: ReturnType<typeof generateOrFilters> = useMemo(
-        () => applyFilterOverrides(filterOverrides, orFiltersWithoutOverrides),
+    const orFilters = useMemo(
+        () => applyOrFilterOverrides(orFiltersWithoutOverrides, filterOverrides),
         [filterOverrides, orFiltersWithoutOverrides],
     );
 
@@ -49,12 +32,12 @@ const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) 
             input: {
                 types: [entityType],
                 query,
-                orFilters: orFiltersWithOverrides,
+                orFilters,
                 viewUrn,
                 facets,
             },
         }),
-        [entityType, facets, orFiltersWithOverrides, query, viewUrn],
+        [entityType, facets, orFilters, query, viewUrn],
     );
 
     const [fetchAggregations, { data, loading, error }] = useAggregateAcrossEntitiesLazyQuery({

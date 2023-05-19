@@ -5,7 +5,7 @@ import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata, EntityType } from '../../../types.generated';
+import { AggregationMetadata } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
@@ -51,10 +51,7 @@ type Props = {
     depth: number;
 };
 
-const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation, depth }: Props) => {
-    const entityType = entityAggregation.value as EntityType;
-    const environment = environmentAggregation?.value;
-    const platform = platformAggregation.value;
+const PlatformNode = ({ entityAggregation: _, environmentAggregation: __, platformAggregation, depth }: Props) => {
     const registry = useEntityRegistry();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const onClickHeader = useCallback(() => {
@@ -65,18 +62,13 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
     const loading = false;
     const error = null;
 
-    // just make comiler happy
-    if (0) console.log(entityType, environment, platform);
-
-    const { icon, label } = platformAggregation.entity
-        ? getFilterIconAndLabel(
-              PLATFORM_FILTER_NAME,
-              platformAggregation.value,
-              registry,
-              platformAggregation.entity,
-              16,
-          )
-        : { label: platformAggregation.value, icon: null };
+    const { icon, label } = getFilterIconAndLabel(
+        PLATFORM_FILTER_NAME,
+        platformAggregation.value,
+        registry,
+        platformAggregation.entity ?? null,
+        16,
+    );
 
     return (
         <ExpandableNode
