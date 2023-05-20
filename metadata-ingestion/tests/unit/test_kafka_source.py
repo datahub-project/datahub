@@ -175,7 +175,7 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
         env="PROD",
     )
 
-    # DataPlatform aspect should be present when platform_instance is configured
+    # DataPlatform aspect should not be present when platform_instance is not configured
     data_platform_aspects = [
         asp for asp in proposed_snap.aspects if type(asp) == DataPlatformInstanceClass
     ]
@@ -342,12 +342,26 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                     0
                 ].schema.schema_str
             )
+            # Make sure the schema_type matches for the key schema.
+            assert (
+                schemaMetadataAspect.platformSchema.keySchemaType
+                == topic_subject_schema_map[schemaMetadataAspect.schemaName][
+                    0
+                ].schema.schema_type
+            )
             # Make sure the schema_str matches for the value schema.
             assert (
                 schemaMetadataAspect.platformSchema.documentSchema
                 == topic_subject_schema_map[schemaMetadataAspect.schemaName][
                     1
                 ].schema.schema_str
+            )
+            # Make sure the schema_type matches for the value schema.
+            assert (
+                schemaMetadataAspect.platformSchema.documentSchemaType
+                == topic_subject_schema_map[schemaMetadataAspect.schemaName][
+                    1
+                ].schema.schema_type
             )
             # Make sure we have 2 fields, one from the key schema & one from the value schema.
             assert len(schemaMetadataAspect.fields) == 2

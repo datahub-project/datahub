@@ -7,6 +7,7 @@ from json.decoder import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import requests
+from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
@@ -61,13 +62,13 @@ class DataHubRestEmitter(Closeable):
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
-        server_telemetry_id: Optional[str] = None,
         disable_ssl_verification: bool = False,
     ):
+        if not gms_server:
+            raise ConfigurationError("gms server is required")
         self._gms_server = gms_server
         self._token = token
         self.server_config: Dict[str, Any] = {}
-        self.server_telemetry_id: str = ""
 
         self._session = requests.Session()
 
@@ -143,7 +144,8 @@ class DataHubRestEmitter(Closeable):
         )
 
     def test_connection(self) -> dict:
-        response = self._session.get(f"{self._gms_server}/config")
+        url = f"{self._gms_server}/config"
+        response = self._session.get(url)
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
@@ -158,13 +160,24 @@ class DataHubRestEmitter(Closeable):
                     or config.get("config", {}).get("shouldShowDatasetLineage")
                     is not None
                 ):
-                    message = "You seem to have connected to the frontend instead of the GMS endpoint. The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)"
+                    raise ConfigurationError(
+                        "You seem to have connected to the frontend instead of the GMS endpoint. "
+                        "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)"
+                    )
                 else:
-                    message = "You have either connected to a pre-v0.8.0 DataHub GMS instance, or to a different server altogether! Please check your configuration and make sure you are talking to the DataHub GMS endpoint."
-                raise ConfigurationError(message)
+                    raise ConfigurationError(
+                        "You have either connected to a pre-v0.8.0 DataHub GMS instance, or to a different server altogether! "
+                        "Please check your configuration and make sure you are talking to the DataHub GMS endpoint."
+                    )
         else:
-            auth_message = "Maybe you need to set up authentication? "
-            message = f"Unable to connect to {self._gms_server}/config with status_code: {response.status_code}. {auth_message if response.status_code == 401 else ''}Please check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
+            logger.debug(
+                f"Unable to connect to {url} with status_code: {response.status_code}. Response: {response.text}"
+            )
+            if response.status_code == 401:
+                message = f"Unable to connect to {url} - got an authentication error: {response.text}."
+            else:
+                message = f"Unable to connect to {url} with status_code: {response.status_code}."
+            message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
             raise ConfigurationError(message)
 
     def emit(
@@ -231,17 +244,14 @@ class DataHubRestEmitter(Closeable):
 
         self._emit_generic(url, payload)
 
+    @deprecated
     def emit_usage(self, usageStats: UsageAggregation) -> None:
         url = f"{self._gms_server}/usageStats?action=batchIngest"
 
         raw_usage_obj = usageStats.to_obj()
         usage_obj = pre_json_transform(raw_usage_obj)
 
-        snapshot = {
-            "buckets": [
-                usage_obj,
-            ]
-        }
+        snapshot = {"buckets": [usage_obj]}
         payload = json.dumps(snapshot)
         self._emit_generic(url, payload)
 

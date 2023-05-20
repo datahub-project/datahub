@@ -23,9 +23,10 @@ type Props = {
     hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
+    fontSize?: number;
 };
 
-export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
@@ -86,7 +87,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
                 <Link to={entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}>
-                    <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />
+                    <OwnerContent
+                        name={name}
+                        owner={owner}
+                        hidePopOver={hidePopOver}
+                        pictureLink={pictureLink}
+                        fontSize={fontSize}
+                    />
                 </Link>
             )}
         </OwnerTag>

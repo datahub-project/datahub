@@ -3,7 +3,15 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
-import { Deprecation, Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
+import {
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityType,
+    GlobalTags,
+    Owner,
+    SearchInsight,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -23,6 +31,7 @@ export const Preview = ({
     platformInstanceId,
     owners,
     domain,
+    dataProduct,
     deprecation,
     globalTags,
     snippet,
@@ -38,6 +47,7 @@ export const Preview = ({
     platformInstanceId?: string;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     deprecation?: Deprecation | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
@@ -60,6 +70,7 @@ export const Preview = ({
             owners={owners}
             tags={globalTags || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             snippet={snippet}
             deprecation={deprecation}
             dataTestID="datajob-item-preview"

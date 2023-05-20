@@ -6,7 +6,7 @@ from freezegun import freeze_time
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
-from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
+from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -343,7 +343,7 @@ class FakeSource(Source):
         assert not config_dict
         return cls()
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return self.work_units
 
     def get_report(self) -> SourceReport:
