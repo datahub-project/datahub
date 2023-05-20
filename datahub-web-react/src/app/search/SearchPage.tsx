@@ -10,7 +10,6 @@ import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
 import { UnionType } from './utils/constants';
-import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
 import { generateOrFilters } from './utils/generateOrFilters';
@@ -44,7 +43,6 @@ export const SearchPage = () => {
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     const filters: Array<FacetFilterInput> = useFilters(params);
-    const filtersWithoutEntities: Array<FacetFilterInput> = filters;
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -63,7 +61,7 @@ export const SearchPage = () => {
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [],
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                orFilters: generateOrFilters(unionType, filters),
                 viewUrn,
             },
         },
@@ -86,7 +84,7 @@ export const SearchPage = () => {
                 types: [],
                 query,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                orFilters: generateOrFilters(unionType, filters),
                 scrollId: null,
             },
         },
@@ -161,7 +159,7 @@ export const SearchPage = () => {
             <SearchResults
                 unionType={unionType}
                 entityFilters={[]}
-                filtersWithoutEntities={filtersWithoutEntities}
+                filters={filters}
                 downloadSearchResults={downloadSearchResults}
                 page={page}
                 query={query}
