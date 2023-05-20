@@ -3,8 +3,7 @@ import pytest
 from time import sleep
 from datahub.cli.cli_utils import guess_entity_type, post_entity, get_aspects_for_entity
 from datahub.cli.ingest_cli import get_session_and_host, rollback
-from tests.utils import ingest_file_via_rest
-from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
+from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 ingested_dataset_run_id = ""
 ingested_editable_run_id = ""
@@ -74,7 +73,7 @@ def test_rollback_editable():
     session.post(rollback_url, data=json.dumps({"runId": ingested_dataset_run_id, "dryRun": False, "hardDelete": False}))
 
     # Allow async MCP processor to handle ingestions & rollbacks
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # EditableDatasetProperties should still be part of the entity that was soft deleted.
     assert "editableDatasetProperties" in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)

@@ -2,12 +2,12 @@ import os
 import pytest
 import requests
 from time import sleep
-from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
 
 from tests.utils import (
     get_frontend_url,
     wait_for_healthcheck_util,
     get_admin_credentials,
+    wait_for_writes_to_sync,
 )
 
 
@@ -77,7 +77,7 @@ def custom_user_setup():
     assert sign_up_response
     assert "error" not in sign_up_response
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # signUp will override the session cookie to the new user to be signed up.
     admin_session.cookies.clear()
@@ -97,7 +97,7 @@ def custom_user_setup():
     assert res_data["data"]
     assert res_data["data"]["removeUser"] == True
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Make user created user is not there.
     res_data = listUsers(admin_session)
@@ -126,7 +126,7 @@ def access_token_setup():
         revokeAccessToken(admin_session, metadata["id"])
 
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -152,7 +152,7 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     )
     admin_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Using a super account, list the previously created token.
     res_data = listAccessTokens(admin_session)
@@ -176,7 +176,7 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -209,7 +209,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     )
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Using a super account, list the previously created tokens.
     res_data = listAccessTokens(admin_session)
@@ -233,7 +233,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -259,7 +259,7 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     )
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # User should be able to list his own token
     res_data = listAccessTokens(
@@ -286,7 +286,7 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Using a normal account, check that all its tokens where removed.
     res_data = listAccessTokens(
@@ -326,7 +326,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     )
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Admin should be able to list other tokens
     user_session.cookies.clear()
@@ -357,7 +357,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
     # Sleep for eventual consistency
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     # Using a normal account, check that all its tokens where removed.
     user_session.cookies.clear()

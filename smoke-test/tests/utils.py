@@ -169,14 +169,7 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
         d = json.load(f)
         Parallel(n_jobs=10)(delayed(delete)(entry) for entry in d)
 
-    # Deletes require 60 seconds when run between tests operating on common data, otherwise standard sync wait
-    if shared_data:
-        wait_for_writes_to_sync()
-#        sleep(60)
-    else:
-        wait_for_writes_to_sync()
-#        sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-
+    wait_for_writes_to_sync()
 
 # Fixed now value
 NOW: datetime = datetime.now()
