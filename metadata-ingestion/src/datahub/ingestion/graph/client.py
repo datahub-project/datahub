@@ -15,6 +15,7 @@ from typing_extensions import Literal
 
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -60,6 +61,10 @@ class DatahubClientConfig(ConfigModel):
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
     disable_ssl_verification: bool = False
+
+    _max_threads_moved_to_sink = pydantic_removed_field(
+        "max_threads", print_warning=False
+    )
 
 
 # Alias for backwards compatibility.
