@@ -1444,9 +1444,8 @@ class SnowflakeV2Source(
         )
         with PerfTimer() as timer:
             cur = self.get_connection().cursor()
-            NUM_SAMPLED_ROWS = 1000
             # Execute a statement that will generate a result set.
-            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({self.config.classification.sample_size} rows);'
 
             cur.execute(sql)
             # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
