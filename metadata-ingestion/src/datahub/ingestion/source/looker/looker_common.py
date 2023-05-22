@@ -675,7 +675,8 @@ class LookerExplore:
                             )
 
             view_project_map: Dict[str, str] = create_view_project_map(view_fields)
-            logger.debug(f"views and their projects: {view_project_map}")
+            if view_project_map:
+                logger.debug(f"views and their projects: {view_project_map}")
 
             return cls(
                 name=explore_name,
