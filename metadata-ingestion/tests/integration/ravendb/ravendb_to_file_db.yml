@@ -1,0 +1,18 @@
+run_id: ravendb-test
+
+source:
+  type: ravendb
+  config:
+    connect_uri: http://ravendb:8080
+    collection_pattern:
+      allow: 
+        - ".*"
+      deny: 
+        - "@.*"
+      ignoreCase: True
+    schema_sampling_size: 200
+
+sink:
+  type: file
+  config:
+    filename: "./ravendb_mces.json"
