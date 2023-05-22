@@ -888,6 +888,14 @@ query getEntityMentionNode($urn: String!) {
     }
 }
 
+query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
+    aggregateAcrossEntities(input: $input) {
+        facets {
+            ...facetFields
+        }
+    }
+}
+
 query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
     listDataProductAssets(urn: $urn, input: $input) {
         ...searchResults
