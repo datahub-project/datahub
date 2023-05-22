@@ -60,9 +60,6 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                         "client_id": "foo",
                         "client_secret": "bar",
                         "extract_usage_history": False,
-                        "view_project_map": {
-                            "underlying_view": "looker-hub",
-                        },
                     },
                 },
                 "sink": {
@@ -76,6 +73,74 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
         pipeline.run()
         pipeline.raise_from_status()
         mce_out_file = "golden_test_ingest.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
+
+
+def setup_mock_external_project_view_explore(mocked_client):
+    mock_model = mock.MagicMock(project_name="lkml_samples")
+    mocked_client.lookml_model.return_value = mock_model
+    mocked_client.lookml_model_explore.return_value = LookmlModelExplore(
+        id="1",
+        name="my_explore_name",
+        label="My Explore View",
+        description="lorem ipsum",
+        view_name="faa_flights",
+        project_name="looker_hub",
+        fields=LookmlModelExploreFieldset(
+            dimensions=[
+                LookmlModelExploreField(
+                    name="dim1",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
+                    view="faa_flights",
+                    source_file="imported_projects/datahub-demo/views/datahub-demo/datasets/faa_flights.view.lkml",
+                )
+            ]
+        ),
+        source_file="test_source_file.lkml",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_external_project_view_explore(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/looker_mces.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+        mce_out_file = "golden_test_external_project_view_mces.json"
 
         mce_helpers.check_golden_file(
             pytestconfig,

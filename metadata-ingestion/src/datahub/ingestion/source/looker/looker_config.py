@@ -186,11 +186,6 @@ class LookerDashboardSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
-    view_project_map: Dict[str, str] = Field(
-        {},
-        description="A map of view-name to looker project. If your project is using view in explore and that view is "
-        "included from project dependency then add view-name as key and project-name as value",
-    )
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(

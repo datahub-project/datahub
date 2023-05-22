@@ -10,7 +10,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api40.models import User, WriteQuery
+from looker_sdk.sdk.api40.models import LookmlModelExploreField, User, WriteQuery
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
@@ -24,6 +24,7 @@ from datahub.ingestion.source.looker.looker_config import (
     LookerDashboardSourceConfig,
     NamingPatternMapping,
 )
+from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
@@ -138,8 +139,19 @@ class ViewField:
     type: str
     description: str
     field_type: ViewFieldType
+    project_name: Optional[str] = None
+    view_name: Optional[str] = None
     is_primary_key: bool = False
     upstream_fields: List[str] = dataclasses_field(default_factory=list)
+
+
+def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
+    view_project_map: Dict[str, str] = {}
+    for view_field in view_fields:
+        if view_field.view_name is not None and view_field.project_name is not None:
+            view_project_map[view_field.view_name] = view_field.project_name
+
+    return view_project_map
 
 
 class LookerUtil:
@@ -217,6 +229,37 @@ class LookerUtil:
             field.count(".") == 1
         ), f"Error: A field must be prefixed by a view name, field is: {field}"
         return field.split(".")[0]
+
+    @staticmethod
+    def extract_view_name_from_lookml_model_explore_field(
+        field: LookmlModelExploreField,
+    ) -> Optional[str]:
+        """
+        View name is either present in original_view or view property
+        """
+        if field.original_view is not None:
+            return field.original_view
+
+        return field.view
+
+    @staticmethod
+    def extract_project_name_from_source_file(
+        source_file: Optional[str],
+    ) -> Optional[str]:
+        """
+        source_file is a key inside explore.fields. This key point to relative path of included views.
+        if view is included from another project then source_file is starts with "imported_projects".
+        Example: imported_projects/datahub-demo/views/datahub-demo/datasets/faa_flights.view.lkml
+        """
+        if source_file is None:
+            return None
+
+        if source_file.startswith(IMPORTED_PROJECTS):
+            tokens: List[str] = source_file.split("/")
+            if len(tokens) >= 2:
+                return tokens[1]  # second index is project-name
+
+        return None
 
     @staticmethod
     def _get_field_type(
@@ -590,6 +633,12 @@ class LookerExplore:
                                     field_type=ViewFieldType.DIMENSION_GROUP
                                     if dim_field.dimension_group is not None
                                     else ViewFieldType.DIMENSION,
+                                    project_name=LookerUtil.extract_project_name_from_source_file(
+                                        dim_field.source_file
+                                    ),
+                                    view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
+                                        dim_field
+                                    ),
                                     is_primary_key=dim_field.primary_key
                                     if dim_field.primary_key
                                     else False,
@@ -612,12 +661,21 @@ class LookerExplore:
                                     if measure_field.type is not None
                                     else "",
                                     field_type=ViewFieldType.MEASURE,
+                                    project_name=LookerUtil.extract_project_name_from_source_file(
+                                        measure_field.source_file
+                                    ),
+                                    view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
+                                        dim_field
+                                    ),
                                     is_primary_key=measure_field.primary_key
                                     if measure_field.primary_key
                                     else False,
                                     upstream_fields=[measure_field.name],
                                 )
                             )
+
+            view_project_map: Dict[str, str] = create_view_project_map(view_fields)
+            logger.debug(f"views and their projects: {view_project_map}")
 
             return cls(
                 name=explore_name,
@@ -629,8 +687,8 @@ class LookerExplore:
                 upstream_views=list(
                     ProjectInclude(
                         project=_BASE_PROJECT_NAME
-                        if view_name not in source_config.view_project_map
-                        else source_config.view_project_map[view_name],
+                        if view_name not in view_project_map
+                        else view_project_map[view_name],
                         include=view_name,
                     )
                     for view_name in views
