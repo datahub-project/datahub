@@ -1422,6 +1422,11 @@ public class EntityService {
       aspectsToGet.add(BROWSE_PATHS);
     }
 
+    boolean shouldCheckBrowsePathV2 = isAspectMissing(entityType, BROWSE_PATHS_V2_ASPECT_NAME, includedAspects);
+    if (shouldCheckBrowsePathV2) {
+      aspectsToGet.add(BROWSE_PATHS_V2_ASPECT_NAME);
+    }
+
     boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
     if (shouldCheckDataPlatform) {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
@@ -1443,6 +1448,15 @@ public class EntityService {
       try {
         BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
         aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
+      } catch (URISyntaxException e) {
+        log.error("Failed to parse urn: {}", urn);
+      }
+    }
+
+    if (shouldCheckBrowsePathV2 && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null) {
+      try {
+        BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn);
+        aspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
       }
