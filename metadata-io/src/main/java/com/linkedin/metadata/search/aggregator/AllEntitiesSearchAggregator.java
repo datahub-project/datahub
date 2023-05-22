@@ -67,7 +67,7 @@ public class AllEntitiesSearchAggregator {
   @Nonnull
   @WithSpan
   public SearchResult search(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     // 1. Get entities to query for (Do not query entities without a single document)
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
@@ -91,7 +91,7 @@ public class AllEntitiesSearchAggregator {
     // 2. Get search results for each entity
     Map<String, SearchResult> searchResults =
         getSearchResultsForEachEntity(nonEmptyEntities, input, postFilters, sortCriterion, queryFrom, querySize,
-            searchFlags);
+            searchFlags, facets);
 
     if (searchResults.isEmpty()) {
       return getEmptySearchResult(from, size);
@@ -126,10 +126,12 @@ public class AllEntitiesSearchAggregator {
     Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations);
 
     // Finally, Add a custom Entity aggregation (appears as the first filter) -- this should never be truncated
-    finalAggregations.put("entity", new AggregationMetadata().setName("entity")
-        .setDisplayName("Type")
-        .setAggregations(new LongMap(numResultsPerEntity))
-        .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
+    if (facets == null || facets.contains("entity")) {
+      finalAggregations.put("entity", new AggregationMetadata().setName("entity")
+          .setDisplayName("Type")
+          .setAggregations(new LongMap(numResultsPerEntity))
+          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
+    }
 
     // 4. Rank results across entities
     List<SearchEntity> rankedResult = _searchRanker.rank(matchedResults);
@@ -155,12 +157,12 @@ public class AllEntitiesSearchAggregator {
   @WithSpan
   private Map<String, SearchResult> getSearchResultsForEachEntity(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int queryFrom, int querySize,
-      @Nullable SearchFlags searchFlags) {
+      @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     Map<String, SearchResult> searchResults;
     // Query the entity search service for all entities asynchronously
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
-          _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags)))
+          _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags, facets)))
           .stream()
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }

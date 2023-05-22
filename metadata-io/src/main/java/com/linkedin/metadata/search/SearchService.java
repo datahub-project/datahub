@@ -57,7 +57,7 @@ public class SearchService {
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
     SearchResult result =
-        _cachingEntitySearchService.search(entityName, input, postFilters, sortCriterion, from, size, searchFlags);
+        _cachingEntitySearchService.search(entityName, input, postFilters, sortCriterion, from, size, searchFlags, null);
 
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
@@ -65,6 +65,13 @@ public class SearchService {
       log.error("Failed to rank: {}, exception - {}", result, e.toString());
       throw new RuntimeException("Failed to rank " + result.toString());
     }
+  }
+
+  @Nonnull
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size,
+      @Nullable SearchFlags searchFlags) {
+    return searchAcrossEntities(entities, input, postFilters, sortCriterion, from, size, searchFlags, null);
   }
 
   /**
@@ -78,16 +85,17 @@ public class SearchService {
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param searchFlags optional set of flags to control search behavior
+   * @param facets list of facets we want aggregations for
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size,
-      @Nullable SearchFlags searchFlags) {
+      @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    return _cachingAllEntitiesSearchAggregator.getSearchResults(entities, input, postFilters, sortCriterion, from, size, searchFlags);
+    return _cachingAllEntitiesSearchAggregator.getSearchResults(entities, input, postFilters, sortCriterion, from, size, searchFlags, facets);
   }
 
   /**

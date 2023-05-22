@@ -2,8 +2,8 @@ from typing import List, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_status_aspect, auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.utilities.source_helpers import auto_status_aspect, auto_workunit
 
 _base_metadata: List[
     Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]

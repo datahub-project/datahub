@@ -22,6 +22,7 @@ AND
 timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
+AND protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
@@ -31,16 +32,23 @@ AND
                 OR
                 "google.cloud.bigquery.v2.JobService.InsertJob"
             )
-        AND
-        protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
+        AND protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-        AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
+        AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
+        AND
+        (
+            (
+                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+                AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
+            )
+            OR
+            (
+                protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable:*
+            )
+        )
     )
     OR
-    (
-        protoPayload.metadata.tableDataRead:*
-    )
+    protoPayload.metadata.tableDataRead.reason = "JOB"
 )
 """.strip(
         "\t \n"
