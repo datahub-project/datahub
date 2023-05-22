@@ -35,7 +35,8 @@ def gen_schema_key(
         schema=schema,
         platform=platform,
         instance=platform_instance,
-        backcompat_instance_for_guid=env,
+        env=env,
+        backcompat_env_as_instance=True,
     )
 
 
@@ -46,7 +47,8 @@ def gen_database_key(
         database=database,
         platform=platform,
         instance=platform_instance,
-        backcompat_instance_for_guid=env,
+        env=env,
+        backcompat_env_as_instance=True,
     )
 
 

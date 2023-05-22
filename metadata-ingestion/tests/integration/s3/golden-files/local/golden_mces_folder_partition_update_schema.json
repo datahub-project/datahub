@@ -576,7 +576,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests"
             },
             "name": "tests"
@@ -643,7 +643,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests/integration"
             },
             "name": "integration"
@@ -725,7 +725,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests/integration/s3"
             },
             "name": "s3"
@@ -807,7 +807,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data"
             },
             "name": "test_data"
@@ -889,7 +889,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system"
             },
             "name": "local_system"
@@ -971,7 +971,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a"
             },
             "name": "folder_a"
@@ -1053,7 +1053,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa"
             },
             "name": "folder_aa"
@@ -1135,7 +1135,7 @@
         "json": {
             "customProperties": {
                 "platform": "file",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa"
             },
             "name": "folder_aaa"

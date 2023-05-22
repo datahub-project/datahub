@@ -878,7 +878,8 @@ class GlueSource(StatefulIngestionSourceBase):
             database=database,
             platform=self.platform,
             instance=self.source_config.platform_instance,
-            backcompat_instance_for_guid=self.source_config.env,
+            env=self.source_config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_database_containers(
