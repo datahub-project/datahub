@@ -109,7 +109,7 @@ google-cloud-audit-log==0.2.5
 google-cloud-bigquery==3.9.0
 google-cloud-bigquery-storage==2.19.1
 google-cloud-core==2.3.2
-google-cloud-datacatalog-lineage==0.2.0
+google-cloud-datacatalog-lineage==0.2.2
 google-cloud-logging==3.5.0
 google-crc32c==1.5.0
 google-resumable-media==2.4.1
