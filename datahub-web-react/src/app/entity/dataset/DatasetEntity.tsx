@@ -18,7 +18,6 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
@@ -29,6 +28,8 @@ import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStats
 import { DatasetSearchSnippet } from './DatasetSearchSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -210,8 +211,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarDomainSection,
                 },
                 {
-                    component: SidebarRecommendationsSection,
+                    component: DataProductSection,
                 },
+                // TODO: Add back once entity-level recommendations are complete.
+                // {
+                //    component: SidebarRecommendationsSection,
+                // },
             ]}
         />
     );
@@ -232,6 +237,7 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     renderPreview = (_: PreviewType, data: Dataset) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -248,6 +254,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 externalUrl={data.properties?.externalUrl}
             />
@@ -276,6 +283,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
@@ -331,6 +339,7 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
 

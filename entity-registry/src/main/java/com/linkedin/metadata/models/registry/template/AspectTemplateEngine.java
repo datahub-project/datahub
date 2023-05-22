@@ -27,7 +27,10 @@ public class AspectTemplateEngine {
       GLOBAL_TAGS_ASPECT_NAME,
       GLOSSARY_TERMS_ASPECT_NAME,
       OWNERSHIP_ASPECT_NAME,
-      UPSTREAM_LINEAGE_ASPECT_NAME).collect(Collectors.toSet());
+      UPSTREAM_LINEAGE_ASPECT_NAME,
+      DATA_FLOW_INFO_ASPECT_NAME,
+      DATA_JOB_INFO_ASPECT_NAME,
+      DATA_PRODUCT_PROPERTIES_ASPECT_NAME).collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
 

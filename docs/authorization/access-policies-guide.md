@@ -108,11 +108,12 @@ In the second step, we can simply select the Privileges that this Platform Polic
 | Manage Glossaries                   | Allow the actor to create, edit, move, and delete Glossary Terms and Term Groups                                               |
 | Create Tags                         | Allow the actor to create new Tags                                                                                             |
 | Manage Tags                         | Allow the actor to create and remove any Tags                                                                                  |
+| Manage Public Views                 | Allow the actor to create, edit, and remove any public (shared) Views.                                                         |
 | Restore Indices API[^1]             | Allow the actor to restore indices for a set of entities via API                                                               |
 | Enable/Disable Writeability API[^1] | Allow the actor to enable or disable GMS writeability for use in data migrations                                               |
 | Apply Retention API[^1]             | Allow the actor to apply aspect retention via API                                                                              |
 
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+[^1]: Only active if REST_API_AUTHORIZATION_ENABLED environment flag is enabled
 
 #### Step 3: Choose Policy Actors
 

@@ -1,12 +1,23 @@
 import logging
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, List, cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.powerbi.config import (
+    Constant,
+    PowerBiDashboardSourceConfig,
+    SupportedDataPlatform,
+)
+from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Page,
+    Report,
+    Workspace,
+)
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -30,13 +41,19 @@ def mock_msal_cca(*args, **kwargs):
 
 def scan_init_response(request, context):
     # Request mock is passing POST input in the form of workspaces=<workspace_id>
-    workspace_id = request.text.split("=")[1]
+    # If we scan 2 or more, it get messy like this. 'workspaces=64ED5CAD-7C10-4684-8180-826122881108&workspaces=64ED5CAD-7C22-4684-8180-826122881108'
+    workspace_id_list = request.text.replace("&", "").split("workspaces=")
+
+    workspace_id = "||".join(workspace_id_list[1:])
 
     w_id_vs_response: Dict[str, Any] = {
         "64ED5CAD-7C10-4684-8180-826122881108": {
             "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
         },
         "64ED5CAD-7C22-4684-8180-826122881108": {
+            "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
+        },
+        "64ED5CAD-7C10-4684-8180-826122881108||64ED5CAD-7C22-4684-8180-826122881108": {
             "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
         },
     }
@@ -332,6 +349,19 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                         ],
                                     },
                                     {
+                                        "name": "big-query-with-parameter",
+                                        "source": [
+                                            {
+                                                "expression": 'let\n Source = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\nuniversal_Schema = #"gcp-project"{[Name="universal",Kind="Schema"]}[Data],\nD_WH_DATE_Table = universal_Schema{[Name="D_WH_DATE",Kind="Table"]}[Data],\n#"Filtered Rows" = Table.SelectRows(D_WH_DATE_Table, each [D_DATE] > #datetime(2019, 9, 10, 0, 0, 0)),\n#"Filtered Rows1" = Table.SelectRows(#"Filtered Rows", each DateTime.IsInPreviousNHours([D_DATE], 87600))\n in \n#"Filtered Rows1"',
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+                                    {
                                         "name": "snowflake native-query-with-join",
                                         "source": [
                                             {
@@ -516,6 +546,26 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 ]
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/parameters": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "name": "Parameter - Source",
+                        "type": "Text",
+                        "isRequired": True,
+                        "currentValue": "my-test-project",
+                    },
+                    {
+                        "name": "My bq project",
+                        "type": "Text",
+                        "isRequired": True,
+                        "currentValue": "gcp_billing",
+                    },
+                ]
+            },
+        },
     }
 
     api_vs_response.update(override_data)
@@ -591,10 +641,53 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_platform_instance_ingest(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_path: str = f"{tmp_path}/powerbi_platform_instance_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "platform_instance": "aws-ap-south-1",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_platform_instance_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_ingest_urn_lower_case(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -636,7 +729,6 @@ def test_powerbi_ingest_urn_lower_case(
 def test_override_ownership(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -677,7 +769,6 @@ def test_override_ownership(
 def test_scan_all_workspaces(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -945,3 +1036,356 @@ def test_workspace_container(
         output_path=tmp_path / "powerbi_container_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
+
+
+def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
+    source_config: PowerBiDashboardSourceConfig = cast(
+        PowerBiDashboardSource, pipeline.source
+    ).source_config
+
+    assert source_config.dataset_type_mapping is not None
+
+    # Generate default dataset_type_mapping and compare it with source_config.dataset_type_mapping
+    default_dataset_type_mapping: dict = {}
+    for item in SupportedDataPlatform:
+        default_dataset_type_mapping[
+            item.value.powerbi_data_platform_name
+        ] = item.value.datahub_data_platform_name
+
+    assert default_dataset_type_mapping == source_config.dataset_type_mapping
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_dataset_type_mapping_should_set_to_all(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Here we don't need to run the pipeline. We need to verify dataset_type_mapping is set to default dataplatform
+    """
+    register_mock_api(request_mock=requests_mock)
+
+    new_config: dict = {**default_source_config()}
+
+    del new_config["dataset_type_mapping"]
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **new_config,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
+                },
+            },
+        }
+    )
+
+    dataset_type_mapping_set_to_all_platform(pipeline)
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_dataset_type_mapping_error(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Here we don't need to run the pipeline. We need to verify if both dataset_type_mapping and server_to_platform_instance
+    are set then value error should get raised
+    """
+    register_mock_api(request_mock=requests_mock)
+
+    try:
+        Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_source_config(),
+                        "server_to_platform_instance": {
+                            "localhost": {
+                                "platform_instance": "test",
+                            }
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
+                    },
+                },
+            }
+        )
+    except Exception as e:
+        assert (
+            "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
+            in str(e)
+        )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_server_to_platform_map(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+    new_config: dict = {
+        **default_source_config(),
+        "extract_lineage": True,
+        "convert_lineage_urns_to_lowercase": True,
+    }
+
+    del new_config["dataset_type_mapping"]
+
+    new_config["server_to_platform_instance"] = {
+        "hp123rt5.ap-southeast-2.fakecomputing.com": {
+            "platform_instance": "snowflake_production_instance",
+            "env": "PROD",
+        },
+        "my-test-project": {
+            "platform_instance": "bigquery-computing-dev-account",
+            "env": "QA",
+        },
+        "localhost:1521": {"platform_instance": "oracle-sales-instance", "env": "PROD"},
+    }
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_path: str = f"{tmp_path}/powerbi_server_to_platform_instance_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": new_config,
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file_path: str = (
+        f"{test_resources_dir}/golden_test_server_to_platform_instance.json"
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=golden_file_path,
+    )
+    # As server_to_platform_instance map is provided, the old dataset_type_mapping
+    # should be set to all supported platform
+    # to process all available upstream lineage even if mapping for platform instance is
+    # not provided in server_to_platform_instance map
+    dataset_type_mapping_set_to_all_platform(pipeline)
+
+
+def validate_pipeline(pipeline: Pipeline) -> None:
+    mock_workspace: Workspace = Workspace(
+        id="64ED5CAD-7C10-4684-8180-826122881108",
+        name="demo-workspace",
+        datasets={},
+        dashboards=[],
+        reports=[],
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+    )
+    # Fetch actual reports
+    reports: List[Report] = cast(
+        PowerBiDashboardSource, pipeline.source
+    ).powerbi_client.get_reports(workspace=mock_workspace)
+
+    assert len(reports) == 2
+    # Generate expected reports using mock reports
+    mock_reports: List[Dict] = [
+        {
+            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+            "id": "5b218778-e7a5-4d73-8187-f10824047715",
+            "name": "SalesMarketing",
+            "description": "Acryl sales marketing report",
+            "pages": [
+                {
+                    "name": "ReportSection",
+                    "displayName": "Regional Sales Analysis",
+                    "order": "0",
+                },
+                {
+                    "name": "ReportSection1",
+                    "displayName": "Geographic Analysis",
+                    "order": "1",
+                },
+            ],
+        },
+        {
+            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+            "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+            "name": "Product",
+            "description": "Acryl product report",
+            "pages": [],
+        },
+    ]
+    expected_reports: List[Report] = [
+        Report(
+            id=report[Constant.ID],
+            name=report[Constant.NAME],
+            webUrl="",
+            embedUrl="",
+            description=report[Constant.DESCRIPTION],
+            pages=[
+                Page(
+                    id="{}.{}".format(
+                        report[Constant.ID], page[Constant.NAME].replace(" ", "_")
+                    ),
+                    name=page[Constant.NAME],
+                    displayName=page[Constant.DISPLAY_NAME],
+                    order=page[Constant.ORDER],
+                )
+                for page in report["pages"]
+            ],
+            users=[],
+            tags=[],
+            dataset=mock_workspace.datasets.get(report[Constant.DATASET_ID]),
+        )
+        for report in mock_reports
+    ]
+    # Compare actual and expected reports
+    for i in range(2):
+        assert reports[i].id == expected_reports[i].id
+        assert reports[i].name == expected_reports[i].name
+        assert reports[i].description == expected_reports[i].description
+        assert reports[i].dataset == expected_reports[i].dataset
+        assert reports[i].pages == expected_reports[i].pages
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_reports_with_failed_page_request(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """
+    Test that all reports are fetched even if a single page request fails
+    """
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [
+                        {
+                            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                            "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                            "name": "SalesMarketing",
+                            "description": "Acryl sales marketing report",
+                            "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                            "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                        },
+                        {
+                            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                            "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                            "name": "Product",
+                            "description": "Acryl product report",
+                            "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                            "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=e9fd6b0b-d8c8-4265-8c44-67e183aebf97&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                        },
+                    ]
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                    "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                    "name": "SalesMarketing",
+                    "description": "Acryl sales marketing report",
+                    "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                    "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                    "name": "Product",
+                    "description": "Acryl product report",
+                    "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=e9fd6b0b-d8c8-4265-8c44-67e183aebf97&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "value": [
+                        {
+                            "displayName": "Regional Sales Analysis",
+                            "name": "ReportSection",
+                            "order": "0",
+                        },
+                        {
+                            "displayName": "Geographic Analysis",
+                            "name": "ReportSection1",
+                            "order": "1",
+                        },
+                    ]
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97/pages": {
+                "method": "GET",
+                "status_code": 400,
+                "json": {
+                    "error": {
+                        "code": "InvalidRequest",
+                        "message": "Request is currently not supported for RDL reports",
+                    }
+                },
+            },
+        },
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "platform_instance": "aws-ap-south-1",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}powerbi_reports_with_failed_page_request_mces.json",
+                },
+            },
+        }
+    )
+
+    validate_pipeline(pipeline)

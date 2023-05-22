@@ -21,7 +21,7 @@ import yaml
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -48,7 +48,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
@@ -58,7 +61,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -102,10 +104,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +132,7 @@ class GlueSourceConfig(
         description="Whether to ignore unsupported connectors. If disabled, an error will be raised.",
     )
     emit_s3_lineage: bool = Field(
-        default=False, description=" Whether to emit S3-to-Glue lineage."
+        default=False, description="Whether to emit S3-to-Glue lineage."
     )
     glue_s3_lineage_direction: str = Field(
         default="upstream",
@@ -147,6 +145,10 @@ class GlueSourceConfig(
     catalog_id: Optional[str] = Field(
         default=None,
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
+    )
+    ignore_resource_links: Optional[bool] = Field(
+        default=False,
+        description="If set to True, ignore database resource links.",
     )
     use_s3_bucket_tags: Optional[bool] = Field(
         default=False,
@@ -634,62 +636,59 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
-    def get_all_tables_and_databases(
+    def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
+        paginator = self.glue_client.get_paginator("get_databases")
+
+        if self.source_config.catalog_id:
+            paginator_response = paginator.paginate(
+                CatalogId=self.source_config.catalog_id
+            )
+        else:
+            paginator_response = paginator.paginate()
+
+        for page in paginator_response:
+            yield from page["DatabaseList"]
+
+    def get_tables_from_database(self, database_name: str) -> Iterable[Dict]:
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetTables.html
+        paginator = self.glue_client.get_paginator("get_tables")
+
+        if self.source_config.catalog_id:
+            paginator_response = paginator.paginate(
+                DatabaseName=database_name, CatalogId=self.source_config.catalog_id
+            )
+        else:
+            paginator_response = paginator.paginate(DatabaseName=database_name)
+
+        for page in paginator_response:
+            yield from page["TableList"]
+
+    def get_all_databases_and_tables(
         self,
     ) -> Tuple[Dict, List[Dict]]:
-        def get_tables_from_database(database_name: str) -> List[dict]:
-            new_tables = []
+        all_databases = self.get_all_databases()
 
-            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_tables
-            paginator = self.glue_client.get_paginator("get_tables")
+        if self.source_config.ignore_resource_links:
+            all_databases = [
+                database
+                for database in all_databases
+                if "TargetDatabase" not in database
+            ]
 
-            if self.source_config.catalog_id:
-                paginator_response = paginator.paginate(
-                    DatabaseName=database_name, CatalogId=self.source_config.catalog_id
-                )
-            else:
-                paginator_response = paginator.paginate(DatabaseName=database_name)
-
-            for page in paginator_response:
-                new_tables += page["TableList"]
-
-            return new_tables
-
-        def get_databases() -> List[Mapping[str, Any]]:
-            databases = []
-
-            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_databases
-            paginator = self.glue_client.get_paginator("get_databases")
-
-            if self.source_config.catalog_id:
-                paginator_response = paginator.paginate(
-                    CatalogId=self.source_config.catalog_id
-                )
-            else:
-                paginator_response = paginator.paginate()
-
-            for page in paginator_response:
-                for db in page["DatabaseList"]:
-                    if self.source_config.database_pattern.allowed(db["Name"]):
-                        databases.append(db)
-
-            return databases
-
-        all_databases = get_databases()
-
-        databases = {
+        allowed_databases = {
             database["Name"]: database
             for database in all_databases
             if self.source_config.database_pattern.allowed(database["Name"])
         }
 
-        all_tables: List[dict] = [
+        all_tables = [
             table
-            for databaseName in databases.keys()
-            for table in get_tables_from_database(databaseName)
+            for database_name in allowed_databases
+            for table in self.get_tables_from_database(database_name)
         ]
 
-        return databases, all_tables
+        return allowed_databases, all_tables
 
     def get_lineage_if_enabled(
         self, mce: MetadataChangeEventClass
@@ -879,7 +878,8 @@ class GlueSource(StatefulIngestionSourceBase):
             database=database,
             platform=self.platform,
             instance=self.source_config.platform_instance,
-            backcompat_instance_for_guid=self.source_config.env,
+            env=self.source_config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_database_containers(
@@ -942,7 +942,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()
-        databases, tables = self.get_all_tables_and_databases()
+        databases, tables = self.get_all_databases_and_tables()
 
         for table in tables:
             database_name = table["DatabaseName"]
@@ -1240,6 +1240,3 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.source_config.platform_instance or self.platform

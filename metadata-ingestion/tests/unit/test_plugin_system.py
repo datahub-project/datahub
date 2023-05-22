@@ -25,7 +25,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
     "registry,expected",
     [
         (source_registry, ["file"]),
-        (sink_registry, ["console", "file"]),
+        (sink_registry, ["console", "file", "blackhole"]),
         (extractor_registry, ["generic"]),
         (
             transform_registry,
@@ -134,7 +134,8 @@ def test_registry():
         "console-alias",
         "console",
         lambda: warnings.warn(
-            ConfigurationWarning("console-alias is deprecated, use console instead")
+            ConfigurationWarning("console-alias is deprecated, use console instead"),
+            stacklevel=2,
         ),
     )
     with pytest.warns(ConfigurationWarning):

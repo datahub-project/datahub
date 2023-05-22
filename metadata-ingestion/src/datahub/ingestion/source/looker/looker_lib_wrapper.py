@@ -14,6 +14,7 @@ from looker_sdk.sdk.api40.models import (
     DBConnection,
     Folder,
     LookmlModel,
+    LookmlModelExplore,
     User,
     WriteQuery,
 )
@@ -145,7 +146,7 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def lookml_model_explore(self, model, explore_name):
+    def lookml_model_explore(self, model: str, explore_name: str) -> LookmlModelExplore:
         self.client_stats.explore_calls += 1
         return self.client.lookml_model_explore(
             model, explore_name, transport_options=self.transport_options

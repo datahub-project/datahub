@@ -81,7 +81,7 @@ public interface EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nullable String field,
+      @Nullable Filter requestFilters, @Nonnull int limit, @Nullable String field,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   /**
@@ -94,7 +94,7 @@ public interface EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nonnull Authentication authentication)
+      @Nullable Filter requestFilters, @Nonnull int limit, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -189,6 +189,25 @@ public interface EntityClient {
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
       @Nonnull Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
+   * Searches for entities matching to a given query and filters across multiple entity types
+   *
+   * @param entities entity types to search (if empty, searches all entities)
+   * @param input search query
+   * @param filter search filters
+   * @param start start offset for search results
+   * @param count max number of search results requested
+   * @param searchFlags configuration flags for the search request
+   * @param facets list of facets we want aggregations for
+   * @return Snapshot key
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
+      @Nonnull Authentication authentication, List<String> facets)
       throws RemoteInvocationException;
 
   /**
@@ -357,9 +376,25 @@ public interface EntityClient {
   public VersionedAspect getAspectOrNull(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
+  default List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
+      @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
+      @Nullable Filter filter, @Nonnull Authentication authentication)
+      throws RemoteInvocationException {
+    return getTimeseriesAspectValues(
+        urn,
+        entity,
+        aspect,
+        startTimeMillis,
+        endTimeMillis,
+        limit,
+        filter,
+        null,
+        authentication);
+  }
+
   public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
       @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull Authentication authentication)
+      @Nullable Filter filter, @Nullable SortCriterion sort, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   @Deprecated

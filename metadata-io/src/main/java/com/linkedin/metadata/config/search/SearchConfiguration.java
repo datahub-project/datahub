@@ -8,5 +8,7 @@ public class SearchConfiguration {
 
   private int maxTermBucketSize;
   private ExactMatchConfiguration exactMatch;
+  private PartialConfiguration partial;
+  private CustomConfiguration custom;
   private GraphQueryConfiguration graph;
 }

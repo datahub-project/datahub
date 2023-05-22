@@ -79,6 +79,7 @@ import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
+import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
@@ -104,6 +105,11 @@ import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
@@ -202,8 +208,10 @@ import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.CreateInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.GetInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
+import com.linkedin.datahub.graphql.resolvers.search.AggregateAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
+import com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
@@ -258,6 +266,7 @@ import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceRunEventMapper;
+import com.linkedin.datahub.graphql.types.dataproduct.DataProductType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
@@ -287,8 +296,11 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
@@ -356,6 +368,7 @@ public class GmsGraphQLEngine {
     private final ViewService viewService;
     private final LineageService lineageService;
     private final QueryService queryService;
+    private final DataProductService dataProductService;
 
     private final FeatureFlags featureFlags;
 
@@ -398,6 +411,7 @@ public class GmsGraphQLEngine {
     private final SchemaFieldType schemaFieldType;
     private final DataHubViewType dataHubViewType;
     private final QueryType queryType;
+    private final DataProductType dataProductType;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -450,6 +464,7 @@ public class GmsGraphQLEngine {
         this.settingsService = args.settingsService;
         this.lineageService = args.lineageService;
         this.queryService = args.queryService;
+        this.dataProductService = args.dataProductService;
 
         this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
@@ -491,6 +506,7 @@ public class GmsGraphQLEngine {
         this.schemaFieldType = new SchemaFieldType();
         this.dataHubViewType = new DataHubViewType(entityClient);
         this.queryType = new QueryType(entityClient);
+        this.dataProductType = new DataProductType(entityClient);
 
         // Init Lists
         this.entityTypes = ImmutableList.of(
@@ -522,7 +538,8 @@ public class GmsGraphQLEngine {
             dataHubRoleType,
             schemaFieldType,
             dataHubViewType,
-            queryType
+            queryType,
+            dataProductType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -685,8 +702,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("scrollAcrossEntities", new ScrollAcrossEntitiesResolver(this.entityClient, this.viewService))
             .dataFetcher("searchAcrossLineage", new SearchAcrossLineageResolver(this.entityClient))
             .dataFetcher("scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
+            .dataFetcher("aggregateAcrossEntities", new AggregateAcrossEntitiesResolver(this.entityClient, this.viewService))
             .dataFetcher("autoComplete", new AutoCompleteResolver(searchableTypes))
-            .dataFetcher("autoCompleteForMultiple", new AutoCompleteForMultipleResolver(searchableTypes))
+            .dataFetcher("autoCompleteForMultiple", new AutoCompleteForMultipleResolver(searchableTypes, this.viewService))
             .dataFetcher("browse", new BrowseResolver(browsableTypes))
             .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
             .dataFetcher("dataset", getResolver(datasetType))
@@ -743,6 +761,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("listGlobalViews", new ListGlobalViewsResolver(this.entityClient))
             .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
             .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
+            .dataFetcher("getQuickFilters", new GetQuickFiltersResolver(this.entityClient, this.viewService))
+            .dataFetcher("dataProduct", getResolver(dataProductType))
+            .dataFetcher("listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
         );
     }
 
@@ -814,13 +835,13 @@ public class GmsGraphQLEngine {
             .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
-            .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
+            .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService, this.entityClient))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("addOwners", new AddOwnersResolver(entityService))
             .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
-            .dataFetcher("addLink", new AddLinkResolver(entityService))
+            .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
             .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
             .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
@@ -878,6 +899,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("createQuery", new CreateQueryResolver(this.queryService))
             .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
             .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
+            .dataFetcher("createDataProduct", new CreateDataProductResolver(this.dataProductService))
+            .dataFetcher("updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
+            .dataFetcher("deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
+            .dataFetcher("batchSetDataProduct", new BatchSetDataProductResolver(this.dataProductService))
         );
     }
 
@@ -965,6 +990,10 @@ public class GmsGraphQLEngine {
                     (env) -> ((ListTestsResult) env.getSource()).getTests().stream()
                         .map(Test::getUrn)
                         .collect(Collectors.toList())))
+            )
+            .type("QuickFilter", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
+                    (env) -> ((QuickFilter) env.getSource()).getEntity()))
             );
     }
 
@@ -1005,7 +1034,8 @@ public class GmsGraphQLEngine {
                         this.entityClient,
                         "dataset",
                         "operation",
-                        OperationMapper::map
+                        OperationMapper::map,
+                        new SortCriterion().setField(OPERATION_EVENT_TIME_FIELD_NAME).setOrder(SortOrder.DESCENDING)
                     )
                 )
                 .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))

@@ -9,6 +9,7 @@
             "customProperties": {
                 "platform": "glue",
                 "instance": "some_instance_name",
+                "env": "PROD",
                 "database": "flights-database"
             },
             "name": "flights-database",
@@ -242,10 +243,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             },
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             }
                         ]
                     }
@@ -288,6 +289,7 @@
             "customProperties": {
                 "platform": "glue",
                 "instance": "some_instance_name",
+                "env": "PROD",
                 "database": "test-database"
             },
             "name": "test-database",
@@ -480,10 +482,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             },
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             }
                         ]
                     }
@@ -666,10 +668,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             },
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             }
                         ]
                     }

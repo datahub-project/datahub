@@ -1,19 +1,10 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
-import {
-    Entity,
-    EntityType,
-    FacetFilterInput,
-    FacetMetadata,
-    MatchedField,
-    SearchAcrossEntitiesInput,
-} from '../../types.generated';
+import { Entity, EntityType, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
 import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
@@ -26,6 +17,8 @@ import { UnionType } from './utils/constants';
 import { SearchFiltersSection } from './SearchFiltersSection';
 import { generateOrFilters } from './utils/generateOrFilters';
 import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
+import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 
 const SearchBody = styled.div`
     display: flex;
@@ -70,6 +63,7 @@ const SearchMenuContainer = styled.div``;
 interface Props {
     unionType?: UnionType;
     query: string;
+    viewUrn?: string;
     page: number;
     searchResponse?: {
         start: number;
@@ -87,9 +81,7 @@ interface Props {
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     onChangePage: (page: number) => void;
-    callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
-    }) => Promise<SearchResultsInterface | null | undefined>;
+    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
     numResultsPerPage: number;
@@ -105,6 +97,7 @@ interface Props {
 export const SearchResults = ({
     unionType = UnionType.AND,
     query,
+    viewUrn,
     page,
     searchResponse,
     filters,
@@ -114,7 +107,7 @@ export const SearchResults = ({
     onChangeUnionType,
     onChangeFilters,
     onChangePage,
-    callSearchOnVariables,
+    downloadSearchResults,
     entityFilters,
     filtersWithoutEntities,
     numResultsPerPage,
@@ -130,7 +123,7 @@ export const SearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
+    const authenticatedUserUrn = useUserContext().user?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
@@ -163,11 +156,13 @@ export const SearchResults = ({
                                 </Typography.Text>
                                 <SearchMenuContainer>
                                     <SearchExtendedMenu
-                                        callSearchOnVariables={callSearchOnVariables}
+                                        downloadSearchResults={downloadSearchResults}
                                         entityFilters={entityFilters}
                                         filters={generateOrFilters(unionType, filtersWithoutEntities)}
                                         query={query}
+                                        viewUrn={viewUrn}
                                         setShowSelectMode={setIsSelectMode}
+                                        totalResults={totalResults}
                                     />
                                 </SearchMenuContainer>
                             </>

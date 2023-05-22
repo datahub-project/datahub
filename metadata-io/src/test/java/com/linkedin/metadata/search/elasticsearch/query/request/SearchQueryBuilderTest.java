@@ -1,15 +1,22 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.util.Pair;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
@@ -39,9 +46,14 @@ public class SearchQueryBuilderTest {
     exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
     exactMatchConfiguration.setEnableStructured(true);
 
+    PartialConfiguration partialConfiguration = new PartialConfiguration();
+    partialConfiguration.setFactor(0.4f);
+    partialConfiguration.setUrnFactor(0.7f);
+
     testQueryConfig.setExactMatch(exactMatchConfiguration);
+    testQueryConfig.setPartial(partialConfiguration);
   }
-  public static final SearchQueryBuilder TEST_BUILDER = new SearchQueryBuilder(testQueryConfig);
+  public static final SearchQueryBuilder TEST_BUILDER = new SearchQueryBuilder(testQueryConfig, null);
 
   @Test
   public void testQueryBuilderFulltext() {
@@ -85,7 +97,7 @@ public class SearchQueryBuilderTest {
             "textFieldOverride.delimited", 0.4f,
             "keyPart1.delimited", 4.0f,
             "nestedArrayArrayField.delimited", 0.4f,
-            "urn.delimited", 10.0f,
+            "urn.delimited", 7.0f,
             "textArrayField.delimited", 0.4f,
             "nestedArrayStringField.delimited", 0.4f
     ));
@@ -104,13 +116,15 @@ public class SearchQueryBuilderTest {
       }
     }).collect(Collectors.toList());
 
-    assertEquals(prefixFieldWeights, List.of(
+    assertEquals(prefixFieldWeights.size(), 22);
+
+    List.of(
             Pair.of("urn", 100.0f),
             Pair.of("urn", 70.0f),
-            Pair.of("keyPart1.delimited", 7.0f),
+            Pair.of("keyPart1.delimited", 16.8f),
             Pair.of("keyPart1.keyword", 100.0f),
             Pair.of("keyPart1.keyword", 70.0f)
-    ));
+    ).forEach(p -> assertTrue(prefixFieldWeights.contains(p), "Missing: " + p));
 
     // Validate scorer
     FunctionScoreQueryBuilder.FilterFunctionBuilder[] scoringFunctions = result.filterFunctionBuilders();
@@ -140,5 +154,90 @@ public class SearchQueryBuilderTest {
     // Validate scorer
     FunctionScoreQueryBuilder.FilterFunctionBuilder[] scoringFunctions = result.filterFunctionBuilders();
     assertEquals(scoringFunctions.length, 3);
+  }
+
+  private static final SearchQueryBuilder TEST_CUSTOM_BUILDER;
+  static {
+    try {
+      CustomConfiguration customConfiguration = new CustomConfiguration();
+      customConfiguration.setEnabled(true);
+      customConfiguration.setFile("search_config_builder_test.yml");
+      CustomSearchConfiguration customSearchConfiguration = customConfiguration.resolve(new YAMLMapper());
+      TEST_CUSTOM_BUILDER = new SearchQueryBuilder(testQueryConfig, customSearchConfiguration);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  public void testCustomSelectAll() {
+    for (String triggerQuery : List.of("*", "")) {
+      FunctionScoreQueryBuilder result = (FunctionScoreQueryBuilder) TEST_CUSTOM_BUILDER
+              .buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
+
+      BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+      List<QueryBuilder> shouldQueries = mainQuery.should();
+      assertEquals(shouldQueries.size(), 0);
+    }
+  }
+
+  @Test
+  public void testCustomExactMatch() {
+    for (String triggerQuery : List.of("test_table", "'single quoted'", "\"double quoted\"")) {
+      FunctionScoreQueryBuilder result = (FunctionScoreQueryBuilder) TEST_CUSTOM_BUILDER
+              .buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
+
+      BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+      List<QueryBuilder> shouldQueries = mainQuery.should();
+      assertEquals(shouldQueries.size(), 1, String.format("Expected query for `%s`", triggerQuery));
+
+      BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(0);
+      assertTrue(boolPrefixQuery.should().size() > 0);
+
+      List<QueryBuilder> queries = boolPrefixQuery.should().stream().map(prefixQuery -> {
+        if (prefixQuery instanceof MatchPhrasePrefixQueryBuilder) {
+          return (MatchPhrasePrefixQueryBuilder) prefixQuery;
+        } else {
+          // exact
+          return (TermQueryBuilder) prefixQuery;
+        }
+      }).collect(Collectors.toList());
+
+      assertFalse(queries.isEmpty(), "Expected queries with specific types");
+    }
+  }
+
+  @Test
+  public void testCustomDefault() {
+    for (String triggerQuery : List.of("foo", "bar", "foo\"bar", "foo:bar")) {
+      FunctionScoreQueryBuilder result = (FunctionScoreQueryBuilder) TEST_CUSTOM_BUILDER
+              .buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
+
+      BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+      List<QueryBuilder> shouldQueries = mainQuery.should();
+      assertEquals(shouldQueries.size(), 3);
+
+      List<QueryBuilder> queries = mainQuery.should().stream().map(query -> {
+        if (query instanceof SimpleQueryStringBuilder) {
+          return (SimpleQueryStringBuilder) query;
+        } else if (query instanceof MatchAllQueryBuilder) {
+          // custom
+          return (MatchAllQueryBuilder) query;
+        } else {
+          // exact
+          return (BoolQueryBuilder) query;
+        }
+      }).collect(Collectors.toList());
+
+      assertEquals(queries.size(), 3, "Expected queries with specific types");
+
+      // validate query injection
+      List<QueryBuilder> mustQueries = mainQuery.must();
+      assertEquals(mustQueries.size(), 1);
+      TermQueryBuilder termQueryBuilder = (TermQueryBuilder) mainQuery.must().get(0);
+
+      assertEquals(termQueryBuilder.fieldName(), "fieldName");
+      assertEquals(termQueryBuilder.value().toString(), triggerQuery);
+    }
   }
 }

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 
 import pytest
 from boto3.session import Session
@@ -54,7 +55,7 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
         test_resources_dir = (
             pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
         )
-        for root, dirs, files in os.walk(test_resources_dir):
+        for root, _dirs, files in os.walk(test_resources_dir):
             for file in files:
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)
@@ -65,6 +66,20 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
                     Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
                 )
     yield
+
+
+@pytest.fixture(scope="module", autouse=True)
+def touch_local_files(pytestconfig):
+    test_resources_dir = (
+        pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
+    )
+    current_time_sec = datetime.now().timestamp()
+    for root, _dirs, files in os.walk(test_resources_dir):
+        _dirs.sort()
+        for file in sorted(files):
+            current_time_sec += 10
+            full_path = os.path.join(root, file)
+            os.utime(full_path, times=(current_time_sec, current_time_sec))
 
 
 SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
@@ -101,14 +116,18 @@ def test_data_lake_s3_ingest(
         pytestconfig,
         output_path=f"{tmp_path}/{source_file}",
         golden_path=f"{test_resources_dir}/golden-files/s3/golden_mces_{source_file}",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
+        ],
     )
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize("source_file", source_files)
-def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
+def test_data_lake_local_ingest(
+    pytestconfig, touch_local_files, source_file, tmp_path, mock_time
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
-
     f = open(os.path.join(SOURCE_FILES_PATH, source_file))
     source = json.load(f)
 
@@ -148,6 +167,7 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
         output_path=f"{tmp_path}/{source_file}",
         golden_path=f"{test_resources_dir}/golden-files/local/golden_mces_{source_file}",
         ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
             r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
             # root[41]['aspect']['json']['fieldProfiles'][0]['sampleValues'][0]
             r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",

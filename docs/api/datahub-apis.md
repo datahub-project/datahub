@@ -3,8 +3,8 @@
 DataHub supplys several APIs to manipulate metadata on the platform. These are our most-to-least recommended approaches:
 
 - Our most recommended tools for extending and customizing the behavior of your DataHub instance are our SDKs in [Python](metadata-ingestion/as-a-library.md) and [Java](metadata-integration/java/as-a-library.md).
-- If you'd like to customize the DataHub client or roll your own; the [GraphQL API](docs/api/graphql/getting-started.md) is our what powers our frontend. We figure if it's good enough for us, it's good enough for everyone! If GraphQL doesn't cover everything in your usecase, drop into [our slack](docs/slack.md) and let us know how we can improve it! 
-- If you are less familiar with GraphQL and would rather use OpenAPI, we offer [OpenAPI](docs/api/openapi/openapi-usage-guide.md) endpoints that allow you to produce metadata events and query metadata.
+- If you'd like to customize the DataHub client or roll your own; the [GraphQL API](docs/api/graphql/getting-started.md) is our what powers our frontend. We figure if it's good enough for us, it's good enough for everyone! If `graphql` doesn't cover everything in your usecase, drop into [our slack](docs/slack.md) and let us know how we can improve it!
+- If you are less familiar with `graphql` and would rather use OpenAPI, we offer [OpenAPI](docs/api/openapi/openapi-usage-guide.md) endpoints that allow you to produce metadata events and query metadata.
 - Finally, if you're a brave soul and know exactly what you are doing... are you sure you don't just want to use the SDK directly? If you insist, the [Rest.li API](docs/api/restli/restli-overview.md) is a much more powerful, low level API intended only for advanced users.
 
 ## Python and Java SDK
@@ -24,7 +24,7 @@ Get started with the Java SDK
 
 ## GraphQL API
 
-The GraphQL API serves as the primary public API for the platform. It can be used to fetch and update metadata programatically in the language of your choice. Intended as a higher-level API that simplifies the most common operations.
+The `graphql` API serves as the primary public API for the platform. It can be used to fetch and update metadata programatically in the language of your choice. Intended as a higher-level API that simplifies the most common operations.
 
 <a
     className='button button--primary button--lg'
@@ -53,3 +53,39 @@ The Rest.li API represents the underlying persistence layer, and exposes the raw
     href="/docs/api/restli/restli-overview">
 Get started with our Rest.li API
 </a>
+
+## DataHub API Comparison
+
+DataHub supports several APIs, each with its own unique usage and format.
+Here's an overview of what each API can do.
+
+> Last Updated : Apr 8 2023
+
+| Feature                                                 | GraphQL                                                                     | Python SDK                                                                   | OpenAPI |
+| ------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------- |
+| Create a dataset                                        | 🚫                                                                          | ✅ [[Guide]](/docs/api/tutorials/datasets.md)                                | ✅      |
+| Delete a dataset (Soft delete)                          | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                 | ✅      |
+| Delete a dataset (Hard delele)                          | 🚫                                                                          | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                 | ✅      |
+| Search a dataset                                        | ✅                                                                          | ✅                                                                           | ✅      |
+| Create a tag                                            | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                   | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                    | ✅      |
+| Read a tag                                              | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                   | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                    | ✅      |
+| Add tags to a dataset                                   | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                   | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                    | ✅      |
+| Add tags to a column of a dataset                       | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                   | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                    | ✅      |
+| Remove tags from a dataset                              | ✅ [[Guide]](/docs/api/tutorials/tags.md)                                   | ✅ [[Guide]](/docs/api/tutorials/tags.md#add-tags)                           | ✅      |
+| Create glossary terms                                   | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                  | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                   | ✅      |
+| Read terms from a dataset                               | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                  | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                   | ✅      |
+| Add terms to a column of a dataset                      | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                  | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                   | ✅      |
+| Add terms to a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                  | ✅ [[Guide]](/docs/api/tutorials/terms.md)                                   | ✅      |
+| Create domains                                          | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                 | ✅      |
+| Read domains                                            | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                 | ✅      |
+| Add domains to a dataset                                | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                 | ✅      |
+| Remove domains from a dataset                           | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                | ✅ [[Guide]](/docs/api/tutorials/domains.md)                                 | ✅      |
+| Crate users and groups                                  | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                 | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                  | ✅      |
+| Read owners of a dataset                                | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                 | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                  | ✅      |
+| Add owner to a dataset                                  | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                 | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                  | ✅      |
+| Remove owner from a dataset                             | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                 | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                  | ✅      |
+| Add lineage                                             | ✅ [[Guide]](/docs/api/tutorials/lineage.md)                                | ✅ [[Guide]](/docs/api/tutorials/lineage.md)                                 | ✅      |
+| Add column level(Fine Grained) lineage                  | 🚫                                                                          | ✅                                                                           | ✅      |
+| Add documentation(description) to a column of a dataset | ✅ [[Guide]](/docs/api/tutorials/descriptions.md#add-description-on-column) | ✅ [[Guide]](/docs/api/tutorials/descriptions.md#add-description-on-column)  | ✅      |
+| Add documentation(description) to a dataset             | 🚫                                                                          | ✅ [[Guide]](/docs/api/tutorials/descriptions.md#add-description-on-dataset) | ✅      |
+| Add / Remove / Replace custom properties on a dataset   | 🚫 [[Guide]](/docs/api/tutorials/custom-properties.md)                      | ✅ [[Guide]](/docs/api/tutorials/custom-properties.md)                       | ✅      |

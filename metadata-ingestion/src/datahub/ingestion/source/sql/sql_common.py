@@ -32,6 +32,10 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -78,7 +82,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -91,10 +94,6 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import telemetry
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -293,7 +292,7 @@ def get_schema_metadata(
     columns: List[dict],
     pk_constraints: Optional[dict] = None,
     foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
-    canonical_schema: List[SchemaField] = [],
+    canonical_schema: Optional[List[SchemaField]] = None,
 ) -> SchemaMetadata:
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
@@ -301,7 +300,7 @@ def get_schema_metadata(
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
-        fields=canonical_schema,
+        fields=canonical_schema or [],
     )
     if foreign_keys is not None and foreign_keys != []:
         schema_metadata.foreignKeys = foreign_keys
@@ -392,16 +391,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        """
-        The source identifier such as the specific source host address required for stateful ingestion.
-        Individual subclasses need to override this method appropriately.
-        """
-        config_dict = self.config.dict()
-        host_port = config_dict.get("host_port", "no_host_port")
-        database = config_dict.get("database", "no_database")
-        return f"{self.platform}_{host_port}_{database}"
-
     def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
         # this function returns the schema names which are filtered by schema_pattern.
         for schema in self.get_schema_names(inspector):
@@ -440,7 +429,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         database: str,
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         database_container_key = gen_database_key(
             database,
             platform=self.platform,
@@ -474,7 +462,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         db_name: str,
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         schema_container_key = gen_schema_key(
             db_name=db_name,
             schema=schema,
@@ -701,17 +688,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
             )
-            lineage_mcpw = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
+            lineage_wu = MetadataChangeProposalWrapper(
                 entityUrn=dataset_snapshot.urn,
-                aspectName="upstreamLineage",
                 aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-            )
-            lineage_wu = MetadataWorkUnit(
-                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-                mcp=lineage_mcpw,
-            )
+            ).as_workunit()
             self.report.report_workunit(lineage_wu)
             yield lineage_wu
 
@@ -746,10 +726,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         subtypes_aspect = MetadataWorkUnit(
             id=f"{dataset_name}-subtypes",
             mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
             ),
         )
@@ -811,22 +788,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
-    ) -> Optional[SqlWorkUnit]:
+    ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
+            wu = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
                         self.platform, self.config.platform_instance
                     ),
                 ),
-            )
-            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            ).as_workunit()
             self.report.report_workunit(wu)
             return wu
         else:
@@ -1020,16 +993,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{view}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
-            ),
-        )
+        subtypes_aspect = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
+        ).as_workunit()
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
         if "view_definition" in properties:
@@ -1219,14 +1186,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 self.config.platform_instance,
                 self.config.env,
             )
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
+            wu = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="datasetProfile",
                 aspect=profile,
-            )
-            wu = MetadataWorkUnit(id=f"profile-{dataset_name}", mcp=mcp)
+            ).as_workunit()
             self.report.report_workunit(wu)
 
             yield wu

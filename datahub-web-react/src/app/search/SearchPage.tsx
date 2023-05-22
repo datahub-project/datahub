@@ -10,7 +10,6 @@ import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
 import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
-import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
 import { generateOrFilters } from './utils/generateOrFilters';
@@ -20,6 +19,8 @@ import {
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
+import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
+import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 
 type SearchPageParams = {
     type?: string;
@@ -79,24 +80,27 @@ export const SearchPage = () => {
         })) || [];
     const searchResultUrns = searchResultEntities.map((entity) => entity.urn);
 
-    // we need to extract refetch on its own so paging thru results for csv download
-    // doesnt also update search results
-    const { refetch } = useGetSearchResultsForMultipleQuery({
+    // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
+    // download the correct results given the current context.
+    // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
+    // TODO: Revisit this pattern -- what can we push down?
+    const { refetch: refetchForDownload } = useDownloadScrollAcrossEntitiesSearchResults({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: [],
                 orFilters: generateOrFilters(unionType, filtersWithoutEntities),
-                viewUrn,
+                scrollId: null,
             },
         },
+        skip: true,
     });
 
-    const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetch(variables).then((res) => res.data.searchAcrossEntities);
+    const downloadSearchResults = (
+        input: DownloadSearchResultsInput,
+    ): Promise<DownloadSearchResults | null | undefined> => {
+        return refetchForDownload(input);
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
@@ -162,9 +166,10 @@ export const SearchPage = () => {
                 unionType={unionType}
                 entityFilters={entityFilters}
                 filtersWithoutEntities={filtersWithoutEntities}
-                callSearchOnVariables={callSearchOnVariables}
+                downloadSearchResults={downloadSearchResults}
                 page={page}
                 query={query}
+                viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
                 filters={data?.searchAcrossEntities?.facets}

@@ -11,10 +11,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DatahubIngestionCheckpointClass,
-)
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass, StatusClass
 
 logger = logging.getLogger(__name__)
 
@@ -64,21 +61,15 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         self,
         pipeline_name: str,
         job_name: JobId,
-        platform_instance_id: Optional[str] = None,
     ) -> Optional[DatahubIngestionCheckpointClass]:
         logger.debug(
             f"Querying for the latest ingestion checkpoint for pipelineName:'{pipeline_name}',"
-            f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}'"
+            f" job_name:'{job_name}'"
         )
 
-        if platform_instance_id is None:
-            data_job_urn = self.get_data_job_urn(
-                self.orchestrator_name, pipeline_name, job_name
-            )
-        else:
-            data_job_urn = self.get_data_job_legacy_urn(
-                self.orchestrator_name, pipeline_name, job_name, platform_instance_id
-            )
+        data_job_urn = self.get_data_job_urn(
+            self.orchestrator_name, pipeline_name, job_name
+        )
 
         latest_checkpoint: Optional[
             DatahubIngestionCheckpointClass
@@ -92,14 +83,14 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         if latest_checkpoint:
             logger.debug(
                 f"The last committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
-                f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}' found with start_time:"
+                f" job_name:'{job_name}' found with start_time:"
                 f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis/1000)}"
             )
             return latest_checkpoint
         else:
             logger.debug(
                 f"No committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
-                f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}' found"
+                f" job_name:'{job_name}' found"
             )
 
         return None
@@ -125,12 +116,18 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             )
 
             self.graph.emit_mcp(
+                # We don't want the state payloads to show up in search. As such, we emit the
+                # dataJob aspects as soft-deleted. This doesn't affect the ability to query
+                # them using the timeseries API.
                 MetadataChangeProposalWrapper(
-                    entityType="dataJob",
                     entityUrn=datajob_urn,
-                    aspectName="datahubIngestionCheckpoint",
+                    aspect=StatusClass(removed=True),
+                )
+            )
+            self.graph.emit_mcp(
+                MetadataChangeProposalWrapper(
+                    entityUrn=datajob_urn,
                     aspect=checkpoint,
-                    changeType=ChangeTypeClass.UPSERT,
                 )
             )
 

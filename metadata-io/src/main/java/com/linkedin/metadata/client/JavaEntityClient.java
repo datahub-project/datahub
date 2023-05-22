@@ -142,11 +142,11 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nullable Filter requestFilters,
         @Nonnull int limit,
         @Nullable String field,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-      return _cachingEntitySearchService.autoComplete(entityType, query, field, newFilter(requestFilters), limit, null);
+      return _cachingEntitySearchService.autoComplete(entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit, null);
     }
 
     /**
@@ -162,10 +162,10 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nullable Filter requestFilters,
         @Nonnull int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _cachingEntitySearchService.autoComplete(entityType, query, "", newFilter(requestFilters), limit, null);
+        return _cachingEntitySearchService.autoComplete(entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit, null);
     }
 
     /**
@@ -324,9 +324,34 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
+        return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication, null);
+    }
+
+    /**
+     * Searches for entities matching to a given query and filters across multiple entity types
+     *
+     * @param entities entity types to search (if empty, searches all entities)
+     * @param input search query
+     * @param filter search filters
+     * @param start start offset for search results
+     * @param count max number of search results requested
+     * @param facets list of facets we want aggregations for
+     * @return Snapshot key
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public SearchResult searchAcrossEntities(
+        @Nonnull List<String> entities,
+        @Nonnull String input,
+        @Nullable Filter filter,
+        int start,
+        int count,
+        @Nullable SearchFlags searchFlags,
+        @Nonnull final Authentication authentication,
+        @Nullable List<String> facets) throws RemoteInvocationException {
         final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags),
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets),
             _entityService);
     }
 
@@ -376,7 +401,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
+        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true).setSkipCache(true);
         return ValidationUtils.validateLineageScrollResult(
             _lineageSearchService.scrollAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
                 sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags), _entityService);
@@ -459,7 +484,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
         @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-        @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+        @Nullable Filter filter, @Nullable SortCriterion sort, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
       GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
       response.setEntityName(entity);
@@ -473,15 +498,12 @@ public class JavaEntityClient implements EntityClient {
       if (limit != null) {
         response.setLimit(limit);
       }
-      if (getLatestValue != null) {
-        response.setGetLatestValue(getLatestValue);
-      }
       if (filter != null) {
         response.setFilter(filter);
       }
       response.setValues(new EnvelopedAspectArray(
           _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis,
-              endTimeMillis, limit, getLatestValue, filter)));
+              endTimeMillis, limit, filter, sort)));
       return response.getValues();
     }
 

@@ -19,7 +19,7 @@ datahub_client_configs: Dict[str, Any] = {
         "token": "dummy_test_tok",
         "timeout_sec": 10,
         "extra_headers": {},
-        "max_threads": 1,
+        "max_threads": 15,
     },
     "simple": {},
     "default": {},
@@ -49,7 +49,7 @@ checkpointing_provider_config_test_params: Dict[
                 token="dummy_test_tok",
                 timeout_sec=10,
                 extra_headers={},
-                max_threads=1,
+                max_threads=15,
             ),
         ),
         False,
@@ -129,9 +129,7 @@ stateful_ingestion_config_test_params: Dict[
         {},
         StatefulIngestionConfig(
             enabled=False,
-            # fmt: off
             max_checkpoint_state_size=2**24,
-            # fmt: on
             ignore_old_state=False,
             ignore_new_state=False,
             state_provider=None,
@@ -144,9 +142,7 @@ stateful_ingestion_config_test_params: Dict[
         {"enabled": True},
         StatefulIngestionConfig(
             enabled=True,
-            # fmt: off
             max_checkpoint_state_size=2**24,
-            # fmt: on
             ignore_old_state=False,
             ignore_new_state=False,
             state_provider=DynamicTypedConfig(type="datahub", config=None),

@@ -18,6 +18,8 @@ If you're using Airflow 1.x, use the Airflow lineage plugin with acryl-datahub-a
 
 :::
 
+This plugin registers a task success/failure callback on every task with a cluster policy and emits DataHub events from that. This allows this plugin to be able to register both task success as well as failures compared to the older Airflow Lineage Backend which could only support emitting task success.
+
 ### Setup
 
 1. You need to install the required dependency in your airflow.
@@ -28,7 +30,7 @@ pip install acryl-datahub-airflow-plugin
 
 :::note
 
-The [DataHub Rest](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter is included in the plugin package by default.  To use [DataHub Kafka](../../metadata-ingestion/sink_docs/datahub.md#datahub-kafka) install `pip install acryl-datahub-airflow-plugin[datahub-kafka]`.
+The [DataHub Rest](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter is included in the plugin package by default. To use [DataHub Kafka](../../metadata-ingestion/sink_docs/datahub.md#datahub-kafka) install `pip install acryl-datahub-airflow-plugin[datahub-kafka]`.
 
 :::
 
@@ -142,6 +144,17 @@ Take a look at this sample DAG:
 - [`lineage_emission_dag.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
 
 In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
+
+## Debugging
+
+### Incorrect URLs
+
+If your URLs aren't being generated correctly (usually they'll start with `http://localhost:8080` instead of the correct hostname), you may need to set the webserver `base_url` config.
+
+```ini title="airflow.cfg"
+[webserver]
+base_url = http://airflow.example.com
+```
 
 ## Additional references
 

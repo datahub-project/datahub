@@ -11,8 +11,8 @@ import com.linkedin.metadata.kafka.transformer.DataHubUsageEventTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.Topics;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -52,19 +52,36 @@ public class DataHubUsageEventsProcessor {
 
     Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
         dataHubUsageEventTransformer.transformDataHubUsageEvent(record);
-    if (!eventDocument.isPresent()) {
+    if (eventDocument.isEmpty()) {
       log.warn("Failed to apply usage events transform to record: {}", record);
       return;
     }
     JsonElasticEvent elasticEvent = new JsonElasticEvent(eventDocument.get().getDocument());
-    try {
-      elasticEvent.setId(URLEncoder.encode(eventDocument.get().getId(), "UTF-8"));
-    } catch (UnsupportedEncodingException e) {
-      log.error("Failed to encode the urn with error: {}", e.toString());
-      return;
-    }
+    elasticEvent.setId(generateDocumentId(eventDocument.get().getId(), consumerRecord.offset()));
     elasticEvent.setIndex(indexName);
     elasticEvent.setActionType(ChangeType.CREATE);
     elasticSearchConnector.feedElasticEvent(elasticEvent);
+  }
+
+  /**
+   * DataHub Usage Event is written to an append-only index called a data stream. Due to circumstances
+   * it is possible that the event's id, even though it contains an epoch millisecond, results in duplicate ids
+   * in the index. The collisions will stall processing of the topic. To prevent the collisions we append
+   * the last 5 digits, padded with zeros, of the kafka offset to prevent the collision.
+   * @param eventId the event's id
+   * @param kafkaOffset the kafka offset for the message
+   * @return unique identifier for event
+   */
+  private static String generateDocumentId(String eventId, long kafkaOffset) {
+    return URLEncoder.encode(String.format("%s_%05d", eventId, leastSignificant(kafkaOffset, 5)), StandardCharsets.UTF_8);
+  }
+
+  private static int leastSignificant(long kafkaOffset, int digits) {
+    final String input = String.valueOf(kafkaOffset);
+    if (input.length() > digits) {
+      return Integer.parseInt(input.substring(input.length() - digits));
+    } else {
+      return Integer.parseInt(input);
+    }
   }
 }

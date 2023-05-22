@@ -25,8 +25,6 @@ class SnowflakeReport(BaseSnowflakeReport, ProfilingSqlReport):
 
     cleaned_account_id: str = ""
     run_ingestion: bool = False
-    provision_role_done: bool = False
-    provision_role_success: bool = False
 
     # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
     saas_version: Optional[str] = None
@@ -34,8 +32,6 @@ class SnowflakeReport(BaseSnowflakeReport, ProfilingSqlReport):
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
     role: str = ""
-    check_role_grants: Optional[bool] = None
-    role_grants: List[str] = field(default_factory=list)
 
     profile_if_updated_since: Optional[datetime] = None
     profile_candidates: Dict[str, List[str]] = field(default_factory=dict)

@@ -16,7 +16,7 @@ task checkPythonVersion(type: Exec) {
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0'"
 }
 
 task installPackage(type: Exec, dependsOn: environmentSetup) {
@@ -87,6 +87,9 @@ task testSingle(dependsOn: [installDevTest]) {
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+task buildWheel(type: Exec, dependsOn: [install]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 task cleanPythonCache(type: Exec) {

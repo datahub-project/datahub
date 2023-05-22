@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from hashlib import md5
 from typing import Any, List, Optional, Set, Tuple
 
-import confluent_kafka
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
     SchemaReference,
+    SchemaRegistryClient,
 )
 
 from datahub.ingestion.extractor import protobuf_util, schema_util
@@ -45,14 +45,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     ) -> None:
         self.source_config: KafkaSourceConfig = source_config
         self.report: KafkaSourceReport = report
-        # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
-        self.schema_registry_client = (
-            confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient(
-                {
-                    "url": source_config.connection.schema_registry_url,
-                    **source_config.connection.schema_registry_config,
-                }
-            )
+        self.schema_registry_client = SchemaRegistryClient(
+            {
+                "url": source_config.connection.schema_registry_url,
+                **source_config.connection.schema_registry_config,
+            }
         )
         self.known_schema_registry_subjects: List[str] = []
         try:
@@ -257,14 +254,12 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     def _load_json_schema_with_resolved_references(
         self, schema: Schema, name: str, subject: str
     ) -> dict:
-
         imported_json_schemas: List[
             JsonSchemaWrapper
         ] = self.get_schemas_from_confluent_ref_json(schema, name=name, subject=subject)
         schema_dict = json.loads(schema.schema_str)
         reference_map = {}
         for imported_schema in imported_json_schemas:
-
             reference_schema = json.loads(imported_schema.content)
             if "title" not in reference_schema:
                 reference_schema["title"] = imported_schema.subject
@@ -350,8 +345,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
+                    documentSchema=schema.schema_str if schema else "",
+                    documentSchemaType=schema.schema_type if schema else None,
                     keySchema=key_schema.schema_str if key_schema else None,
+                    keySchemaType=key_schema.schema_type if key_schema else None,
                 ),
                 fields=key_fields + fields,
             )
@@ -385,8 +382,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
+                    documentSchema=schema.schema_str if schema else "",
+                    documentSchemaType=schema.schema_type if schema else None,
                     keySchema=key_schema.schema_str if key_schema else None,
+                    keySchemaType=key_schema.schema_type if key_schema else None,
                 ),
                 fields=key_fields + fields,
             )

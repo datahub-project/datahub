@@ -106,7 +106,7 @@ public class ESSearchLineageFixture {
             @Qualifier("searchLineageIndexConvention") IndexConvention indexConvention
     ) {
         ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration);
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, null);
         ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);

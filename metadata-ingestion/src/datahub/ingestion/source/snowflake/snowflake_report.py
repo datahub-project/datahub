@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, MutableSet, Optional
 
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
@@ -8,7 +9,9 @@ from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsage
 
 
 @dataclass
-class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport):
+class SnowflakeV2Report(
+    SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport, ClassificationReportMixin
+):
     account_locator: Optional[str] = None
     region: Optional[str] = None
 
@@ -51,6 +54,10 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
     _scanned_tags: MutableSet[str] = field(default_factory=set)
 
     edition: Optional[SnowflakeEdition] = None
+
+    num_tables_with_external_upstreams_only: int = 0
+    num_tables_with_upstreams: int = 0
+    num_views_with_upstreams: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

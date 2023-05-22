@@ -1,0 +1,3 @@
+mutation($dataProductUrn: String!, $resourceUrns: [String!]!) {
+  batchSetDataProduct(input: { dataProductUrn: $dataProductUrn, resourceUrns: $resourceUrns})
+}

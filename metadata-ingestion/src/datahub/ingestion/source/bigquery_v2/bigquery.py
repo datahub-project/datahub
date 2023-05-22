@@ -4,7 +4,7 @@ import os
 import re
 import traceback
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud import bigquery
@@ -33,6 +33,12 @@ from datahub.ingestion.api.source import (
     SourceCapability,
     TestableSource,
     TestConnectionReport,
+)
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -121,11 +127,6 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -307,7 +308,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     tables={},
                     with_data_read_permission=config.profiling.enabled,
                 )
-                if len(tables) == 0:
+                if len(list(tables)) == 0:
                     return CapabilityReport(
                         capable=False,
                         failure_reason=f"Tables query did not return any table. It is either empty or no tables in project {project_id}.{result[0].name}",
@@ -330,7 +331,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Lineage capability test for project {project_id}"))
+                logger.info(f"Lineage capability test for project {project_id}")
                 lineage_extractor.test_capability(project_id)
             except Exception as e:
                 return CapabilityReport(
@@ -349,7 +350,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         usage_extractor = BigQueryUsageExtractor(connection_conf, report)
         for project_id in project_ids:
             try:
-                logger.info((f"Usage capability test for project {project_id}"))
+                logger.info(f"Usage capability test for project {project_id}")
                 failures_before_test = len(report.failures)
                 usage_extractor.test_capability(project_id)
                 if failures_before_test != len(report.failures):
@@ -433,20 +434,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             return None
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        """
-        The source identifier such as the specific source host address required for stateful ingestion.
-        Individual subclasses need to override this method appropriately.
-        """
-        return f"{self.platform}"
-
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_key(self, database: str) -> PlatformKey:
@@ -454,7 +449,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=database,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -498,68 +494,84 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        logger.info("Getting projects")
         conn: bigquery.Client = get_bigquery_client(self.config)
         self.add_config_to_report()
 
         projects = self._get_projects(conn)
-        if len(projects) == 0:
-            logger.error(
-                "Get projects didn't return any project. "
-                "Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account."
-            )
-            self.report.report_failure(
-                "metadata-extraction",
-                "Get projects didn't return any project. "
-                "Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-            )
+        if not projects:
             return
 
         for project_id in projects:
-            if not self.config.project_id_pattern.allowed(project_id.id):
-                self.report.report_dropped(project_id.id)
-                continue
             logger.info(f"Processing project: {project_id.id}")
-            self.report.set_project_state(project_id.id, "Metadata Extraction")
+            self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
-        if self.config.include_table_lineage:
-            if (
-                self.config.store_last_lineage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+        if self._should_ingest_usage():
+            yield from self.usage_extractor.run(
+                [p.id for p in projects], self.table_refs
+            )
+
+        if self._should_ingest_lineage():
+            for project in projects:
+                self.report.set_ingestion_stage(project.id, "Lineage Extraction")
+                yield from self.generate_lineage(project.id)
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_workunit_reporter(
+                    self.report,
+                    auto_status_aspect(self.get_workunits_internal()),
+                ),
+            )
+        )
+
+    def _should_ingest_usage(self) -> bool:
+        if not self.config.include_usage_statistics:
+            return False
+
+        if self.config.store_last_usage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
                 )
+                return False
+            else:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+        return True
+
+    def _should_ingest_lineage(self) -> bool:
+        if not self.config.include_table_lineage:
+            return False
+
+        if self.config.store_last_lineage_extraction_timestamp:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
             ):
                 # Skip this run
                 self.report.report_warning(
                     "lineage-extraction",
                     f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
                 )
-                return
-
-            if self.config.store_last_lineage_extraction_timestamp:
+                return False
+            else:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
-
-            for project in projects:
-                self.report.set_project_state(project.id, "Lineage Extraction")
-                yield from self.generate_lineage(project.id)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
-        )
+        return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
+        logger.info("Getting projects")
         if self.config.project_ids or self.config.project_id:
             project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
             return [
@@ -567,20 +579,29 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for project_id in project_ids
             ]
         else:
-            try:
-                return BigQueryDataDictionary.get_projects(conn)
-            except Exception as e:
-                # TODO: Merge with error logging in `get_workunits_internal`
-                trace = traceback.format_exc()
-                logger.error(
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
-                )
-                logger.error(trace)
-                self.report.report_failure(
-                    "metadata-extraction",
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
-                )
-                return []
+            return list(self._get_project_list(conn))
+
+    def _get_project_list(self, conn: bigquery.Client) -> Iterable[BigqueryProject]:
+        try:
+            projects = BigQueryDataDictionary.get_projects(conn)
+        except Exception as e:
+            logger.error(f"Error getting projects. {e}", exc_info=True)
+            projects = []
+
+        if not projects:  # Report failure on exception and if empty list is returned
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project. "
+                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+            return []
+
+        for project in projects:
+            if self.config.project_id_pattern.allowed(project.id):
+                yield project
+            else:
+                self.report.report_dropped(project.id)
 
     def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
@@ -645,34 +666,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.include_usage_statistics:
-            if (
-                self.config.store_last_usage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_usage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
-            self.report.set_project_state(project_id, "Usage Extraction")
-            yield from self.generate_usage_statistics(
-                project_id, db_tables=db_tables, db_views=db_views
-            )
-
         if self.config.profiling.enabled:
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_project_state(project_id, "Profiling")
+            self.report.set_ingestion_stage(project_id, "Profiling")
             yield from self.profiler.get_workunits(
                 project_id=project_id,
                 tables=db_tables,
@@ -688,7 +684,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 lineage[view] = {
                     LineageEdge(
                         table=table,
-                        auditStamp=datetime.now(),
+                        auditStamp=datetime.now(timezone.utc),
                         type=DatasetLineageTypeClass.VIEW,
                     )
                     for table in upstream_tables
@@ -714,32 +710,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             if lineage_info:
                 yield from self.gen_lineage(dataset_urn, lineage_info)
 
-    def generate_usage_statistics(
-        self,
-        project_id: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate usage for {project_id}")
-        tables: Dict[str, List[str]] = defaultdict()
-        for dataset in db_tables.keys():
-            tables[dataset] = [
-                BigqueryTableIdentifier(
-                    project_id, dataset, table.name
-                ).get_table_name()
-                for table in db_tables[dataset]
-            ]
-        for dataset in db_views.keys():
-            tables[dataset].extend(
-                [
-                    BigqueryTableIdentifier(
-                        project_id, dataset, view.name
-                    ).get_table_name()
-                    for view in db_views[dataset]
-                ]
-            )
-        yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
-
     def _process_schema(
         self,
         conn: bigquery.Client,
@@ -754,17 +724,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_name, project_id, bigquery_dataset.labels
         )
 
-        columns = BigQueryDataDictionary.get_columns_for_dataset(
-            conn,
-            project_id=project_id,
-            dataset_name=dataset_name,
-            column_limit=self.config.column_limit,
-            run_optimized_column_query=self.config.run_optimized_column_query,
-        )
+        columns = None
+        if self.config.include_tables or self.config.include_views:
+            columns = BigQueryDataDictionary.get_columns_for_dataset(
+                conn,
+                project_id=project_id,
+                dataset_name=dataset_name,
+                column_limit=self.config.column_limit,
+                run_optimized_column_query=self.config.run_optimized_column_query,
+            )
 
         if self.config.include_tables:
-            db_tables[dataset_name] = self.get_tables_for_dataset(
-                conn, project_id, dataset_name
+            db_tables[dataset_name] = list(
+                self.get_tables_for_dataset(conn, project_id, dataset_name)
             )
 
             for table in db_tables[dataset_name]:
@@ -775,10 +747,31 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
+        elif self.config.include_table_lineage or self.config.include_usage_statistics:
+            # Need table_refs to calculate lineage and usage
+            for table_item in conn.list_tables(f"{project_id}.{dataset_name}"):
+                identifier = BigqueryTableIdentifier(
+                    project_id=project_id,
+                    dataset=dataset_name,
+                    table=table_item.table_id,
+                )
+                if not self.config.table_pattern.allowed(identifier.raw_table_name()):
+                    self.report.report_dropped(identifier.raw_table_name())
+                    continue
+                try:
+                    self.table_refs.add(
+                        str(BigQueryTableRef(identifier).get_sanitized_table_ref())
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Could not create table ref for {table_item.path}: {e}"
+                    )
 
         if self.config.include_views:
-            db_views[dataset_name] = self.get_views_for_dataset(
-                conn, project_id, dataset_name
+            db_views[dataset_name] = list(
+                BigQueryDataDictionary.get_views_for_dataset(
+                    conn, project_id, dataset_name, self.config.profiling.enabled
+                )
             )
 
             for view in db_views[dataset_name]:
@@ -817,8 +810,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage:
-            self.table_refs.add(str(BigQueryTableRef(table_identifier)))
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
+            self.table_refs.add(
+                str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+            )
         table.column_count = len(columns)
 
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
@@ -864,8 +859,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage:
-            table_ref = str(BigQueryTableRef(table_identifier))
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
+            table_ref = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
             self.table_refs.add(table_ref)
             if self.config.lineage_parse_view_ddl:
                 upstream_tables = self.lineage_extractor.parse_view_lineage(
@@ -963,7 +960,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view = cast(BigqueryView, table)
         view_definition_string = view.view_definition
         view_properties_aspect = ViewProperties(
-            materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
+            materialized=view.materialized,
+            viewLanguage="SQL",
+            viewLogic=view_definition_string,
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=self.gen_dataset_urn(
@@ -1180,12 +1179,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client,
         project_id: str,
         dataset_name: str,
-    ) -> List[BigqueryTable]:
-        bigquery_tables: Optional[List[BigqueryTable]] = []
-
+    ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
-            bigquery_tables = []
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
@@ -1205,33 +1201,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             for table_item in table_items.keys():
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
-                    bigquery_tables.extend(
-                        BigQueryDataDictionary.get_tables_for_dataset(
-                            conn,
-                            project_id,
-                            dataset_name,
-                            items_to_get,
-                            with_data_read_permission=self.config.profiling.enabled,
-                        )
-                    )
-                    items_to_get.clear()
-
-            if items_to_get:
-                bigquery_tables.extend(
-                    BigQueryDataDictionary.get_tables_for_dataset(
+                    yield from BigQueryDataDictionary.get_tables_for_dataset(
                         conn,
                         project_id,
                         dataset_name,
                         items_to_get,
                         with_data_read_permission=self.config.profiling.enabled,
                     )
+                    items_to_get.clear()
+
+            if items_to_get:
+                yield from BigQueryDataDictionary.get_tables_for_dataset(
+                    conn,
+                    project_id,
+                    dataset_name,
+                    items_to_get,
+                    with_data_read_permission=self.config.profiling.enabled,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
             timer.elapsed_seconds(), 2
         )
-
-        return bigquery_tables
 
     def get_core_table_details(
         self, conn: bigquery.Client, dataset_name: str, project_id: str
@@ -1248,7 +1238,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             _, shard = BigqueryTableIdentifier.get_table_and_shard(
-                table_identifier.raw_table_name()
+                table_identifier.table
             )
             table_name = table_identifier.get_table_name().split(".")[-1]
 
@@ -1270,7 +1260,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     table=sharded_tables[table_name].table_id,
                 )
                 _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
-                    stored_table_identifier.raw_table_name()
+                    stored_table_identifier.table
                 )
                 # When table is none, we use dataset_name as table_name
                 assert stored_shard
@@ -1290,19 +1280,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         return table_items
 
-    def get_views_for_dataset(
-        self,
-        conn: bigquery.Client,
-        project_id: str,
-        dataset_name: str,
-    ) -> List[BigqueryView]:
-        views: List[BigqueryView] = []
-
-        views = BigQueryDataDictionary.get_views_for_dataset(
-            conn, project_id, dataset_name, self.config.profiling.enabled
-        )
-        return views
-
     def add_config_to_report(self):
         self.report.include_table_lineage = self.config.include_table_lineage
         self.report.use_date_sharded_audit_log_tables = (
@@ -1312,7 +1289,3 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
-
-    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")

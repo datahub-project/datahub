@@ -25,6 +25,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -48,10 +52,6 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SubTypesClass,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -224,9 +224,6 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"An ambiguous exception occurred while handling the request: {e}"
             )
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        return self.config.platform_instance
-
     @classmethod
     def create(cls, config_dict, ctx):
         config = PulsarSourceConfig.parse_obj(config_dict)
@@ -387,8 +384,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
+                    documentSchema=schema.schema_str if schema else "",
+                    documentSchemaType=schema.schema_type if schema else None,
                     keySchema=None,
+                    keySchemaType=None,
                 ),
                 fields=fields,
             )

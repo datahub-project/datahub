@@ -54,7 +54,8 @@ public class SearchableAnnotation {
     BOOLEAN,
     COUNT,
     DATETIME,
-    OBJECT
+    OBJECT,
+    BROWSE_PATH_V2
   }
 
   @Nonnull

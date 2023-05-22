@@ -1,5 +1,14 @@
 # DataHub Quickstart Guide
 
+This guide provides instructions on deploying the open source DataHub locally. 
+If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub.
+
+<a
+    className='button button--primary button--lg'
+    href="/docs/managed-datahub/welcome-acryl">
+Get Started with Managed DataHub
+</a>
+
 ## Deploying DataHub
 
 To deploy a new instance of DataHub, perform the following steps.
@@ -27,6 +36,12 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
    ```sh
    python3 -m pip install --upgrade pip wheel setuptools
    python3 -m pip install --upgrade acryl-datahub
+   datahub version
+   ```
+   
+   If you're using poetry, run the following command. 
+   ```sh
+   poetry add acryl-datahub
    datahub version
    ```
 

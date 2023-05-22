@@ -31,7 +31,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -107,10 +113,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -266,11 +268,6 @@ class DBTCommonConfig(
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
     )
 
-    incremental_lineage: bool = Field(
-        # Copied from LineageConfig, and changed the default.
-        default=False,
-        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
-    )
     include_env_in_assertion_guid: bool = Field(
         default=False,
         description="Prior to version 0.9.4.2, the assertion GUIDs did not include the environment. If you're using multiple dbt ingestion "
@@ -278,6 +275,11 @@ class DBTCommonConfig(
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
+    )
+    convert_column_urns_to_lowercase: bool = Field(
+        default=False,
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
+        "If `target_platform` is Snowflake, the default is True.",
     )
 
     @validator("target_platform")
@@ -288,6 +290,14 @@ class DBTCommonConfig(
                 "postgres."
             )
         return target_platform
+
+    @root_validator(pre=True)
+    def set_convert_column_urns_to_lowercase_default_for_snowflake(
+        cls, values: dict
+    ) -> dict:
+        if values.get("target_platform", "").lower() == "snowflake":
+            values.setdefault("convert_column_urns_to_lowercase", True)
+        return values
 
     @validator("write_semantics")
     def validate_write_semantics(cls, write_semantics: str) -> str:
@@ -360,7 +370,7 @@ class DBTNode:
     dbt_name: str
     dbt_file_path: Optional[str]
 
-    node_type: str  # source, model
+    node_type: str  # source, model, snapshot, seed, test, etc
     max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
@@ -410,17 +420,16 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     custom_properties = node.meta
 
     # additional node attributes to extract to custom properties
-    node_attributes = [
-        "node_type",
-        "materialization",
-        "dbt_file_path",
-        "catalog_type",
-        "language",
-    ]
+    node_attributes = {
+        "node_type": node.node_type,
+        "materialization": node.materialization,
+        "dbt_file_path": node.dbt_file_path,
+        "catalog_type": node.catalog_type,
+        "language": node.language,
+        "dbt_unique_id": node.dbt_name,
+    }
 
-    for attribute in node_attributes:
-        node_attribute_value = getattr(node, attribute)
-
+    for attribute, node_attribute_value in node_attributes.items():
         if node_attribute_value is not None:
             custom_properties[attribute] = node_attribute_value
 
@@ -875,9 +884,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         raise NotImplementedError()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+        return auto_materialize_referenced_tags(
+            auto_stale_entity_removal(
+                self.stale_entity_removal_handler,
+                auto_status_aspect(self.get_workunits_internal()),
+            )
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -965,7 +976,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
-
             is_primary_source = mce_platform == DBT_PLATFORM
             node_datahub_urn = node.get_urn(
                 mce_platform,
@@ -1253,8 +1263,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if meta_aspects.get(Constants.ADD_TERM_OPERATION):
                 glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
 
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+
             field = SchemaField(
-                fieldPath=column.name,
+                fieldPath=field_name,
                 nativeDataType=column.data_type,
                 type=get_column_type(
                     report, node.dbt_name, column.data_type, node.dbt_adapter
@@ -1334,19 +1348,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         if not node.node_type:
             return None
-        subtypes: Optional[List[str]]
-        if node.node_type in {"model", "snapshot"}:
-            if node.materialization:
-                subtypes = [node.materialization, "view"]
-            else:
-                subtypes = ["model", "view"]
-        else:
-            subtypes = [node.node_type]
-        subtype_wu = MetadataChangeProposalWrapper(
+
+        subtypes: List[str] = [node.node_type.capitalize()]
+        if node.node_type == "source":
+            # In the siblings association hook, we previously looked for an exact
+            # match of "source" to determine if a node was a source. While we now
+            # also check for a capitalized "Source" subtype, this maintains compatibility
+            # with older GMS versions.
+            subtypes.append("source")
+        if node.materialization == "table":
+            subtypes.append(DatasetSubTypes.TABLE)
+
+        if node.node_type == "model" or node.node_type == "snapshot":
+            # We need to add the view subtype so that the view properties tab shows up in the UI.
+            subtypes.append(DatasetSubTypes.VIEW)
+
+        return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,
             aspect=SubTypesClass(typeNames=subtypes),
         ).as_workunit()
-        return subtype_wu
 
     def _create_lineage_aspect_for_dbt_node(
         self,
