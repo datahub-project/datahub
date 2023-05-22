@@ -20,6 +20,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import make_data_platform_urn
+from datahub.metadata.schema_classes import DataPlatformInstanceClass, DataPlatformInstancePropertiesClass
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.schema_inference.object import (
@@ -42,6 +45,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.emitter.mce_builder import DEFAULT_ENV
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -104,6 +108,11 @@ class RavenDBConfig(EnvConfigMixin):
         default=300, description="Maximum number of fields to include in the schema."
     )
 
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="Environment to use in namespace when constructing URNs.",
+    )
+
     # TODO add more config values like username/password, etc.
 
 
@@ -125,7 +134,9 @@ class RavenDBSourceReport(SourceReport):
 @platform_name("RavenDB", id="ravendb")
 @config_class(RavenDBConfig)
 @support_status(SupportStatus.UNKNOWN)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Schema is infered if config parameter 'enable_schema_inference' is true (Default: true).")
 @dataclass
 class RavenDBSource(Source):
     """
@@ -152,7 +163,7 @@ class RavenDBSource(Source):
         self.config = config
 
         # setup the RavenDB client
-        logger.debug(f"Initialize store: {self.config.connect_uri}")
+        logging.debug(f"Initialize store: {self.config.connect_uri}")
         self.store = DocumentStore(self.config.connect_uri)
         # get all databases and collections and filter them out, like in pymongo, l318
         self.store.initialize()
@@ -161,7 +172,7 @@ class RavenDBSource(Source):
 
         # ping the database to make sure the connection works
         self.database_names = [d for d in self.get_database_names_pagination()]
-        logger.debug(
+        logging.debug(
             f"Found {len(self.database_names)} databases matching allowed regex: {self.database_names}")
 
     def get_database_names_pagination(self, start=0, page_size=10):
@@ -220,7 +231,7 @@ class RavenDBSource(Source):
 
         """
 
-        logger.debug(
+        logging.debug(
             f"Conduct schema from collection: {collection}.\nIgnoring entity types: {ignore_entity_types}\nSampling size: {sampling_size}")
         items = []
         with db_store.open_session() as session:
@@ -238,10 +249,9 @@ class RavenDBSource(Source):
             if remove_metadata:
                 items = [{k: v for k, v in item.items() if not k == "@metadata"}
                          for item in items]
-            logger.debug(items)
             # key is tuple
             schema = {k[0]: v for k, v in construct_schema(items, ".").items()}
-            logger.debug(schema)
+            # logging.debug(schema)
             return schema
 
     def get_additional_information(self, db_store):
@@ -291,7 +301,6 @@ class RavenDBSource(Source):
         else:
             native_datatype = "mixed"
         TypeClass: Optional[Type] = _field_type_mapping.get(native_datatype)
-        # logger.debug("converted TypeClass: ", TypeClass)
         if TypeClass is None:
             self.report.report_warning(
                 collection_name, f"Type: Unable to map type {types} to metadata schema"
@@ -315,6 +324,12 @@ class RavenDBSource(Source):
         """
         return not self.config.collection_pattern.allowed(collection)
 
+    def make_dataplatform_instance_urn(self, platform: str, instance: str) -> str:
+        if instance.startswith("urn:li:dataPlatformInstance"):
+            return instance
+        else:
+            return f"urn:li:dataPlatformInstance:({make_data_platform_urn(platform)},{instance})"
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext):
         config = RavenDBConfig.parse_obj(config_dict)
@@ -329,22 +344,61 @@ class RavenDBSource(Source):
         for database in sorted(self.database_names):
             if not self.config.database_pattern.allowed(database):
                 self.report.report_dropped(database)
-                logger.debug(f"Dropping database {database}")
+                logging.debug(f"Dropping database {database}")
                 continue
-            logger.debug(f"Working on database: {database}")
+            logging.debug(f"Working on database: {database}")
             db_store = DocumentStore(self.config.connect_uri, database)
             db_store.initialize()
 
             # further information (GB, indices, etc)
             db_stats = self.get_additional_information(db_store)
+            db_stats["db_name"] = database
+            # logging.debug(db_stats)
 
             collections_dict = {k for k in db_store.maintenance.send(
                 GetCollectionStatisticsOperation()).collections.keys()}
-            logger.debug(
+            logging.debug(
                 f"Found {len(collections_dict)} collections: {collections_dict}")
 
+            # last index time of all indices of collection
+            latest_time = ""
+            try:
+                latest_time = str(
+                    max([i["lastIndexingTime"] for i in db_stats["indexes"]]))
+            except:
+                logging.debug(
+                    f"Document Store '{database}': No indices available")
+            platform_urn = make_data_platform_urn(self.platform)
+            instance_urn = f"urn:li:dataPlatformInstance:({platform_urn},{database})"
+            # saving additional custom ravendb database attributes as DataPlatformInstanceProperties
+            platform_props = DataPlatformInstancePropertiesClass(
+                name=database,
+                externalUrl=self.config.connect_uri,
+                customProperties={
+                    "nodeTag": str(db_stats["nodeTag"]),
+                    "indexes": str(db_stats["indexes"]),
+                    "tempBuffersSizeOnDisk": str(db_stats["tempBuffersSizeOnDisk"]),
+                    "sizeOnDisk": str(db_stats["sizeOnDisk"]),
+                    "databaseChangeVector": str(db_stats["databaseChangeVector"]),
+                    "lastCollectionIndexingTime": latest_time,
+                    "lastDocEtag": str(db_stats["lastDocEtag"]),
+                    "lastDatabaseEtag": str(db_stats["lastDatabaseEtag"]),
+                }
+            )
+
+            # whole DocuementStore should be captured as a platform instance
+            # even if there is no collections, the DocuementStore is still in DataHub
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=instance_urn,
+                aspect=platform_props
+            )
+            wu = MetadataWorkUnit(
+                id=f"{self.platform}.{database}.{mcp.aspectName}", mcp=mcp)
+            self.report.report_workunit(wu)
+            yield wu
+
             for collection in sorted(collections_dict):
-                logger.debug(f"Processing collection {collection}")
+                logging.debug(f"Processing collection {collection}")
                 # TODO only collection or like this?
                 dataset_name = f"{database}.{collection}"
                 # filter out not required collections
@@ -352,16 +406,22 @@ class RavenDBSource(Source):
                     continue
                 if self.drop_collection(collection):
                     self.report.report_dropped(dataset_name)
-                    logger.debug(f"Dropping collection {collection}")
+                    logging.debug(f"Dropping collection {collection}")
                     continue
 
-                logger.debug(f"Working on collection: {collection}")
+                logging.debug(f"Working on collection: {collection}")
                 dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})"
 
                 dataset_snapshot = DatasetSnapshot(
                     urn=dataset_urn,
                     aspects=[],
                 )
+                # add db stats information to each dataset
+                platform_instance = DataPlatformInstanceClass(
+                    platform=platform_urn,
+                    instance=instance_urn,
+                )
+                dataset_snapshot.aspects.append(platform_instance)
 
                 # filter for index from collection
                 collection_indexes = [
@@ -371,28 +431,20 @@ class RavenDBSource(Source):
                     if collection in i["Name"].split("/")
                 ]
                 # last index time of all indices of collection
-                latest_time = ""
+                latest_collection_indexing_time = ""
                 try:
                     latest_time = str(
-                        max([i["lastIndexingTime"] for i in collection_indexes]))
+                        max([i["lastIndexingTime"] for i in db_stats["indexes"]]))
                 except:
-                    logger.debug(
+                    logging.debug(
                         f"Collection '{collection}': No indices available")
 
                 dataset_properties = DatasetPropertiesClass(
                     qualifiedName=dataset_name,
                     tags=[],
                     customProperties={
-                        # TODO where to store it?
-                        # DB stats (except indexes) are equal for all collections
-                        "nodeTag": str(db_stats["nodeTag"]),
                         "indexes": str(collection_indexes),
-                        "tempBuffersSizeOnDisk": str(db_stats["tempBuffersSizeOnDisk"]),
-                        "sizeOnDisk": str(db_stats["sizeOnDisk"]),
-                        "databaseChangeVector": str(db_stats["databaseChangeVector"]),
-                        "lastCollectionIndexingTime": latest_time,
-                        "lastDocEtag": str(db_stats["lastDocEtag"]),
-                        "lastDatabaseEtag": str(db_stats["lastDatabaseEtag"]),
+                        "lastCollectionIndexingTime": latest_collection_indexing_time,
                     }
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
@@ -437,7 +489,7 @@ class RavenDBSource(Source):
                         key=lambda x: x["count"],
                         reverse=True,
                     )
-                    logger.debug(
+                    logging.debug(
                         f"Collection '{collection}': Size of collection fields = {len(collection_fields)}"
                     )
 
@@ -453,9 +505,7 @@ class RavenDBSource(Source):
                             type=mapped_type,
                             description=None,
                             nullable=schema_field["nullable"],
-                            recursive=False,
-                            isPartOfKey=(
-                                schema_field["delimited_name"] in collection_indexes)
+                            recursive=False
                         )
                         canonical_schema.append(field)
 
@@ -468,10 +518,9 @@ class RavenDBSource(Source):
                         platformSchema=SchemalessClass(),
                         fields=canonical_schema,
                         dataset=dataset_urn,
-                        version=0,  
-                        hash="TODO",
+                        version=0,  # TODO db_stats["databaseChangeVector"],
+                        hash="",
                     )
-                    logger.debug(canonical_schema)
                     dataset_snapshot.aspects.append(schema_metadata)
 
                     mce = MetadataChangeEvent(

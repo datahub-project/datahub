@@ -19,9 +19,10 @@ source:
 
     # Options
     enable_schema_inference: True
-    schema_sampling_size: 200
+    schema_sampling_size: 1000
     remove_metadata_from_schema: True
     max_schema_size: 300
+    env: "DEV"
 
 sink:
   # sink configs
