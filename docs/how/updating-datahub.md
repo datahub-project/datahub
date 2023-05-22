@@ -6,18 +6,29 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #7900: The `catalog_pattern` and `schema_pattern` options of the Unity Catalog source now match against the fully qualified name of the catalog/schema instead of just the name. Unless you're using regex `^` in your patterns, this should not affect you.
+
+### Potential Downtime
+
+### Deprecations
+- The signature of `Source.get_workunits()` is changed from `Iterable[WorkUnit]` to the more restrictive `Iterable[MetadataWorkUnit]`.
+- Legacy usage creation via the `UsageAggregation` aspect, `/usageStats?action=batchIngest` GMS endpoint, and `UsageStatsWorkUnit` metadata-ingestion class are all deprecated.
+
+### Other notable Changes
+
+## 0.10.2
+
+### Breaking Changes
+
 - #7016 Add `add_database_name_to_urn` flag to Oracle source which ensure that Dataset urns have the DB name as a prefix to prevent collision (.e.g. {database}.{schema}.{table}). ONLY breaking if you set this flag to true, otherwise behavior remains the same.
 - The Airflow plugin no longer includes the DataHub Kafka emitter by default. Use `pip install acryl-datahub-airflow-plugin[datahub-kafka]` for Kafka support.
 - The Airflow lineage backend no longer includes the DataHub Kafka emitter by default. Use `pip install acryl-datahub[airflow,datahub-kafka]` for Kafka support.
 - Java SDK PatchBuilders have been modified in a backwards incompatible way to align more with the Python SDK and support more use cases. Any application utilizing the Java SDK for patch building may be affected on upgrading this dependency.
 
-### Potential Downtime
-
 ### Deprecations
-- The docker image and script for updating from Elasticsearch 6 to 7 is no longer being maintained and will be removed from the `/contrib` section of
-the repository. Please refer to older releases if needed.
 
-### Other notable Changes
+- The docker image and script for updating from Elasticsearch 6 to 7 is no longer being maintained and will be removed from the `/contrib` section of
+  the repository. Please refer to older releases if needed.
 
 ## 0.10.0
 

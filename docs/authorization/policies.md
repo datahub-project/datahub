@@ -130,8 +130,8 @@ We currently support the following:
 | Group        | Edit Group Members                 | Allow actor to add and remove members to a group.                                                                                                                          |
 | User         | Edit User Profile                  | Allow actor to change the user's profile including display name, bio, title, profile image, etc.                                                                           |
 | User + Group | Edit Contact Information           | Allow actor to change the contact information such as email & chat handles.                                                                                                |
-| GlossaryNode | Manage Direct Glossary Children    | Allow the actor to create and delete the direct children of the selected entities.                                                                                         |
-| GlossaryNode | Manage All Glossary Children       | Allow the actor to create and delete everything underneath the selected entities.                                                                                          |
+| GlossaryNode | Manage Direct Glossary Children    | Allow the actor to create, edit, and delete the direct children of the selected entities.                                                                                  |
+| GlossaryNode | Manage All Glossary Children       | Allow the actor to create, edit, and delete everything underneath the selected entities.                                                                                   |
 
 
 

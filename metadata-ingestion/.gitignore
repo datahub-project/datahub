@@ -6,6 +6,7 @@ pvenv36/
 /venv*/
 bq_credentials.json
 junit.*.xml
+tests/integrations/delta_lake/minio/minio
 /tmp
 *.bak
 

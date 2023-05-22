@@ -106,10 +106,9 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
             for db in databases:
                 if self.config.database_pattern.allowed(db):
                     url = self.config.get_sql_alchemy_url(current_db=db)
-                    inspector = inspect(
-                        create_engine(url, **self.config.options).connect()
-                    )
-                    yield inspector
+                    with create_engine(url, **self.config.options).connect() as conn:
+                        inspector = inspect(conn)
+                        yield inspector
 
     def gen_schema_containers(
         self,

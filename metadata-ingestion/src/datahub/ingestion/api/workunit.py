@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Iterable, Optional, Union, overload
 
+from deprecated import deprecated
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -101,6 +103,7 @@ class MetadataWorkUnit(WorkUnit):
         ]
 
 
+@deprecated
 @dataclass
 class UsageStatsWorkUnit(WorkUnit):
     usageStats: UsageAggregationClass

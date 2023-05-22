@@ -1,6 +1,7 @@
 import * as QueryString from 'query-string';
+import { Maybe } from 'graphql/jsutils/Maybe';
 
-import { MatchedField } from '../../../types.generated';
+import { Entity, EntityType, MatchedField, EntityRelationshipsResult, DataProduct } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { GenericEntityProperties } from './types';
@@ -146,3 +147,26 @@ export const handleBatchError = (urns, e, defaultMessage) => {
     }
     return defaultMessage;
 };
+
+// put all of the fineGrainedLineages for a given entity and its siblings into one array so we have all of it in one place
+export function getFineGrainedLineageWithSiblings(
+    entityData: GenericEntityProperties | null,
+    getGenericEntityProperties: (type: EntityType, data: Entity) => GenericEntityProperties | null,
+) {
+    const fineGrainedLineages = [...(entityData?.fineGrainedLineages || [])];
+    entityData?.siblings?.siblings?.forEach((sibling) => {
+        if (sibling) {
+            const genericSiblingProps = getGenericEntityProperties(sibling.type, sibling);
+            if (genericSiblingProps && genericSiblingProps.fineGrainedLineages) {
+                fineGrainedLineages.push(...genericSiblingProps.fineGrainedLineages);
+            }
+        }
+    });
+    return fineGrainedLineages;
+}
+export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
+    if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
+        return dataProductResult.relationships[0].entity as DataProduct;
+    }
+    return null;
+}

@@ -60,6 +60,7 @@ public class Constants {
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
+  public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
 
   /**
    * Aspects
@@ -262,6 +263,10 @@ public class Constants {
   // Query
   public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
+
+  // DataProduct
+  public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
+  public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";

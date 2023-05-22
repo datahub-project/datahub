@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
@@ -199,21 +199,22 @@ export const EditOwnersModal = ({
         setSelectedOwnerType(newType);
     };
 
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
+    const tagRender = ({ closable, label, onClose }: { closable: boolean; label: ReactNode; onClose: () => void }) => {
         return (
-            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
+            <StyleTag
+                onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                closable={closable}
+                onClose={onClose}
+            >
                 {label}
             </StyleTag>
         );
     };
 
-    const emitAnalytics = async () => {
+    const emitAnalytics = () => {
         if (urns.length > 1) {
             analytics.event({
                 type: EventType.BatchEntityActionEvent,
@@ -287,7 +288,7 @@ export const EditOwnersModal = ({
     };
 
     // Function to handle the modal action's
-    const onOk = async () => {
+    const onOk = () => {
         if (selectedOwners.length === 0) {
             return;
         }

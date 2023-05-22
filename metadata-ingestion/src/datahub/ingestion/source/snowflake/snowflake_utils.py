@@ -202,7 +202,7 @@ class SnowflakeCommonMixin:
         self: SnowflakeCommonProtocol, user_name: str, user_email: Optional[str]
     ) -> str:
         if user_email:
-            return user_email.split("@")[0]
+            return self.snowflake_identifier(user_email.split("@")[0])
         return self.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint

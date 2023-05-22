@@ -27,8 +27,10 @@ public class CustomizedQueryHandlerTest {
     private static final CustomSearchConfiguration TEST_CONFIG;
     static {
         try {
-            TEST_CONFIG = new CustomConfiguration(true, "search_config_test.yml")
-                    .customSearchConfiguration(TEST_MAPPER);
+            CustomConfiguration customConfiguration = new CustomConfiguration();
+            customConfiguration.setEnabled(true);
+            customConfiguration.setFile("search_config_test.yml");
+            TEST_CONFIG = customConfiguration.resolve(TEST_MAPPER);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

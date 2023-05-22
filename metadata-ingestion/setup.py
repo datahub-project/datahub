@@ -57,6 +57,7 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
+    "ruamel.yaml"
 }
 
 rest_common = {"requests", "requests_file"}
@@ -214,6 +215,7 @@ iceberg_common = {
 
 s3_base = {
     *aws_common,
+    "more-itertools>=8.12.0",
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
@@ -240,7 +242,12 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {"databricks-cli==0.17.3", "pyspark", "requests"}
+databricks_cli = {
+    "databricks-cli>=0.17.7",
+    "databricks-sdk>=0.1.1",
+    "pyspark",
+    "requests",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {

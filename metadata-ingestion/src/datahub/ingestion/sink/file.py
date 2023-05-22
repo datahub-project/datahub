@@ -11,7 +11,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,6 @@ def _to_obj_for_file(
         MetadataChangeEvent,
         MetadataChangeProposal,
         MetadataChangeProposalWrapper,
-        UsageAggregation,
     ],
     simplified_structure: bool = True,
 ) -> dict:
@@ -50,7 +48,6 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregation,
             ]
         ],
         write_callback: WriteCallback,
@@ -82,7 +79,6 @@ def write_metadata_file(
             MetadataChangeEvent,
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
-            UsageAggregation,
         ]
     ],
 ) -> None:
