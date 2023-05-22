@@ -32,4 +32,11 @@ public interface IndexConvention {
 
   @Nonnull
   String getAllTimeseriesAspectIndicesPattern();
+
+  /**
+   * Inverse of getEntityIndexName
+   * @param indexName The index name to parse
+   * @return a string, the entity name that that index is for, or empty if one cannot be extracted
+   */
+  Optional<String> getEntityName(String indexName);
 }
