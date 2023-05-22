@@ -14,6 +14,7 @@ from datahub.cli.cli_utils import get_system_auth
 from datahub.ingestion.run.pipeline import Pipeline
 
 TIME: int = 1581407189000
+ELASTIC_BUFFER_WRITES_TIME_IN_SEC: int = 1
 logger = logging.getLogger(__name__)
 
 def get_frontend_session():
@@ -251,3 +252,6 @@ def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
     
     if not lag_zero:
         logger.warning(f"Exiting early from waiting for elastic to catch up due to a timeout. Current lag is {lag_values}")
+    else:
+        # we want to sleep for an additional period of time for Elastic writes buffer to clear
+        time.sleep(ELASTIC_BUFFER_WRITES_TIME_IN_SEC)
