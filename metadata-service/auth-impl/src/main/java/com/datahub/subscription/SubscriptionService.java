@@ -41,9 +41,6 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 @Slf4j
 @RequiredArgsConstructor
 public class SubscriptionService {
-  private static final String ENTITY_URN_FIELD_NAME = "entityUrn";
-  private static final String ACTOR_URN_FIELD_NAME = "actorUrn";
-  private static final String ACTOR_TYPE_FIELD_NAME = "actorType";
   private static final Set<String> SUBSCRIPTION_ASPECTS = ImmutableSet.of(SUBSCRIPTION_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
 

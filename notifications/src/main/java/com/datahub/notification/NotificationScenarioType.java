@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.hook.notification;
+package com.datahub.notification;
 
 
 /**

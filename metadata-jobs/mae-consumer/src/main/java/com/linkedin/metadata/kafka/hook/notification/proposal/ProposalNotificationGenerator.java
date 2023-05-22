@@ -20,7 +20,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
-import com.linkedin.metadata.kafka.hook.notification.NotificationScenarioType;
+import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import java.util.HashMap;
@@ -125,7 +125,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
     final Urn entityUrn = UrnUtils.getUrn(info.getResource());
 
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.NEW_PROPOSAL, entityUrn));
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(buildRecipients(NotificationScenarioType.NEW_PROPOSAL, entityUrn, null));
     if (recipients.isEmpty()) {
       return;
     }
@@ -173,12 +174,15 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     final ActionRequestInfo info = getActionRequestInfo(urn);
 
     if (info == null || !info.hasResource()) {
-      log.warn(String.format("Failed to find Action Request info for action request with urn %s. Skipping broadcasting status change", urn));
+      log.warn(String.format(
+          "Failed to find Action Request info for action request with urn %s. Skipping broadcasting status change",
+          urn));
       return;
     }
     final Urn entityUrn = UrnUtils.getUrn(info.getResource());
 
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.PROPOSAL_STATUS_CHANGE, entityUrn));
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(buildRecipients(NotificationScenarioType.PROPOSAL_STATUS_CHANGE, entityUrn, null));
     if (recipients.isEmpty()) {
       return;
     }

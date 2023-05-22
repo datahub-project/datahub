@@ -17,9 +17,10 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
-import com.linkedin.metadata.kafka.hook.notification.NotificationScenarioType;
+import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.subscription.EntityChangeType;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -109,7 +110,9 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
     final Urn entityUrn = info.getEntities().get(0);
 
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn));
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn,
+            EntityChangeType.INCIDENT_RAISED));
     if (recipients.isEmpty()) {
       log.warn("Skipping incident notification generation - no recipients");
       return;
@@ -162,7 +165,8 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     // Notify a specific slack channel to alert the owners of the asset.
     final Urn entityUrn = newInfo.getEntities().get(0);
 
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn));
+    Set<NotificationRecipient> recipients = new HashSet<>(
+        buildRecipients(NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn, EntityChangeType.INCIDENT_RAISED));
     if (recipients.isEmpty()) {
       log.info("Skipping incident generation - no recipients");
       return;

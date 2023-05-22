@@ -4,6 +4,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -12,6 +14,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
@@ -20,7 +23,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
-import com.linkedin.metadata.kafka.hook.notification.NotificationScenarioType;
+import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -32,6 +35,7 @@ import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorR
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.subscription.EntityChangeType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,7 +80,8 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
     EntityChangeEventGeneratorRegistry.class,
     EntityRegistryFactory.class,
     RestliEntityClientFactory.class,
-    SystemAuthenticationFactory.class
+    SystemAuthenticationFactory.class,
+    SlackNotificationRecipientBuilder.class
 })
 public class EntityChangeNotificationGenerator extends BaseMclNotificationGenerator {
 
@@ -123,8 +128,15 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(eventProducer, entityClient, graphClient, new SettingsProvider(entityClient, systemAuthentication), systemAuthentication);
+      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder) {
+    super(eventProducer,
+        entityClient,
+        graphClient,
+        settingsProvider,
+        systemAuthentication,
+        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
     _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
     _entityChangeEventGeneratorRegistry = Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     _entityRegistry = Objects.requireNonNull(entityRegistry);
@@ -210,6 +222,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Tag(s)",
@@ -229,6 +242,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Tag(s)",
@@ -250,6 +264,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Glossary Term(s)",
@@ -269,6 +284,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Glossary Term(s)",
@@ -291,6 +307,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_OWNER_CHANGE,
+          EntityChangeType.OWNER_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "owner(s)",
@@ -308,9 +325,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
         .collect(Collectors.toList());
 
     if (removedUrns.size() > 0) {
-
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_OWNER_CHANGE,
+          EntityChangeType.OWNER_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "owner(s)",
@@ -332,6 +349,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_DOMAIN_CHANGE,
+          null,
           logEvent.getCreated().getActor(),
           "added",
           "Domain",
@@ -351,6 +369,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_DOMAIN_CHANGE,
+          null,
           logEvent.getCreated().getActor(),
           "removed",
           "Domain",
@@ -370,6 +389,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (deprecationChangeEventCount > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_DEPRECATION_CHANGE,
+          EntityChangeType.DEPRECATED,
           logEvent.getCreated().getActor(),
           "updated",
           "deprecation",
@@ -391,6 +411,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "schema field(s)",
@@ -410,6 +431,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "schema field(s)",
@@ -431,6 +453,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Tag(s)",
@@ -450,6 +473,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Tag(s)",
@@ -471,6 +495,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Glossary Term(s)",
@@ -490,6 +515,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Glossary Term(s)",
@@ -503,6 +529,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
   private void sendEntityChangeNotification(
       final NotificationScenarioType notificationScenarioType,
+      final EntityChangeType entityChangeType,
       final Urn actorUrn,
       final String operation,
       final String modifierType,
@@ -512,7 +539,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nullable final String subResource
   ) {
     // 1. Determine who to send to.
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(notificationScenarioType, entityUrn));
+    final Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(notificationScenarioType, entityUrn, entityChangeType));
 
     if (recipients.isEmpty()) {
       return;

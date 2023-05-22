@@ -309,28 +309,33 @@ enum EntityChangeType {
     OPERATION_ROWS_REMOVED
 
     """
-    Assertion run failure.
+    Assertion status changes.
     """
+    ASSERTION_PASSED
     ASSERTION_FAILED
 
     """
-    Incident raised.
+    Incident status changes.
     """
     INCIDENT_RAISED
+    INCIDENT_RESOLVED
 
     """
-    Test failure.
+    Test status changes.
     """
+    TEST_PASSED
     TEST_FAILED
 
     """
-    Deprecation.
+    Deprecation status changes.
     """
     DEPRECATED
+    UNDEPRECATED
 
     """
-    Ingestion failure.
+    Ingestion status changes.
     """
+    INGESTION_SUCCEEDED
     INGESTION_FAILED
 
     """
@@ -341,17 +346,22 @@ enum EntityChangeType {
     """
     Ownership changes. Added or removed.
     """
-    OWNERSHIP_CHANGE
+    OWNER_ADDED
+    OWNER_REMOVED
 
     """
     Glossary term changes. Added, removed, or proposed.
     """
-    GLOSSARY_TERM_CHANGE
+    GLOSSARY_TERM_ADDED
+    GLOSSARY_TERM_REMOVED
+    GLOSSARY_TERM_PROPOSED
 
     """
     Tag changes. Added, removed, or proposed.
     """
-    TAG_CHANGE
+    TAG_ADDED
+    TAG_REMOVED
+    TAG_PROPOSED
 }
 
 type SubscriptionNotificationConfig {

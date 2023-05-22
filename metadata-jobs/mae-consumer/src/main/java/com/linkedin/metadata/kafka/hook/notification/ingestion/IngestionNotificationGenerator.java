@@ -17,7 +17,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
-import com.linkedin.metadata.kafka.hook.notification.NotificationScenarioType;
+import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import java.util.HashMap;
@@ -98,7 +98,8 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       return;
     }
 
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.INGESTION_RUN_CHANGE, ingestionSourceUrn));
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(buildRecipients(NotificationScenarioType.INGESTION_RUN_CHANGE, ingestionSourceUrn, null));
     if (recipients.isEmpty()) {
       return;
     }

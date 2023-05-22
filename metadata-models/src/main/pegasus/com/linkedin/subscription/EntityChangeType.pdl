@@ -19,22 +19,27 @@ enum EntityChangeType {
     /**
     * Assertion run status changes.
     */
+    ASSERTION_PASSED
     ASSERTION_FAILED
     /**
     * Incident status changes.
     */
     INCIDENT_RAISED
+    INCIDENT_RESOLVED
     /**
     * Test status changes.
     */
+    TEST_PASSED
     TEST_FAILED
     /**
     * Deprecation status changes.
     */
     DEPRECATED
+    UNDEPRECATED
     /**
     * Ingestion status changes.
     */
+    INGESTION_SUCCEEDED
     INGESTION_FAILED
     /**
     * Documentation change.
@@ -43,13 +48,18 @@ enum EntityChangeType {
     /**
     * Ownership changes. Added or removed.
     */
-    OWNERSHIP_CHANGE
+    OWNER_ADDED
+    OWNER_REMOVED
     /**
     * Glossary term changes. Added, removed or proposed.
     */
-    GLOSSARY_TERM_CHANGE
+    GLOSSARY_TERM_ADDED
+    GLOSSARY_TERM_REMOVED
+    GLOSSARY_TERM_PROPOSED
     /**
     * Tag changes. Added, removed or proposed.
     */
-    TAG_CHANGE
+    TAG_ADDED
+    TAG_REMOVED
+    TAG_PROPOSED
 }

@@ -260,7 +260,8 @@ public class SlackNotificationSinkTest {
     // Now, construct a message request and verify that it is sent to the slack client.
     NotificationRequest notificationRequest = new NotificationRequest();
     notificationRequest.setMessage(new NotificationMessage()
-        .setTemplate(NotificationTemplateType.CUSTOM.name())
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
+            NotificationTemplateType.CUSTOM.name()))
         .setParameters(new StringMap(
             ImmutableMap.of(
                 "title",
@@ -342,7 +343,7 @@ public class SlackNotificationSinkTest {
     // Now, construct a message request and verify that it is sent to the slack client.
     NotificationRequest notificationRequest = new NotificationRequest();
     notificationRequest.setMessage(new NotificationMessage()
-        .setTemplate(NotificationTemplateType.CUSTOM.name())
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
         .setParameters(new StringMap(
             ImmutableMap.of(
                 "title",

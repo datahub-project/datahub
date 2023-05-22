@@ -39,6 +39,13 @@ public class AcrylConstants {
   // For subscriptions
   public static final String SUBSCRIPTION_ENTITY_NAME = "subscription";
   public static final String SUBSCRIPTION_INFO_ASPECT_NAME = "subscriptionInfo";
+  public static final String ENTITY_URN_FIELD_NAME = "entityUrn";
+  public static final String ACTOR_URN_FIELD_NAME = "actorUrn";
+  public static final String ACTOR_TYPE_FIELD_NAME = "actorType";
+  public static final String ENTITY_CHANGE_TYPES_FIELD_NAME = "entityChangeTypes";
+  public static final String SUBSCRIPTION_TYPES_FIELD_NAME = "subscriptionTypes";
+  // For notifications
+  public static final String NOTIFICATION_SETTINGS_ASPECT_NAME = "notificationSettings";
 
   private AcrylConstants() {
   }

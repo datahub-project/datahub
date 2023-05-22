@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.common.GraphClientFactory;
@@ -57,6 +58,10 @@ public class EntityChangeNotificationGeneratorFactory {
   @Qualifier("systemAuthentication")
   private Authentication _systemAuthentication;
 
+  @Autowired
+  @Qualifier("slackNotificationRecipientBuilder")
+  private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
+
   @Bean(name = "entityChangeNotificationGenerator")
   @Scope("singleton")
   @Nonnull
@@ -67,7 +72,9 @@ public class EntityChangeNotificationGeneratorFactory {
         _eventProducer,
         _entityClient,
         _graphClient,
-        _systemAuthentication
+        _settingsProvider,
+        _systemAuthentication,
+        _slackNotificationRecipientBuilder
     );
   }
 }
