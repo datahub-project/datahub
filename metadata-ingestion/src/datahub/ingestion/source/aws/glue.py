@@ -969,9 +969,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 dataset_urn=dataset_urn, db_name=database_name
             )
 
-            mcp = self.get_lineage_if_enabled(mce)
-            if mcp:
-                yield mcp.as_workunit()
+            wu = self.get_lineage_if_enabled(mce)
+            if wu:
+                yield wu
 
             yield from self.get_profile_if_enabled(mce, database_name, table_name)
 

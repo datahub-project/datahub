@@ -50,6 +50,7 @@ from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source import tableau_constant

@@ -2,7 +2,7 @@ import logging
 import time
 import warnings
 from abc import ABC
-from typing import Dict, Generator, Iterable, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 from pydantic.fields import Field
 
@@ -132,8 +132,6 @@ class APISource(Source, ABC):
     in Datahub you will see a dataset called `test_endpoint/users` which contains as fields `user`, `name` and `job`.
 
     """
-
-    stale_entity_removal_handler = None
 
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext, platform: str):
         super().__init__(ctx)

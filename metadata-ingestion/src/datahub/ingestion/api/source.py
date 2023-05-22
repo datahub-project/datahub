@@ -3,18 +3,7 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import (
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Dict, Generic, Iterable, Optional, Set, Type, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
@@ -129,9 +118,6 @@ class TestConnectionReport(Report):
 WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
 ExtractorConfig = TypeVar("ExtractorConfig", bound=ConfigModel)
 
-WorkUnitProcessor = Callable[[Iterable[WorkUnitType]], Iterable[WorkUnitType]]
-MetadataWorkUnitProcessor = WorkUnitProcessor[MetadataWorkUnit]
-
 
 class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
@@ -168,6 +154,10 @@ class Source(Closeable, metaclass=ABCMeta):
         # the create method is missing. To avoid the class becoming abstract, we
         # can't make this method abstract.
         raise NotImplementedError('sources must implement "create"')
+
+    @abstractmethod
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        pass
 
     @abstractmethod
     def get_report(self) -> SourceReport:

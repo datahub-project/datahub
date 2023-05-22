@@ -277,8 +277,6 @@ class ElasticsearchSource(Source):
     - Column types associated with each index field
     """
 
-    stale_entity_removal_handler = None
-
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config

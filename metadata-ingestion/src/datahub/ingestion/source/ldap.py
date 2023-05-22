@@ -40,7 +40,6 @@ from datahub.metadata.schema_classes import (
     GroupMembershipClass,
 )
 
-
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
 group_attrs_map: Dict[str, Any] = {}

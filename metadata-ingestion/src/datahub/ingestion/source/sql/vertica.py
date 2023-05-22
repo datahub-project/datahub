@@ -443,12 +443,8 @@ class VerticaSource(SQLAlchemySource):
 
                         if lineage_info is not None:
                             yield MetadataChangeProposalWrapper(
-                                entityType="dataset",
-                                changeType=ChangeTypeClass.UPSERT,
-                                entityUrn=dataset_snapshot.urn,
-                                aspectName="upstreamLineage",
-                                aspect=lineage_info,
-                            )
+                                entityUrn=dataset_snapshot.urn, aspect=lineage_info
+                            ).as_workunit()
                     except Exception as ex:
                         logger.warning(
                             f"Unable to get lineage of Projection {schema}.{projection} due to an exception %s",

@@ -784,7 +784,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
-            yield MetadataChangeProposalWrapper(
+            return MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
