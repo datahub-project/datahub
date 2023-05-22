@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import (
+    TYPE_CHECKING,
     Dict,
     Generic,
     Iterable,
@@ -31,6 +32,11 @@ from datahub.ingestion.source.state.use_case_handler import (
 )
 from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.lossy_collections import LossyList
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.state.entity_removal_state import (
+        GenericCheckpointState,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -70,11 +76,6 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
     Examples include sql_common state for tracking table and & view urns,
     dbt that tracks node & assertion urns, kafka state tracking topic urns.
     """
-
-    @classmethod
-    @abstractmethod
-    def get_supported_types(cls) -> List[str]:
-        pass
 
     @abstractmethod
     def add_checkpoint_urn(self, type: str, urn: str) -> None:
@@ -139,20 +140,19 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
 
 
 class StaleEntityRemovalHandler(
-    StatefulIngestionUsecaseHandlerBase[StaleEntityCheckpointStateBase]
+    StatefulIngestionUsecaseHandlerBase["GenericCheckpointState"]
 ):
     """
     The stateful ingestion helper class that handles stale entity removal.
     This contains the generic logic for all sources that need to support stale entity removal for all the states
-    derived from StaleEntityCheckpointStateBase. This uses the template method pattern on CRTP based derived state
-    class hierarchies.
+    derived from GenericCheckpointState.
     """
 
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
         config: StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
-        state_type_class: Type[StaleEntityCheckpointStateBase],
+        state_type_class: Type["GenericCheckpointState"],
         pipeline_name: Optional[str],
         run_id: str,
     ):
@@ -246,7 +246,7 @@ class StaleEntityRemovalHandler(
             )
         return None
 
-    def _create_soft_delete_workunit(self, urn: str, type: str) -> MetadataWorkUnit:
+    def _create_soft_delete_workunit(self, urn: str) -> MetadataWorkUnit:
         logger.info(f"Soft-deleting stale entity - {urn}")
         mcp = MetadataChangeProposalWrapper(
             entityUrn=urn,
@@ -316,16 +316,15 @@ class StaleEntityRemovalHandler(
             return
 
         # Everything looks good, emit the soft-deletion workunits
-        for type in self.state_type_class.get_supported_types():
-            for urn in last_checkpoint_state.get_urns_not_in(
-                type=type, other_checkpoint_state=cur_checkpoint_state
-            ):
-                if urn in self._urns_to_skip:
-                    logger.debug(
-                        f"Not soft-deleting entity {urn} since it is in urns_to_skip"
-                    )
-                    continue
-                yield self._create_soft_delete_workunit(urn, type)
+        for urn in last_checkpoint_state.get_urns_not_in(
+            type="*", other_checkpoint_state=cur_checkpoint_state
+        ):
+            if urn in self._urns_to_skip:
+                logger.debug(
+                    f"Not soft-deleting entity {urn} since it is in urns_to_skip"
+                )
+                continue
+            yield self._create_soft_delete_workunit(urn)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:
         if not self.is_checkpointing_enabled() or self._ignore_new_state():

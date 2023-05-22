@@ -85,10 +85,6 @@ class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointSt
         self.urns = deduplicate_list(self.urns)
         self._urns_set = set(self.urns)
 
-    @classmethod
-    def get_supported_types(cls) -> List[str]:
-        return ["*"]
-
     def add_checkpoint_urn(self, type: str, urn: str) -> None:
         if urn not in self._urns_set:
             self.urns.append(urn)
@@ -100,6 +96,7 @@ class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointSt
         diff = set(self.urns) - set(other_checkpoint_state.urns)
 
         # To maintain backwards compatibility, we provide this filtering mechanism.
+        # TODO: This is only used in tests and should be removed.
         if type == "*":
             yield from diff
         elif type == "topic":
