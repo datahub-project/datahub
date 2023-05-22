@@ -193,7 +193,7 @@ timestamp < "{end_time}"
             curr_date = datetime.now()
             for table in project_tables:
                 logger.info("Creating lineage map for table %s", table)
-                upstreams = []
+                upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
                 # fully_qualified_name in format: "bigquery:<project_id>.<dataset_id>.<table_id>"
                 downstream_table.fully_qualified_name = f"bigquery:{table}"
@@ -204,7 +204,7 @@ timestamp < "{end_time}"
                         parent=f"projects/{project_id}/locations/{region.lower()}",
                     )
                     response = lineage_client.search_links(request=location_request)
-                    upstreams.extend(
+                    upstreams.update(
                         [
                             str(lineage.source.fully_qualified_name).replace(
                                 "bigquery:", ""
