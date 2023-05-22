@@ -159,8 +159,10 @@ public class SearchQueryBuilderTest {
   private static final SearchQueryBuilder TEST_CUSTOM_BUILDER;
   static {
     try {
-      CustomSearchConfiguration customSearchConfiguration = new CustomConfiguration(
-              true, "search_config_builder_test.yml").customSearchConfiguration(new YAMLMapper());
+      CustomConfiguration customConfiguration = new CustomConfiguration();
+      customConfiguration.setEnabled(true);
+      customConfiguration.setFile("search_config_builder_test.yml");
+      CustomSearchConfiguration customSearchConfiguration = customConfiguration.resolve(new YAMLMapper());
       TEST_CUSTOM_BUILDER = new SearchQueryBuilder(testQueryConfig, customSearchConfiguration);
     } catch (IOException e) {
       throw new RuntimeException(e);

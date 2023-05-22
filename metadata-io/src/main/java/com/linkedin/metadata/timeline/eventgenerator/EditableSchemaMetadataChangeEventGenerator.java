@@ -221,11 +221,15 @@ public class EditableSchemaMetadataChangeEventGenerator extends EntityChangeEven
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
 
+    if (currentValue == null) {
+      throw new IllegalArgumentException("EntityAspect currentValue should not be null");
+    }
+
     if (!previousValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME) || !currentValue.getAspect()
         .equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
     }
-    assert (currentValue != null);
+
     EditableSchemaMetadata baseEditableSchemaMetadata = getEditableSchemaMetadataFromAspect(previousValue);
     EditableSchemaMetadata targetEditableSchemaMetadata = getEditableSchemaMetadataFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();

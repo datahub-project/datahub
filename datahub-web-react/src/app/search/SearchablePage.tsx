@@ -71,9 +71,6 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     }, [suggestionsData]);
 
     const search = (query: string, type?: EntityType, quickFilters?: FacetFilterInput[]) => {
-        if (!query || query.trim().length === 0) {
-            return;
-        }
         analytics.event({
             type: EventType.SearchEvent,
             query,

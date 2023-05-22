@@ -414,6 +414,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
+  @Nonnull
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication, null);
+  }
+
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
    *
@@ -422,13 +430,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param filter search filters
    * @param start start offset for search results
    * @param count max number of search results requested
+   * @param facets list of facets we want aggregations for
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Authentication authentication, @Nullable List<String> facets)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchAcrossEntitiesRequestBuilder requestBuilder =

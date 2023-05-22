@@ -16,6 +16,7 @@ import {
     Domain,
     ParentNodesResult,
     EntityPath,
+    DataProduct,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -30,6 +31,7 @@ import { DeprecationPill } from '../entity/shared/components/styled/DeprecationP
 import { PreviewType } from '../entity/Entity';
 import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
+import { DataProductLink } from '../shared/tags/DataProductLink';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -174,7 +176,9 @@ interface Props {
     glossaryTerms?: GlossaryTerms;
     container?: Container;
     domain?: Domain | undefined | null;
+    dataProduct?: DataProduct | undefined | null;
     entityCount?: number;
+    displayAssetCount?: boolean;
     dataTestID?: string;
     titleSizePx?: number;
     onClick?: () => void;
@@ -209,9 +213,11 @@ export default function DefaultPreviewCard({
     insights,
     glossaryTerms,
     domain,
+    dataProduct,
     container,
     deprecation,
     entityCount,
+    displayAssetCount,
     titleSizePx,
     dataTestID,
     externalUrl,
@@ -304,7 +310,7 @@ export default function DefaultPreviewCard({
                         </Tooltip>
                     )}
                     {!!degree && entityCount && <PlatformDivider />}
-                    <EntityCount entityCount={entityCount} />
+                    <EntityCount entityCount={entityCount} displayAssetsText={displayAssetCount} />
                 </TitleContainer>
                 {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
                 {description && description.length > 0 && (
@@ -329,12 +335,14 @@ export default function DefaultPreviewCard({
                         </NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
-                {(domain || hasGlossaryTerms || hasTags) && (
+                {(dataProduct || domain || hasGlossaryTerms || hasTags) && (
                     <TagContainer>
-                        {domain && <TagTermGroup domain={domain} maxShow={3} />}
-                        {domain && hasGlossaryTerms && <TagSeparator />}
+                        {/* if there's a domain and dataProduct, show dataProduct */}
+                        {dataProduct && <DataProductLink dataProduct={dataProduct} />}
+                        {!dataProduct && domain && <TagTermGroup domain={domain} maxShow={3} />}
+                        {(dataProduct || domain) && hasGlossaryTerms && <TagSeparator />}
                         {hasGlossaryTerms && <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />}
-                        {((hasGlossaryTerms && hasTags) || (domain && hasTags)) && <TagSeparator />}
+                        {((hasGlossaryTerms && hasTags) || ((dataProduct || domain) && hasTags)) && <TagSeparator />}
                         {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
                     </TagContainer>
                 )}
