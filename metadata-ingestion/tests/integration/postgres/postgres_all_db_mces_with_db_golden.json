@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "postgres",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "postgres"
             },
             "name": "postgres"
@@ -75,7 +75,7 @@
         "json": {
             "customProperties": {
                 "platform": "postgres",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "postgres",
                 "schema": "public"
             },
@@ -158,7 +158,7 @@
         "json": {
             "customProperties": {
                 "platform": "postgres",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "postgrestest"
             },
             "name": "postgrestest"
@@ -225,7 +225,7 @@
         "json": {
             "customProperties": {
                 "platform": "postgres",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "postgrestest",
                 "schema": "public"
             },
