@@ -324,9 +324,34 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
+        return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication, null);
+    }
+
+    /**
+     * Searches for entities matching to a given query and filters across multiple entity types
+     *
+     * @param entities entity types to search (if empty, searches all entities)
+     * @param input search query
+     * @param filter search filters
+     * @param start start offset for search results
+     * @param count max number of search results requested
+     * @param facets list of facets we want aggregations for
+     * @return Snapshot key
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public SearchResult searchAcrossEntities(
+        @Nonnull List<String> entities,
+        @Nonnull String input,
+        @Nullable Filter filter,
+        int start,
+        int count,
+        @Nullable SearchFlags searchFlags,
+        @Nonnull final Authentication authentication,
+        @Nullable List<String> facets) throws RemoteInvocationException {
         final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags),
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets),
             _entityService);
     }
 
