@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests
@@ -13,6 +13,7 @@ from dateutil import parser
 from packaging import version
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
+from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -60,6 +61,7 @@ class NifiAuthType(Enum):
     NO_AUTH = "NO_AUTH"
     SINGLE_USER = "SINGLE_USER"
     CLIENT_CERT = "CLIENT_CERT"
+    KERBEROS = "KERBEROS"
 
 
 class NifiSourceConfig(EnvConfigMixin):
@@ -111,13 +113,14 @@ class NifiSourceConfig(EnvConfigMixin):
 
     # Required to be set if nifi server certificate is not signed by
     # root CA trusted by client system, e.g. self-signed certificates
-    ca_file: Optional[str] = Field(
+    ca_file: Optional[Union[bool, str]] = Field(
         default=None,
         description="Path to PEM file containing certs for the root CA(s) for the NiFi",
     )
 
 
 TOKEN_ENDPOINT = "/nifi-api/access/token"
+KERBEROS_TOKEN_ENDPOINT = "/nifi-api/access/kerberos"
 ABOUT_ENDPOINT = "/nifi-api/flow/about"
 CLUSTER_ENDPOINT = "/nifi-api/flow/cluster/summary"
 PG_ENDPOINT = "/nifi-api/flow/process-groups/"
@@ -356,7 +359,7 @@ class NifiSource(Source):
                     password=self.config.client_key_password,
                 ),
             )
-        if self.config.auth is NifiAuthType.SINGLE_USER:
+        elif self.config.auth is NifiAuthType.SINGLE_USER:
             assert (
                 self.config.username is not None
             ), "Config username is required for SINGLE_USER auth"
@@ -369,6 +372,22 @@ class NifiSource(Source):
                     "username": self.config.username,
                     "password": self.config.password,
                 },
+            )
+            if not token_response.ok:
+                logger.error("Failed to get token")
+                self.report.report_failure(self.config.site_url, "Failed to get token")
+
+            self.session.headers.update(
+                {
+                    "Authorization": "Bearer " + token_response.text,
+                    # "Accept": "application/json",
+                    "Content-Type": "application/json",
+                }
+            )
+        elif self.config.auth is NifiAuthType.KERBEROS:
+            token_response = self.session.post(
+                url=urljoin(self.config.site_url, KERBEROS_TOKEN_ENDPOINT),
+                auth=HTTPSPNEGOAuth(),
             )
             if not token_response.ok:
                 logger.error("Failed to get token")
@@ -952,6 +971,7 @@ class NifiSource(Source):
                         component.outlets[dataset.dataset_urn] = dataset
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         self.create_nifi_flow()
 

@@ -57,7 +57,7 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
-    "ruamel.yaml"
+    "ruamel.yaml",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -371,7 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
-    "nifi": {"requests", "packaging"},
+    "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
