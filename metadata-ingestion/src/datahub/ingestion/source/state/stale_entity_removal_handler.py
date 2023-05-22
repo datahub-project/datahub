@@ -1,26 +1,14 @@
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    Generic,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    cast,
-)
+from typing import Dict, Iterable, Optional, Set, Type, cast
 
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -32,11 +20,6 @@ from datahub.ingestion.source.state.use_case_handler import (
 )
 from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.lossy_collections import LossyList
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.state.entity_removal_state import (
-        GenericCheckpointState,
-    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -65,78 +48,6 @@ class StaleEntityRemovalSourceReport(StatefulIngestionReport):
 
     def report_stale_entity_soft_deleted(self, urn: str) -> None:
         self.soft_deleted_stale_entities.append(urn)
-
-
-Derived = TypeVar("Derived", bound=CheckpointStateBase)
-
-
-class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived]):
-    """
-    Defines the abstract interface for the checkpoint states that are used for stale entity removal.
-    Examples include sql_common state for tracking table and & view urns,
-    dbt that tracks node & assertion urns, kafka state tracking topic urns.
-    """
-
-    @abstractmethod
-    def add_checkpoint_urn(self, type: str, urn: str) -> None:
-        """
-        Adds an urn into the list used for tracking the type.
-        :param type: The type of the urn such as a 'table', 'view',
-         'node', 'topic', 'assertion' that the concrete sub-class understands.
-        :param urn: The urn string
-        :return: None.
-        """
-        pass
-
-    @abstractmethod
-    def get_urns_not_in(
-        self, type: str, other_checkpoint_state: Derived
-    ) -> Iterable[str]:
-        """
-        Gets the urns present in this checkpoint but not the other_checkpoint for the given type.
-        :param type: The type of the urn such as a 'table', 'view',
-         'node', 'topic', 'assertion' that the concrete sub-class understands.
-        :param other_checkpoint_state: the checkpoint state to compute the urn set difference against.
-        :return: an iterable to the set of urns present in this checkpoing state but not in the other_checkpoint.
-        """
-        pass
-
-    @abstractmethod
-    def get_percent_entities_changed(self, old_checkpoint_state: Derived) -> float:
-        """
-        Returns the percentage of entities that have changed relative to `old_checkpoint_state`.
-        :param old_checkpoint_state: the old checkpoint state to compute the relative change percent against.
-        :return: (1-|intersection(self, old_checkpoint_state)| / |old_checkpoint_state|) * 100.0
-        """
-        pass
-
-    @staticmethod
-    def compute_percent_entities_changed(
-        new_old_entity_list: List[Tuple[List[str], List[str]]]
-    ) -> float:
-        old_count_all = 0
-        overlap_count_all = 0
-        for new_entities, old_entities in new_old_entity_list:
-            (
-                overlap_count,
-                old_count,
-                _,
-            ) = StaleEntityCheckpointStateBase.get_entity_overlap_and_cardinalities(
-                new_entities=new_entities, old_entities=old_entities
-            )
-            overlap_count_all += overlap_count
-            old_count_all += old_count
-        if old_count_all:
-            return (1 - overlap_count_all / old_count_all) * 100.0
-        return 0.0
-
-    @staticmethod
-    def get_entity_overlap_and_cardinalities(
-        new_entities: List[str], old_entities: List[str]
-    ) -> Tuple[int, int, int]:
-        new_set = set(new_entities)
-        old_set = set(old_entities)
-        return len(new_set.intersection(old_set)), len(old_set), len(new_set)
 
 
 class StaleEntityRemovalHandler(
@@ -286,12 +197,8 @@ class StaleEntityRemovalHandler(
         cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
         # Get the underlying states
-        last_checkpoint_state = cast(
-            StaleEntityCheckpointStateBase, last_checkpoint.state
-        )
-        cur_checkpoint_state = cast(
-            StaleEntityCheckpointStateBase, cur_checkpoint.state
-        )
+        last_checkpoint_state = cast(GenericCheckpointState, last_checkpoint.state)
+        cur_checkpoint_state = cast(GenericCheckpointState, cur_checkpoint.state)
 
         # Check if the entity delta is below the fail-safe threshold.
         entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
@@ -331,5 +238,5 @@ class StaleEntityRemovalHandler(
             return
         cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
-        cur_state = cast(StaleEntityCheckpointStateBase, cur_checkpoint.state)
+        cur_state = cast(GenericCheckpointState, cur_checkpoint.state)
         cur_state.add_checkpoint_urn(type=type, urn=urn)
