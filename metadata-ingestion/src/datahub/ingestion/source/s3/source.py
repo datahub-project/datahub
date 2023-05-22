@@ -726,7 +726,9 @@ class S3Source(StatefulIngestionSourceBase):
                 bucket_name, f"{folder}{folder_split[1]}"
             )
 
-    def get_dir_to_process(self, bucket_name: str, folder: str) -> str:
+    def get_dir_to_process(
+        self, bucket_name: str, folder: str, path_spec: PathSpec, protocol: str
+    ) -> str:
         iterator = list_folders(
             bucket_name=bucket_name,
             prefix=folder,
@@ -739,10 +741,15 @@ class S3Source(StatefulIngestionSourceBase):
                 key=functools.cmp_to_key(partitioned_folder_comparator),
                 reverse=True,
             )
-
-            return self.get_dir_to_process(
-                bucket_name=bucket_name, folder=sorted_dirs[0] + "/"
-            )
+            for dir in sorted_dirs:
+                if path_spec.dir_allowed(f"{protocol}" + bucket_name + "/" + dir + "/"):
+                    return self.get_dir_to_process(
+                        bucket_name=bucket_name,
+                        folder=dir + "/",
+                        path_spec=path_spec,
+                        protocol=protocol,
+                    )
+            return folder
         else:
             return folder
 
@@ -789,8 +796,12 @@ class S3Source(StatefulIngestionSourceBase):
                     bucket_name, f"{folder}", self.source_config.aws_config
                 ):
                     logger.info(f"Processing folder: {f}")
+                    protocol = ContainerWUCreator.get_protocol(path_spec.include)
                     dir_to_process = self.get_dir_to_process(
-                        bucket_name=bucket_name, folder=f + "/"
+                        bucket_name=bucket_name,
+                        folder=f + "/",
+                        path_spec=path_spec,
+                        protocol=protocol,
                     )
                     logger.info(f"Getting files from folder: {dir_to_process}")
                     dir_to_process = dir_to_process.rstrip("\\")

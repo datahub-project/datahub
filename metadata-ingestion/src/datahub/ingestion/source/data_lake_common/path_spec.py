@@ -81,6 +81,30 @@ class PathSpec(ConfigModel):
         logger.debug(f"{path} allowed for dataset creation")
         return True
 
+    def dir_allowed(self, path: str) -> bool:
+        path_slash = path.count("/")
+        glob_slash = self.glob_include.count("/")
+        if path_slash > glob_slash:
+            return False
+        slash_to_remove_from_glob = glob_slash - path_slash
+
+        glob_include = self.glob_include.rsplit("/", 1)[0]
+
+        for i in range(slash_to_remove_from_glob):
+            glob_include = glob_include.rsplit("/", 1)[0]
+
+        logger.debug(f"Checking dir to inclusion: {path}")
+        if not pathlib.PurePath(path).globmatch(glob_include, flags=pathlib.GLOBSTAR):
+            return False
+        logger.debug(f"{path} matched include ")
+        if self.exclude:
+            for exclude_path in self.exclude:
+                if pathlib.PurePath(path.rstrip("/")).globmatch(
+                    exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
+                ):
+                    return False
+        return True
+
     @classmethod
     def get_parsable_include(cls, include: str) -> str:
         parsable_include = include
