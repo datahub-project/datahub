@@ -16,6 +16,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 
 /**
  * Definition of the DataHub Container entity.
@@ -186,4 +187,13 @@ export class ContainerEntity implements Entity<Container> {
             EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
+
+    renderEmbeddedProfile = (urn: string) => (
+        <EmbeddedProfile
+            urn={urn}
+            entityType={EntityType.Container}
+            useEntityQuery={useGetContainerQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+        />
+    );
 }
