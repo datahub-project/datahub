@@ -107,8 +107,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     return false;
   }
 
-  // Should be behind a feature flag
-  protected boolean isEligibleForSubscriberRecipients() {
+  public boolean isEligibleForSubscriberRecipients() {
     return false;
   }
 

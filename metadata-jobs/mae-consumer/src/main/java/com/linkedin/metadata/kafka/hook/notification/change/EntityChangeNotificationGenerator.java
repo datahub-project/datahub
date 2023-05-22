@@ -142,6 +142,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     _entityRegistry = Objects.requireNonNull(entityRegistry);
   }
 
+  // TODO: Use feature flag to set this
+  @Override
+  public boolean isEligibleForSubscriberRecipients() {
+    return true;
+  }
+
   @Override
   public void generate(@Nonnull MetadataChangeLog logEvent) {
     if (isEligibleForProcessing(logEvent)) {
@@ -297,8 +303,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
   }
 
   private void trySendOwnershipChangeNotifications(final MetadataChangeLog logEvent, final List<ChangeEvent> changeEvents) {
-
-    List<Urn> addedUrns = changeEvents.stream()
+    final List<Urn> addedUrns = changeEvents.stream()
         .filter(changeEvent -> ChangeCategory.OWNER.equals(changeEvent.getCategory()))
         .filter(changeEvent -> ChangeOperation.ADD.equals(changeEvent.getOperation()))
         .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))

@@ -29,12 +29,24 @@ const OPERATIONAL_METADATA_NODE_CHILDREN = [
     EntityChangeType.OperationRowsRemoved,
     EntityChangeType.OperationRowsUpdated,
 ];
-const DATA_GOVERNANCE_NODE_KEY = 'data_governance';
-const DATA_GOVERNANCE_NODE_CHILDREN = [
-    EntityChangeType.OwnershipChange,
-    EntityChangeType.GlossaryTermChange,
-    EntityChangeType.TagChange,
+const OWNERSHIP_CHANGE_NODE_KEY = 'ownership_change';
+const OWNERSHIP_CHANGE_NODE_CHILDREN = [EntityChangeType.OwnerAdded, EntityChangeType.OwnerRemoved];
+const GLOSSARY_TERM_CHANGE_NODE_KEY = 'glossary_term_change';
+const GLOSSARY_TERM_CHANGE_NODE_CHILDREN = [
+    EntityChangeType.GlossaryTermAdded,
+    EntityChangeType.GlossaryTermRemoved,
+    EntityChangeType.GlossaryTermProposed,
 ];
+const TAG_CHANGE_NODE_KEY = 'tag_change';
+const TAG_CHANGE_NODE_CHILDREN = [EntityChangeType.TagAdded, EntityChangeType.TagRemoved, EntityChangeType.TagProposed];
+
+const NESTED_NODE_KEY_PARENTS = new Set([
+    SCHEMA_NODE_KEY,
+    OPERATIONAL_METADATA_NODE_KEY,
+    OWNERSHIP_CHANGE_NODE_KEY,
+    GLOSSARY_TERM_CHANGE_NODE_KEY,
+    TAG_CHANGE_NODE_KEY,
+]);
 
 export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
     switch (entityType) {
@@ -46,7 +58,9 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 DOCUMENTATION_NODE_KEY,
                 SCHEMA_NODE_KEY,
                 OPERATIONAL_METADATA_NODE_KEY,
-                DATA_GOVERNANCE_NODE_KEY,
+                OWNERSHIP_CHANGE_NODE_KEY,
+                GLOSSARY_TERM_CHANGE_NODE_KEY,
+                TAG_CHANGE_NODE_KEY,
             ];
             break;
         default:
@@ -55,7 +69,9 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
                 DOCUMENTATION_NODE_KEY,
-                DATA_GOVERNANCE_NODE_KEY,
+                OWNERSHIP_CHANGE_NODE_KEY,
+                GLOSSARY_TERM_CHANGE_NODE_KEY,
+                TAG_CHANGE_NODE_KEY,
             ];
             break;
     }
@@ -73,8 +89,12 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 ...SCHEMA_NODE_CHILDREN,
                 OPERATIONAL_METADATA_NODE_KEY,
                 ...OPERATIONAL_METADATA_NODE_CHILDREN,
-                DATA_GOVERNANCE_NODE_KEY,
-                ...DATA_GOVERNANCE_NODE_CHILDREN,
+                OWNERSHIP_CHANGE_NODE_KEY,
+                ...OWNERSHIP_CHANGE_NODE_CHILDREN,
+                GLOSSARY_TERM_CHANGE_NODE_KEY,
+                ...GLOSSARY_TERM_CHANGE_NODE_CHILDREN,
+                TAG_CHANGE_NODE_KEY,
+                ...TAG_CHANGE_NODE_CHILDREN,
             ];
             break;
         default:
@@ -83,16 +103,19 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
                 DOCUMENTATION_NODE_KEY,
-                ...DATA_GOVERNANCE_NODE_CHILDREN,
+                OWNERSHIP_CHANGE_NODE_KEY,
+                ...OWNERSHIP_CHANGE_NODE_CHILDREN,
+                GLOSSARY_TERM_CHANGE_NODE_KEY,
+                ...GLOSSARY_TERM_CHANGE_NODE_CHILDREN,
+                TAG_CHANGE_NODE_KEY,
+                ...TAG_CHANGE_NODE_CHILDREN,
             ];
             break;
     }
 };
 
 export const getEntityChangeTypesFromCheckedKeys = (checkedKeys: Key[]): EntityChangeType[] => {
-    return checkedKeys.filter(
-        (key) => key !== SCHEMA_NODE_KEY && key !== OPERATIONAL_METADATA_NODE_KEY && key !== DATA_GOVERNANCE_NODE_KEY,
-    ) as EntityChangeType[];
+    return checkedKeys.filter((key) => !NESTED_NODE_KEY_PARENTS.has(key as string)) as EntityChangeType[];
 };
 
 const assertionsNode: DataNode = {
@@ -193,31 +216,85 @@ const operationalMetadataNode: DataNode = {
     ],
 };
 
-const dataGovernanceNode = {
-    key: DATA_GOVERNANCE_NODE_KEY,
-    title: <NotificationTypeText>Data governance events</NotificationTypeText>,
+const ownershipChangeNode: DataNode = {
+    key: OWNERSHIP_CHANGE_NODE_KEY,
+    title: <NotificationTypeText>Ownership changes</NotificationTypeText>,
     children: [
         {
-            key: EntityChangeType.OwnershipChange,
+            key: EntityChangeType.OwnerAdded,
             title: (
                 <>
-                    <NotificationTypeText>Ownership are added or removed</NotificationTypeText>
+                    <NotificationTypeText>An owner is added</NotificationTypeText>
                 </>
             ),
         },
         {
-            key: EntityChangeType.GlossaryTermChange,
+            key: EntityChangeType.OwnerRemoved,
             title: (
                 <>
-                    <NotificationTypeText>Glossary terms are proposed, added, or removed</NotificationTypeText>
+                    <NotificationTypeText>An owner is removed</NotificationTypeText>
+                </>
+            ),
+        },
+    ],
+};
+
+const glossaryTermChangeNode: DataNode = {
+    key: GLOSSARY_TERM_CHANGE_NODE_KEY,
+    title: <NotificationTypeText>Glossary term changes</NotificationTypeText>,
+    children: [
+        {
+            key: EntityChangeType.GlossaryTermAdded,
+            title: (
+                <>
+                    <NotificationTypeText>A glossary term is added</NotificationTypeText>
                 </>
             ),
         },
         {
-            key: EntityChangeType.TagChange,
+            key: EntityChangeType.GlossaryTermRemoved,
             title: (
                 <>
-                    <NotificationTypeText>Tags are proposed, added or removed</NotificationTypeText>
+                    <NotificationTypeText>A glossary term is removed</NotificationTypeText>
+                </>
+            ),
+        },
+        {
+            key: EntityChangeType.GlossaryTermProposed,
+            title: (
+                <>
+                    <NotificationTypeText>A glossary term is proposed</NotificationTypeText>
+                </>
+            ),
+        },
+    ],
+};
+
+const tagChangeNode: DataNode = {
+    key: TAG_CHANGE_NODE_KEY,
+    title: <NotificationTypeText>Tag changes</NotificationTypeText>,
+    children: [
+        {
+            key: EntityChangeType.TagAdded,
+            title: (
+                <>
+                    <NotificationTypeText>A tag is added</NotificationTypeText>
+                </>
+            ),
+        },
+        {
+            key: EntityChangeType.TagRemoved,
+            title: (
+                <>
+                    <NotificationTypeText>A tag is removed</NotificationTypeText>
+                </>
+            ),
+        },
+        {
+            key: EntityChangeType.TagProposed,
+            title: (
+                <>
+                    <NotificationTypeText>A tag is proposed</NotificationTypeText>
                 </>
             ),
         },
@@ -234,11 +311,21 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 documentationNode,
                 schemaNode,
                 operationalMetadataNode,
-                dataGovernanceNode,
+                ownershipChangeNode,
+                glossaryTermChangeNode,
+                tagChangeNode,
             ];
             break;
         default:
-            return [assertionsNode, incidentsNode, deprecationNode, documentationNode, dataGovernanceNode];
+            return [
+                assertionsNode,
+                incidentsNode,
+                deprecationNode,
+                documentationNode,
+                ownershipChangeNode,
+                glossaryTermChangeNode,
+                tagChangeNode,
+            ];
             break;
     }
 };

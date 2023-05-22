@@ -20,6 +20,7 @@ import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerato
 import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -41,7 +42,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final Authentication systemAuthentication) {
-    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication);
+    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication, Collections.emptyMap());
   }
 
   @Override

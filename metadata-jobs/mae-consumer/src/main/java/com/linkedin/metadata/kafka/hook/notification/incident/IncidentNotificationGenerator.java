@@ -48,7 +48,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final Authentication systemAuthentication) {
-    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication);
+    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication, Collections.emptyMap());
   }
 
   @Override
