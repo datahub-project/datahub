@@ -11,7 +11,7 @@ type Props = {
     path: Array<string>;
 };
 
-const useBrowseV2 = ({ entityType, environment, platform, path }: Props) => {
+const useBrowseV2Query = ({ entityType, environment, platform, path }: Props) => {
     const filterOverrides = [
         ...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : []),
         ...(platform ? [{ field: PLATFORM_FILTER_NAME, value: platform }] : []),
@@ -57,4 +57,4 @@ const useBrowseV2 = ({ entityType, environment, platform, path }: Props) => {
     ] as const;
 };
 
-export default useBrowseV2;
+export default useBrowseV2Query;

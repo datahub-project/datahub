@@ -4,7 +4,7 @@ import { Typography } from 'antd';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { FacetMetadata } from '../../../types.generated';
 import EntityNode from './EntityNode';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
+import useBrowseV2EnabledEntities from './useBrowseV2EnabledEntities';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -34,9 +34,7 @@ type Props = {
 };
 
 const BrowseSidebar = ({ facets, visible, width }: Props) => {
-    const entityAggregations = facets
-        ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
-        ?.aggregations.filter((aggregation) => aggregation.count > 0);
+    const entityAggregations = useBrowseV2EnabledEntities(facets);
 
     return (
         <Sidebar visible={visible} width={width}>

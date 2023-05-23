@@ -9,7 +9,7 @@ import { AggregationMetadata, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
-import useBrowseV2 from './useBrowseV2';
+import useBrowseV2Query from './useBrowseV2Query';
 
 const Header = styled.div`
     display: flex;
@@ -70,7 +70,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
         16,
     );
 
-    const [getBrowse, { groups, loaded, error }] = useBrowseV2({ entityType, environment, platform, path });
+    const [getBrowse, { groups, loaded, error }] = useBrowseV2Query({ entityType, environment, platform, path });
 
     const onClickHeader = useCallback(() => {
         getBrowse();
