@@ -37,6 +37,9 @@ export const DEFAULT_APP_CONFIG = {
     viewsConfig: {
         enabled: false,
     },
+    featureFlags: {
+        readOnlyModeEnabled: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{
