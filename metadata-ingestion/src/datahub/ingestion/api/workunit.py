@@ -1,5 +1,4 @@
 import json
-
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Type, TypeVar, Union, overload
 
@@ -103,6 +102,7 @@ class MetadataWorkUnit(WorkUnit):
             # Best effort attempt to deserialize MetadataChangeProposalClass
             if (
                 self.metadata.aspectName == aspect_cls.ASPECT_NAME
+                and self.metadata.aspect
                 and self.metadata.aspect.contentType == "application/json"
             ):
                 try:

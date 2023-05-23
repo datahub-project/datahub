@@ -4,12 +4,11 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_container_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import (
+    auto_browse_path_v2,
     auto_status_aspect,
     auto_workunit,
-    auto_browse_path_v2,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-
 
 _base_metadata: List[
     Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]
