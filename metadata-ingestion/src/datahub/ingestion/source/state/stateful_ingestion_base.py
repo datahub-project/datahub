@@ -169,7 +169,7 @@ class StatefulIngestionSourceBase(Source):
     ) -> None:
         super().__init__(ctx)
         self.report: StatefulIngestionReport = StatefulIngestionReport()
-        self.state_provider = StateProviderWrapper(config, ctx)
+        self.state_provider = StateProviderWrapper(config.stateful_ingestion, ctx)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -187,13 +187,12 @@ class StatefulIngestionSourceBase(Source):
 class StateProviderWrapper:
     def __init__(
         self,
-        config: StatefulIngestionConfigBase[StatefulIngestionConfig],
+        config: Optional[StatefulIngestionConfig],
         ctx: PipelineContext,
     ) -> None:
-        # self.config = config
         self.ctx = ctx
+        self.stateful_ingestion_config = config
 
-        self.stateful_ingestion_config = config.stateful_ingestion
         self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.report: StatefulIngestionReport = StatefulIngestionReport()
