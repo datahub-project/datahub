@@ -35,6 +35,7 @@ from datahub.ingestion.api.source_helpers import (
     auto_materialize_referenced_tags,
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -722,14 +723,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             if self.config.entities_enabled.can_emit_node_type("test"):
-                wu = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityUrn=assertion_urn,
                     aspect=DataPlatformInstanceClass(
                         platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
                     ),
                 ).as_workunit()
-                self.report.report_workunit(wu)
-                yield wu
 
             upstream_urns = get_upstreams(
                 upstreams=node.upstream_nodes,
@@ -742,22 +741,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
-                    wu = self._make_assertion_from_test(
+                    yield self._make_assertion_from_test(
                         custom_props,
                         node,
                         assertion_urn,
                         upstream_urn,
                     )
-                    self.report.report_workunit(wu)
-                    yield wu
 
                 if node.test_result:
                     if self.config.entities_enabled.can_emit_test_results:
-                        wu = self._make_assertion_result_from_test(
+                        yield self._make_assertion_result_from_test(
                             node, assertion_urn, upstream_urn
                         )
-                        self.report.report_workunit(wu)
-                        yield wu
                     else:
                         logger.debug(
                             f"Skipping test result {node.name} emission since it is turned off."
@@ -887,7 +882,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return auto_materialize_referenced_tags(
             auto_stale_entity_removal(
                 self.stale_entity_removal_handler,
-                auto_status_aspect(self.get_workunits_internal()),
+                auto_workunit_reporter(
+                    self.report, auto_status_aspect(self.get_workunits_internal())
+                ),
             )
         )
 
@@ -1023,7 +1020,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
                 if sub_type_wu:
                     yield sub_type_wu
-                    self.report.report_workunit(sub_type_wu)
 
             else:
                 # We are creating empty node for platform and only add lineage/keyaspect.
@@ -1048,17 +1044,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for upstream in upstreams_lineage_class.upstreams:
                             patch_builder.add_upstream_lineage(upstream)
 
-                        lineage_workunits = [
-                            MetadataWorkUnit(
+                        for mcp in patch_builder.build():
+                            yield MetadataWorkUnit(
                                 id=f"upstreamLineage-for-{node_datahub_urn}",
                                 mcp_raw=mcp,
                                 is_primary_source=is_primary_source,
                             )
-                            for mcp in patch_builder.build()
-                        ]
-                        for wu in lineage_workunits:
-                            yield wu
-                            self.report.report_workunit(wu)
                     else:
                         aspects.append(upstreams_lineage_class)
 
@@ -1068,11 +1059,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             if self.config.write_semantics == "PATCH":
                 mce = self.get_patched_mce(mce)
-            wu = MetadataWorkUnit(
+            yield MetadataWorkUnit(
                 id=dataset_snapshot.urn, mce=mce, is_primary_source=is_primary_source
             )
-            self.report.report_workunit(wu)
-            yield wu
 
     def extract_query_tag_aspects(
         self,
