@@ -31,6 +31,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -335,9 +336,10 @@ public class ESSearchDAO {
 
   private static Criterion transformEntityTypeCriterion(Criterion criterion, IndexConvention indexConvention) {
     return criterion.setField("_index").setValues(
-        new StringArray(criterion.getValues().stream().map(
-            indexConvention::getEntityIndexName).collect(
-            Collectors.toList()))).setValue(indexConvention.getEntityIndexName(criterion.getValue()));
+        new StringArray(criterion.getValues().stream().map(value -> String.join("", value.split("_")))
+            .map(indexConvention::getEntityIndexName)
+            .collect(Collectors.toList())))
+        .setValue(indexConvention.getEntityIndexName(String.join("", criterion.getValue().split("_"))));
   }
 
   private static ConjunctiveCriterion transformConjunctiveCriterion(ConjunctiveCriterion conjunctiveCriterion,
