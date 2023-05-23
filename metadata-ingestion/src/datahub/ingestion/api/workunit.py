@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Type, TypeVar, Union, overload
 
@@ -10,11 +9,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import (
-    UsageAggregationClass,
-    _Aspect,
-    ChangeTypeClass,
-)
+from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
 
 T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 
@@ -104,16 +99,11 @@ class MetadataWorkUnit(WorkUnit):
         elif isinstance(self.metadata, MetadataChangeProposal):
             aspects = []
             # Best effort attempt to deserialize MetadataChangeProposalClass
-            if (
-                self.metadata.aspectName == aspect_cls.ASPECT_NAME
-                and self.metadata.changeType == ChangeTypeClass.UPSERT
-                and self.metadata.aspect
-                and self.metadata.aspect.contentType == "application/json"
-            ):
+            if self.metadata.aspectName == aspect_cls.ASPECT_NAME:
                 try:
-                    aspects = [
-                        aspect_cls.from_obj(json.loads(self.metadata.aspect.value))
-                    ]
+                    mcp = MetadataChangeProposalWrapper.from_mcpc(self.metadata)
+                    if mcp:
+                        aspects = [mcp.aspect]
                 except Exception:
                     pass
         else:

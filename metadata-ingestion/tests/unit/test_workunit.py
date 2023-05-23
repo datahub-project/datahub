@@ -3,14 +3,14 @@ import json
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
-    ContainerClass,
-    StatusClass,
-    MetadataChangeEventClass,
-    DatasetSnapshotClass,
-    UpstreamLineageClass,
-    MetadataChangeProposalClass,
     ChangeTypeClass,
+    ContainerClass,
+    DatasetSnapshotClass,
     GenericAspectClass,
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+    StatusClass,
+    UpstreamLineageClass,
 )
 
 
@@ -73,19 +73,6 @@ def test_get_aspects_of_type_mcpc():
         entityUrn="urn:li:container:asdf",
         entityType="container",
         changeType=ChangeTypeClass.PATCH,
-        aspectName=StatusClass.ASPECT_NAME,
-        aspect=GenericAspectClass(
-            value=json.dumps(aspect.to_obj()).encode(),
-            contentType="application/json",
-        ),
-    )
-    wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
-
-    mcpc = MetadataChangeProposalClass(
-        entityUrn="urn:li:container:asdf",
-        entityType="container",
-        changeType=ChangeTypeClass.UPSERT,
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=json.dumps({"not_status": True}).encode(),
