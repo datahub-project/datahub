@@ -178,6 +178,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:ravendb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "ravendb",
+      "displayName": "RavenDB",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "/assets/platforms/ravendblogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:mariadb",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -533,16 +543,6 @@
       "displayName": "Vertica",
       "type": "OLAP_DATASTORE",
       "logoUrl": "/assets/platforms/verticalogo.png"
-    }
-  },
-  {
-    "urn": "urn:li:dataPlatform:gcs",
-    "aspect": {
-      "datasetNameDelimiter": "/",
-      "name": "gcs",
-      "displayName": "Google Cloud Storage",
-      "type": "FILE_SYSTEM",
-      "logoUrl": "/assets/platforms/gcslogo.svg"
     }
   }
 ]

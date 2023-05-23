@@ -1,0 +1,21 @@
+# see https://datahubproject.io/docs/generated/ingestion/sources/mongodb for complete documentation
+source:
+  type: "ravendb"
+  config:
+    connect_uri: "ravendb:8080"
+    # username: user
+    # password: password
+    # authMechanism: "DEFAULT"
+    env: "PROD" # Optional, default is "PROD"
+    database_pattern: {}
+    collection_pattern: {}
+    enable_schema_inference: True
+    schema_sampling_size: 200
+    remove_metadata_from_schema: True
+    max_schema_size: 300
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

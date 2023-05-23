@@ -68,6 +68,7 @@ REDASH_DATA_SOURCE_TO_DATAHUB_MAP = {
     "impala": {"platform": "external", "db_name_key": "database"},
     "mapd": {"platform": "external", "db_name_key": "database"},
     "mongodb": {"platform": "mongodb", "db_name_key": "dbName"},
+    "ravendb": {"platform": "ravendb", "db_name_key": "dbName"},
     "mssql": {"platform": "mssql", "db_name_key": "db"},
     "mysql": {"platform": "mysql", "db_name_key": "db"},
     "pg": {"platform": "postgres", "db_name_key": "dbname"},

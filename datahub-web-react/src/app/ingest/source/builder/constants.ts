@@ -5,6 +5,7 @@ import kafkaLogo from '../../../../images/kafkalogo.png';
 import lookerLogo from '../../../../images/lookerlogo.png';
 import tableauLogo from '../../../../images/tableaulogo.png';
 import mysqlLogo from '../../../../images/mysqllogo-2.png';
+import ravendbLogo from '../../../../images/ravendblogo.png';
 import postgresLogo from '../../../../images/postgreslogo.png';
 import mongodbLogo from '../../../../images/mongodblogo.png';
 import azureLogo from '../../../../images/azure-ad.png';
@@ -69,6 +70,8 @@ export const MSSQL = 'mssql';
 export const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
 export const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
+export const RAVENDB = 'ravendb';
+export const RAVENDB_URN = `urn:li:dataPlatform:${RAVENDB}`;
 export const OKTA = 'okta';
 export const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
 export const ORACLE = 'oracle';
@@ -119,6 +122,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
+    [RAVENDB_URN]: ravendbLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
     [POSTGRES_URN]: postgresLogo,

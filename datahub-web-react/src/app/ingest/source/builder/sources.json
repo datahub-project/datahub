@@ -70,6 +70,12 @@
         "recipe": "source: \n    type: mysql\n    config: \n        # Coordinates\n        host_port: # Your MySQL host and post, e.g. mysql:3306\n        database: # Your MySQL database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your MySQL username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:ravendb",
+        "name": "ravendb",
+        "displayName": "RavenDB",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/ravendb/",
+        "recipe": "source:\n  type: ravendb\n  config:\n    connect_uri: # your ravendb connection uri, e.g. "ravendb://localhost"\n    database_pattern:\n      deny:\n        - "@.*"\n    collection_pattern:\n      allow: \n        - ".*"\n      deny: \n        - "@.*"\n      ignoreCase: True\n\n    # Options\n    enable_schema_inference: True\n    schema_sampling_size: 1000\n    remove_metadata_from_schema: True\n    max_schema_size: 300\n    env: DEV"
+    {
         "urn": "urn:li:dataPlatform:postgres",
         "name": "postgres",
         "displayName": "Postgres",

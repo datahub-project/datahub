@@ -2,15 +2,19 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
-from ravendb import DocumentStore
-from ravendb import GetDatabaseNamesOperation, GetCollectionStatisticsOperation
-from datahub.ingestion.source.schema_inference.object import construct_schema
-
 from pydantic import PositiveInt
 from pydantic.fields import Field
+from ravendb import (
+    DocumentStore,
+    GetCollectionStatisticsOperation,
+    GetDatabaseNamesOperation,
+)
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
+from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import make_data_platform_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -20,13 +24,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import make_data_platform_urn
-from datahub.metadata.schema_classes import DataPlatformInstanceClass, DataPlatformInstancePropertiesClass
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
+    construct_schema,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -44,8 +46,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    DataPlatformInstancePropertiesClass,
+    DatasetPropertiesClass,
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -71,8 +76,8 @@ _field_type_mapping: Dict[str, Type] = {
 class UniversalEntity:
     """
     Universal class for querying RavenDB entries.
-    If an object has an EntityType (captured in @metadata attribute), only the attributes defined 
-    in the EntityType are returned and updated.  If this universal class is included in the query, 
+    If an object has an EntityType (captured in @metadata attribute), only the attributes defined
+    in the EntityType are returned and updated.  If this universal class is included in the query,
     all attributes of the document are returned.
     """
 
@@ -81,7 +86,6 @@ class UniversalEntity:
 
 
 class RavenDBConfig(EnvConfigMixin):
-
     connect_uri: str = Field(
         default=None, description="RavenDB connection URI.", required=True
     )
@@ -119,8 +123,9 @@ class RavenDBConfig(EnvConfigMixin):
 @dataclass
 class RavenDBSourceReport(SourceReport):
     """
-    Source reporter to report statistics, warnings, failures, and other information about the run. 
+    Source reporter to report statistics, warnings, failures, and other information about the run.
     """
+
     filtered: List[str] = field(default_factory=list)
 
     def report_dropped(self, name: str) -> None:
@@ -136,7 +141,10 @@ class RavenDBSourceReport(SourceReport):
 @support_status(SupportStatus.UNKNOWN)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.SCHEMA_METADATA, "Schema is infered if config parameter 'enable_schema_inference' is true (Default: true).")
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Schema is infered if config parameter 'enable_schema_inference' is true (Default: true).",
+)
 @dataclass
 class RavenDBSource(Source):
     """
@@ -145,7 +153,7 @@ class RavenDBSource(Source):
     - Databases and associated metadata
     - Collections in each database and schemas for each collection (via schema inference)
 
-    By default, schema inference samples 1000 documents from each collection. 
+    By default, schema inference samples 1000 documents from each collection.
     Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
     Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
@@ -173,12 +181,13 @@ class RavenDBSource(Source):
         # ping the database to make sure the connection works
         self.database_names = [d for d in self.get_database_names_pagination()]
         logging.debug(
-            f"Found {len(self.database_names)} databases matching allowed regex: {self.database_names}")
+            f"Found {len(self.database_names)} databases matching allowed regex: {self.database_names}"
+        )
 
     def get_database_names_pagination(self, start=0, page_size=10):
         """
         Get all database names that are stored on the server.
-        As the GetDatabaseNamesOperation returns only a page of database names, this function needs to be 
+        As the GetDatabaseNamesOperation returns only a page of database names, this function needs to be
         called multiple times to get all database names.
          Parameters
         ----------
@@ -190,10 +199,8 @@ class RavenDBSource(Source):
         """
         result = []
         while True:
-            operation = GetDatabaseNamesOperation(
-                start=start, page_size=page_size)
-            database_names = self.store.maintenance.server.send(
-                operation=operation)
+            operation = GetDatabaseNamesOperation(start=start, page_size=page_size)
+            database_names = self.store.maintenance.server.send(operation=operation)
             result.extend(database_names)
             if start + page_size > len(database_names):
                 return result
@@ -201,12 +208,13 @@ class RavenDBSource(Source):
 
     # helper methods to construct schema
     def construct_schema_ravendb(
-            self,
-            db_store,
-            collection,
-            sampling_size=1000,
-            remove_metadata=True,
-            ignore_entity_types=True) -> Dict[Tuple[str, ...], SchemaDescription]:
+        self,
+        db_store,
+        collection,
+        sampling_size=1000,
+        remove_metadata=True,
+        ignore_entity_types=True,
+    ) -> Dict[Tuple[str, ...], SchemaDescription]:
         """
         Create a schema from the RavenDB collection
         Returned schema is keyed by tuples of nested field names, with each
@@ -232,23 +240,26 @@ class RavenDBSource(Source):
         """
 
         logging.debug(
-            f"Conduct schema from collection: {collection}.\nIgnoring entity types: {ignore_entity_types}\nSampling size: {sampling_size}")
+            f"Conduct schema from collection: {collection}.\nIgnoring entity types: {ignore_entity_types}\nSampling size: {sampling_size}"
+        )
         items = []
         with db_store.open_session() as session:
             if ignore_entity_types:
                 # get all columns no matter if they are mentioned in EntityClass
-                result = session.query_collection(
-                    collection, UniversalEntity).take(sampling_size)
+                result = session.query_collection(collection, UniversalEntity).take(
+                    sampling_size
+                )
                 items = [item.__dict__["data"] for item in result.distinct()]
             else:
-                result = session.query_collection(
-                    collection).take(sampling_size)
+                result = session.query_collection(collection).take(sampling_size)
                 items = [item.__dict__ for item in result.distinct()]
 
             # Remove all keys that start with @
             if remove_metadata:
-                items = [{k: v for k, v in item.items() if not k == "@metadata"}
-                         for item in items]
+                items = [
+                    {k: v for k, v in item.items() if not k == "@metadata"}
+                    for item in items
+                ]
             # key is tuple
             schema = {k[0]: v for k, v in construct_schema(items, ".").items()}
             # logging.debug(schema)
@@ -266,6 +277,7 @@ class RavenDBSource(Source):
             dict with statistics of DocumentStore
         """
         from ravendb.documents.operations.statistics import GetStatisticsOperation
+
         with db_store.open_session():
             stats = db_store.maintenance.send(GetStatisticsOperation())
 
@@ -278,7 +290,7 @@ class RavenDBSource(Source):
                 "databaseChangeVector": stats["DatabaseChangeVector"],
                 "lastIndexingTime": stats["LastIndexingTime"],
                 "lastDocEtag": stats["LastDocEtag"],
-                "lastDatabaseEtag": stats["LastDatabaseEtag"]
+                "lastDatabaseEtag": stats["LastDatabaseEtag"],
             }
 
     def get_datatypes(self, types: Dict, collection_name: str):
@@ -292,7 +304,7 @@ class RavenDBSource(Source):
                 name of collection (for logging)
         Returns
         -------
-            Tuple of native and mapped datahub specific schema field data types 
+            Tuple of native and mapped datahub specific schema field data types
         """
 
         # if "types" is dict with more than 1 entry, the datatype is mixed
@@ -320,7 +332,7 @@ class RavenDBSource(Source):
                 Name of the collection to be checked
         Returns
         -------
-            boolean whether the collection should be dropped 
+            boolean whether the collection should be dropped
         """
         return not self.config.collection_pattern.allowed(collection)
 
@@ -339,7 +351,6 @@ class RavenDBSource(Source):
         return self.report
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         # filter out not required dbs
         for database in sorted(self.database_names):
             if not self.config.database_pattern.allowed(database):
@@ -355,19 +366,24 @@ class RavenDBSource(Source):
             db_stats["db_name"] = database
             # logging.debug(db_stats)
 
-            collections_dict = {k for k in db_store.maintenance.send(
-                GetCollectionStatisticsOperation()).collections.keys()}
+            collections_dict = {
+                k
+                for k in db_store.maintenance.send(
+                    GetCollectionStatisticsOperation()
+                ).collections.keys()
+            }
             logging.debug(
-                f"Found {len(collections_dict)} collections: {collections_dict}")
+                f"Found {len(collections_dict)} collections: {collections_dict}"
+            )
 
             # last index time of all indices of collection
             latest_time = ""
             try:
                 latest_time = str(
-                    max([i["lastIndexingTime"] for i in db_stats["indexes"]]))
-            except:
-                logging.debug(
-                    f"Document Store '{database}': No indices available")
+                    max([i["lastIndexingTime"] for i in db_stats["indexes"]])
+                )
+            except KeyError:
+                logging.debug(f"Document Store '{database}': No indices available")
             platform_urn = make_data_platform_urn(self.platform)
             instance_urn = f"urn:li:dataPlatformInstance:({platform_urn},{database})"
             # saving additional custom ravendb database attributes as DataPlatformInstanceProperties
@@ -383,17 +399,17 @@ class RavenDBSource(Source):
                     "lastCollectionIndexingTime": latest_time,
                     "lastDocEtag": str(db_stats["lastDocEtag"]),
                     "lastDatabaseEtag": str(db_stats["lastDatabaseEtag"]),
-                }
+                },
             )
 
             # whole DocuementStore should be captured as a platform instance
             # even if there is no collections, the DocuementStore is still in DataHub
             mcp = MetadataChangeProposalWrapper(
-                entityUrn=instance_urn,
-                aspect=platform_props
+                entityUrn=instance_urn, aspect=platform_props
             )
             wu = MetadataWorkUnit(
-                id=f"{self.platform}.{database}.{mcp.aspectName}", mcp=mcp)
+                id=f"{self.platform}.{database}.{mcp.aspectName}", mcp=mcp
+            )
             self.report.report_workunit(wu)
             yield wu
 
@@ -425,8 +441,11 @@ class RavenDBSource(Source):
 
                 # filter for index from collection
                 collection_indexes = [
-                    {"name": i["Name"], "stale": i["IsStale"],
-                        "lastIndexingTime": i["LastIndexingTime"]}
+                    {
+                        "name": i["Name"],
+                        "stale": i["IsStale"],
+                        "lastIndexingTime": i["LastIndexingTime"],
+                    }
                     for i in db_stats["indexes"]
                     if collection in i["Name"].split("/")
                 ]
@@ -434,10 +453,10 @@ class RavenDBSource(Source):
                 latest_collection_indexing_time = ""
                 try:
                     latest_time = str(
-                        max([i["lastIndexingTime"] for i in db_stats["indexes"]]))
-                except:
-                    logging.debug(
-                        f"Collection '{collection}': No indices available")
+                        max([i["lastIndexingTime"] for i in db_stats["indexes"]])
+                    )
+                except KeyError:
+                    logging.debug(f"Collection '{collection}': No indices available")
 
                 dataset_properties = DatasetPropertiesClass(
                     qualifiedName=dataset_name,
@@ -445,16 +464,18 @@ class RavenDBSource(Source):
                     customProperties={
                         "indexes": str(collection_indexes),
                         "lastCollectionIndexingTime": latest_collection_indexing_time,
-                    }
+                    },
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
 
                 # conduct schema
                 if self.config.enable_schema_inference:
                     collection_schema = self.construct_schema_ravendb(
-                        db_store, collection,
+                        db_store,
+                        collection,
                         sampling_size=self.config.schema_sampling_size,
-                        remove_metadata=self.config.remove_metadata_from_schema)
+                        remove_metadata=self.config.remove_metadata_from_schema,
+                    )
 
                     # initialize the schema for the collection
                     canonical_schema: List[SchemaField] = []
@@ -498,14 +519,15 @@ class RavenDBSource(Source):
                         collection_fields, key=lambda x: x["delimited_name"]
                     ):
                         native_datatype, mapped_type = self.get_datatypes(
-                            dict(schema_field['types']), collection)
+                            dict(schema_field["types"]), collection
+                        )
                         field = SchemaField(
                             fieldPath=schema_field["delimited_name"],
                             nativeDataType=native_datatype,
                             type=mapped_type,
                             description=None,
                             nullable=schema_field["nullable"],
-                            recursive=False
+                            recursive=False,
                         )
                         canonical_schema.append(field)
 
@@ -523,8 +545,7 @@ class RavenDBSource(Source):
                     )
                     dataset_snapshot.aspects.append(schema_metadata)
 
-                    mce = MetadataChangeEvent(
-                        proposedSnapshot=dataset_snapshot)
+                    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                     wu = MetadataWorkUnit(id=dataset_name, mce=mce)
                     self.report.report_workunit(wu)
                     yield wu

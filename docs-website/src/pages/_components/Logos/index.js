@@ -262,6 +262,7 @@ const platformLogos = [
   { name: "Metabase", imageUrl: "/img/logos/platforms/metabase.svg" },
   { name: "Mode", imageUrl: "/img/logos/platforms/mode.png" },
   { name: "MongoDB", imageUrl: "/img/logos/platforms/mongodb.svg" },
+  { name: "RavenDB", imageUrl: "/img/logos/platforms/ravendb.svg" },
   {
     name: "MSSQL",
     imageUrl: "/img/logos/platforms/mssql.svg",
