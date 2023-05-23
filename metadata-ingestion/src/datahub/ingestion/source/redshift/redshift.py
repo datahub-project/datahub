@@ -432,7 +432,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         for schema in RedshiftDataDictionary.get_schemas(
             conn=connection, database=database
         ):
-            logger.info(f"Schema: {database}.{schema.name}")
+            logger.info(f"Processing schema: {database}.{schema.name}")
             if not self.config.schema_pattern.allowed(schema.name):
                 self.report.report_dropped(f"{database}.{schema.name}")
                 continue
@@ -479,10 +479,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             if self.config.include_tables:
                 logger.info("process tables")
-                if not self.db_tables[schema.database]:
-                    return
-
-                if schema.name in self.db_tables[schema.database]:
+                if (
+                    self.db_tables[schema.database]
+                    and schema.name in self.db_tables[schema.database]
+                ):
                     for table in self.db_tables[schema.database][schema.name]:
                         table.columns = schema_columns[schema.name].get(table.name, [])
                         yield from self._process_table(table, database=database)
@@ -492,10 +492,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             )
                             + 1
                         )
+                        logger.debug(
+                            f"Table processed: {database}.{schema.name}.{table.name}"
+                        )
+                else:
+                    logger.info(
+                        f"No tables in cache for {schema.database}.{schema.name}, skipping"
+                    )
 
             if self.config.include_views:
                 logger.info("process views")
-                if schema.name in self.db_views[schema.database]:
+                if (
+                    self.db_views[schema.database]
+                    and schema.name in self.db_views[schema.database]
+                ):
                     for view in self.db_views[schema.database][schema.name]:
                         view.columns = schema_columns[schema.name].get(view.name, [])
                         yield from self._process_view(
@@ -508,6 +518,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             )
                             + 1
                         )
+                        logger.debug(
+                            f"Table processed: {database}.{schema.name}.{view.name}"
+                        )
+            else:
+                logger.info(
+                    f"No views in cache for {schema.database}.{schema.name}, skipping"
+                )
 
             self.report.metadata_extraction_sec[report_key] = round(
                 timer.elapsed_seconds(), 2
@@ -752,13 +769,30 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         tables, views = RedshiftDataDictionary.get_tables_and_views(conn=connection)
         for schema in tables:
             if self.config.schema_pattern.allowed(f"{database}.{schema}"):
+                logging.debug(
+                    f"Not caching tables for schema {database}.{schema} which is not allowed by schema_pattern"
+                )
                 self.db_tables[database][schema] = []
                 for table in tables[schema]:
                     if self.config.table_pattern.allowed(
                         f"{database}.{schema}.{table.name}"
                     ):
                         self.db_tables[database][schema].append(table)
+                        self.report.table_cached[f"{database}.{schema}"] = (
+                            self.report.table_cached.get(f"{database}.{schema}", 0) + 1
+                        )
+                    else:
+                        logging.debug(
+                            f"Table {database}.{schema}.{table.name} is filtered by table_pattern"
+                        )
+                        self.report.table_filtered[f"{database}.{schema}"] = (
+                            self.report.table_filtered.get(f"{database}.{schema}", 0)
+                            + 1
+                        )
         for schema in views:
+            logging.debug(
+                f"Not caching views for schema {database}.{schema} which is not allowed by schema_pattern"
+            )
             if self.config.schema_pattern.allowed(f"{database}.{schema}"):
                 self.db_views[database][schema] = []
                 for view in views[schema]:
@@ -766,6 +800,16 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         f"{database}.{schema}.{view.name}"
                     ):
                         self.db_views[database][schema].append(view)
+                        self.report.view_cached[f"{database}.{schema}"] = (
+                            self.report.view_cached.get(f"{database}.{schema}", 0) + 1
+                        )
+                    else:
+                        logging.debug(
+                            f"View {database}.{schema}.{table.name} is filtered by view_pattern"
+                        )
+                        self.report.view_filtered[f"{database}.{schema}"] = (
+                            self.report.view_filtered.get(f"{database}.{schema}", 0) + 1
+                        )
 
     def get_all_tables(
         self,
