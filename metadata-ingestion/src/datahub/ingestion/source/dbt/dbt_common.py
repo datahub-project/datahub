@@ -5,18 +5,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from pydantic import root_validator, validator
@@ -879,7 +868,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # return dbt nodes + global custom properties
         raise NotImplementedError()
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

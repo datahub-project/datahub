@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from enum import auto
 from functools import partial
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib import parse
 
 import ijson
@@ -207,7 +207,8 @@ class GenericFileSource(TestableSource):
             self.report.total_num_files = 1
             return [str(self.config.path)]
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # No super() call, as we don't want helpers that create / remove workunits
         return [partial(auto_workunit_reporter, self.report)]
 
     def get_workunits_internal(

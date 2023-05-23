@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from iceberg.api import types as IcebergTypes
 from iceberg.api.table import Table
@@ -119,7 +119,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         config = IcebergSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

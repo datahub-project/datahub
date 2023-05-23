@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -2265,7 +2265,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     sub_types=[tableau_constant.PROJECT],
                 )
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

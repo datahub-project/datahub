@@ -2,7 +2,7 @@ import logging
 import re
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import jpype
 import jpype.imports
@@ -1143,7 +1143,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     ),
                 ).as_workunit()
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

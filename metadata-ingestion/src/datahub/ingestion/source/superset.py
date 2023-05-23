@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import lru_cache
-from typing import Dict, Iterable, Optional, Sequence
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 import requests
@@ -401,7 +401,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

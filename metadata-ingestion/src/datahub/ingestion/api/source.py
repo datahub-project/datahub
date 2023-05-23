@@ -9,6 +9,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    List,
     Optional,
     Sequence,
     Set,
@@ -176,7 +177,7 @@ class Source(Closeable, metaclass=ABCMeta):
         # can't make this method abstract.
         raise NotImplementedError('sources must implement "create"')
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         """A list of functions that transforms the workunits produced by this source.
         Run in order, first in list is applied first. Be careful with order when overriding.
         """

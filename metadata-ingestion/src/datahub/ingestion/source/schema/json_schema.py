@@ -8,7 +8,7 @@ import urllib.request
 from dataclasses import dataclass
 from os.path import basename, dirname
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence, Union
+from typing import Any, Iterable, List, Optional, Union
 
 import jsonref
 from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
@@ -318,7 +318,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     ),
                 ).as_workunit()
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

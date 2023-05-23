@@ -4,7 +4,7 @@
 #
 #########################################################
 import logging
-from typing import Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Iterable, List, Optional, Set, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -1185,7 +1185,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 for workunit in dataset_workunits:
                     yield workunit
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
         # This will result in creating checkpoint for each workspace_id
         if self.source_config.modified_since:

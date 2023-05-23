@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import requests
 
@@ -222,7 +222,7 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

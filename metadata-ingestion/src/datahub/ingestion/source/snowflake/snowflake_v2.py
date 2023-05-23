@@ -4,7 +4,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
@@ -465,7 +465,7 @@ class SnowflakeV2Source(
 
         return _report
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

@@ -912,7 +912,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 domain_urn=domain_urn,
             )
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

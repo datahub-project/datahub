@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Sequence, Type, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 import humanfriendly
 
@@ -351,7 +351,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.DATABASE],
         )
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(

@@ -5,7 +5,7 @@ import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Dict, Iterable, List, Optional, Sequence, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
@@ -288,7 +288,7 @@ class OktaSource(StatefulIngestionSourceBase):
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
 
-    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
