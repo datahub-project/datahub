@@ -5,14 +5,15 @@ services:
     container_name: testravendb
     environment:
       - RAVEN_Setup_Mode=None
-      - RAVEN_Security_UnsecuredAccessAllowed=PrivateNetwork
+      - RAVEN_Security_UnsecuredAccessAllowed=PublicNetwork
       - RAVEN_AUTO_INSTALL_CA=true
       - RAVEN_IN_DOCKER=true
       - RAVEN_License_Eula_Accepted=true
       - RAVEN_Unsecured=true
       - RAVEN_DATABASE=testdb
     ports:
-      - "8080:8080"
-      - "38888:38888"
-      - "161:161"
-    command: ["/bin/bash", "/opt/RavenDB/run-raven.sh"]
+      - "0.0.0.0:8080:8080"
+      - "0.0.0.0:38888:38888"
+      - "0.0.0.0:161:161"
+    command: [ "/bin/bash", "/opt/RavenDB/run-raven.sh" ]
+    network_mode: bridge
