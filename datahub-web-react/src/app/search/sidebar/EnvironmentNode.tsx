@@ -38,12 +38,12 @@ const Count = styled(Typography.Text)`
 
 const Body = styled.div``;
 
+const childFacets = [PLATFORM_FILTER_NAME];
+
 type Props = {
     entityAggregation: AggregationMetadata;
     environmentAggregation: AggregationMetadata;
 };
-
-const childFacets = [PLATFORM_FILTER_NAME];
 
 const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;

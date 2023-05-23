@@ -5,13 +5,9 @@ import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata, EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getFilterIconAndLabel } from '../filters/utils';
-import { PLATFORM_FILTER_NAME } from '../utils/constants';
+import { AggregationMetadata, BrowseResultGroupV2, EntityType } from '../../../types.generated';
 import useBrowseV2Query from './useBrowseV2Query';
 import useToggle from './useToggle';
-import ContainerNode from './ContainerNode';
 
 const Header = styled.div`
     display: flex;
@@ -33,13 +29,6 @@ const Title = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-const PlatformIconContainer = styled.div`
-    width: 16px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-`;
-
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
@@ -53,22 +42,20 @@ type Props = {
     entityAggregation: AggregationMetadata;
     environmentAggregation: AggregationMetadata | null;
     platformAggregation: AggregationMetadata;
+    browseResultGroup: BrowseResultGroupV2;
     depth: number;
 };
 
-const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation, depth }: Props) => {
+const ContainerNode = ({
+    entityAggregation,
+    environmentAggregation,
+    platformAggregation,
+    browseResultGroup,
+    depth,
+}: Props) => {
     const entityType = entityAggregation.value as EntityType;
     const environment = environmentAggregation?.value;
     const platform = platformAggregation.value;
-    const registry = useEntityRegistry();
-
-    const { icon, label } = getFilterIconAndLabel(
-        PLATFORM_FILTER_NAME,
-        platformAggregation.value,
-        registry,
-        platformAggregation.entity ?? null,
-        16,
-    );
 
     const [getBrowse, { loaded, error, groups }] = useBrowseV2Query({
         entityType,
@@ -89,8 +76,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                 <Header onClick={toggle}>
                     <HeaderLeft>
                         {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
-                        <PlatformIconContainer>{icon}</PlatformIconContainer>
-                        <Title color={color}>{label}</Title>
+                        <Title color={color}>{browseResultGroup.name}</Title>
                     </HeaderLeft>
                     <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
                 </Header>
@@ -98,25 +84,20 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
             body={
                 <Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    {!!groups?.length && (
-                        // todo improve styling for this based on figma
-                        <div style={{ background: 'white', borderRadius: '5px' }}>
-                            {groups.map((group) => (
-                                <ContainerNode
-                                    key={group.name}
-                                    entityAggregation={entityAggregation}
-                                    environmentAggregation={environmentAggregation}
-                                    platformAggregation={platformAggregation}
-                                    browseResultGroup={group}
-                                    depth={depth + 1}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    {groups?.map((group) => (
+                        <ContainerNode
+                            key={group.name}
+                            entityAggregation={entityAggregation}
+                            environmentAggregation={environmentAggregation}
+                            platformAggregation={platformAggregation}
+                            browseResultGroup={group}
+                            depth={depth + 1}
+                        />
+                    ))}
                 </Body>
             }
         />
     );
 };
 
-export default PlatformNode;
+export default ContainerNode;

@@ -42,11 +42,11 @@ const Count = styled(Typography.Text)`
 
 const Body = styled.div``;
 
+const childFacets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
+
 type Props = {
     entityAggregation: AggregationMetadata;
 };
-
-const childFacets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
 
 const EntityNode = ({ entityAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;
@@ -57,8 +57,7 @@ const EntityNode = ({ entityAggregation }: Props) => {
         facets: childFacets,
     });
 
-    const forceEnvironments = false;
-    const hasMultipleEnvironments = environmentAggregations.length > 1 || forceEnvironments;
+    const hasMultipleEnvironments = environmentAggregations.length > 1;
 
     const { isOpen, toggle } = useToggle({ onRequestOpen: getAggregations });
 
