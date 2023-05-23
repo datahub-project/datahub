@@ -89,7 +89,7 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=(json.dumps(aspect.to_obj()) + "aaa").encode(),
-            contentType="application/json-patch+json",
+            contentType="application/json",
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
@@ -102,7 +102,7 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value='{"ß": 2}'.encode("latin_1"),
-            contentType="application/json-patch+json",
+            contentType="application/json",
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)

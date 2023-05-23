@@ -101,7 +101,7 @@ class MetadataWorkUnit(WorkUnit):
             # Best effort attempt to deserialize MetadataChangeProposalClass
             if self.metadata.aspectName == aspect_cls.ASPECT_NAME:
                 try:
-                    mcp = MetadataChangeProposalWrapper.from_mcpc(self.metadata)
+                    mcp = MetadataChangeProposalWrapper.try_from_mcpc(self.metadata)
                     if mcp:
                         aspects = [mcp.aspect]
                 except Exception:

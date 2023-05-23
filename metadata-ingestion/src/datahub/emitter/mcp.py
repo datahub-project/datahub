@@ -185,12 +185,18 @@ class MetadataChangeProposalWrapper:
             return mcpc
 
         # Try to deserialize the aspect.
-        return cls.from_mcpc(mcpc) or mcpc
+        return cls.try_from_mcpc(mcpc) or mcpc
 
     @classmethod
-    def from_mcpc(
+    def try_from_mcpc(
         cls, mcpc: MetadataChangeProposalClass
     ) -> Optional["MetadataChangeProposalWrapper"]:
+        """Attempts to create a MetadataChangeProposalWrapper from a MetadataChangeProposalClass.
+        Neatly handles unsupported, expected cases, such as unknown aspect types or non-json content type.
+
+        Raises:
+            Exception if the generic aspect is invalid, e.g. contains invalid json.
+        """
         converted, aspect = _try_from_generic_aspect(mcpc.aspectName, mcpc.aspect)
         if converted:
             return cls(
