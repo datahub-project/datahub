@@ -216,7 +216,7 @@ class Telemetry:
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
 
-        logger.debug("Sending init Telemetry")
+        logger.debug("Sending init telemetry")
         try:
             self.mp.people_set(
                 self.client_id,
@@ -243,14 +243,21 @@ class Telemetry:
         if not self.enabled or self.mp is None:
             return
 
+        properties = properties or {}
+
         # send event
         try:
-            logger.debug(f"Sending telemetry for {event_name}")
+            if properties.get("function"):
+                logger.debug(
+                    f"Sending telemetry for {event_name} {properties.get('function')}, status {properties.get('status')}"
+                )
+            else:
+                logger.debug(f"Sending telemetry for {event_name}")
 
             properties = {
                 **_default_telemetry_properties(),
                 **self._server_props(server),
-                **(properties or {}),
+                **properties,
             }
             self.mp.track(self.client_id, event_name, properties)
         except Exception as e:
