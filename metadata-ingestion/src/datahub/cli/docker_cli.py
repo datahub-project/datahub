@@ -951,7 +951,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         "source": {
             "type": "file",
             "config": {
-                "filename": path,
+                "path": path,
             },
         },
         "sink": {

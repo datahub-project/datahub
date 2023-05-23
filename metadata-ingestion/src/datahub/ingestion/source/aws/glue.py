@@ -51,6 +51,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
@@ -692,7 +693,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_lineage_if_enabled(
         self, mce: MetadataChangeEventClass
-    ) -> Optional[MetadataChangeProposalWrapper]:
+    ) -> Optional[MetadataWorkUnit]:
         if self.source_config.emit_s3_lineage:
             # extract dataset properties aspect
             dataset_properties: Optional[
@@ -711,11 +712,10 @@ class GlueSource(StatefulIngestionSourceBase):
                                 )
                             ]
                         )
-                        mcp = MetadataChangeProposalWrapper(
+                        return MetadataChangeProposalWrapper(
                             entityUrn=mce.proposedSnapshot.urn,
                             aspect=upstream_lineage,
-                        )
-                        return mcp
+                        ).as_workunit()
                     else:
                         # Need to mint the s3 dataset with upstream lineage from it to glue
                         upstream_lineage = UpstreamLineageClass(
@@ -726,11 +726,10 @@ class GlueSource(StatefulIngestionSourceBase):
                                 )
                             ]
                         )
-                        mcp = MetadataChangeProposalWrapper(
+                        return MetadataChangeProposalWrapper(
                             entityUrn=s3_dataset_urn,
                             aspect=upstream_lineage,
-                        )
-                        return mcp
+                        ).as_workunit()
         return None
 
     def _create_profile_mcp(
@@ -816,7 +815,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_profile_if_enabled(
         self, mce: MetadataChangeEventClass, database_name: str, table_name: str
-    ) -> List[MetadataChangeProposalWrapper]:
+    ) -> Iterable[MetadataWorkUnit]:
         if self.source_config.profiling:
             # for cross-account ingestion
             kwargs = dict(
@@ -846,7 +845,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 partitions = response["Partitions"]
                 partition_keys = [k["Name"] for k in partition_keys]
 
-                mcps = []
                 for p in partitions:
                     table_stats = p["Parameters"]
                     column_stats = p["StorageDescriptor"]["Columns"]
@@ -857,28 +855,26 @@ class GlueSource(StatefulIngestionSourceBase):
                     if self.source_config.profiling.partition_patterns.allowed(
                         partition_spec
                     ):
-                        mcps.append(
-                            self._create_profile_mcp(
-                                mce, table_stats, column_stats, partition_spec
-                            )
-                        )
+                        yield self._create_profile_mcp(
+                            mce, table_stats, column_stats, partition_spec
+                        ).as_workunit()
                     else:
                         continue
-                return mcps
             else:
                 # ingest data profile without partition
                 table_stats = response["Table"]["Parameters"]
                 column_stats = response["Table"]["StorageDescriptor"]["Columns"]
-                return [self._create_profile_mcp(mce, table_stats, column_stats)]
-
-        return []
+                yield self._create_profile_mcp(
+                    mce, table_stats, column_stats
+                ).as_workunit()
 
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
             instance=self.source_config.platform_instance,
-            backcompat_instance_for_guid=self.source_config.env,
+            env=self.source_config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_database_containers(
@@ -886,7 +882,7 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
-        container_workunits = gen_containers(
+        yield from gen_containers(
             container_key=database_container_key,
             name=database["Name"],
             sub_types=[DatasetContainerSubTypes.DATABASE],
@@ -897,21 +893,14 @@ class GlueSource(StatefulIngestionSourceBase):
             ),
         )
 
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
     def add_table_to_database_container(
         self, dataset_urn: str, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_database_key(db_name)
-        container_workunits = add_dataset_to_container(
+        yield from add_dataset_to_container(
             container_key=database_container_key,
             dataset_urn=dataset_urn,
         )
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
         for domain, pattern in self.source_config.domain.items():
@@ -925,18 +914,17 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
-            wus = add_domain_to_entity_wu(
+            yield from add_domain_to_entity_wu(
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
-            for wu in wus:
-                self.report.report_workunit(wu)
-                yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -965,18 +953,14 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
             mce = self._extract_record(dataset_urn, table, full_table_name)
-            workunit = MetadataWorkUnit(full_table_name, mce=mce)
-            self.report.report_workunit(workunit)
-            yield workunit
+            yield MetadataWorkUnit(full_table_name, mce=mce)
 
             # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
             # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
-            workunit = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=SubTypes(typeNames=[DatasetSubTypes.TABLE]),
             ).as_workunit()
-            self.report.report_workunit(workunit)
-            yield workunit
 
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
@@ -986,23 +970,11 @@ class GlueSource(StatefulIngestionSourceBase):
                 dataset_urn=dataset_urn, db_name=database_name
             )
 
-            mcp = self.get_lineage_if_enabled(mce)
-            if mcp:
-                mcp_wu = MetadataWorkUnit(
-                    id=f"{full_table_name}-upstreamLineage", mcp=mcp
-                )
-                self.report.report_workunit(mcp_wu)
-                yield mcp_wu
+            wu = self.get_lineage_if_enabled(mce)
+            if wu:
+                yield wu
 
-            mcps_profiling = self.get_profile_if_enabled(mce, database_name, table_name)
-            if mcps_profiling:
-                for mcp_index, mcp in enumerate(mcps_profiling):
-                    mcp_wu = MetadataWorkUnit(
-                        id=f"profile-{full_table_name}-partition-{mcp_index}",
-                        mcp=mcps_profiling[mcp_index],
-                    )
-                    self.report.report_workunit(mcp_wu)
-                    yield mcp_wu
+            yield from self.get_profile_if_enabled(mce, database_name, table_name)
 
         if self.extract_transforms:
             yield from self._transform_extraction()
@@ -1015,9 +987,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.platform, job["Name"], self.env
             )
 
-            flow_wu = self.get_dataflow_wu(flow_urn, job)
-            self.report.report_workunit(flow_wu)
-            yield flow_wu
+            yield self.get_dataflow_wu(flow_urn, job)
 
             job_script_location = job.get("Command", {}).get("ScriptLocation")
 
@@ -1048,14 +1018,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
             for node in nodes.values():
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
-                    job_wu = self.get_datajob_wu(node, flow_names[flow_urn])
-                    self.report.report_workunit(job_wu)
-                    yield job_wu
+                    yield self.get_datajob_wu(node, flow_names[flow_urn])
 
             for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
-                dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
-                self.report.report_workunit(dataset_wu)
-                yield dataset_wu
+                yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
 
     # flake8: noqa: C901
     def _extract_record(

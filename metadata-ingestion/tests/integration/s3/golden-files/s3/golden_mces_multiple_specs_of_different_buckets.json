@@ -7,9 +7,9 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
                 "number_of_files": "1",
-                "size_in_bytes": "1024",
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro"
+                "size_in_bytes": "1024"
             },
             "name": "chord_progressions_avro.avro",
             "description": "",
@@ -149,7 +149,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1683887704000
+            "lastUpdatedTimestamp": 1684552113000
         }
     },
     "systemMetadata": {
@@ -166,7 +166,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "bucket_name": "my-test-bucket"
             },
             "name": "my-test-bucket"
@@ -233,7 +233,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
             "name": "folder_a"
@@ -315,7 +315,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
             "name": "folder_aa"
@@ -397,7 +397,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
             "name": "folder_aaa"
@@ -493,9 +493,9 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket-2/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
                 "number_of_files": "1",
-                "size_in_bytes": "604",
-                "schema_inferred_from": "s3://my-test-bucket-2/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv"
+                "size_in_bytes": "604"
             },
             "name": "chord_progressions_csv.csv",
             "description": "",
@@ -635,7 +635,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1683887704000
+            "lastUpdatedTimestamp": 1684552113000
         }
     },
     "systemMetadata": {
@@ -652,7 +652,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "bucket_name": "my-test-bucket-2"
             },
             "name": "my-test-bucket-2"
@@ -719,7 +719,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "folder_abs_path": "my-test-bucket-2/folder_a"
             },
             "name": "folder_a"
@@ -801,7 +801,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "folder_abs_path": "my-test-bucket-2/folder_a/folder_aa"
             },
             "name": "folder_aa"
@@ -883,7 +883,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "PROD",
+                "env": "PROD",
                 "folder_abs_path": "my-test-bucket-2/folder_a/folder_aa/folder_aaa"
             },
             "name": "folder_aaa"

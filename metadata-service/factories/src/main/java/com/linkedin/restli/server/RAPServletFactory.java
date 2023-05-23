@@ -1,5 +1,7 @@
 package com.linkedin.restli.server;
 
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.linkedin.data.codec.AbstractJacksonDataCodec;
 import com.linkedin.metadata.filter.RestliLoggingFilter;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
@@ -16,11 +18,17 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.concurrent.Executors;
 
+import static com.linkedin.metadata.Constants.*;
+
+
 @Slf4j
 @Configuration
 public class RAPServletFactory {
     @Value("#{systemEnvironment['RESTLI_SERVLET_THREADS']}")
     private Integer environmentThreads;
+
+    @Value("${" + INGESTION_MAX_SERIALIZED_STRING_LENGTH + ":16000000}")
+    private int maxSerializedStringLength;
 
     @Bean(name = "restliSpringInjectResourceFactory")
     public SpringInjectResourceFactory springInjectResourceFactory() {
@@ -40,6 +48,13 @@ public class RAPServletFactory {
                 .setTaskExecutor(Executors.newFixedThreadPool(threads))
                 .setTimerScheduler(Executors.newSingleThreadScheduledExecutor())
                 .build();
+
+        // !!!!!!! IMPORTANT !!!!!!!
+        // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages. Without this the limit is
+        // whatever Jackson is defaulting to (5 MB currently).
+        AbstractJacksonDataCodec.JSON_FACTORY.setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSerializedStringLength).build());
+        // !!!!!!! IMPORTANT !!!!!!!
 
         RestLiConfig config = new RestLiConfig();
         config.setDocumentationRequestHandler(new DefaultDocumentationRequestHandler());
