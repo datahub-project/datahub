@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
@@ -60,9 +60,6 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
     const platform = platformAggregation.value;
     const registry = useEntityRegistry();
     const [isOpen, setIsOpen] = useState<boolean>(false);
-    const onClickHeader = useCallback(() => {
-        setIsOpen((current) => !current);
-    }, []);
     const color = ANTD_GRAY[9];
 
     const { icon, label } = getFilterIconAndLabel(
@@ -73,11 +70,16 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
         16,
     );
 
-    const { groups, loading, error } = useBrowseV2({ entityType, environment, platform, path, skip: !isOpen });
+    const [getBrowse, { groups, loaded, error }] = useBrowseV2({ entityType, environment, platform, path });
+
+    const onClickHeader = useCallback(() => {
+        getBrowse();
+        setIsOpen((current) => !current);
+    }, [getBrowse]);
 
     return (
         <ExpandableNode
-            isOpen={isOpen && !loading}
+            isOpen={isOpen && loaded}
             depth={depth}
             header={
                 <Header onClick={onClickHeader}>
@@ -101,4 +103,4 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
     );
 };
 
-export default memo(PlatformNode);
+export default PlatformNode;

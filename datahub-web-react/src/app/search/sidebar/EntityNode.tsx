@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { DownCircleOutlined, UpCircleOutlined } from '@ant-design/icons';
@@ -52,9 +52,8 @@ const EntityNode = ({ entityAggregation }: Props) => {
     const depth = 0;
     const registry = useEntityRegistry();
     const [isOpen, setIsOpen] = useState<boolean>(false);
-    const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
     const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
-    const { loading, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
+    const [getAggregations, { loaded, error, environmentAggregations, platformAggregations }] = useAggregationsQuery({
         entityType,
         facets: childrenFacets,
         skip: !isOpen,
@@ -63,9 +62,14 @@ const EntityNode = ({ entityAggregation }: Props) => {
     const forceEnvironments = false;
     const hasMultipleEnvironments = environmentAggregations.length > 1 || forceEnvironments;
 
+    const onClickHeader = () => {
+        getAggregations();
+        setIsOpen((current) => !current);
+    };
+
     return (
         <ExpandableNode
-            isOpen={isOpen && !loading}
+            isOpen={isOpen && loaded}
             depth={depth}
             header={
                 <Header isOpen={isOpen} onClick={onClickHeader}>
@@ -103,4 +107,4 @@ const EntityNode = ({ entityAggregation }: Props) => {
     );
 };
 
-export default memo(EntityNode);
+export default EntityNode;

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
@@ -49,19 +49,23 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
     const environment = environmentAggregation.value;
     const depth = 0;
     const [isOpen, setIsOpen] = useState<boolean>(false);
-    const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
     const color = ANTD_GRAY[9];
 
-    const { loading, error, platformAggregations } = useAggregationsQuery({
+    const [getAggregations, { loaded, error, platformAggregations }] = useAggregationsQuery({
         entityType,
         environment,
         facets: childrenFacets,
         skip: !isOpen,
     });
 
+    const onClickHeader = () => {
+        getAggregations();
+        setIsOpen((current) => !current);
+    };
+
     return (
         <ExpandableNode
-            isOpen={isOpen && !loading}
+            isOpen={isOpen && loaded}
             depth={depth}
             header={
                 <Header onClick={onClickHeader}>
@@ -90,4 +94,4 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
     );
 };
 
-export default memo(EnvironmentNode);
+export default EnvironmentNode;
