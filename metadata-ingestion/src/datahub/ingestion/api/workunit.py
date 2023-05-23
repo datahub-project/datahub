@@ -1,3 +1,5 @@
+import json
+
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Type, TypeVar, Union, overload
 
@@ -96,11 +98,16 @@ class MetadataWorkUnit(WorkUnit):
             aspects = self.metadata.proposedSnapshot.aspects
         elif isinstance(self.metadata, MetadataChangeProposalWrapper):
             aspects = [self.metadata.aspect]
-        elif isinstance(self.metadata, MetadataChangeProposal):
-            # Can't get aspects from MetadataChangeProposal
-            # It seems this is only used by mcp_patch_builder
-            # So this method does not collect patches
-            aspects = []
+        elif (
+            isinstance(self.metadata, MetadataChangeProposal)
+            and self.metadata.aspectName == aspect_cls.ASPECT_NAME
+            and self.metadata.aspect.contentType == "application/json"
+        ):
+            # Best effort attempt to deserialize MetadataChangeProposalClass
+            try:
+                aspects = [aspect_cls.from_obj(json.loads(self.metadata.aspect.value))]
+            except Exception:
+                aspects = []
         else:
             raise ValueError(f"Unexpected type {type(self.metadata)}")
 
