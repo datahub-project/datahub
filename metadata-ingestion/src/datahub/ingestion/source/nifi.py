@@ -974,7 +974,7 @@ class NifiSource(Source):
             return
 
         self.session.headers.update({"Content-Type": "application/json"})
-        
+
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         try:
             self.create_nifi_flow()
