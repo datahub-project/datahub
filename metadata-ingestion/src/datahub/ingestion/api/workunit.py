@@ -98,16 +98,19 @@ class MetadataWorkUnit(WorkUnit):
             aspects = self.metadata.proposedSnapshot.aspects
         elif isinstance(self.metadata, MetadataChangeProposalWrapper):
             aspects = [self.metadata.aspect]
-        elif (
-            isinstance(self.metadata, MetadataChangeProposal)
-            and self.metadata.aspectName == aspect_cls.ASPECT_NAME
-            and self.metadata.aspect.contentType == "application/json"
-        ):
+        elif isinstance(self.metadata, MetadataChangeProposal):
+            aspects = []
             # Best effort attempt to deserialize MetadataChangeProposalClass
-            try:
-                aspects = [aspect_cls.from_obj(json.loads(self.metadata.aspect.value))]
-            except Exception:
-                aspects = []
+            if (
+                self.metadata.aspectName == aspect_cls.ASPECT_NAME
+                and self.metadata.aspect.contentType == "application/json"
+            ):
+                try:
+                    aspects = [
+                        aspect_cls.from_obj(json.loads(self.metadata.aspect.value))
+                    ]
+                except Exception:
+                    pass
         else:
             raise ValueError(f"Unexpected type {type(self.metadata)}")
 
