@@ -125,7 +125,7 @@ export const EmbeddedListSearch = ({
 
     const baseFilters = {
         unionType,
-        filters: filters,
+        filters,
     };
 
     const finalFilters =
@@ -249,7 +249,6 @@ export const EmbeddedListSearch = ({
                 placeholderText={placeholderText}
                 onToggleFilters={onToggleFilters}
                 downloadSearchResults={(input) => refetchForDownload(input)}
-                entityFilters={[]}
                 filters={finalFilters}
                 query={finalQuery}
                 isSelectMode={isSelectMode}

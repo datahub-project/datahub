@@ -158,8 +158,6 @@ export const SearchPage = () => {
             {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
             <SearchResults
                 unionType={unionType}
-                entityFilters={[]}
-                filters={filters}
                 downloadSearchResults={downloadSearchResults}
                 page={page}
                 query={query}
