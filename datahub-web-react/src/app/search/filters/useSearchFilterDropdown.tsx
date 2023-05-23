@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
     GetAutoCompleteMultipleResultsQuery,
     useAggregateAcrossEntitiesLazyQuery,
@@ -35,9 +35,7 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     const [selectedFilterOptions, setSelectedFilterOptions] = useState<FilterOptionType[]>(initialFilterOptions || []);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState<string>('');
-    const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
-        useMemo(() => [filter.field], [filter.field]),
-    );
+    const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs([filter.field]);
     const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
     const [autoCompleteResults, setAutoCompleteResults] =
         useState<GetAutoCompleteMultipleResultsQuery | undefined>(undefined);

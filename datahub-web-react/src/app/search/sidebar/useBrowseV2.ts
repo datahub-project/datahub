@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { EntityType } from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
@@ -14,39 +13,40 @@ type Props = {
 };
 
 const useBrowseV2 = ({ entityType, environment, platform, path, skip }: Props) => {
-    const filterOverrides = useMemo(
-        () => [
-            ...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : []),
-            ...(platform ? [{ field: PLATFORM_FILTER_NAME, value: platform }] : []),
-        ],
-        [environment, platform],
-    );
+    const filterOverrides = [
+        ...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : []),
+        ...(platform ? [{ field: PLATFORM_FILTER_NAME, value: platform }] : []),
+    ];
 
-    const excludedFilterFields = useMemo(() => filterOverrides.map((filter) => filter.field), [filterOverrides]);
+    const excludedFilterFields = filterOverrides.map((filter) => filter.field);
 
     const { query, orFilters, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
 
     const page = 1;
     const count = 10;
 
-    const { data, loading, error } = useGetBrowseResultsV2Query({
+    const {
+        data: newData,
+        previousData,
+        loading,
+        error,
+    } = useGetBrowseResultsV2Query({
         skip,
         fetchPolicy: 'cache-first',
-        variables: useMemo(
-            () => ({
-                input: {
-                    type: entityType,
-                    path,
-                    start: (page - 1) * count,
-                    count,
-                    orFilters: applyOrFilterOverrides(orFilters, filterOverrides),
-                    query,
-                    viewUrn,
-                },
-            }),
-            [entityType, filterOverrides, orFilters, path, query, viewUrn],
-        ),
+        variables: {
+            input: {
+                type: entityType,
+                path,
+                start: (page - 1) * count,
+                count,
+                orFilters: applyOrFilterOverrides(orFilters, filterOverrides),
+                query,
+                viewUrn,
+            },
+        },
     });
+
+    const data = error ? null : newData ?? previousData;
 
     return {
         loading,

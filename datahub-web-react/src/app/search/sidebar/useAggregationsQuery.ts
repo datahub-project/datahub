@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { EntityType } from '../../../types.generated';
@@ -13,12 +12,9 @@ type Props = {
 };
 
 const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) => {
-    const filterOverrides = useMemo(
-        () => [...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : [])],
-        [environment],
-    );
+    const filterOverrides = [...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : [])];
 
-    const excludedFilterFields = useMemo(() => filterOverrides.map((filter) => filter.field), [filterOverrides]);
+    const excludedFilterFields = filterOverrides.map((filter) => filter.field);
 
     const { query, orFilters, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
 
@@ -41,7 +37,7 @@ const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) 
         },
     });
 
-    const data = newData ?? previousData;
+    const data = error ? null : newData ?? previousData;
 
     const environmentAggregations =
         data?.aggregateAcrossEntities?.facets
