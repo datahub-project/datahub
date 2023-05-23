@@ -8,7 +8,6 @@ from datahub.ingestion.graph.client import (
 from datahub.metadata.schema_classes import CorpUserEditableInfoClass
 
 
-@patch("datahub.ingestion.graph.client.telemetry_enabled", False)
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
 def test_get_aspect(mock_test_connection):
     mock_test_connection.return_value = {}
