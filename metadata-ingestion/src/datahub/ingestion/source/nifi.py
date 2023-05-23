@@ -29,6 +29,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -759,7 +760,7 @@ class NifiSource(Source):
             flow_properties["clustered"] = str(self.nifi_flow.clustered)
         if self.nifi_flow.version is not None:
             flow_properties["version"] = str(self.nifi_flow.version)
-        yield from self.construct_flow_workunits(
+        yield self.construct_flow_workunits(
             flow_urn, flow_name, self.make_external_url(rootpg.id), flow_properties
         )
 
@@ -962,6 +963,9 @@ class NifiSource(Source):
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             self.update_token()
         except Exception as e:
@@ -970,7 +974,7 @@ class NifiSource(Source):
             return
 
         self.session.headers.update({"Content-Type": "application/json"})
-
+        
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         try:
             self.create_nifi_flow()
@@ -1006,21 +1010,15 @@ class NifiSource(Source):
         flow_name: str,
         external_url: str,
         flow_properties: Optional[Dict[str, str]] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        mcp = MetadataChangeProposalWrapper(
+    ) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
             aspect=DataFlowInfoClass(
                 name=flow_name,
                 customProperties=flow_properties,
                 externalUrl=external_url,
             ),
-        )
-        for proposal in [mcp]:
-            wu = MetadataWorkUnit(
-                id=f"{NIFI}.{flow_name}.{proposal.aspectName}", mcp=proposal
-            )
-            self.report.report_workunit(wu)
-            yield wu
+        ).as_workunit()
 
     def construct_job_workunits(
         self,
@@ -1038,7 +1036,7 @@ class NifiSource(Source):
         if job_properties:
             job_properties = {k: v for k, v in job_properties.items() if v is not None}
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInfoClass(
                 name=job_name,
@@ -1048,32 +1046,18 @@ class NifiSource(Source):
                 externalUrl=external_url,
                 status=status,
             ),
-        )
-
-        wu = MetadataWorkUnit(
-            id=f"{NIFI}.{job_name}.{mcp.aspectName}",
-            mcp=mcp,
-        )
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
         inlets.sort()
         outlets.sort()
         inputJobs.sort()
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInputOutputClass(
                 inputDatasets=inlets, outputDatasets=outlets, inputDatajobs=inputJobs
             ),
-        )
-
-        wu = MetadataWorkUnit(
-            id=f"{NIFI}.{job_name}.{mcp.aspectName}",
-            mcp=mcp,
-        )
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
     def construct_dataset_workunits(
         self,
@@ -1088,28 +1072,16 @@ class NifiSource(Source):
                 dataset_platform, dataset_name, self.config.env
             )
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DataPlatformInstanceClass(
                 platform=builder.make_data_platform_urn(dataset_platform)
             ),
-        )
-        platform = (
-            dataset_platform[dataset_platform.rindex(":") + 1 :]
-            if dataset_platform.startswith("urn:")
-            else dataset_platform
-        )
-        wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetPropertiesClass(
                 externalUrl=external_url, customProperties=datasetProperties
             ),
-        )
-
-        wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
