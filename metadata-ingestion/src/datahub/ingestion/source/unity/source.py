@@ -234,7 +234,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         assigned_metastore = self.unity_catalog_api_proxy.assigned_metastore()
         metastores[assigned_metastore.metastore_id] = assigned_metastore
 
-        if self.config.ingest_all_metastores:
+        if not self.config.only_ingest_assigned_metastore:
             for metastore in self.unity_catalog_api_proxy.metastores():
                 metastores[metastore.metastore_id] = metastore
 
