@@ -36,7 +36,7 @@ const Count = styled(Typography.Text)`
 
 const Body = styled.div``;
 
-const path = ['/'];
+const path = [];
 
 type Props = {
     entityAggregation: AggregationMetadata;
@@ -46,7 +46,7 @@ type Props = {
     depth: number;
 };
 
-const ContainerNode = ({
+const BrowseNode = ({
     entityAggregation,
     environmentAggregation,
     platformAggregation,
@@ -85,7 +85,7 @@ const ContainerNode = ({
                 <Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                     {groups?.map((group) => (
-                        <ContainerNode
+                        <BrowseNode
                             key={group.name}
                             entityAggregation={entityAggregation}
                             environmentAggregation={environmentAggregation}
@@ -100,4 +100,4 @@ const ContainerNode = ({
     );
 };
 
-export default ContainerNode;
+export default BrowseNode;

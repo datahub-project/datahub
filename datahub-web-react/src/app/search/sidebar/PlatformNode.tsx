@@ -11,7 +11,7 @@ import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import useBrowseV2Query from './useBrowseV2Query';
 import useToggle from './useToggle';
-import ContainerNode from './ContainerNode';
+import BrowseNode from './BrowseNode';
 
 const Header = styled.div`
     display: flex;
@@ -47,7 +47,7 @@ const Count = styled(Typography.Text)`
 
 const Body = styled.div``;
 
-const path = ['/'];
+const path = [];
 
 type Props = {
     entityAggregation: AggregationMetadata;
@@ -102,7 +102,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                         // todo improve styling for this based on figma
                         <div style={{ background: 'white', borderRadius: '5px' }}>
                             {groups.map((group) => (
-                                <ContainerNode
+                                <BrowseNode
                                     key={group.name}
                                     entityAggregation={entityAggregation}
                                     environmentAggregation={environmentAggregation}
