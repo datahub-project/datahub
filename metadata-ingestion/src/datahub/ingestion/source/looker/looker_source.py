@@ -46,6 +46,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
@@ -1187,7 +1188,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.reporter, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -1269,9 +1272,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
 
-                for mwu in work_units:
-                    yield mwu
-                    self.reporter.report_workunit(mwu)
+                yield from work_units
                 if dashboard_object is not None:
                     looker_dashboards_for_usage.append(
                         looker_usage.LookerDashboardForUsage.from_dashboard(
@@ -1295,22 +1296,16 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("explore_metadata")
         for event in self._make_explore_metadata_events():
             if isinstance(event, MetadataChangeEvent):
-                workunit = MetadataWorkUnit(
+                yield MetadataWorkUnit(
                     id=f"looker-{event.proposedSnapshot.urn}", mce=event
                 )
             elif isinstance(event, MetadataChangeProposalWrapper):
                 # We want to treat subtype aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                workunit = MetadataWorkUnit(
-                    id=f"looker-{event.entityUrn}-{event.aspectName}",
-                    mcp=event,
-                    treat_errors_as_warnings=True
-                    if event.aspectName in ["subTypes"]
-                    else False,
+                yield event.as_workunit(
+                    treat_errors_as_warnings=event.aspectName in ["subTypes"]
                 )
             else:
                 raise Exception(f"Unexpected type of event {event}")
-            self.reporter.report_workunit(workunit)
-            yield workunit
         self.reporter.report_stage_end("explore_metadata")
 
         if (
@@ -1319,12 +1314,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ):
             # Emit tag MCEs for measures and dimensions if we produced any explores:
             for tag_mce in LookerUtil.get_tag_mces():
-                workunit = MetadataWorkUnit(
+                yield MetadataWorkUnit(
                     id=f"tag-{tag_mce.proposedSnapshot.urn}",
                     mce=tag_mce,
                 )
-                self.reporter.report_workunit(workunit)
-                yield workunit
 
         # Extract usage history is enabled
         if self.source_config.extract_usage_history:
@@ -1333,12 +1326,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 looker_dashboards_for_usage
             )
             for usage_mcp in usage_mcps:
-                workunit = MetadataWorkUnit(
-                    id=f"looker-{usage_mcp.aspectName}-{usage_mcp.entityUrn}-{usage_mcp.aspect.timestampMillis}",  # type:ignore
-                    mcp=usage_mcp,
-                )
-                self.reporter.report_workunit(workunit)
-                yield workunit
+                yield usage_mcp.as_workunit()
             self.reporter.report_stage_end("usage_extraction")
 
     def get_report(self) -> SourceReport:
