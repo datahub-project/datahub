@@ -1,0 +1,16 @@
+query getBrowseResultsV2($input: BrowseInputV2!) {
+    browseV2(input: $input) {
+        groups {
+            name
+            count
+            hasSubGroups
+        }
+        start
+        count
+        total
+        metadata {
+            path
+            totalNumEntities
+        }
+    }
+}

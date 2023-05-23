@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react';
-import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
+import { useMemo } from 'react';
+import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { EntityType, QueryAggregateAcrossEntitiesArgs } from '../../../types.generated';
+import { EntityType } from '../../../types.generated';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import applyOrFilterOverrides from '../utils/applyOrFilterOverrides';
 
@@ -20,34 +20,28 @@ const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) 
 
     const excludedFilterFields = useMemo(() => filterOverrides.map((filter) => filter.field), [filterOverrides]);
 
-    const { query, orFilters: orFiltersWithoutOverrides, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
+    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
 
-    const orFilters = useMemo(
-        () => applyOrFilterOverrides(orFiltersWithoutOverrides, filterOverrides),
-        [filterOverrides, orFiltersWithoutOverrides],
-    );
-
-    const variables: QueryAggregateAcrossEntitiesArgs = useMemo(
-        () => ({
+    const {
+        data: newData,
+        previousData,
+        loading,
+        error,
+    } = useAggregateAcrossEntitiesQuery({
+        skip,
+        fetchPolicy: 'cache-first',
+        variables: {
             input: {
                 types: [entityType],
                 query,
-                orFilters,
+                orFilters: applyOrFilterOverrides(orFilters, filterOverrides),
                 viewUrn,
                 facets,
             },
-        }),
-        [entityType, facets, orFilters, query, viewUrn],
-    );
-
-    const [fetchAggregations, { data, loading, error }] = useAggregateAcrossEntitiesLazyQuery({
-        fetchPolicy: 'cache-first',
-        variables,
+        },
     });
 
-    useEffect(() => {
-        if (!skip) fetchAggregations();
-    }, [fetchAggregations, skip]);
+    const data = newData ?? previousData;
 
     const environmentAggregations =
         data?.aggregateAcrossEntities?.facets

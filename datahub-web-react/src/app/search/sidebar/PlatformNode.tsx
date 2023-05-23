@@ -5,10 +5,11 @@ import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata } from '../../../types.generated';
+import { AggregationMetadata, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
+import useBrowseV2 from './useBrowseV2';
 
 const Header = styled.div`
     display: flex;
@@ -51,16 +52,18 @@ type Props = {
     depth: number;
 };
 
-const PlatformNode = ({ entityAggregation: _, environmentAggregation: __, platformAggregation, depth }: Props) => {
+const path = ['/'];
+
+const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation, depth }: Props) => {
+    const entityType = entityAggregation.value as EntityType;
+    const environment = environmentAggregation?.value;
+    const platform = platformAggregation.value;
     const registry = useEntityRegistry();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const onClickHeader = useCallback(() => {
         setIsOpen((current) => !current);
     }, []);
     const color = ANTD_GRAY[9];
-
-    const loading = false;
-    const error = null;
 
     const { icon, label } = getFilterIconAndLabel(
         PLATFORM_FILTER_NAME,
@@ -70,9 +73,11 @@ const PlatformNode = ({ entityAggregation: _, environmentAggregation: __, platfo
         16,
     );
 
+    const { groups, loaded, error } = useBrowseV2({ entityType, environment, platform, path, skip: !isOpen });
+
     return (
         <ExpandableNode
-            isOpen={isOpen && !loading}
+            isOpen={isOpen && !loaded}
             depth={depth}
             header={
                 <Header onClick={onClickHeader}>
@@ -87,7 +92,9 @@ const PlatformNode = ({ entityAggregation: _, environmentAggregation: __, platfo
             body={
                 <Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    Child content
+                    {groups?.map((group) => (
+                        <div>{JSON.stringify(group)}</div>
+                    ))}
                 </Body>
             }
         />
