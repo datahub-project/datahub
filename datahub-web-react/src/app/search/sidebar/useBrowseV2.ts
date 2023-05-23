@@ -50,7 +50,6 @@ const useBrowseV2 = ({ entityType, environment, platform, path, skip }: Props) =
 
     return {
         loading,
-        loaded: !!data || !!error,
         error,
         ...data?.browseV2,
     } as const;

@@ -54,7 +54,7 @@ const EntityNode = ({ entityAggregation }: Props) => {
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
     const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
-    const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
+    const { loading, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
         entityType,
         facets: childrenFacets,
         skip: !isOpen,
@@ -65,7 +65,7 @@ const EntityNode = ({ entityAggregation }: Props) => {
 
     return (
         <ExpandableNode
-            isOpen={isOpen && loaded}
+            isOpen={isOpen && !loading}
             depth={depth}
             header={
                 <Header isOpen={isOpen} onClick={onClickHeader}>

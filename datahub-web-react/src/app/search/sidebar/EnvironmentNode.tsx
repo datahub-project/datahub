@@ -52,7 +52,7 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
     const onClickHeader = useCallback(() => setIsOpen((current) => !current), []);
     const color = ANTD_GRAY[9];
 
-    const { loaded, error, platformAggregations } = useAggregationsQuery({
+    const { loading, error, platformAggregations } = useAggregationsQuery({
         entityType,
         environment,
         facets: childrenFacets,
@@ -61,7 +61,7 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
 
     return (
         <ExpandableNode
-            isOpen={isOpen && loaded}
+            isOpen={isOpen && !loading}
             depth={depth}
             header={
                 <Header onClick={onClickHeader}>

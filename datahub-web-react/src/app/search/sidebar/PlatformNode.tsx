@@ -73,11 +73,11 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
         16,
     );
 
-    const { groups, loaded, error } = useBrowseV2({ entityType, environment, platform, path, skip: !isOpen });
+    const { groups, loading, error } = useBrowseV2({ entityType, environment, platform, path, skip: !isOpen });
 
     return (
         <ExpandableNode
-            isOpen={isOpen && !loaded}
+            isOpen={isOpen && !loading}
             depth={depth}
             header={
                 <Header onClick={onClickHeader}>

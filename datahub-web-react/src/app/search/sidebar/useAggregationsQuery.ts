@@ -51,7 +51,6 @@ const useAggregationsQuery = ({ entityType, environment, facets, skip }: Props) 
 
     return {
         loading,
-        loaded: !!data || !!error,
         error,
         environmentAggregations,
         platformAggregations,
