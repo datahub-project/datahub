@@ -92,12 +92,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
             key: 'delete',
             icon: (
                 <Popconfirm
-                    title={
-                        <Typography.Text>
-                            Are you sure you want to delete this ownership type? This will also remove all owners with
-                            this ownership type.
-                        </Typography.Text>
-                    }
+                    title={<Typography.Text>Are you sure you want to delete this ownership type?</Typography.Text>}
                     placement="left"
                     onCancel={() => {}}
                     onConfirm={onDelete}

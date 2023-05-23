@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactNode, useMemo, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
 
@@ -129,12 +129,6 @@ export const EditOwnersModal = ({
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
     const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
     const inputEl = useRef(null);
-
-    useEffect(() => {
-        if (ownershipTypes) {
-            setSelectedOwnerType(ownershipTypes[0]?.urn);
-        }
-    }, [ownershipTypes]);
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
@@ -388,7 +382,7 @@ export const EditOwnersModal = ({
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
                         <Form.Item name="type">
                             <Select
-                                defaultValue={selectedOwnerType}
+                                defaultValue={defaultOwnerType}
                                 value={selectedOwnerType}
                                 onChange={onSelectOwnerType}
                             >

@@ -86,7 +86,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
     const [updateOwnershipTypeMutation] = useUpdateOwnershipTypeMutation();
 
     const onCreateOwnershipType = () => {
-        if (ownershipTypeBuilderState.name && ownershipTypeBuilderState.description) {
+        if (ownershipTypeBuilderState.name) {
             createOwnershipTypeMutation({
                 variables: {
                     input: {
@@ -196,17 +196,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                 </FormItemContainer>
                 <FormItemContainer>
                     <FormItemTitle>Description</FormItemTitle>
-                    <StyledFormItem
-                        name="description"
-                        rules={[
-                            {
-                                required: true,
-                                message: 'Please input a description for the ownership type',
-                            },
-                            { whitespace: true },
-                            { min: 1, max: 250 },
-                        ]}
-                    >
+                    <StyledFormItem name="description" rules={[{ whitespace: true }, { min: 1, max: 250 }]}>
                         <Input
                             data-testid={DESCRIPTION_INPUT_TEST_ID}
                             placeholder="Ownership type description"
@@ -224,7 +214,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                 <Button
                     data-testid="ownership-builder-save"
                     type="primary"
-                    disabled={!ownershipTypeBuilderState.name || !ownershipTypeBuilderState.description}
+                    disabled={!ownershipTypeBuilderState.name}
                     onClick={onUpsert}
                 >
                     Save

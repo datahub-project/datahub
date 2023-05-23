@@ -24,7 +24,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,14 +56,14 @@ public class OwnerUtils {
   }
 
   public static void removeOwnersFromResources(
-      List<Urn> ownerUrns,
-      List<ResourceRefInput> resources,
+      List<Urn> ownerUrns, Optional<Urn> maybeOwnershipTypeUrn, List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService
   ) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildRemoveOwnersProposal(ownerUrns, UrnUtils.getUrn(resource.getResourceUrn()), actor, entityService));
+      changes.add(buildRemoveOwnersProposal(ownerUrns, maybeOwnershipTypeUrn, UrnUtils.getUrn(resource.getResourceUrn()),
+          actor, entityService));
     }
     ingestChangeProposals(changes, entityService, actor);
   }
@@ -82,8 +82,7 @@ public class OwnerUtils {
   }
 
   public static MetadataChangeProposal buildRemoveOwnersProposal(
-      List<Urn> ownerUrns,
-      Urn resourceUrn,
+      List<Urn> ownerUrns, Optional<Urn> maybeOwnershipTypeUrn, Urn resourceUrn,
       Urn actor,
       EntityService entityService
   ) {
@@ -93,7 +92,7 @@ public class OwnerUtils {
         entityService,
         new Ownership());
     ownershipAspect.setLastModified(getAuditStamp(actor));
-    removeOwnersIfExists(ownershipAspect, ownerUrns);
+    removeOwnersIfExists(ownershipAspect, ownerUrns, maybeOwnershipTypeUrn);
     return buildMetadataChangeProposal(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
@@ -102,14 +101,23 @@ public class OwnerUtils {
       ownershipAspect.setOwners(new OwnerArray());
     }
 
-    final OwnerArray ownerArray = new OwnerArray(ownershipAspect.getOwners()
-        .stream()
-        // Fix ownership in place
-        .filter(owner -> !(owner.getOwner().equals(ownerUrn) && (
-            (owner.getTypeUrn() != null && owner.getTypeUrn().equals(ownershipUrn)) || (owner.getType() != null
-                && owner.getType().equals(com.linkedin.common.OwnershipType.valueOf(type.toString())))
-        )))
-        .collect(Collectors.toList()));
+    final OwnerArray ownerArray = new OwnerArray(ownershipAspect.getOwners());
+    ownerArray.removeIf(owner -> {
+      // Remove old ownership if it exists (check ownerUrn + type (entity & deprecated type))
+
+      // Owner is not what we are looking for
+      if (!owner.getOwner().equals(ownerUrn)) {
+        return false;
+      }
+
+      // Check custom entity type urn if exists
+      if (owner.getTypeUrn() != null) {
+        return owner.getTypeUrn().equals(ownershipUrn);
+      }
+
+      // Fall back to mapping deprecated type to the new ownership entity, if it matches remove
+      return mapOwnershipTypeToEntity(OwnershipType.valueOf(owner.getType().toString())).equals(ownershipUrn.toString());
+    });
 
     Owner newOwner = new Owner();
 
@@ -127,14 +135,35 @@ public class OwnerUtils {
     ownershipAspect.setOwners(ownerArray);
   }
 
-  private static void removeOwnersIfExists(Ownership ownership, List<Urn> ownerUrns) {
+  private static void removeOwnersIfExists(Ownership ownership, List<Urn> ownerUrns,
+      Optional<Urn> maybeOwnershipTypeUrn) {
     if (!ownership.hasOwners()) {
       ownership.setOwners(new OwnerArray());
     }
 
     OwnerArray ownerArray = ownership.getOwners();
     for (Urn ownerUrn : ownerUrns) {
-      ownerArray.removeIf(owner -> owner.getOwner().equals(ownerUrn));
+      if (maybeOwnershipTypeUrn.isPresent()) {
+        ownerArray.removeIf(owner -> {
+          // Remove ownership if it exists (check ownerUrn + type (entity & deprecated type))
+
+          // Owner is not what we are looking for
+          if (!owner.getOwner().equals(ownerUrn)) {
+            return false;
+          }
+
+          // Check custom entity type urn if exists
+          if (owner.getTypeUrn() != null) {
+            return owner.getTypeUrn().equals(maybeOwnershipTypeUrn.get());
+          }
+
+          // Fall back to mapping deprecated type to the new ownership entity, if it matches remove
+          return mapOwnershipTypeToEntity(OwnershipType.valueOf(owner.getType().toString()))
+              .equals(maybeOwnershipTypeUrn.get().toString());
+        });
+      } else {
+        ownerArray.removeIf(owner -> owner.getOwner().equals(ownerUrn));
+      }
     }
   }
 

@@ -39,7 +39,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     // Sort ownership types by name alphabetically
     const ownershipTypeNames = Array.from(ownershipTypesMap.keys()).sort();
 
-    let defaultOwnerTypeUrn = 'urn:li:ownershipType:none';
+    let defaultOwnerTypeUrn = 'urn:li:ownershipType:__system__technical_owner';
     switch (properties?.defaultOwnerType) {
         case OwnershipType.TechnicalOwner:
             defaultOwnerTypeUrn = 'urn:li:ownershipType:__system__technical_owner';

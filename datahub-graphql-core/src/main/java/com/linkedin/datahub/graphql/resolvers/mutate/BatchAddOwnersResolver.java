@@ -45,7 +45,7 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
         batchAddOwners(owners, resources, context);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
         throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });

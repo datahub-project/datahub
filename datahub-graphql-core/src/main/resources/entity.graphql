@@ -7461,6 +7461,11 @@ input BatchAddOwnersInput {
     owners: [OwnerInput!]!
 
     """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
+
+    """
     The target assets to attach the owners to
     """
     resources: [ResourceRefInput]!
@@ -7476,6 +7481,11 @@ input BatchRemoveOwnersInput {
     ownerUrns: [String!]!
 
     """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
+
+    """
     The target assets to remove the owners from
     """
     resources: [ResourceRefInput]!
@@ -7489,6 +7499,11 @@ input RemoveOwnerInput {
     The primary key of the Owner to add or remove
     """
     ownerUrn: String!
+
+    """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
