@@ -493,7 +493,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             + 1
                         )
                         logger.debug(
-                            f"Table processed: {database}.{schema.name}.{table.name}"
+                            f"Table processed: {schema.database}.{schema.name}.{table.name}"
                         )
                 else:
                     logger.info(
@@ -503,7 +503,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 logger.info("Table processing disabled, skipping")
 
             if self.config.include_views:
-                logger.info(f"Process views in schema {database}.{schema.name}")
+                logger.info(f"Process views in schema {schema.database}.{schema.name}")
                 if (
                     self.db_views[schema.database]
                     and schema.name in self.db_views[schema.database]
@@ -521,7 +521,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             + 1
                         )
                         logger.debug(
-                            f"Table processed: {database}.{schema.name}.{view.name}"
+                            f"Table processed: {schema.database}.{schema.name}.{view.name}"
                         )
                 else:
                     logger.info(
