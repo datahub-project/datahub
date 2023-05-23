@@ -60,7 +60,8 @@ class ContainerWUCreator:
         return FolderKey(
             platform=self.platform,
             instance=self.instance,
-            backcompat_instance_for_guid=self.env,
+            env=self.env,
+            backcompat_env_as_instance=True,
             folder_abs_path=abs_path,
         )
 
@@ -68,7 +69,8 @@ class ContainerWUCreator:
         return BucketKey(
             platform=self.platform,
             instance=self.instance,
-            backcompat_instance_for_guid=self.env,
+            env=self.env,
+            backcompat_env_as_instance=True,
             bucket_name=name,
         )
 

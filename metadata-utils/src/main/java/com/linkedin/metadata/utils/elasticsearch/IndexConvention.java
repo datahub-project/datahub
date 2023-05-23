@@ -4,7 +4,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.EntitySpec;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 
 /**
