@@ -494,9 +494,7 @@ class ModelProcessor:
             ]
 
             self.report.report_endpoint_scanned()
-            wu = self.get_endpoint_wu(endpoint_details)
-            self.report.report_workunit(wu)
-            yield wu
+            yield self.get_endpoint_wu(endpoint_details)
 
         groups = self.get_all_groups()
         # sort groups for consistency
@@ -507,9 +505,7 @@ class ModelProcessor:
             group_details = self.get_group_details(group["ModelPackageGroupName"])
 
             self.report.report_group_scanned()
-            wu = self.get_group_wu(group_details)
-            self.report.report_workunit(wu)
-            yield wu
+            yield self.get_group_wu(group_details)
 
         models = self.get_all_models()
         # sort models for consistency
@@ -519,6 +515,4 @@ class ModelProcessor:
             model_details = self.get_model_details(model["ModelName"])
 
             self.report.report_model_scanned()
-            wu = self.get_model_wu(model_details, endpoint_arn_to_name)
-            self.report.report_workunit(wu)
-            yield wu
+            yield self.get_model_wu(model_details, endpoint_arn_to_name)
