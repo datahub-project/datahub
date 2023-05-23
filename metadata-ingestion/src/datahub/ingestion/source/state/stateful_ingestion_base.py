@@ -183,16 +183,6 @@ class StatefulIngestionSourceBase(Source):
         self.state_provider.prepare_for_commit()
         super().close()
 
-    # TODO: The below proxy methods should be removed.
-
-    def get_current_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        return self.state_provider.get_current_checkpoint(job_id)
-
-    def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[StateType]
-    ) -> Optional[Checkpoint]:
-        return self.state_provider.get_last_checkpoint(job_id, checkpoint_state_class)
-
 
 class StateProviderWrapper:
     def __init__(

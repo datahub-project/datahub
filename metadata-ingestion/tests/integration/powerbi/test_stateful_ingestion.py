@@ -218,7 +218,9 @@ def get_current_checkpoint_from_pipeline(
     checkpoints = {}
     for job_id in powerbi_source.state_provider._usecase_handlers.keys():
         # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
-        checkpoints[job_id] = powerbi_source.get_current_checkpoint(job_id)
+        checkpoints[job_id] = powerbi_source.state_provider.get_current_checkpoint(
+            job_id
+        )
     return checkpoints
 
 
