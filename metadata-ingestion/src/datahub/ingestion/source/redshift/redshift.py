@@ -478,7 +478,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             if self.config.include_tables:
-                logger.info("process tables")
+                logger.info(f"Process tables in schema {database}.{schema.name}")
                 if (
                     self.db_tables[schema.database]
                     and schema.name in self.db_tables[schema.database]
@@ -499,9 +499,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     logger.info(
                         f"No tables in cache for {schema.database}.{schema.name}, skipping"
                     )
+            else:
+                logger.info("Table processing disabled, skipping")
 
             if self.config.include_views:
-                logger.info("process views")
+                logger.info(f"Process views in schema {database}.{schema.name}")
                 if (
                     self.db_views[schema.database]
                     and schema.name in self.db_views[schema.database]
@@ -521,10 +523,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         logger.debug(
                             f"Table processed: {database}.{schema.name}.{view.name}"
                         )
+                else:
+                    logger.info(
+                        f"No views in cache for {schema.database}.{schema.name}, skipping"
+                    )
             else:
-                logger.info(
-                    f"No views in cache for {schema.database}.{schema.name}, skipping"
-                )
+                logger.info("View processing disabled, skipping")
 
             self.report.metadata_extraction_sec[report_key] = round(
                 timer.elapsed_seconds(), 2
