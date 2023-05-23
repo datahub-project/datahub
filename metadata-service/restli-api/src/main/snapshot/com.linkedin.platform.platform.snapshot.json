@@ -82,7 +82,10 @@
           }
         },
         "doc" : "URL where the reference exist",
-        "optional" : true
+        "optional" : true,
+        "Searchable" : {
+          "fieldType" : "KEYWORD"
+        }
       } ]
     } ],
     "fields" : [ {
@@ -168,7 +171,10 @@
       "name" : "chartUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
     }, {
       "name" : "inputs",
       "type" : {
@@ -193,11 +199,12 @@
           "type" : "record",
           "name" : "Edge",
           "namespace" : "com.linkedin.common",
-          "doc" : "Information about a relatonship edge.",
+          "doc" : "A common structure to represent all edges to entities when used inside aspects as collections\nThis ensures that all edges have common structure around audit-stamps and will support PATCH, time-travel automatically.\n",
           "fields" : [ {
             "name" : "sourceUrn",
             "type" : "Urn",
-            "doc" : "Urn of the source of this relationship edge."
+            "doc" : "Urn of the source of this relationship edge.\nIf not specified, assumed to be the entity that this aspect belongs to.",
+            "optional" : true
           }, {
             "name" : "destinationUrn",
             "type" : "Urn",
@@ -205,11 +212,13 @@
           }, {
             "name" : "created",
             "type" : "AuditStamp",
-            "doc" : "Audit stamp containing who created this relationship edge and when"
+            "doc" : "Audit stamp containing who created this relationship edge and when",
+            "optional" : true
           }, {
             "name" : "lastModified",
             "type" : "AuditStamp",
-            "doc" : "Audit stamp containing who last modified this relationship edge and when"
+            "doc" : "Audit stamp containing who last modified this relationship edge and when",
+            "optional" : true
           }, {
             "name" : "properties",
             "type" : {
@@ -1359,7 +1368,10 @@
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
     }, {
       "name" : "access",
       "type" : "com.linkedin.common.AccessLevel",
@@ -1806,7 +1818,7 @@
           } ]
         }
       },
-      "doc" : "Fine-grained column-level lineages",
+      "doc" : "Fine-grained column-level lineages\nNot currently supported in the UI\nUse UpstreamLineage aspect for datasets to express Column Level Lineage for the UI",
       "optional" : true
     } ],
     "Aspect" : {
@@ -3030,9 +3042,19 @@
                         "type" : "string",
                         "doc" : "The native kafka document schema. This is a human readable avro document schema."
                       }, {
+                        "name" : "documentSchemaType",
+                        "type" : "string",
+                        "doc" : "The native kafka document schema type. This can be AVRO/PROTOBUF/JSON.",
+                        "optional" : true
+                      }, {
                         "name" : "keySchema",
                         "type" : "string",
                         "doc" : "The native kafka key schema as retrieved from Schema Registry",
+                        "optional" : true
+                      }, {
+                        "name" : "keySchemaType",
+                        "type" : "string",
+                        "doc" : "The native kafka key schema type. This can be AVRO/PROTOBUF/JSON.",
                         "optional" : true
                       } ]
                     }, {
@@ -3097,7 +3119,8 @@
                           "Searchable" : {
                             "boostScore" : 5.0,
                             "fieldName" : "fieldPaths",
-                            "fieldType" : "TEXT"
+                            "fieldType" : "TEXT",
+                            "queryByDefault" : "true"
                           }
                         }, {
                           "name" : "jsonPath",

@@ -20,7 +20,7 @@ def get_long_description():
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
     "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
-    "typing_extensions>=3.10.0.2 ;  python_version >= '3.8'",
+    "typing_extensions>=3.10.0.2,<4.6.0 ;  python_version >= '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -57,6 +57,7 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
+    "ruamel.yaml",
 }
 
 rest_common = {"requests", "requests_file"}

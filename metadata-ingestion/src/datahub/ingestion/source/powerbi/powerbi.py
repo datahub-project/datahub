@@ -20,6 +20,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -74,11 +79,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -1228,7 +1228,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     # Because job_id is used as dictionary key, we have to set a new job_id
                     # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                     self.stale_entity_removal_handler.set_job_id(workspace.id)
-                    self.register_stateful_ingestion_usecase_handler(
+                    self.state_provider.register_stateful_ingestion_usecase_handler(
                         self.stale_entity_removal_handler
                     )
 

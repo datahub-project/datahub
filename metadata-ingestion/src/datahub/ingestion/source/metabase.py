@@ -21,6 +21,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -185,9 +186,7 @@ class MetabaseSource(Source):
                 )
                 if dashboard_snapshot is not None:
                     mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                    wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                    self.report.report_workunit(wu)
-                    yield wu
+                    yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
         except HTTPError as http_error:
             self.report.report_failure(
@@ -304,9 +303,7 @@ class MetabaseSource(Source):
                 chart_snapshot = self.construct_card_from_api_data(card_info)
                 if chart_snapshot is not None:
                     mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                    wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                    self.report.report_workunit(wu)
-                    yield wu
+                    yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
         except HTTPError as http_error:
             self.report.report_failure(
@@ -615,6 +612,9 @@ class MetabaseSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_card_mces()
         yield from self.emit_dashboard_mces()
 

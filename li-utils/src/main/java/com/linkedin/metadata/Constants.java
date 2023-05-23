@@ -16,6 +16,12 @@ public class Constants {
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
 
+  // !!!!!!! IMPORTANT !!!!!!!
+  // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages. Without this the limit is
+  // whatever Jackson is defaulting to (5 MB currently).
+  public static final String MAX_JACKSON_STRING_SIZE = "16000000";
+  public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH = "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
+
   /**
    * System Metadata
    */
@@ -60,6 +66,7 @@ public class Constants {
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
+  public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
 
   /**
    * Aspects
@@ -262,6 +269,10 @@ public class Constants {
   // Query
   public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
+
+  // DataProduct
+  public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
+  public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
