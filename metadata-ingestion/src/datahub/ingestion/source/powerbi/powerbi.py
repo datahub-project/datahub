@@ -1227,7 +1227,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     # Because job_id is used as dictionary key, we have to set a new job_id
                     # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                     self.stale_entity_removal_handler.set_job_id(workspace.id)
-                    self.register_stateful_ingestion_usecase_handler(
+                    self.state_provider.register_stateful_ingestion_usecase_handler(
                         self.stale_entity_removal_handler
                     )
 

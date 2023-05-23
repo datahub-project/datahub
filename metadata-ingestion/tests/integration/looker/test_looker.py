@@ -5,7 +5,6 @@ from typing import List, Optional, cast
 from unittest import mock
 
 from freezegun import freeze_time
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
@@ -31,6 +30,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 

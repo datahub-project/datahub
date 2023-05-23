@@ -7,7 +7,6 @@ import pydantic
 import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
@@ -25,6 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )

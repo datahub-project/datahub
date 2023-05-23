@@ -7,7 +7,6 @@ import pydantic
 import pytest
 from deepdiff import DeepDiff
 from freezegun import freeze_time
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
@@ -26,6 +25,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 

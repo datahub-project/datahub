@@ -2149,6 +2149,3 @@ class LookMLSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.reporter
-
-    def close(self):
-        self.prepare_for_commit()

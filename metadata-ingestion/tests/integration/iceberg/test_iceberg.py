@@ -6,11 +6,11 @@ import pytest
 from freezegun import freeze_time
 from iceberg.core.filesystem.file_status import FileStatus
 from iceberg.core.filesystem.local_filesystem import LocalFileSystem
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )

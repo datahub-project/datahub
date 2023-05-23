@@ -4,12 +4,12 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 

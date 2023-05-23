@@ -5,12 +5,12 @@ from typing import List
 from unittest.mock import patch
 
 from freezegun import freeze_time
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.azure_ad import AzureADConfig
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 

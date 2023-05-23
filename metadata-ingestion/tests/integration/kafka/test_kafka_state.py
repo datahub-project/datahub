@@ -5,10 +5,10 @@ from unittest.mock import patch
 import pytest
 from confluent_kafka.admin import AdminClient, NewTopic
 from freezegun import freeze_time
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )

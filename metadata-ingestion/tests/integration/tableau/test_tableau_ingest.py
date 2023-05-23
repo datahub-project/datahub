@@ -7,7 +7,6 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
-from integration.integration_helpers import get_current_checkpoint_from_pipeline
 from requests.adapters import ConnectionError
 from tableauserverclient.models import (
     DatasourceItem,
@@ -30,6 +29,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
