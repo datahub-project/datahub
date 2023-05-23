@@ -27,10 +27,7 @@ from datahub.ingestion.source.state.use_case_handler import (
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
-from datahub.metadata.schema_classes import (
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-)
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -171,13 +168,8 @@ class StatefulIngestionSourceBase(Source):
         ctx: PipelineContext,
     ) -> None:
         super().__init__(ctx)
-        self.stateful_ingestion_config = config.stateful_ingestion
-        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
         self.report: StatefulIngestionReport = StatefulIngestionReport()
-        self._initialize_checkpointing_state_provider()
-        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
+        self.state_provider = StateProviderWrapper(config, ctx)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -186,6 +178,48 @@ class StatefulIngestionSourceBase(Source):
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
+
+    def close(self) -> None:
+        self.state_provider.prepare_for_commit()
+        super().close()
+
+    # TODO: The below proxy methods should be removed.
+
+    def register_stateful_ingestion_usecase_handler(
+        self, usecase_handler: StatefulIngestionUsecaseHandlerBase
+    ) -> None:
+        self.state_provider.register_stateful_ingestion_usecase_handler(usecase_handler)
+
+    def is_stateful_ingestion_configured(self) -> bool:
+        return self.state_provider.is_stateful_ingestion_configured()
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        return self.state_provider.is_checkpointing_enabled(job_id)
+
+    def get_current_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
+        return self.state_provider.get_current_checkpoint(job_id)
+
+    def get_last_checkpoint(
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
+    ) -> Optional[Checkpoint]:
+        return self.state_provider.get_last_checkpoint(job_id, checkpoint_state_class)
+
+
+class StateProviderWrapper:
+    def __init__(
+        self,
+        config: StatefulIngestionConfigBase[StatefulIngestionConfig],
+        ctx: PipelineContext,
+    ) -> None:
+        # self.config = config
+        self.ctx = ctx
+
+        self.stateful_ingestion_config = config.stateful_ingestion
+        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.report: StatefulIngestionReport = StatefulIngestionReport()
+        self._initialize_checkpointing_state_provider()
+        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
 
     #
     # Checkpointing specific support.
@@ -383,7 +417,3 @@ class StatefulIngestionSourceBase(Source):
     def prepare_for_commit(self) -> None:
         """NOTE: Sources should call this method from their close method."""
         self._prepare_checkpoint_states_for_commit()
-
-    def close(self) -> None:
-        self.prepare_for_commit()
-        super().close()

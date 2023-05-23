@@ -1335,6 +1335,3 @@ class VerticaSource(SQLAlchemySource):
                 return each["owner_name"]
 
         return None
-
-    def close(self):
-        self.prepare_for_commit()
