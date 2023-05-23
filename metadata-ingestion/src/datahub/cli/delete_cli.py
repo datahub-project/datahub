@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import progressbar
+from click_default_group import DefaultGroup
 from requests import sessions
 from tabulate import tabulate
 
@@ -23,6 +24,12 @@ logger = logging.getLogger(__name__)
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 UNKNOWN_NUM_RECORDS = -1
+
+
+@click.group(cls=DefaultGroup, default="by-filter")
+def delete() -> None:
+    """Delete metadata from DataHub."""
+    pass
 
 
 @dataclass
@@ -55,12 +62,33 @@ class DeletionResult:
             self.sample_records.extend(another_result.sample_records)
 
 
+@delete.command()
+@click.option(
+    "--registry-id", required=False, type=str, help="e.g. mycompany-dq-model:0.0.1"
+)
+@click.option(
+    "--soft/--hard",
+    required=False,
+    is_flag=True,
+    default=True,
+    help="specifies soft/hard deletion",
+)
+@click.option("-n", "--dry-run", required=False, is_flag=True)
 @telemetry.with_telemetry()
-def delete_for_registry(
+def by_registry(
     registry_id: str,
     soft: bool,
     dry_run: bool,
 ) -> DeletionResult:
+    """
+    Delete all metadata written using the given registry id and version pair.
+    """
+
+    if soft and not dry_run:
+        raise click.UsageError(
+            "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
+        )
+
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
@@ -80,7 +108,7 @@ def delete_for_registry(
     return deletion_result
 
 
-@click.command()
+@delete.command()
 @click.option("--urn", required=False, type=str, help="the urn of the entity")
 @click.option(
     "-a",
@@ -129,12 +157,11 @@ def delete_for_registry(
     type=click.DateTime(),
     help="the end time(only for timeseries aspects)",
 )
-@click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def delete(
+def by_filter(
     urn: str,
     aspect_name: Optional[str],
     force: bool,
@@ -145,7 +172,6 @@ def delete(
     query: str,
     start_time: Optional[datetime],
     end_time: Optional[datetime],
-    registry_id: str,
     dry_run: bool,
     only_soft_deleted: bool,
 ) -> None:
@@ -153,9 +179,9 @@ def delete(
 
     cli_utils.test_connectivity_complain_exit("delete")
     # one of these must be provided
-    if not urn and not platform and not env and not query and not registry_id:
+    if not urn and not platform and not env and not query:
         raise click.UsageError(
-            "You must provide one of urn / platform / env / query / registry_id in order to delete entities."
+            "You must provide one of urn / platform / env / query in order to delete entities."
         )
 
     include_removed: bool
@@ -225,15 +251,6 @@ def delete(
                     f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
                 )
 
-    elif registry_id:
-        # Registry-id based delete
-        if soft and not dry_run:
-            raise click.UsageError(
-                "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
-            )
-        deletion_result = delete_for_registry(
-            registry_id=registry_id, soft=soft, dry_run=dry_run
-        )
     else:
         # Filter based delete
         deletion_result = delete_with_filters(

@@ -1,8 +1,13 @@
 package com.linkedin.gms.factory.search;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
@@ -20,12 +25,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
+import java.io.IOException;
+
 
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({EntityRegistryFactory.class, SettingsBuilderFactory.class})
 public class ElasticSearchServiceFactory {
+  private static final ObjectMapper YAML_MAPPER = new YAMLMapper();
+
   @Autowired
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
@@ -43,13 +52,18 @@ public class ElasticSearchServiceFactory {
 
   @Bean(name = "elasticSearchService")
   @Nonnull
-  protected ElasticSearchService getInstance(ConfigurationProvider configurationProvider) {
+  protected ElasticSearchService getInstance(ConfigurationProvider configurationProvider) throws IOException {
     log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
+
+    ElasticSearchConfiguration elasticSearchConfiguration = configurationProvider.getElasticSearch();
+    SearchConfiguration searchConfiguration = elasticSearchConfiguration.getSearch();
+    CustomSearchConfiguration customSearchConfiguration = searchConfiguration.getCustom() == null ? null
+            : searchConfiguration.getCustom().resolve(YAML_MAPPER);
 
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
-            configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
-            configurationProvider.getElasticSearch().getImplementation(), configurationProvider.getElasticSearch().getSearch());
+                configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
+                elasticSearchConfiguration.getImplementation(), searchConfiguration, customSearchConfiguration);
     return new ElasticSearchService(
         new EntityIndexBuilders(components.getIndexBuilder(), entityRegistry, components.getIndexConvention(),
             settingsBuilder), esSearchDAO,

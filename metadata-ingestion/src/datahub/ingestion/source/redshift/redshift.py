@@ -15,7 +15,6 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -29,6 +28,11 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     TestableSource,
     TestConnectionReport,
+)
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -73,11 +77,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    Status,
-    SubTypes,
-    TimeStamp,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     ViewProperties,
@@ -101,11 +101,6 @@ from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -344,7 +339,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> redshift_connector.Connection:
         client_options = config.extra_client_options
         host, port = config.host_port.split(":")
-        return redshift_connector.connect(
+        conn = redshift_connector.connect(
             host=host,
             port=int(port),
             user=config.username,
@@ -352,6 +347,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             password=config.password.get_secret_value() if config.password else None,
             **client_options,
         )
+
+        conn.autocommit = True
+
+        return conn
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
@@ -471,7 +470,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
                 sub_types=[DatasetSubTypes.SCHEMA],
-                report=self.report,
             )
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
@@ -499,7 +497,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 logger.info("process views")
                 if schema.name in self.db_views[schema.database]:
                     for view in self.db_views[schema.database][schema.name]:
-                        logger.info(f"View: {view}")
                         view.columns = schema_columns[schema.name].get(view.name, [])
                         yield from self._process_view(
                             table=view, database=database, schema=schema
@@ -615,13 +612,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 viewLanguage="SQL",
                 viewLogic=view.ddl,
             )
-            wu = wrap_aspect_as_workunit(
-                "dataset",
-                dataset_urn,
-                "viewProperties",
-                view_properties_aspect,
-            )
-            yield wu
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=view_properties_aspect
+            ).as_workunit()
 
     # TODO: Remove to common?
     def gen_schema_fields(self, columns: List[RedshiftColumn]) -> List[SchemaField]:
@@ -672,10 +665,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             platformSchema=MySqlDDL(tableSchema=""),
             fields=self.gen_schema_fields(table.columns),
         )
-        wu = wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "schemaMetadata", schema_metadata
-        )
-        yield wu
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=schema_metadata
+        ).as_workunit()
 
     # TODO: Move to common
     def gen_dataset_workunits(
@@ -693,9 +685,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             name=datahub_dataset_name,
             platform_instance=self.config.platform_instance,
         )
-        status = Status(removed=False)
-        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
-        yield wu
 
         yield from self.gen_schema_metadata(
             dataset_urn, table, str(datahub_dataset_name)
@@ -737,7 +726,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         yield from add_table_to_schema_container(
             dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(
             dataset_urn=dataset_urn,
@@ -758,7 +746,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
-                report=self.report,
             )
 
     def cache_tables_and_views(self, connection, database):

@@ -50,6 +50,16 @@ extend type Query {
   Retrieve the browse paths corresponding to an entity
   """
   browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+
+  """
+  Aggregate across DataHub entities
+  """
+  aggregateAcrossEntities(input: AggregateAcrossEntitiesInput!): AggregateResults
+
+  """
+  List Data Product assets for a given urn
+  """
+  listDataProductAssets(urn: String!, input: SearchAcrossEntitiesInput!): SearchResults
 }
 
 """
@@ -152,6 +162,43 @@ input SearchAcrossEntitiesInput {
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
   filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
+}
+
+"""
+Input arguments for a full text search query across entities to get aggregations
+"""
+input AggregateAcrossEntitiesInput {
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+  types: [EntityType!]
+
+  """
+  The query string
+  """
+  query: String!
+
+  """
+  The list of facets to get aggregations for. If list is empty or null, get aggregations for all facets
+  Sub-aggregations can be specified with the unicode character ␞ (U+241E) as a delimiter between the subtypes.
+  e.g. _entityType␞owners
+  """
+  facets: [String]
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
@@ -439,6 +486,16 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+}
+
+"""
+Results returned from aggregateAcrossEntities
+"""
+type AggregateResults {
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
 }
 
 """

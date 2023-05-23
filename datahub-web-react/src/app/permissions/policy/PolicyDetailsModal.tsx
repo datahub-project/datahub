@@ -94,6 +94,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                 <Link
                     target="_blank"
                     rel="noopener noreferrer"
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                     to={() => `${entityRegistry.getEntityUrl(criterionValue.entity!.type, criterionValue.value)}`}
                 >
                     {getDisplayName(criterionValue.entity)}

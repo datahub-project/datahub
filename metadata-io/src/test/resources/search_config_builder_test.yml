@@ -1,0 +1,74 @@
+# Used for testing more real-world configurations
+
+queryConfigurations:
+  # Criteria for exact-match only
+  # Contains `_`, `'`, `"` then use exact match query
+  - queryRegex: >-
+      ["'].+["']|\S+_\S+
+    simpleQuery: false
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: avg
+      boost_mode: multiply
+
+  # Select *
+  - queryRegex: '[*]|'
+    simpleQuery: false
+    prefixMatchQuery: false
+    exactMatchQuery: false
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: avg
+      boost_mode: multiply
+
+  # default
+  - queryRegex: .*
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    boolQuery:
+      should:
+        match_all: {}
+      must:
+        - term:
+            fieldName: '{{query_string}}'
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+      score_mode: avg
+      boost_mode: multiply

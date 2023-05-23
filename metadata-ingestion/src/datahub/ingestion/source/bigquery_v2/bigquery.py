@@ -34,6 +34,12 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
@@ -121,12 +127,6 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -440,7 +440,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_id=schema,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_key(self, database: str) -> PlatformKey:
@@ -448,7 +449,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=database,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -460,7 +462,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.BIGQUERY_PROJECT],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             database_container_key=database_container_key,
         )
 
@@ -480,7 +481,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,
             external_url=BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
@@ -492,29 +492,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        logger.info("Getting projects")
         conn: bigquery.Client = get_bigquery_client(self.config)
         self.add_config_to_report()
 
         projects = self._get_projects(conn)
-        if len(projects) == 0:
-            logger.error(
-                "Get projects didn't return any project. "
-                "Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account."
-            )
-            self.report.report_failure(
-                "metadata-extraction",
-                "Get projects didn't return any project. "
-                "Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-            )
+        if not projects:
             return
 
         for project_id in projects:
-            if not self.config.project_id_pattern.allowed(project_id.id):
-                self.report.report_dropped(project_id.id)
-                continue
             logger.info(f"Processing project: {project_id.id}")
             self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
@@ -584,6 +569,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
+        logger.info("Getting projects")
         if self.config.project_ids or self.config.project_id:
             project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
             return [
@@ -591,20 +577,29 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for project_id in project_ids
             ]
         else:
-            try:
-                return BigQueryDataDictionary.get_projects(conn)
-            except Exception as e:
-                # TODO: Merge with error logging in `get_workunits_internal`
-                trace = traceback.format_exc()
-                logger.error(
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
-                )
-                logger.error(trace)
-                self.report.report_failure(
-                    "metadata-extraction",
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
-                )
-                return []
+            return list(self._get_project_list(conn))
+
+    def _get_project_list(self, conn: bigquery.Client) -> Iterable[BigqueryProject]:
+        try:
+            projects = BigQueryDataDictionary.get_projects(conn)
+        except Exception as e:
+            logger.error(f"Error getting projects. {e}", exc_info=True)
+            projects = []
+
+        if not projects:  # Report failure on exception and if empty list is returned
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project. "
+                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+            return []
+
+        for project in projects:
+            if self.config.project_id_pattern.allowed(project.id):
+                yield project
+            else:
+                self.report.report_dropped(project.id)
 
     def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
@@ -1031,7 +1026,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
-            report=self.report,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
@@ -1049,7 +1043,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
-                report=self.report,
             )
 
     def gen_lineage(

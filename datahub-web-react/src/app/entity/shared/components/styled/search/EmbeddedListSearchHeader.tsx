@@ -1,19 +1,15 @@
 import React from 'react';
 import { Button, Typography } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import {
-    EntityType,
-    AndFilterInput,
-    ScrollAcrossEntitiesInput,
-    ScrollResults,
-} from '../../../../../../types.generated';
+import { EntityType, AndFilterInput } from '../../../../../../types.generated';
 import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
+import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -36,9 +32,7 @@ type Props = {
     onSearch: (q: string) => void;
     onToggleFilters: () => void;
     placeholderText?: string | null;
-    callSearchOnVariables: (variables: {
-        input: ScrollAcrossEntitiesInput;
-    }) => Promise<ScrollResults | null | undefined>;
+    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     entityFilters: EntityType[];
     filters: AndFilterInput[];
     query: string;
@@ -56,7 +50,7 @@ export default function EmbeddedListSearchHeader({
     onSearch,
     onToggleFilters,
     placeholderText,
-    callSearchOnVariables,
+    downloadSearchResults,
     entityFilters,
     filters,
     query,
@@ -104,7 +98,7 @@ export default function EmbeddedListSearchHeader({
                         />
                         <SearchMenuContainer>
                             <SearchExtendedMenu
-                                callSearchOnVariables={callSearchOnVariables}
+                                downloadSearchResults={downloadSearchResults}
                                 entityFilters={entityFilters}
                                 filters={filters}
                                 query={query}

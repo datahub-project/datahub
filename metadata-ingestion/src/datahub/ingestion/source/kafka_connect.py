@@ -28,6 +28,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -39,10 +44,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -1071,9 +1072,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         return connectors_manifest
 
-    def construct_flow_workunit(
-        self, connector: ConnectorManifest
-    ) -> Iterable[MetadataWorkUnit]:
+    def construct_flow_workunit(self, connector: ConnectorManifest) -> MetadataWorkUnit:
         connector_name = connector.name
         connector_type = connector.type
         connector_class = connector.config.get("connector.class")
@@ -1086,7 +1085,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             self.config.platform_instance,
         )
 
-        mcp = MetadataChangeProposalWrapper(
+        return MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
             aspect=models.DataFlowInfoClass(
                 name=connector_name,
@@ -1094,15 +1093,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 customProperties=flow_property_bag,
                 # externalUrl=connector_url, # NOTE: this will expose connector credential when used
             ),
-        )
-
-        for proposal in [mcp]:
-            wu = MetadataWorkUnit(
-                id=f"{self.platform}.{connector_name}.{proposal.aspectName}",
-                mcp=proposal,
-            )
-            self.report.report_workunit(wu)
-            yield wu
+        ).as_workunit()
 
     def construct_job_workunits(
         self, connector: ConnectorManifest
@@ -1148,7 +1139,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     )
                 ]
 
-                mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn,
                     aspect=models.DataJobInfoClass(
                         name=f"{connector_name}:{job_id}",
@@ -1157,34 +1148,22 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                         customProperties=job_property_bag
                         # externalUrl=job_url,
                     ),
-                )
+                ).as_workunit()
 
-                wu = MetadataWorkUnit(
-                    id=f"{self.platform}.{connector_name}.{job_id}.{mcp.aspectName}",
-                    mcp=mcp,
-                )
-                self.report.report_workunit(wu)
-                yield wu
-
-                mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn,
                     aspect=models.DataJobInputOutputClass(
                         inputDatasets=inlets,
                         outputDatasets=outlets,
                     ),
-                )
-
-                wu = MetadataWorkUnit(
-                    id=f"{self.platform}.{connector_name}.{job_id}.{mcp.aspectName}",
-                    mcp=mcp,
-                )
-                self.report.report_workunit(wu)
-                yield wu
+                ).as_workunit()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -1192,7 +1171,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         for connector in connectors_manifest:
             name = connector.name
 
-            yield from self.construct_flow_workunit(connector)
+            yield self.construct_flow_workunit(connector)
             yield from self.construct_job_workunits(connector)
             self.report.report_connector_scanned(name)
 

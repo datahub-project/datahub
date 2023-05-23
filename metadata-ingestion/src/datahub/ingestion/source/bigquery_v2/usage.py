@@ -32,6 +32,7 @@ from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
+    BQ_FILTER_RULE_TEMPLATE,
     AuditEvent,
     AuditLogEntry,
     BigQueryAuditMetadata,
@@ -65,7 +66,7 @@ OPERATION_STATEMENT_TYPES = {
     "UPDATE": OperationTypeClass.UPDATE,
     "DELETE": OperationTypeClass.DELETE,
     "MERGE": OperationTypeClass.UPDATE,
-    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
     "CREATE_EXTERNAL_TABLE": OperationTypeClass.CREATE,
     "CREATE_SNAPSHOT_TABLE": OperationTypeClass.CREATE,
@@ -100,7 +101,6 @@ class OperationalDataMeta:
 def bigquery_audit_metadata_query_template(
     dataset: str,
     use_date_sharded_tables: bool,
-    table_allow_filter: Optional[str] = None,
     limit: Optional[int] = None,
 ) -> str:
     """
@@ -109,15 +109,8 @@ def bigquery_audit_metadata_query_template(
     :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
     :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
            tables
-    :param table_allow_filter: regex used to filter on log events that contain the wanted datasets
     :param limit: maximum number of events to query for
     :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
-    """
-    allow_filter = f"""
-      AND EXISTS (SELECT *
-              from UNNEST(JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
-                                             "$.jobChange.job.jobStats.queryStats.referencedTables")) AS x
-              where REGEXP_CONTAINS(x, r'(projects/.*/datasets/.*/tables/{table_allow_filter if table_allow_filter else ".*"})'))
     """
 
     limit_text = f"limit {limit}" if limit else ""
@@ -145,15 +138,27 @@ def bigquery_audit_metadata_query_template(
             AND timestamp < "{{end_time}}"
         )
         {shard_condition}
-        AND (
-                (
-                    protopayload_auditlog.serviceName="bigquery.googleapis.com"
-                    AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-                    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-                    {allow_filter}
-                )
+        AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
+        AND
+        (
+            (
+                JSON_EXTRACT_SCALAR(protopayload_auditlog.methodName) IN
+                    (
+                        "google.cloud.bigquery.v2.JobService.Query",
+                        "google.cloud.bigquery.v2.JobService.InsertJob"
+                    )
+                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
+                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+                AND (
+                        JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
+                                                            "$.jobChange.job.jobStats.queryStats.referencedTables") IS NOT NULL
+                    OR
+                        JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig.destinationTable") IS NOT NULL
+                    )
+            )
             OR
-            JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
+                JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
         )
         {limit_text};
     """
@@ -451,7 +456,9 @@ class BigQueryUsageExtractor:
                     user_freq=entry.user_freq,
                     column_freq=entry.column_freq,
                     bucket_duration=self.config.bucket_duration,
-                    urn_builder=lambda resource: resource.to_urn(self.config.env),
+                    resource_urn_builder=lambda resource: resource.to_urn(
+                        self.config.env
+                    ),
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
                 )
@@ -531,7 +538,6 @@ class BigQueryUsageExtractor:
     def _get_exported_bigquery_audit_metadata(
         self,
         bigquery_client: BigQueryClient,
-        allow_filter: str,
         limit: Optional[int] = None,
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
@@ -555,7 +561,6 @@ class BigQueryUsageExtractor:
             query = bigquery_audit_metadata_query_template(
                 dataset,
                 self.config.use_date_sharded_audit_log_tables,
-                allow_filter,
                 limit=limit,
             ).format(
                 start_time=start_time,
@@ -619,36 +624,7 @@ class BigQueryUsageExtractor:
         # between query events and read events is complete. For example, this helps us
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
-        # Can safely access the first index of the allow list as it by default contains ".*"
-        use_allow_filter = self.config.table_pattern and (
-            len(self.config.table_pattern.allow) > 1
-            or self.config.table_pattern.allow[0] != ".*"
-        )
-        use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
-        allow_regex = (
-            audit_templates["BQ_FILTER_REGEX_ALLOW_TEMPLATE"].format(
-                table_allow_pattern=self.config.get_table_pattern(
-                    self.config.table_pattern.allow
-                )
-            )
-            if use_allow_filter
-            else ""
-        )
-        deny_regex = (
-            audit_templates["BQ_FILTER_REGEX_DENY_TEMPLATE"].format(
-                table_deny_pattern=self.config.get_table_pattern(
-                    self.config.table_pattern.deny
-                ),
-                logical_operator="AND" if use_allow_filter else "",
-            )
-            if use_deny_filter
-            else ("" if use_allow_filter else "FALSE")
-        )
 
-        logger.debug(
-            f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
-            f"allow_regex={allow_regex}, deny_regex={deny_regex}"
-        )
         start_time = (self.config.start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
@@ -657,11 +633,8 @@ class BigQueryUsageExtractor:
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_end_time = end_time
-        filter = audit_templates["BQ_FILTER_RULE_TEMPLATE"].format(
-            start_time=start_time,
-            end_time=end_time,
-            allow_regex=allow_regex,
-            deny_regex=deny_regex,
+        filter = audit_templates[BQ_FILTER_RULE_TEMPLATE].format(
+            start_time=start_time, end_time=end_time
         )
         return filter
 
@@ -825,7 +798,6 @@ class BigQueryUsageExtractor:
         self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
     ) -> Optional[AuditEvent]:
         event: Optional[Union[ReadEvent, QueryEvent]] = None
-
         missing_read_entry = ReadEvent.get_missing_key_entry(entry)
         if missing_read_entry is None:
             event = ReadEvent.from_entry(entry, self.config.debug_include_full_payloads)
@@ -905,9 +877,6 @@ class BigQueryUsageExtractor:
             bq_client = get_bigquery_client(self.config)
             entries = self._get_exported_bigquery_audit_metadata(
                 bigquery_client=bq_client,
-                allow_filter=self.config.get_table_pattern(
-                    self.config.table_pattern.allow
-                ),
                 limit=limit,
             )
             parse_fn = self._parse_exported_bigquery_audit_metadata
