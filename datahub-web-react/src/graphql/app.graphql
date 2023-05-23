@@ -50,6 +50,9 @@ query appConfig {
         viewsConfig {
             enabled
         }
+        featureFlags {
+            readOnlyModeEnabled
+        }
     }
 }
 

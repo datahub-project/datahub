@@ -2,8 +2,8 @@ from typing import Dict, List, Tuple
 
 import pytest
 
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityCheckpointStateBase,
+from datahub.ingestion.source.state.entity_removal_state import (
+    compute_percent_entities_changed,
 )
 
 OldNewEntLists = List[Tuple[List[str], List[str]]]
@@ -43,9 +43,5 @@ old_new_ent_tests: Dict[str, Tuple[OldNewEntLists, float]] = {
 def test_change_percent(
     new_old_entity_list: OldNewEntLists, expected_percent_change: float
 ) -> None:
-    actual_percent_change = (
-        StaleEntityCheckpointStateBase.compute_percent_entities_changed(
-            new_old_entity_list
-        )
-    )
+    actual_percent_change = compute_percent_entities_changed(new_old_entity_list)
     assert actual_percent_change == expected_percent_change
