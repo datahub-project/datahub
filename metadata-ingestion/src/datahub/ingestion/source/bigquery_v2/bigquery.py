@@ -34,6 +34,12 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
@@ -121,12 +127,6 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -440,7 +440,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_id=schema,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_key(self, database: str) -> PlatformKey:
@@ -448,7 +449,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=database,
             platform=self.platform,
             instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -460,7 +462,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.BIGQUERY_PROJECT],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             database_container_key=database_container_key,
         )
 
@@ -480,7 +481,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,
             external_url=BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
@@ -1026,7 +1026,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
-            report=self.report,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
@@ -1044,7 +1043,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
-                report=self.report,
             )
 
     def gen_lineage(

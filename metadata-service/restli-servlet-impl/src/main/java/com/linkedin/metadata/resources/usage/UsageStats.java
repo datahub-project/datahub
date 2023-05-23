@@ -73,6 +73,7 @@ import static com.linkedin.metadata.resources.restli.RestliUtils.*;
  * Rest.li entry point: /usageStats
  */
 @Slf4j
+@Deprecated
 @RestLiSimpleResource(name = "usageStats", namespace = "com.linkedin.usage")
 public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -110,6 +111,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       _entityRegistry.getEntitySpec(USAGE_STATS_ENTITY_NAME).getAspectSpec(USAGE_STATS_ASPECT_NAME);
 
   @Action(name = ACTION_BATCH_INGEST)
+  @Deprecated
   @Nonnull
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {

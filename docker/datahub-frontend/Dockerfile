@@ -6,8 +6,9 @@ FROM alpine:3 AS base
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 
 # Upgrade Alpine and base packages
+# PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl \
+    && apk --no-cache add curl sqlite \
     && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
 
 FROM base as prod-install

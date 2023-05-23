@@ -58,7 +58,7 @@ public class ElasticSearchServiceFactory {
     ElasticSearchConfiguration elasticSearchConfiguration = configurationProvider.getElasticSearch();
     SearchConfiguration searchConfiguration = elasticSearchConfiguration.getSearch();
     CustomSearchConfiguration customSearchConfiguration = searchConfiguration.getCustom() == null ? null
-            : searchConfiguration.getCustom().customSearchConfiguration(YAML_MAPPER);
+            : searchConfiguration.getCustom().resolve(YAML_MAPPER);
 
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),

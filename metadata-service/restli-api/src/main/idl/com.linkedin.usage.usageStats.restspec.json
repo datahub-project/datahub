@@ -7,6 +7,9 @@
   "simple" : {
     "supports" : [ ],
     "actions" : [ {
+      "annotations" : {
+        "deprecated" : { }
+      },
       "name" : "batchIngest",
       "parameters" : [ {
         "name" : "buckets",

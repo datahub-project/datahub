@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { Input, AutoComplete, Typography, Button } from 'antd';
+import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
@@ -10,7 +10,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { getEntityPath } from '../entity/shared/containers/profile/utils';
 import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import AutoCompleteItem, { SuggestionContainer } from './autoComplete/AutoCompleteItem';
+import AutoCompleteItem from './autoComplete/AutoCompleteItem';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import QuickFilters from './autoComplete/quickFilters/QuickFilters';
 import { getFiltersWithQuickFilter } from './utils/filterUtils';
@@ -20,16 +20,8 @@ import RecommendedOption from './autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
 import { useUserContext } from '../context/useUserContext';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-
-const ExploreForEntity = styled.span`
-    font-weight: light;
-    font-size: 16px;
-    padding: 5px 0;
-`;
-
-const ExploreForEntityText = styled.span`
-    margin-left: 10px;
-`;
+import { getQuickFilterDetails } from './autoComplete/quickFilters/utils';
+import ViewAllSearchItem from './ViewAllSearchItem';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -187,31 +179,31 @@ export const SearchBar = ({
             disabled: true,
         };
 
-        return [...moduleOptions, exploreAllOption];
-    }, [data?.listRecommendations?.modules, onClickExploreAll]);
+        const tail = showQuickFilters ? [exploreAllOption] : [];
 
-    const autoCompleteQueryOptions = useMemo(
-        () =>
-            (suggestions?.length > 0 &&
-                effectiveQuery.length > 0 && [
-                    {
-                        value: `${EXACT_SEARCH_PREFIX}${effectiveQuery}`,
-                        label: (
-                            <SuggestionContainer key={EXACT_AUTOCOMPLETE_OPTION_TYPE}>
-                                <ExploreForEntity>
-                                    <SearchOutlined />
-                                    <ExploreForEntityText>
-                                        View all results for <Typography.Text strong>{effectiveQuery}</Typography.Text>
-                                    </ExploreForEntityText>
-                                </ExploreForEntity>
-                            </SuggestionContainer>
-                        ),
-                        type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
-                    },
-                ]) ||
-            [],
-        [suggestions, effectiveQuery],
-    );
+        return [...moduleOptions, ...tail];
+    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters]);
+
+    const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
+
+    const autoCompleteQueryOptions = useMemo(() => {
+        const query = suggestions.length ? effectiveQuery : '';
+        const selectedQuickFilterLabel =
+            showQuickFilters && selectedQuickFilter
+                ? getQuickFilterDetails(selectedQuickFilter, entityRegistry).label
+                : '';
+        const text = query || selectedQuickFilterLabel;
+
+        if (!text) return [];
+
+        return [
+            {
+                value: `${EXACT_SEARCH_PREFIX}${text}`,
+                label: <ViewAllSearchItem searchTarget={text} />,
+                type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
+            },
+        ];
+    }, [showQuickFilters, suggestions.length, effectiveQuery, selectedQuickFilter, entityRegistry]);
 
     const autoCompleteEntityOptions = useMemo(
         () =>
@@ -221,8 +213,6 @@ export const SearchBar = ({
             })),
         [effectiveQuery, suggestions],
     );
-
-    const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
     useEffect(() => {
@@ -245,10 +235,8 @@ export const SearchBar = ({
 
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.
-        if (autoCompleteEntityOptions.length > 0) {
-            return [...quickFilterOption, ...autoCompleteQueryOptions, ...autoCompleteEntityOptions];
-        }
-        return [...quickFilterOption, ...emptyQueryOptions];
+        const tail = autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
+        return [...quickFilterOption, ...autoCompleteQueryOptions, ...tail];
     }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions, quickFilterOption]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);

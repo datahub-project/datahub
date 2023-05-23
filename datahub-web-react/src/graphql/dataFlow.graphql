@@ -37,6 +37,7 @@ fragment dataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     status {
         removed
     }

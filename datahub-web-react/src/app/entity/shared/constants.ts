@@ -49,6 +49,10 @@ export const EMPTY_MESSAGES = {
         title: 'No domain set',
         description: 'Group related entities based on your organizational structure using by adding them to a Domain.',
     },
+    dataProduct: {
+        title: 'No data product set',
+        description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
+    },
     contains: {
         title: 'Contains no Terms',
         description: 'Terms can contain other terms to represent a "Has A" style relationship.',
