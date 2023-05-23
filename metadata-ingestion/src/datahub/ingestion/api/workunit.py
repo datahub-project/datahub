@@ -10,7 +10,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
+from datahub.metadata.schema_classes import (
+    UsageAggregationClass,
+    _Aspect,
+    ChangeTypeClass,
+)
 
 T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 
@@ -102,6 +106,7 @@ class MetadataWorkUnit(WorkUnit):
             # Best effort attempt to deserialize MetadataChangeProposalClass
             if (
                 self.metadata.aspectName == aspect_cls.ASPECT_NAME
+                and self.metadata.changeType == ChangeTypeClass.UPSERT
                 and self.metadata.aspect
                 and self.metadata.aspect.contentType == "application/json"
             ):
