@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
@@ -9,6 +9,7 @@ import { AggregationMetadata, EntityType } from '../../../types.generated';
 import useAggregationsQuery from './useAggregationsQuery';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
+import useToggle from './useToggle';
 
 const Header = styled.div`
     display: flex;
@@ -42,33 +43,29 @@ type Props = {
     environmentAggregation: AggregationMetadata;
 };
 
-const childrenFacets = [PLATFORM_FILTER_NAME];
+const childFacets = [PLATFORM_FILTER_NAME];
 
 const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;
     const environment = environmentAggregation.value;
     const depth = 0;
-    const [isOpen, setIsOpen] = useState<boolean>(false);
-    const color = ANTD_GRAY[9];
 
     const [getAggregations, { loaded, error, platformAggregations }] = useAggregationsQuery({
         entityType,
         environment,
-        facets: childrenFacets,
-        skip: !isOpen,
+        facets: childFacets,
     });
 
-    const onClickHeader = () => {
-        getAggregations();
-        setIsOpen((current) => !current);
-    };
+    const { isOpen, toggle } = useToggle({ onRequestOpen: getAggregations });
+
+    const color = ANTD_GRAY[9];
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
             depth={depth}
             header={
-                <Header onClick={onClickHeader}>
+                <Header onClick={toggle}>
                     <HeaderLeft>
                         {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
                         <Title color={color}>{environmentAggregation.value}</Title>

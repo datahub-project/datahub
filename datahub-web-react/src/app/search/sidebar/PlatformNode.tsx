@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
@@ -10,6 +10,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import useBrowseV2Query from './useBrowseV2Query';
+import useToggle from './useToggle';
 
 const Header = styled.div`
     display: flex;
@@ -59,8 +60,6 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
     const environment = environmentAggregation?.value;
     const platform = platformAggregation.value;
     const registry = useEntityRegistry();
-    const [isOpen, setIsOpen] = useState<boolean>(false);
-    const color = ANTD_GRAY[9];
 
     const { icon, label } = getFilterIconAndLabel(
         PLATFORM_FILTER_NAME,
@@ -72,17 +71,16 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
 
     const [getBrowse, { groups, loaded, error }] = useBrowseV2Query({ entityType, environment, platform, path });
 
-    const onClickHeader = useCallback(() => {
-        getBrowse();
-        setIsOpen((current) => !current);
-    }, [getBrowse]);
+    const { isOpen, toggle } = useToggle({ onRequestOpen: getBrowse });
+
+    const color = ANTD_GRAY[9];
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
             depth={depth}
             header={
-                <Header onClick={onClickHeader}>
+                <Header onClick={toggle}>
                     <HeaderLeft>
                         {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
                         <PlatformIconContainer>{icon}</PlatformIconContainer>

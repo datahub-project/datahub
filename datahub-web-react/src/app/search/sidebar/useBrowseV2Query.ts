@@ -1,42 +1,34 @@
-import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { EntityType } from '../../../types.generated';
-import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import applyOrFilterOverrides from '../utils/applyOrFilterOverrides';
 import { useGetBrowseResultsV2LazyQuery } from '../../../graphql/browseV2.generated';
+import useSidebarFilters from './useSidebarFilters';
 
 type Props = {
     entityType: EntityType;
     environment?: string | null;
-    platform: string;
+    platform?: string | null;
     path: Array<string>;
 };
 
 const useBrowseV2Query = ({ entityType, environment, platform, path }: Props) => {
-    const filterOverrides = [
-        ...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : []),
-        ...(platform ? [{ field: PLATFORM_FILTER_NAME, value: platform }] : []),
-    ];
-
-    const excludedFilterFields = filterOverrides.map((filter) => filter.field);
-
-    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
-
-    const page = 1;
-    const count = 10;
+    const { query, orFilters, viewUrn } = useSidebarFilters({ environment, platform });
 
     const [getBrowse, { data: newData, previousData, loading, error }] = useGetBrowseResultsV2LazyQuery({
         fetchPolicy: 'cache-first',
     });
 
     const getBrowseApi = () => {
+        const page = 1;
+        const count = 10;
+        const start = Math.max(0, page - 1) * count;
+
         getBrowse({
             variables: {
                 input: {
                     type: entityType,
                     path,
-                    start: (page - 1) * count,
+                    start,
                     count,
-                    orFilters: applyOrFilterOverrides(orFilters, filterOverrides),
+                    orFilters,
                     query,
                     viewUrn,
                 },
@@ -45,12 +37,13 @@ const useBrowseV2Query = ({ entityType, environment, platform, path }: Props) =>
     };
 
     const data = error ? null : newData ?? previousData;
+    const loaded = !!data || !!error;
 
     return [
         getBrowseApi,
         {
             loading,
-            loaded: !!data || !error,
+            loaded,
             error,
             ...data?.browseV2,
         } as const,

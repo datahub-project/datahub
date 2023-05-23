@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { DownCircleOutlined, UpCircleOutlined } from '@ant-design/icons';
@@ -12,6 +12,7 @@ import EnvironmentNode from './EnvironmentNode';
 import useAggregationsQuery from './useAggregationsQuery';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
+import useToggle from './useToggle';
 
 const Header = styled.div<{ isOpen: boolean }>`
     display: flex;
@@ -45,37 +46,33 @@ type Props = {
     entityAggregation: AggregationMetadata;
 };
 
-const childrenFacets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
+const childFacets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
 
 const EntityNode = ({ entityAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;
     const depth = 0;
     const registry = useEntityRegistry();
-    const [isOpen, setIsOpen] = useState<boolean>(false);
-    const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
     const [getAggregations, { loaded, error, environmentAggregations, platformAggregations }] = useAggregationsQuery({
         entityType,
-        facets: childrenFacets,
-        skip: !isOpen,
+        facets: childFacets,
     });
 
     const forceEnvironments = false;
     const hasMultipleEnvironments = environmentAggregations.length > 1 || forceEnvironments;
 
-    const onClickHeader = () => {
-        getAggregations();
-        setIsOpen((current) => !current);
-    };
+    const { isOpen, toggle } = useToggle({ onRequestOpen: getAggregations });
+
+    const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
             depth={depth}
             header={
-                <Header isOpen={isOpen} onClick={onClickHeader}>
+                <Header isOpen={isOpen} onClick={toggle}>
                     <HeaderLeft>
                         {registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
-                        <Title color={color}>{registry.getCollectionName(entityType as EntityType)}</Title>
+                        <Title color={color}>{registry.getCollectionName(entityType)}</Title>
                         <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
                     </HeaderLeft>
                     {isOpen ? <UpCircleOutlined style={{ color }} /> : <DownCircleOutlined style={{ color }} />}

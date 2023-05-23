@@ -1,22 +1,17 @@
 import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { EntityType } from '../../../types.generated';
-import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import applyOrFilterOverrides from '../utils/applyOrFilterOverrides';
+import useSidebarFilters from './useSidebarFilters';
 
 type Props = {
     entityType: EntityType;
     environment?: string | null;
+    platform?: string | null;
     facets: string[];
-    skip: boolean;
 };
 
-const useAggregationsQuery = ({ entityType, environment, facets }: Props) => {
-    const filterOverrides = [...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : [])];
-
-    const excludedFilterFields = filterOverrides.map((filter) => filter.field);
-
-    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
+const useAggregationsQuery = ({ entityType, environment, platform, facets }: Props) => {
+    const { query, orFilters, viewUrn } = useSidebarFilters({ environment, platform });
 
     const [getAggregations, { data: newData, previousData, loading, error }] = useAggregateAcrossEntitiesLazyQuery({
         fetchPolicy: 'cache-first',
@@ -28,7 +23,7 @@ const useAggregationsQuery = ({ entityType, environment, facets }: Props) => {
                 input: {
                     types: [entityType],
                     query,
-                    orFilters: applyOrFilterOverrides(orFilters, filterOverrides),
+                    orFilters,
                     viewUrn,
                     facets,
                 },
@@ -37,22 +32,23 @@ const useAggregationsQuery = ({ entityType, environment, facets }: Props) => {
     };
 
     const data = error ? null : newData ?? previousData;
+    const loaded = !!data || !!error;
 
     const environmentAggregations =
         data?.aggregateAcrossEntities?.facets
             ?.find((facet) => facet.field === ORIGIN_FILTER_NAME)
-            ?.aggregations.filter((aggregation) => aggregation.count > 0) ?? [];
+            ?.aggregations.filter((aggregation) => aggregation.count) ?? [];
 
     const platformAggregations =
         data?.aggregateAcrossEntities?.facets
             ?.find((facet) => facet.field === PLATFORM_FILTER_NAME)
-            ?.aggregations.filter((aggregation) => aggregation.count > 0) ?? [];
+            ?.aggregations.filter((aggregation) => aggregation.count) ?? [];
 
     return [
         getAggregationsApi,
         {
             loading,
-            loaded: !!data || !!error,
+            loaded,
             error,
             environmentAggregations,
             platformAggregations,
