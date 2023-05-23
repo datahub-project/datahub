@@ -8,7 +8,7 @@ example_version_mapper = QuickstartVersionMappingConfig.parse_obj(
         "quickstart_version_map": {
             "default": {"composefile_git_ref": "master", "docker_tag": "latest"},
             "v0.9.6": {
-                "composefile_git_ref": "v0.9.6.1",  # this will be overwritten by the cli
+                "composefile_git_ref": "v0.9.6.1",
                 "docker_tag": "v0.9.6.1",
             },
             "v2.0.0": {"composefile_git_ref": "v2.0.1", "docker_tag": "v2.0.0"},
@@ -82,6 +82,6 @@ def test_quickstart_get_older_version():
     execution_plan = example_version_mapper.get_quickstart_execution_plan("v0.9.6")
     expected = QuickstartExecutionPlan(
         docker_tag="v0.9.6.1",
-        composefile_git_ref="1d3339276129a7cb8385c07a958fcc93acda3b4e",
+        composefile_git_ref="v0.9.6.1",
     )
     assert execution_plan == expected
