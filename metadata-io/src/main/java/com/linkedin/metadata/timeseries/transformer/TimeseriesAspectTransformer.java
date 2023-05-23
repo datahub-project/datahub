@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeseries.transformer;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -30,6 +31,8 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * Class that provides a utility function that transforms the timeseries aspect into a document
@@ -37,6 +40,10 @@ import org.apache.commons.codec.digest.DigestUtils;
 @Slf4j
 public class TimeseriesAspectTransformer {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
 
   private TimeseriesAspectTransformer() {
   }
