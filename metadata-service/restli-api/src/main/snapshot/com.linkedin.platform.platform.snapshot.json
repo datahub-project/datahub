@@ -82,7 +82,10 @@
           }
         },
         "doc" : "URL where the reference exist",
-        "optional" : true
+        "optional" : true,
+        "Searchable" : {
+          "fieldType" : "KEYWORD"
+        }
       } ]
     } ],
     "fields" : [ {
@@ -168,7 +171,10 @@
       "name" : "chartUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
     }, {
       "name" : "inputs",
       "type" : {
@@ -1362,7 +1368,10 @@
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
     }, {
       "name" : "access",
       "type" : "com.linkedin.common.AccessLevel",
