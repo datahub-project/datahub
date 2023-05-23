@@ -1,18 +1,16 @@
 import asyncio
 import pathlib
 from functools import partial
-from typing import Optional, cast
 from unittest.mock import Mock, patch
 
 import jsonpickle
 import pytest
 from freezegun import freeze_time
+from integration.integration_helpers import get_current_checkpoint_from_pipeline
 from okta.models import Group, User
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.identity.okta import OktaConfig, OktaSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.identity.okta import OktaConfig
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
@@ -200,15 +198,6 @@ def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tm
         pytestconfig,
         output_path=output_file_path,
         golden_path=f"{test_resources_dir}/okta_mces_golden_custom_user_name_regex.json",
-    )
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    azure_ad_source = cast(OktaSource, pipeline.source)
-    return azure_ad_source.get_current_checkpoint(
-        azure_ad_source.stale_entity_removal_handler.job_id
     )
 
 

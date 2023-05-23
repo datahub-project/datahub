@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from iceberg.api import types as IcebergTypes
 from iceberg.api.table import Table
@@ -27,12 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.iceberg.iceberg_common import (
@@ -40,7 +35,6 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -120,26 +114,18 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.config: IcebergSourceConfig = config
         self.iceberg_client: FilesystemTables = config.filesystem_tables
 
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
         config = IcebergSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for dataset_path, dataset_name in self.config.get_paths():  # Tuple[str, str]

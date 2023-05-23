@@ -10,6 +10,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Union,
@@ -48,6 +49,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
@@ -272,15 +274,6 @@ class GlueSource(StatefulIngestionSourceBase):
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
     def get_glue_arn(
         self, account_id: str, database: str, table: Optional[str] = None
@@ -919,13 +912,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 domain_urn=domain_urn,
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()

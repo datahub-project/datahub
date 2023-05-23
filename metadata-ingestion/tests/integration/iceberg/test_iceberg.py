@@ -1,16 +1,14 @@
 from pathlib import PosixPath
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, Dict, Union
 from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
 from iceberg.core.filesystem.file_status import FileStatus
 from iceberg.core.filesystem.local_filesystem import LocalFileSystem
+from integration.integration_helpers import get_current_checkpoint_from_pipeline
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.iceberg.iceberg import IcebergSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     run_and_get_pipeline,
@@ -20,15 +18,6 @@ from tests.test_helpers.state_helpers import (
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    iceberg_source = cast(IcebergSource, pipeline.source)
-    return iceberg_source.get_current_checkpoint(
-        iceberg_source.stale_entity_removal_handler.job_id
-    )
 
 
 @freeze_time(FROZEN_TIME)

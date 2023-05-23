@@ -4,7 +4,7 @@
 #
 #########################################################
 import logging
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -19,12 +19,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -42,9 +37,6 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -1113,12 +1105,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         self.mapper = Mapper(config, self.reporter, self.dataplatform_instance_resolver)
 
         # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
+            self, self.source_config, self.ctx
         )
 
     @classmethod
@@ -1197,6 +1185,17 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 for workunit in dataset_workunits:
                     yield workunit
 
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
+        # This will result in creating checkpoint for each workspace_id
+        if self.source_config.modified_since:
+            return []  # Handle these in get_workunits_internal
+        else:
+            return [
+                *super().get_workunit_processors(),
+                self.stale_entity_removal_handler.workunit_processor,
+            ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
@@ -1232,31 +1231,16 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                         self.stale_entity_removal_handler
                     )
 
-                    yield from auto_stale_entity_removal(
-                        self.stale_entity_removal_handler,
-                        auto_workunit_reporter(
-                            self.reporter,
-                            auto_status_aspect(self.get_workspace_workunit(workspace)),
-                        ),
+                    yield from self._apply_workunit_processors(
+                        [
+                            *super().get_workunit_processors(),
+                            self.stale_entity_removal_handler.workunit_processor,
+                        ],
+                        self.get_workspace_workunit(workspace),
                     )
                 else:
                     # Maintain backward compatibility
                     yield from self.get_workspace_workunit(workspace)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # As modified_workspaces is not idempotent, hence auto_stale_entity_removal is run later for each workspace_id
-        # This will result in creating checkpoint for each workspace_id
-        if self.source_config.modified_since:
-            return self.get_workunits_internal()
-        else:
-            # Since we only run for a fixed list of workspace_ids
-            # This will result in one checkpoint for the list of configured workspace_ids
-            return auto_stale_entity_removal(
-                self.stale_entity_removal_handler,
-                auto_workunit_reporter(
-                    self.reporter, auto_status_aspect(self.get_workunits_internal())
-                ),
-            )
 
     def get_report(self) -> SourceReport:
         return self.reporter

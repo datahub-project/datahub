@@ -1,7 +1,6 @@
 from typing import Callable, Iterable, Optional, Set, TypeVar, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import WorkUnit
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -104,7 +103,7 @@ def auto_stale_entity_removal(
     yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
-T = TypeVar("T", bound=WorkUnit)
+T = TypeVar("T", bound=MetadataWorkUnit)
 
 
 def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterable[T]:
@@ -119,13 +118,8 @@ def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterabl
 
 def auto_materialize_referenced_tags(
     stream: Iterable[MetadataWorkUnit],
-    active: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
     """For all references to tags, emit a tag key aspect to ensure that the tag exists in our backend."""
-
-    if not active:
-        yield from stream
-        return
 
     referenced_tags = set()
     tags_with_aspects = set()

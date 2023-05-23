@@ -5,6 +5,7 @@ from typing import List, Optional, cast
 from unittest import mock
 
 from freezegun import freeze_time
+from integration.integration_helpers import get_current_checkpoint_from_pipeline
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
@@ -27,8 +28,6 @@ from datahub.ingestion.source.looker.looker_query_model import (
     LookViewField,
     UserViewField,
 )
-from datahub.ingestion.source.looker.looker_source import LookerDashboardSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
@@ -719,12 +718,3 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     assert len(difference_dashboard_urns) == 1
     deleted_dashboard_urns = ["urn:li:dashboard:(looker,dashboards.11)"]
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    dbt_source = cast(LookerDashboardSource, pipeline.source)
-    return dbt_source.get_current_checkpoint(
-        dbt_source.stale_entity_removal_handler.job_id
-    )

@@ -38,15 +38,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
@@ -68,7 +64,6 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
@@ -234,15 +229,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.chart_stat_generator = looker_usage.create_stat_entity_generator(
             looker_usage.SupportedStatEntity.CHART,
             config=stat_generator_config,
-        )
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
         )
 
     @staticmethod
@@ -1185,13 +1171,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return mcps
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.reporter, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.reporter.report_stage_start("list_dashboards")

@@ -4,7 +4,7 @@ import re
 import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, Iterable, List, Optional
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence
 
 import click
 import requests
@@ -22,16 +22,12 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceCapability, SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -283,14 +279,6 @@ class AzureADSource(StatefulIngestionSourceBase):
         self.token = self.get_token()
         self.selected_azure_ad_groups: list = []
         self.azure_ad_groups_users: list = []
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
-        )
 
     def get_token(self):
         token_response = requests.post(self.config.token_url, data=self.token_data)
@@ -306,6 +294,14 @@ class AzureADSource(StatefulIngestionSourceBase):
             self.report.report_failure("get_token", error_str)
             click.echo("Error: Token response invalid")
             exit()
+
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
@@ -394,14 +390,6 @@ class AzureADSource(StatefulIngestionSourceBase):
                     datahub_corp_user_snapshots,
                     datahub_corp_user_urn_to_group_membership,
                 )
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
 
     def _add_group_members_to_group_membership(
         self,

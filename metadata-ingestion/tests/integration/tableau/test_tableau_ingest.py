@@ -2,11 +2,12 @@ import json
 import logging
 import pathlib
 import sys
-from typing import Optional, cast
+from typing import cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
+from integration.integration_helpers import get_current_checkpoint_from_pipeline
 from requests.adapters import ConnectionError
 from tableauserverclient.models import (
     DatasourceItem,
@@ -17,8 +18,6 @@ from tableauserverclient.models import (
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
@@ -251,15 +250,6 @@ def tableau_ingest_common(
                 ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
             )
             return pipeline
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    tableau_source = cast(TableauSource, pipeline.source)
-    return tableau_source.get_current_checkpoint(
-        tableau_source.stale_entity_removal_handler.job_id
-    )
 
 
 @freeze_time(FROZEN_TIME)

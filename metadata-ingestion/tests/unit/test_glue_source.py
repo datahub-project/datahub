@@ -7,13 +7,12 @@ import pydantic
 import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
+from integration.integration_helpers import get_current_checkpoint_from_pipeline
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -238,15 +237,6 @@ def test_config_without_platform():
         config=GlueSourceConfig(aws_region="us-west-2"),
     )
     assert source.platform == "glue"
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    glue_source = cast(GlueSource, pipeline.source)
-    return glue_source.get_current_checkpoint(
-        glue_source.stale_entity_removal_handler.job_id
-    )
 
 
 @freeze_time(FROZEN_TIME)

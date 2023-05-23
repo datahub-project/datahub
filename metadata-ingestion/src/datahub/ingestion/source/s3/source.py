@@ -6,7 +6,7 @@ import re
 import time
 from collections import OrderedDict
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pydeequ
 from more_itertools import peekable
@@ -50,13 +50,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
 from datahub.ingestion.source.aws.s3_util import (
@@ -70,7 +64,6 @@ from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -255,15 +248,6 @@ class S3Source(StatefulIngestionSourceBase):
         telemetry.telemetry_instance.ping(
             "data_lake_config",
             config_report,
-        )
-
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
         )
 
         if config.profiling.enabled:
@@ -875,16 +859,13 @@ class S3Source(StatefulIngestionSourceBase):
                 },
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_materialize_referenced_tags(
-            auto_stale_entity_removal(
-                self.stale_entity_removal_handler,
-                auto_workunit_reporter(
-                    self.report,
-                    auto_status_aspect(self.get_workunits_internal()),
-                ),
-            )
-        )
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"

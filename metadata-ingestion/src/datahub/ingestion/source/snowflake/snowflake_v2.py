@@ -4,7 +4,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Optional, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
@@ -28,16 +28,12 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     Source,
     SourceCapability,
     SourceReport,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationHandler
@@ -97,9 +93,6 @@ from datahub.ingestion.source.sql.sql_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -228,15 +221,6 @@ class SnowflakeV2Source(
         self.logger = logger
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
@@ -481,6 +465,14 @@ class SnowflakeV2Source(
 
         return _report
 
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
@@ -585,15 +577,6 @@ class SnowflakeV2Source(
                 )
 
             yield from self.usage_extractor.get_workunits(discovered_datasets)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
-        )
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:

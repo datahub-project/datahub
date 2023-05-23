@@ -8,7 +8,7 @@ import urllib.request
 from dataclasses import dataclass
 from os.path import basename, dirname
 from pathlib import Path
-from typing import Any, Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Sequence, Union
 
 import jsonref
 from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
@@ -30,12 +30,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.json_ref_patch import title_swapping_callback
 from datahub.ingestion.extractor.json_schema_util import (
@@ -239,13 +234,6 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: JsonSchemaSourceConfig):
         super(JsonSchemaSource, self).__init__(ctx=ctx, config=config)
         self.config = config
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=JsonSchemaCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
         self.report = StaleEntityRemovalSourceReport()
 
     def _load_one_file(
@@ -330,13 +318,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     ),
                 ).as_workunit()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
+    def get_workunit_processors(self) -> Sequence[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.uri_replace_pattern:
