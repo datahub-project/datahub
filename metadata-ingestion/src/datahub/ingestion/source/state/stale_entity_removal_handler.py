@@ -68,6 +68,8 @@ class StaleEntityRemovalHandler(
         run_id: str,
     ):
         self.source = source
+        self.state_provider = source.state_provider
+
         self.state_type_class = state_type_class
         self.pipeline_name = pipeline_name
         self.run_id = run_id
@@ -77,7 +79,7 @@ class StaleEntityRemovalHandler(
         self.checkpointing_enabled: bool = (
             True
             if (
-                source.is_stateful_ingestion_configured()
+                self.state_provider.is_stateful_ingestion_configured()
                 and self.stateful_ingestion_config
                 and self.stateful_ingestion_config.remove_stale_metadata
             )
@@ -85,7 +87,7 @@ class StaleEntityRemovalHandler(
         )
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()
-        self.source.register_stateful_ingestion_usecase_handler(self)
+        self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
     @classmethod
     def compute_job_id(
@@ -189,12 +191,12 @@ class StaleEntityRemovalHandler(
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return
         logger.debug("Checking for stale entity removal.")
-        last_checkpoint: Optional[Checkpoint] = self.source.get_last_checkpoint(
+        last_checkpoint: Optional[Checkpoint] = self.state_provider.get_last_checkpoint(
             self.job_id, self.state_type_class
         )
         if not last_checkpoint:
             return
-        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
+        cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
         # Get the underlying states
         last_checkpoint_state = cast(GenericCheckpointState, last_checkpoint.state)
@@ -236,7 +238,7 @@ class StaleEntityRemovalHandler(
     def add_entity_to_state(self, type: str, urn: str) -> None:
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return
-        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
+        cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
         cur_state = cast(GenericCheckpointState, cur_checkpoint.state)
         cur_state.add_checkpoint_urn(type=type, urn=urn)

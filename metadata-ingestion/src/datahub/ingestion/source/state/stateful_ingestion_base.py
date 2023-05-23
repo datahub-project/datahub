@@ -185,17 +185,6 @@ class StatefulIngestionSourceBase(Source):
 
     # TODO: The below proxy methods should be removed.
 
-    def register_stateful_ingestion_usecase_handler(
-        self, usecase_handler: StatefulIngestionUsecaseHandlerBase
-    ) -> None:
-        self.state_provider.register_stateful_ingestion_usecase_handler(usecase_handler)
-
-    def is_stateful_ingestion_configured(self) -> bool:
-        return self.state_provider.is_stateful_ingestion_configured()
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        return self.state_provider.is_checkpointing_enabled(job_id)
-
     def get_current_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         return self.state_provider.get_current_checkpoint(job_id)
 
