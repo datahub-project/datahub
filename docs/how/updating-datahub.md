@@ -7,6 +7,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #7900: The `catalog_pattern` and `schema_pattern` options of the Unity Catalog source now match against the fully qualified name of the catalog/schema instead of just the name. Unless you're using regex `^` in your patterns, this should not affect you.
+- #8068: In the `datahub delete` CLI, if an `--entity-type` filter is not specified, we automatically delete across all entity types. The previous behavior was to use a default entity type of dataset.
+- #8068: In the `datahub delete` CLI, the `--start-time` and `--end-time` parameters are not required for timeseries aspect hard deletes. To recover the previous behavior of deleting all data, use `--start-time min --end-time max`.
 
 ### Potential Downtime
 

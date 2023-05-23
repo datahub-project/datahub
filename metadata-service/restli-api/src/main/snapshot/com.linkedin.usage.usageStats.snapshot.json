@@ -156,6 +156,9 @@
     "symbols" : [ "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR", "ALL" ]
   }, "com.linkedin.usage.UserUsageCounts" ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "usageStats",
     "namespace" : "com.linkedin.usage",
     "path" : "/usageStats",
