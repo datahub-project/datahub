@@ -21,6 +21,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
@@ -296,6 +297,9 @@ class MongoDBSource(Source):
         return SchemaFieldDataType(type=TypeClass())
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         platform = "mongodb"
 
         database_names: List[str] = self.mongo_client.list_database_names()
@@ -407,9 +411,7 @@ class MongoDBSource(Source):
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
 
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
     def is_server_version_gte_4_4(self) -> bool:
         try:

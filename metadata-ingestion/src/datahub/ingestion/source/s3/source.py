@@ -534,15 +534,10 @@ class S3Source(StatefulIngestionSourceBase):
 
             self.profiling_times_taken.append(time_taken)
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=table_profiler.profile,
-        )
-        wu = MetadataWorkUnit(
-            id=f"profile-{self.source_config.platform}-{table_data.table_path}", mcp=mcp
-        )
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
         reported_time = int(time.time() * 1000)
@@ -577,7 +572,6 @@ class S3Source(StatefulIngestionSourceBase):
             self.source_config.env,
         )
 
-        customProperties: Optional[Dict[str, str]] = None
         customProperties = {"schema_inferred_from": str(table_data.full_path)}
 
         if not path_spec.sample_files:
@@ -640,19 +634,15 @@ class S3Source(StatefulIngestionSourceBase):
 
         operation = self._create_table_operation_aspect(table_data)
         aspects.append(operation)
-        yield from [
-            mcp.as_workunit()
-            for mcp in MetadataChangeProposalWrapper.construct_many(
-                entityUrn=dataset_urn,
-                aspects=aspects,
-            )
-        ]
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dataset_urn,
+            aspects=aspects,
+        ):
+            yield mcp.as_workunit()
 
-        container_wus = self.container_WU_creator.create_container_hierarchy(
+        yield from self.container_WU_creator.create_container_hierarchy(
             table_data.table_path, dataset_urn
         )
-        for wu in container_wus:
-            yield wu
 
         if self.source_config.profiling.enabled:
             yield from self.get_table_profile(table_data, dataset_urn)
