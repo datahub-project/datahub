@@ -46,7 +46,7 @@ const BrowseNode = ({
     const { isOpen, toggle } = useToggle();
 
     const { loaded, error, groups, pathResult } = useBrowseV2Query({
-        skip: !isOpen,
+        skip: !isOpen || !browseResultGroup.hasSubGroups,
         entityType,
         environment,
         platform,
