@@ -23,7 +23,7 @@ const SidebarHeader = styled.div`
 `;
 
 const SidebarBody = styled.div`
-    padding-left: 24px;
+    padding-left: 16px;
     padding-right: 12px;
 `;
 

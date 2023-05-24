@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const Layout = styled.div`
-    margin-left: 10px;
+    margin-left: 8px;
 `;
 
 const HeaderContainer = styled.div``;
