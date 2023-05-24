@@ -7,9 +7,9 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small",
                 "number_of_files": "1",
-                "size_in_bytes": "172",
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small"
+                "size_in_bytes": "172"
             },
             "name": "small",
             "description": "",
@@ -127,7 +127,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1683887704000
+            "lastUpdatedTimestamp": 1684552113000
         }
     },
     "systemMetadata": {
@@ -145,6 +145,7 @@
             "customProperties": {
                 "platform": "s3",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "bucket_name": "my-test-bucket"
             },
             "name": "my-test-bucket"
@@ -213,6 +214,7 @@
             "customProperties": {
                 "platform": "s3",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
             "name": "folder_a"
@@ -296,6 +298,7 @@
             "customProperties": {
                 "platform": "s3",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
             "name": "folder_aa"
@@ -379,6 +382,7 @@
             "customProperties": {
                 "platform": "s3",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
             "name": "folder_aaa"
@@ -462,6 +466,7 @@
             "customProperties": {
                 "platform": "s3",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension"
             },
             "name": "no_extension"

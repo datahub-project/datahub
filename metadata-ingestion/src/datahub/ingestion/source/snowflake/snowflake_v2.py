@@ -1436,17 +1436,20 @@ class SnowflakeV2Source(
 
     # Ideally we do not want null values in sample data for a column.
     # However that would require separate query per column and
-    # that would be expensive, hence not done.
+    # that would be expensive, hence not done. To compensale for possibility
+    # of some null values in collected sample, we fetch extra (20% more)
+    # rows than configured sample_size.
     def get_sample_values_for_table(self, table_name, schema_name, db_name):
         # Create a cursor object.
         logger.debug(
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
         )
+
+        actual_sample_size = self.config.classification.sample_size * 1.2
         with PerfTimer() as timer:
             cur = self.get_connection().cursor()
-            NUM_SAMPLED_ROWS = 1000
             # Execute a statement that will generate a result set.
-            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({actual_sample_size} rows);'
 
             cur.execute(sql)
             # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.

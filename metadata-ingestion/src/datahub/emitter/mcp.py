@@ -178,26 +178,38 @@ class MetadataChangeProposalWrapper:
                 "value": json.dumps(obj["aspect"]["json"]),
             }
 
-        mcp = MetadataChangeProposalClass.from_obj(obj, tuples=tuples)
+        mcpc = MetadataChangeProposalClass.from_obj(obj, tuples=tuples)
 
         # We don't know how to deserialize the entity key aspects yet.
-        if mcp.entityKeyAspect is not None:
-            return mcp
+        if mcpc.entityKeyAspect is not None:
+            return mcpc
 
         # Try to deserialize the aspect.
-        converted, aspect = _try_from_generic_aspect(mcp.aspectName, mcp.aspect)
+        return cls.try_from_mcpc(mcpc) or mcpc
+
+    @classmethod
+    def try_from_mcpc(
+        cls, mcpc: MetadataChangeProposalClass
+    ) -> Optional["MetadataChangeProposalWrapper"]:
+        """Attempts to create a MetadataChangeProposalWrapper from a MetadataChangeProposalClass.
+        Neatly handles unsupported, expected cases, such as unknown aspect types or non-json content type.
+
+        Raises:
+            Exception if the generic aspect is invalid, e.g. contains invalid json.
+        """
+        converted, aspect = _try_from_generic_aspect(mcpc.aspectName, mcpc.aspect)
         if converted:
             return cls(
-                entityType=mcp.entityType,
-                entityUrn=mcp.entityUrn,
-                changeType=mcp.changeType,
-                auditHeader=mcp.auditHeader,
-                aspectName=mcp.aspectName,
+                entityType=mcpc.entityType,
+                entityUrn=mcpc.entityUrn,
+                changeType=mcpc.changeType,
+                auditHeader=mcpc.auditHeader,
+                aspectName=mcpc.aspectName,
                 aspect=aspect,
-                systemMetadata=mcp.systemMetadata,
+                systemMetadata=mcpc.systemMetadata,
             )
-
-        return mcp
+        else:
+            return None
 
     @classmethod
     def from_obj_require_wrapper(
@@ -207,7 +219,9 @@ class MetadataChangeProposalWrapper:
         assert isinstance(mcp, cls)
         return mcp
 
-    def as_workunit(self) -> "MetadataWorkUnit":
+    def as_workunit(
+        self, *, treat_errors_as_warnings: bool = False
+    ) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 
         if self.aspect and self.aspectName in TIMESERIES_ASPECT_MAP:
@@ -217,7 +231,13 @@ class MetadataChangeProposalWrapper:
 
             # If the aspect is a timeseries aspect, include the timestampMillis in the ID.
             return MetadataWorkUnit(
-                id=f"{self.entityUrn}-{self.aspectName}-{ts}", mcp=self
+                id=f"{self.entityUrn}-{self.aspectName}-{ts}",
+                mcp=self,
+                treat_errors_as_warnings=treat_errors_as_warnings,
             )
 
-        return MetadataWorkUnit(id=f"{self.entityUrn}-{self.aspectName}", mcp=self)
+        return MetadataWorkUnit(
+            id=f"{self.entityUrn}-{self.aspectName}",
+            mcp=self,
+            treat_errors_as_warnings=treat_errors_as_warnings,
+        )
