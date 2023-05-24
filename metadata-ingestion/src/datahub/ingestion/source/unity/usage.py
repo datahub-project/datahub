@@ -91,6 +91,15 @@ class UnityCatalogUsageExtractor:
                         fields=[],
                     )
 
+        if not self.report.num_queries:
+            logger.warning("No queries found in the given time range.")
+            self.report.report_warning(
+                "usage",
+                f"No queries found: "
+                f"are you missing the CAN_MANAGE permission on SQL warehouse {self.proxy.warehouse_id}?",
+            )
+            return
+
         for wu in self.usage_aggregator.generate_workunits(
             resource_urn_builder=self.table_urn_builder,
             user_urn_builder=self.user_urn_builder,
@@ -109,7 +118,9 @@ class UnityCatalogUsageExtractor:
             operation_aspect = OperationClass(
                 timestampMillis=int(time.time() * 1000),
                 lastUpdatedTimestamp=int(query.end_time.timestamp() * 1000),
-                actor=self.user_urn_builder(query.user_name),
+                actor=self.user_urn_builder(query.user_name)
+                if query.user_name
+                else None,
                 operationType=OPERATION_STATEMENT_TYPES[query.statement_type],
                 affectedDatasets=[
                     self.table_urn_builder(table) for table in table_info.source_tables
