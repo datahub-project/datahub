@@ -10,6 +10,7 @@ from requests.models import HTTPError
 from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration import ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -617,6 +618,9 @@ class MetabaseSource(Source):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_card_mces()
         yield from self.emit_dashboard_mces()
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> SourceReport:
         return self.report

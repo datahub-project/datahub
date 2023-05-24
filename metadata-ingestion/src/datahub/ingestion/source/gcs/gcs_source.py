@@ -181,5 +181,8 @@ class GCSSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return self.s3_source.get_workunits_internal()
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self):
         return self.report

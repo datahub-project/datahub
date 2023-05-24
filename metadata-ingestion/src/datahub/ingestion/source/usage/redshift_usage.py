@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -397,6 +398,9 @@ class RedshiftUsageSource(Source):
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
         )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> RedshiftUsageSourceReport:
         return self.report

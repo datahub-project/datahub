@@ -9,7 +9,7 @@ from pydantic import PositiveInt, validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -429,6 +429,9 @@ class MongoDBSource(Source):
             logger.error("Error while getting version of the mongodb server %s", e)
 
         return False
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> MongoDBSourceReport:
         return self.report

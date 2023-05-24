@@ -9,6 +9,7 @@ import psycopg2  # noqa: F401
 import pydantic
 import redshift_connector
 
+from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -274,6 +275,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 capable=False, failure_reason=str(e)
             )
         return test_report
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> RedshiftReport:
         return self.report

@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
-from datahub.configuration.common import DynamicTypedConfig
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Source, SourceReport
@@ -345,6 +345,9 @@ class FakeSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return self.work_units
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return None
 
     def get_report(self) -> SourceReport:
         return self.source_report

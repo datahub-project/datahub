@@ -8,6 +8,7 @@ from typing import Iterable, List, Optional, Set, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
+from datahub.configuration import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -1241,6 +1242,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 else:
                     # Maintain backward compatibility
                     yield from self.get_workspace_workunit(workspace)
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self) -> SourceReport:
         return self.reporter

@@ -2301,5 +2301,8 @@ class TableauSource(StatefulIngestionSourceBase):
                 reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
             )
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

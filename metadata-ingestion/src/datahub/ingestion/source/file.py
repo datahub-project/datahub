@@ -237,6 +237,9 @@ class GenericFileSource(TestableSource):
                 else:
                     yield MetadataWorkUnit(id, mce=obj)
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self):
         return self.report
 

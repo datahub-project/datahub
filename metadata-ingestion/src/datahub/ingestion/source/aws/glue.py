@@ -21,7 +21,7 @@ import yaml
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -1186,6 +1186,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self):
         return self.report

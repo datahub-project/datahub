@@ -113,6 +113,9 @@ class LineageFileSource(Source):
             if mcp:
                 yield mcp.as_workunit()
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self):
         return self.report
 

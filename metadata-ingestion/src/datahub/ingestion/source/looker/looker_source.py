@@ -23,7 +23,7 @@ from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase,
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -1314,6 +1314,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for usage_mcp in usage_mcps:
                 yield usage_mcp.as_workunit()
             self.reporter.report_stage_end("usage_extraction")
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self) -> SourceReport:
         return self.reporter

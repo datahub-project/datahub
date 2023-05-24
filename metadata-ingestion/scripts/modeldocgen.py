@@ -35,6 +35,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    BrowsePathsV2Class,
+    BrowsePathEntryClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -476,6 +478,12 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
                         tags=[TagAssociationClass(tag="urn:li:tag:Entity")]
                     ),
                     BrowsePathsClass([f"/prod/datahub/entities/{entity_display_name}"]),
+                    BrowsePathsV2Class(
+                        [
+                            BrowsePathEntryClass(id="entities"),
+                            BrowsePathEntryClass(id=entity_display_name),
+                        ]
+                    ),
                 ],
             )
             datasets.append(dataset)

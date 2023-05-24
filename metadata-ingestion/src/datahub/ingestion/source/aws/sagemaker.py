@@ -1,6 +1,7 @@
 from collections import defaultdict
-from typing import DefaultDict, Dict, Iterable
+from typing import DefaultDict, Dict, Iterable, Optional
 
+from datahub.configuration import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -41,6 +42,7 @@ class SagemakerSource(Source):
     - Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)
     """
 
+    platform = "sagemaker"
     source_config: SagemakerSourceConfig
     report = SagemakerSourceReport()
 
@@ -104,6 +106,9 @@ class SagemakerSource(Source):
                 aws_region=self.source_config.aws_region,
             )
             yield from model_processor.get_workunits()
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self):
         return self.report

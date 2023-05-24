@@ -13,7 +13,7 @@ from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -568,6 +568,9 @@ class PowerBiReportServerDashboardSource(Source):
         return OwnershipData(
             existing_owners=existing_ownership, owner_to_add=owner_to_add
         )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self) -> SourceReport:
         return self.report

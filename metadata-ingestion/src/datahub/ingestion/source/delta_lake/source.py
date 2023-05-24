@@ -1,11 +1,12 @@
 import logging
 import os
 import time
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
 from deltalake import DeltaTable
 
+from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -351,6 +352,9 @@ class DeltaLakeSource(Source):
         )
         self.storage_options = self.get_storage_options()
         yield from self.process_folder(self.source_config.complete_path)
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self) -> SourceReport:
         return self.report

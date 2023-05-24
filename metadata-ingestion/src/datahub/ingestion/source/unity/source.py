@@ -4,6 +4,7 @@ import time
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
 
+from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -117,6 +118,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     unity_catalog_api_proxy: UnityCatalogApiProxy
     platform: str = "databricks"
     platform_instance_name: str
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> UnityCatalogReport:
         return self.report

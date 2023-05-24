@@ -116,6 +116,7 @@ class FeastRepositorySource(Source):
     - Column types associated with each entity and feature
     """
 
+    platform = "feast"
     source_config: FeastRepositorySourceConfig
     report: SourceReport
     feature_store: FeatureStore
@@ -388,6 +389,9 @@ class FeastRepositorySource(Source):
                 yield self._get_feature_workunit(on_demand_feature_view, feature)
 
             yield self._get_on_demand_feature_view_workunit(on_demand_feature_view)
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self) -> SourceReport:
         return self.report

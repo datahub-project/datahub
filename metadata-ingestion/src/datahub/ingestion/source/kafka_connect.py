@@ -1160,6 +1160,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             yield from self.construct_job_workunits(connector)
             self.report.report_connector_scanned(name)
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report
 

@@ -9,7 +9,7 @@ from elasticsearch import Elasticsearch
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -457,6 +457,9 @@ class ElasticsearchSource(Source):
                     ),
                 ),
             )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self):
         return self.report

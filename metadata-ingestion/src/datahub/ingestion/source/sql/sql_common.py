@@ -24,6 +24,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
+from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -1170,6 +1171,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return dict(
             schema=schema, table=table, partition=partition, custom_sql=custom_sql
         )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self):
         return self.report

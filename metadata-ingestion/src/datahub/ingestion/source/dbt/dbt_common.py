@@ -1432,5 +1432,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     term_id_set.add(existing_term.urn)
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self):
         return self.report

@@ -37,6 +37,7 @@ from pyspark.sql.types import (
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
+from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -899,6 +900,9 @@ class S3Source(StatefulIngestionSourceBase):
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
 
     def get_report(self):
         return self.report

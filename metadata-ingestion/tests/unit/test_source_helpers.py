@@ -137,7 +137,7 @@ def test_auto_browse_path_v2():
         sum(len(wu.get_aspects_of_type(models.StatusClass)) for wu in wus) == 21
     )
 
-    new_wus = list(auto_browse_path_v2(wus))
+    new_wus = list(auto_browse_path_v2([], wus))
     assert (
         sum(len(wu.get_aspects_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
         == 21
@@ -161,7 +161,7 @@ def test_auto_browse_path_v2_ignores_urns_already_with():
     )
     wus = [*auto_status_aspect(_create_container_aspects(structure)), mcp.as_workunit()]
 
-    new_wus = list(auto_browse_path_v2(wus))
+    new_wus = list(auto_browse_path_v2([], wus))
     assert (
         sum(len(wu.get_aspects_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
         == 5

@@ -6,7 +6,7 @@ import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -432,6 +432,9 @@ class LDAPSource(StatefulIngestionSourceBase):
             )
             return MetadataChangeEvent(proposedSnapshot=group_snapshot)
         return None
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> LDAPSourceReport:
         """Returns the source report."""

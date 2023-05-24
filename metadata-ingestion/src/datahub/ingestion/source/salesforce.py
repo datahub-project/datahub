@@ -740,6 +740,9 @@ class SalesforceSource(Source):
                 sourceFields=[builder.make_schema_field_urn(datasetUrn, fieldName)],
             )
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self) -> SourceReport:
         return self.report
 

@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 from dateutil import parser
 from pydantic.fields import Field
@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
@@ -253,6 +254,9 @@ class ClickHouseUsageSource(Source):
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
         )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> SourceReport:
         return self.report

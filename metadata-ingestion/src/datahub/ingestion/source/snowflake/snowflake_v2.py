@@ -9,6 +9,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
+from datahub.configuration import ConfigModel
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -1226,6 +1227,9 @@ class SnowflakeV2Source(
                     "Failed to classify table columns",
                     dataset_name,
                 )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> SourceReport:
         return self.report

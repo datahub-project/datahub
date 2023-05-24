@@ -2147,5 +2147,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                     id=f"tag-{tag_mce.proposedSnapshot.urn}", mce=tag_mce
                 )
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.source_config
+
     def get_report(self):
         return self.reporter

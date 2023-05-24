@@ -15,7 +15,7 @@ from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -394,6 +394,9 @@ class NifiSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
         config = NifiSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> SourceReport:
         return self.report

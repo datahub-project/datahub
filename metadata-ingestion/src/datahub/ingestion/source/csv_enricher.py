@@ -7,7 +7,7 @@ from urllib import parse
 
 import requests
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -665,6 +665,9 @@ class CSVEnricherSource(Source):
                 )
 
         yield from self.get_sub_resource_work_units()
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self):
         return self.report

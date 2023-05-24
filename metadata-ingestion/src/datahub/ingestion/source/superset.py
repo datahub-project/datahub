@@ -8,6 +8,7 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
+from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -69,7 +70,7 @@ chart_type_from_viz_type = {
 }
 
 
-class SupersetConfig(StatefulIngestionConfigBase):
+class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(
@@ -408,6 +409,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                 self, self.config, self.ctx
             ).workunit_processor,
         ]
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

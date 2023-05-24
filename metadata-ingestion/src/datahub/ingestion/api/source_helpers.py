@@ -7,6 +7,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Sequence,
     Set,
     TypeVar,
     Union,
@@ -16,6 +17,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
+    BrowsePathsClass,
     BrowsePathsV2Class,
     ContainerClass,
     MetadataChangeEventClass,
@@ -164,12 +166,13 @@ def auto_materialize_referenced_tags(
 
 
 def auto_browse_path_v2(
+    drop_dirs: Sequence[str],
     stream: Iterable[MetadataWorkUnit],
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate BrowsePathsV2 from Container aspects."""
-    # TODO: Generate BrowsePathsV2 from BrowsePaths as well
+    """Generate BrowsePathsV2 from Container and BrowsePaths aspects."""
 
     ignore_urns: Set[str] = set()
+    legacy_browse_paths: Dict[str, List[str]] = defaultdict(list)
     container_urns: Set[str] = set()
     parent_container_map: Dict[str, str] = {}
     children: Dict[str, List[str]] = defaultdict(list)
@@ -181,16 +184,25 @@ def auto_browse_path_v2(
             container_urns.add(urn)
 
         container_aspects = wu.get_aspects_of_type(ContainerClass)
-        for aspect in container_aspects:
-            parent = aspect.container
+        for c_aspect in container_aspects:
+            parent = c_aspect.container
             parent_container_map[urn] = parent
             children[parent].append(urn)
+
+        browse_path_aspects = wu.get_aspects_of_type(BrowsePathsClass)
+        for b_aspect in browse_path_aspects:
+            if b_aspect.paths:
+                path = b_aspect.paths[0]  # Only take first path
+                legacy_browse_paths[urn].extend(
+                    p for p in path.split("/") if p.strip() not in drop_dirs
+                )
 
         if wu.get_aspects_of_type(BrowsePathsV2Class):
             ignore_urns.add(urn)
 
     paths: Dict[str, List[str]] = {}  # Maps urn -> list of urns in path
     # Yield browse paths v2 in topological order, starting with root containers
+    processed_urns = set()
     nodes = container_urns - parent_container_map.keys()
     while nodes:
         node = nodes.pop()
@@ -208,3 +220,16 @@ def auto_browse_path_v2(
                     path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
                 ),
             ).as_workunit()
+            processed_urns.add(node)
+
+    # Yield browse paths v2 based on browse paths
+    for urn in legacy_browse_paths.keys() - processed_urns - ignore_urns:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=BrowsePathsV2Class(
+                path=[
+                    BrowsePathEntryClass(id=p, urn=None)
+                    for p in legacy_browse_paths[urn]
+                ]
+            ),
+        ).as_workunit()

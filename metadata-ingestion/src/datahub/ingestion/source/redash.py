@@ -789,5 +789,8 @@ class RedashSource(Source):
             yield from self._emit_dashboard_mces()
             self.report.timing["time-all-dashboards"] = int(timer.elapsed_seconds())
 
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
+
     def get_report(self) -> SourceReport:
         return self.report

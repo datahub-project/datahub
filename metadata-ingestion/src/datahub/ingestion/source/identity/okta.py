@@ -13,7 +13,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class OktaConfig(StatefulIngestionConfigBase):
+class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
@@ -407,6 +407,9 @@ class OktaSource(StatefulIngestionSourceBase):
 
         # Step 4: Close the event loop
         event_loop.close()
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self):
         return self.report

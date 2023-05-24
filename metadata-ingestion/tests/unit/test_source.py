@@ -1,5 +1,6 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
+from datahub.configuration import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -32,6 +33,9 @@ class FakeSource(Source):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FakeSource":
         return FakeSource(ctx)
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return None
 
     def get_report(self) -> SourceReport:
         return self.source_report

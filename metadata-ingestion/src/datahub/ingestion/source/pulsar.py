@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Tuple
 
 import requests
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -478,6 +478,9 @@ class PulsarSource(StatefulIngestionSourceBase):
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        return self.config
 
     def get_report(self):
         return self.report
