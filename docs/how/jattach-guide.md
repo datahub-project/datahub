@@ -8,17 +8,17 @@ and datahub-frontend to facilitating troubleshooting in a production environment
 # Introduction to Jattach
 Jattach is a utility to send commands to a JVM process via Dynamic Attach mechanism.
 
-[Supported commands]:
-- **load**            : load agent library
-- **properties**      : print system properties
-- **agentProperties** : print agent properties
-- **datadump**        : show heap and thread summary
-- **threaddump**      : dump all stack traces (like jstack)
-- **dumpheap**        : dump heap (like jmap)
-- **inspectheap**     : heap histogram (like jmap -histo)
-- **setflag**         : modify manageable VM flag
-- **printflag**       : print VM flag
-- **jcmd**            : execute jcmd command
+Supported commands:
+- load            : load agent library
+- properties      : print system properties
+- agentProperties : print agent properties
+- datadump        : show heap and thread summary
+- threaddump      : dump all stack traces (like jstack)
+- dumpheap        : dump heap (like jmap)
+- inspectheap     : heap histogram (like jmap -histo)
+- setflag         : modify manageable VM flag
+- printflag       : print VM flag
+- jcmd            : execute jcmd command
 
 # Use examples
 
