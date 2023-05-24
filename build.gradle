@@ -89,7 +89,7 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:' + elasticsearchVersion,
     'elasticSearchTransport': 'org.elasticsearch.client:transport:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'graphqlJava': "com.graphql-java:graphql-java:$graphQLJavaVersion",
+    'graphqlJava': 'com.graphql-java:graphql-java:' + graphQLJavaVersion,
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:' + graphQLJavaVersion,
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.3',
