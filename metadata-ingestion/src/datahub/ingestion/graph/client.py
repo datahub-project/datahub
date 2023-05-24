@@ -13,8 +13,9 @@ from requests.adapters import Response
 from requests.models import HTTPError
 from typing_extensions import Literal
 
-from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
+from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -49,9 +50,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-telemetry_enabled = get_boolean_env_variable("DATAHUB_TELEMETRY_ENABLED", True)
-
-
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
@@ -62,8 +60,11 @@ class DatahubClientConfig(ConfigModel):
     retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
-    max_threads: int = 15
     disable_ssl_verification: bool = False
+
+    _max_threads_moved_to_sink = pydantic_removed_field(
+        "max_threads", print_warning=False
+    )
 
 
 # Alias for backwards compatibility.
@@ -107,7 +108,11 @@ class DataHubGraph(DatahubRestEmitter):
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
         self.test_connection()
-        if not telemetry_enabled:
+
+        # Cache the server id for telemetry.
+        from datahub.telemetry.telemetry import telemetry_instance
+
+        if not telemetry_instance.enabled:
             self.server_id = "missing"
             return
         try:

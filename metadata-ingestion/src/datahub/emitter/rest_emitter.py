@@ -290,6 +290,10 @@ class DataHubRestEmitter(Closeable):
             f"DataHubRestEmitter: configured to talk to {self._gms_server}{token_str}"
         )
 
+    def flush(self) -> None:
+        # No-op, but present to keep the interface consistent with the Kafka emitter.
+        pass
+
     def close(self) -> None:
         self._session.close()
 
