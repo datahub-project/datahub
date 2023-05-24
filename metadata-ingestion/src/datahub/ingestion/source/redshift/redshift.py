@@ -780,61 +780,60 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def cache_tables_and_views(self, connection, database):
         tables, views = RedshiftDataDictionary.get_tables_and_views(conn=connection)
         for schema in tables:
-            if is_schema_allowed(
+            if not is_schema_allowed(
                 self.config.schema_pattern,
                 schema,
                 database,
                 self.config.match_fully_qualified_names,
             ):
-                self.db_tables[database][schema] = []
-                for table in tables[schema]:
-                    if self.config.table_pattern.allowed(
-                        f"{database}.{schema}.{table.name}"
-                    ):
-                        self.db_tables[database][schema].append(table)
-                        self.report.table_cached[f"{database}.{schema}"] = (
-                            self.report.table_cached.get(f"{database}.{schema}", 0) + 1
-                        )
-                    else:
-                        logger.debug(
-                            f"Table {database}.{schema}.{table.name} is filtered by table_pattern"
-                        )
-                        self.report.table_filtered[f"{database}.{schema}"] = (
-                            self.report.table_filtered.get(f"{database}.{schema}", 0)
-                            + 1
-                        )
-            else:
                 logger.debug(
                     f"Not caching table for schema {database}.{schema} which is not allowed by schema_pattern"
                 )
+                continue
+
+            self.db_tables[database][schema] = []
+            for table in tables[schema]:
+                if self.config.table_pattern.allowed(
+                    f"{database}.{schema}.{table.name}"
+                ):
+                    self.db_tables[database][schema].append(table)
+                    self.report.table_cached[f"{database}.{schema}"] = (
+                        self.report.table_cached.get(f"{database}.{schema}", 0) + 1
+                    )
+                else:
+                    logger.debug(
+                        f"Table {database}.{schema}.{table.name} is filtered by table_pattern"
+                    )
+                    self.report.table_filtered[f"{database}.{schema}"] = (
+                        self.report.table_filtered.get(f"{database}.{schema}", 0) + 1
+                    )
 
         for schema in views:
-            if is_schema_allowed(
+            if not is_schema_allowed(
                 self.config.schema_pattern,
                 schema,
                 database,
                 self.config.match_fully_qualified_names,
             ):
-                self.db_views[database][schema] = []
-                for view in views[schema]:
-                    if self.config.view_pattern.allowed(
-                        f"{database}.{schema}.{view.name}"
-                    ):
-                        self.db_views[database][schema].append(view)
-                        self.report.view_cached[f"{database}.{schema}"] = (
-                            self.report.view_cached.get(f"{database}.{schema}", 0) + 1
-                        )
-                    else:
-                        logger.debug(
-                            f"View {database}.{schema}.{table.name} is filtered by view_pattern"
-                        )
-                        self.report.view_filtered[f"{database}.{schema}"] = (
-                            self.report.view_filtered.get(f"{database}.{schema}", 0) + 1
-                        )
-            else:
                 logger.debug(
                     f"Not caching views for schema {database}.{schema} which is not allowed by schema_pattern"
                 )
+                continue
+
+            self.db_views[database][schema] = []
+            for view in views[schema]:
+                if self.config.view_pattern.allowed(f"{database}.{schema}.{view.name}"):
+                    self.db_views[database][schema].append(view)
+                    self.report.view_cached[f"{database}.{schema}"] = (
+                        self.report.view_cached.get(f"{database}.{schema}", 0) + 1
+                    )
+                else:
+                    logger.debug(
+                        f"View {database}.{schema}.{table.name} is filtered by view_pattern"
+                    )
+                    self.report.view_filtered[f"{database}.{schema}"] = (
+                        self.report.view_filtered.get(f"{database}.{schema}", 0) + 1
+                    )
 
     def get_all_tables(
         self,
