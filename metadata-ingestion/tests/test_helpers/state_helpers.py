@@ -107,7 +107,8 @@ def get_current_checkpoint_from_pipeline(
     # TODO: This only works for stale entity removal. We need to generalize this.
 
     stateful_source = cast(StatefulIngestionSourceBase, pipeline.source)
-    stale_entity_removal_handler: StaleEntityRemovalHandler = stateful_source.stale_entity_removal_handler  # type: ignore
     return stateful_source.state_provider.get_current_checkpoint(
-        stale_entity_removal_handler.job_id
+        StaleEntityRemovalHandler.compute_job_id(
+            getattr(stateful_source, "platform", "default")
+        )
     )
