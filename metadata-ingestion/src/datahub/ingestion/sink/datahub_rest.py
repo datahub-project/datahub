@@ -36,8 +36,11 @@ class SyncOrAsync(ConfigEnum):
 
 
 class DatahubRestSinkConfig(DatahubClientConfig):
-    max_pending_requests: int = 1000
     mode: SyncOrAsync = SyncOrAsync.ASYNC
+
+    # These only apply in async mode.
+    max_threads: int = 15
+    max_pending_requests: int = 1000
 
 
 @dataclass
