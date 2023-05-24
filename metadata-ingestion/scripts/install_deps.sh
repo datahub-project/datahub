@@ -23,6 +23,7 @@ else
             python3-ldap \
             libldap2-dev \
             libsasl2-dev \
-            ldap-utils
+            ldap-utils \
+            libkrb5-dev
     fi
 fi
