@@ -32,9 +32,9 @@ const Count = styled(Typography.Text)`
 const BrowseGroupListContainer = styled.div`
     background: white;
     border-radius: 8px;
+    padding-bottom: 8px;
+    padding-right: 8px;
 `;
-
-const path = [];
 
 type Props = {
     entityAggregation: AggregationMetadata;
@@ -58,11 +58,11 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
 
     const { isOpen, toggle } = useToggle();
 
-    const { loaded, error, groups } = useBrowseV2Query({
+    const { loaded, error, groups, pathResult } = useBrowseV2Query({
         entityType,
         environment,
         platform,
-        path,
+        path: [],
         skip: !isOpen,
     });
 
@@ -93,6 +93,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                                     environmentAggregation={environmentAggregation}
                                     platformAggregation={platformAggregation}
                                     browseResultGroup={group}
+                                    path={[...pathResult, group.name]}
                                 />
                             ))}
                         </BrowseGroupListContainer>

@@ -39,13 +39,17 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
     });
 
     const data = error ? null : newData ?? previousData;
+    const groups = data?.browseV2?.groups ?? [];
+    const pathResult = data?.browseV2?.metadata.path ?? [];
+
     const loaded = !!data || !!error;
 
     return {
         loading,
         loaded,
         error,
-        ...data?.browseV2,
+        groups,
+        pathResult,
     } as const;
 };
 

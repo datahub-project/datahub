@@ -15,28 +15,38 @@ const Title = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
+const FolderStyled = styled(FolderOutlined)`
+    font-size: 16px;
+    color: ${(props) => props.theme.styles['primary-color']};
+`;
+
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
 `;
-
-const path = [];
 
 type Props = {
     entityAggregation: AggregationMetadata;
     environmentAggregation: AggregationMetadata | null;
     platformAggregation: AggregationMetadata;
     browseResultGroup: BrowseResultGroupV2;
+    path: Array<string>;
 };
 
-const BrowseNode = ({ entityAggregation, environmentAggregation, platformAggregation, browseResultGroup }: Props) => {
+const BrowseNode = ({
+    entityAggregation,
+    environmentAggregation,
+    platformAggregation,
+    browseResultGroup,
+    path,
+}: Props) => {
     const entityType = entityAggregation.value as EntityType;
     const environment = environmentAggregation?.value;
     const platform = platformAggregation.value;
 
     const { isOpen, toggle } = useToggle();
 
-    const { loaded, error, groups } = useBrowseV2Query({
+    const { loaded, error, groups, pathResult } = useBrowseV2Query({
         skip: !isOpen,
         entityType,
         environment,
@@ -54,7 +64,7 @@ const BrowseNode = ({ entityAggregation, environmentAggregation, platformAggrega
                 <ExpandableNode.Header isOpen={isOpen} onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
                         {isOpen ? <VscTriangleDown style={iconProps} /> : <VscTriangleRight style={iconProps} />}
-                        <FolderOutlined style={{ fontSize: 16 }} />
+                        <FolderStyled />
                         <Title color={color}>{browseResultGroup.name}</Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
@@ -70,6 +80,7 @@ const BrowseNode = ({ entityAggregation, environmentAggregation, platformAggrega
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
                             browseResultGroup={group}
+                            path={[...pathResult, group.name]}
                         />
                     ))}
                 </ExpandableNode.Body>
