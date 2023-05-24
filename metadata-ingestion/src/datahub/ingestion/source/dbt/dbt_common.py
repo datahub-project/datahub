@@ -871,9 +871,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
+            self.stale_entity_removal_handler.workunit_processor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
