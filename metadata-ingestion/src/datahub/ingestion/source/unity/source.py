@@ -30,7 +30,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    CapabilityReport,
     MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
@@ -48,6 +47,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
@@ -157,44 +157,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        test_report = TestConnectionReport()
-        test_report.capability_report = {}
-        try:
-            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
-            report = UnityCatalogReport()
-            unity_proxy = UnityCatalogApiProxy(
-                config.workspace_url,
-                config.token,
-                config.profiling.warehouse_id,
-                report=report,
-            )
-            if unity_proxy.check_connectivity():
-                test_report.basic_connectivity = CapabilityReport(capable=True)
-            else:
-                test_report.basic_connectivity = CapabilityReport(capable=False)
-
-            # TODO: Refactor into separate file / method
-            if config.profiling.enabled and not config.profiling.warehouse_id:
-                test_report.capability_report[
-                    SourceCapability.DATA_PROFILING
-                ] = CapabilityReport(
-                    capable=False, failure_reason="Warehouse ID not provided"
-                )
-            elif config.profiling.enabled:
-                try:
-                    unity_proxy.check_profiling_connectivity()
-                    test_report.capability_report[
-                        SourceCapability.DATA_PROFILING
-                    ] = CapabilityReport(capable=True)
-                except Exception as e:
-                    test_report.capability_report[
-                        SourceCapability.DATA_PROFILING
-                    ] = CapabilityReport(capable=False, failure_reason=str(e))
-        except Exception as e:
-            test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=f"{e}"
-            )
-        return test_report
+        return UnityCatalogConnectionTest(config_dict).get_connection_test()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -258,10 +221,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastores: Dict[str, Metastore] = {}
         assigned_metastore = self.unity_catalog_api_proxy.assigned_metastore()
-        if assigned_metastore:
-            metastores[assigned_metastore.metastore_id] = assigned_metastore
-        for metastore in self.unity_catalog_api_proxy.metastores():
-            metastores[metastore.metastore_id] = metastore
+        metastores[assigned_metastore.metastore_id] = assigned_metastore
+
+        if not self.config.only_ingest_assigned_metastore:
+            for metastore in self.unity_catalog_api_proxy.metastores():
+                metastores[metastore.metastore_id] = metastore
 
         for metastore in metastores.values():
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):

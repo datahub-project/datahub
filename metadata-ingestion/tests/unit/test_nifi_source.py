@@ -1,6 +1,8 @@
 import typing
 from unittest.mock import patch
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.nifi import (
     NifiComponent,
@@ -273,3 +275,124 @@ def mocked_functions(mock_provenance_events, mock_delete_provenance, provenance_
         mock_provenance_events.return_value = fetchs3_provenance_response
     else:
         mock_provenance_events.return_value = puts3_provenance_response
+
+
+def test_single_user_auth_without_password():
+    with pytest.raises(
+        ValueError, match="`username` and `password` is required for SINGLE_USER auth"
+    ):
+        NifiSourceConfig.parse_obj(
+            {
+                "site_url": "https://localhost:8443",
+                "auth": "SINGLE_USER",
+                "username": "someuser",
+            }
+        )
+
+
+def test_single_user_auth_without_username_and_password():
+    with pytest.raises(
+        ValueError, match="`username` and `password` is required for SINGLE_USER auth"
+    ):
+        NifiSourceConfig.parse_obj(
+            {
+                "site_url": "https://localhost:8443",
+                "auth": "SINGLE_USER",
+            }
+        )
+
+
+def test_client_cert_auth_without_client_cert_file():
+    with pytest.raises(
+        ValueError, match="`client_cert_file` is required for CLIENT_CERT auth"
+    ):
+        NifiSourceConfig.parse_obj(
+            {
+                "site_url": "https://localhost:8443",
+                "auth": "CLIENT_CERT",
+            }
+        )
+
+
+def test_single_user_auth_failed_to_get_token():
+
+    config = NifiSourceConfig(
+        site_url="https://localhost:12345",  # will never work
+        username="username",
+        password="password",
+        auth="SINGLE_USER",
+    )
+    source = NifiSource(
+        config=config,
+        ctx=PipelineContext("nifi-run"),
+    )
+
+    # No exception
+    list(source.get_workunits())
+
+    assert source.get_report().failures
+    assert "Failed to authenticate" in list(
+        source.get_report().failures[config.site_url]
+    )
+
+
+def test_kerberos_auth_failed_to_get_token():
+
+    config = NifiSourceConfig(
+        site_url="https://localhost:12345",  # will never work
+        auth="KERBEROS",
+    )
+    source = NifiSource(
+        config=config,
+        ctx=PipelineContext("nifi-run"),
+    )
+
+    # No exception
+    list(source.get_workunits())
+
+    assert source.get_report().failures
+    assert "Failed to authenticate" in list(
+        source.get_report().failures[config.site_url]
+    )
+
+
+def test_client_cert_auth_failed():
+
+    config = NifiSourceConfig(
+        site_url="https://localhost:12345",  # will never work
+        auth="CLIENT_CERT",
+        client_cert_file="nonexisting_file",
+    )
+    source = NifiSource(
+        config=config,
+        ctx=PipelineContext("nifi-run"),
+    )
+
+    # No exception
+    list(source.get_workunits())
+
+    assert source.get_report().failures
+    assert "Failed to authenticate" in list(
+        source.get_report().failures[config.site_url]
+    )
+
+
+def test_failure_to_create_nifi_flow():
+
+    with patch("datahub.ingestion.source.nifi.NifiSource.authenticate"):
+        config = NifiSourceConfig(
+            site_url="https://localhost:12345",  # will never work
+            auth="KERBEROS",
+        )
+        source = NifiSource(
+            config=config,
+            ctx=PipelineContext("nifi-run"),
+        )
+
+        # No exception
+        list(source.get_workunits())
+
+        assert source.get_report().failures
+        assert "Failed to get root process group flow" in list(
+            source.get_report().failures[config.site_url]
+        )
