@@ -131,14 +131,20 @@ public class ESSearchDAO {
 
   @VisibleForTesting
   SearchResult transformIndexIntoEntityName(SearchResult result) {
-    AggregationMetadataArray aggArray = result.getMetadata().getAggregations();
+    return result.setMetadata(result.getMetadata().setAggregations(transformIndexIntoEntityName(result.getMetadata().getAggregations())));
+  }
+  private ScrollResult transformIndexIntoEntityName(ScrollResult result) {
+    return result.setMetadata(result.getMetadata().setAggregations(transformIndexIntoEntityName(result.getMetadata().getAggregations())));
+  }
+
+  private AggregationMetadataArray transformIndexIntoEntityName(AggregationMetadataArray aggArray) {
     List<AggregationMetadata> newAggs = new ArrayList<>();
     for (AggregationMetadata aggMeta : aggArray) {
       List<String> aggregateFacets = List.of(aggMeta.getName().split(AGGREGATION_SEPARATOR_CHAR));
       int entityTypeIdx = aggregateFacets.indexOf(INDEX_VIRTUAL_FIELD);
       newAggs.add(transformAggregationMetadata(aggMeta, entityTypeIdx));
     }
-    return result.setMetadata(result.getMetadata().setAggregations(new AggregationMetadataArray(newAggs)));
+    return new AggregationMetadataArray(newAggs);
   }
 
   @Nonnull
@@ -148,10 +154,10 @@ public class ESSearchDAO {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler
+      return transformIndexIntoEntityName(SearchRequestHandler
               .getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
               .extractScrollResult(searchResponse,
-              filter, scrollId, keepAlive, size, supportsPointInTime());
+              filter, scrollId, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
         final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
