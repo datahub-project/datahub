@@ -1,6 +1,7 @@
+import functools
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import subprocess
 import time
 from typing import Any, Dict, List, Tuple
@@ -11,10 +12,12 @@ import requests_wrapper as requests
 import logging
 from datahub.cli import cli_utils
 from datahub.cli.cli_utils import get_system_auth
+from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
 
 TIME: int = 1581407189000
 logger = logging.getLogger(__name__)
+
 
 def get_frontend_session():
     session = requests.Session()
@@ -126,14 +129,13 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     return pipeline
 
 
-def delete_urn(urn: str) -> None:
-    payload_obj = {"urn": urn}
+@functools.lru_cache(maxsize=1)
+def get_datahub_graph() -> DataHubGraph:
+    return DataHubGraph(DatahubClientConfig(server=get_gms_url()))
 
-    cli_utils.post_delete_endpoint_with_session_and_url(
-        requests.Session(),
-        get_gms_url() + "/entities?action=delete",
-        payload_obj,
-    )
+
+def delete_urn(urn: str) -> None:
+    get_datahub_graph().hard_delete_entity(urn)
 
 
 def delete_urns(urns: List[str]) -> None:
@@ -172,14 +174,17 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
     # Deletes require 60 seconds when run between tests operating on common data, otherwise standard sync wait
     if shared_data:
         wait_for_writes_to_sync()
-#        sleep(60)
+    #        sleep(60)
     else:
         wait_for_writes_to_sync()
+
+
 #        sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 # Fixed now value
 NOW: datetime = datetime.now()
+
 
 def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
     """
@@ -201,7 +206,7 @@ def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
 
 
 def get_strftime_from_timestamp_millis(ts_millis: int) -> str:
-    return datetime.fromtimestamp(ts_millis / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.fromtimestamp(ts_millis / 1000, tz=timezone.utc).isoformat()
 
 
 def create_datahub_step_state_aspect(
@@ -242,19 +247,22 @@ def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
     # get offsets
     lag_zero = False
     while not lag_zero and (time.time() - start_time) < max_timeout_in_sec:
-        time.sleep(1) # micro-sleep
+        time.sleep(1)  # micro-sleep
         completed_process = subprocess.run(
             "docker exec broker /bin/kafka-consumer-groups --bootstrap-server broker:29092 --group generic-mae-consumer-job-client --describe | grep -v LAG | awk '{print $6}'",
             capture_output=True,
             shell=True,
-            text=True)
-        
+            text=True,
+        )
+
         result = str(completed_process.stdout)
         lines = result.splitlines()
         lag_values = [int(l) for l in lines if l != ""]
         maximum_lag = max(lag_values)
         if maximum_lag == 0:
             lag_zero = True
-    
+
     if not lag_zero:
-        logger.warning(f"Exiting early from waiting for elastic to catch up due to a timeout. Current lag is {lag_values}")
+        logger.warning(
+            f"Exiting early from waiting for elastic to catch up due to a timeout. Current lag is {lag_values}"
+        )
