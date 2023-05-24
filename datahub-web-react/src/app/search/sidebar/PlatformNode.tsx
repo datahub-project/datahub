@@ -84,7 +84,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
             body={
                 <ExpandableNode.Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    {!!groups?.length && (
+                    {!!groups.length && (
                         <BrowseGroupListContainer>
                             {groups.map((group) => (
                                 <BrowseNode

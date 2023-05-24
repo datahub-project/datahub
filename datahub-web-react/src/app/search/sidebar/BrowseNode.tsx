@@ -73,7 +73,7 @@ const BrowseNode = ({
             body={
                 <ExpandableNode.Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    {groups?.map((group) => (
+                    {groups.map((group) => (
                         <BrowseNode
                             key={group.name}
                             entityAggregation={entityAggregation}
