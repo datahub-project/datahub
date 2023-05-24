@@ -25,6 +25,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -761,10 +762,7 @@ class ModeSource(Source):
                 mce = MetadataChangeEvent(
                     proposedSnapshot=dashboard_snapshot_from_report
                 )
-                wu = MetadataWorkUnit(id=dashboard_snapshot_from_report.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                yield wu
+                yield MetadataWorkUnit(id=dashboard_snapshot_from_report.urn, mce=mce)
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         # Space/collection -> report -> query -> Chart
@@ -788,10 +786,7 @@ class ModeSource(Source):
                             chart, query, path
                         )
                         mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                        wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                        self.report.report_workunit(wu)
-
-                        yield wu
+                        yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
@@ -799,6 +794,9 @@ class ModeSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
 

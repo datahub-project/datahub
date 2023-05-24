@@ -1,20 +1,20 @@
+import enum
 import json
 import logging
 import textwrap
 import time
 from dataclasses import dataclass
-from enum import Enum
+from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
-from requests.adapters import Response
 from requests.models import HTTPError
-from typing_extensions import Literal
 
-from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
+from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -49,9 +49,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-telemetry_enabled = get_boolean_env_variable("DATAHUB_TELEMETRY_ENABLED", True)
-
-
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
@@ -62,13 +59,29 @@ class DatahubClientConfig(ConfigModel):
     retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
-    max_threads: int = 15
     disable_ssl_verification: bool = False
+
+    _max_threads_moved_to_sink = pydantic_removed_field(
+        "max_threads", print_warning=False
+    )
 
 
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
+
+
+class RemovedStatusFilter(enum.Enum):
+    """Filter for the status of entities during search."""
+
+    NOT_SOFT_DELETED = "NOT_SOFT_DELETED"
+    """Search only entities that have not been marked as deleted."""
+
+    ALL = "ALL"
+    """Search all entities, including deleted entities."""
+
+    ONLY_SOFT_DELETED = "ONLY_SOFT_DELETED"
+    """Search only soft-deleted entities."""
 
 
 def _graphql_entity_type(entity_type: str) -> str:
@@ -107,7 +120,11 @@ class DataHubGraph(DatahubRestEmitter):
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
         self.test_connection()
-        if not telemetry_enabled:
+
+        # Cache the server id for telemetry.
+        from datahub.telemetry.telemetry import telemetry_instance
+
+        if not telemetry_instance.enabled:
             self.server_id = "missing"
             return
         try:
@@ -119,9 +136,9 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
 
-    def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
+    def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
-            response = self._session.get(url, params=params)
+            response = self._session.request(method, url, **kwargs)
             response.raise_for_status()
             return response.json()
         except HTTPError as e:
@@ -136,24 +153,11 @@ class DataHubGraph(DatahubRestEmitter):
                     "Unable to get metadata from DataHub", {"message": str(e)}
                 ) from e
 
+    def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
+        return self._send_restli_request("GET", url, params=params)
+
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
-        payload = json.dumps(payload_dict)
-        logger.debug(payload)
-        try:
-            response: Response = self._session.post(url, payload)
-            response.raise_for_status()
-            return response.json()
-        except HTTPError as e:
-            try:
-                info = response.json()
-                raise OperationalError(
-                    "Unable to get metadata from DataHub", info
-                ) from e
-            except JSONDecodeError:
-                # If we can't parse the JSON, just raise the original error.
-                raise OperationalError(
-                    "Unable to get metadata from DataHub", {"message": str(e)}
-                ) from e
+        return self._send_restli_request("POST", url, json=payload_dict)
 
     def get_aspect(
         self,
@@ -444,10 +448,6 @@ class DataHubGraph(DatahubRestEmitter):
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
 
-    @property
-    def _scroll_across_entities_endpoint(self):
-        return f"{self.config.server}/entities?action=scrollAcrossEntities"
-
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
 
@@ -482,6 +482,9 @@ class DataHubGraph(DatahubRestEmitter):
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
 
+    @deprecated(
+        reason='Use get_urns_by_filter(entity_types=["container"], ...) instead'
+    )
     def get_container_urns_by_filter(
         self,
         env: Optional[str] = None,
@@ -531,15 +534,21 @@ class DataHubGraph(DatahubRestEmitter):
         *,
         entity_types: Optional[List[str]] = None,
         platform: Optional[str] = None,
+        env: Optional[str] = None,
+        query: Optional[str] = None,
+        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
     ) -> Iterable[str]:
         """Fetch all urns that match the given filters.
 
         Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
         Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+        The same goes for the env filter.
 
         :param entity_types: List of entity types to include. If None, all entity types will be returned.
         :param platform: Platform to filter on. If None, all platforms will be returned.
+        :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         """
 
         types: Optional[List[str]] = None
@@ -549,11 +558,13 @@ class DataHubGraph(DatahubRestEmitter):
 
             types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
 
-        # Does not filter on env, because env is missing in dashboard / chart urns and custom properties
-        # For containers, use { field: "customProperties", values: ["instance=env}"], condition:EQUAL }
-        # For others, use { field: "origin", values: ["env"], condition:EQUAL }
+        # Add the query default of * if no query is specified.
+        query = query or "*"
 
-        andFilters = []
+        FilterRule = Dict[str, Any]
+        andFilters: List[FilterRule] = []
+
+        # Platform filter.
         if platform:
             andFilters += [
                 {
@@ -562,23 +573,90 @@ class DataHubGraph(DatahubRestEmitter):
                     "condition": "EQUAL",
                 }
             ]
-        orFilters = [{"and": andFilters}]
 
-        query = textwrap.dedent(
+        # Status filter.
+        if status == RemovedStatusFilter.NOT_SOFT_DELETED:
+            # Subtle: in some cases (e.g. when the dataset doesn't have a status aspect), the
+            # removed field is simply not present in the ElasticSearch document. Ideally this
+            # would be a "removed" : "false" filter, but that doesn't work. Instead, we need to
+            # use a negated filter.
+            andFilters.append(
+                {
+                    "field": "removed",
+                    "values": ["true"],
+                    "condition": "EQUAL",
+                    "negated": True,
+                }
+            )
+        elif status == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            andFilters.append(
+                {
+                    "field": "removed",
+                    "values": ["true"],
+                    "condition": "EQUAL",
+                }
+            )
+        elif status == RemovedStatusFilter.ALL:
+            # We don't need to add a filter for this case.
+            pass
+        else:
+            raise ValueError(f"Invalid status filter: {status}")
+
+        orFilters: List[Dict[str, List[FilterRule]]] = [{"and": andFilters}]
+
+        # Env filter.
+        if env:
+            # The env filter is a bit more tricky since it's not always stored
+            # in the same place in ElasticSearch.
+
+            envOrConditions: List[FilterRule] = [
+                # For most entity types, we look at the origin field.
+                {
+                    "field": "origin",
+                    "value": env,
+                    "condition": "EQUAL",
+                },
+                # For containers, we look at the customProperties field.
+                # For any containers created after https://github.com/datahub-project/datahub/pull/8027,
+                # we look for the "env" property. Otherwise, we use the "instance" property.
+                {
+                    "field": "customProperties",
+                    "value": f"env={env}",
+                },
+                {
+                    "field": "customProperties",
+                    "value": f"instance={env}",
+                },
+                # Note that not all entity types have an env (e.g. dashboards / charts).
+                # If the env filter is specified, these will be excluded.
+            ]
+
+            # This matches ALL of the andFilters and at least one of the envOrConditions.
+            orFilters = [
+                {"and": andFilters["and"] + [extraCondition]}
+                for extraCondition in envOrConditions
+                for andFilters in orFilters
+            ]
+
+        graphql_query = textwrap.dedent(
             """
             query scrollUrnsWithFilters(
                 $types: [EntityType!],
+                $query: String!,
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
                 $scrollId: String) {
 
                 scrollAcrossEntities(input: {
-                    query: "*",
+                    query: $query,
                     count: $batchSize,
                     scrollId: $scrollId,
                     types: $types,
                     orFilters: $orFilters,
-                    searchFlags: { skipHighlighting: true }
+                    searchFlags: {
+                        skipHighlighting: true
+                        skipAggregates: true
+                    }
                 }) {
                     nextScrollId
                     searchResults {
@@ -591,22 +669,31 @@ class DataHubGraph(DatahubRestEmitter):
             """
         )
 
-        # Set scroll_id to False to enter while loop
-        scroll_id: Union[Literal[False], str, None] = False
-        while scroll_id is not None:
+        first_iter = True
+        scroll_id: Optional[str] = None
+        while first_iter or scroll_id:
+            first_iter = False
+
+            variables = {
+                "types": types,
+                "query": query,
+                "orFilters": orFilters,
+                "batchSize": batch_size,
+                "scrollId": scroll_id,
+            }
             response = self.execute_graphql(
-                query,
-                variables={
-                    "types": types,
-                    "orFilters": orFilters,
-                    "batchSize": batch_size,
-                    "scrollId": scroll_id or None,
-                },
+                graphql_query,
+                variables=variables,
             )
             data = response["scrollAcrossEntities"]
             scroll_id = data["nextScrollId"]
             for entry in data["searchResults"]:
                 yield entry["entity"]["urn"]
+
+            if scroll_id:
+                logger.debug(
+                    f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
+                )
 
     def get_latest_pipeline_checkpoint(
         self, pipeline_name: str, platform: str
@@ -658,13 +745,18 @@ class DataHubGraph(DatahubRestEmitter):
         if variables:
             body["variables"] = variables
 
+        logger.debug(
+            f"Executing graphql query: {query} with variables: {json.dumps(variables)}"
+        )
         result = self._post_generic(url, body)
         if result.get("errors"):
             raise GraphError(f"Error executing graphql query: {result['errors']}")
 
         return result["data"]
 
-    class RelationshipDirection(str, Enum):
+    class RelationshipDirection(str, enum.Enum):
+        # FIXME: Upgrade to enum.StrEnum when we drop support for Python 3.10
+
         INCOMING = "INCOMING"
         OUTGOING = "OUTGOING"
 
@@ -702,22 +794,6 @@ class DataHubGraph(DatahubRestEmitter):
             )
             start = start + response.get("count", 0)
 
-    def soft_delete_urn(
-        self,
-        urn: str,
-        run_id: str = "soft-delete-urns",
-    ) -> None:
-        timestamp = int(time.time() * 1000)
-        self.emit_mcp(
-            MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=StatusClass(removed=True),
-                systemMetadata=SystemMetadataClass(
-                    runId=run_id, lastObserved=timestamp
-                ),
-            )
-        )
-
     def exists(self, entity_urn: str) -> bool:
         entity_urn_parsed: Urn = Urn.create_from_string(entity_urn)
         try:
@@ -734,6 +810,143 @@ class DataHubGraph(DatahubRestEmitter):
                 f"Failed to check for existence of urn {entity_urn}", exc_info=e
             )
             raise
+
+    def soft_delete_entity(
+        self,
+        urn: str,
+        run_id: str = "__datahub-graph-client",
+        deletion_timestamp: Optional[int] = None,
+    ) -> None:
+        """Soft-delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to soft-delete.
+        """
+
+        assert urn
+
+        deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
+        self.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=StatusClass(removed=True),
+                systemMetadata=SystemMetadataClass(
+                    runId=run_id, lastObserved=deletion_timestamp
+                ),
+            )
+        )
+
+    def hard_delete_entity(
+        self,
+        urn: str,
+    ) -> Tuple[int, int]:
+        """Hard delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to hard delete.
+
+        Returns:
+            A tuple of (rows_affected, timeseries_rows_affected).
+        """
+
+        assert urn
+
+        payload_obj: Dict = {"urn": urn}
+        summary = self._post_generic(
+            f"{self._gms_server}/entities?action=delete", payload_obj
+        ).get("value", {})
+
+        rows_affected: int = summary.get("rows", 0)
+        timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
+        return rows_affected, timeseries_rows_affected
+
+    def delete_entity(self, urn: str, hard: bool = False) -> None:
+        """Delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to delete.
+            hard: Whether to hard delete the entity. If False (default), the entity will be soft deleted.
+        """
+
+        if hard:
+            rows_affected, timeseries_rows_affected = self.hard_delete_entity(urn)
+            logger.debug(
+                f"Hard deleted entity {urn} with {rows_affected} rows affected and {timeseries_rows_affected} timeseries rows affected"
+            )
+        else:
+            self.soft_delete_entity(urn)
+            logger.debug(f"Soft deleted entity {urn}")
+
+    # TODO: Create hard_delete_aspect once we support that in GMS.
+
+    def hard_delete_timeseries_aspect(
+        self,
+        urn: str,
+        aspect_name: str,
+        start_time: Optional[datetime],
+        end_time: Optional[datetime],
+    ) -> int:
+        """Hard delete timeseries aspects of an entity.
+
+        Args:
+            urn: The urn of the entity.
+            aspect_name: The name of the timeseries aspect to delete.
+            start_time: The start time of the timeseries data to delete. If not specified, defaults to the beginning of time.
+            end_time: The end time of the timeseries data to delete. If not specified, defaults to the end of time.
+
+        Returns:
+            The number of timeseries rows affected.
+        """
+
+        assert urn
+        assert aspect_name in TIMESERIES_ASPECT_MAP, "must be a timeseries aspect"
+
+        payload_obj: Dict = {
+            "urn": urn,
+            "aspectName": aspect_name,
+        }
+        if start_time:
+            payload_obj["startTimeMillis"] = int(start_time.timestamp() * 1000)
+        if end_time:
+            payload_obj["endTimeMillis"] = int(end_time.timestamp() * 1000)
+
+        summary = self._post_generic(
+            f"{self._gms_server}/entities?action=delete", payload_obj
+        ).get("value", {})
+
+        timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
+        return timeseries_rows_affected
+
+    def delete_references_to_urn(
+        self, urn: str, dry_run: bool = False
+    ) -> Tuple[int, List[Dict]]:
+        """Delete references to a given entity.
+
+        This is useful for cleaning up references to an entity that is about to be deleted.
+        For example, when deleting a tag, you might use this to remove that tag from all other
+        entities that reference it.
+
+        This does not delete the entity itself.
+
+        Args:
+            urn: The urn of the entity to delete references to.
+            dry_run: If True, do not actually delete the references, just return the count of
+                references and the list of related aspects.
+
+        Returns:
+            A tuple of (reference_count, sample of related_aspects).
+        """
+
+        assert urn
+
+        payload_obj = {"urn": urn, "dryRun": dry_run}
+
+        response = self._post_generic(
+            f"{self._gms_server}/entities?action=deleteReferences", payload_obj
+        ).get("value", {})
+        reference_count = response.get("total", 0)
+        related_aspects = response.get("relatedAspects", [])
+        return reference_count, related_aspects
 
 
 def get_default_graph() -> DataHubGraph:
