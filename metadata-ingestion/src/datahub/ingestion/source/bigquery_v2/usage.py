@@ -1013,9 +1013,10 @@ class BigQueryUsageExtractor:
                     ).get_sanitized_table_ref()
                 )
             else:
-                logger.warning(
-                    f"Invalid table identifier {table} when parsing query on view"
+                logger.debug(
+                    f"Invalid table identifier {table} when parsing query on view {query}"
                 )
+                self.report.num_view_query_events_failed_table_identification += 1
 
         return list(parsed_tables)
 

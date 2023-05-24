@@ -70,6 +70,7 @@ class BigQueryV2Report(ProfilingSqlReport):
     num_query_events: int = 0
     num_view_query_events: int = 0
     num_view_query_events_failed_sql_parsing: int = 0
+    num_view_query_events_failed_table_identification: int = 0
     num_filtered_read_events: int = 0
     num_filtered_query_events: int = 0
     num_usage_query_hash_collisions: int = 0

@@ -55,6 +55,14 @@ def generate_events(
             else random.choice(projects)
         )
         job_name = str(uuid.uuid4())
+        referencedViews = list(
+            dict.fromkeys(
+                ref_from_table(field.table, table_to_project)
+                for field in query.fields_accessed
+                if field.table.is_view()
+            )
+        )
+
         yield AuditEvent.create(
             QueryEvent(
                 job_name=job_name,
@@ -81,16 +89,11 @@ def generate_events(
                         for parent in cast(View, field.table).parents
                     )
                 ),
-                referencedViews=list(
-                    dict.fromkeys(
-                        ref_from_table(field.table, table_to_project)
-                        for field in query.fields_accessed
-                        if field.table.is_view()
-                    )
-                ),
+                referencedViews=referencedViews,
                 payload=dataclasses.asdict(query)
                 if config.debug_include_full_payloads
                 else None,
+                query_on_view=True if referencedViews else False,
             )
         )
         table_accesses = defaultdict(set)

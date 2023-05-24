@@ -495,6 +495,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
     ]
     assert usage_extractor.report.num_view_query_events == 5
     assert usage_extractor.report.num_view_query_events_failed_sql_parsing == 0
+    assert usage_extractor.report.num_view_query_events_failed_table_identification == 0
 
 
 def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
