@@ -452,12 +452,10 @@ class BigQueryUsageExtractor:
                 # one view. For all other queries, field level usage is available through bigquery audit logs.
                 if (
                     audit_event.query_event
-                    and audit_event.query_event.referencedViews
+                    and audit_event.query_event.query_on_view
                     and not self.config.usage.apply_view_usage_to_tables
                 ):
                     query_event = audit_event.query_event
-                    query_event.query_on_view = True
-
                     self.report.num_view_query_events += 1
 
                     for new_event in self.generate_read_events_from_query(query_event):

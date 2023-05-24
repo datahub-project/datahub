@@ -346,6 +346,7 @@ class QueryEvent:
                 BigQueryTableRef.from_spec_obj(spec).get_sanitized_table_ref()
                 for spec in raw_ref_views
             ]
+            query_event.query_on_view = True
 
         # payload
         query_event.payload = entry.payload if debug_include_full_payloads else None
@@ -423,6 +424,7 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
                 for spec in raw_ref_views
             ]
+            query_event.query_on_view = True
 
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
@@ -491,6 +493,8 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
                 for spec in raw_ref_views
             ]
+            query_event.query_on_view = True
+
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
 
