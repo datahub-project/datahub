@@ -144,7 +144,7 @@ def bigquery_audit_metadata_query_template(
         AND
         (
             (
-                JSON_EXTRACT_SCALAR(protopayload_auditlog.methodName) IN
+                protopayload_auditlog.methodName IN
                     (
                         "google.cloud.bigquery.v2.JobService.Query",
                         "google.cloud.bigquery.v2.JobService.InsertJob"
@@ -186,7 +186,7 @@ class BigQueryUsageState(Closeable):
                     e.timestamp, config.bucket_duration
                 ),
                 "user": lambda e: e.actor_email,
-                "from_query": lambda e: 1 if e.from_query else 0,
+                "from_query": lambda e: int(e.from_query),
             },
             cache_max_size=config.file_backed_cache_size,
             # Evict entire cache to reduce db calls.
@@ -201,7 +201,7 @@ class BigQueryUsageState(Closeable):
             extra_columns={
                 "query": lambda e: e.query,
                 "is_read": lambda e: int(e.statementType in READ_STATEMENT_TYPES),
-                "on_view": lambda e: 1 if e.query_on_view else 0,
+                "on_view": lambda e: int(e.query_on_view),
             },
             cache_max_size=config.file_backed_cache_size,
             cache_eviction_batch_size=max(int(config.file_backed_cache_size * 0.9), 1),
@@ -333,8 +333,6 @@ class BigQueryUsageState(Closeable):
             )
 
     def delete_original_read_events_for_view_query_events(self) -> None:
-        # CAUTION: Be careful when updating this query
-        # Ideally we should clean_active_object_cache python cache here
         self.read_events.sql_query(
             """
             DELETE FROM
@@ -345,7 +343,7 @@ class BigQueryUsageState(Closeable):
                     SELECT q.key FROM query_events q WHERE q.on_view = 1
                 )
         """,
-            refs=[self.read_events, self.query_events],
+            refs=[self.query_events],
         )
 
     def report_disk_usage(self, report: BigQueryV2Report) -> None:
