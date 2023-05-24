@@ -30,21 +30,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -145,15 +140,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             else config.workspace_url.split("//")[1].split(".")[0]
         )
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -211,14 +197,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         config = UnityCatalogSourceConfig.parse_obj(config_dict)
         return cls(ctx=ctx, config=config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         wait_on_warehouse = None
