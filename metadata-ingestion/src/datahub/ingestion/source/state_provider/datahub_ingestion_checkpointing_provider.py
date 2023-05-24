@@ -118,7 +118,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             # We don't want the state payloads to show up in search. As such, we emit the
             # dataJob aspects as soft-deleted. This doesn't affect the ability to query
             # them using the timeseries API.
-            self.graph.soft_delete_urn(
+            self.graph.soft_delete_entity(
                 urn=datajob_urn,
             )
             self.graph.emit_mcp(
