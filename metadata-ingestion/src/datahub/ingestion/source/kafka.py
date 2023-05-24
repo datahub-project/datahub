@@ -89,6 +89,29 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
         description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
     )
+    schema_tags_field = pydantic.Field(
+        default="tags",
+        description="The field name in the schema metadata that contains the tags to be added to the dataset.",
+    )
+    enable_meta_mapping = pydantic.Field(
+        default=True,
+        description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
+    )
+    meta_mapping: Dict = pydantic.Field(
+        default={},
+        description="mapping rules that will be executed against top-level schema properties. Refer to the section below on meta automated mappings.",
+    )
+    field_meta_mapping: Dict = pydantic.Field(
+        default={},
+        description="mapping rules that will be executed against field-level schema properties. Refer to the section below on meta automated mappings.",
+    )
+    strip_user_ids_from_email: bool = pydantic.Field(
+        default=False,
+        description="Whether or not to strip email id while adding owners using meta mappings.",
+    )
+    tag_prefix: str = pydantic.Field(
+        default="kafka:", description="Prefix added to tags during ingestion."
+    )
     ignore_warnings_on_schema_type: bool = pydantic.Field(
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
@@ -239,12 +262,24 @@ class KafkaSource(StatefulIngestionSourceBase):
             aspects=[Status(removed=False)],  # we append to this list later on
         )
 
-        # 2. Attach schemaMetadata aspect (pass control to SchemaRegistry)
-        schema_metadata = self.schema_registry_client.get_schema_metadata(
+        # 2. Get aspects from Schema
+        aspects_from_schema = self.schema_registry_client.get_aspects_from_schema(
             topic, platform_urn
         )
-        if schema_metadata is not None:
-            dataset_snapshot.aspects.append(schema_metadata)
+
+        # Create an empty aspect incase we don't get any aspect from schema
+        dataset_properties = DatasetPropertiesClass()
+        for aspect in aspects_from_schema:
+            if isinstance(aspect, DatasetPropertiesClass):
+                dataset_properties = aspect
+            else:
+                dataset_snapshot.aspects.append(aspect)
+
+        # Add extra info to DatasetProperties
+        dataset_properties.name = topic
+        dataset_properties.customProperties = self.build_custom_properties(
+            topic, topic_detail, extra_topic_config
+        )
 
         # 3. Attach browsePaths aspect
         browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
@@ -253,12 +288,11 @@ class KafkaSource(StatefulIngestionSourceBase):
         browse_path = BrowsePathsClass([browse_path_str])
         dataset_snapshot.aspects.append(browse_path)
 
-        custom_props = self.build_custom_properties(
-            topic, topic_detail, extra_topic_config
-        )
-
         # 4. Set dataset's description as top level doc, if topic schema type is avro
         description = None
+        schema_metadata = self.schema_registry_client.get_schema_metadata(
+            topic, platform_urn
+        )
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -271,9 +305,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             if isinstance(schema, dict):
                 description = schema.get(DOC_KEY)
 
-        dataset_properties = DatasetPropertiesClass(
-            name=topic, customProperties=custom_props, description=description
-        )
+        dataset_properties.description = description
         dataset_snapshot.aspects.append(dataset_properties)
 
         # 5. Attach dataPlatformInstance aspect.
