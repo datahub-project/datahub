@@ -193,9 +193,9 @@ def auto_browse_path_v2(
         for b_aspect in browse_path_aspects:
             if b_aspect.paths:
                 path = b_aspect.paths[0]  # Only take first path
-                legacy_browse_paths[urn].extend(
-                    p for p in path.split("/") if p.strip() not in drop_dirs
-                )
+                legacy_browse_paths[urn] = [
+                    p for p in path.strip("/").split("/") if p.strip() not in drop_dirs
+                ]
 
         if wu.get_aspects_of_type(BrowsePathsV2Class):
             ignore_urns.add(urn)
@@ -227,9 +227,6 @@ def auto_browse_path_v2(
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=BrowsePathsV2Class(
-                path=[
-                    BrowsePathEntryClass(id=p, urn=None)
-                    for p in legacy_browse_paths[urn]
-                ]
+                path=[BrowsePathEntryClass(id=p) for p in legacy_browse_paths[urn]]
             ),
         ).as_workunit()

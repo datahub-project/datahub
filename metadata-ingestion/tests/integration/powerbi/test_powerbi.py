@@ -624,6 +624,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
                     "filename": f"{tmp_path}/powerbi_mces.json",
                 },
             },
+            "flags": {"generate_browse_path_v2": True},
         }
     )
 
