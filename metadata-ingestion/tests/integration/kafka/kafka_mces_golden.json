@@ -26,8 +26,7 @@
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
                                 "documentSchema": "",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                                "keySchemaType": "AVRO"
+                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}"
                             }
                         },
                         "fields": [
@@ -59,13 +58,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/prod/kafka"
-                        ]
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "Partitions": "1",
@@ -79,6 +71,13 @@
                         },
                         "name": "key_topic",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/kafka"
+                        ]
                     }
                 }
             ]
@@ -148,9 +147,7 @@
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
                                 "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"}]}",
-                                "documentSchemaType": "AVRO",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                                "keySchemaType": "AVRO"
+                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}"
                             }
                         },
                         "fields": [
@@ -218,13 +215,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/prod/kafka"
-                        ]
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "Partitions": "1",
@@ -239,6 +229,13 @@
                         "name": "key_value_topic",
                         "description": "Value schema for kafka topic",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/kafka"
+                        ]
                     }
                 }
             ]
@@ -325,9 +322,7 @@
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
                                 "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"}]}",
-                                "documentSchemaType": "AVRO",
-                                "keySchema": "\"string\"",
-                                "keySchemaType": "AVRO"
+                                "keySchema": "\"string\""
                             }
                         },
                         "fields": [
@@ -383,13 +378,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/prod/kafka"
-                        ]
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "Partitions": "1",
@@ -404,6 +392,13 @@
                         "name": "value_topic",
                         "description": "Value schema for kafka topic",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/kafka"
+                        ]
                     }
                 }
             ]
