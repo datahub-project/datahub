@@ -11,6 +11,7 @@ import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import useBrowseV2Query from './useBrowseV2Query';
 import useToggle from './useToggle';
 import BrowseNode from './BrowseNode';
+import useIntersect from '../../shared/useIntersect';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -42,9 +43,6 @@ type Props = {
 };
 
 const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation }: Props) => {
-    const entityType = entityAggregation.value as EntityType;
-    const environment = environmentAggregation?.value;
-    const platform = platformAggregation.value;
     const registry = useEntityRegistry();
 
     const { icon, label } = getFilterIconAndLabel(
@@ -57,15 +55,20 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
 
     const { isOpen, toggle } = useToggle();
 
-    const { loaded, error, groups, pathResult } = useBrowseV2Query({
-        entityType,
-        environment,
-        platform,
+    const skip = !isOpen;
+
+    // This is the seed, we don't know how many <BrowseNodeList/> we need until this query comes back
+    const { loaded, error, groups, pathResult, loadMore } = useBrowseV2Query({
+        entityType: entityAggregation.value as EntityType,
+        environment: environmentAggregation?.value,
+        platform: platformAggregation.value,
         path: [],
-        skip: !isOpen,
+        skip,
     });
 
     const color = ANTD_GRAY[9];
+
+    const { observableRef } = useIntersect({ skip, initialDelay: 500, onIntersect: loadMore });
 
     return (
         <ExpandableNode
@@ -84,6 +87,8 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                 <ExpandableNode.Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                     {!!groups.length && (
+                        // todo - move this to a new component that handles the pagination
+                        // we don't want to deal with pagination both here and in BrowseNode right
                         <BrowseGroupListContainer>
                             {groups.map((group) => (
                                 <BrowseNode
@@ -95,6 +100,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                                     path={[...pathResult, group.name]}
                                 />
                             ))}
+                            <div ref={observableRef}>observable (HIDE ME)</div>
                         </BrowseGroupListContainer>
                     )}
                 </ExpandableNode.Body>

@@ -1,6 +1,9 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EntityType } from '../../../types.generated';
 import { useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
 import useSidebarFilters from './useSidebarFilters';
+import { BROWSE_PATH_PAGE_SIZE } from './constants';
+import useBrowseMap from './useBrowseMap';
 
 type Props = {
     entityType: EntityType;
@@ -11,38 +14,52 @@ type Props = {
 };
 
 const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Props) => {
+    const locked = useRef(skip);
     const { query, orFilters, viewUrn } = useSidebarFilters({ environment, platform });
+    const { hasData, latestStart, groups, pathResult, done, total, mapAppend, mapClear } = useBrowseMap();
+    const [currentStart, setCurrentStart] = useState(0);
+    const [cachedFilters, setCachedFilters] = useState<ReturnType<typeof useSidebarFilters>>();
 
-    const page = 1;
-    const count = 10;
-    const start = Math.max(0, page - 1) * count;
-
-    const {
-        data: newData,
-        previousData,
-        loading,
-        error,
-    } = useGetBrowseResultsV2Query({
+    const { data, loading, error } = useGetBrowseResultsV2Query({
         skip,
         fetchPolicy: 'cache-first',
         variables: {
             input: {
                 type: entityType,
                 path,
-                start,
-                count,
-                orFilters,
-                query,
-                viewUrn,
+                start: currentStart,
+                count: BROWSE_PATH_PAGE_SIZE,
+                ...cachedFilters,
             },
         },
     });
 
-    const data = error ? null : newData ?? previousData;
-    const groups = data?.browseV2?.groups ?? [];
-    const pathResult = data?.browseV2?.metadata.path ?? [];
+    useEffect(() => {
+        mapClear();
+        setCurrentStart(0);
+        setCachedFilters({ query, orFilters, viewUrn });
+    }, [mapClear, orFilters, query, viewUrn]);
 
-    const loaded = !!data || !!error;
+    const loaded = hasData || !!error;
+
+    useEffect(() => {
+        mapAppend(data);
+    }, [mapAppend, data]);
+
+    useEffect(() => {
+        if (!skip && latestStart >= currentStart) locked.current = false;
+    }, [currentStart, latestStart, skip]);
+
+    const loadMore = useCallback(
+        () =>
+            setCurrentStart((current) => {
+                const newStart = current + BROWSE_PATH_PAGE_SIZE;
+                if (locked.current || done || total <= 0 || newStart >= total) return current;
+                locked.current = true;
+                return newStart;
+            }),
+        [done, total],
+    );
 
     return {
         loading,
@@ -50,6 +67,7 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
         error,
         groups,
         pathResult,
+        loadMore,
     } as const;
 };
 

@@ -1,5 +1,6 @@
 import * as QueryString from 'query-string';
 import { useLocation, useParams } from 'react-router';
+import { useMemo } from 'react';
 import { FacetFilterInput, EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME, FILTER_DELIMITER, UnionType } from './utils/constants';
@@ -16,7 +17,7 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location.search]);
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;

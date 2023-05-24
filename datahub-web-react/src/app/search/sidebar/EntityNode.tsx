@@ -38,7 +38,7 @@ const EntityNode = ({ entityAggregation }: Props) => {
 
     const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
-        entityType,
+        entityType: entityAggregation.value as EntityType,
         facets: childFacets,
     });
 

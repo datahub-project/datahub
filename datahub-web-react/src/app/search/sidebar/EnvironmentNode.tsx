@@ -28,15 +28,12 @@ type Props = {
 };
 
 const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
-    const entityType = entityAggregation.value as EntityType;
-    const environment = environmentAggregation.value;
-
     const { isOpen, toggle } = useToggle();
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
-        entityType,
-        environment,
+        entityType: entityAggregation.value as EntityType,
+        environment: environmentAggregation.value,
         facets: childFacets,
     });
 
