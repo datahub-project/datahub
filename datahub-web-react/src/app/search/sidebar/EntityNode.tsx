@@ -14,22 +14,6 @@ import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import useToggle from './useToggle';
 
-const Header = styled.div<{ isOpen: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
-    padding-top: 16px;
-    border-bottom: ${(props) => `1px solid ${props.isOpen ? ANTD_GRAY[2] : ANTD_GRAY[4]}`};
-`;
-
-const HeaderLeft = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-`;
-
 const Title = styled(Typography.Text)`
     font-size: 16px;
     color: ${(props) => props.color};
@@ -40,8 +24,6 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-const Body = styled.div``;
-
 const childFacets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
 
 type Props = {
@@ -50,35 +32,34 @@ type Props = {
 
 const EntityNode = ({ entityAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;
-    const depth = 0;
     const registry = useEntityRegistry();
-    const [getAggregations, { loaded, error, environmentAggregations, platformAggregations }] = useAggregationsQuery({
+
+    const { isOpen, toggle } = useToggle();
+
+    const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
+        skip: !isOpen,
         entityType,
         facets: childFacets,
     });
 
     const hasMultipleEnvironments = environmentAggregations.length > 1;
-
-    const { isOpen, toggle } = useToggle({ onRequestOpen: getAggregations });
-
     const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
-            depth={depth}
             header={
-                <Header isOpen={isOpen} onClick={toggle}>
-                    <HeaderLeft>
+                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle} style={{ paddingTop: '16px' }}>
+                    <ExpandableNode.HeaderLeft>
                         {registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
                         <Title color={color}>{registry.getCollectionName(entityType)}</Title>
                         <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
-                    </HeaderLeft>
+                    </ExpandableNode.HeaderLeft>
                     {isOpen ? <UpCircleOutlined style={{ color }} /> : <DownCircleOutlined style={{ color }} />}
-                </Header>
+                </ExpandableNode.Header>
             }
             body={
-                <Body>
+                <ExpandableNode.Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                     {hasMultipleEnvironments
                         ? environmentAggregations.map((environmentAggregation) => (
@@ -94,10 +75,9 @@ const EntityNode = ({ entityAggregation }: Props) => {
                                   entityAggregation={entityAggregation}
                                   environmentAggregation={null}
                                   platformAggregation={platform}
-                                  depth={depth + 1}
                               />
                           ))}
-                </Body>
+                </ExpandableNode.Body>
             }
         />
     );

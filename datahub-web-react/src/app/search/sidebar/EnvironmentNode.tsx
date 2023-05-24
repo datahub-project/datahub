@@ -11,21 +11,6 @@ import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import useToggle from './useToggle';
 
-const Header = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
-    padding-top: 8px;
-`;
-
-const HeaderLeft = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-`;
-
 const Title = styled(Typography.Text)`
     font-size: 14px;
     color: ${(props) => props.color};
@@ -35,8 +20,6 @@ const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
 `;
-
-const Body = styled.div``;
 
 const childFacets = [PLATFORM_FILTER_NAME];
 
@@ -48,33 +31,32 @@ type Props = {
 const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;
     const environment = environmentAggregation.value;
-    const depth = 0;
 
-    const [getAggregations, { loaded, error, platformAggregations }] = useAggregationsQuery({
+    const { isOpen, toggle } = useToggle();
+
+    const { loaded, error, platformAggregations } = useAggregationsQuery({
+        skip: !isOpen,
         entityType,
         environment,
         facets: childFacets,
     });
-
-    const { isOpen, toggle } = useToggle({ onRequestOpen: getAggregations });
 
     const color = ANTD_GRAY[9];
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
-            depth={depth}
             header={
-                <Header onClick={toggle}>
-                    <HeaderLeft>
+                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
+                    <ExpandableNode.HeaderLeft>
                         {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
                         <Title color={color}>{environmentAggregation.value}</Title>
-                    </HeaderLeft>
+                    </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(environmentAggregation.count)}</Count>
-                </Header>
+                </ExpandableNode.Header>
             }
             body={
-                <Body>
+                <ExpandableNode.Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                     {platformAggregations.map((platform) => (
                         <PlatformNode
@@ -82,10 +64,9 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
                             entityAggregation={entityAggregation}
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platform}
-                            depth={depth + 1}
                         />
                     ))}
-                </Body>
+                </ExpandableNode.Body>
             }
         />
     );

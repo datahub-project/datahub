@@ -1,4 +1,4 @@
-import { useAggregateAcrossEntitiesLazyQuery } from '../../../graphql/search.generated';
+import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { EntityType } from '../../../types.generated';
 import useSidebarFilters from './useSidebarFilters';
@@ -8,28 +8,30 @@ type Props = {
     environment?: string | null;
     platform?: string | null;
     facets: string[];
+    skip: boolean;
 };
 
-const useAggregationsQuery = ({ entityType, environment, platform, facets }: Props) => {
+const useAggregationsQuery = ({ entityType, environment, platform, facets, skip }: Props) => {
     const { query, orFilters, viewUrn } = useSidebarFilters({ environment, platform });
 
-    const [getAggregations, { data: newData, previousData, loading, error }] = useAggregateAcrossEntitiesLazyQuery({
+    const {
+        data: newData,
+        previousData,
+        loading,
+        error,
+    } = useAggregateAcrossEntitiesQuery({
+        skip,
         fetchPolicy: 'cache-first',
-    });
-
-    const getAggregationsApi = () => {
-        getAggregations({
-            variables: {
-                input: {
-                    types: [entityType],
-                    query,
-                    orFilters,
-                    viewUrn,
-                    facets,
-                },
+        variables: {
+            input: {
+                types: [entityType],
+                query,
+                orFilters,
+                viewUrn,
+                facets,
             },
-        });
-    };
+        },
+    });
 
     const data = error ? null : newData ?? previousData;
     const loaded = !!data || !!error;
@@ -44,16 +46,13 @@ const useAggregationsQuery = ({ entityType, environment, platform, facets }: Pro
             ?.find((facet) => facet.field === PLATFORM_FILTER_NAME)
             ?.aggregations.filter((aggregation) => aggregation.count) ?? [];
 
-    return [
-        getAggregationsApi,
-        {
-            loading,
-            loaded,
-            error,
-            environmentAggregations,
-            platformAggregations,
-        } as const,
-    ] as const;
+    return {
+        loading,
+        loaded,
+        error,
+        environmentAggregations,
+        platformAggregations,
+    } as const;
 };
 
 export default useAggregationsQuery;

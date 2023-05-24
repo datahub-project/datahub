@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -52,4 +52,4 @@ const BrowseSidebar = ({ facets, visible, width }: Props) => {
     );
 };
 
-export default memo(BrowseSidebar);
+export default BrowseSidebar;

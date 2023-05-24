@@ -13,21 +13,6 @@ import useBrowseV2Query from './useBrowseV2Query';
 import useToggle from './useToggle';
 import BrowseNode from './BrowseNode';
 
-const Header = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
-    padding-top: 8px;
-`;
-
-const HeaderLeft = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-`;
-
 const Title = styled(Typography.Text)`
     font-size: 14px;
     color: ${(props) => props.color};
@@ -39,13 +24,15 @@ const PlatformIconContainer = styled.div`
     justify-content: center;
     align-items: center;
 `;
-
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
 `;
 
-const Body = styled.div``;
+const BrowseGroupListContainer = styled.div`
+    background: white;
+    border-radius: 8px;
+`;
 
 const path = [];
 
@@ -53,10 +40,9 @@ type Props = {
     entityAggregation: AggregationMetadata;
     environmentAggregation: AggregationMetadata | null;
     platformAggregation: AggregationMetadata;
-    depth: number;
 };
 
-const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation, depth }: Props) => {
+const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggregation }: Props) => {
     const entityType = entityAggregation.value as EntityType;
     const environment = environmentAggregation?.value;
     const platform = platformAggregation.value;
@@ -70,37 +56,36 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
         16,
     );
 
-    const [getBrowse, { loaded, error, groups }] = useBrowseV2Query({
+    const { isOpen, toggle } = useToggle();
+
+    const { loaded, error, groups } = useBrowseV2Query({
         entityType,
         environment,
         platform,
         path,
+        skip: !isOpen,
     });
-
-    const { isOpen, toggle } = useToggle({ onRequestOpen: getBrowse });
 
     const color = ANTD_GRAY[9];
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
-            depth={depth}
             header={
-                <Header onClick={toggle}>
-                    <HeaderLeft>
+                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
+                    <ExpandableNode.HeaderLeft>
                         {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
                         <Title color={color}>{label}</Title>
-                    </HeaderLeft>
+                    </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
-                </Header>
+                </ExpandableNode.Header>
             }
             body={
-                <Body>
+                <ExpandableNode.Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                     {!!groups?.length && (
-                        // todo improve styling for this based on figma
-                        <div style={{ background: 'white', borderRadius: '5px' }}>
+                        <BrowseGroupListContainer>
                             {groups.map((group) => (
                                 <BrowseNode
                                     key={group.name}
@@ -108,12 +93,11 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                                     environmentAggregation={environmentAggregation}
                                     platformAggregation={platformAggregation}
                                     browseResultGroup={group}
-                                    depth={depth + 1}
                                 />
                             ))}
-                        </div>
+                        </BrowseGroupListContainer>
                     )}
-                </Body>
+                </ExpandableNode.Body>
             }
         />
     );

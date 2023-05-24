@@ -1,28 +1,14 @@
-import React from 'react';
+import React, { CSSProperties } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
+import { FolderOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import { AggregationMetadata, BrowseResultGroupV2, EntityType } from '../../../types.generated';
 import useBrowseV2Query from './useBrowseV2Query';
 import useToggle from './useToggle';
-
-const Header = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
-    padding-top: 8px;
-`;
-
-const HeaderLeft = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-`;
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -34,8 +20,6 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-const Body = styled.div``;
-
 const path = [];
 
 type Props = {
@@ -43,46 +27,41 @@ type Props = {
     environmentAggregation: AggregationMetadata | null;
     platformAggregation: AggregationMetadata;
     browseResultGroup: BrowseResultGroupV2;
-    depth: number;
 };
 
-const BrowseNode = ({
-    entityAggregation,
-    environmentAggregation,
-    platformAggregation,
-    browseResultGroup,
-    depth,
-}: Props) => {
+const BrowseNode = ({ entityAggregation, environmentAggregation, platformAggregation, browseResultGroup }: Props) => {
     const entityType = entityAggregation.value as EntityType;
     const environment = environmentAggregation?.value;
     const platform = platformAggregation.value;
 
-    const [getBrowse, { loaded, error, groups }] = useBrowseV2Query({
+    const { isOpen, toggle } = useToggle();
+
+    const { loaded, error, groups } = useBrowseV2Query({
+        skip: !isOpen,
         entityType,
         environment,
         platform,
         path,
     });
 
-    const { isOpen, toggle } = useToggle({ onRequestOpen: getBrowse });
-
     const color = ANTD_GRAY[9];
+    const iconProps: CSSProperties = { color, visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
-            depth={depth}
             header={
-                <Header onClick={toggle}>
-                    <HeaderLeft>
-                        {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
+                <ExpandableNode.Header isOpen={isOpen} onClick={toggle}>
+                    <ExpandableNode.HeaderLeft>
+                        {isOpen ? <VscTriangleDown style={iconProps} /> : <VscTriangleRight style={iconProps} />}
+                        <FolderOutlined style={{ fontSize: 16 }} />
                         <Title color={color}>{browseResultGroup.name}</Title>
-                    </HeaderLeft>
+                    </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
-                </Header>
+                </ExpandableNode.Header>
             }
             body={
-                <Body>
+                <ExpandableNode.Body>
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                     {groups?.map((group) => (
                         <BrowseNode
@@ -91,10 +70,9 @@ const BrowseNode = ({
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
                             browseResultGroup={group}
-                            depth={depth + 1}
                         />
                     ))}
-                </Body>
+                </ExpandableNode.Body>
             }
         />
     );
