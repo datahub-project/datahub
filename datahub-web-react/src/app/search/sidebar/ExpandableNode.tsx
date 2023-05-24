@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
+import { VscTriangleRight } from 'react-icons/vsc';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const Layout = styled.div`
@@ -50,6 +51,12 @@ ExpandableNode.HeaderLeft = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+`;
+
+ExpandableNode.Triangle = styled(VscTriangleRight)<{ isOpen: boolean }>`
+    color: ${ANTD_GRAY[9]};
+    transform: rotate(${(props) => (props.isOpen ? 90 : 0)}deg);
+    transition: transform 0.2s;
 `;
 
 ExpandableNode.Body = styled.div``;

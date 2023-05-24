@@ -1,7 +1,6 @@
 import React, { CSSProperties } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
 import { FolderOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
@@ -55,7 +54,7 @@ const BrowseNode = ({
     });
 
     const color = ANTD_GRAY[9];
-    const iconProps: CSSProperties = { color, visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
+    const iconProps: CSSProperties = { visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
 
     return (
         <ExpandableNode
@@ -63,7 +62,7 @@ const BrowseNode = ({
             header={
                 <ExpandableNode.Header isOpen={isOpen} onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
-                        {isOpen ? <VscTriangleDown style={iconProps} /> : <VscTriangleRight style={iconProps} />}
+                        <ExpandableNode.Triangle isOpen={isOpen} style={iconProps} />
                         <FolderStyled />
                         <Title color={color}>{browseResultGroup.name}</Title>
                     </ExpandableNode.HeaderLeft>

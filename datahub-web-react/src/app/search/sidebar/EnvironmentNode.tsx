@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
@@ -49,7 +48,7 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
-                        {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
+                        <ExpandableNode.Triangle isOpen={isOpen} />
                         <Title color={color}>{environmentAggregation.value}</Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(environmentAggregation.count)}</Count>

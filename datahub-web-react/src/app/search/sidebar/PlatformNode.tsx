@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { VscTriangleDown, VscTriangleRight } from 'react-icons/vsc';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
@@ -74,7 +73,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
-                        {isOpen ? <VscTriangleDown style={{ color }} /> : <VscTriangleRight style={{ color }} />}
+                        <ExpandableNode.Triangle isOpen={isOpen} />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
                         <Title color={color}>{label}</Title>
                     </ExpandableNode.HeaderLeft>
