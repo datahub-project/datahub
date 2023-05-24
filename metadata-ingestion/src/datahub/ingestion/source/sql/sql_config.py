@@ -98,6 +98,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     )
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
+
     database_alias: Optional[str] = Field(
         default=None,
         description="[Deprecated] Alias to apply to database when ingesting.",
@@ -124,7 +125,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
             self.host_port,
-            self.database or database,
+            database or self.database,
             uri_opts=uri_opts,
         )
 

@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, TypeVar
 
+from faker import Faker
+
 from tests.performance.data_model import (
     Container,
     FieldAccess,
@@ -106,12 +108,19 @@ def generate_queries(
     seed_metadata: SeedMetadata,
     num_selects: int,
     num_operations: int,
+    num_unique_queries: int,
     num_users: int,
     tables_per_select: NormalDistribution = NormalDistribution(3, 5),
     columns_per_select: NormalDistribution = NormalDistribution(10, 5),
     upstream_tables_per_operation: NormalDistribution = NormalDistribution(2, 2),
     query_length: NormalDistribution = NormalDistribution(100, 50),
 ) -> Iterable[Query]:
+    faker = Faker()
+    query_texts = [
+        faker.paragraph(query_length.sample_with_floor(30) // 30)
+        for _ in range(num_unique_queries)
+    ]
+
     all_tables = seed_metadata.tables + seed_metadata.views
     users = [f"user-{i}@xyz.com" for i in range(num_users)]
     for i in range(num_selects):  # Pure SELECT statements
@@ -120,7 +129,7 @@ def generate_queries(
             FieldAccess(column, table) for table in tables for column in table.columns
         ]
         yield Query(
-            text=f"{uuid.uuid4()}-{'*' * query_length.sample_with_floor(10)}",
+            text=random.choice(query_texts),
             type="SELECT",
             actor=random.choice(users),
             timestamp=_random_time_between(
@@ -132,7 +141,7 @@ def generate_queries(
     for i in range(num_operations):
         modified_table = random.choice(seed_metadata.tables)
         n_col = len(modified_table.columns)
-        num_columns_modified = NormalDistribution(n_col, n_col / 2)
+        num_columns_modified = NormalDistribution(n_col / 2, n_col / 2)
         upstream_tables = _sample_list(all_tables, upstream_tables_per_operation)
 
         all_columns = [
@@ -141,19 +150,20 @@ def generate_queries(
             for column in table.columns
         ]
         yield Query(
-            text=f"{uuid.uuid4()}-{'*' * query_length.sample_with_floor(10)}",
+            text=random.choice(query_texts),
             type=random.choice(OPERATION_TYPES),
             actor=random.choice(users),
             timestamp=_random_time_between(
                 seed_metadata.start_time, seed_metadata.end_time
             ),
-            fields_accessed=_sample_list(all_columns, num_columns_modified),
+            # Can have no field accesses, e.g. on a standard INSERT
+            fields_accessed=_sample_list(all_columns, num_columns_modified, 0),
             object_modified=modified_table,
         )
 
 
-def _sample_list(lst: List[T], dist: NormalDistribution) -> List[T]:
-    return random.sample(lst, min(dist.sample_with_floor(), len(lst)))
+def _sample_list(lst: List[T], dist: NormalDistribution, floor: int = 1) -> List[T]:
+    return random.sample(lst, min(dist.sample_with_floor(floor), len(lst)))
 
 
 def _random_time_between(start: datetime, end: datetime) -> datetime:

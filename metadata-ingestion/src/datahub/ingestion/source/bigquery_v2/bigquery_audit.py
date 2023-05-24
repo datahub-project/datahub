@@ -13,21 +13,16 @@ from datahub.utilities.parsing_util import (
     get_first_missing_key_any,
 )
 
+BQ_FILTER_RULE_TEMPLATE = "BQ_FILTER_RULE_TEMPLATE"
+
 BQ_AUDIT_V2 = {
-    "BQ_FILTER_REGEX_ALLOW_TEMPLATE": """protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_allow_pattern}"
-""".strip(
-        "\t \n"
-    ),
-    "BQ_FILTER_REGEX_DENY_TEMPLATE": """
-    {logical_operator}
-            NOT (
-                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_deny_pattern}"
-            )
-""".strip(
-        "\t \n"
-    ),
-    "BQ_FILTER_RULE_TEMPLATE": """
+    BQ_FILTER_RULE_TEMPLATE: """
 resource.type=("bigquery_project" OR "bigquery_dataset")
+AND
+timestamp >= "{start_time}"
+AND
+timestamp < "{end_time}"
+AND protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
@@ -37,27 +32,24 @@ AND
                 OR
                 "google.cloud.bigquery.v2.JobService.InsertJob"
             )
-        AND
-        protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
+        AND protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-        AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
-         AND (
-            {allow_regex}
-            {deny_regex}
-         OR
-            protoPayload.metadata.tableDataRead.reason = "JOB"
+        AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
+        AND
+        (
+            (
+                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+                AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
+            )
+            OR
+            (
+                protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable:*
+            )
         )
     )
     OR
-    (
-        protoPayload.metadata.tableDataRead:*
-    )
+    protoPayload.metadata.tableDataRead.reason = "JOB"
 )
-AND
-timestamp >= "{start_time}"
-AND
-timestamp < "{end_time}"
 """.strip(
         "\t \n"
     ),
@@ -122,11 +114,8 @@ class BigqueryTableIdentifier:
             - removes wildcard part (table_yyyy* -> table)
             - remove time decorator (table@1624046611000 -> table)
         """
-        shortened_table_name = self.table
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
-        shortened_table_name = re.sub(
-            self._BIGQUERY_WILDCARD_REGEX, "", shortened_table_name
-        )
+        shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
 
         matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
@@ -160,9 +149,7 @@ class BigqueryTableIdentifier:
             f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
         )
         if self.is_sharded_table():
-            table_name = (
-                f"{table_name}{BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX}"
-            )
+            table_name += BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX
         return table_name
 
     def is_sharded_table(self) -> bool:
@@ -187,8 +174,9 @@ class BigqueryTableIdentifier:
 class BigQueryTableRef:
     # Handle table time travel. See https://cloud.google.com/bigquery/docs/time-travel
     # See https://cloud.google.com/bigquery/docs/table-decorators#time_decorators
-    # Handling for @0 and @-TIME_OFFSET is apparently missing
-    SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(r"^(.+)@(\d{13})$")
+    SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(
+        "^(.+)@(-?\\d{1,13})(-(-?\\d{1,13})?)?$"
+    )
 
     table_identifier: BigqueryTableIdentifier
 
@@ -205,7 +193,7 @@ class BigQueryTableRef:
                 raise ValueError(f"invalid BigQuery table reference dict: {spec}")
 
         return cls(
-            # spec dict always has to have projectId, datasetId, tableId otherwise it is an ivalid spec
+            # spec dict always has to have projectId, datasetId, tableId otherwise it is an invalid spec
             BigqueryTableIdentifier(
                 spec["projectId"], spec["datasetId"], spec["tableId"]
             )

@@ -21,10 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    query_log_delay: Optional[PositiveInt] = Field(
-        default=None,
-        description="To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least query_log_delay additional events to be processed before attempting to resolve BigQuery job information from the logs. If query_log_delay is None, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage.",
-    )
+    _query_log_delay_removed = pydantic_removed_field("query_log_delay")
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
@@ -105,7 +102,11 @@ class BigQueryV2Config(
     )
     project_ids: List[str] = Field(
         default_factory=list,
-        description="Ingests specified project_ids. Use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account.",
+        description=(
+            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
+            "don't want to give project resourcemanager.projects.list to your service account. "
+            "Overrides `project_id_pattern`."
+        ),
     )
 
     project_on_behalf: Optional[str] = Field(
@@ -116,8 +117,8 @@ class BigQueryV2Config(
     storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
-        default=False,
-        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+        default=True,
+        description="Use sql parser to resolve view/table lineage. Only invoked on tables with both upstream tables and views. Used to distinguish between direct/base objects accessed, to only emit upstream lineage for directly accessed objects.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,
@@ -194,6 +195,12 @@ class BigQueryV2Config(
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
+    file_backed_cache_size: int = Field(
+        hidden_from_docs=True,
+        default=2000,
+        description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
+    )
+
     def __init__(self, **data: Any):
         super().__init__(**data)
 
@@ -261,10 +268,9 @@ class BigQueryV2Config(
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
-        return "|".join(pattern) if self.table_pattern else ""
+        return "|".join(pattern) if pattern else ""
 
-    # TODO: remove run_on_compute when the legacy bigquery source will be deprecated
-    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+    def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:
             return f"bigquery://{self.project_on_behalf}"
         # When project_id is not set, we will attempt to detect the project ID

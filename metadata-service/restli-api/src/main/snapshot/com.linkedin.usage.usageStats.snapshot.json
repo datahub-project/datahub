@@ -102,7 +102,8 @@
         } ]
       },
       "doc" : " Metrics associated with this bucket "
-    } ]
+    } ],
+    "deprecated" : "Use DatasetUsageStatistics, or other UsageStatistics records, instead"
   }, "com.linkedin.usage.UsageAggregationMetrics", {
     "type" : "record",
     "name" : "UsageQueryResult",
@@ -155,6 +156,9 @@
     "symbols" : [ "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR", "ALL" ]
   }, "com.linkedin.usage.UserUsageCounts" ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "usageStats",
     "namespace" : "com.linkedin.usage",
     "path" : "/usageStats",
@@ -163,6 +167,9 @@
     "simple" : {
       "supports" : [ ],
       "actions" : [ {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "batchIngest",
         "parameters" : [ {
           "name" : "buckets",

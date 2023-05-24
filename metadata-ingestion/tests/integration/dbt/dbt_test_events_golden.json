@@ -8,7 +8,8 @@
         "json": {
             "typeNames": [
                 "Model",
-                "Table"
+                "Table",
+                "View"
             ]
         }
     },
@@ -214,7 +215,8 @@
         "json": {
             "typeNames": [
                 "Model",
-                "Table"
+                "Table",
+                "View"
             ]
         }
     },
@@ -1234,7 +1236,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.customers%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -1248,7 +1250,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.orders%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -1262,7 +1264,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_customers%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -1276,7 +1278,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_orders%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -1290,7 +1292,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.stg_payments%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -1304,7 +1306,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_customers%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -1318,7 +1320,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_orders%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
@@ -1332,7 +1334,7 @@
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Ccalm-pagoda-323403.jaffle_shop.raw_payments%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
         "contentType": "application/json-patch+json"
     },
     "systemMetadata": {

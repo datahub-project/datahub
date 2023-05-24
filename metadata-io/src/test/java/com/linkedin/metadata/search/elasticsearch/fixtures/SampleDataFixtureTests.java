@@ -57,6 +57,7 @@ import static com.linkedin.metadata.ESTestUtils.autocomplete;
 import static com.linkedin.metadata.ESTestUtils.search;
 import static com.linkedin.metadata.ESTestUtils.searchStructured;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
+import static com.linkedin.metadata.utils.SearchUtil.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
@@ -119,8 +120,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
             for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
                 SearchFieldConfig test = SearchFieldConfig.detectSubFieldType(fieldSpec);
 
-                if (!test.getFieldName().contains(".")) {
-                    Map<String, Object> actual = mappings.get(test.getFieldName());
+                if (!test.fieldName().contains(".")) {
+                    Map<String, Object> actual = mappings.get(test.fieldName());
 
                     final String expectedAnalyzer;
                     if (actual.get("search_analyzer") != null) {
@@ -131,36 +132,36 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         expectedAnalyzer = "keyword";
                     }
 
-                    assertEquals(test.getAnalyzer(), expectedAnalyzer,
+                    assertEquals(test.analyzer(), expectedAnalyzer,
                             String.format("Expected search analyzer to match for entity: `%s`field: `%s`",
-                                    entitySpec.getName(), test.getFieldName()));
+                                    entitySpec.getName(), test.fieldName()));
 
                     if (test.hasDelimitedSubfield()) {
                         assertTrue(((Map<String, Map<String, String>>) actual.get("fields")).containsKey("delimited"),
                                 String.format("Expected entity: `%s` field to have .delimited subfield: `%s`",
-                                        entitySpec.getName(), test.getFieldName()));
+                                        entitySpec.getName(), test.fieldName()));
                     } else {
                         boolean nosubfield = !actual.containsKey("fields")
                                 || !((Map<String, Map<String, String>>) actual.get("fields")).containsKey("delimited");
                         assertTrue(nosubfield, String.format("Expected entity: `%s` field to NOT have .delimited subfield: `%s`",
-                                entitySpec.getName(), test.getFieldName()));
+                                entitySpec.getName(), test.fieldName()));
                     }
                     if (test.hasKeywordSubfield()) {
                         assertTrue(((Map<String, Map<String, String>>) actual.get("fields")).containsKey("keyword"),
                                 String.format("Expected entity: `%s` field to have .keyword subfield: `%s`",
-                                        entitySpec.getName(), test.getFieldName()));
+                                        entitySpec.getName(), test.fieldName()));
                     } else {
                         boolean nosubfield = !actual.containsKey("fields")
                                 || !((Map<String, Map<String, String>>) actual.get("fields")).containsKey("keyword");
                         assertTrue(nosubfield, String.format("Expected entity: `%s` field to NOT have .keyword subfield: `%s`",
-                                entitySpec.getName(), test.getFieldName()));
+                                entitySpec.getName(), test.fieldName()));
                     }
                 } else {
                     // this is a subfield therefore cannot have a subfield
                     assertFalse(test.hasKeywordSubfield());
                     assertFalse(test.hasDelimitedSubfield());
 
-                    String[] fieldAndSubfield = test.getFieldName().split("[.]", 2);
+                    String[] fieldAndSubfield = test.fieldName().split("[.]", 2);
 
                     Map<String, Object> actualParent = mappings.get(fieldAndSubfield[0]);
                     Map<String, Object> actualSubfield = ((Map<String, Map<String, Object>>) actualParent.get("fields")).get(fieldAndSubfield[0]);
@@ -168,8 +169,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     String expectedAnalyzer = actualSubfield.get("search_analyzer") != null ? (String) actualSubfield.get("search_analyzer")
                             : "keyword";
 
-                    assertEquals(test.getAnalyzer(), expectedAnalyzer,
-                            String.format("Expected search analyzer to match for field `%s`", test.getFieldName()));
+                    assertEquals(test.analyzer(), expectedAnalyzer,
+                            String.format("Expected search analyzer to match for field `%s`", test.fieldName()));
                 }
             }
         }
@@ -195,7 +196,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         final SearchResult result = search(searchService, "test");
 
         Map<String, Integer> expectedTypes = Map.of(
-                "dataset", 10,
+                "dataset", 13,
                 "chart", 0,
                 "container", 1,
                 "dashboard", 0,
@@ -701,6 +702,49 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
+    public void testNestedAggregation() {
+        Set<String> expectedFacets = Set.of("platform");
+        SearchResult testResult = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResult.getMetadata().getAggregations().size(), 1);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResult.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResult.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+
+        expectedFacets = Set.of("platform", "typeNames", "_entityType");
+        SearchResult testResult2 = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResult2.getMetadata().getAggregations().size(), 3);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResult2.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResult2.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+        String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
+        expectedFacets = Set.of(singleNestedFacet);
+        SearchResult testResultSingleNested = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
+
+        expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
+        SearchResult testResultNested = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResultNested.getMetadata().getAggregations().size(), 4);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResultNested.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResultNested.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+
+        List<AggregationMetadata> expectedNestedAgg = testResultNested.getMetadata().getAggregations().stream().filter(
+            agg -> agg.getName().equals(singleNestedFacet)).collect(Collectors.toList());
+        assertEquals(expectedNestedAgg.size(), 1);
+        AggregationMetadata nestedAgg = expectedNestedAgg.get(0);
+        assertEquals(nestedAgg.getDisplayName(), String.format("Type%sOwned By", AGGREGATION_SEPARATOR_CHAR));
+    }
+
+    @Test
     public void testPartialUrns() throws IOException {
         Set<String> expectedQueryTokens = Set.of("dataplatform", "data platform", "samplehdfsdataset", "prod", "production");
         Set<String> expectedIndexTokens = Set.of("dataplatform", "data platform", "hdfs", "samplehdfsdataset", "prod", "production");
@@ -1132,6 +1176,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "Expected exact match and 1st position");
     }
 
+    // Note: This test can fail if not using .keyword subfields (check for possible query builder regression)
     @Test
     public void testPrefixVsExactCaseSensitivity() {
         List<String> insensitiveExactMatches = List.of("testExactMatchCase", "testexactmatchcase", "TESTEXACTMATCHCASE");
@@ -1148,6 +1193,35 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     "urn:li:dataset:(urn:li:dataPlatform:testOnly," + query + ",PROD)",
                     "Expected exact match as first match with matching case");
         }
+    }
+
+    @Test
+    public void testColumnExactMatch() {
+        String query = "unit_data";
+        SearchResult result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+            String.format("%s - Expected search results to include matched fields", query));
+
+        assertTrue(result.getEntities().size() > 2,
+            String.format("%s - Expected search results to have at least two results", query));
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:testOnly," + query + ",PROD)",
+            "Expected table name exact match first");
+
+        query = "special_column_only_present_here_info";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+            String.format("%s - Expected search results to include matched fields", query));
+
+        assertTrue(result.getEntities().size() > 2,
+            String.format("%s - Expected search results to have at least two results", query));
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:testOnly," + "important_units" + ",PROD)",
+            "Expected table with column name exact match first");
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {

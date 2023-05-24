@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import msal
 import requests
+from requests import Response
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -31,6 +32,17 @@ def is_permission_error(e: Exception) -> bool:
         return False
 
     return e.response.status_code == 401 or e.response.status_code == 403
+
+
+def is_http_failure(response: Response, message: str) -> bool:
+    if response.ok:
+        # It is not failure so no need to log the message just return with False
+        return False
+
+    logger.info(message)
+    logger.debug(f"HTTP Status Code = {response.status_code}")
+    logger.debug(f"HTTP Error Message = {response.text}")
+    return True
 
 
 class DataResolverBase(ABC):
@@ -471,8 +483,9 @@ class RegularAPIResolver(DataResolverBase):
             headers=self.get_authorization_header(),
         )
 
-        # Check if we got response from PowerBi
-        response.raise_for_status()
+        if is_http_failure(response, f"Unable to fetch pages for report {report_id}"):
+            return []
+
         response_dict = response.json()
         return [
             Page(
@@ -501,13 +514,14 @@ class AdminAPIResolver(DataResolverBase):
         Constant.SCAN_CREATE: "{POWERBI_ADMIN_BASE_URL}/workspaces/getInfo",
         Constant.ENTITY_USER_LIST: "{POWERBI_ADMIN_BASE_URL}/{ENTITY}/{ENTITY_ID}/users",
         Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/datasets",
+        Constant.WORKSPACE_MODIFIED_LIST: "{POWERBI_ADMIN_BASE_URL}/workspaces/modified",
     }
 
-    def create_scan_job(self, workspace_id: str) -> str:
+    def create_scan_job(self, workspace_ids: List[str]) -> str:
         """
         Create scan job on PowerBI for the workspace
         """
-        request_body = {"workspaces": [workspace_id]}
+        request_body = {"workspaces": workspace_ids}
 
         scan_create_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
@@ -644,6 +658,12 @@ class AdminAPIResolver(DataResolverBase):
                 emailAddress=instance.get(Constant.EMAIL_ADDRESS),
                 graphId=instance.get(Constant.GRAPH_ID),
                 principalType=instance.get(Constant.PRINCIPAL_TYPE),
+                datasetUserAccessRight=instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
+                reportUserAccessRight=instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
+                dashboardUserAccessRight=instance.get(
+                    Constant.DASHBOARD_USER_ACCESS_RIGHT
+                ),
+                groupUserAccessRight=instance.get(Constant.GROUP_USER_ACCESS_RIGHT),
             )
             for instance in users_dict
         ]
@@ -679,7 +699,7 @@ class AdminAPIResolver(DataResolverBase):
             )
             return None
 
-        return res.json()["workspaces"][0]
+        return res.json()
 
     def get_groups_endpoint(self) -> str:
         return f"{AdminAPIResolver.ADMIN_BASE_URL}/groups"
@@ -738,6 +758,46 @@ class AdminAPIResolver(DataResolverBase):
 
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
+
+    def get_modified_workspaces(self, modified_since: str) -> List[str]:
+        """
+        Get list of modified workspaces
+        """
+        modified_workspaces_endpoint = self.API_ENDPOINTS[
+            Constant.WORKSPACE_MODIFIED_LIST
+        ].format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+        )
+        parameters: Dict[str, Any] = {
+            "excludePersonalWorkspaces": True,
+            "excludeInActiveWorkspaces": True,
+            "modifiedSince": modified_since,
+        }
+
+        res = self._request_session.get(
+            modified_workspaces_endpoint,
+            params=parameters,
+            headers=self.get_authorization_header(),
+        )
+        if res.status_code == 400:
+            error_msg_json = res.json()
+            if (
+                error_msg_json.get("error")
+                and error_msg_json["error"]["code"] == "InvalidRequest"
+            ):
+                raise ConfigurationError(
+                    "Please check if modified_since is within last 30 days."
+                )
+            else:
+                raise ConfigurationError(
+                    f"Please resolve the following error: {res.text}"
+                )
+        res.raise_for_status()
+
+        # Return scan_id of Scan created for the given workspace
+        workspace_ids = [row["id"] for row in res.json()]
+        logger.debug("modified workspace_ids: {}".format(workspace_ids))
+        return workspace_ids
 
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str

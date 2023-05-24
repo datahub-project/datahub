@@ -190,6 +190,8 @@ def datahub_task_status_callback(context, status):
         )
         task.log.info(f"Emitted Completed Data Process Instance: {dpi}")
 
+    emitter.flush()
+
 
 def datahub_pre_execution(context):
     ti = context["ti"]
@@ -239,6 +241,8 @@ def datahub_pre_execution(context):
         )
 
         task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
+
+    emitter.flush()
 
 
 def _wrap_pre_execution(pre_execution):
@@ -335,7 +339,8 @@ def _wrap_task_policy(policy):
         policy(task)
         task_policy(task)
 
-    setattr(custom_task_policy, "_task_policy_patched_by", "datahub_plugin")
+    # Add a flag to the policy to indicate that we've patched it.
+    custom_task_policy._task_policy_patched_by = "datahub_plugin"  # type: ignore[attr-defined]
     return custom_task_policy
 
 

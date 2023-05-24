@@ -12,6 +12,9 @@ authentication:
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
 
+  # Normally failures are only warnings, enable this to throw them.
+  logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:false}
+
   # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
   # at user login time.
   systemClientId: ${DATAHUB_SYSTEM_CLIENT_ID:__datahub_system}
@@ -38,6 +41,7 @@ authorization:
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
+  maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -169,6 +173,7 @@ elasticsearch:
     refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:1} # increase to 30 if expected indexing rates to be greater than 100/s
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
+    maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
@@ -193,6 +198,9 @@ elasticsearch:
     partial:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
+    custom:
+      enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:false}
+      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yml}
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
@@ -209,11 +217,12 @@ kafka:
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
-    type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
-    url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081} # Application only for type = kafka
-    awsGlue:
-      region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
-      registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+    type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
+    url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
+    #url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8080/schema-registry/api/}
+    #awsGlue:
+    #  region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
+    #  registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
   schema:
     registry:
       security:
@@ -247,6 +256,11 @@ metadataTests:
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
+updateIndices:
+  enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
+ingestionScheduler:
+  enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
+
 
 bootstrap:
   upgradeDefaultBrowsePaths:
@@ -265,6 +279,7 @@ featureFlags:
   pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with main line ElasticSearch releases after 7.10. OpenSearch is unsupported, plans to eventually target OpenSearch 2.4+ with a divergent client
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
+  readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

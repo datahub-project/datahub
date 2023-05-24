@@ -1,11 +1,16 @@
 import logging
 from enum import Enum
-from typing import Dict, Optional, cast
+from typing import Dict, List, Optional, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.glossary.classifier import ClassificationConfig
+from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
@@ -13,11 +18,22 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
     SnowflakeConfig,
-    SnowflakeProvisionRoleConfig,
 )
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 
 logger = logging.Logger(__name__)
+
+# FIVETRAN creates temporary tables in schema named FIVETRAN_xxx_STAGING.
+# Ref - https://support.fivetran.com/hc/en-us/articles/1500003507122-Why-Is-There-an-Empty-Schema-Named-Fivetran-staging-in-the-Destination-
+#
+# DBT incremental models create temporary tables ending with __dbt_tmp
+# Ref - https://discourse.getdbt.com/t/handling-bigquery-incremental-dbt-tmp-tables/7540
+DEFAULT_UPSTREAMS_DENY_LIST = [
+    r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
+    r".*__DBT_TMP$",  # dbt
+    rf".*\.SEGMENT_{UUID_REGEX}",  # segment
+    rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
+]
 
 
 class TagOption(str, Enum):
@@ -31,6 +47,7 @@ class SnowflakeV2Config(
     SnowflakeUsageConfig,
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     convert_urns_to_lowercase: bool = Field(
         default=True,
@@ -51,23 +68,16 @@ class SnowflakeV2Config(
         description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role.",
     )
 
-    check_role_grants: bool = Field(
-        default=False,
-        description="Not supported",
-    )
+    _check_role_grants_removed = pydantic_removed_field("check_role_grants")
+    _provision_role_removed = pydantic_removed_field("provision_role")
 
-    provision_role: Optional[SnowflakeProvisionRoleConfig] = Field(
-        default=None, description="Not supported"
-    )
+    # FIXME: This validator already exists in one of the parent classes, but for some reason it
+    # does not have any effect there. As such, we have to re-add it here.
+    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
         description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
-    )
-
-    classification: Optional[ClassificationConfig] = Field(
-        default=None,
-        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
     )
 
     include_external_url: bool = Field(
@@ -80,6 +90,26 @@ class SnowflakeV2Config(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
+    use_legacy_lineage_method: bool = Field(
+        default=True,
+        description="Whether to use the legacy lineage computation method. If set to False, ingestion uses new optimised lineage extraction method that requires less ingestion process memory.",
+    )
+
+    validate_upstreams_against_patterns: bool = Field(
+        default=True,
+        description="Whether to validate upstream snowflake tables against allow-deny patterns",
+    )
+
+    tag_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
+    )
+
+    upstreams_deny_pattern: List[str] = Field(
+        default=DEFAULT_UPSTREAMS_DENY_LIST,
+        description="[Advanced] Regex patterns for upstream tables to filter in ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools. Not used if `use_legacy_lineage_method=True`",
+    )
+
     @validator("include_column_lineage")
     def validate_include_column_lineage(cls, v, values):
         if not values.get("include_table_lineage") and v:
@@ -88,25 +118,8 @@ class SnowflakeV2Config(
             )
         return v
 
-    tag_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
-    )
-
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("provision_role")
-        if value is not None and value.enabled:
-            raise ValueError(
-                "Provision role is currently not supported. Set `provision_role.enabled` to False."
-            )
-
-        value = values.get("check_role_grants")
-        if value is not None and value:
-            raise ValueError(
-                "Check role grants is not supported. Set `check_role_grants` to False.",
-            )
-
         value = values.get("include_read_operational_stats")
         if value is not None and value:
             raise ValueError(
@@ -143,15 +156,14 @@ class SnowflakeV2Config(
             and values["stateful_ingestion"].enabled
             and values["stateful_ingestion"].remove_stale_metadata
         )
-        include_table_lineage = values.get("include_table_lineage")
 
         # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
-        # as it seems possible with some refractor
+        # as it seems possible with some refactor
         if not include_technical_schema and any(
-            [include_profiles, delete_detection_enabled, include_table_lineage]
+            [include_profiles, delete_detection_enabled]
         ):
             raise ValueError(
-                "Can not perform Deletion Detection, Lineage Extraction, Profiling without extracting snowflake technical schema.  Set `include_technical_schema` to True or disable Deletion Detection, Lineage Extraction, Profiling."
+                "Cannot perform Deletion Detection or Profiling without extracting snowflake technical schema. Set `include_technical_schema` to True or disable Deletion Detection and Profiling."
             )
 
         return values

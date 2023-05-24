@@ -1,16 +1,8 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
-import {
-    Entity,
-    EntityType,
-    FacetFilterInput,
-    FacetMetadata,
-    MatchedField,
-    ScrollResults,
-    ScrollAcrossEntitiesInput,
-} from '../../types.generated';
+import { Entity, EntityType, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
@@ -26,6 +18,7 @@ import { SearchFiltersSection } from './SearchFiltersSection';
 import { generateOrFilters } from './utils/generateOrFilters';
 import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
+import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 
 const SearchBody = styled.div`
     display: flex;
@@ -88,9 +81,7 @@ interface Props {
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     onChangePage: (page: number) => void;
-    callSearchOnVariables: (variables: {
-        input: ScrollAcrossEntitiesInput;
-    }) => Promise<ScrollResults | null | undefined>;
+    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
     numResultsPerPage: number;
@@ -116,7 +107,7 @@ export const SearchResults = ({
     onChangeUnionType,
     onChangeFilters,
     onChangePage,
-    callSearchOnVariables,
+    downloadSearchResults,
     entityFilters,
     filtersWithoutEntities,
     numResultsPerPage,
@@ -165,12 +156,13 @@ export const SearchResults = ({
                                 </Typography.Text>
                                 <SearchMenuContainer>
                                     <SearchExtendedMenu
-                                        callSearchOnVariables={callSearchOnVariables}
+                                        downloadSearchResults={downloadSearchResults}
                                         entityFilters={entityFilters}
                                         filters={generateOrFilters(unionType, filtersWithoutEntities)}
                                         query={query}
                                         viewUrn={viewUrn}
                                         setShowSelectMode={setIsSelectMode}
+                                        totalResults={totalResults}
                                     />
                                 </SearchMenuContainer>
                             </>

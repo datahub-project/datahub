@@ -3,19 +3,22 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.20'
-  ext.springBootVersion = '2.5.12'
+  ext.springVersion = '5.3.27'
+  ext.springBootVersion = '2.7.11'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.4'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '7.10.2'
-  ext.jacksonVersion = '2.13.5'
+  // TODO: Change to final release version once it's out ETA Mid-April
+  ext.jacksonVersion = '2.15.0-rc2'
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
-  ext.slf4jVersion = '1.7.32'
-  ext.logbackClassic = '1.2.11'
+  ext.slf4jVersion = '1.7.36'
+  ext.logbackClassic = '1.2.12'
+  ext.hadoop3Version = '3.3.5'
+  ext.kafkaVersion = '2.3.0'
 
   ext.docker_registry = 'linkedin'
 
@@ -95,10 +98,10 @@ project.ext.externalDependency = [
     'guice': 'com.google.inject:guice:4.2.3',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.214',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.4',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
-    'hadoopCommon3':'org.apache.hadoop:hadoop-common:3.3.4',
+    "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
+    "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
     'hazelcast':'com.hazelcast:hazelcast:5.2.1',
     'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
     'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
@@ -119,13 +122,13 @@ project.ext.externalDependency = [
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
-    'jettison': 'org.codehaus.jettison:jettison:1.5.2',
+    'jettison': 'org.codehaus.jettison:jettison:1.5.4',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
     'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.4.6',
+    'jsonSmart': 'net.minidev:json-smart:2.4.9',
     'json': 'org.json:json:20230227',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
@@ -133,7 +136,7 @@ project.ext.externalDependency = [
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
-    'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
+    'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
@@ -175,7 +178,7 @@ project.ext.externalDependency = [
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
     'shiroCore': 'org.apache.shiro:shiro-core:1.11.0',
-    'snakeYaml': 'org.yaml:snakeyaml:1.33',
+    'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.11:2.4.8',
     'sparkHive' : 'org.apache.spark:spark-hive_2.11:2.4.8',
     'springBeans': "org.springframework:spring-beans:$springVersion",
@@ -191,7 +194,7 @@ project.ext.externalDependency = [
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
-    'springKafka': 'org.springframework.kafka:spring-kafka:2.7.12',
+    'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
     'testng': 'org.testng:testng:7.3.0',
@@ -200,6 +203,7 @@ project.ext.externalDependency = [
     'testContainersPostgresql':'org.testcontainers:postgresql:' + testContainersVersion,
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:' + testContainersVersion,
     'testContainersCassandra': 'org.testcontainers:cassandra:' + testContainersVersion,
+    'testContainersKafka': 'org.testcontainers:kafka:' + testContainersVersion,
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',

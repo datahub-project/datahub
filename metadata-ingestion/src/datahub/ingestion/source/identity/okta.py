@@ -13,7 +13,6 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -25,8 +24,24 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.sql_common_state import (
+    BaseSQLAlchemyCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     CorpGroupSnapshot,
     CorpUserSnapshot,
@@ -45,7 +60,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class OktaConfig(ConfigModel):
+class OktaConfig(StatefulIngestionConfigBase):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
@@ -131,6 +146,11 @@ class OktaConfig(ConfigModel):
         description="Okta search expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See (https://developer.okta.com/docs/reference/api/groups/#list-groups-with-search) for more info.",
     )
 
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="Okta Stateful Ingestion Config."
+    )
+
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = True
     mask_user_id: bool = True
@@ -153,7 +173,7 @@ class OktaConfig(ConfigModel):
 
 
 @dataclass
-class OktaSourceReport(SourceReport):
+class OktaSourceReport(StaleEntityRemovalSourceReport):
     filtered: List[str] = field(default_factory=list)
 
     def report_filtered(self, name: str) -> None:
@@ -178,7 +198,10 @@ class OktaSourceReport(SourceReport):
 @config_class(OktaConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
-class OktaSource(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
+class OktaSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -256,18 +279,32 @@ class OktaSource(Source):
 
     """
 
+    config: OktaConfig
+    report: OktaSourceReport
+    okta_client: OktaClient
+    stale_entity_removal_handler: StaleEntityRemovalHandler
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = OktaConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super(OktaSource, self).__init__(config, ctx)
         self.config = config
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # Create and register the stateful ingestion use-case handler.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Step 0: get or create the event loop
         # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
         # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
@@ -288,37 +325,23 @@ class OktaSource(Source):
             ):
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
                 wu_id = f"group-snapshot-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=wu_id, mce=mce)
 
-                group_origin_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
-                )
-                group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                group_origin_wu = MetadataWorkUnit(
-                    id=group_origin_wu_id, mcp=group_origin_mcp
-                )
-                self.report.report_workunit(group_origin_wu)
-                yield group_origin_wu
+                ).as_workunit()
 
-                group_status_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
                     aspect=StatusClass(removed=False),
-                )
-                group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                group_status_wu = MetadataWorkUnit(
-                    id=group_status_wu_id, mcp=group_status_mcp
-                )
-                self.report.report_workunit(group_status_wu)
-                yield group_status_wu
+                ).as_workunit()
 
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[
@@ -372,40 +395,34 @@ class OktaSource(Source):
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
                 wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=wu_id, mce=mce)
 
-                user_origin_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
-                )
-                user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                user_origin_wu = MetadataWorkUnit(
-                    id=user_origin_wu_id, mcp=user_origin_mcp
-                )
-                self.report.report_workunit(user_origin_wu)
-                yield user_origin_wu
+                ).as_workunit()
 
-                user_status_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
                     aspect=StatusClass(removed=False),
-                )
-                user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                user_status_wu = MetadataWorkUnit(
-                    id=user_status_wu_id, mcp=user_status_mcp
-                )
-                self.report.report_workunit(user_status_wu)
-                yield user_status_wu
+                ).as_workunit()
 
         # Step 4: Close the event loop
         event_loop.close()
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_workunit_reporter(
+                self.report, auto_status_aspect(self.get_workunits_internal())
+            ),
+        )
 
     def get_report(self):
         return self.report

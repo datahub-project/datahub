@@ -2,25 +2,34 @@ import json
 import logging
 import pathlib
 import sys
-from typing import Optional, cast
+from typing import cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
-from tableauserverclient.models import DatasourceItem, ProjectItem, ViewItem
+from tableauserverclient.models import (
+    DatasourceItem,
+    ProjectItem,
+    ViewItem,
+    WorkbookItem,
+)
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.tableau import TableauSource
+from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     make_table_urn,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    UpstreamLineage,
+)
+from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
@@ -29,7 +38,7 @@ FROZEN_TIME = "2021-12-07 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
-test_resources_dir = None
+test_resources_dir = pathlib.Path(__file__).parent
 
 config_source_default = {
     "username": "username",
@@ -67,9 +76,6 @@ def enable_logging():
 
 
 def read_response(pytestconfig, file_name):
-    test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/tableau"
-    )
     response_json_path = f"{test_resources_dir}/setup/{file_name}"
     with open(response_json_path) as file:
         data = json.loads(file.read())
@@ -143,6 +149,45 @@ def side_effect_datasource_data(*arg, **kwargs):
     ], mock_pagination
 
 
+def side_effect_workbook_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    workbook1: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+        name="Email Performance by Campaign",
+    )
+    workbook1._id = "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b"
+
+    workbook2: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Dvdrental Workbook"
+    )
+    workbook2._id = "b2c84ac6-1e37-4ca0-bf9b-62339be046fc"
+
+    workbook3: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Executive Dashboard"
+    )
+    workbook3._id = "68ebd5b2-ecf6-4fdf-ba1a-95427baef506"
+
+    workbook4: WorkbookItem = WorkbookItem(
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Workbook published ds"
+    )
+    workbook4._id = "a059a443-7634-4abf-9e46-d147b99168be"
+
+    workbook5: WorkbookItem = WorkbookItem(
+        project_id="79d02655-88e5-45a6-9f9b-eeaf5fe54903", name="Deny Pattern WorkBook"
+    )
+    workbook5._id = "b45eabfe-dc3d-4331-9324-cc1b14b0549b"
+
+    return [
+        workbook1,
+        workbook2,
+        workbook3,
+        workbook4,
+        workbook5,
+    ], mock_pagination
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -154,9 +199,6 @@ def tableau_ingest_common(
     sign_out_side_effect=lambda: None,
     pipeline_name="tableau-test-pipeline",
 ):
-    test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/tableau"
-    )
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
@@ -174,6 +216,8 @@ def tableau_ingest_common(
             mock_client.projects.get.side_effect = side_effect_project_data
             mock_client.datasources = mock.Mock()
             mock_client.datasources.get.side_effect = side_effect_datasource_data
+            mock_client.workbooks = mock.Mock()
+            mock_client.workbooks.get.side_effect = side_effect_workbook_data
             mock_client.views.get.side_effect = side_effect_usage_stat
             mock_client.auth.sign_in.return_value = None
             mock_client.auth.sign_out.side_effect = sign_out_side_effect
@@ -206,15 +250,6 @@ def tableau_ingest_common(
                 ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
             )
             return pipeline
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    tableau_source = cast(TableauSource, pipeline.source)
-    return tableau_source.get_current_checkpoint(
-        tableau_source.stale_entity_removal_handler.job_id
-    )
 
 
 @freeze_time(FROZEN_TIME)
@@ -688,4 +723,38 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         sign_out_side_effect=ConnectionError,
         pipeline_name="test_tableau_signout_timeout",
+    )
+
+
+def test_tableau_unsupported_csql(mock_datahub_graph):
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    context.graph = mock_datahub_graph
+    config = TableauConfig.parse_obj(config_source_default.copy())
+    config.extract_lineage_from_unsupported_custom_sql_queries = True
+    config.lineage_overrides = TableauLineageOverrides(
+        database_override_map={"production database": "prod"}
+    )
+    source = TableauSource(config=config, ctx=context)
+    lineage = source._create_lineage_from_unsupported_csql(
+        csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
+        csql={
+            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+            "isUnsupportedCustomSql": "true",
+            "database": {"name": "production database", "connectionType": "bigquery"},
+        },
+    )
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
+
+    assert mcp.aspect == UpstreamLineage(
+        upstreams=[
+            UpstreamClass(
+                dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,prod.invent_dw.userdetail,PROD)",
+                type=DatasetLineageType.TRANSFORMED,
+            )
+        ]
+    )
+    assert (
+        mcp.entityUrn
+        == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
     )

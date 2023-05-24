@@ -87,7 +87,7 @@ public class DashboardUsageStatsResolver implements DataFetcher<CompletableFutur
       List<EnvelopedAspect> aspects =
           timeseriesAspectService.getAspectValues(Urn.createFromString(dashboardUrn), Constants.DASHBOARD_ENTITY_NAME,
               Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit,
-              null, filter);
+              filter);
       dashboardUsageMetrics = aspects.stream().map(DashboardUsageMetricMapper::map).collect(Collectors.toList());
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Invalid resource", e);

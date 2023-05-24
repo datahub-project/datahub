@@ -12,11 +12,7 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigModel,
-    OauthConfiguration,
-)
+from datahub.configuration.common import AllowDenyPattern, OauthConfiguration
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.snowflake.constants import (
@@ -46,59 +42,6 @@ VALID_AUTH_TYPES: Dict[str, str] = {
 }
 
 SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
-
-
-class SnowflakeProvisionRoleConfig(ConfigModel):
-    enabled: bool = pydantic.Field(
-        default=False,
-        description="Whether provisioning of Snowflake role (used for ingestion) is enabled or not.",
-    )
-
-    # Can be used by account admin to test what sql statements will be run
-    dry_run: bool = pydantic.Field(
-        default=False,
-        description="If provision_role is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands.",
-    )
-
-    # Setting this to True is helpful in case you want a clean role without any extra privileges
-    # Not set to True by default because multiple parallel
-    #   snowflake ingestions can be dependent on single role
-    drop_role_if_exists: bool = pydantic.Field(
-        default=False,
-        description="Useful during testing to ensure you have a clean slate role. Not recommended for production use cases.",
-    )
-
-    # When Account admin is testing they might not want to actually do the ingestion
-    # Set this to False in case the account admin would want to
-    #   create role
-    #   grant role to user in main config
-    #   run ingestion as the user in main config
-    run_ingestion: bool = pydantic.Field(
-        default=False,
-        description="If system admins wish to skip actual ingestion of metadata during testing of the provisioning of role.",
-    )
-
-    admin_role: Optional[str] = pydantic.Field(
-        default="accountadmin",
-        description="The Snowflake role of admin user used for provisioning of the role specified by role config. System admins can audit the open source code and decide to use a different role.",
-    )
-
-    admin_username: str = pydantic.Field(
-        description="The username to be used for provisioning of role."
-    )
-
-    admin_password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None,
-        exclude=True,
-        description="The password to be used for provisioning of role.",
-    )
-
-    @pydantic.validator("admin_username", always=True)
-    def username_not_empty(cls, v, values, **kwargs):
-        v_str: str = str(v)
-        if not v_str.strip():
-            raise ValueError("username is empty")
-        return v
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
@@ -132,7 +75,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     )
     authentication_type: str = pydantic.Field(
         default="DEFAULT_AUTHENTICATOR",
-        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
+        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "OAUTH_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
     )
     account_id: str = pydantic.Field(
         description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",
@@ -153,10 +96,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=None,
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
-    )
-    check_role_grants: bool = pydantic.Field(
-        default=False,
-        description="If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.",
     )
 
     def get_account(self) -> str:
@@ -338,7 +277,6 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
-    provision_role: Optional[SnowflakeProvisionRoleConfig] = None
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
 
