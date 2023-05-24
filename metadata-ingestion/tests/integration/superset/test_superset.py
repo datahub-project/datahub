@@ -1,15 +1,13 @@
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.superset import SupersetSource
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
@@ -17,15 +15,6 @@ from tests.test_helpers.state_helpers import (
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    superset_source = cast(SupersetSource, pipeline.source)
-    return superset_source.get_current_checkpoint(
-        superset_source.stale_entity_removal_handler.job_id
-    )
 
 
 def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
