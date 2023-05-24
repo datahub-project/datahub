@@ -1,16 +1,11 @@
-import React from 'react';
-import { useParams } from 'react-router';
+import React, { useEffect } from 'react';
+import { useHistory, useParams } from 'react-router';
 import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import { ErrorSection } from '../../shared/error/ErrorSection';
 import useGetEntityByUrl from './useGetEntityByUrl';
 import LookupNotFound from './LookupNotFound';
 import LookupFoundMultiple from './LookupFoundMultiple';
-import LookupLoading from './LookupLoading';
-import GoToLookup from './GoToLookup';
-
-type RouteParams = {
-    url: string;
-};
 
 const PageContainer = styled.div`
     display: flex;
@@ -19,17 +14,29 @@ const PageContainer = styled.div`
     height: 85vh;
 `;
 
+const LookupLoading = styled(LoadingOutlined)`
+    font-size: 50px;
+`;
+
+type RouteParams = {
+    url: string;
+};
+
 const EmbedLookup = () => {
+    const history = useHistory();
     const { url: encodedUrl } = useParams<RouteParams>();
     const decodedUrl = decodeURIComponent(encodedUrl);
-    const { count, entity, error, loading } = useGetEntityByUrl(decodedUrl);
+    const { embedUrl, notFound, foundMultiple, error } = useGetEntityByUrl(decodedUrl);
+
+    useEffect(() => {
+        if (embedUrl) history.push(embedUrl);
+    }, [embedUrl, history]);
 
     const getContent = () => {
-        if (loading) return <LookupLoading />;
         if (error) return <ErrorSection />;
-        if (count === 0 || !entity) return <LookupNotFound url={encodedUrl} />;
-        if (count > 1) return <LookupFoundMultiple url={encodedUrl} />;
-        return <GoToLookup entityType={entity.type} entityUrn={entity.urn} />;
+        if (notFound) return <LookupNotFound url={encodedUrl} />;
+        if (foundMultiple) return <LookupFoundMultiple url={encodedUrl} />;
+        return <LookupLoading />;
     };
 
     return <PageContainer>{getContent()}</PageContainer>;

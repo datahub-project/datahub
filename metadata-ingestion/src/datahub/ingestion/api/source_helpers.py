@@ -1,8 +1,23 @@
-from typing import TYPE_CHECKING, Callable, Iterable, Optional, Set, TypeVar, Union
+import logging
+from collections import defaultdict
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    ContainerClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
@@ -17,6 +32,8 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.stale_entity_removal_handler import (
         StaleEntityRemovalHandler,
     )
+
+logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
@@ -144,3 +161,50 @@ def auto_materialize_referenced_tags(
             entityUrn=urn,
             aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
         ).as_workunit()
+
+
+def auto_browse_path_v2(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Generate BrowsePathsV2 from Container aspects."""
+    # TODO: Generate BrowsePathsV2 from BrowsePaths as well
+
+    ignore_urns: Set[str] = set()
+    container_urns: Set[str] = set()
+    parent_container_map: Dict[str, str] = {}
+    children: Dict[str, List[str]] = defaultdict(list)
+    for wu in stream:
+        yield wu
+
+        urn = wu.get_urn()
+        if guess_entity_type(urn) == "container":
+            container_urns.add(urn)
+
+        container_aspects = wu.get_aspects_of_type(ContainerClass)
+        for aspect in container_aspects:
+            parent = aspect.container
+            parent_container_map[urn] = parent
+            children[parent].append(urn)
+
+        if wu.get_aspects_of_type(BrowsePathsV2Class):
+            ignore_urns.add(urn)
+
+    paths: Dict[str, List[str]] = {}  # Maps urn -> list of urns in path
+    # Yield browse paths v2 in topological order, starting with root containers
+    nodes = container_urns - parent_container_map.keys()
+    while nodes:
+        node = nodes.pop()
+        nodes.update(children[node])
+
+        if node not in parent_container_map:  # root
+            paths[node] = []
+        else:
+            parent = parent_container_map[node]
+            paths[node] = [*paths[parent], parent]
+        if node not in ignore_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node,
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
+                ),
+            ).as_workunit()
