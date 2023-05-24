@@ -231,7 +231,6 @@ class Source(Closeable, metaclass=ABCMeta):
         )
 
     # Not abstract for backwards compatibility
-    @abstractmethod  # TODO: REMOVE
     def get_config(self) -> Optional[ConfigModel]:
         return None
 
