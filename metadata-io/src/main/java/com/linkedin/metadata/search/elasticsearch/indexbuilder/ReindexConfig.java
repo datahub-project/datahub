@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
@@ -18,12 +19,19 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.linkedin.metadata.Constants.*;
+
+
 @Slf4j
 @Builder
 @Getter
 @Accessors(fluent = true)
 public class ReindexConfig {
     public final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    static {
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    }
     /*
       Most index settings are default values and populated by Elastic. This list is an include list to determine which
       settings we care about when a difference is present.
