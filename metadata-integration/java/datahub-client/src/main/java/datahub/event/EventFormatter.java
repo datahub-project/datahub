@@ -1,6 +1,7 @@
 package datahub.event;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
@@ -13,19 +14,26 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import lombok.SneakyThrows;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * A class that helps to format Metadata events for transport
  */
 public class EventFormatter {
 
-  private final ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+  private final ObjectMapper objectMapper;
 
-  private final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
+  private final JacksonDataTemplateCodec dataTemplateCodec;
   private final Format serializationFormat;
 
   public EventFormatter(Format serializationFormat) {
     this.serializationFormat = serializationFormat;
+    objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+        .maxStringLength(maxSize).build());
+    dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
   }
 
   public EventFormatter() {
