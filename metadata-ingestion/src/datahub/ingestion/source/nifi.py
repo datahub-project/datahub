@@ -365,16 +365,6 @@ class NifiSource(Source):
                 urljoin(self.config.site_url, "/nifi/")
             ] = self.config.site_name
 
-        if self.config.auth is NifiAuthType.CLIENT_CERT:
-            self.session.mount(
-                urljoin(self.config.site_url, "/nifi-api/"),
-                SSLAdapter(
-                    certfile=self.config.client_cert_file,
-                    keyfile=self.config.client_key_file,
-                    password=self.config.client_key_password,
-                ),
-            )
-
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
         config = NifiSourceConfig.parse_obj(config_dict)
@@ -936,10 +926,23 @@ class NifiSource(Source):
                     else:
                         component.outlets[dataset.dataset_urn] = dataset
 
-    def update_token(self):
-        if self.config.auth in (NifiAuthType.NO_AUTH, NifiAuthType.CLIENT_CERT):
+    def authenticate(self):
+        if self.config.auth is NifiAuthType.NO_AUTH:
             # Token not required
             return
+
+        if self.config.auth is NifiAuthType.CLIENT_CERT:
+            self.session.mount(
+                urljoin(self.config.site_url, "/nifi-api/"),
+                SSLAdapter(
+                    certfile=self.config.client_cert_file,
+                    keyfile=self.config.client_key_file,
+                    password=self.config.client_key_password,
+                ),
+            )
+            return
+
+        # get token flow
         token_response: Response
         if self.config.auth is NifiAuthType.SINGLE_USER:
             token_response = self.session.post(
@@ -956,9 +959,7 @@ class NifiSource(Source):
             )
         else:
             raise Exception(f"Unsupported auth: {self.config.auth}")
-        import pdb
 
-        pdb.set_trace()
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
 
@@ -967,10 +968,10 @@ class NifiSource(Source):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
-            self.update_token()
+            self.authenticate()
         except Exception as e:
-            logger.error("Failed to get token", exc_info=e)
-            self.report.report_failure(self.config.site_url, "Failed to get token")
+            logger.error("Failed to authenticate", exc_info=e)
+            self.report.report_failure(self.config.site_url, "Failed to authenticate")
             return
 
         self.session.headers.update({"Content-Type": "application/json"})

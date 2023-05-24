@@ -2,7 +2,7 @@
 
 This connector supports following authentication mechanisms
 
-#### Single User Authentication ('auth: SINGLE_USER`)
+#### Single User Authentication (`auth: SINGLE_USER`)
    
 Connector will pass this `username` and `password` as used on Nifi Login Page over `/access/token` REST endpoint. This mode also works when [Kerberos login identity provider](https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#Kerberos_login_identity_provider) is set up for Nifi.
 #### Client Certificates Authentication (`auth: CLIENT_CERT`)

@@ -331,7 +331,9 @@ def test_single_user_auth_failed_to_get_token():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to get token" in list(source.get_report().failures[config.site_url])
+    assert "Failed to authenticate" in list(
+        source.get_report().failures[config.site_url]
+    )
 
 
 def test_kerberos_auth_failed_to_get_token():
@@ -349,12 +351,35 @@ def test_kerberos_auth_failed_to_get_token():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to get token" in list(source.get_report().failures[config.site_url])
+    assert "Failed to authenticate" in list(
+        source.get_report().failures[config.site_url]
+    )
+
+
+def test_client_cert_auth_failed():
+
+    config = NifiSourceConfig(
+        site_url="https://localhost:12345",  # will never work
+        auth="CLIENT_CERT",
+        client_cert_file="nonexisting_file",
+    )
+    source = NifiSource(
+        config=config,
+        ctx=PipelineContext("nifi-run"),
+    )
+
+    # No exception
+    list(source.get_workunits())
+
+    assert source.get_report().failures
+    assert "Failed to authenticate" in list(
+        source.get_report().failures[config.site_url]
+    )
 
 
 def test_failure_to_create_nifi_flow():
 
-    with patch("datahub.ingestion.source.nifi.NifiSource.update_token"):
+    with patch("datahub.ingestion.source.nifi.NifiSource.authenticate"):
         config = NifiSourceConfig(
             site_url="https://localhost:12345",  # will never work
             auth="KERBEROS",
