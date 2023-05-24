@@ -1,14 +1,19 @@
 import logging
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Set, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import WorkUnit
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -21,6 +26,12 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.source import SourceReport
+    from datahub.ingestion.source.state.stale_entity_removal_handler import (
+        StaleEntityRemovalHandler,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +96,7 @@ def _default_entity_type_fn(wu: MetadataWorkUnit) -> Optional[str]:
 
 
 def auto_stale_entity_removal(
-    stale_entity_removal_handler: StaleEntityRemovalHandler,
+    stale_entity_removal_handler: "StaleEntityRemovalHandler",
     stream: Iterable[MetadataWorkUnit],
     entity_type_fn: Callable[
         [MetadataWorkUnit], Optional[str]
@@ -111,10 +122,10 @@ def auto_stale_entity_removal(
     yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
-T = TypeVar("T", bound=WorkUnit)
+T = TypeVar("T", bound=MetadataWorkUnit)
 
 
-def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterable[T]:
+def auto_workunit_reporter(report: "SourceReport", stream: Iterable[T]) -> Iterable[T]:
     """
     Calls report.report_workunit() on each workunit.
     """
@@ -126,13 +137,8 @@ def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterabl
 
 def auto_materialize_referenced_tags(
     stream: Iterable[MetadataWorkUnit],
-    active: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
     """For all references to tags, emit a tag key aspect to ensure that the tag exists in our backend."""
-
-    if not active:
-        yield from stream
-        return
 
     referenced_tags = set()
     tags_with_aspects = set()

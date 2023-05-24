@@ -37,7 +37,11 @@ def run_test():
     config = BigQueryV2Config(
         start_time=seed_metadata.start_time,
         end_time=seed_metadata.end_time,
-        usage=BigQueryUsageConfig(include_top_n_queries=True, top_n_queries=10),
+        usage=BigQueryUsageConfig(
+            include_top_n_queries=True,
+            top_n_queries=10,
+            apply_view_usage_to_tables=True,
+        ),
         file_backed_cache_size=1000,
     )
     usage_extractor = BigQueryUsageExtractor(config, report)
