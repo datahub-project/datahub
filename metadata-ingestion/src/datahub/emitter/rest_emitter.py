@@ -266,9 +266,14 @@ class DataHubRestEmitter(Closeable):
             response.raise_for_status()
         except HTTPError as e:
             try:
-                info = response.json()
+                info: Dict = response.json()
+                logger.debug(
+                    "Full stack trace from DataHub:\n%s", info.get("stackTrace")
+                )
+                info.pop("stackTrace", None)
                 raise OperationalError(
-                    "Unable to emit metadata to DataHub GMS", info
+                    f"Unable to emit metadata to DataHub GMS: {info.get('message')}",
+                    info,
                 ) from e
             except JSONDecodeError:
                 # If we can't parse the JSON, just raise the original error.
@@ -286,9 +291,11 @@ class DataHubRestEmitter(Closeable):
             if self._token
             else ""
         )
-        return (
-            f"DataHubRestEmitter: configured to talk to {self._gms_server}{token_str}"
-        )
+        return f"{self.__class__.__name__}: configured to talk to {self._gms_server}{token_str}"
+
+    def flush(self) -> None:
+        # No-op, but present to keep the interface consistent with the Kafka emitter.
+        pass
 
     def close(self) -> None:
         self._session.close()
