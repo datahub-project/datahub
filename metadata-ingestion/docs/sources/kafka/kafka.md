@@ -75,17 +75,17 @@ The Kafka Source uses the schema registry to figure out the schema associated wi
 By default it uses the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
 and supports the `AVRO` and `PROTOBUF` schema types.
 
-
 If you're using a custom schema registry, or you are using schema type other than `AVRO` or `PROTOBUF`, then you can provide your own
-custom implementation of the `KafkaSchemaRegistryBase` class, and implement the `get_schema_metadata(topic, platform_urn)` method that
-given a topic name would return object of `SchemaMetadata` containing schema for that topic. Please refer
+custom implementation of the `KafkaSchemaRegistryBase` class, and implement the `get_aspects_from_schema(topic, platform_urn)` method that
+given a topic name would return a list of Aspects, including (at least) the `SchemaMetadata` for that topic. Other aspects can also be returned, for example if meta-mapping is supported.
+
+Please refer
 `datahub.ingestion.source.confluent_schema_registry::ConfluentSchemaRegistry` for sample implementation of this class.
 ```python
 class KafkaSchemaRegistryBase(ABC):
     @abstractmethod
-    def get_schema_metadata(
-        self, topic: str, platform_urn: str
-    ) -> Optional[SchemaMetadata]:
+    def get_aspects_from_schema(self, topic: str, platform_urn: str) -> List[Any]:
+        """Returns a list of aspects that can be attached to a dataset"""
         pass
 ```
 
@@ -130,3 +130,88 @@ message MessageWithMap {
   repeated Map1Entry map_1 = 1;
 }
 ```
+
+### Embedding DataHub metadata in schemas with meta mapping
+
+:::note
+Meta mapping is currently only available for Avro schemas
+:::
+
+Avro schemas are permitted to have additional attributes not defined by the
+specification as arbitrary metadata. A common pattern is to utilize this for
+business metadata. The Kafka source has the ability to transform this directly
+into DataHub Owners, Tags and Terms.
+
+#### Simple tags
+
+If you simply have a list of tags embedded into an Avro schema (either at the top-level or for an individual field), you can use the `schema_tags_field` config.
+
+Example Avro schema:
+
+```json
+{
+  "name": "sampleRecord",
+  "type": "record",
+  "tags": ["tag1", "tag2"],
+  "fields": [{
+    "name": "field_1",
+    "type": "string",
+    "tags": ["tag3", "tag4"]
+  }]
+}
+```
+
+The name of the field containing a list of tags can be configured with the `schema_tags_field` property:
+
+```yaml
+config:
+  schema_tags_field: tags
+```
+
+#### meta mapping
+
+You can also map specific Avro fields into Owners, Tags and Terms using meta
+mapping.
+
+Example Avro schema:
+
+```json
+{
+  "name": "sampleRecord",
+  "type": "record",
+  "owning_team": "@Data-Science",
+  "data_tier": "Bronze",
+  "fields": [{
+    "name": "field_1",
+    "type": "string",
+    "gdpr": {
+      "pii": true
+    }
+  }]
+}
+```
+
+This can be mapped to DataHub metadata with `meta_mapping` config:
+
+```yaml
+config:
+  meta_mapping:
+    owning_team:
+      match: "^@(.*)"
+      operation: "add_owner"
+      config:
+        owner_type: group
+    data_tier:
+      match: "Bronze|Silver|Gold"
+      operation: "add_term"
+      config:
+        term: "{{ $match }}"
+  field_meta_mapping:
+    gdpr.pii:
+      match: true
+      operation: "add_tag"
+      config:
+        tag: "pii"
+```
+
+The underlying implementation is similar to [dbt meta mapping](../dbt/dbt.md#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
