@@ -129,16 +129,17 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
     def add_read_entry(
         self,
-        user_email: str,
+        user_email: Optional[str],
         query: Optional[str],
         fields: List[str],
         user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all(),
     ) -> None:
-        if not user_email_pattern.allowed(user_email):
+        if user_email and not user_email_pattern.allowed(user_email):
             return
 
         self.readCount += 1
-        self.userFreq[user_email] += 1
+        if user_email is not None:
+            self.userFreq[user_email] += 1
 
         if query:
             self.queryCount += 1
@@ -228,7 +229,7 @@ class UsageAggregator(Generic[ResourceType]):
         resource: ResourceType,
         start_time: datetime,
         query: Optional[str],
-        user: str,
+        user: Optional[str],
         fields: List[str],
     ) -> None:
         floored_ts: datetime = get_time_bucket(start_time, self.config.bucket_duration)
