@@ -58,9 +58,15 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
-    # Required: An API token generated from Okta.
-    okta_api_token: str = Field(
-        description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
+    # Require: JWKS configuration for authentication
+    okta_private_key: str = Field(
+        description="Private RSA key"
+    )
+    okta_client_id: str = Field(
+        description="Client ID for the OAuth 2.0 token"
+    )
+    okta_kid: str = Field(
+        description="Key ID for the private RSA key"
     )
 
     # Optional: Whether to ingest users, groups, or both.
@@ -414,8 +420,12 @@ class OktaSource(StatefulIngestionSourceBase):
     # Instantiates Okta SDK Client.
     def _create_okta_client(self):
         config = {
-            "orgUrl": f"https://{self.config.okta_domain}",
-            "token": f"{self.config.okta_api_token}",
+            'orgUrl': f"https://{self.config.okta_domain}",
+            'authorizationMode': 'PrivateKey',
+            'clientId': f'{self.config.okta_client_id}',
+            'scopes': ['okta.users.read', 'okta.groups.read'],
+            'kid': f'{self.config.okta_kid}',
+            'privateKey': f'{self.config.okta_private_key}',
             "raiseException": True,
         }
         return OktaClient(config)
@@ -647,8 +657,15 @@ class OktaSource(StatefulIngestionSourceBase):
         # TODO: Extract user's manager if provided.
         # Source: https://developer.okta.com/docs/reference/api/users/#default-profile-properties
         full_name = f"{profile.firstName} {profile.lastName}"
+        # Some test users do not have a Team attribute, mark these as inactive to be ignored in ingestion.
+        if hasattr(profile, "Team"):
+            department = profile.Team
+            active = True
+        else:
+            department = profile.department
+            active = False
         return CorpUserInfoClass(
-            active=True,
+            active=active,
             displayName=profile.displayName
             if profile.displayName is not None
             else full_name,
@@ -658,7 +675,7 @@ class OktaSource(StatefulIngestionSourceBase):
             email=profile.email,
             title=profile.title,
             countryCode=profile.countryCode,
-            departmentName=profile.department,
+            departmentName=department,
         )
 
     def _make_corp_group_urn(self, name: str) -> str:
