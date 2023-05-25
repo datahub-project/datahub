@@ -8,6 +8,36 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
 
 
+def test_only_ingest_assigned_metastore():
+    _ = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "metastore_id_pattern": {"allow": ["[a-zA-Z]+"]},
+        }
+    )
+    _ = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "only_ingest_assigned_metastore": True,
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="metastore_id_pattern cannot be set when only_ingest_assigned_metastore is specified.",
+    ):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://workspace_url",
+                "metastore_id_pattern": {"allow": ["[a-zA-Z]+"]},
+                "only_ingest_assigned_metastore": True,
+            }
+        )
+
+
 @freeze_time(FROZEN_TIME)
 def test_within_thirty_days():
     config = UnityCatalogSourceConfig.parse_obj(
