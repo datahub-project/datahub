@@ -9,6 +9,7 @@ import { SidebarHeader } from '../../SidebarHeader';
 import { EditOwnersModal } from '../EditOwnersModal';
 import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { OwnershipTypeSection } from './OwnershipTypeSection';
+import { getOwnershipTypeName } from '../ownershipUtils';
 
 interface Props {
     properties?: any;
@@ -26,7 +27,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     const ownersByTypeMap: Map<string, Owner[]> = new Map();
     entityData?.ownership?.owners?.forEach((owner) => {
         const ownershipType = owner?.ownershipType;
-        const ownershipTypeName = ownershipType?.info?.name || owner?.type || 'Other';
+        const ownershipTypeName = getOwnershipTypeName(ownershipType);
         // If ownership type is not in the map, add it
         if (ownershipType && !ownershipTypesMap.has(ownershipTypeName)) {
             ownershipTypesMap.set(ownershipTypeName, ownershipType);

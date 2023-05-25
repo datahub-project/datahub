@@ -1,4 +1,4 @@
-import React, { ReactNode, useMemo, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
 
@@ -107,7 +107,7 @@ export const EditOwnersModal = ({
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
+    const { data: ownershipTypesData, loading } = useListOwnershipTypesQuery({
         variables: {
             input: {},
         },
@@ -119,7 +119,14 @@ export const EditOwnersModal = ({
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
         defaultValuesToSelectedOwners(defaultValues || []),
     );
-    const [selectedOwnerType, setSelectedOwnerType] = useState<string | undefined>(defaultOwnerType || undefined);
+    const [selectedOwnerType, setSelectedOwnerType] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        if (ownershipTypes.length) {
+            const defaultType = ownershipTypes.find((type) => type.urn === defaultOwnerType);
+            setSelectedOwnerType(defaultType?.urn || ownershipTypes[0].urn);
+        }
+    }, [ownershipTypes, defaultOwnerType]);
 
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
@@ -381,28 +388,27 @@ export const EditOwnersModal = ({
                     <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
                         <Form.Item name="type">
-                            <Select
-                                defaultValue={defaultOwnerType}
-                                value={selectedOwnerType}
-                                onChange={onSelectOwnerType}
-                            >
-                                {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
-                                    const ownershipTypeUrn = ownershipType?.urn || '';
-                                    const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
-                                    const ownershipTypeDescription = ownershipType?.info?.description || '';
-                                    return (
-                                        <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
-                                            <Typography.Text>{ownershipTypeName}</Typography.Text>
-                                            <Typography.Paragraph
-                                                style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
-                                                type="secondary"
-                                            >
-                                                {ownershipTypeDescription}
-                                            </Typography.Paragraph>
-                                        </Select.Option>
-                                    );
-                                })}
-                            </Select>
+                            {loading && <Select />}
+                            {!loading && (
+                                <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
+                                    {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
+                                        const ownershipTypeUrn = ownershipType?.urn || '';
+                                        const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
+                                        const ownershipTypeDescription = ownershipType?.info?.description || '';
+                                        return (
+                                            <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
+                                                <Typography.Text>{ownershipTypeName}</Typography.Text>
+                                                <Typography.Paragraph
+                                                    style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
+                                                    type="secondary"
+                                                >
+                                                    {ownershipTypeDescription}
+                                                </Typography.Paragraph>
+                                            </Select.Option>
+                                        );
+                                    })}
+                                </Select>
+                            )}
                         </Form.Item>
                     </Form.Item>
                 )}
