@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, cast
 from unittest import mock
 
 import pydantic
@@ -15,10 +15,8 @@ from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.lookml_source import (
     LookerModel,
     LookerRefinementResolver,
-    LookMLSource,
     LookMLSourceConfig,
 )
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
@@ -27,6 +25,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
@@ -845,15 +844,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.flights,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    dbt_source = cast(LookMLSource, pipeline.source)
-    return dbt_source.get_current_checkpoint(
-        dbt_source.stale_entity_removal_handler.job_id
-    )
 
 
 def test_lookml_base_folder():
