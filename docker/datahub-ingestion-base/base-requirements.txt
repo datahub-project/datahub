@@ -330,7 +330,7 @@ tinycss2==1.2.1
 toml==0.10.2
 tomli==2.0.1
 toolz==0.12.0
-tornado==6.2
+tornado==6.3.2
 tqdm==4.65.0
 traitlets==5.2.1.post0
 trino==0.322.0
