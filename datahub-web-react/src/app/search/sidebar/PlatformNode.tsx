@@ -57,7 +57,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
     const skip = !isOpen;
     const color = ANTD_GRAY[9];
 
-    const { error, groups, loaded, observable, pathResult } = useBrowsePaginator({
+    const { error, groups, loaded, observable, pathResult, retry } = useBrowsePaginator({
         entityAggregation,
         environmentAggregation,
         platformAggregation,
@@ -91,7 +91,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                                 path={[...pathResult, group.name]}
                             />
                         ))}
-                        {error && <SidebarLoadingError />}
+                        {(error || 1) && <SidebarLoadingError onClickRetry={retry} />}
                         {observable}
                     </BrowseGroupListContainer>
                 </ExpandableNode.Body>

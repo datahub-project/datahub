@@ -1,1 +1,5 @@
-export const BROWSE_PATH_PAGE_SIZE = 20;
+export const BROWSE_PAGE_SIZE = 20;
+
+export const BROWSE_LOAD_MORE_DELAY = 250;
+
+export const BROWSE_LOAD_MORE_MARGIN = '200px';

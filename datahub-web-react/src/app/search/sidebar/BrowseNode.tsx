@@ -45,7 +45,7 @@ const BrowseNode = ({
     const color = ANTD_GRAY[9];
     const iconProps: CSSProperties = { visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
 
-    const { error, groups, loaded, observable, pathResult } = useBrowsePaginator({
+    const { error, groups, loaded, observable, pathResult, retry } = useBrowsePaginator({
         entityAggregation,
         environmentAggregation,
         platformAggregation,
@@ -78,7 +78,7 @@ const BrowseNode = ({
                             path={[...pathResult, group.name]}
                         />
                     ))}
-                    {error && <SidebarLoadingError />}
+                    {error && <SidebarLoadingError onClickRetry={retry} />}
                     {observable}
                 </ExpandableNode.Body>
             }

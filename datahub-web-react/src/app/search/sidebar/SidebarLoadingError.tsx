@@ -1,8 +1,25 @@
 import React from 'react';
-import { Typography } from 'antd';
+import { Alert, Button } from 'antd';
 
-const SidebarLoadingError = () => {
-    return <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>;
+type Props = {
+    onClickRetry?: () => void;
+};
+
+const SidebarLoadingError = ({ onClickRetry }: Props) => {
+    return (
+        <Alert
+            message="There was a problem loading the sidebar."
+            showIcon
+            type="error"
+            action={
+                onClickRetry && (
+                    <Button size="small" danger onClick={onClickRetry}>
+                        Retry
+                    </Button>
+                )
+            }
+        />
+    );
 };
 
 export default SidebarLoadingError;
