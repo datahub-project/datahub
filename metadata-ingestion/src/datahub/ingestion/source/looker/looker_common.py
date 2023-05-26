@@ -146,6 +146,10 @@ class ViewField:
 
 
 def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
+    """
+    Each view in a model has unique name.
+    Use this function in scope of a model.
+    """
     view_project_map: Dict[str, str] = {}
     for view_field in view_fields:
         if view_field.view_name is not None and view_field.project_name is not None:
