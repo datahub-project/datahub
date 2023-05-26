@@ -8,7 +8,7 @@ import unittest.mock
 from dataclasses import Field, dataclass, field
 from enum import auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Iterable
 
 import avro.schema
 import click
@@ -318,7 +318,9 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         raise Exception(f"Failed to find information for entity: {entity_name}")
 
 
-def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
+def generate_stitched_record(
+    relnships_graph: RelationshipGraph,
+) -> Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]:
     def strip_types(field_path: str) -> str:
 
         final_path = field_path
@@ -478,17 +480,15 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
                         tags=[TagAssociationClass(tag="urn:li:tag:Entity")]
                     ),
                     BrowsePathsClass([f"/prod/datahub/entities/{entity_display_name}"]),
-                    BrowsePathsV2Class(
-                        [
-                            BrowsePathEntryClass(id="entities"),
-                            BrowsePathEntryClass(id=entity_display_name),
-                        ]
-                    ),
                 ],
             )
+            dataset.browse_path_v2 = BrowsePathsV2Class(  # type: ignore
+                [
+                    BrowsePathEntryClass(id="entities"),
+                    BrowsePathEntryClass(id=entity_display_name),
+                ]
+            )
             datasets.append(dataset)
-
-    events: List[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]] = []
 
     for d in datasets:
         entity_name = d.urn.split(":")[-1].split(",")[1]
@@ -498,17 +498,16 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             )
         )
 
-        mce = MetadataChangeEventClass(
+        yield MetadataChangeEventClass(
             proposedSnapshot=d,
         )
-        events.append(mce)
-
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=d.urn,
             aspect=SubTypesClass(typeNames=["entity"]),
         )
-        events.append(mcp)
-    return events
+        yield MetadataChangeProposalWrapper(
+            entityUrn=d.urn, aspect=d.browse_path_v2  # type: ignore
+        )
 
 
 class EntityRegistry(ConfigModel):
