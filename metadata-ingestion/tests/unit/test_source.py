@@ -28,6 +28,7 @@ class FakeSource(Source):
         ]
 
     def __init__(self, ctx: PipelineContext):
+        super().__init__(ctx)
         self.source_report = SourceReport()
 
     @classmethod
