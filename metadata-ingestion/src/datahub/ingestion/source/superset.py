@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import lru_cache
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 import requests
@@ -18,14 +18,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql import sql_common
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -193,15 +188,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             pass
             # TODO(Gabe): how should we message about this error?
 
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = SupersetConfig.parse_obj(config_dict)
@@ -310,10 +296,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dashboard_data
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                yield wu
+                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
     def construct_chart_from_chart_data(self, chart_data):
         chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
@@ -412,20 +395,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                yield wu
+                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

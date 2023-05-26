@@ -41,6 +41,7 @@ authorization:
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
+  maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -278,6 +279,7 @@ featureFlags:
   pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with main line ElasticSearch releases after 7.10. OpenSearch is unsupported, plans to eventually target OpenSearch 2.4+ with a divergent client
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
+  readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

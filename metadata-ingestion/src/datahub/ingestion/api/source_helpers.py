@@ -1,13 +1,23 @@
-from typing import Callable, Iterable, Optional, Set, TypeVar, Union
+import logging
+from collections import defaultdict
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import WorkUnit
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    ContainerClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
@@ -16,6 +26,14 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.source import SourceReport
+    from datahub.ingestion.source.state.stale_entity_removal_handler import (
+        StaleEntityRemovalHandler,
+    )
+
+logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
@@ -78,7 +96,7 @@ def _default_entity_type_fn(wu: MetadataWorkUnit) -> Optional[str]:
 
 
 def auto_stale_entity_removal(
-    stale_entity_removal_handler: StaleEntityRemovalHandler,
+    stale_entity_removal_handler: "StaleEntityRemovalHandler",
     stream: Iterable[MetadataWorkUnit],
     entity_type_fn: Callable[
         [MetadataWorkUnit], Optional[str]
@@ -104,10 +122,10 @@ def auto_stale_entity_removal(
     yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
-T = TypeVar("T", bound=WorkUnit)
+T = TypeVar("T", bound=MetadataWorkUnit)
 
 
-def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterable[T]:
+def auto_workunit_reporter(report: "SourceReport", stream: Iterable[T]) -> Iterable[T]:
     """
     Calls report.report_workunit() on each workunit.
     """
@@ -119,13 +137,8 @@ def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterabl
 
 def auto_materialize_referenced_tags(
     stream: Iterable[MetadataWorkUnit],
-    active: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
     """For all references to tags, emit a tag key aspect to ensure that the tag exists in our backend."""
-
-    if not active:
-        yield from stream
-        return
 
     referenced_tags = set()
     tags_with_aspects = set()
@@ -148,3 +161,50 @@ def auto_materialize_referenced_tags(
             entityUrn=urn,
             aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
         ).as_workunit()
+
+
+def auto_browse_path_v2(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Generate BrowsePathsV2 from Container aspects."""
+    # TODO: Generate BrowsePathsV2 from BrowsePaths as well
+
+    ignore_urns: Set[str] = set()
+    container_urns: Set[str] = set()
+    parent_container_map: Dict[str, str] = {}
+    children: Dict[str, List[str]] = defaultdict(list)
+    for wu in stream:
+        yield wu
+
+        urn = wu.get_urn()
+        if guess_entity_type(urn) == "container":
+            container_urns.add(urn)
+
+        container_aspects = wu.get_aspects_of_type(ContainerClass)
+        for aspect in container_aspects:
+            parent = aspect.container
+            parent_container_map[urn] = parent
+            children[parent].append(urn)
+
+        if wu.get_aspects_of_type(BrowsePathsV2Class):
+            ignore_urns.add(urn)
+
+    paths: Dict[str, List[str]] = {}  # Maps urn -> list of urns in path
+    # Yield browse paths v2 in topological order, starting with root containers
+    nodes = container_urns - parent_container_map.keys()
+    while nodes:
+        node = nodes.pop()
+        nodes.update(children[node])
+
+        if node not in parent_container_map:  # root
+            paths[node] = []
+        else:
+            parent = parent_container_map[node]
+            paths[node] = [*paths[parent], parent]
+        if node not in ignore_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node,
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
+                ),
+            ).as_workunit()

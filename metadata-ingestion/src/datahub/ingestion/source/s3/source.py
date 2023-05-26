@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import logging
 import os
 import pathlib
@@ -50,13 +51,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
 from datahub.ingestion.source.aws.s3_util import (
@@ -70,7 +65,6 @@ from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -182,6 +176,29 @@ profiling_flags_to_report = [
 # )
 
 
+def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
+    # Try to convert to number and compare if the folder name is a number
+    try:
+        # Stripping = from the folder names as it most probably partition name part like year=2021
+        if "=" in folder1 and "=" in folder2:
+            if folder1.split("=", 1)[0] == folder2.split("=", 1)[0]:
+                folder1 = folder1.split("=", 1)[1]
+                folder2 = folder2.split("=", 1)[1]
+
+        num_folder1 = int(folder1)
+        num_folder2 = int(folder2)
+        if num_folder1 == num_folder2:
+            return 0
+        else:
+            return 1 if num_folder1 > num_folder2 else -1
+    except Exception:
+        # If folder name is not a number then do string comparison
+        if folder1 == folder2:
+            return 0
+        else:
+            return 1 if folder1 > folder2 else -1
+
+
 @dataclasses.dataclass
 class TableData:
     display_name: str
@@ -255,15 +272,6 @@ class S3Source(StatefulIngestionSourceBase):
         telemetry.telemetry_instance.ping(
             "data_lake_config",
             config_report,
-        )
-
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
         )
 
         if config.profiling.enabled:
@@ -534,15 +542,10 @@ class S3Source(StatefulIngestionSourceBase):
 
             self.profiling_times_taken.append(time_taken)
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=table_profiler.profile,
-        )
-        wu = MetadataWorkUnit(
-            id=f"profile-{self.source_config.platform}-{table_data.table_path}", mcp=mcp
-        )
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
         reported_time = int(time.time() * 1000)
@@ -577,7 +580,6 @@ class S3Source(StatefulIngestionSourceBase):
             self.source_config.env,
         )
 
-        customProperties: Optional[Dict[str, str]] = None
         customProperties = {"schema_inferred_from": str(table_data.full_path)}
 
         if not path_spec.sample_files:
@@ -640,19 +642,15 @@ class S3Source(StatefulIngestionSourceBase):
 
         operation = self._create_table_operation_aspect(table_data)
         aspects.append(operation)
-        yield from [
-            mcp.as_workunit()
-            for mcp in MetadataChangeProposalWrapper.construct_many(
-                entityUrn=dataset_urn,
-                aspects=aspects,
-            )
-        ]
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dataset_urn,
+            aspects=aspects,
+        ):
+            yield mcp.as_workunit()
 
-        container_wus = self.container_WU_creator.create_container_hierarchy(
+        yield from self.container_WU_creator.create_container_hierarchy(
             table_data.table_path, dataset_urn
         )
-        for wu in container_wus:
-            yield wu
 
         if self.source_config.profiling.enabled:
             yield from self.get_table_profile(table_data, dataset_urn)
@@ -710,7 +708,12 @@ class S3Source(StatefulIngestionSourceBase):
         )
         iterator = peekable(iterator)
         if iterator:
-            sorted_dirs = sorted(iterator, reverse=True)
+            sorted_dirs = sorted(
+                iterator,
+                key=functools.cmp_to_key(partitioned_folder_comparator),
+                reverse=True,
+            )
+
             return self.get_dir_to_process(
                 bucket_name=bucket_name, folder=sorted_dirs[0] + "/"
             )
@@ -796,7 +799,8 @@ class S3Source(StatefulIngestionSourceBase):
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
-                dirs.sort()
+                dirs.sort(key=functools.cmp_to_key(partitioned_folder_comparator))
+
                 for file in sorted(files):
                     full_path = os.path.join(root, file)
                     yield full_path, datetime.utcfromtimestamp(
@@ -885,16 +889,13 @@ class S3Source(StatefulIngestionSourceBase):
                 },
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_materialize_referenced_tags(
-            auto_stale_entity_removal(
-                self.stale_entity_removal_handler,
-                auto_workunit_reporter(
-                    self.report,
-                    auto_status_aspect(self.get_workunits_internal()),
-                ),
-            )
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"

@@ -5,14 +5,17 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests
 from dateutil import parser
 from packaging import version
+from pydantic import root_validator
 from pydantic.fields import Field
+from requests import Response
 from requests.adapters import HTTPAdapter
+from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -26,6 +29,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -60,6 +64,7 @@ class NifiAuthType(Enum):
     NO_AUTH = "NO_AUTH"
     SINGLE_USER = "SINGLE_USER"
     CLIENT_CERT = "CLIENT_CERT"
+    KERBEROS = "KERBEROS"
 
 
 class NifiSourceConfig(EnvConfigMixin):
@@ -67,7 +72,7 @@ class NifiSourceConfig(EnvConfigMixin):
 
     auth: NifiAuthType = Field(
         default=NifiAuthType.NO_AUTH,
-        description="Nifi authentication. must be one of : NO_AUTH, SINGLE_USER, CLIENT_CERT",
+        description="Nifi authentication. must be one of : NO_AUTH, SINGLE_USER, CLIENT_CERT, KERBEROS",
     )
 
     provenance_days: int = Field(
@@ -111,13 +116,30 @@ class NifiSourceConfig(EnvConfigMixin):
 
     # Required to be set if nifi server certificate is not signed by
     # root CA trusted by client system, e.g. self-signed certificates
-    ca_file: Optional[str] = Field(
+    ca_file: Optional[Union[bool, str]] = Field(
         default=None,
         description="Path to PEM file containing certs for the root CA(s) for the NiFi",
     )
 
+    @root_validator
+    def validate_auth_params(cla, values):
+        if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
+            "client_cert_file"
+        ):
+            raise ValueError(
+                "Config `client_cert_file` is required for CLIENT_CERT auth"
+            )
+        elif values.get("auth") is NifiAuthType.SINGLE_USER and (
+            not values.get("username") or not values.get("password")
+        ):
+            raise ValueError(
+                "Config `username` and `password` is required for SINGLE_USER auth"
+            )
+        return values
+
 
 TOKEN_ENDPOINT = "/nifi-api/access/token"
+KERBEROS_TOKEN_ENDPOINT = "/nifi-api/access/kerberos"
 ABOUT_ENDPOINT = "/nifi-api/flow/about"
 CLUSTER_ENDPOINT = "/nifi-api/flow/cluster/summary"
 PG_ENDPOINT = "/nifi-api/flow/process-groups/"
@@ -343,52 +365,6 @@ class NifiSource(Source):
                 urljoin(self.config.site_url, "/nifi/")
             ] = self.config.site_name
 
-        if self.config.auth is NifiAuthType.CLIENT_CERT:
-            logger.debug("Setting client certificates in requests ssl context")
-            assert (
-                self.config.client_cert_file is not None
-            ), "Config client_cert_file is required for CLIENT_CERT auth"
-            self.session.mount(
-                urljoin(self.config.site_url, "/nifi-api/"),
-                SSLAdapter(
-                    certfile=self.config.client_cert_file,
-                    keyfile=self.config.client_key_file,
-                    password=self.config.client_key_password,
-                ),
-            )
-        if self.config.auth is NifiAuthType.SINGLE_USER:
-            assert (
-                self.config.username is not None
-            ), "Config username is required for SINGLE_USER auth"
-            assert (
-                self.config.password is not None
-            ), "Config password is required for SINGLE_USER auth"
-            token_response = self.session.post(
-                url=urljoin(self.config.site_url, TOKEN_ENDPOINT),
-                data={
-                    "username": self.config.username,
-                    "password": self.config.password,
-                },
-            )
-            if not token_response.ok:
-                logger.error("Failed to get token")
-                self.report.report_failure(self.config.site_url, "Failed to get token")
-
-            self.session.headers.update(
-                {
-                    "Authorization": "Bearer " + token_response.text,
-                    # "Accept": "application/json",
-                    "Content-Type": "application/json",
-                }
-            )
-        else:
-            self.session.headers.update(
-                {
-                    # "Accept": "application/json",
-                    "Content-Type": "application/json",
-                }
-            )
-
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
         config = NifiSourceConfig.parse_obj(config_dict)
@@ -398,6 +374,9 @@ class NifiSource(Source):
         return self.report
 
     def update_flow(self, pg_flow_dto: Dict) -> None:  # noqa: C901
+        """
+        Update self.nifi_flow with contents of the input process group `pg_flow_dto`
+        """
         breadcrumb_dto = pg_flow_dto.get("breadcrumb", {}).get("breadcrumb", {})
         nifi_pg = NifiProcessGroup(
             breadcrumb_dto.get("id"),
@@ -633,11 +612,7 @@ class NifiSource(Source):
             url=urljoin(self.config.site_url, PG_ENDPOINT) + "root"
         )
 
-        if not pg_response.ok:
-            logger.error("Failed to get root process group flow")
-            self.report.report_failure(
-                self.config.site_url, "Failed to get of root process group flow"
-            )
+        pg_response.raise_for_status()
 
         pg_flow_dto = pg_response.json().get("processGroupFlow", {})
         breadcrumb_dto = pg_flow_dto.get("breadcrumb", {}).get("breadcrumb", {})
@@ -775,7 +750,7 @@ class NifiSource(Source):
             flow_properties["clustered"] = str(self.nifi_flow.clustered)
         if self.nifi_flow.version is not None:
             flow_properties["version"] = str(self.nifi_flow.version)
-        yield from self.construct_flow_workunits(
+        yield self.construct_flow_workunits(
             flow_urn, flow_name, self.make_external_url(rootpg.id), flow_properties
         )
 
@@ -951,9 +926,65 @@ class NifiSource(Source):
                     else:
                         component.outlets[dataset.dataset_urn] = dataset
 
+    def authenticate(self):
+        if self.config.auth is NifiAuthType.NO_AUTH:
+            # Token not required
+            return
+
+        if self.config.auth is NifiAuthType.CLIENT_CERT:
+            self.session.mount(
+                urljoin(self.config.site_url, "/nifi-api/"),
+                SSLAdapter(
+                    certfile=self.config.client_cert_file,
+                    keyfile=self.config.client_key_file,
+                    password=self.config.client_key_password,
+                ),
+            )
+            return
+
+        # get token flow
+        token_response: Response
+        if self.config.auth is NifiAuthType.SINGLE_USER:
+            token_response = self.session.post(
+                url=urljoin(self.config.site_url, TOKEN_ENDPOINT),
+                data={
+                    "username": self.config.username,
+                    "password": self.config.password,
+                },
+            )
+        elif self.config.auth is NifiAuthType.KERBEROS:
+            token_response = self.session.post(
+                url=urljoin(self.config.site_url, KERBEROS_TOKEN_ENDPOINT),
+                auth=HTTPSPNEGOAuth(),
+            )
+        else:
+            raise Exception(f"Unsupported auth: {self.config.auth}")
+
+        token_response.raise_for_status()
+        self.session.headers.update({"Authorization": "Bearer " + token_response.text})
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        try:
+            self.authenticate()
+        except Exception as e:
+            logger.error("Failed to authenticate", exc_info=e)
+            self.report.report_failure(self.config.site_url, "Failed to authenticate")
+            return
+
+        self.session.headers.update({"Content-Type": "application/json"})
+
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
-        self.create_nifi_flow()
+        try:
+            self.create_nifi_flow()
+        except Exception as e:
+            logger.error("Failed to get root process group flow", exc_info=e)
+            self.report.report_failure(
+                self.config.site_url, "Failed to get root process group flow"
+            )
+            return
 
         # Updates inlets and outlets of nifi_flow.components by invoking /provenance rest api
         self.process_provenance_events()
@@ -980,21 +1011,15 @@ class NifiSource(Source):
         flow_name: str,
         external_url: str,
         flow_properties: Optional[Dict[str, str]] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        mcp = MetadataChangeProposalWrapper(
+    ) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
             aspect=DataFlowInfoClass(
                 name=flow_name,
                 customProperties=flow_properties,
                 externalUrl=external_url,
             ),
-        )
-        for proposal in [mcp]:
-            wu = MetadataWorkUnit(
-                id=f"{NIFI}.{flow_name}.{proposal.aspectName}", mcp=proposal
-            )
-            self.report.report_workunit(wu)
-            yield wu
+        ).as_workunit()
 
     def construct_job_workunits(
         self,
@@ -1012,7 +1037,7 @@ class NifiSource(Source):
         if job_properties:
             job_properties = {k: v for k, v in job_properties.items() if v is not None}
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInfoClass(
                 name=job_name,
@@ -1022,32 +1047,18 @@ class NifiSource(Source):
                 externalUrl=external_url,
                 status=status,
             ),
-        )
-
-        wu = MetadataWorkUnit(
-            id=f"{NIFI}.{job_name}.{mcp.aspectName}",
-            mcp=mcp,
-        )
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
         inlets.sort()
         outlets.sort()
         inputJobs.sort()
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInputOutputClass(
                 inputDatasets=inlets, outputDatasets=outlets, inputDatajobs=inputJobs
             ),
-        )
-
-        wu = MetadataWorkUnit(
-            id=f"{NIFI}.{job_name}.{mcp.aspectName}",
-            mcp=mcp,
-        )
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
     def construct_dataset_workunits(
         self,
@@ -1062,28 +1073,16 @@ class NifiSource(Source):
                 dataset_platform, dataset_name, self.config.env
             )
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DataPlatformInstanceClass(
                 platform=builder.make_data_platform_urn(dataset_platform)
             ),
-        )
-        platform = (
-            dataset_platform[dataset_platform.rindex(":") + 1 :]
-            if dataset_platform.startswith("urn:")
-            else dataset_platform
-        )
-        wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetPropertiesClass(
                 externalUrl=external_url, customProperties=datasetProperties
             ),
-        )
-
-        wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        self.report.report_workunit(wu)
-        yield wu
+        ).as_workunit()
