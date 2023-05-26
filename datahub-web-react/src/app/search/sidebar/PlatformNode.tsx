@@ -91,7 +91,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                                 path={[...pathResult, group.name]}
                             />
                         ))}
-                        {(error || 1) && <SidebarLoadingError onClickRetry={retry} />}
+                        {error && <SidebarLoadingError onClickRetry={retry} />}
                         {observable}
                     </BrowseGroupListContainer>
                 </ExpandableNode.Body>
