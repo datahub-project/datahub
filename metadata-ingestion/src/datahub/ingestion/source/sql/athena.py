@@ -280,6 +280,18 @@ class AthenaSource(SQLAlchemySource):
         config = AthenaConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    # overwrite this method to allow to specify the usage of a custom dialect
+    def get_inspectors(self) -> Iterable[Inspector]:
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+
+        # set custom dialect to be used by the inspector
+        engine.dialect = CustomAthenaRestDialect()
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+            yield inspector
+
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
@@ -392,6 +404,30 @@ class AthenaSource(SQLAlchemySource):
         if athena_config.database:
             return [schema for schema in schemas if schema == athena_config.database]
         return schemas
+
+    # Overwrite to modify the creation of schema fields
+    def get_schema_fields_for_column(
+        self,
+        dataset_name: str,
+        column: dict,
+        pk_constraints: Optional[dict] = None,
+        tags: Optional[List[str]] = None,
+    ) -> List[SchemaField]:
+        fields = get_schema_fields_for_sqlalchemy_column(
+            column_name=column["name"],
+            column_type=column["type"],
+            description=column.get("comment", None),
+            nullable=column.get("nullable", True),
+            is_part_of_key=True
+            if (
+                pk_constraints is not None
+                and isinstance(pk_constraints, dict)
+                and column["name"] in pk_constraints.get("constrained_columns", [])
+            )
+            else False,
+        )
+
+        return fields
 
     def close(self):
         if self.cursor:
