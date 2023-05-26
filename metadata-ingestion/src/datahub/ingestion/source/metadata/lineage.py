@@ -54,12 +54,12 @@ class EntityConfig(EnvConfigMixin):
 
 
 class FineGrainedLineageConfig(ConfigModel):
-    upstreamType: str = "NONE"
+    upstreamType: str = "FIELD_SET"
     upstreams: Optional[List[str]]
-    downstreamType: str
+    downstreamType: str = "FIELD"
     downstreams: Optional[List[str]]
     transformOperation: Optional[str]
-    confidenceScore: Optional[float]
+    confidenceScore: Optional[float] = 1.0
 
     @validator("upstreamType")
     def upstream_type_must_be_supported(cls, v: str) -> str:
