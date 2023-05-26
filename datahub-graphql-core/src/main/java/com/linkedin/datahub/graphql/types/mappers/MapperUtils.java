@@ -12,14 +12,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver.*;
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 
 public class MapperUtils {
-
-  public static final String ENTITY_FILTER_NAME = "_entityType";
 
   private MapperUtils() {
 

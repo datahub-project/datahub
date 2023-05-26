@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
@@ -44,7 +45,6 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
 
   private static final String PLATFORM = "platform";
   private static final int PLATFORM_COUNT = 5;
-  private static final String LEGACY_ENTITY_FILTER_NAME = "entity";
   private static final int SOURCE_ENTITY_COUNT = 3;
   private static final int DATAHUB_ENTITY_COUNT = 2;
 
