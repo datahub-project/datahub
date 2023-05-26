@@ -13,4 +13,7 @@ dependencies {
   compile 'com.fasterxml.jackson.core:jackson-databind:2.13.5'
   compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.5'
   compile 'commons-io:commons-io:2.11.0'
+
+  implementation 'org.projectlombok:lombok:1.18.14'
+  annotationProcessor 'org.projectlombok:lombok:1.18.14'
 }
