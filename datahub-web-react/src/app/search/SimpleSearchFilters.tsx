@@ -45,7 +45,7 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
         onFilterSelect(newFilters);
     };
 
-    const filteredFacets = cachedProps.facets.filter((facet) => FILTERS_TO_EXCLUDE.indexOf(facet.field) === -1);
+    const filteredFacets = cachedProps.facets.filter((facet) => !FILTERS_TO_EXCLUDE.includes(facet.field));
 
     const sortedFacets = filteredFacets.sort((facetA, facetB) => {
         if (TOP_FILTERS.indexOf(facetA.field) === -1) return 1;

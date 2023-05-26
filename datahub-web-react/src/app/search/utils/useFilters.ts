@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import * as QueryString from 'query-string';
 
-import { FILTER_URL_PREFIX } from './constants';
+import { ENTITY_FILTER_NAME, FILTER_URL_PREFIX, LEGACY_ENTITY_FILTER_NAME } from './constants';
 import { FacetFilterInput, FilterOperator } from '../../../types.generated';
 import { decodeComma } from '../../entity/shared/utils';
 import { URL_PARAM_SEPARATOR } from './filtersToQueryStringParams';
 
 function ifLegacyFieldNameTranslate(fieldName) {
-    if (fieldName === 'entity') {
-        return '_entityType';
+    if (fieldName === LEGACY_ENTITY_FILTER_NAME) {
+        return ENTITY_FILTER_NAME;
     }
     return fieldName;
 }
