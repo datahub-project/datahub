@@ -58,7 +58,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
     const skip = !isOpen;
 
     // This is the seed, we don't know how many <BrowseNodeList/> we need until this query comes back
-    const { loaded, error, groups, pathResult, loadMore } = useBrowseV2Query({
+    const { loaded, error, groups, pathResult, fetchNextPage } = useBrowseV2Query({
         entityType: entityAggregation.value as EntityType,
         environment: environmentAggregation?.value,
         platform: platformAggregation.value,
@@ -68,7 +68,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
 
     const color = ANTD_GRAY[9];
 
-    const { observableRef } = useIntersect({ skip, initialDelay: 500, onIntersect: loadMore });
+    const { observableRef } = useIntersect({ skip, initialDelay: 500, onIntersect: fetchNextPage });
 
     return (
         <ExpandableNode
@@ -100,7 +100,7 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
                                     path={[...pathResult, group.name]}
                                 />
                             ))}
-                            <div ref={observableRef}>observable (HIDE ME)</div>
+                            <div ref={observableRef} style={{ width: '1px', height: '1px' }} />
                         </BrowseGroupListContainer>
                     )}
                 </ExpandableNode.Body>

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { GetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
 
-const useBrowseMap = () => {
+const usePaginatedBrowse = () => {
     const [startList, setStartList] = useState<Array<number>>([]);
     const map = useRef(new Map<number, GetBrowseResultsV2Query>());
 
@@ -11,23 +11,23 @@ const useBrowseMap = () => {
     const pathResult = latestData?.browseV2?.metadata.path ?? [];
     const total = latestData?.browseV2?.total ?? -1;
     const done = !!latestData && groups.length >= total;
-    const hasData = !!latestData;
+    const hasPages = !!latestData;
 
-    const mapAppend = useCallback((data?: GetBrowseResultsV2Query) => {
+    const appendPage = useCallback((data?: GetBrowseResultsV2Query) => {
         const newStart = data?.browseV2?.start ?? -1;
         if (!data || newStart < 0 || map.current.has(newStart)) return;
         map.current.set(newStart, data);
         setStartList((current) => [...current, newStart].sort());
     }, []);
 
-    const mapClear = useCallback(() => {
+    const clearPages = useCallback(() => {
         setStartList(() => {
             map.current.clear();
             return [];
         });
     }, []);
 
-    return { hasData, latestStart, groups, pathResult, done, total, mapAppend, mapClear } as const;
+    return { hasPages, groups, pathResult, done, total, appendPage, clearPages } as const;
 };
 
-export default useBrowseMap;
+export default usePaginatedBrowse;

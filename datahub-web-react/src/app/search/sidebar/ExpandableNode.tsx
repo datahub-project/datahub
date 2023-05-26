@@ -12,7 +12,7 @@ const HeaderContainer = styled.div``;
 const BodyGridExpander = styled.div<{ isOpen: boolean }>`
     display: grid;
     grid-template-rows: ${(props) => (props.isOpen ? '1fr' : '0fr')};
-    transition: grid-template-rows 0.2s;
+    transition: grid-template-rows 250ms;
     overflow: hidden;
 `;
 
@@ -56,7 +56,7 @@ ExpandableNode.HeaderLeft = styled.div`
 ExpandableNode.Triangle = styled(VscTriangleRight)<{ isOpen: boolean }>`
     color: ${ANTD_GRAY[9]};
     transform: rotate(${(props) => (props.isOpen ? 90 : 0)}deg);
-    transition: transform 0.2s;
+    transition: transform 250ms;
 `;
 
 ExpandableNode.Body = styled.div``;

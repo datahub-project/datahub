@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { EntityType } from '../../../types.generated';
 import { useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
 import useSidebarFilters from './useSidebarFilters';
 import { BROWSE_PATH_PAGE_SIZE } from './constants';
-import useBrowseMap from './useBrowseMap';
+import usePaginatedBrowse from './usePaginatedBrowse';
 
 type Props = {
     entityType: EntityType;
@@ -14,11 +14,10 @@ type Props = {
 };
 
 const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Props) => {
-    const locked = useRef(skip);
-    const { query, orFilters, viewUrn } = useSidebarFilters({ environment, platform });
-    const { hasData, latestStart, groups, pathResult, done, total, mapAppend, mapClear } = useBrowseMap();
     const [currentStart, setCurrentStart] = useState(0);
-    const [cachedFilters, setCachedFilters] = useState<ReturnType<typeof useSidebarFilters>>();
+    const sidebarFilters = useSidebarFilters({ environment, platform });
+    const [cachedFilters, setCachedFilters] = useState(sidebarFilters);
+    const { hasPages, groups, pathResult, done, total, appendPage, clearPages } = usePaginatedBrowse();
 
     const { data, loading, error } = useGetBrowseResultsV2Query({
         skip,
@@ -34,32 +33,31 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
         },
     });
 
+    const loaded = hasPages || !!error;
+
     useEffect(() => {
-        mapClear();
+        clearPages();
         setCurrentStart(0);
-        setCachedFilters({ query, orFilters, viewUrn });
-    }, [mapClear, orFilters, query, viewUrn]);
+        setCachedFilters(sidebarFilters);
+    }, [clearPages, sidebarFilters]);
 
-    const loaded = hasData || !!error;
-
-    useEffect(() => {
-        mapAppend(data);
-    }, [mapAppend, data]);
-
-    useEffect(() => {
-        if (!skip && latestStart >= currentStart) locked.current = false;
-    }, [currentStart, latestStart, skip]);
-
-    const loadMore = useCallback(
+    const fetchNextPage = useCallback(
         () =>
             setCurrentStart((current) => {
                 const newStart = current + BROWSE_PATH_PAGE_SIZE;
-                if (locked.current || done || total <= 0 || newStart >= total) return current;
-                locked.current = true;
+                if (done || total <= 0 || newStart >= total) {
+                    console.log('current', current);
+                    return current;
+                }
+                console.log('newStart', newStart);
                 return newStart;
             }),
         [done, total],
     );
+
+    useEffect(() => {
+        appendPage(data);
+    }, [appendPage, data]);
 
     return {
         loading,
@@ -67,7 +65,7 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
         error,
         groups,
         pathResult,
-        loadMore,
+        fetchNextPage,
     } as const;
 };
 

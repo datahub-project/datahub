@@ -44,7 +44,7 @@ const BrowseNode = ({
 
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
 
-    const { loaded, error, groups, pathResult, loadMore } = useBrowseV2Query({
+    const { loaded, error, groups, pathResult, fetchNextPage } = useBrowseV2Query({
         skip,
         entityType: entityAggregation.value as EntityType,
         environment: environmentAggregation?.value,
@@ -55,14 +55,7 @@ const BrowseNode = ({
     const color = ANTD_GRAY[9];
     const iconProps: CSSProperties = { visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
 
-    // todo - what if we open a bunch of these, then expand/re-open them?
-    // will that cause the intersection all at once for a bunch of them?
-
-    // maybe we should ignore results for a bit/debounce or something after recently opening/loading
-    // basically the skip/loading condition should trigger a debounced toggle that we use to enable this thing
-    // disable can be right away
-    //
-    const { observableRef } = useIntersect({ skip, initialDelay: 500, onIntersect: loadMore });
+    const { observableRef } = useIntersect({ skip, initialDelay: 500, onIntersect: fetchNextPage });
 
     return (
         <ExpandableNode
@@ -89,7 +82,7 @@ const BrowseNode = ({
                             path={[...pathResult, group.name]}
                         />
                     ))}
-                    <div ref={observableRef}>observable (HIDE ME)</div>
+                    <div ref={observableRef} style={{ width: '1px', height: '1px' }} />
                     {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                 </ExpandableNode.Body>
             }

@@ -9,7 +9,7 @@ import useBrowseV2EnabledEntities from './useBrowseV2EnabledEntities';
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
     width: ${(props) => (props.visible ? `${props.width}px` : '0')};
-    transition: width 0.2s ease-in-out;
+    transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
     background-color: ${ANTD_GRAY[2]};
 `;

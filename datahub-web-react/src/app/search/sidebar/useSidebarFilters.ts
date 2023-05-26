@@ -26,7 +26,7 @@ const useSidebarFilters = ({ environment, platform }: Props) => {
         [filterOverrides, orFiltersWithoutOverrides],
     );
 
-    return { query, orFilters, viewUrn } as const;
+    return useMemo(() => ({ query, orFilters, viewUrn } as const), [orFilters, query, viewUrn]);
 };
 
 export default useSidebarFilters;
