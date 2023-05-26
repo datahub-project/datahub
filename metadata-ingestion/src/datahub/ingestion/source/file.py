@@ -6,8 +6,9 @@ import pathlib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import auto
+from functools import partial
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib import parse
 
 import ijson
@@ -28,6 +29,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceReport,
     TestableSource,
     TestConnectionReport,
@@ -205,8 +207,9 @@ class GenericFileSource(TestableSource):
             self.report.total_num_files = 1
             return [str(self.config.path)]
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # No super() call, as we don't want helpers that create / remove workunits
+        return [partial(auto_workunit_reporter, self.report)]
 
     def get_workunits_internal(
         self,

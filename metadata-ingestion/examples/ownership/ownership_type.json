@@ -1,0 +1,7 @@
+{
+  "urn": "urn:li:ownershipType:architect",
+  "info": {
+    "name": "Architect",
+    "description": "Technical person responsible for the asset"
+  }
+}

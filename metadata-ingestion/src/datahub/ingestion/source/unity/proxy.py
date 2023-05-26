@@ -4,9 +4,10 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import GetMetastoreSummaryResponse, MetastoreInfo
 from databricks.sdk.service.sql import (
     QueryFilter,
     QueryInfo,
@@ -16,6 +17,7 @@ from databricks.sdk.service.sql import (
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -74,24 +76,24 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.warehouse_id = warehouse_id or ""
         self.report = report
 
-    def check_connectivity(self) -> bool:
-        self._unity_catalog_api.list_metastores()
+    def check_account_admin(self) -> bool:
+        self._workspace_client.metastores.list()
         return True
 
-    def assigned_metastore(self) -> Optional[Metastore]:
-        response: dict = self._unity_catalog_api.get_metastore_summary()
-        if response.get("metastore_id") is None:
-            logger.info("Not found assigned metastore")
-            return None
+    def check_basic_connectivity(self) -> bool:
+        self._workspace_client.metastores.summary()
+        return True
+
+    def assigned_metastore(self) -> Metastore:
+        response = self._workspace_client.metastores.summary()
         return self._create_metastore(response)
 
     def metastores(self) -> Iterable[Metastore]:
-        response: dict = self._unity_catalog_api.list_metastores()
-        if response.get("metastores") is None:
+        response = self._workspace_client.metastores.list()
+        if not response:
             logger.info("Metastores not found")
             return []
-        # yield here to support paginated response later
-        for metastore in response["metastores"]:
+        for metastore in response:
             yield self._create_metastore(metastore)
 
     def catalogs(self, metastore: Metastore) -> Iterable[Catalog]:
@@ -295,14 +297,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         return value.replace(" ", "_")
 
     @staticmethod
-    def _create_metastore(obj: Any) -> Metastore:
+    def _create_metastore(
+        obj: Union[GetMetastoreSummaryResponse, MetastoreInfo]
+    ) -> Metastore:
         return Metastore(
-            name=obj["name"],
-            id=UnityCatalogApiProxy._escape_sequence(obj["name"]),
-            metastore_id=obj["metastore_id"],
-            type="Metastore",
-            comment=obj.get("comment"),
-            owner=obj.get("owner"),
+            name=obj.name,
+            id=UnityCatalogApiProxy._escape_sequence(obj.name),
+            metastore_id=obj.metastore_id,
+            type=DatasetContainerSubTypes.DATABRICKS_METASTORE,
+            owner=obj.owner,
+            region=obj.region,
+            cloud=obj.cloud,
+            comment=None,
         )
 
     def _create_catalog(self, metastore: Metastore, obj: Any) -> Catalog:
