@@ -200,6 +200,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     accessed_dashboards: int = 0
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
+    reachable_look_registry: List[int]  # Keep track of look-id which are reachable from Dashboard
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -210,6 +211,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.explore_registry = LookerExploreRegistry(self.looker_api, self.reporter)
         self.reporter._looker_explore_registry = self.explore_registry
         self.reporter._looker_api = self.looker_api
+        self.reachable_look_registry = []
 
         self.explores_to_fetch_set: Dict[Tuple[str, str], List[str]] = {}
 
@@ -520,6 +522,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     slug = element.look.query.slug
                 else:
                     slug = ""
+
                 return LookerDashboardElement(
                     id=element.id,
                     title=title,
@@ -931,6 +934,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ):
                 self.reporter.report_charts_dropped(element.id)
                 continue
+            if element.look_id is not None:
+                # Keeping track of reachable element from Dashboard
+                # Later we need to ingest looks which are not reachable from any dashboard
+                self.reachable_look_registry.append(element.look_id)
             looker_dashboard_element = self._get_looker_dashboard_element(element)
             if looker_dashboard_element is not None:
                 dashboard_elements.append(looker_dashboard_element)
@@ -1193,6 +1200,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.reporter.report_stage_start("list_dashboards")
         dashboards = self.looker_api.all_dashboards(fields="id")
+        looks = self.looker_api.all_looks(fields=["id", "title"])
+        for look in looks:
+            logger.info(f"MOHD look-id={look.id} and look-title={look.title} and parent={look.folder.parent_id if look.folder is not None else 'UNKNOWN'}")
+
         deleted_dashboards = (
             self.looker_api.search_dashboards(fields="id", deleted="true")
             if self.source_config.include_deleted

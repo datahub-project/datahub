@@ -16,7 +16,7 @@ from looker_sdk.sdk.api40.models import (
     LookmlModel,
     LookmlModelExplore,
     User,
-    WriteQuery,
+    WriteQuery, Look,
 )
 from pydantic import BaseModel, Field
 
@@ -56,6 +56,8 @@ class LookerAPIStats(BaseModel):
     connection_calls: int = 0
     lookml_model_calls: int = 0
     all_dashboards_calls: int = 0
+    all_looks_calls: int = 0
+    search_looks_calls: int = 0
     search_dashboards_calls: int = 0
 
 
@@ -197,11 +199,34 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
+    def all_looks(self, fields: Union[str, List[str]]) -> Sequence[Look]:
+        self.client_stats.all_looks_calls += 1
+        looks: List[Look] = self.client.all_looks(
+            fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+        # Add soft deleted looks
+        looks.extend(
+            self.search_looks(fields=fields, deleted="true")
+        )
+
+        return looks
+
     def search_dashboards(
         self, fields: Union[str, List[str]], deleted: str
     ) -> Sequence[Dashboard]:
         self.client_stats.search_dashboards_calls += 1
         return self.client.search_dashboards(
+            fields=self.__fields_mapper(fields),
+            deleted=deleted,
+            transport_options=self.transport_options,
+        )
+
+    def search_looks(
+        self, fields: Union[str, List[str]], deleted: str
+    ) -> Sequence[Look]:
+        self.client_stats.search_looks_calls += 1
+        return self.client.search_looks(
             fields=self.__fields_mapper(fields),
             deleted=deleted,
             transport_options=self.transport_options,
