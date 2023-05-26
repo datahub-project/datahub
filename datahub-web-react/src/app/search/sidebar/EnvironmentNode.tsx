@@ -9,6 +9,7 @@ import useAggregationsQuery from './useAggregationsQuery';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import useToggle from './useToggle';
+import SidebarLoadingError from './SidebarLoadingError';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -53,7 +54,6 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
             }
             body={
                 <ExpandableNode.Body>
-                    {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
                     {platformAggregations.map((platform) => (
                         <PlatformNode
                             key={platform.value}
@@ -62,6 +62,7 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
                             platformAggregation={platform}
                         />
                     ))}
+                    {error && <SidebarLoadingError />}
                 </ExpandableNode.Body>
             }
         />

@@ -4,14 +4,14 @@ import { Typography } from 'antd';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata, EntityType } from '../../../types.generated';
+import { AggregationMetadata } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
-import useBrowseV2Query from './useBrowseV2Query';
 import useToggle from './useToggle';
+import useBrowsePaginator from './useBrowsePaginator';
 import BrowseNode from './BrowseNode';
-import useIntersect from '../../shared/useIntersect';
+import SidebarLoadingError from './SidebarLoadingError';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -54,21 +54,16 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
     );
 
     const { isOpen, toggle } = useToggle();
-
     const skip = !isOpen;
+    const color = ANTD_GRAY[9];
 
-    // This is the seed, we don't know how many <BrowseNodeList/> we need until this query comes back
-    const { loaded, error, groups, pathResult, fetchNextPage } = useBrowseV2Query({
-        entityType: entityAggregation.value as EntityType,
-        environment: environmentAggregation?.value,
-        platform: platformAggregation.value,
+    const { error, groups, loaded, observable, pathResult } = useBrowsePaginator({
+        entityAggregation,
+        environmentAggregation,
+        platformAggregation,
         path: [],
         skip,
     });
-
-    const color = ANTD_GRAY[9];
-
-    const { observableRef } = useIntersect({ skip, initialDelay: 500, onIntersect: fetchNextPage });
 
     return (
         <ExpandableNode
@@ -85,24 +80,20 @@ const PlatformNode = ({ entityAggregation, environmentAggregation, platformAggre
             }
             body={
                 <ExpandableNode.Body>
-                    {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
-                    {!!groups.length && (
-                        // todo - move this to a new component that handles the pagination
-                        // we don't want to deal with pagination both here and in BrowseNode right
-                        <BrowseGroupListContainer>
-                            {groups.map((group) => (
-                                <BrowseNode
-                                    key={group.name}
-                                    entityAggregation={entityAggregation}
-                                    environmentAggregation={environmentAggregation}
-                                    platformAggregation={platformAggregation}
-                                    browseResultGroup={group}
-                                    path={[...pathResult, group.name]}
-                                />
-                            ))}
-                            <div ref={observableRef} style={{ width: '1px', height: '1px' }} />
-                        </BrowseGroupListContainer>
-                    )}
+                    <BrowseGroupListContainer>
+                        {groups.map((group) => (
+                            <BrowseNode
+                                key={group.name}
+                                entityAggregation={entityAggregation}
+                                environmentAggregation={environmentAggregation}
+                                platformAggregation={platformAggregation}
+                                browseResultGroup={group}
+                                path={[...pathResult, group.name]}
+                            />
+                        ))}
+                        {error && <SidebarLoadingError />}
+                        {observable}
+                    </BrowseGroupListContainer>
                 </ExpandableNode.Body>
             }
         />

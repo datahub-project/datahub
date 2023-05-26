@@ -5,10 +5,10 @@ import { FolderOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata, BrowseResultGroupV2, EntityType } from '../../../types.generated';
-import useBrowseV2Query from './useBrowseV2Query';
+import { AggregationMetadata, BrowseResultGroupV2 } from '../../../types.generated';
 import useToggle from './useToggle';
-import useIntersect from '../../shared/useIntersect';
+import useBrowsePaginator from './useBrowsePaginator';
+import SidebarLoadingError from './SidebarLoadingError';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -25,7 +25,7 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-type Props = {
+type BrowseNodeProps = {
     entityAggregation: AggregationMetadata;
     environmentAggregation: AggregationMetadata | null;
     platformAggregation: AggregationMetadata;
@@ -39,23 +39,19 @@ const BrowseNode = ({
     platformAggregation,
     browseResultGroup,
     path,
-}: Props) => {
+}: BrowseNodeProps) => {
     const { isOpen, toggle } = useToggle();
-
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
-
-    const { loaded, error, groups, pathResult, fetchNextPage } = useBrowseV2Query({
-        skip,
-        entityType: entityAggregation.value as EntityType,
-        environment: environmentAggregation?.value,
-        platform: platformAggregation.value,
-        path,
-    });
-
     const color = ANTD_GRAY[9];
     const iconProps: CSSProperties = { visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
 
-    const { observableRef } = useIntersect({ skip, initialDelay: 500, onIntersect: fetchNextPage });
+    const { error, groups, loaded, observable, pathResult } = useBrowsePaginator({
+        entityAggregation,
+        environmentAggregation,
+        platformAggregation,
+        path,
+        skip,
+    });
 
     return (
         <ExpandableNode
@@ -82,8 +78,8 @@ const BrowseNode = ({
                             path={[...pathResult, group.name]}
                         />
                     ))}
-                    <div ref={observableRef} style={{ width: '1px', height: '1px' }} />
-                    {error && <Typography.Text type="danger">There was a problem loading the sidebar.</Typography.Text>}
+                    {error && <SidebarLoadingError />}
+                    {observable}
                 </ExpandableNode.Body>
             }
         />

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EntityType } from '../../../types.generated';
-import { useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
+import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
 import useSidebarFilters from './useSidebarFilters';
 import { BROWSE_PATH_PAGE_SIZE } from './constants';
-import usePaginatedBrowse from './usePaginatedBrowse';
 
 type Props = {
     entityType: EntityType;
@@ -14,10 +13,19 @@ type Props = {
 };
 
 const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Props) => {
+    const [startList, setStartList] = useState<Array<number>>([]);
+    const map = useRef(new Map<number, GetBrowseResultsV2Query>());
     const [currentStart, setCurrentStart] = useState(0);
     const sidebarFilters = useSidebarFilters({ environment, platform });
     const [cachedFilters, setCachedFilters] = useState(sidebarFilters);
-    const { hasPages, groups, pathResult, done, total, appendPage, clearPages } = usePaginatedBrowse();
+
+    const groups = useMemo(() => startList.flatMap((s) => map.current.get(s)?.browseV2?.groups ?? []), [startList]);
+    const latestStart = startList.length ? startList[startList.length - 1] : -1;
+    const latestData = latestStart >= 0 ? map.current.get(latestStart) : null;
+    const pathResult = latestData?.browseV2?.metadata.path ?? [];
+    const total = latestData?.browseV2?.total ?? -1;
+    const done = !!latestData && groups.length >= total;
+    const hasPages = !!latestData;
 
     const { data, loading, error } = useGetBrowseResultsV2Query({
         skip,
@@ -35,29 +43,29 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
 
     const loaded = hasPages || !!error;
 
-    useEffect(() => {
-        clearPages();
-        setCurrentStart(0);
-        setCachedFilters(sidebarFilters);
-    }, [clearPages, sidebarFilters]);
-
     const fetchNextPage = useCallback(
         () =>
             setCurrentStart((current) => {
                 const newStart = current + BROWSE_PATH_PAGE_SIZE;
-                if (done || total <= 0 || newStart >= total) {
-                    console.log('current', current);
-                    return current;
-                }
-                console.log('newStart', newStart);
+                if (done || total <= 0 || newStart >= total) return current;
                 return newStart;
             }),
         [done, total],
     );
 
     useEffect(() => {
-        appendPage(data);
-    }, [appendPage, data]);
+        map.current.clear();
+        setStartList(() => []);
+        setCurrentStart(0);
+        setCachedFilters(sidebarFilters);
+    }, [sidebarFilters]);
+
+    useEffect(() => {
+        const newStart = data?.browseV2?.start ?? -1;
+        if (!data || newStart < 0 || map.current.has(newStart)) return;
+        map.current.set(newStart, data);
+        setStartList((current) => [...current, newStart].sort());
+    }, [data]);
 
     return {
         loading,
