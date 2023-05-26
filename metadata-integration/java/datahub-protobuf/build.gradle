@@ -36,10 +36,10 @@ dependencies {
     implementation externalDependency.commonsCli
     implementation externalDependency.httpAsyncClient
     implementation externalDependency.slf4jApi
-    compileOnly externalDependency.lombok
+  implementation externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.junitJupiterApi
-    testRuntimeOnly externalDependency.junitJupiterEngine
+    testImplementationOnly externalDependency.junitJupiterEngine
 }
 
 import java.nio.file.Paths

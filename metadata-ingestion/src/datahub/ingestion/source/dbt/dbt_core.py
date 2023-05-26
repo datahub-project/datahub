@@ -333,7 +333,7 @@ def load_test_results(
             native_results = {}
 
         stage_timings = {x.name: x.started_at for x in run_result.timing}
-        # look for execution start time, fall back to compile start time and finally generation time
+        # look for execution start time, fall back toimplementation start time and finally generation time
         execution_timestamp = (
             stage_timings.get("execute")
             or stage_timings.get("compile")

@@ -1,5 +1,5 @@
 # https://raw.githubusercontent.com/confluentinc/schema-registry/v7.4.0-752/core/generated/swagger-ui/schema-registry-api-spec.yaml
-# To compile the generated code we must:
+# Toimplementation the generated code we must:
 # - Optimize imports to remove unused names that clash with classes defined in this spec.
 # Find all "//" and replace them with "/" for correct string escapes.
 openapi: 3.0.1

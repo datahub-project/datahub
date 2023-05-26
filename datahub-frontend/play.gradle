@@ -4,9 +4,10 @@ apply plugin: "org.gradle.playframework"
 project.ext.httpPort = 9001
 project.ext.playBinaryBaseName = "datahub-frontend"
 
-tasks.withType(PlayRun) {
-  httpPort = project.ext.httpPort
-}
+//Because of error  unknown property 'PlayRun'
+//tasks.withType(PlayRun) {
+//  httpPort = project.ext.httpPort
+//}
 
 configurations {
   play
@@ -30,8 +31,8 @@ dependencies {
     }
   }
 
-  compile project(":metadata-service:restli-client")
-  compile project(":metadata-service:auth-config")
+ implementation project(":metadata-service:restli-client")
+ implementation project(":metadata-service:auth-config")
 
   implementation externalDependency.jettyJaas
   implementation externalDependency.graphqlJava
@@ -67,15 +68,15 @@ dependencies {
   testImplementation 'no.nav.security:mock-oauth2-server:0.3.1'
   testImplementation 'org.junit-pioneer:junit-pioneer:1.9.1'
   testImplementation externalDependency.junitJupiterApi
-  testRuntime externalDependency.junitJupiterEngine
+  testImplementation externalDependency.junitJupiterEngine
 
   implementation externalDependency.slf4jApi
-  compileOnly externalDependency.lombok
-  runtime externalDependency.guice
-  runtime (externalDependency.playDocs) {
+implementation externalDependency.lombok
+implementation externalDependency.guice
+implementation(externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
   }
-  runtime externalDependency.playGuice
+implementation externalDependency.playGuice
   implementation externalDependency.log4j2Api
 
   implementation externalDependency.logbackClassic

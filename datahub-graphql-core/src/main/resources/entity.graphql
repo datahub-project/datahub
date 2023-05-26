@@ -6519,7 +6519,7 @@ type AssertionRunEvent implements TimeSeriesAspect {
   partitionSpec: PartitionSpec
 
   """
-  Runtime parameters of evaluation
+implementationparameters of evaluation
   """
   runtimeContext: [StringMapEntry!]
 

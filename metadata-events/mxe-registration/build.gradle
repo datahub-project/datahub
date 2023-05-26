@@ -5,11 +5,11 @@ configurations {
 }
 
 dependencies {
-  compile project(':metadata-events:mxe-avro-1.7')
-  compile project(':metadata-models')
-  compile spec.product.pegasus.dataAvro1_6
+ implementation project(':metadata-events:mxe-avro-1.7')
+ implementation project(':metadata-models')
+ implementation spec.product.pegasus.dataAvro1_6
 
-  testCompile project(':test-models')
+ testImplementation project(':test-models')
 
   avroOriginal project(path: ':metadata-models', configuration: 'avroSchema')
 

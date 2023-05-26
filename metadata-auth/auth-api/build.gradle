@@ -30,12 +30,12 @@ dependencies() {
   implementation project(path: ':li-utils')
   implementation project(path: ':metadata-utils')
  
-  compile externalDependency.guava
-  compile externalDependency.lombok
+ implementation externalDependency.guava
+ implementation externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
   
-  testCompile externalDependency.testng
+ testImplementation externalDependency.testng
 }
 
 task sourcesJar(type: Jar) {

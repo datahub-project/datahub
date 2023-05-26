@@ -12,7 +12,7 @@ dependencies {
   implementation externalDependency.logbackClassic;
   implementation externalDependency.slf4jApi
   
-  compileOnly externalDependency.lombok
+implementation externalDependency.lombok
 
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng

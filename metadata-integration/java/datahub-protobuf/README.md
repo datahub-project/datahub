@@ -19,7 +19,7 @@ The following protobuf features are supported and are translated into descriptio
 
 ## Usage
 
-### Protobuf Compile Options
+### Protobufimplementation Options
 
 In order to support parsing comments the following option flags should be used during `protoc` compilation.
 

@@ -31,7 +31,7 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
     dependencies {
       
       def auth_api = 'io.acryl:datahub-auth-api:0.9.3-3rc3'
-      compileOnly "${auth_api}"
+    implementation "${auth_api}"
       testImplementation "${auth_api}"
 
     }
@@ -116,7 +116,7 @@ The sample authorizer implementation can be found at [Authorizer Sample](https:/
     dependencies {
       
       def auth_api = 'io.acryl:datahub-auth-api:0.9.3-3rc3'
-      compileOnly "${auth_api}"
+    implementation "${auth_api}"
       testImplementation "${auth_api}"
 
     }

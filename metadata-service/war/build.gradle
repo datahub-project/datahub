@@ -12,38 +12,38 @@ ext {
 ext.apiProject = project(':metadata-service:restli-api')
 
 dependencies {
-  runtime project(':metadata-service:factories')
-  runtime project(':metadata-service:auth-filter')
-  runtime project(':metadata-service:servlet')
-  runtime project(':metadata-service:auth-servlet-impl')
-  runtime project(':metadata-service:graphql-servlet-impl')
-  runtime project(':metadata-service:health-servlet')
-  runtime project(':metadata-service:openapi-servlet')
-  runtime project(':metadata-service:schema-registry-servlet')
-  runtime project(':metadata-jobs:mce-consumer')
-  runtime project(':metadata-jobs:mae-consumer')
-  runtime project(':metadata-jobs:pe-consumer')
+implementationproject(':metadata-service:factories')
+implementationproject(':metadata-service:auth-filter')
+implementationproject(':metadata-service:servlet')
+implementationproject(':metadata-service:auth-servlet-impl')
+implementationproject(':metadata-service:graphql-servlet-impl')
+implementationproject(':metadata-service:health-servlet')
+implementationproject(':metadata-service:openapi-servlet')
+implementationproject(':metadata-service:schema-registry-servlet')
+implementationproject(':metadata-jobs:mce-consumer')
+implementationproject(':metadata-jobs:mae-consumer')
+implementationproject(':metadata-jobs:pe-consumer')
 
-  runtime externalDependency.awsSecretsManagerJdbc
-  runtime externalDependency.h2
-  runtime externalDependency.mariadbConnector
-  runtime externalDependency.mysqlConnector
-  runtime externalDependency.postgresql
-  runtime externalDependency.springWebMVC
+implementation externalDependency.awsSecretsManagerJdbc
+implementation externalDependency.h2
+implementation externalDependency.mariadbConnector
+implementation externalDependency.mysqlConnector
+implementation externalDependency.postgresql
+implementation externalDependency.springWebMVC
 
-  runtime spec.product.pegasus.restliDocgen
-  runtime spec.product.pegasus.restliSpringBridge
+implementationspec.product.pegasus.restliDocgen
+implementationspec.product.pegasus.restliSpringBridge
 
-  runtime externalDependency.log4jCore
-  runtime externalDependency.log4j2Api
-  runtime externalDependency.logbackClassic
+implementation externalDependency.log4jCore
+implementation externalDependency.log4j2Api
+implementation externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
-  testRuntime externalDependency.logbackClassic
+  testImplementation externalDependency.logbackClassic
   implementation externalDependency.charle
 }
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"
-  
+
 }
 configurations {
   jetty9

@@ -25,18 +25,18 @@ dependencies {
     implementation spec.product.pegasus.restliSpringBridge
     implementation externalDependency.slf4jApi
     implementation externalDependency.log4j2Api
-    compileOnly externalDependency.lombok
+  implementation externalDependency.lombok
     implementation externalDependency.logbackClassic
 
-    runtime externalDependency.mariadbConnector
-    runtime externalDependency.mysqlConnector
-    runtime externalDependency.postgresql
+  implementation externalDependency.mariadbConnector
+  implementation externalDependency.mysqlConnector
+  implementation externalDependency.postgresql
 
     annotationProcessor externalDependency.lombok
 
     testImplementation externalDependency.springBootTest
-    testCompile externalDependency.mockito
-    testCompile externalDependency.testng
+   testImplementation externalDependency.mockito
+   testImplementation externalDependency.testng
 }
 
 bootJar {

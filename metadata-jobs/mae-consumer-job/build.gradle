@@ -21,12 +21,12 @@ dependencies {
     implementation externalDependency.springKafka
     implementation externalDependency.slf4jApi
     implementation externalDependency.log4j2Api
-    compileOnly externalDependency.lombok
+  implementation externalDependency.lombok
     implementation externalDependency.logbackClassic
 
     testImplementation externalDependency.springBootTest
-    testCompile externalDependency.mockito
-    testCompile externalDependency.testng
+   testImplementation externalDependency.mockito
+   testImplementation externalDependency.testng
 }
 
 bootJar {

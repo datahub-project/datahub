@@ -48,7 +48,7 @@ dependencies {
   } // required for org.apache.commons.io.Charsets that is used internally
 
   implementation externalDependency.slf4jApi
-  compileOnly externalDependency.lombok
+implementation externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
   implementation externalDependency.typesafeConfig

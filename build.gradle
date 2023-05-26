@@ -238,7 +238,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
 subprojects {
 
-  apply plugin: 'maven'
+  apply plugin: 'maven-publish'
   apply plugin: 'com.gorylenko.gradle-git-properties'
 
   gitProperties {
@@ -252,7 +252,7 @@ subprojects {
 
   plugins.withType(JavaPlugin) {
     dependencies {
-      testCompile externalDependency.testng
+     testImplementation externalDependency.testng
       constraints {
         implementation('io.netty:netty-all:4.1.86.Final')
         implementation('org.apache.commons:commons-compress:1.21')

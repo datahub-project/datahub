@@ -15,16 +15,16 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
-  compile spec.product.pegasus.data 
+ implementation spec.product.pegasus.data 
     constraints {
       implementation('org.apache.commons:commons-text:1.10.0') {
         because 'Vulnerability Issue'
       }
     }
-  compile project(':li-utils')
+ implementation project(':li-utils')
   dataModel project(':li-utils')
 
-  testCompile externalDependency.guava
+ testImplementation externalDependency.guava
 }
 
 mainAvroSchemaJar.dependsOn generateAvroSchema
