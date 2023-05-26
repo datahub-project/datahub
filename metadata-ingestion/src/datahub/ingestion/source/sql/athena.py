@@ -139,9 +139,7 @@ class AthenaSource(SQLAlchemySource):
             self.cursor = cast(BaseCursor, inspector.engine.raw_connection().cursor())
             assert self.cursor
 
-        # Unfortunately properties can be only get through private methods as those are not exposed
-        # https://github.com/laughingman7743/PyAthena/blob/9e42752b0cc7145a87c3a743bb2634fe125adfa7/pyathena/model.py#L201
-        metadata: AthenaTableMetadata = self.cursor._get_table_metadata(
+        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
             table_name=table, schema_name=schema
         )
         description = metadata.comment
