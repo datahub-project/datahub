@@ -302,7 +302,10 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
     ],
 )
 def test_resolve_trino_modified_type(data_type, expected_data_type):
-    assert resolve_trino_modified_type(data_type) == TRINO_SQL_TYPES_MAP[expected_data_type]
+    assert (
+        resolve_trino_modified_type(data_type)
+        == TRINO_SQL_TYPES_MAP[expected_data_type]
+    )
 
 
 @pytest.mark.parametrize(
@@ -329,7 +332,10 @@ def test_resolve_trino_modified_type(data_type, expected_data_type):
     ],
 )
 def test_resolve_athena_modified_type(data_type, expected_data_type):
-    assert resolve_athena_modified_type(data_type) == ATHENA_SQL_TYPES_MAP[expected_data_type]
+    assert (
+        resolve_athena_modified_type(data_type)
+        == ATHENA_SQL_TYPES_MAP[expected_data_type]
+    )
 
 
 @pytest.mark.integration

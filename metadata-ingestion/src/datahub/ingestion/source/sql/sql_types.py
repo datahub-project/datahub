@@ -1,7 +1,5 @@
 import re
-from typing import Dict, Optional, Type, ValuesView
-
-from avrogen.dict_wrapper import DictWrapper
+from typing import Any, Dict, ValuesView
 
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
@@ -26,7 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 # see https://github.com/fishtown-analytics/dbt/blob/master/plugins/postgres/dbt/include/postgres/macros/catalog.sql#L22
 
 # see https://www.npgsql.org/dev/types.html for helpful type annotations
-POSTGRES_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
+POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "boolean": BooleanType,
     "bytea": BytesType,
     '"char"': StringType,
@@ -218,7 +216,7 @@ POSTGRES_MODIFIED_TYPES = {
 }
 
 
-def resolve_postgres_modified_type(type_string: str) -> Optional[Type[DictWrapper]]:
+def resolve_postgres_modified_type(type_string: str) -> Any:
     if type_string.endswith("[]"):
         return ArrayType
 
@@ -229,7 +227,7 @@ def resolve_postgres_modified_type(type_string: str) -> Optional[Type[DictWrappe
     return None
 
 
-def resolve_trino_modified_type(type_string: str) -> Type[DictWrapper]:
+def resolve_trino_modified_type(type_string: str) -> Any:
     # for cases like timestamp(3), decimal(10,0), row(...)
     match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
     if match:
@@ -238,7 +236,7 @@ def resolve_trino_modified_type(type_string: str) -> Type[DictWrapper]:
     return TRINO_SQL_TYPES_MAP[type_string]
 
 
-def resolve_athena_modified_type(type_string: str) -> Type[DictWrapper]:
+def resolve_athena_modified_type(type_string: str) -> Any:
     # for cases like timestamp(3), decimal(10,0)
     match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
     if match:
@@ -247,7 +245,7 @@ def resolve_athena_modified_type(type_string: str) -> Type[DictWrapper]:
     return ATHENA_SQL_TYPES_MAP[type_string]
 
 
-def resolve_vertica_modified_type(type_string: str) -> Type[DictWrapper]:
+def resolve_vertica_modified_type(type_string: str) -> Any:
     # for cases like timestamp(3), decimal(10,0)
     match = re.match(r"([a-zA-Z ]+)\(.+\)", type_string)
     if match:
@@ -257,7 +255,7 @@ def resolve_vertica_modified_type(type_string: str) -> Type[DictWrapper]:
 
 
 # see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
-SNOWFLAKE_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
+SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "NUMBER": NumberType,
     "DECIMAL": NumberType,
     "NUMERIC": NumberType,
@@ -293,7 +291,7 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
 }
 
 # see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/_types.py#L32
-BIGQUERY_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
+BIGQUERY_TYPES_MAP: Dict[str, Any] = {
     "STRING": StringType,
     "BOOL": BooleanType,
     "BOOLEAN": BooleanType,
@@ -313,7 +311,7 @@ BIGQUERY_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
 }
 
 # see https://spark.apache.org/docs/latest/sql-ref-datatypes.html
-SPARK_SQL_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
+SPARK_SQL_TYPES_MAP: Dict[str, Any] = {
     "boolean": BooleanType,
     "byte": NumberType,
     "tinyint": NumberType,
@@ -340,7 +338,7 @@ SPARK_SQL_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
 
 # https://trino.io/docs/current/language/types.html
 # https://github.com/trinodb/trino-python-client/blob/master/trino/sqlalchemy/datatype.py#L75
-TRINO_SQL_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
+TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "boolean": BooleanType,
     "tinyint": NumberType,
     "smallint": NumberType,
@@ -364,7 +362,7 @@ TRINO_SQL_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
 
 # https://docs.aws.amazon.com/athena/latest/ug/data-types.html
 # https://github.com/dbt-athena/dbt-athena/tree/main
-ATHENA_SQL_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
+ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {
     "boolean": BooleanType,
     "tinyint": NumberType,
     "smallint": NumberType,
@@ -385,7 +383,7 @@ ATHENA_SQL_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
 }
 
 # https://www.vertica.com/docs/11.1.x/HTML/Content/Authoring/SQLReferenceManual/DataTypes/SQLDataTypes.htm
-VERTICA_SQL_TYPES_MAP: Dict[str, Type[DictWrapper]] = {
+VERTICA_SQL_TYPES_MAP: Dict[str, Any] = {
     "binary": BytesType,
     "varbinary": BytesType,
     "long varbinary": BytesType,
