@@ -25,7 +25,7 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-type BrowseNodeProps = {
+type Props = {
     entityAggregation: AggregationMetadata;
     environmentAggregation: AggregationMetadata | null;
     platformAggregation: AggregationMetadata;
@@ -39,7 +39,7 @@ const BrowseNode = ({
     platformAggregation,
     browseResultGroup,
     path,
-}: BrowseNodeProps) => {
+}: Props) => {
     const { isOpen, toggle } = useToggle();
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
