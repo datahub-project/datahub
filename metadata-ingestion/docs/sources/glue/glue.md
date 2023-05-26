@@ -5,8 +5,8 @@
 | `"glue"`             | [Data Platform](../../metamodel/entities/dataPlatform.md) |                    |
 | Glue Database        | [Container](../../metamodel/entities/container.md)        | Subtype `Database` |
 | Glue Table           | [Dataset](../../metamodel/entities/dataset.md)            | Subtype `Table`    |
-| Glue Job             | [Dataflow](../../metamodel/entities/dataflow.md)          |                    |
-| Glue Job Transform   | [Datajob](../../metamodel/entities/datajob.md)            |                    |
+| Glue Job             | [Data Flow](../../metamodel/entities/dataFlow.md)         |                    |
+| Glue Job Transform   | [Data Job](../../metamodel/entities/dataJob.md)           |                    |
 | Glue Job Data source | [Dataset](../../metamodel/entities/dataset.md)            |                    |
 | Glue Job Data sink   | [Dataset](../../metamodel/entities/dataset.md)            |                    |
 
