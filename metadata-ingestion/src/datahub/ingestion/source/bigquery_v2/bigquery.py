@@ -401,21 +401,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return test_report
 
     def get_dataplatform_instance_aspect(
-        self, dataset_urn: str
-    ) -> Optional[MetadataWorkUnit]:
+        self, dataset_urn: str, project_id: str
+    ) -> MetadataWorkUnit:
         # If we are a platform instance based source, emit the instance aspect
-        if self.config.platform_instance:
-            aspect = DataPlatformInstanceClass(
-                platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(
-                    self.platform, self.config.platform_instance
-                ),
-            )
-            return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=aspect
-            ).as_workunit()
-        else:
-            return None
+        aspect = DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(self.platform, project_id),
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=aspect
+        ).as_workunit()
 
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
@@ -1008,7 +1003,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn, project_id=project_id)
         if dpi_aspect:
             yield dpi_aspect
 
