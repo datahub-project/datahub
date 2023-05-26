@@ -1,12 +1,17 @@
 import json
 import logging
+import re
 import typing
 from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
+from pyathena.sqlalchemy_athena import AthenaRestDialect
+from sqlalchemy import create_engine, inspect, types
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.types import TypeEngine
+from sqlalchemy_bigquery import STRUCT
 
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import PlatformKey
@@ -26,11 +31,154 @@ from datahub.ingestion.source.sql.sql_config import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
+from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.sqlalchemy_type_converter import (
+    get_schema_fields_for_sqlalchemy_column,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class CustomAthenaRestDialect(AthenaRestDialect):
+    """Custom definition of the Athena dialect.
+
+    Custom implementation that allows to extend/modify the behavior of the SQLalchemy
+    dialect that is used by PyAthena (which is the library that is used by DataHub
+    to extract metadata from Athena).
+    This dialect can then be used by the inspector (see get_inspectors()).
+
+    """
+
+    # regex to identify complex types in DDL strings which are embedded in `<>`.
+    _complex_type_pattern = re.compile(r"(<.+>)")
+
+    @typing.no_type_check
+    def _get_column_type(self, type_: str | dict) -> TypeEngine:  # noqa: C901
+        """Derives the data type of the Athena column.
+
+        This method is overwritten to extend the behavior of PyAthena.
+        Pyathena is not capable of detecting complex data types, e.g.,
+        arrays, maps, or, structs (as of version 2.25.2).
+        The custom implementation extends the functionality by the above-mentioned data types.
+        """
+
+        # Originally, this method only handles `type_` as a string
+        # With the workaround used below to parse DDL strings for structs,
+        # `type` might also be a dictionary
+        if isinstance(type_, str):
+            match = self._pattern_column_type.match(type_)
+            if match:
+                type_name = match.group(1).lower()
+                type_meta_information = match.group(2)
+            else:
+                type_name = type_.lower()
+                type_meta_information = None
+        elif isinstance(type_, dict):
+            # this occurs only when a type parsed as part of a STRUCT is passed
+            # in such case type_ is a dictionary whose type can be retrieved from the attribute
+            type_name = type_.get("type", None)
+            type_meta_information = None
+        else:
+            raise RuntimeError(f"Unsupported type definition: {type_}")
+
+        args = []
+
+        if type_name in ["array"]:
+            detected_col_type = types.ARRAY
+
+            # here we need to account again for two options how `type_` is passed to this method
+            # first, the simple array definition as a DDL string (something like array<string>)
+            # this is always the case when the array is not part of a complex data type (mainly STRUCT)
+            # second, the array definition can also be passed in form of dictionary
+            # this is the case when the array is part of a complex data type
+            if isinstance(type_, str):
+                # retrieve the raw name of the data type as a string
+                array_type_raw = self._complex_type_pattern.findall(type_)[0][
+                    1:-1
+                ]  # array type without enclosing <>
+                # convert the string name of the data type into a SQLalchemy type (expected return)
+                array_type = self._get_column_type(array_type_raw)
+            elif isinstance(type_, dict):
+                # retrieve the data type of the array items and
+                # transform it into a SQLalchemy type
+                array_type = self._get_column_type(type_["items"])
+            else:
+                raise RuntimeError(f"Unsupported array definition: {type_}")
+
+            args = [array_type]
+
+        elif type_name in ["struct", "record"]:
+            # STRUCT is not part of the SQLalchemy types selection
+            # but is provided by another official SQLalchemy library and
+            # compatible with the other SQLalchemy types
+            detected_col_type = STRUCT
+
+            if isinstance(type_, dict):
+                # in case a struct as part of another struct is passed
+                # it is provided in form of a dictionary and
+                # can simply be used for the further processing
+                struct_type = type_
+            else:
+                # this is the case when the type definition of the struct is passed as a DDL string
+                # therefore, it is required to parse the DDL string
+                # here a method provided in another Datahub source is used so that the parsing
+                # doesn't need to be implemented twice
+                # `get_avro_schema_for_hive_column` accepts a DDL description as column type and
+                # returns the parsed data types in form of a dictionary
+                schema = get_avro_schema_for_hive_column(
+                    hive_column_name=type_name, hive_column_type=type_
+                )
+
+                # the actual type description needs to be extracted
+                struct_type = schema["fields"][0]["type"]
+
+            # A STRUCT consist of multiple attributes which are expected to be passed as
+            # a list of tuples consisting of name data type pairs. e.g., `('age', Integer())`
+            # See the reference:
+            # https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/_struct.py#L53
+            #
+            # To extract all of them, we simply iterate over all detected fields and
+            # convert them to SQLalchemy types
+            struct_args = []
+            for field in struct_type["fields"]:
+                struct_args.append(
+                    (
+                        field["name"],
+                        self._get_column_type(field["type"]["type"])
+                        if field["type"]["type"] not in ["record", "array"]
+                        else self._get_column_type(field["type"]),
+                    )
+                )
+
+            args = struct_args
+
+        elif type_name in ["map"]:
+            # Instead of SQLalchemy's TupleType the custom MapType is used here
+            # which is just a simple wrapper around TupleType
+            detected_col_type = MapType
+
+            # the type definition for maps looks like the following: key_type:val_type (e.g., string:string)
+            key_type_raw, value_type_raw = type_meta_information.split(",")
+
+            # convert both type names to actual SQLalchemy types
+            args = [
+                self._get_column_type(key_type_raw),
+                self._get_column_type(value_type_raw),
+            ]
+        # by using get_avro_schema_for_hive_column() for parsing STRUCTs the data type `long`
+        # can also be returned, so we need to extend the handling here as well
+        elif type_name in ["bigint", "long"]:
+            detected_col_type = types.BIGINT
+        else:
+            return super()._get_column_type(type_name)
+        return detected_col_type(*args)
 
 
 class AthenaConfig(SQLAlchemyConfig):

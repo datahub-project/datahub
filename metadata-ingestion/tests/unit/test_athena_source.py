@@ -3,9 +3,13 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
+from sqlalchemy import types
+from sqlalchemy_bigquery import STRUCT
 
 from datahub.ingestion.api.common import PipelineContext
-from src.datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.sql.athena import CustomAthenaRestDialect
+from datahub.ingestion.source.sql.sql_types import MapType
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
@@ -126,3 +130,81 @@ def test_athena_get_table_properties():
     }
 
     assert location == make_s3_urn("s3://testLocation", "PROD")
+
+
+def test_get_column_type_simple_types():
+    assert isinstance(
+        CustomAthenaRestDialect()._get_column_type(type_="int"), types.Integer
+    )
+    assert isinstance(
+        CustomAthenaRestDialect()._get_column_type(type_="string"), types.String
+    )
+    assert isinstance(
+        CustomAthenaRestDialect()._get_column_type(type_="boolean"), types.BOOLEAN
+    )
+    assert isinstance(
+        CustomAthenaRestDialect()._get_column_type(type_="long"), types.BIGINT
+    )
+    assert isinstance(
+        CustomAthenaRestDialect()._get_column_type(type_="double"), types.FLOAT
+    )
+
+
+def test_get_column_type_array():
+    result = CustomAthenaRestDialect()._get_column_type(type_="array<string>")
+
+    assert isinstance(result, types.ARRAY)
+    assert isinstance(result.item_type, types.String)
+
+
+def test_get_column_type_map():
+    result = CustomAthenaRestDialect()._get_column_type(type_="map<string,int>")
+
+    assert isinstance(result, MapType)
+    assert isinstance(result.types[0], types.String)
+    assert isinstance(result.types[1], types.Integer)
+
+
+def test_column_type_struct():
+
+    result = CustomAthenaRestDialect()._get_column_type(type_="struct<test:string>")
+
+    assert isinstance(result, STRUCT)
+    assert isinstance(result._STRUCT_fields[0], tuple)
+    assert result._STRUCT_fields[0][0] == "test"
+    assert isinstance(result._STRUCT_fields[0][1], types.String)
+
+
+def test_column_type_complex_combination():
+
+    result = CustomAthenaRestDialect()._get_column_type(
+        type_="struct<id:string,name:string,choices:array<struct<id:string,label:string>>>"
+    )
+
+    assert isinstance(result, STRUCT)
+
+    assert isinstance(result._STRUCT_fields[0], tuple)
+    assert result._STRUCT_fields[0][0] == "id"
+    assert isinstance(result._STRUCT_fields[0][1], types.String)
+
+    assert isinstance(result._STRUCT_fields[1], tuple)
+    assert result._STRUCT_fields[1][0] == "name"
+    assert isinstance(result._STRUCT_fields[1][1], types.String)
+
+    assert isinstance(result._STRUCT_fields[2], tuple)
+    assert result._STRUCT_fields[2][0] == "choices"
+    assert isinstance(result._STRUCT_fields[2][1], types.ARRAY)
+
+    assert isinstance(result._STRUCT_fields[2][1].item_type, STRUCT)
+
+    assert isinstance(result._STRUCT_fields[2][1].item_type._STRUCT_fields[0], tuple)
+    assert result._STRUCT_fields[2][1].item_type._STRUCT_fields[0][0] == "id"
+    assert isinstance(
+        result._STRUCT_fields[2][1].item_type._STRUCT_fields[0][1], types.String
+    )
+
+    assert isinstance(result._STRUCT_fields[2][1].item_type._STRUCT_fields[1], tuple)
+    assert result._STRUCT_fields[2][1].item_type._STRUCT_fields[1][0] == "label"
+    assert isinstance(
+        result._STRUCT_fields[2][1].item_type._STRUCT_fields[1][1], types.String
+    )

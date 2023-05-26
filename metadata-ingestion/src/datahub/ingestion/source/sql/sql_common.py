@@ -23,6 +23,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
+from sqlalchemy_bigquery import STRUCT
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -39,6 +40,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_types import MapType
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -80,6 +82,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    MapTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -200,6 +203,9 @@ _field_type_mapping: Dict[Type[TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
+    # additional type definitions that are used by the Athena source
+    MapType: MapTypeClass,  # type: ignore
+    STRUCT: RecordTypeClass,
     # Because the postgresql dialect is used internally by many other dialects,
     # we add some postgres types here. This is ok to do because the postgresql
     # dialect is built-in to sqlalchemy.
