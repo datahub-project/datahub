@@ -11,6 +11,14 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
 
 
 def validate_all_providers_have_committed_successfully(
@@ -91,3 +99,16 @@ def mock_datahub_graph():
 
     mock_datahub_graph_ctx = MockDataHubGraphContext()
     return mock_datahub_graph_ctx.mock_graph
+
+
+def get_current_checkpoint_from_pipeline(
+    pipeline: Pipeline,
+) -> Optional[Checkpoint[GenericCheckpointState]]:
+    # TODO: This only works for stale entity removal. We need to generalize this.
+
+    stateful_source = cast(StatefulIngestionSourceBase, pipeline.source)
+    return stateful_source.state_provider.get_current_checkpoint(
+        StaleEntityRemovalHandler.compute_job_id(
+            getattr(stateful_source, "platform", "default")
+        )
+    )

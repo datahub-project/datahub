@@ -181,6 +181,3 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
-
-    def report_entity_profiled(self, name: str) -> None:
-        self.entities_profiled += 1

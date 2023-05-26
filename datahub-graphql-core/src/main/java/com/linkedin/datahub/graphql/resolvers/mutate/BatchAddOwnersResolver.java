@@ -46,14 +46,15 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
         return true;
       } catch (Exception e) {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
   private void validateOwners(List<OwnerInput> owners) {
     for (OwnerInput ownerInput : owners) {
-      OwnerUtils.validateOwner(UrnUtils.getUrn(ownerInput.getOwnerUrn()), ownerInput.getOwnerEntityType(), _entityService);
+      OwnerUtils.validateOwner(UrnUtils.getUrn(ownerInput.getOwnerUrn()), ownerInput.getOwnerEntityType(),
+          UrnUtils.getUrn(ownerInput.getOwnershipTypeUrn()), _entityService);
     }
   }
 

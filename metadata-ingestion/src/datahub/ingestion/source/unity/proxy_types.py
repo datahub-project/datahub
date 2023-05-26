@@ -72,6 +72,8 @@ class CommonProperty:
 class Metastore(CommonProperty):
     metastore_id: str
     owner: Optional[str]
+    cloud: Optional[str]
+    region: Optional[str]
 
 
 @dataclass
@@ -170,10 +172,10 @@ class Query:
     end_time: datetime
     # User who ran the query
     user_id: int
-    user_name: str  # Email or username
+    user_name: Optional[str]  # Email or username
     # User whose credentials were used to run the query
     executed_as_user_id: int
-    executed_as_user_name: str
+    executed_as_user_name: Optional[str]
 
 
 @dataclass

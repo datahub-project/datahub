@@ -76,6 +76,27 @@ public interface EntitySearchService {
                       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags);
 
   /**
+   * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * Safe for non-structured, user input, queries with an attempt to provide some advanced features
+   * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
+   *
+   * @param entityName name of the entity
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param searchFlags flags controlling search options
+   * @param facets list of facets we want aggregations for
+   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets);
+
+  /**
    * Gets a list of documents after applying the input filters.
    *
    * @param entityName name of the entity

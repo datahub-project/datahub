@@ -866,7 +866,7 @@
                 "upstreamType": "FIELD_SET",
                 "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)"],
                 "downstreamType": "FIELD",
-                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"],
+                "downstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"],
                 "confidenceScore": 1.0
               }]
             }
@@ -3394,7 +3394,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1629097200000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
+      "value":"{\"timestampMillis\": 1679515693000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3406,7 +3406,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1664265843000, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
+      "value":"{\"timestampMillis\": 1684786093000, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3418,7 +3418,7 @@
     "changeType":"UPSERT",
     "aspectName":"operation",
     "aspect":{
-      "value":"{\"timestampMillis\": 1629097200000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1629097200001 }",
+      "value":"{\"timestampMillis\": 1679515693000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1629097200001 }",
       "contentType":"application/json"
     },
     "systemMetadata":null
