@@ -238,7 +238,6 @@ def tableau_ingest_common(
                             "filename": f"{tmp_path}/{output_file_name}",
                         },
                     },
-                    "flags": {"generate_browse_path_v2": True},
                 }
             )
             pipeline.run()
