@@ -99,11 +99,11 @@ class CSVEnricherReport(SourceReport):
 class CSVEnricherSource(Source):
     """
     This plugin is used to bulk upload metadata to Datahub.
-    This plugin can apply glossary terms, tags, decription, owners and domain at the entity level. It can also be used to apply tags,
-    glossary terms, and documentation at the column level. These values are read from a CSV file and can be used to either overwrite
-    or append the above aspects to entities.
+    It will apply glossary terms, tags, decription, owners and domain at the entity level. It can also be used to apply tags,
+    glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
+    or append existing values.
 
-    The format of the CSV must be like so, with a few example rows. Note that the header is required and that URNs should be surrounded by quotes when they contains commas themselves.
+    The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contains commas (most URNs contains commas).
 
     ```
     resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain
@@ -112,10 +112,10 @@ class CSVEnricherSource(Source):
     "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description"
     ```
 
-    See that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
-    be applied at the entity field. If a subresource IS populated (as it is for the second and third rows), glossary
-    terms and tags will be applied on the subresource. Every row MUST have a resource. Also note that owners can only
-    be applied at the resource level and will be ignored if populated for a row with a subresource.
+    Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
+    be applied at the entity field. If a subresource is populated (as it is for the second and third rows), glossary
+    terms and tags will be applied on the column. Every row MUST have a resource. Also note that owners can only
+    be applied at the resource level.
 
     :::note
     This source will not work on very large csv files that do not fit in memory.
