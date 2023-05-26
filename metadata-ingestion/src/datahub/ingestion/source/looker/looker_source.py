@@ -19,7 +19,14 @@ from typing import (
 )
 
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase, Query
+from looker_sdk.sdk.api40.models import (
+    Dashboard,
+    DashboardElement,
+    FolderBase,
+    Look,
+    LookWithQuery,
+    Query,
+)
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
@@ -160,12 +167,31 @@ class LookerDashboardSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
+    extract_independent_looks: bool = Field(
+        False,
+        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
+    )
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
         cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[str]:
         return v or values.get("base_url")
+
+    @validator("extract_independent_looks", pre=True, always=True)
+    def stateful_ingestion_should_be_enabled(
+        cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
+    ) -> Optional[bool]:
+
+        stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
+            StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
+        )
+        if v is True and (
+            stateful_ingestion is None or stateful_ingestion.enabled is False
+        ):
+            raise ValueError("stateful_ingestion.enabled should be set to true")
+
+        return v
 
 
 @platform_name("Looker")
@@ -200,7 +226,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     accessed_dashboards: int = 0
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
-    reachable_look_registry: List[int]  # Keep track of look-id which are reachable from Dashboard
+    reachable_look_registry: List[
+        str
+    ]  # Keep track of look-id which are reachable from Dashboard
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -651,7 +679,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return chart_type
 
     def _make_chart_metadata_events(
-        self, dashboard_element: LookerDashboardElement, dashboard: LookerDashboard
+        self,
+        dashboard_element: LookerDashboardElement,
+        dashboard: Optional[LookerDashboard],
     ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
         chart_urn = builder.make_chart_urn(
             self.source_config.platform_name, dashboard_element.get_urn_element_id()
@@ -679,10 +709,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         chart_snapshot.aspects.append(chart_info)
-
-        ownership = self.get_ownership(dashboard)
-        if ownership is not None:
-            chart_snapshot.aspects.append(ownership)
+        if dashboard is not None:
+            ownership = self.get_ownership(dashboard)
+            if ownership is not None:
+                chart_snapshot.aspects.append(ownership)
 
         chart_mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
 
@@ -987,7 +1017,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, dashboard: LookerDashboard
     ) -> List[MetadataWorkUnit]:
         chart_mcps = [
-            self._make_metrics_dimensions_chart_mcp(element, dashboard)
+            self._make_metrics_dimensions_chart_mcp(element)
             for element in dashboard.dashboard_elements
         ]
         dashboard_mcp = self._make_metrics_dimensions_dashboard_mcp(dashboard)
@@ -1085,7 +1115,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def _make_metrics_dimensions_chart_mcp(
-        self, dashboard_element: LookerDashboardElement, dashboard: LookerDashboard
+        self, dashboard_element: LookerDashboardElement
     ) -> MetadataChangeProposalWrapper:
         chart_urn = builder.make_chart_urn(
             self.source_config.platform_name, dashboard_element.get_urn_element_id()
@@ -1197,13 +1227,83 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             auto_status_aspect(self.get_workunits_internal()),
         )
 
+    def emit_independent_looks_mcp(
+        self, dashboard_element: LookerDashboardElement
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from [
+            MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
+            if isinstance(mce, MetadataChangeEvent)
+            else MetadataWorkUnit(
+                id=f"looker-{mce.aspectName}-{mce.entityUrn}", mcp=mce
+            )
+            for mce in self._make_chart_metadata_events(
+                dashboard_element=dashboard_element, dashboard=None
+            )
+        ]
+
+        mcp: MetadataChangeProposalWrapper = self._make_metrics_dimensions_chart_mcp(
+            dashboard_element
+        )
+        yield MetadataWorkUnit(id=f"looker-{mcp.entityUrn}", mcp=mcp)
+
+    def extract_independent_looks(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit MetadataWorkUnit for looks which are not part of any Dashboard
+        """
+        if self.source_config.extract_independent_looks is False:
+            return
+
+        logger.debug("Extracting looks not part of Dashboard")
+        look_fields: List[str] = [
+            "id",
+            "title",
+            "description",
+            "query_id",
+        ]
+        query_fields: List[str] = [
+            "id",
+            "view",
+            "model",
+            "dynamic_fields",
+            "filters",
+            "fields",
+            "slug",
+        ]
+
+        all_looks: List[Look] = self.looker_api.all_looks(fields=look_fields)
+        for look in all_looks:
+            if look.id in self.reachable_look_registry:
+                # This look is reachable from Dashboard
+                continue
+
+            if look.query_id is None:
+                logger.info(f"query_id is None for look {look.title}({look.id})")
+                continue
+
+            query: Query = self.looker_api.get_query(look.query_id, query_fields)
+
+            dashboard_element: Optional[
+                LookerDashboardElement
+            ] = self._get_looker_dashboard_element(
+                DashboardElement(
+                    id=f"looks_{look.id}",  # to avoid conflict with element.id prefixing "looks_" to look.id.
+                    title=look.title,
+                    subtitle_text=look.description,
+                    look_id=look.id,
+                    dashboard_id="NOT AVAILABLE",
+                    look=LookWithQuery(query=query),
+                )
+            )
+
+            if dashboard_element is not None:
+                logger.debug(f"Emitting MCPS for look {look.title}({look.id})")
+                yield from self.emit_independent_looks_mcp(
+                    dashboard_element=dashboard_element
+                )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.reporter.report_stage_start("list_dashboards")
         dashboards = self.looker_api.all_dashboards(fields="id")
-        looks = self.looker_api.all_looks(fields=["id", "title"])
-        for look in looks:
-            logger.info(f"MOHD look-id={look.id} and look-title={look.title} and parent={look.folder.parent_id if look.folder is not None else 'UNKNOWN'}")
-
         deleted_dashboards = (
             self.looker_api.search_dashboards(fields="id", deleted="true")
             if self.source_config.include_deleted
@@ -1304,6 +1404,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
 
         self.reporter.report_stage_start("explore_metadata")
+        # Extract independent look here, so that explore of this look would get consider in
+        # _make_explore_metadata_events
+        yield from self.extract_independent_looks()
+
         for event in self._make_explore_metadata_events():
             if isinstance(event, MetadataChangeEvent):
                 workunit = MetadataWorkUnit(

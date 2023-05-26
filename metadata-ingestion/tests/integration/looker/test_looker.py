@@ -1,7 +1,7 @@
 import json
 import time
 from datetime import datetime
-from typing import List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
 from freezegun import freeze_time
@@ -10,6 +10,7 @@ from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardElement,
+    Look,
     LookmlModelExplore,
     LookmlModelExploreField,
     LookmlModelExploreFieldset,
@@ -20,7 +21,7 @@ from looker_sdk.sdk.api40.models import (
     WriteQuery,
 )
 
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_query_model import (
     HistoryViewField,
@@ -38,6 +39,27 @@ from tests.test_helpers.state_helpers import (
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+
+
+def get_default_recipe(output_file_path: str) -> Dict[Any, Any]:
+    return {
+        "run_id": "looker-test",
+        "source": {
+            "type": "looker",
+            "config": {
+                "base_url": "https://looker.company.com",
+                "client_id": "foo",
+                "client_secret": "bar",
+                "extract_usage_history": False,
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": output_file_path,
+            },
+        },
+    }
 
 
 @freeze_time(FROZEN_TIME)
@@ -204,6 +226,28 @@ def setup_mock_dashboard(mocked_client):
                 ),
             )
         ],
+    )
+
+
+def setup_mock_look(mocked_client):
+    mocked_client.all_looks.return_value = [
+        Look(
+            id="1",
+            title="Outer Look",
+            description="I am not part of any Dashboard",
+            query_id="1",
+        )
+    ]
+
+    mocked_client.query.return_value = Query(
+        id="1",
+        view="sales_explore",
+        model="sales_model",
+        fields=[
+            "sales.profit",
+        ],
+        dynamic_fields=None,
+        filters=None,
     )
 
 
@@ -728,3 +772,52 @@ def get_current_checkpoint_from_pipeline(
     return dbt_source.get_current_checkpoint(
         dbt_source.stale_entity_removal_handler.job_id
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
+    """
+    if extract_independent_looks is enabled then stateful_ingestion.enabled should also be enabled
+    """
+    new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/output")
+    new_recipe["source"]["config"]["extract_independent_looks"] = True
+    try:
+        # Config error should get raise
+        Pipeline.create(new_recipe)
+        assert 1 != 1
+    except PipelineInitError as pe:
+        assert "stateful_ingestion.enabled should be set to true" in str(pe)
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_looks_ingest(pytestconfig, tmp_path, mock_time):
+    mocked_client = mock.MagicMock()
+    new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
+    new_recipe["source"]["config"]["extract_independent_looks"] = True
+    new_recipe["source"]["config"]["stateful_ingestion"] = {
+        "enabled": True,
+        "state_provider": {
+            "type": "datahub",
+            "config": {"datahub_api": {"server": GMS_SERVER}},
+        },
+    }
+    new_recipe["pipeline_name"] = "execution-1"
+
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_explore(mocked_client)
+        setup_mock_look(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(new_recipe)
+        pipeline.run()
+        pipeline.raise_from_status()
+        mce_out_file = "golden_test_independent_look_ingest.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
