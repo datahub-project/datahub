@@ -596,7 +596,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             table=table,
             database=database,
             schema=table.schema,
-            sub_type=table.type,
+            sub_type=DatasetSubTypes.TABLE,
             tags_to_add=[],
             custom_properties=custom_properties,
         )
@@ -753,7 +753,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             yield dpi_aspect
 
         subTypes = SubTypes(typeNames=[sub_type])
-        MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=subTypes
         ).as_workunit()
 

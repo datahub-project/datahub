@@ -5,6 +5,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEntityRemovalHandler
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
@@ -52,7 +53,9 @@ def test_stateful_ingestion(wait_for_healthchecks):
         # TODO: Refactor to use the helper method in the metadata-ingestion tests, instead of copying it here.
         mysql_source = cast(MySQLSource, pipeline.source)
         return mysql_source.state_provider.get_current_checkpoint(
-            mysql_source.stale_entity_removal_handler.job_id
+            StaleEntityRemovalHandler.compute_job_id(
+                getattr(mysql_source, "platform", "default")
+            )
         )
 
     source_config_dict: Dict[str, Any] = {
