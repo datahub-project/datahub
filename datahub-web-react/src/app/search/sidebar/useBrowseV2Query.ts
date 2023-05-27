@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EntityType } from '../../../types.generated';
-import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
+import { useEffect, useMemo, useState } from 'react';
+import { BrowseResultGroupV2, EntityType } from '../../../types.generated';
 import useSidebarFilters from './useSidebarFilters';
 import { BROWSE_PAGE_SIZE } from './constants';
+import usePagination from './usePagination';
+import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
 
 type Props = {
     entityType: EntityType;
@@ -13,21 +14,29 @@ type Props = {
 };
 
 const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Props) => {
-    const locked = useRef(false);
-    const [startList, setStartList] = useState<Array<number>>([]);
-    const [currentStart, setCurrentStart] = useState(0);
-
     const sidebarFilters = useSidebarFilters({ environment, platform });
     const [cachedFilters, setCachedFilters] = useState(sidebarFilters);
 
-    const map = useRef(new Map<number, GetBrowseResultsV2Query>());
-    const groups = useMemo(() => startList.flatMap((s) => map.current.get(s)?.browseV2?.groups ?? []), [startList]);
+    const {
+        currentPage,
+        items: groups,
+        latestData,
+        resetPages,
+        appendPage,
+        advancePage,
+        hasPage,
+    } = usePagination<GetBrowseResultsV2Query, BrowseResultGroupV2>(
+        useMemo(
+            () => ({
+                pageSize: BROWSE_PAGE_SIZE,
+                getItems: (data) => data.browseV2?.groups ?? [],
+                getTotal: (data) => data.browseV2?.total ?? -1,
+            }),
+            [],
+        ),
+    );
 
-    const latestStart = startList.length ? startList[startList.length - 1] : -1;
-    const latestData = latestStart >= 0 ? map.current.get(latestStart) : null;
     const pathResult = latestData?.browseV2?.metadata.path ?? [];
-    const total = latestData?.browseV2?.total ?? -1;
-    const done = !!latestData && groups.length >= total;
 
     const { data, loading, error, refetch } = useGetBrowseResultsV2Query({
         skip,
@@ -36,7 +45,7 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
             input: {
                 type: entityType,
                 path,
-                start: currentStart,
+                start: currentPage,
                 count: BROWSE_PAGE_SIZE,
                 ...cachedFilters,
             },
@@ -45,37 +54,16 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
 
     const loaded = !!latestData || !!error;
 
-    // lock the fetchNextPage until we actually have the currently desired page loaded
     useEffect(() => {
-        locked.current = !startList.includes(currentStart);
-    }, [currentStart, startList]);
-
-    const fetchNextPage = useCallback(
-        () =>
-            setCurrentStart((current) => {
-                const newStart = current + BROWSE_PAGE_SIZE;
-                if (locked.current || done || total <= 0 || newStart >= total) return current;
-                locked.current = true;
-                return newStart;
-            }),
-        [done, total],
-    );
-
-    // clear the state if url filters changed
-    useEffect(() => {
-        map.current.clear();
-        setStartList([]);
-        setCurrentStart(0);
+        resetPages();
         setCachedFilters(sidebarFilters);
-    }, [sidebarFilters]);
+    }, [resetPages, sidebarFilters]);
 
-    // we got new data so load it into the paginated list
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
-        if (!data || newStart < 0 || map.current.has(newStart)) return;
-        map.current.set(newStart, data);
-        setStartList((current) => [...current, newStart]);
-    }, [data]);
+        if (!data || newStart < 0 || hasPage(newStart)) return;
+        appendPage(newStart, data);
+    }, [appendPage, data, hasPage]);
 
     return {
         loading,
@@ -83,7 +71,7 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
         error,
         groups,
         pathResult,
-        fetchNextPage,
+        advancePage,
         refetch,
     } as const;
 };

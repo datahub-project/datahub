@@ -1,4 +1,4 @@
-export const BROWSE_PAGE_SIZE = 20;
+export const BROWSE_PAGE_SIZE = 10;
 
 export const BROWSE_LOAD_MORE_DELAY = 250;
 

@@ -8,10 +8,10 @@ import { AggregationMetadata } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
-import useToggle from './useToggle';
 import useBrowsePaginator from './useBrowsePaginator';
 import BrowseNode from './BrowseNode';
 import SidebarLoadingError from './SidebarLoadingError';
+import useToggle from '../../shared/useToggle';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;

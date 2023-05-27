@@ -6,9 +6,9 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import { AggregationMetadata, BrowseResultGroupV2 } from '../../../types.generated';
-import useToggle from './useToggle';
 import useBrowsePaginator from './useBrowsePaginator';
 import SidebarLoadingError from './SidebarLoadingError';
+import useToggle from '../../shared/useToggle';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;

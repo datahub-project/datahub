@@ -8,8 +8,8 @@ import { AggregationMetadata, EntityType } from '../../../types.generated';
 import useAggregationsQuery from './useAggregationsQuery';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
-import useToggle from './useToggle';
 import SidebarLoadingError from './SidebarLoadingError';
+import useToggle from '../../shared/useToggle';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;

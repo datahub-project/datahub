@@ -13,7 +13,7 @@ type Props = {
 };
 
 const useBrowsePaginator = ({ entityAggregation, environmentAggregation, platformAggregation, path, skip }: Props) => {
-    const { loaded, error, groups, pathResult, fetchNextPage, refetch } = useBrowseV2Query({
+    const { loaded, error, groups, pathResult, advancePage, refetch } = useBrowseV2Query({
         entityType: entityAggregation.value as EntityType,
         environment: environmentAggregation?.value,
         platform: platformAggregation.value,
@@ -25,7 +25,7 @@ const useBrowsePaginator = ({ entityAggregation, environmentAggregation, platfor
         skip,
         initialDelay: BROWSE_LOAD_MORE_DELAY,
         options: { rootMargin: BROWSE_LOAD_MORE_MARGIN },
-        onIntersect: fetchNextPage,
+        onIntersect: advancePage,
     });
 
     const retry = useCallback(() => refetch(), [refetch]);
