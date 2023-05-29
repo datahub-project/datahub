@@ -1003,7 +1003,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn, project_id=project_id)
+        dpi_aspect = self.get_dataplatform_instance_aspect(
+            dataset_urn=dataset_urn, project_id=project_id
+        )
         if dpi_aspect:
             yield dpi_aspect
 
