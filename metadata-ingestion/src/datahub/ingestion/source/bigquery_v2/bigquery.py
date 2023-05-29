@@ -14,9 +14,8 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-    make_dataset_urn_with_platform_instance,
     make_tag_urn,
-    set_dataset_urn_to_lower,
+    set_dataset_urn_to_lower, make_dataset_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, PlatformKey, ProjectIdKey
@@ -1065,10 +1064,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
-        dataset_urn = make_dataset_urn_with_platform_instance(
+        dataset_urn = make_dataset_urn(
             self.platform,
             str(datahub_dataset_name),
-            self.config.platform_instance,
             self.config.env,
         )
         return dataset_urn
