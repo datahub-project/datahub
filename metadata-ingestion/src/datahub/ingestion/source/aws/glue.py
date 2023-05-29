@@ -192,6 +192,13 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
 
+    num_job_script_location_missing: int = 0
+    num_job_script_location_invalid: int = 0
+    num_job_script_failed_download: int = 0
+    num_job_script_failed_parsing: int = 0
+    num_job_without_nodes: int = 0
+    num_dataset_to_dataset_edges_in_job: int = 0
+
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
 
@@ -254,7 +261,7 @@ class GlueSource(StatefulIngestionSourceBase):
     """
 
     source_config: GlueSourceConfig
-    report = GlueSourceReport()
+    report: GlueSourceReport
 
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -317,6 +324,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 script_path,
                 f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path.",
             )
+            self.report.num_job_script_location_invalid += 1
 
             return None
 
@@ -334,6 +342,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 script_path,
                 f"Unable to download DAG for Glue job from {script_path}, so job subtasks and lineage will be missing: {e}",
             )
+            self.report.num_job_script_failed_download += 1
             return None
         script = obj["Body"].read().decode("utf-8")
 
@@ -348,6 +357,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 script_path,
                 f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
             )
+            self.report.num_job_script_failed_parsing += 1
 
             return None
 
@@ -451,9 +461,12 @@ class GlueSource(StatefulIngestionSourceBase):
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
-                    logger.info(
-                        flow_urn,
-                        f"Unrecognized Glue data object type: {node_args}. Skipping.",
+                    logger.debug(
+                        f"Unrecognized node {node['Nodetype']}-{node['Id']} in flow {flow_urn}. Args : {node_args}",
+                    )
+                    self.report.report_warning(
+                        f"{node['Nodetype']}-{node['Id']}",
+                        f"Unrecognized node {node['Nodetype']}-{node['Id']} in flow {flow_urn}. Skipping",
                     )
                     return None
                 else:
@@ -515,9 +528,10 @@ class GlueSource(StatefulIngestionSourceBase):
             # Source and Target for some edges is not available
             # in nodes. this may lead to broken edge in lineage.
             if source_node is None or target_node is None:
-                logger.warning(
-                    f"{flow_urn}: Unrecognized source or target node in edge: {edge}. Skipping.\
-                        This may lead to broken edge in lineage",
+                self.report.report_warning(
+                    flow_urn,
+                    f"Unrecognized source or target node in edge: {edge}. Skipping."
+                    "This may lead to missing lineage",
                 )
                 continue
 
@@ -979,6 +993,8 @@ class GlueSource(StatefulIngestionSourceBase):
 
             if job_script_location is not None:
                 dag = self.get_dataflow_graph(job_script_location)
+            else:
+                self.report.num_job_script_location_missing += 1
 
             dags[flow_urn] = dag
             flow_names[flow_urn] = job["Name"]
@@ -1000,9 +1016,17 @@ class GlueSource(StatefulIngestionSourceBase):
                 dag, flow_urn, s3_formats
             )
 
+            if not nodes:
+                self.report.num_job_without_nodes += 1
+
             for node in nodes.values():
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
                     yield self.get_datajob_wu(node, flow_names[flow_urn])
+                elif (node["NodeType"] == "DataSource" and node["outputDatasets"]) or (
+                    node["NodeType"] == "DataSink" and node["inputDatasets"]
+                ):
+                    # Not common, but capturing counts here for reporting
+                    self.report.num_dataset_to_dataset_edges_in_job += 1
 
             for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
                 yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
