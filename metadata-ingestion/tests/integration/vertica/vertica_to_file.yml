@@ -4,7 +4,7 @@ source:
     host_port: 127.0.0.1:5433
     database: Vmart
     username: dbadmin
-    password: vertica
+    password: abc123
 
 sink:
   type: file

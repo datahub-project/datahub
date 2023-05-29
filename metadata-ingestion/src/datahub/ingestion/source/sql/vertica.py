@@ -125,7 +125,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "verticafinal")
+        super(VerticaSource, self).__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self.projection_lineage_map: Optional[
@@ -145,7 +145,7 @@ class VerticaSource(SQLAlchemySource):
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options.setdefault("echo", False)
+            sql_config.options.setdefault("echo", True)
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
