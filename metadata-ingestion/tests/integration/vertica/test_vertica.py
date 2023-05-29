@@ -63,7 +63,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
                 """
 
         ret = subprocess.run(
-            commands, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            commands, shell=True
         )
         # waiting for vertica to create default table and system table and ml models
         time.sleep(100)
