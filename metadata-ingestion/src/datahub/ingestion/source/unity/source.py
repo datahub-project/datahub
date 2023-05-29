@@ -29,7 +29,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -39,7 +39,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -47,6 +46,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
@@ -84,11 +84,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -145,15 +140,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             else config.workspace_url.split("//")[1].split(".")[0]
         )
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -167,58 +153,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        test_report = TestConnectionReport()
-        test_report.capability_report = {}
-        try:
-            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
-            report = UnityCatalogReport()
-            unity_proxy = UnityCatalogApiProxy(
-                config.workspace_url,
-                config.token,
-                config.profiling.warehouse_id,
-                report=report,
-            )
-            if unity_proxy.check_connectivity():
-                test_report.basic_connectivity = CapabilityReport(capable=True)
-            else:
-                test_report.basic_connectivity = CapabilityReport(capable=False)
-
-            # TODO: Refactor into separate file / method
-            if config.profiling.enabled and not config.profiling.warehouse_id:
-                test_report.capability_report[
-                    SourceCapability.DATA_PROFILING
-                ] = CapabilityReport(
-                    capable=False, failure_reason="Warehouse ID not provided"
-                )
-            elif config.profiling.enabled:
-                try:
-                    unity_proxy.check_profiling_connectivity()
-                    test_report.capability_report[
-                        SourceCapability.DATA_PROFILING
-                    ] = CapabilityReport(capable=True)
-                except Exception as e:
-                    test_report.capability_report[
-                        SourceCapability.DATA_PROFILING
-                    ] = CapabilityReport(capable=False, failure_reason=str(e))
-        except Exception as e:
-            test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=f"{e}"
-            )
-        return test_report
+        return UnityCatalogConnectionTest(config_dict).get_connection_test()
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = UnityCatalogSourceConfig.parse_obj(config_dict)
         return cls(ctx=ctx, config=config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         wait_on_warehouse = None
@@ -269,10 +217,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastores: Dict[str, Metastore] = {}
         assigned_metastore = self.unity_catalog_api_proxy.assigned_metastore()
-        if assigned_metastore:
-            metastores[assigned_metastore.metastore_id] = assigned_metastore
-        for metastore in self.unity_catalog_api_proxy.metastores():
-            metastores[metastore.metastore_id] = metastore
+        metastores[assigned_metastore.metastore_id] = assigned_metastore
+
+        if not self.config.only_ingest_assigned_metastore:
+            for metastore in self.unity_catalog_api_proxy.metastores():
+                metastores[metastore.metastore_id] = metastore
 
         for metastore in metastores.values():
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
