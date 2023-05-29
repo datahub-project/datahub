@@ -14,8 +14,9 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_dataset_urn,
     make_tag_urn,
-    set_dataset_urn_to_lower, make_dataset_urn,
+    set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, PlatformKey, ProjectIdKey

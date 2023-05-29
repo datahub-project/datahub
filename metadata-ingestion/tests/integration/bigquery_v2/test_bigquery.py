@@ -16,22 +16,37 @@ FROZEN_TIME = "2022-02-03 07:00:00"
 
 @freeze_time(FROZEN_TIME)
 @patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery.BigqueryV2Source.get_core_table_details"
+    "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQueryDataDictionary.get_tables_for_dataset"
 )
 @patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQueryDataDictionary.get_tables_for_dataset"
+    "datahub.ingestion.source.bigquery_v2.bigquery.BigqueryV2Source.get_core_table_details"
 )
 @patch(
     "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQueryDataDictionary.get_datasets_for_project_id"
 )
 @patch("google.cloud.bigquery.Client")
 def test_bigquery_v2_ingest(
-    client, bigquery_datasets, get_tables, source_core_table, pytestconfig, tmp_path
+    client,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    pytestconfig,
+    tmp_path,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
     mcp_golden_path = "{}/bigquery_mcp_golden.json".format(test_resources_dir)
     mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_output.json")
+
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name="bigquery-dataset-1")
+    ]
+
+    table_list_item = TableListItem(
+        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+    )
     table_name = "table-1"
+    get_core_table_details.return_value = {table_name: table_list_item}
+
     bigquery_table = BigqueryTable(
         name=table_name,
         comment=None,
@@ -40,15 +55,7 @@ def test_bigquery_v2_ingest(
         size_in_bytes=None,
         rows_count=None,
     )
-    bigquery_datasets.return_value = [
-        BigqueryDataset(name="bigquery-dataset-1", tables=[bigquery_table])
-    ]
-    get_tables.return_value = iter([bigquery_table])
-
-    table_list_item = TableListItem(
-        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
-    )
-    source_core_table.return_value = {table_name: table_list_item}
+    get_tables_for_dataset.return_value = iter([bigquery_table])
 
     source_config_dict: Dict[str, Any] = {"project_ids": ["project-id-1"]}
 
@@ -59,6 +66,7 @@ def test_bigquery_v2_ingest(
         },
         "sink": {"type": "file", "config": {"filename": mcp_output_path}},
     }
+
     run_and_get_pipeline(pipeline_config_dict)
 
     mce_helpers.check_golden_file(
