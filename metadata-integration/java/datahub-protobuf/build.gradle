@@ -2,7 +2,7 @@ plugins {
     id("com.palantir.git-version") apply false
     id "application"
 }
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'jacoco'
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'signing'

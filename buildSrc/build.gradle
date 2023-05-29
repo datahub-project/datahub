@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 buildscript {
   apply from: '../repositories.gradle'

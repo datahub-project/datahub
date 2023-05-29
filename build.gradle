@@ -143,7 +143,7 @@ project.ext.externalDependency = [
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
     'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
     'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
-    'lombok': 'org.projectlombok:lombok:1.18.12',
+    'lombok': 'org.projectlombok:lombok:1.18.22',//
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
@@ -280,12 +280,12 @@ subprojects {
 
   tasks.withType(JavaCompile).configureEach {
     javaCompiler = javaToolchains.compilerFor {
-      languageVersion = JavaLanguageVersion.of(11)
+      languageVersion = JavaLanguageVersion.of(17)
     }
   }
   tasks.withType(Test).configureEach {
     javaLauncher = javaToolchains.launcherFor {
-      languageVersion = JavaLanguageVersion.of(11)
+      languageVersion = JavaLanguageVersion.of(17)
     }
   }
 

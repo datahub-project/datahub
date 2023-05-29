@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'pegasus'
 
 sourceSets {
@@ -11,7 +11,7 @@ sourceSets {
 idea {
   module {
     testSourceDirs += file('src/integTest/java')
-    scopes.TEST.plus += [ configurations.integTestCompile ]
+    scopes.TEST.plus += [ configurations.integTestImplementation ]
   }
 }
 

@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'org.hidetake.swagger.generator'
 
 configurations {
@@ -122,7 +122,7 @@ tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
   it.setAdditionalProperties([
       "group-id" : "io.datahubproject",
       "dateLibrary" : "java8",
-      "java11" : "true",
+      "java17" : "true",
       "modelPropertyNaming" : "original",
       "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
 

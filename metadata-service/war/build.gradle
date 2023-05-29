@@ -12,17 +12,17 @@ ext {
 ext.apiProject = project(':metadata-service:restli-api')
 
 dependencies {
-implementationproject(':metadata-service:factories')
-implementationproject(':metadata-service:auth-filter')
-implementationproject(':metadata-service:servlet')
-implementationproject(':metadata-service:auth-servlet-impl')
-implementationproject(':metadata-service:graphql-servlet-impl')
-implementationproject(':metadata-service:health-servlet')
-implementationproject(':metadata-service:openapi-servlet')
-implementationproject(':metadata-service:schema-registry-servlet')
-implementationproject(':metadata-jobs:mce-consumer')
-implementationproject(':metadata-jobs:mae-consumer')
-implementationproject(':metadata-jobs:pe-consumer')
+implementation project(':metadata-service:factories')
+implementation project(':metadata-service:auth-filter')
+implementation project(':metadata-service:servlet')
+implementation project(':metadata-service:auth-servlet-impl')
+implementation project(':metadata-service:graphql-servlet-impl')
+implementation project(':metadata-service:health-servlet')
+implementation project(':metadata-service:openapi-servlet')
+implementation project(':metadata-service:schema-registry-servlet')
+implementation project(':metadata-jobs:mce-consumer')
+implementation project(':metadata-jobs:mae-consumer')
+implementation project(':metadata-jobs:pe-consumer')
 
 implementation externalDependency.awsSecretsManagerJdbc
 implementation externalDependency.h2
@@ -31,8 +31,8 @@ implementation externalDependency.mysqlConnector
 implementation externalDependency.postgresql
 implementation externalDependency.springWebMVC
 
-implementationspec.product.pegasus.restliDocgen
-implementationspec.product.pegasus.restliSpringBridge
+implementation spec.product.pegasus.restliDocgen
+implementation spec.product.pegasus.restliSpringBridge
 
 implementation externalDependency.log4jCore
 implementation externalDependency.log4j2Api

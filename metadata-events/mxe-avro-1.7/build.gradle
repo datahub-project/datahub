@@ -3,7 +3,7 @@ configurations {
 }
 
 apply plugin: 'io.acryl.gradle.plugin.avro'
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 dependencies {
  implementation externalDependency.avro_1_7

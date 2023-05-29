@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     xauth \
     xvfb
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y  openjdk-11-jdk
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y  openjdk-17-jdk
 
 COPY . /datahub-src
 ARG RELEASE_VERSION

@@ -61,7 +61,7 @@ task publishSchema(dependsOn: build) {
     description "Publishes protobuf schema in the `main` sourceSet to DataHub"
 
     def javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 
     fileTree("schema").matching {
