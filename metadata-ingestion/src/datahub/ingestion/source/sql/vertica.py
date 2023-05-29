@@ -1,8 +1,18 @@
 import logging
 import traceback
-from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    DefaultDict,
+)
 
 import pydantic
 from pydantic.class_validators import validator
@@ -132,9 +142,9 @@ class VerticaSource(SQLAlchemySource):
         self.projection_lineage_map: Optional[
             Dict[str, List[Tuple[str, str, str]]]
         ] = None
-        self.tables: defaultdict[str, List[str]] = defaultdict(list)
-        self.views: defaultdict[str, List[str]] = defaultdict(list)
-        self.projection: defaultdict[str, List[str]] = defaultdict(list)
+        self.tables: DefaultDict[str, List[str]] = DefaultDict(list)
+        self.views: DefaultDict[str, List[str]] = DefaultDict(list)
+        self.projection: DefaultDict[str, List[str]] = DefaultDict(list)
         self.config: VerticaConfig = config
 
     @classmethod
@@ -239,7 +249,7 @@ class VerticaSource(SQLAlchemySource):
             self.tables[schema] = inspector.get_table_names(schema)
 
             # called get_columns function from dialect, it returns a list of all columns in all the table in the schema
-            columns = inspector.get_all_columns(schema)
+            columns = inspector.get_all_columns(schema)  # type: ignore
 
             # called get_pk_constraint function from dialect , it returns a list of all columns which is primary key in all the table in the schema
             primary_key = inspector.get_pk_constraint(schema)
@@ -248,9 +258,8 @@ class VerticaSource(SQLAlchemySource):
                 inspector, schema
             )  # called get_table_properties function from dialect , it returns a list description and properties of all table in the schema
 
-            table_owner = inspector.get_table_owner(
-                schema
-            )  # called get_table_owner function from dialect , it returns a list of all owner of all table in the schema
+            # called get_table_owner function from dialect , it returns a list of all owner of all table in the schema
+            table_owner = inspector.get_table_owner(schema)  # type: ignore
 
             # loops on each table in the schema
             for table in self.tables[schema]:
@@ -375,12 +384,12 @@ class VerticaSource(SQLAlchemySource):
                 yield subtypes_aspect
                 if self.config.domain:
                     assert self.domain_registry
+
                     yield from get_domain_wu(
                         dataset_name=dataset_name,
                         entity_urn=dataset_urn,
                         domain_config=sql_config.domain,
                         domain_registry=self.domain_registry,
-                        report=self.report,
                     )
 
         except Exception as e:
@@ -430,17 +439,17 @@ class VerticaSource(SQLAlchemySource):
         try:
             self.views[schema] = inspector.get_view_names(schema)
 
-            columns = inspector.get_all_view_columns(
-                schema
-            )  # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
+            # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
+            columns = inspector.get_all_view_columns(schema)  # type: ignore
 
             description, properties, location_urn = self.get_view_properties(
                 inspector, schema
             )  # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
 
+            # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             view_owner = inspector.get_view_owner(
                 schema
-            )  # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
+            )  # type: ignore  # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
 
             # started a loop on each view in the schema
             for view in self.views[schema]:
@@ -582,7 +591,6 @@ class VerticaSource(SQLAlchemySource):
                         entity_urn=dataset_urn,
                         domain_config=sql_config.domain,
                         domain_registry=self.domain_registry,
-                        report=self.report,
                     )
 
                 if sql_config.include_view_lineage:  # type: ignore
@@ -716,9 +724,8 @@ class VerticaSource(SQLAlchemySource):
         try:
             self.projection[schema] = inspector.get_projection_names(schema)
 
-            columns = inspector.get_all_projection_columns(
-                schema
-            )  # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
+            # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
+            columns = inspector.get_all_projection_columns(schema)  # type: ignore
 
             # called get_pk_constraint function from dialect , it returns a list of all columns which is primary key in all the table in the schema
             # primary_key = inspector.get_pk_constraint(schema)
@@ -727,9 +734,8 @@ class VerticaSource(SQLAlchemySource):
                 inspector, schema
             )  # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
 
-            projection_owner = inspector.get_projection_owner(
-                schema
-            )  # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
+            # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
+            projection_owner = inspector.get_projection_owner(schema)  # type: ignore
 
             # started a loop on each view in the schema
             for projection in self.projection[schema]:
@@ -998,7 +1004,7 @@ class VerticaSource(SQLAlchemySource):
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
             return None
 
-        self.projection_lineage_map = inspector._populate_projection_lineage(schema)
+        self.projection_lineage_map = inspector._populate_projection_lineage(schema)  # type: ignore
         dataset_name = dataset_key.name
         lineage = self.projection_lineage_map[dataset_name]  # type: ignore
 
