@@ -3,7 +3,7 @@ import time
 from typing import Optional
 
 import pytest
-from freezegun import freeze_time 
+from freezegun import freeze_time
 
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -27,8 +27,7 @@ def is_vertica_responsive(
     if hostname:
         cmd = f"docker logs {container_name} "
     ret = subprocess.run(
-        cmd,
-        shell=True,
+        cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
 
     return ret.returncode == 0
@@ -45,13 +44,13 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
             5433,
             timeout=120,
             checker=lambda: is_vertica_responsive(
-                "vertica-ce2", 5433, hostname="vertica-ce2"
+                "vertica-ce", 5433, hostname="vertica-ce"
             ),
         )
 
         commands = """
-                    docker cp tests/integration/vertica/ddl.sql vertica-ce2:/home/dbadmin/ &&
-                    docker exec vertica-ce2 sh -c "/opt/vertica/bin/vsql -w $APP_DB_PASSWORD -f /home/dbadmin/ddl.sql &&
+                    docker cp tests/integration/vertica/ddl.sql vertica-ce:/home/dbadmin/ &&
+                    docker exec vertica-ce sh -c "/opt/vertica/bin/vsql -w $APP_DB_PASSWORD -f /home/dbadmin/ddl.sql &&
                     sudo yum install git -y &&
                     cd /opt && sudo git clone https://github.com/vertica/Machine-Learning-Examples &&
                     sudo chmod -R a+rwx /opt/Machine-Learning-Examples &&
@@ -63,7 +62,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
                 """
 
         ret = subprocess.run(
-            commands, shell=True
+            commands, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
         # waiting for vertica to create default table and system table and ml models
         time.sleep(100)
