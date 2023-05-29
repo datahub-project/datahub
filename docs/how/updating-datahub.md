@@ -6,6 +6,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## 0.10.3
+
+### Breaking Changes
+
 - #7900: The `catalog_pattern` and `schema_pattern` options of the Unity Catalog source now match against the fully qualified name of the catalog/schema instead of just the name. Unless you're using regex `^` in your patterns, this should not affect you.
 - #7942: Renaming the `containerPath` aspect to `browsePathsV2`. This means any data with the aspect name `containerPath` will be invalid. We had not exposed this in the UI or used it anywhere, but it was a model we recently merged to open up other work. This should not affect many people if anyone at all unless you were manually creating `containerPath` data through ingestion on your instance.
 - #8068: In the `datahub delete` CLI, if an `--entity-type` filter is not specified, we automatically delete across all entity types. The previous behavior was to use a default entity type of dataset.
