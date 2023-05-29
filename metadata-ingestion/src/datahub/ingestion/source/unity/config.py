@@ -88,6 +88,15 @@ class UnityCatalogSourceConfig(
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
+    only_ingest_assigned_metastore: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Only ingest the workspace's currently assigned metastore. "
+            "Use if you only want to ingest one metastore and "
+            "do not want to grant your ingestion service account the admin role."
+        ),
+    )
+
     metastore_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for metastore id to filter in ingestion.",
@@ -143,6 +152,19 @@ class UnityCatalogSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
+
+    @pydantic.validator("metastore_id_pattern")
+    def no_metastore_pattern_if_only_ingest_assigned_metastore(
+        cls, v: bool, values: Dict[str, Any]
+    ) -> bool:
+        if (
+            values.get("only_ingest_assigned_metastore")
+            and v != AllowDenyPattern.allow_all()
+        ):
+            raise ValueError(
+                "metastore_id_pattern cannot be set when only_ingest_assigned_metastore is specified."
+            )
+        return v
 
     @pydantic.validator("start_time")
     def within_thirty_days(cls, v: datetime) -> datetime:

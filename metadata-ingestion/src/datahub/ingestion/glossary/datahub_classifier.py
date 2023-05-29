@@ -71,7 +71,7 @@ class InfoTypeConfig(ConfigModel):
 # TODO: Generate Classification doc (classification.md) from python source.
 class DataHubClassifierConfig(ConfigModel):
     confidence_level_threshold: float = Field(
-        default=0.6,
+        default=0.68,
         init=False,
         description="The confidence threshold above which the prediction is considered as a proposal",
     )
@@ -83,7 +83,7 @@ class DataHubClassifierConfig(ConfigModel):
     info_types_config: Dict[str, InfoTypeConfig] = Field(
         default={k: InfoTypeConfig.parse_obj(v) for k, v in default_config.items()},
         init=False,
-        description="Configuration details for infotypes",
+        description="Configuration details for infotypes. See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration.",
     )
 
     @root_validator

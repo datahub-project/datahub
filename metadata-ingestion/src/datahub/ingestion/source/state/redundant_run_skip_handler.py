@@ -46,14 +46,17 @@ class RedundantRunSkipHandler(
         run_id: str,
     ):
         self.source = source
+        self.state_provider = source.state_provider
         self.stateful_ingestion_config: Optional[
             StatefulRedundantRunSkipConfig
         ] = config.stateful_ingestion
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.checkpointing_enabled: bool = source.is_stateful_ingestion_configured()
+        self.checkpointing_enabled: bool = (
+            self.state_provider.is_stateful_ingestion_configured()
+        )
         self._job_id = self._init_job_id()
-        self.source.register_stateful_ingestion_usecase_handler(self)
+        self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
     def _ignore_old_state(self) -> bool:
         if (
@@ -114,7 +117,7 @@ class RedundantRunSkipHandler(
     ) -> None:
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return
-        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
+        cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
         cur_state = cast(BaseUsageCheckpointState, cur_checkpoint.state)
         cur_state.begin_timestamp_millis = start_time_millis
@@ -125,7 +128,7 @@ class RedundantRunSkipHandler(
             return False
         # Determine from the last check point state
         last_successful_pipeline_run_end_time_millis: Optional[int] = None
-        last_checkpoint = self.source.get_last_checkpoint(
+        last_checkpoint = self.state_provider.get_last_checkpoint(
             self.job_id, BaseUsageCheckpointState
         )
         if last_checkpoint and last_checkpoint.state:

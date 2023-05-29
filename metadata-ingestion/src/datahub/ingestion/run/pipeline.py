@@ -27,6 +27,7 @@ from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -183,10 +184,15 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
+        self.graph = None
+        with _add_init_error_context("connect to DataHub"):
+            if self.config.datahub_api:
+                self.graph = DataHubGraph(self.config.datahub_api)
+
         with _add_init_error_context("set up framework context"):
             self.ctx = PipelineContext(
                 run_id=self.config.run_id,
-                datahub_api=self.config.datahub_api,
+                graph=self.graph,
                 pipeline_name=self.config.pipeline_name,
                 dry_run=dry_run,
                 preview_mode=preview_mode,

@@ -5,6 +5,7 @@ services:
     image: confluentinc/cp-zookeeper:7.2.0
     env_file: zookeeper.env
     hostname: test_zookeeper
+    container_name: test_zookeeper
     ports:
       - "52181"
     volumes:

@@ -114,6 +114,10 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
   }
 
+  public static boolean canManageOwnershipTypes(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
+  }
+
   public static boolean canEditEntityQueries(@Nonnull List<Urn> entityUrns, @Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
         ImmutableList.of(ALL_PRIVILEGES_GROUP,

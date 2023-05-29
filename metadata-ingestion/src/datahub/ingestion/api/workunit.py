@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union, overload
+from typing import Iterable, List, Optional, Type, TypeVar, Union, overload
+
+from deprecated import deprecated
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
@@ -7,7 +9,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass
+from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
+
+T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 
 
 @dataclass
@@ -86,6 +90,27 @@ class MetadataWorkUnit(WorkUnit):
             assert self.metadata.entityUrn
             return self.metadata.entityUrn
 
+    def get_aspects_of_type(self, aspect_cls: Type[T_Aspect]) -> List[T_Aspect]:
+        aspects: list
+        if isinstance(self.metadata, MetadataChangeEvent):
+            aspects = self.metadata.proposedSnapshot.aspects
+        elif isinstance(self.metadata, MetadataChangeProposalWrapper):
+            aspects = [self.metadata.aspect]
+        elif isinstance(self.metadata, MetadataChangeProposal):
+            aspects = []
+            # Best effort attempt to deserialize MetadataChangeProposalClass
+            if self.metadata.aspectName == aspect_cls.ASPECT_NAME:
+                try:
+                    mcp = MetadataChangeProposalWrapper.try_from_mcpc(self.metadata)
+                    if mcp:
+                        aspects = [mcp.aspect]
+                except Exception:
+                    pass
+        else:
+            raise ValueError(f"Unexpected type {type(self.metadata)}")
+
+        return [a for a in aspects if isinstance(a, aspect_cls)]
+
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
         from datahub.emitter.mcp_builder import mcps_from_mce
 
@@ -101,6 +126,7 @@ class MetadataWorkUnit(WorkUnit):
         ]
 
 
+@deprecated
 @dataclass
 class UsageStatsWorkUnit(WorkUnit):
     usageStats: UsageAggregationClass

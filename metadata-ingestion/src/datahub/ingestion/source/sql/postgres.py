@@ -180,8 +180,8 @@ class PostgresSource(SQLAlchemySource):
                         inspector = inspect(conn)
                         yield inspector
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_workunits()
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from super().get_workunits_internal()
 
         for inspector in self.get_inspectors():
             if self.config.include_view_lineage:
@@ -260,9 +260,7 @@ class PostgresSource(SQLAlchemySource):
             )
 
             for item in mcps_from_mce(lineage_mce):
-                wu = item.as_workunit()
-                self.report.report_workunit(wu)
-                yield wu
+                yield item.as_workunit()
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
