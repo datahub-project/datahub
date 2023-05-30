@@ -119,7 +119,7 @@ class SqlAlchemyColumnToAvroConverter:
         column_name: str,
         column_type: types.TypeEngine,
         nullable: bool,
-    ) -> Union[object,  Dict[str, object]]:
+    ) -> Union[object, Dict[str, object]]:
         """Returns the AVRO schema representation of a SQLalchemy column."""
         if isinstance(column_type, cls._COMPLEX_TYPES):
             return {
