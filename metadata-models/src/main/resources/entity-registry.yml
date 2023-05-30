@@ -437,4 +437,11 @@ entities:
       - dataProductProperties
       - institutionalMemory
       - status
+  - name: ownershipType
+    doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
+    category: core
+    keyAspect: ownershipTypeKey
+    aspects:
+      - ownershipTypeInfo
+      - status
 events:

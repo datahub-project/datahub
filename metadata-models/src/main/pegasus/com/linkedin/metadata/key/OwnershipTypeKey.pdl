@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Ownership Type
+ */
+@Aspect = {
+  "name": "ownershipTypeKey"
+}
+record OwnershipTypeKey {
+  /**
+   * Unique ID for the data ownership type name i.e. Business Owner, Data Steward, Technical Owner, etc..
+   * Should be separate from the name used for displaying an Ownership Type.
+   */
+  id: string
+}

@@ -66,6 +66,11 @@ Cypress.Commands.add("goToViewsSettings", () => {
   cy.waitTextVisible("Manage Views");
 });
 
+Cypress.Commands.add("goToOwnershipTypesSettings", () => {
+  cy.visit("/settings/ownership");
+  cy.waitTextVisible("Manage Ownership");
+});
+
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
   cy.waitTextVisible("Manage Ingestion");
