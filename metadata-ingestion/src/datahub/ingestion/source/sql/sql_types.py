@@ -235,8 +235,16 @@ def resolve_trino_modified_type(type_string: str) -> Any:
     if match:
         modified_type_base: str = match.group(1)
         return TRINO_SQL_TYPES_MAP[modified_type_base]
-    else:
-        return TRINO_SQL_TYPES_MAP[type_string]
+    return TRINO_SQL_TYPES_MAP[type_string]
+
+
+def resolve_athena_modified_type(type_string: str) -> Any:
+    # for cases like timestamp(3), decimal(10,0)
+    match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
+    if match:
+        modified_type_base: str = match.group(1)
+        return ATHENA_SQL_TYPES_MAP[modified_type_base]
+    return ATHENA_SQL_TYPES_MAP[type_string]
 
 
 def resolve_vertica_modified_type(type_string: str) -> Any:
@@ -245,8 +253,7 @@ def resolve_vertica_modified_type(type_string: str) -> Any:
     if match:
         modified_type_base: str = match.group(1)
         return VERTICA_SQL_TYPES_MAP[modified_type_base]
-    else:
-        return VERTICA_SQL_TYPES_MAP[type_string]
+    return VERTICA_SQL_TYPES_MAP[type_string]
 
 
 # see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
@@ -352,6 +359,28 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "timestamp": TimeType,
     "row": RecordType,
     "map": MapTypeAvro,
+    "array": ArrayType,
+}
+
+# https://docs.aws.amazon.com/athena/latest/ug/data-types.html
+# https://github.com/dbt-athena/dbt-athena/tree/main
+ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {
+    "boolean": BooleanType,
+    "tinyint": NumberType,
+    "smallint": NumberType,
+    "int": NumberType,
+    "integer": NumberType,
+    "bigint": NumberType,
+    "float": NumberType,
+    "double": NumberType,
+    "decimal": NumberType,
+    "varchar": StringType,
+    "char": StringType,
+    "binary": BytesType,
+    "date": DateType,
+    "timestamp": TimeType,
+    "struct": RecordType,
+    "map": MapType,
     "array": ArrayType,
 }
 
