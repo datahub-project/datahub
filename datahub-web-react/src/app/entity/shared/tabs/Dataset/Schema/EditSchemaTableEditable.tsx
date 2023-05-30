@@ -4,7 +4,7 @@ import { Button, Divider, Form, Input, Row, Select, Table, Typography } from 'an
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { useBaseEntity } from '../../../EntityContext';
-import {GetDatasetQuery, GetDatasetSchemaQuery} from '../../../../../../graphql/dataset.generated';
+import { GetDatasetSchemaQuery } from '../../../../../../graphql/dataset.generated';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
 import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
