@@ -248,7 +248,6 @@ def test_operation_processor_matching_nested_props():
             },
         },
         owner_source_type="SOURCE_CONTROL",
-        match_nested_props=True,
     )
     aspect_map = processor.process(raw_props)
     assert "add_tag" in aspect_map
