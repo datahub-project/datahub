@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import typing
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pydantic
 from pyathena.common import BaseCursor
