@@ -5,6 +5,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { FacetMetadata } from '../../../types.generated';
 import EntityNode from './EntityNode';
 import useBrowseV2EnabledEntities from './useBrowseV2EnabledEntities';
+import { BrowseProvider } from './BrowseContext';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -42,11 +43,19 @@ const BrowseSidebar = ({ facets, visible, width }: Props) => {
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>
             <SidebarBody>
-                {entityAggregations && !entityAggregations.length && <div>No results found</div>}
-                {entityAggregations &&
-                    entityAggregations.map((entityAggregation) => (
-                        <EntityNode key={entityAggregation.value} entityAggregation={entityAggregation} />
-                    ))}
+                {!entityAggregations?.length && <div>No results found</div>}
+                {entityAggregations?.map((entityAggregation) => (
+                    <BrowseProvider
+                        key={entityAggregation.value}
+                        entityAggregation={entityAggregation}
+                        environmentAggregation={null}
+                        platformAggregation={null}
+                        browseResultGroup={null}
+                        path={null}
+                    >
+                        <EntityNode />
+                    </BrowseProvider>
+                ))}
             </SidebarBody>
         </Sidebar>
     );

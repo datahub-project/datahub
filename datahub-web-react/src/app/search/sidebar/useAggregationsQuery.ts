@@ -1,18 +1,15 @@
 import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { EntityType } from '../../../types.generated';
-import useSidebarFilters from './useSidebarFilters';
+import { useEntityType, useFilters } from './BrowseContext';
 
 type Props = {
-    entityType: EntityType;
-    environment?: string | null;
-    platform?: string | null;
     facets: string[];
     skip: boolean;
 };
 
-const useAggregationsQuery = ({ entityType, environment, platform, facets, skip }: Props) => {
-    const { query, orFilters, viewUrn } = useSidebarFilters({ environment, platform });
+const useAggregationsQuery = ({ facets, skip }: Props) => {
+    const entityType = useEntityType();
+    const filters = useFilters();
 
     const {
         data: newData,
@@ -25,9 +22,7 @@ const useAggregationsQuery = ({ entityType, environment, platform, facets, skip 
         variables: {
             input: {
                 types: [entityType],
-                query,
-                orFilters,
-                viewUrn,
+                ...filters,
                 facets,
             },
         },

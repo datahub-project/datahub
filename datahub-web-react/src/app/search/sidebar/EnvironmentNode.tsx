@@ -4,12 +4,12 @@ import { Typography } from 'antd';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata, EntityType } from '../../../types.generated';
 import useAggregationsQuery from './useAggregationsQuery';
 import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
+import { BrowseProvider, useEntityAggregation, useEnvironmentAggregation, useFilterVersion } from './BrowseContext';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -21,21 +21,15 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-const childFacets = [PLATFORM_FILTER_NAME];
-
-type Props = {
-    entityAggregation: AggregationMetadata;
-    environmentAggregation: AggregationMetadata;
-};
-
-const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) => {
+const EnvironmentNode = () => {
+    const entityAggregation = useEntityAggregation();
+    const environmentAggregation = useEnvironmentAggregation();
+    const filterVersion = useFilterVersion();
     const { isOpen, toggle } = useToggle();
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
-        entityType: entityAggregation.value as EntityType,
-        environment: environmentAggregation.value,
-        facets: childFacets,
+        facets: [PLATFORM_FILTER_NAME],
     });
 
     const color = ANTD_GRAY[9];
@@ -47,20 +41,24 @@ const EnvironmentNode = ({ entityAggregation, environmentAggregation }: Props) =
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.Triangle isOpen={isOpen} />
-                        <Title color={color}>{environmentAggregation.value}</Title>
+                        <Title color={color}>{environmentAggregation?.value}</Title>
                     </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(environmentAggregation.count)}</Count>
+                    <Count color={color}>{formatNumber(environmentAggregation?.count)}</Count>
                 </ExpandableNode.Header>
             }
             body={
                 <ExpandableNode.Body>
-                    {platformAggregations.map((platform) => (
-                        <PlatformNode
-                            key={platform.value}
+                    {platformAggregations.map((platformAggregation) => (
+                        <BrowseProvider
+                            key={`${platformAggregation.value}-${filterVersion}`}
                             entityAggregation={entityAggregation}
                             environmentAggregation={environmentAggregation}
-                            platformAggregation={platform}
-                        />
+                            platformAggregation={platformAggregation}
+                            browseResultGroup={null}
+                            path={[]}
+                        >
+                            <PlatformNode />
+                        </BrowseProvider>
                     ))}
                     {error && <SidebarLoadingError />}
                 </ExpandableNode.Body>

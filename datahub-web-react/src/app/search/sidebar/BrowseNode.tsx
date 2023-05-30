@@ -5,10 +5,16 @@ import { FolderOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
-import { AggregationMetadata, BrowseResultGroupV2 } from '../../../types.generated';
-import useBrowsePaginator from './useBrowsePaginator';
+import useBrowsePagination from './useBrowsePagination';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
+import {
+    BrowseProvider,
+    useBrowseResultGroup,
+    useEntityAggregation,
+    useEnvironmentAggregation,
+    usePlatformAggregation,
+} from './BrowseContext';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -25,33 +31,17 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-type Props = {
-    entityAggregation: AggregationMetadata;
-    environmentAggregation: AggregationMetadata | null;
-    platformAggregation: AggregationMetadata;
-    browseResultGroup: BrowseResultGroupV2;
-    path: Array<string>;
-};
-
-const BrowseNode = ({
-    entityAggregation,
-    environmentAggregation,
-    platformAggregation,
-    browseResultGroup,
-    path,
-}: Props) => {
+const BrowseNode = () => {
+    const entityAggregation = useEntityAggregation();
+    const environmentAggregation = useEnvironmentAggregation();
+    const platformAggregation = usePlatformAggregation();
+    const browseResultGroup = useBrowseResultGroup();
     const { isOpen, toggle } = useToggle();
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
     const iconProps: CSSProperties = { visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
 
-    const { error, groups, loaded, observable, pathResult, retry } = useBrowsePaginator({
-        entityAggregation,
-        environmentAggregation,
-        platformAggregation,
-        path,
-        skip,
-    });
+    const { error, groups, loaded, observable, pathResult, retry } = useBrowsePagination({ skip });
 
     return (
         <ExpandableNode
@@ -69,14 +59,16 @@ const BrowseNode = ({
             body={
                 <ExpandableNode.Body>
                     {groups.map((group) => (
-                        <BrowseNode
+                        <BrowseProvider
                             key={group.name}
                             entityAggregation={entityAggregation}
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
                             browseResultGroup={group}
                             path={[...pathResult, group.name]}
-                        />
+                        >
+                            <BrowseNode />
+                        </BrowseProvider>
                     ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
                     {observable}

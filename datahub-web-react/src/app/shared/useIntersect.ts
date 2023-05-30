@@ -2,14 +2,13 @@ import { useEffect, useRef } from 'react';
 
 type Props = {
     skip?: boolean;
-    initialDelay?: number;
     options?: IntersectionObserverInit;
     onIntersect: () => void;
 };
 
 const NOOP = () => {};
 
-const useIntersect = ({ skip = false, initialDelay = 0, options = {}, onIntersect }: Props) => {
+const useIntersect = ({ skip = false, options = {}, onIntersect }: Props) => {
     const observableRef = useRef<HTMLDivElement | null>(null);
     const { root, rootMargin, threshold } = options;
 
@@ -18,21 +17,17 @@ const useIntersect = ({ skip = false, initialDelay = 0, options = {}, onIntersec
 
         const observer = new window.IntersectionObserver(
             (entries) => {
-                const intersectingEntry = entries.find((entry) => entry.isIntersecting);
-                if (intersectingEntry) onIntersect();
+                if (entries.some((entry) => entry.isIntersecting)) onIntersect();
             },
             { root, rootMargin, threshold },
         );
 
-        const timer = window.setTimeout(() => {
-            if (observableRef.current) observer.observe(observableRef.current);
-        }, initialDelay);
+        if (observableRef.current) observer.observe(observableRef.current);
 
         return () => {
-            window.clearTimeout(timer);
             observer.disconnect();
         };
-    }, [initialDelay, onIntersect, root, rootMargin, skip, threshold]);
+    }, [onIntersect, root, rootMargin, skip, threshold]);
 
     return { observableRef };
 };

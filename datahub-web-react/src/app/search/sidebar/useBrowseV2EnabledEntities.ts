@@ -13,7 +13,8 @@ const useBrowseV2EnabledEntities = (facets?: Array<FacetMetadata> | null) => {
             return (
                 count && registry.getEntity(entityType).isBrowseEnabled() && !GLOSSARY_ENTITY_TYPES.includes(entityType)
             );
-        });
+        })
+        .sort((a, b) => a.value.localeCompare(b.value));
 };
 
 export default useBrowseV2EnabledEntities;

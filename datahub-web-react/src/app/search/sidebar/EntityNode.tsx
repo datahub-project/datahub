@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { DownCircleOutlined, UpCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { AggregationMetadata, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
 import { formatNumber } from '../../shared/formatNumber';
@@ -14,6 +13,7 @@ import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
+import { BrowseProvider, useEntityAggregation, useEntityType, useFilterVersion } from './BrowseContext';
 
 const Title = styled(Typography.Text)`
     font-size: 16px;
@@ -25,22 +25,17 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-const childFacets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
-
-type Props = {
-    entityAggregation: AggregationMetadata;
-};
-
-const EntityNode = ({ entityAggregation }: Props) => {
-    const entityType = entityAggregation.value as EntityType;
+const EntityNode = () => {
+    const entityType = useEntityType();
+    const entityAggregation = useEntityAggregation();
+    const filterVersion = useFilterVersion();
     const registry = useEntityRegistry();
 
     const { isOpen, toggle } = useToggle();
 
     const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
-        entityType: entityAggregation.value as EntityType,
-        facets: childFacets,
+        facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
     });
 
     const hasMultipleEnvironments = environmentAggregations.length > 1;
@@ -63,19 +58,28 @@ const EntityNode = ({ entityAggregation }: Props) => {
                 <ExpandableNode.Body>
                     {hasMultipleEnvironments
                         ? environmentAggregations.map((environmentAggregation) => (
-                              <EnvironmentNode
+                              <BrowseProvider
                                   key={environmentAggregation.value}
                                   entityAggregation={entityAggregation}
                                   environmentAggregation={environmentAggregation}
-                              />
+                                  platformAggregation={null}
+                                  browseResultGroup={null}
+                                  path={null}
+                              >
+                                  <EnvironmentNode />
+                              </BrowseProvider>
                           ))
-                        : platformAggregations.map((platform) => (
-                              <PlatformNode
-                                  key={platform.value}
+                        : platformAggregations.map((platformAggregation) => (
+                              <BrowseProvider
+                                  key={`${platformAggregation.value}-${filterVersion}`}
                                   entityAggregation={entityAggregation}
                                   environmentAggregation={null}
-                                  platformAggregation={platform}
-                              />
+                                  platformAggregation={platformAggregation}
+                                  browseResultGroup={null}
+                                  path={[]}
+                              >
+                                  <PlatformNode />
+                              </BrowseProvider>
                           ))}
                     {error && <SidebarLoadingError />}
                 </ExpandableNode.Body>

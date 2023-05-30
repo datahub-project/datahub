@@ -1,27 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
-import { BrowseResultGroupV2, EntityType } from '../../../types.generated';
-import useSidebarFilters from './useSidebarFilters';
+import { useEffect, useMemo } from 'react';
+import { BrowseResultGroupV2 } from '../../../types.generated';
 import { BROWSE_PAGE_SIZE } from './constants';
 import usePagination from './usePagination';
 import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
+import { useBrowsePath, useEntityType, useFilters } from './BrowseContext';
 
 type Props = {
-    entityType: EntityType;
-    environment?: string | null;
-    platform?: string | null;
-    path: Array<string>;
     skip: boolean;
 };
 
-const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Props) => {
-    const sidebarFilters = useSidebarFilters({ environment, platform });
-    const [cachedFilters, setCachedFilters] = useState(sidebarFilters);
+const useBrowseV2Query = ({ skip }: Props) => {
+    const type = useEntityType();
+    const path = useBrowsePath();
+    const filters = useFilters();
 
     const {
         currentPage,
         items: groups,
         latestData,
-        resetPages,
         appendPage,
         advancePage,
         hasPage,
@@ -29,8 +25,8 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
         useMemo(
             () => ({
                 pageSize: BROWSE_PAGE_SIZE,
-                getItems: (data) => data.browseV2?.groups ?? [],
-                getTotal: (data) => data.browseV2?.total ?? -1,
+                selectItems: (data) => data.browseV2?.groups ?? [],
+                selectTotal: (data) => data.browseV2?.total ?? -1,
             }),
             [],
         ),
@@ -43,21 +39,16 @@ const useBrowseV2Query = ({ entityType, environment, platform, path, skip }: Pro
         fetchPolicy: 'cache-first',
         variables: {
             input: {
-                type: entityType,
+                type,
                 path,
                 start: currentPage,
                 count: BROWSE_PAGE_SIZE,
-                ...cachedFilters,
+                ...filters,
             },
         },
     });
 
     const loaded = !!latestData || !!error;
-
-    useEffect(() => {
-        resetPages();
-        setCachedFilters(sidebarFilters);
-    }, [resetPages, sidebarFilters]);
 
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
