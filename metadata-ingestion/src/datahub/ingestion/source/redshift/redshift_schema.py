@@ -242,9 +242,11 @@ class RedshiftDataDictionary:
                     )
                 )
         for schema_key, schema_tables in tables.items():
-            logger.info(f"In schema: {schema_key} discovered {len(tables)} tables")
+            logger.info(
+                f"In schema: {schema_key} discovered {len(schema_tables)} tables"
+            )
         for schema_key, schema_views in views.items():
-            logger.info(f"In schema: {schema_key} discovered {len(views)} views")
+            logger.info(f"In schema: {schema_key} discovered {len(schema_views)} views")
 
         return tables, views
 

@@ -1260,5 +1260,27 @@
             "removed": false
         }
     }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:baz:bob",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "baz:bob"
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:foo:bar",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "foo:bar"
+        }
+    }
 }
 ]
