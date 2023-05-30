@@ -14,6 +14,11 @@ public interface UpgradeReport {
   void addLine(String line);
 
   /**
+   * Adds a new line to the upgrade report with exception
+   */
+  void addLine(String line, Exception e);
+
+  /**
    * Retrieves the lines in the report.
    */
   List<String> lines();
