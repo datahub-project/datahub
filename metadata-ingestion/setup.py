@@ -518,8 +518,6 @@ full_test_dev_requirements = {
             "mariadb",
             "redash",
             # "vertica",
-            "kafka-connect",
-            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
