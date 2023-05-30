@@ -442,14 +442,15 @@ class VerticaSource(SQLAlchemySource):
             # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
             columns = inspector.get_all_view_columns(schema)  # type: ignore
 
+            # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_view_properties(
                 inspector, schema
-            )  # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
+            )  # type: ignore
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             view_owner = inspector.get_view_owner(
                 schema
-            )  # type: ignore  # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
+            )  # type: ignore
 
             # started a loop on each view in the schema
             for view in self.views[schema]:
@@ -640,7 +641,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def get_view_properties(
-        self, inspector: Inspector, schema: str
+        self:Any, inspector: Inspector, schema: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -727,12 +728,10 @@ class VerticaSource(SQLAlchemySource):
             # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
             columns = inspector.get_all_projection_columns(schema)  # type: ignore
 
-            # called get_pk_constraint function from dialect , it returns a list of all columns which is primary key in all the table in the schema
-            # primary_key = inspector.get_pk_constraint(schema)
-
+            # called get_projection_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_projection_properties(
                 inspector, schema
-            )  # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
+            ) # type: ignore  
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             projection_owner = inspector.get_projection_owner(schema)  # type: ignore
