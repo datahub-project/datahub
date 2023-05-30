@@ -4,7 +4,7 @@ import { Button, Divider, Form, Input, Row, Select, Table, Typography } from 'an
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { useBaseEntity } from '../../../EntityContext';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import {GetDatasetQuery, GetDatasetSchemaQuery} from '../../../../../../graphql/dataset.generated';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
 import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
@@ -15,8 +15,9 @@ export const EditSchemaTableEditable = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/update_schema`;
     console.log(`the final url is ${publishUrl}`);
-    const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.schemaMetadata?.fields;
-    const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
+    const queryFields = useBaseEntity<GetDatasetSchemaQuery>()?.dataset?.schemaMetadata?.fields;
+
+    const urn = useBaseEntity<GetDatasetSchemaQuery>()?.dataset?.schemaMetadata?.datasetUrn;
     const currUser = FindWhoAmI();
     const currUserUrn = FindMyUrn();
     const userToken = GetMyToken(currUserUrn);
