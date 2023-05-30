@@ -19,6 +19,7 @@
         "@remirror/styles": "^2.0.3",
         "@testing-library/jest-dom": "^5.11.6",
         "@testing-library/react": "^11.2.2",
+        "@testing-library/user-event": "^12.6.0",
         "@tommoor/remove-markdown": "^0.3.2",
         "@types/diff": "^5.0.0",
         "@types/dompurify": "^2.3.3",
