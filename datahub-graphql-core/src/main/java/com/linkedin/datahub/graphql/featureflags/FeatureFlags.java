@@ -9,4 +9,5 @@ public class FeatureFlags {
   private boolean lineageSearchCacheEnabled = false;
   private boolean pointInTimeCreationEnabled = false;
   private boolean alwaysEmitChangeLog = false;
+  private boolean readOnlyModeEnabled = false;
 }

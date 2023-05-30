@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models.registry;
 
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
@@ -31,6 +32,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
 
 
@@ -51,6 +53,10 @@ public class PatchEntityRegistry implements EntityRegistry {
   private final String identifier;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory());
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
 
   @Override
   public String toString() {

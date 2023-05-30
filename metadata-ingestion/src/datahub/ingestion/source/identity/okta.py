@@ -24,14 +24,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -294,14 +288,13 @@ class OktaSource(StatefulIngestionSourceBase):
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Step 0: get or create the event loop
@@ -324,37 +317,23 @@ class OktaSource(StatefulIngestionSourceBase):
             ):
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
                 wu_id = f"group-snapshot-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=wu_id, mce=mce)
 
-                group_origin_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
-                )
-                group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                group_origin_wu = MetadataWorkUnit(
-                    id=group_origin_wu_id, mcp=group_origin_mcp
-                )
-                self.report.report_workunit(group_origin_wu)
-                yield group_origin_wu
+                ).as_workunit()
 
-                group_status_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
                     aspect=StatusClass(removed=False),
-                )
-                group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                group_status_wu = MetadataWorkUnit(
-                    id=group_status_wu_id, mcp=group_status_mcp
-                )
-                self.report.report_workunit(group_status_wu)
-                yield group_status_wu
+                ).as_workunit()
 
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[
@@ -408,46 +387,26 @@ class OktaSource(StatefulIngestionSourceBase):
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
                 wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=wu_id, mce=mce)
 
-                user_origin_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
-                )
-                user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                user_origin_wu = MetadataWorkUnit(
-                    id=user_origin_wu_id, mcp=user_origin_mcp
-                )
-                self.report.report_workunit(user_origin_wu)
-                yield user_origin_wu
+                ).as_workunit()
 
-                user_status_mcp = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
                     aspect=StatusClass(removed=False),
-                )
-                user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-                user_status_wu = MetadataWorkUnit(
-                    id=user_status_wu_id, mcp=user_status_mcp
-                )
-                self.report.report_workunit(user_status_wu)
-                yield user_status_wu
+                ).as_workunit()
 
         # Step 4: Close the event loop
         event_loop.close()
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
 
     def get_report(self):
         return self.report
