@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import typing
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast, Union
 
 import pydantic
 from pyathena.common import BaseCursor
@@ -60,7 +60,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
     _complex_type_pattern = re.compile(r"(<.+>)")
 
     @typing.no_type_check
-    def _get_column_type(self, type_: str | dict) -> TypeEngine:  # noqa: C901
+    def _get_column_type(self, type_: Union[str, Dict[str, Any]]) -> TypeEngine:  # noqa: C901
         """Derives the data type of the Athena column.
 
         This method is overwritten to extend the behavior of PyAthena.
@@ -409,7 +409,7 @@ class AthenaSource(SQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: dict,
+        column: Dict,
         pk_constraints: Optional[dict] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:

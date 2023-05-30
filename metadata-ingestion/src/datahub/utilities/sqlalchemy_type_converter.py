@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Union
+from typing import Union, Dict, Type, Any, Optional
 
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
@@ -21,7 +21,7 @@ class SqlAlchemyColumnToAvroConverter:
     _COMPLEX_TYPES = (STRUCT, types.ARRAY, MapType)
 
     # mapping of primitive SQLalchemy data types to AVRO schema data types
-    PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE: dict[type[types.TypeEngine], str] = {
+    PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE: Dict[Type[types.TypeEngine], str] = {
         types.String: "string",
         types.BINARY: "string",
         types.BOOLEAN: "boolean",
@@ -35,7 +35,7 @@ class SqlAlchemyColumnToAvroConverter:
     @classmethod
     def get_avro_type(
         cls, column_type: Union[types.TypeEngine, STRUCT, MapType], nullable: bool
-    ) -> dict[str, object]:
+    ) -> Dict[str, Any]:
         """Determines the concrete AVRO schema type for a SQLalchemy-typed column"""
 
         if type(column_type) in cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys():
@@ -119,7 +119,7 @@ class SqlAlchemyColumnToAvroConverter:
         column_name: str,
         column_type: types.TypeEngine,
         nullable: bool,
-    ) -> object | dict[str, object]:
+    ) -> Union[object,  Dict[str, object]]:
         """Returns the AVRO schema representation of a SQLalchemy column."""
         if isinstance(column_type, cls._COMPLEX_TYPES):
             return {
@@ -140,8 +140,8 @@ class SqlAlchemyColumnToAvroConverter:
 def get_schema_fields_for_sqlalchemy_column(
     column_name: str,
     column_type: types.TypeEngine,
-    description: str | None = None,
-    nullable: bool | None = True,
+    description: Optional[str] = None,
+    nullable: Optional[bool] = True,
     is_part_of_key: bool | None = False,
 ) -> list[SchemaField]:
     """Creates SchemaFields from a given SQLalchemy column.
