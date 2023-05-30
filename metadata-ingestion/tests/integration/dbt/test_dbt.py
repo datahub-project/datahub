@@ -190,6 +190,31 @@ class DbtTestConfig:
                 },
             },
         ),
+        DbtTestConfig(
+            "dbt-test-with-nested-meta",
+            "dbt_test_with_nested_meta_mces.json",
+            "dbt_test_with_nested_meta_mces_golden.json",
+            manifest_file="dbt_manifest_with_nested_meta.json",
+            source_config_modifiers={
+                "enable_meta_mapping": True,
+                "column_meta_mapping": {
+                    "add.term": {
+                        "match": ".*",
+                        "operation": "add_terms",
+                        "config": {"term": "{{ $match }}"},
+                    },
+                    "add.tag": {
+                        "match": ".*",
+                        "operation": "add_tag",
+                        "config": {"tag": "{{ $match }}"},
+                    },
+                },
+                "entities_enabled": {
+                    "test_definitions": "NO",
+                    "test_results": "NO",
+                },
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )

@@ -69,14 +69,12 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             self.source_config.tag_prefix,
             "SOURCE_CONTROL",
             self.source_config.strip_user_ids_from_email,
-            match_nested_props=True,
         )
         self.field_meta_processor = OperationProcessor(
             self.source_config.field_meta_mapping,
             self.source_config.tag_prefix,
             "SOURCE_CONTROL",
             self.source_config.strip_user_ids_from_email,
-            match_nested_props=True,
         )
 
     @classmethod
