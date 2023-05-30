@@ -2,7 +2,7 @@ configurations {
   avsc
 }
 
-apply plugin: 'com.commercehub.gradle.plugin.avro'
+apply plugin: 'io.acryl.gradle.plugin.avro'
 apply plugin: 'java'
 
 dependencies {

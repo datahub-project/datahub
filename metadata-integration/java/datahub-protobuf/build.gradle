@@ -34,7 +34,8 @@ dependencies {
     implementation externalDependency.jgrapht
     implementation externalDependency.gson
     implementation externalDependency.commonsCli
-
+    implementation externalDependency.httpAsyncClient
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.junitJupiterApi
@@ -109,7 +110,7 @@ shadowJar {
     relocate 'javassist', 'datahub.shaded.javassist'
     relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
     relocate 'org.antlr', 'datahub.shaded.org.antlr'
-     relocate 'antlr', 'datahub.shaded.antlr'
+    relocate 'antlr', 'datahub.shaded.antlr'
     relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
     relocate 'org.apache.http', 'datahub.shaded.org.apache.http'
     relocate 'org.reflections', 'datahub.shaded.org.reflections'
@@ -121,6 +122,7 @@ shadowJar {
     relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
     relocate 'org.jgrapht', 'datahub.shaded.org.jgrapht'
     relocate 'org.jheaps', 'datahub.shaded.org.jheaps'
+    relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
  
   finalizedBy checkShadowJar
 }

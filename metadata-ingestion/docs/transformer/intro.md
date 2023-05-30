@@ -10,6 +10,14 @@ Oftentimes we want to modify metadata before it reaches the ingestion sink – f
 
 Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can transform metadata events however you like. To include a transformer into a recipe, all that's needed is the name of the transformer as well as any configuration that the transformer needs.
 
+:::note
+
+Providing urns for metadata that does not already exist will result in unexpected behavior. Ensure any tags, terms, domains, etc. urns that you want to apply in your transformer already exist in your DataHub instance.
+
+For example, adding a domain urn in your transformer to apply to datasets will not create the domain entity if it doesn't exist. Therefore, you can't add documentation to it and it won't show up in Advanced Search. This goes for any metadata you are applying in transformers.
+
+:::
+
 ## Provided transformers
 
 Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: tags, glossary terms, properties and ownership information.

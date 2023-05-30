@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
@@ -13,7 +14,7 @@ const EntitiesWrapper = styled.div`
 
 interface Props {
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
-    terms: GlossaryTerm[];
+    terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
 }
 
 function GlossaryEntitiesList(props: Props) {
@@ -27,7 +28,7 @@ function GlossaryEntitiesList(props: Props) {
                     name={node.properties?.name || ''}
                     urn={node.urn}
                     type={node.type}
-                    count={(node as GlossaryNodeFragment).children?.count}
+                    count={(node as GlossaryNodeFragment).children?.total}
                 />
             ))}
             {terms.map((term) => (

@@ -17,6 +17,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
@@ -74,6 +88,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -152,6 +171,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,38130558-4194-2e2a-3046-c0d887829cb4)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -241,6 +265,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,692a2da4-2a82-32c1-f713-63b8e4325d86)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -332,6 +361,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -434,6 +468,11 @@
             "urn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
                         "title": "Email Performance by Campaign",
@@ -519,6 +558,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
@@ -562,6 +615,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -635,6 +693,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,c57a5574-db47-46df-677f-0b708dab14db)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -714,6 +777,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,e604255e-0573-3951-6db7-05bee48116c1)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -799,6 +867,11 @@
             "urn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
                         "title": "dvd Rental Dashboard",
@@ -868,6 +941,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
@@ -949,6 +1027,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
@@ -992,6 +1084,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,20fc5eb7-81eb-aa18-8c39-af501c62d085)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1079,6 +1176,11 @@
             "urn": "urn:li:chart:(tableau,2b5351c1-535d-4a4a-1339-c51ddd6abf8a)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Opened": "",
@@ -1163,6 +1265,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,2b73b9dd-4ec7-75ca-f2e9-fa1984ca8b72)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1250,6 +1357,11 @@
             "urn": "urn:li:chart:(tableau,373c6466-bb0c-b319-8752-632456349261)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "% of Overdue": "formula: // This is a calculated field\r\n// It show the percentage incidents which are overdue\r\n\r\n(IF ATTR([Overdue]=\"Overdue\")\r\nTHEN COUNTD([Number])\r\nEND)\r\n/\r\nATTR({ EXCLUDE [Overdue]:\r\nCOUNTD([Number])})",
@@ -1332,6 +1444,11 @@
             "urn": "urn:li:chart:(tableau,53b8dc2f-8ada-51f7-7422-fe82e9b803cc)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Number": "",
@@ -1412,6 +1529,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,58af9ecf-b839-da50-65e1-2e1fa20e3362)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1494,6 +1616,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,618b3e76-75c1-cb31-0c61-3f4890b72c31)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1579,6 +1706,11 @@
             "urn": "urn:li:chart:(tableau,721c3c41-7a2b-16a8-3281-6f948a44be96)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Opened": "",
@@ -1662,6 +1794,11 @@
             "urn": "urn:li:chart:(tableau,7ef184c1-5a41-5ec8-723e-ae44c20aa335)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Priority": "",
@@ -1741,6 +1878,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,7fbc77ba-0ab6-3727-0db3-d8402a804da5)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1823,6 +1965,11 @@
             "urn": "urn:li:chart:(tableau,8385ea9a-0749-754f-7ad9-824433de2120)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Priority": "",
@@ -1899,6 +2046,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,b207c2f2-b675-32e3-2663-17bb836a018b)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1984,6 +2136,11 @@
             "urn": "urn:li:chart:(tableau,b679da5e-7d03-f01e-b2ea-01fb3c1926dc)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Number": "",
@@ -2064,6 +2221,11 @@
             "urn": "urn:li:chart:(tableau,c14973c2-e1c3-563a-a9c1-8a408396d22a)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Opened": "",
@@ -2143,6 +2305,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,e70a540d-55ed-b9cc-5a3c-01ebe81a1274)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2225,6 +2392,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2309,6 +2481,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
@@ -2404,6 +2581,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
@@ -2447,6 +2638,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,130496dc-29ca-8a89-e32b-d73c4d8b65ff)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2537,9 +2733,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,801c95e3-b07e-7bfe-3789-a561c7beccd3,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Email Performance by Campaign"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4352,9 +4553,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4644ccb1-2adc-cf26-c654-04ed1dcc7090,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4637,9 +4843,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,618c87db-5959-338b-bcc7-6f5f4cc0b6c6,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5094,9 +5305,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5886,9 +6102,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,06c3e060-8133-4b58-9b53-a0fced25e056,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -12542,9 +12763,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,3ade7817-ae27-259e-8e48-1570e7f932f6,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -16484,9 +16710,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -21688,9 +21919,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,d8d4c0ea-3162-fa11-31e6-26675da44a38,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Workbook published ds"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -21945,6 +22181,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,00cce29f-b561-bb41-3557-8e19660bb5dd,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
@@ -22236,7 +22477,7 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -22249,6 +22490,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
@@ -23186,6 +23432,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "test",
                         "platform": "urn:li:dataPlatform:tableau",
@@ -23315,7 +23566,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\", \"Custom SQL\"]}",
+        "value": "{\"typeNames\": [\"View\", \"Custom SQL\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -23356,6 +23607,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "test",
@@ -23498,7 +23754,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\", \"Custom SQL\"]}",
+        "value": "{\"typeNames\": [\"View\", \"Custom SQL\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -31694,7 +31950,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -31763,7 +32019,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.returns,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -31832,7 +32088,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {

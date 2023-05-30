@@ -1,3 +1,6 @@
+plugins {
+  id 'java'
+}
 apply plugin: 'distribution'
 apply plugin: 'com.github.node-gradle.node'
 
@@ -9,7 +12,7 @@ node {
   if (project.hasProperty('useSystemNode')) {
     download = ! project.getProperty('useSystemNode').toBoolean()
   } else {
-    download = false
+    download = true
   }
 
   // Version of node to use.
@@ -59,6 +62,8 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint']
 }
 
+test.dependsOn([yarnInstall, yarnTest, yarnLint])
+
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint-fix']
 }
@@ -67,36 +72,45 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
   args = ['run', 'build']
 }
 
-clean {
-  delete 'node_modules'
+task yarnQuickBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  environment = [NODE_OPTIONS: "--max-old-space-size=3072"]
+  args = ['run', 'build']
+}
+
+task cleanExtraDirs {
+  delete 'node_modules/.yarn-integrity'
   delete 'dist'
   delete 'tmp'
-  delete 'build'
   delete 'just'
   delete 'src/types.generated.ts'
+  delete fileTree('../datahub-frontend/public')
   delete fileTree(dir: 'src/graphql', include: '*.generated.ts')
 }
+clean.finalizedBy(cleanExtraDirs)
 
 configurations {
   assets
 }
 
 distZip {
-  dependsOn yarnBuild
+  dependsOn yarnQuickBuild
   baseName 'datahub-web-react'
   from 'dist'
 }
 
-task copyAssets {
-  dependsOn distZip
-  copy {
-    from 'dist'
-    into '../datahub-frontend/public/'
+task copyAssets(dependsOn: distZip) {
+  doLast {
+    copy {
+      from zipTree(distZip.outputs.files.first())
+      into "../datahub-frontend/public"
+    }
   }
 }
 
-if (!gradle.startParameter.taskNames.any { it in ["idea"] }) {
-  artifacts {
-    assets distZip
+jar {
+  dependsOn distZip, copyAssets
+  into('public') {
+    from zipTree(distZip.outputs.files.first())
   }
+  classifier = 'assets'
 }

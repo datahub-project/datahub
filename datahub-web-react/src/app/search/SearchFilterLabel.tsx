@@ -3,7 +3,6 @@ import { BookOutlined } from '@ant-design/icons';
 import { Tag, Tooltip } from 'antd';
 import styled from 'styled-components';
 import {
-    AggregationMetadata,
     Domain,
     Container,
     DataPlatform,
@@ -13,9 +12,10 @@ import {
     CorpUser,
     CorpGroup,
     DataPlatformInstance,
+    Entity,
 } from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
@@ -24,8 +24,11 @@ import { IconStyleType } from '../entity/Entity';
 import { formatNumber } from '../shared/formatNumber';
 
 type Props = {
-    aggregation: AggregationMetadata;
     field: string;
+    value: string;
+    count?: number;
+    entity?: Entity | null; // TODO: If the entity is not provided, we should hydrate it.
+    hideCount?: boolean;
 };
 
 const PreviewImage = styled.img`
@@ -39,36 +42,36 @@ const PreviewImage = styled.img`
 const MAX_COUNT_VAL = 10000;
 
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
-export const SearchFilterLabel = ({ aggregation, field }: Props) => {
+export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const countText = aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count;
+    const countText = hideCount ? '' : ` (${count === MAX_COUNT_VAL ? '10k+' : formatNumber(count)})`;
 
     if (field === ENTITY_FILTER_NAME) {
-        const entityType = aggregation.value.toUpperCase() as EntityType;
+        const entityType = value.toUpperCase() as EntityType;
         return (
             <span>
-                {entityType ? entityRegistry.getCollectionName(entityType) : aggregation.value} (
-                {formatNumber(countText)})
+                {entityType ? entityRegistry.getCollectionName(entityType) : value}
+                {countText}
             </span>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.Tag) {
-        const tag = aggregation.entity as TagType;
+    if (entity?.type === EntityType.Tag) {
+        const tag = entity as TagType;
         const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag);
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex}>
+                <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex} fontSize={10}>
                     {truncatedDisplayName}
                 </StyledTag>
-                ({formatNumber(countText)})
+                {countText}
             </Tooltip>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.CorpUser) {
-        const user = aggregation.entity as CorpUser;
+    if (entity?.type === EntityType.CorpUser) {
+        const user = entity as CorpUser;
         const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
@@ -82,13 +85,14 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                         marginRight: 8,
                     }}
                 />
-                {displayName} ({countText})
+                {displayName}
+                {countText}
             </Tooltip>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.CorpGroup) {
-        const group = aggregation.entity as CorpGroup;
+    if (entity?.type === EntityType.CorpGroup) {
+        const group = entity as CorpGroup;
         const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
@@ -96,55 +100,62 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                 <span style={{ marginRight: 8 }}>
                     {entityRegistry.getIcon(EntityType.CorpGroup, 16, IconStyleType.ACCENT)}
                 </span>
-                {truncatedDisplayName} ({formatNumber(countText)})
+                {truncatedDisplayName}
+                {countText}
             </Tooltip>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.GlossaryTerm) {
-        const term = aggregation.entity as GlossaryTerm;
+    if (entity?.type === EntityType.GlossaryTerm) {
+        const term = entity as GlossaryTerm;
         const displayName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
                 <Tag closable={false}>
-                    <BookOutlined style={{ marginRight: '3%' }} />
+                    <BookOutlined style={{ marginRight: '4px' }} />
                     {truncatedDisplayName}
                 </Tag>
-                ({formatNumber(countText)})
+                {countText}
             </Tooltip>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.DataPlatform) {
-        const platform = aggregation.entity as DataPlatform;
-        const displayName = platform.properties?.displayName || platform.info?.displayName || platform.name;
+    if (entity?.type === EntityType.DataPlatform) {
+        const platform = entity as DataPlatform;
+        const displayName =
+            platform.properties?.displayName ||
+            platform.info?.displayName ||
+            capitalizeFirstLetterOnly(platform.name) ||
+            '';
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
                 {!!platform.properties?.logoUrl && (
-                    <PreviewImage src={platform.properties?.logoUrl} alt={platform.name} />
+                    <PreviewImage src={platform.properties?.logoUrl} alt={displayName} />
                 )}
                 <span>
-                    {truncatedDisplayName} ({formatNumber(countText)})
+                    {truncatedDisplayName}
+                    {countText}
                 </span>
             </Tooltip>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.DataPlatformInstance) {
-        const platform = aggregation.entity as DataPlatformInstance;
+    if (entity?.type === EntityType.DataPlatformInstance) {
+        const platform = entity as DataPlatformInstance;
         const displayName = platform.instanceId;
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                {truncatedDisplayName} ({formatNumber(countText)})
+                {truncatedDisplayName}
+                {countText}
             </Tooltip>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.Container) {
-        const container = aggregation.entity as Container;
+    if (entity?.type === EntityType.Container) {
+        const container = entity as Container;
         const displayName = entityRegistry.getDisplayName(EntityType.Container, container);
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
@@ -153,42 +164,57 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                     <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
                 )}
                 <span>
-                    {truncatedDisplayName} ({formatNumber(countText)})
+                    {truncatedDisplayName}
+                    {countText}
                 </span>
             </Tooltip>
         );
     }
 
-    if (aggregation.entity?.type === EntityType.Domain) {
-        const domain = aggregation.entity as Domain;
+    if (entity?.type === EntityType.Domain) {
+        const domain = entity as Domain;
         const displayName = entityRegistry.getDisplayName(EntityType.Domain, domain);
         const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <DomainLink domain={domain} name={truncatedDomainName} />({formatNumber(countText)})
+                <DomainLink domain={domain} name={truncatedDomainName} tagStyle={{ fontSize: 10 }} fontSize={10} />
+                {countText}
+            </Tooltip>
+        );
+    }
+
+    if (entity?.type === EntityType.DataProduct) {
+        const displayName = entityRegistry.getDisplayName(EntityType.DataProduct, entity);
+        const truncatedName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
+        return (
+            <Tooltip title={displayName}>
+                {truncatedName}
+                {countText}
             </Tooltip>
         );
     }
 
     // Warning: Special casing for Sub-Types
     if (field === 'typeNames') {
-        const displayName = capitalizeFirstLetter(aggregation.value) || '';
+        const displayName = capitalizeFirstLetterOnly(value) || '';
         const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
                 <span>
-                    {truncatedDomainName} ({formatNumber(countText)})
+                    {truncatedDomainName}
+                    {countText}
                 </span>
             </Tooltip>
         );
     }
 
     if (field === 'degree') {
-        return <>{aggregation.value}</>;
+        return <>{value}</>;
     }
     return (
         <>
-            {aggregation.value} ({formatNumber(countText)})
+            {value}
+            {countText}
         </>
     );
 };

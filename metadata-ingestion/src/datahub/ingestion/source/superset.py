@@ -1,27 +1,39 @@
 import json
+import logging
 from functools import lru_cache
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql import sql_common
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
+    Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
@@ -34,6 +46,8 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.utilities import config_clean
+
+logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
 
@@ -55,16 +69,24 @@ chart_type_from_viz_type = {
 }
 
 
-class SupersetConfig(ConfigModel):
+class SupersetConfig(StatefulIngestionConfigBase):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
-    connect_uri: str = Field(default="localhost:8088", description="Superset host URL.")
+    connect_uri: str = Field(
+        default="http://localhost:8088", description="Superset host URL."
+    )
     display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
+
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="Superset Stateful Ingestion Config."
+    )
+
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
     env: str = Field(
@@ -114,7 +136,10 @@ def get_filter_name(filter_obj):
 @platform_name("Superset")
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
-class SupersetSource(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
+class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - Charts, dashboards, and associated metadata
@@ -123,21 +148,21 @@ class SupersetSource(Source):
     """
 
     config: SupersetConfig
-    report: SourceReport
+    report: StaleEntityRemovalSourceReport
     platform = "superset"
+    stale_entity_removal_handler: StaleEntityRemovalHandler
 
     def __hash__(self):
         return id(self)
 
     def __init__(self, ctx: PipelineContext, config: SupersetConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
-        self.report = SourceReport()
+        self.report = StaleEntityRemovalSourceReport()
 
         login_response = requests.post(
             f"{self.config.connect_uri}/api/v1/security/login",
-            None,
-            {
+            json={
                 "username": self.config.username,
                 "password": self.config.password,
                 "refresh": True,
@@ -146,6 +171,7 @@ class SupersetSource(Source):
         )
 
         self.access_token = login_response.json()["access_token"]
+        logger.debug("Got access token from superset")
 
         self.session = requests.Session()
         self.session.headers.update(
@@ -157,7 +183,7 @@ class SupersetSource(Source):
         )
 
         # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/api/v1/database")
+        test_response = self.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
         if test_response.status_code == 200:
             pass
             # TODO(Gabe): how should we message about this error?
@@ -204,7 +230,7 @@ class SupersetSource(Source):
         dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_data['id']})"
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
@@ -251,30 +277,32 @@ class SupersetSource(Source):
 
         while current_dashboard_page * PAGE_SIZE <= total_dashboards:
             dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dashboard",
+                f"{self.config.connect_uri}/api/v1/dashboard/",
                 params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
             )
+            if dashboard_response.status_code != 200:
+                logger.warning(
+                    f"Failed to get dashboard data: {dashboard_response.text}"
+                )
+            dashboard_response.raise_for_status()
+
             payload = dashboard_response.json()
             total_dashboards = payload.get("count") or 0
 
             current_dashboard_page += 1
 
-            payload = dashboard_response.json()
             for dashboard_data in payload["result"]:
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
                     dashboard_data
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                yield wu
+                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
     def construct_chart_from_chart_data(self, chart_data):
         chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
@@ -308,6 +336,24 @@ class SupersetSource(Source):
         group_bys = params.get("groupby", []) or []
         if isinstance(group_bys, str):
             group_bys = [group_bys]
+        # handling List[Union[str, dict]] case
+        # a dict containing two keys: sqlExpression and label
+        elif isinstance(group_bys, list) and len(group_bys) != 0:
+            temp_group_bys = []
+            for item in group_bys:
+                # if the item is a custom label
+                if isinstance(item, dict):
+                    item_value = item.get("label", "")
+                    if item_value != "":
+                        temp_group_bys.append(f"{item_value}_custom_label")
+                    else:
+                        temp_group_bys.append(str(item))
+
+                # if the item is a string
+                elif isinstance(item, str):
+                    temp_group_bys.append(item)
+
+            group_bys = temp_group_bys
 
         custom_properties = {
             "Metrics": ", ".join(metrics),
@@ -334,9 +380,13 @@ class SupersetSource(Source):
 
         while current_chart_page * PAGE_SIZE <= total_charts:
             chart_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/chart",
+                f"{self.config.connect_uri}/api/v1/chart/",
                 params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
             )
+            if chart_response.status_code != 200:
+                logger.warning(f"Failed to get chart data: {chart_response.text}")
+            chart_response.raise_for_status()
+
             current_chart_page += 1
 
             payload = chart_response.json()
@@ -345,14 +395,19 @@ class SupersetSource(Source):
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
+                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
-                yield wu
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
 
-    def get_report(self) -> SourceReport:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
+    def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

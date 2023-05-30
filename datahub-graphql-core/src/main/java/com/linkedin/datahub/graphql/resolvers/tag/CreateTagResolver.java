@@ -1,17 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.tag;
 
-import com.google.common.collect.ImmutableList;
-import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
-import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
-import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -74,7 +69,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
         proposal.setChangeType(ChangeType.UPSERT);
 
         String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-        addCreatorAsOwner(context, tagUrn);
+        OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
         return tagUrn;
       } catch (Exception e) {
         log.error("Failed to create Tag with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
@@ -88,19 +83,5 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
     result.setName(input.getName());
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
     return result;
-  }
-
-  private void addCreatorAsOwner(QueryContext context, String tagUrn) {
-    try {
-      Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
-      OwnerUtils.addOwnersToResources(
-          ImmutableList.of(new OwnerInput(actorUrn.toString(), OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)),
-          ImmutableList.of(new ResourceRefInput(tagUrn, null, null)),
-          actorUrn,
-          _entityService
-      );
-    } catch (Exception e) {
-      log.error(String.format("Failed to add creator as owner of tag %s", tagUrn), e);
-    }
   }
 }

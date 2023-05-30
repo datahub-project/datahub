@@ -21,7 +21,6 @@ from datahub.cli.cli_utils import (
     get_session_and_host,
     post_rollback_endpoint,
 )
-from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
@@ -76,13 +75,6 @@ def ingest() -> None:
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
 @click.option(
-    "--suppress-error-logs",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Suppress display of variable values in logs by suppressing elaborate stacktrace (stackprinter) during ingestion failures",
-)
-@click.option(
     "--test-source-connection",
     type=bool,
     is_flag=True,
@@ -106,7 +98,16 @@ def ingest() -> None:
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry(
+    capture_kwargs=[
+        "dry_run",
+        "preview",
+        "strict_warnings",
+        "test_source_connection",
+        "no_default_report",
+        "no_spinner",
+    ]
+)
 @memory_leak_detector.with_leak_detection
 def run(
     ctx: click.Context,
@@ -115,7 +116,6 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
-    suppress_error_logs: bool,
     test_source_connection: bool,
     report_to: str,
     no_default_report: bool,
@@ -127,9 +127,7 @@ def run(
         pipeline: Pipeline, structured_report: Optional[str] = None
     ) -> int:
         logger.info("Starting metadata ingestion")
-        with click_spinner.spinner(
-            beep=False, disable=no_spinner, force=False, stream=sys.stdout
-        ):
+        with click_spinner.spinner(disable=no_spinner):
             try:
                 pipeline.run()
             except Exception as e:
@@ -139,13 +137,7 @@ def run(
                 logger.info(
                     f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
                 )
-                # We dont want to log sensitive information in variables if the pipeline fails due to
-                # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-                # with `--suppress-error-logs` flag.
-                if suppress_error_logs:
-                    raise SensitiveError() from e
-                else:
-                    raise e
+                raise e
             else:
                 logger.info("Finished metadata ingestion")
                 pipeline.log_ingestion_stats()
@@ -175,7 +167,6 @@ def run(
                 logger.debug(
                     f"timed out with {e} waiting for version stats to be computed... skipping ahead."
                 )
-
         sys.exit(ret)
 
     # main function begins
@@ -192,27 +183,23 @@ def run(
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
-    try:
-        logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(
-            pipeline_config,
-            dry_run,
-            preview,
-            preview_workunits,
-            report_to,
-            no_default_report,
-            raw_pipeline_config,
-        )
-    except Exception as e:
-        # The pipeline_config may contain sensitive information, so we wrap the exception
-        # in a SensitiveError to prevent detailed variable-level information from being logged.
-        raise SensitiveError() from e
+    # logger.debug(f"Using config: {pipeline_config}")
+    pipeline = Pipeline.create(
+        pipeline_config,
+        dry_run,
+        preview,
+        preview_workunits,
+        report_to,
+        no_default_report,
+        raw_pipeline_config,
+    )
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_func_check_upgrade(pipeline))
 
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
+    connection_report = None
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
         logger.info(connection_report.as_json())
@@ -248,6 +235,31 @@ def parse_restli_response(response):
 
 
 @ingest.command()
+@click.argument("path", type=click.Path(exists=True))
+def mcps(path: str) -> None:
+    """
+    Ingest metadata from a mcp json file or directory of files.
+
+    This requires that you've run `datahub init` to set up your config.
+    """
+
+    click.echo("Starting ingestion...")
+    recipe: dict = {
+        "source": {
+            "type": "file",
+            "config": {
+                "path": path,
+            },
+        },
+    }
+
+    pipeline = Pipeline.create(recipe)
+    pipeline.run()
+    ret = pipeline.pretty_print_summary()
+    sys.exit(ret)
+
+
+@ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
 @click.option(
@@ -257,7 +269,7 @@ def parse_restli_response(response):
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
@@ -305,7 +317,7 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
@@ -349,7 +361,7 @@ def show(
     help="Path to directory where rollback reports will be saved to",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
@@ -415,5 +427,5 @@ def rollback(
                     writer.writerow([row.get("urn")])
 
         except IOError as e:
-            print(e)
+            logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")

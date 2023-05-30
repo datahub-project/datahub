@@ -21,6 +21,7 @@ import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
@@ -204,6 +205,9 @@ public class IngestionScheduler {
     public void run() {
       try {
 
+        // First un-schedule all currently scheduled runs (to make sure consistency is maintained)
+        _unscheduleAll.run();
+
         int start = 0;
         int count = 30;
         int total = 30;
@@ -229,9 +233,6 @@ public class IngestionScheduler {
 
             // 3. Reschedule ingestion sources based on the fetched schedules (inside "info")
             log.debug("Received batch of Ingestion Source Info aspects. Attempting to re-schedule execution requests.");
-
-            // First unschedule all currently scheduled runs (to make sure consistency is maintained)
-            _unscheduleAll.run();
 
             // Then schedule the next ingestion runs
             scheduleNextIngestionRuns(new ArrayList<>(ingestionSources.values()));
@@ -347,7 +348,8 @@ public class IngestionScheduler {
         input.setRequestedAt(System.currentTimeMillis());
 
         Map<String, String> arguments = new HashMap<>();
-        arguments.put(RECIPE_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getRecipe());
+        String recipe = IngestionUtils.injectPipelineName(_ingestionSourceInfo.getConfig().getRecipe(), _ingestionSourceUrn.toString());
+        arguments.put(RECIPE_ARGUMENT_NAME, recipe);
         arguments.put(VERSION_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().hasVersion()
             ? _ingestionSourceInfo.getConfig().getVersion()
             : _ingestionConfiguration.getDefaultCliVersion());

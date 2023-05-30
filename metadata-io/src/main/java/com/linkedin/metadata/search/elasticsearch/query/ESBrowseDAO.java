@@ -59,7 +59,6 @@ public class ESBrowseDAO {
   private static final String REMOVED = "removed";
 
   private static final String GROUP_AGG = "groups";
-  private static final String ALL_PATHS = "allPaths";
 
   // Set explicit max size for grouping
   private static final int AGGREGATION_MAX_SIZE = 2000;
@@ -137,16 +136,11 @@ public class ESBrowseDAO {
   private AggregationBuilder buildAggregations(@Nonnull String path) {
     final String currentLevel = ESUtils.escapeReservedCharacters(path) + "/.*";
     final String nextLevel = ESUtils.escapeReservedCharacters(path) + "/.*/.*";
-    final String nextNextLevel = ESUtils.escapeReservedCharacters(path) + "/.*/.*/.*";
 
     return AggregationBuilders.terms(GROUP_AGG)
         .field(BROWSE_PATH)
         .size(AGGREGATION_MAX_SIZE)
-        .includeExclude(new IncludeExclude(currentLevel, nextLevel))
-        .subAggregation(AggregationBuilders.terms(ALL_PATHS)
-            .field(BROWSE_PATH)
-            .size(AGGREGATION_MAX_SIZE)
-            .includeExclude(new IncludeExclude(nextLevel, nextNextLevel)));
+        .includeExclude(new IncludeExclude(currentLevel, nextLevel));
   }
 
   /**
@@ -214,6 +208,34 @@ public class ESBrowseDAO {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
+    searchSourceBuilder.size(size);
+    searchSourceBuilder.fetchSource(new String[]{BROWSE_PATH, URN}, null);
+    searchSourceBuilder.sort(URN, SortOrder.ASC);
+    searchSourceBuilder.query(buildQueryString(path, requestMap, false));
+    searchRequest.source(searchSourceBuilder);
+    return searchRequest;
+  }
+
+  /**
+   * Constructs search request for entity search.
+   *
+   * @param path the path which is being browsed
+   * @param sort the sort values of the last search result in the previous page
+   * @param pitId the PointInTime ID of the previous request
+   * @param keepAlive keepAlive string representation of time to keep point in time alive
+   * @param size count of entities
+   * @return {@link SearchRequest}
+   */
+  @VisibleForTesting
+  @Nonnull
+  SearchRequest constructEntitiesSearchRequest(@Nonnull String indexName, @Nonnull String path,
+      @Nonnull Map<String, String> requestMap, @Nullable Object[] sort, @Nullable String pitId, @Nonnull String keepAlive,
+      int size) {
+    final SearchRequest searchRequest = new SearchRequest(indexName);
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+
     searchSourceBuilder.size(size);
     searchSourceBuilder.fetchSource(new String[]{BROWSE_PATH, URN}, null);
     searchSourceBuilder.sort(URN, SortOrder.ASC);

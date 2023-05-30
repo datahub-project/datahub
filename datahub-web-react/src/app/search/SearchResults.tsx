@@ -1,20 +1,10 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
-import {
-    Entity,
-    EntityType,
-    FacetFilterInput,
-    FacetMetadata,
-    MatchedField,
-    SearchAcrossEntitiesInput,
-} from '../../types.generated';
-import { SearchFilters } from './SearchFilters';
+import { Entity, EntityType, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
 import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
@@ -23,19 +13,17 @@ import { isListSubset } from '../entity/shared/utils';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { EntityAndType } from '../entity/shared/types';
 import { ErrorSection } from '../shared/error/ErrorSection';
+import { UnionType } from './utils/constants';
+import { SearchFiltersSection } from './SearchFiltersSection';
+import { generateOrFilters } from './utils/generateOrFilters';
+import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
+import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
     min-height: calc(100vh - 60px);
-`;
-
-const FiltersContainer = styled.div`
-    display: block;
-    max-width: 260px;
-    min-width: 260px;
-    border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
 `;
 
 const ResultContainer = styled.div`
@@ -61,25 +49,6 @@ const PaginationInfoContainer = styled.div`
     align-items: center;
 `;
 
-const FiltersHeader = styled.div`
-    font-size: 14px;
-    font-weight: 600;
-
-    padding-left: 20px;
-    padding-right: 20px;
-    padding-bottom: 8px;
-
-    width: 100%;
-    height: 47px;
-    line-height: 47px;
-    border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-`;
-
-const SearchFilterContainer = styled.div`
-    padding-top: 10px;
-`;
-
 const SearchResultsRecommendationsContainer = styled.div`
     margin-top: 40px;
 `;
@@ -92,7 +61,9 @@ const StyledTabToolbar = styled(TabToolbar)`
 const SearchMenuContainer = styled.div``;
 
 interface Props {
+    unionType?: UnionType;
     query: string;
+    viewUrn?: string;
     page: number;
     searchResponse?: {
         start: number;
@@ -108,10 +79,9 @@ interface Props {
     loading: boolean;
     error: any;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
+    onChangeUnionType: (unionType: UnionType) => void;
     onChangePage: (page: number) => void;
-    callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
-    }) => Promise<SearchResultsInterface | null | undefined>;
+    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
     numResultsPerPage: number;
@@ -125,16 +95,19 @@ interface Props {
 }
 
 export const SearchResults = ({
+    unionType = UnionType.AND,
     query,
+    viewUrn,
     page,
     searchResponse,
     filters,
     selectedFilters,
     loading,
     error,
+    onChangeUnionType,
     onChangeFilters,
     onChangePage,
-    callSearchOnVariables,
+    downloadSearchResults,
     entityFilters,
     filtersWithoutEntities,
     numResultsPerPage,
@@ -150,7 +123,7 @@ export const SearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
+    const authenticatedUserUrn = useUserContext().user?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
@@ -161,17 +134,16 @@ export const SearchResults = ({
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <div>
                 <SearchBody>
-                    <FiltersContainer>
-                        <FiltersHeader>Filter</FiltersHeader>
-                        <SearchFilterContainer>
-                            <SearchFilters
-                                loading={loading}
-                                facets={filters || []}
-                                selectedFilters={selectedFilters}
-                                onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
-                            />
-                        </SearchFilterContainer>
-                    </FiltersContainer>
+                    <div id={SEARCH_RESULTS_FILTERS_ID}>
+                        <SearchFiltersSection
+                            filters={filters}
+                            selectedFilters={selectedFilters}
+                            unionType={unionType}
+                            loading={loading}
+                            onChangeFilters={onChangeFilters}
+                            onChangeUnionType={onChangeUnionType}
+                        />
+                    </div>
                     <ResultContainer>
                         <PaginationInfoContainer>
                             <>
@@ -184,11 +156,13 @@ export const SearchResults = ({
                                 </Typography.Text>
                                 <SearchMenuContainer>
                                     <SearchExtendedMenu
-                                        callSearchOnVariables={callSearchOnVariables}
+                                        downloadSearchResults={downloadSearchResults}
                                         entityFilters={entityFilters}
-                                        filters={filtersWithoutEntities}
+                                        filters={generateOrFilters(unionType, filtersWithoutEntities)}
                                         query={query}
+                                        viewUrn={viewUrn}
                                         setShowSelectMode={setIsSelectMode}
+                                        totalResults={totalResults}
                                     />
                                 </SearchMenuContainer>
                             </>
@@ -218,7 +192,7 @@ export const SearchResults = ({
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
                                     />
-                                    <PaginationControlContainer>
+                                    <PaginationControlContainer id="search-pagination">
                                         <Pagination
                                             current={page}
                                             pageSize={numResultsPerPage}

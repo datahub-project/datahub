@@ -1,13 +1,22 @@
+import functools
 import json
 import os
-from datetime import datetime, timedelta
-from typing import Tuple
+from datetime import datetime, timedelta, timezone
+import subprocess
+import time
+from typing import Any, Dict, List, Tuple
+from time import sleep
+from joblib import Parallel, delayed
 
-import requests
-
+import requests_wrapper as requests
+import logging
 from datahub.cli import cli_utils
-from datahub.cli.docker_cli import check_local_docker_containers
+from datahub.cli.cli_utils import get_system_auth
+from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
+
+TIME: int = 1581407189000
+logger = logging.getLogger(__name__)
 
 
 def get_frontend_session():
@@ -16,12 +25,22 @@ def get_frontend_session():
     headers = {
         "Content-Type": "application/json",
     }
-    username, password = get_admin_credentials()
-    data = '{"username":"' + username + '", "password":"' + password + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
+    system_auth = get_system_auth()
+    if system_auth is not None:
+        session.headers.update({"Authorization": system_auth})
+    else:
+        username, password = get_admin_credentials()
+        data = '{"username":"' + username + '", "password":"' + password + '"}'
+        response = session.post(
+            f"{get_frontend_url()}/logIn", headers=headers, data=data
+        )
+        response.raise_for_status()
 
     return session
+
+
+def get_admin_username() -> str:
+    return get_admin_credentials()[0]
 
 
 def get_admin_credentials():
@@ -29,6 +48,10 @@ def get_admin_credentials():
         os.getenv("ADMIN_USERNAME", "datahub"),
         os.getenv("ADMIN_PASSWORD", "datahub"),
     )
+
+
+def get_root_urn():
+    return "urn:li:corpuser:datahub"
 
 
 def get_gms_url():
@@ -44,6 +67,7 @@ def get_kafka_broker_url():
 
 
 def get_kafka_schema_registry():
+    #  internal registry "http://localhost:8080/schema-registry/api/"
     return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL") or "http://localhost:8081"
 
 
@@ -62,7 +86,7 @@ def get_mysql_password():
 def get_sleep_info() -> Tuple[int, int]:
     return (
         int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 20)),
-        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 15)),
+        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 3)),
     )
 
 
@@ -71,13 +95,8 @@ def is_k8s_enabled():
 
 
 def wait_for_healthcheck_util():
-    if is_k8s_enabled():
-        # Simply assert that kubernetes endpoints are healthy, but don't wait.
-        assert not check_endpoint(f"{get_frontend_url()}/admin")
-        assert not check_endpoint(f"{get_gms_url()}/health")
-    else:
-        # Simply assert that docker is healthy, but don't wait.
-        assert not check_local_docker_containers()
+    assert not check_endpoint(f"{get_frontend_url()}/admin")
+    assert not check_endpoint(f"{get_gms_url()}/health")
 
 
 def check_endpoint(url):
@@ -106,11 +125,28 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     )
     pipeline.run()
     pipeline.raise_from_status()
-
+    wait_for_writes_to_sync()
     return pipeline
 
 
-def delete_urns_from_file(filename: str) -> None:
+@functools.lru_cache(maxsize=1)
+def get_datahub_graph() -> DataHubGraph:
+    return DataHubGraph(DatahubClientConfig(server=get_gms_url()))
+
+
+def delete_urn(urn: str) -> None:
+    get_datahub_graph().hard_delete_entity(urn)
+
+
+def delete_urns(urns: List[str]) -> None:
+    for urn in urns:
+        delete_urn(urn)
+
+
+def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
+    if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
+        print("Not cleaning data to save time")
+        return
     session = requests.Session()
     session.headers.update(
         {
@@ -119,25 +155,31 @@ def delete_urns_from_file(filename: str) -> None:
         }
     )
 
+    def delete(entry):
+        is_mcp = "entityUrn" in entry
+        urn = None
+        # Kill Snapshot
+        if is_mcp:
+            urn = entry["entityUrn"]
+        else:
+            snapshot_union = entry["proposedSnapshot"]
+            snapshot = list(snapshot_union.values())[0]
+            urn = snapshot["urn"]
+        delete_urn(urn)
+
     with open(filename) as f:
         d = json.load(f)
-        for entry in d:
-            is_mcp = "entityUrn" in entry
-            urn = None
-            # Kill Snapshot
-            if is_mcp:
-                urn = entry["entityUrn"]
-            else:
-                snapshot_union = entry["proposedSnapshot"]
-                snapshot = list(snapshot_union.values())[0]
-                urn = snapshot["urn"]
-            payload_obj = {"urn": urn}
+        Parallel(n_jobs=10)(delayed(delete)(entry) for entry in d)
 
-            cli_utils.post_delete_endpoint_with_session_and_url(
-                session,
-                get_gms_url() + "/entities?action=delete",
-                payload_obj,
-            )
+    # Deletes require 60 seconds when run between tests operating on common data, otherwise standard sync wait
+    if shared_data:
+        wait_for_writes_to_sync()
+    #        sleep(60)
+    else:
+        wait_for_writes_to_sync()
+
+
+#        sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 # Fixed now value
@@ -164,4 +206,63 @@ def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
 
 
 def get_strftime_from_timestamp_millis(ts_millis: int) -> str:
-    return datetime.fromtimestamp(ts_millis / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.fromtimestamp(ts_millis / 1000, tz=timezone.utc).isoformat()
+
+
+def create_datahub_step_state_aspect(
+    username: str, onboarding_id: str
+) -> Dict[str, Any]:
+    entity_urn = f"urn:li:dataHubStepState:urn:li:corpuser:{username}-{onboarding_id}"
+    print(f"Creating dataHubStepState aspect for {entity_urn}")
+    return {
+        "auditHeader": None,
+        "entityType": "dataHubStepState",
+        "entityUrn": entity_urn,
+        "changeType": "UPSERT",
+        "aspectName": "dataHubStepStateProperties",
+        "aspect": {
+            "value": f'{{"properties":{{}},"lastModified":{{"actor":"urn:li:corpuser:{username}","time":{TIME}}}}}',
+            "contentType": "application/json",
+        },
+        "systemMetadata": None,
+    }
+
+
+def create_datahub_step_state_aspects(
+    username: str, onboarding_ids: str, onboarding_filename
+) -> None:
+    """
+    For a specific user, creates dataHubStepState aspects for each onboarding id in the list
+    """
+    aspects_dict: List[Dict[str, Any]] = [
+        create_datahub_step_state_aspect(username, onboarding_id)
+        for onboarding_id in onboarding_ids
+    ]
+    with open(onboarding_filename, "w") as f:
+        json.dump(aspects_dict, f, indent=2)
+
+
+def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
+    start_time = time.time()
+    # get offsets
+    lag_zero = False
+    while not lag_zero and (time.time() - start_time) < max_timeout_in_sec:
+        time.sleep(1)  # micro-sleep
+        completed_process = subprocess.run(
+            "docker exec broker /bin/kafka-consumer-groups --bootstrap-server broker:29092 --group generic-mae-consumer-job-client --describe | grep -v LAG | awk '{print $6}'",
+            capture_output=True,
+            shell=True,
+            text=True,
+        )
+
+        result = str(completed_process.stdout)
+        lines = result.splitlines()
+        lag_values = [int(l) for l in lines if l != ""]
+        maximum_lag = max(lag_values)
+        if maximum_lag == 0:
+            lag_zero = True
+
+    if not lag_zero:
+        logger.warning(
+            f"Exiting early from waiting for elastic to catch up due to a timeout. Current lag is {lag_values}"
+        )

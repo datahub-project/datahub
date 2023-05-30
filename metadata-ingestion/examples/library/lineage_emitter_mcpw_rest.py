@@ -8,7 +8,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamClass,
     UpstreamLineage,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass
 
 upstream_table_1 = UpstreamClass(
     dataset=builder.make_dataset_urn("bigquery", "upstream_table_1", "PROD"),
@@ -26,10 +25,7 @@ upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
 
 # Construct a MetadataChangeProposalWrapper object.
 lineage_mcp = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_dataset_urn("bigquery", "downstream"),
-    aspectName="upstreamLineage",
     aspect=upstream_lineage,
 )
 

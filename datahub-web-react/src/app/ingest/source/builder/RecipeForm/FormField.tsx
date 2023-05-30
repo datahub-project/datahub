@@ -1,5 +1,5 @@
 import React from 'react';
-import { Checkbox, Form, Input, Select, Tooltip } from 'antd';
+import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import Button from 'antd/lib/button';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -19,17 +19,23 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-interface ListFieldProps {
+const StyledCheckbox = styled(Checkbox)`
+    .ant-checkbox-inner {
+        border-color: ${ANTD_GRAY[7]};
+    }
+    .ant-checkbox-checked {
+        .ant-checkbox-inner {
+            border-color: ${(props) => props.theme.styles['primary-color']};
+        }
+    }
+`;
+
+interface CommonFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
 }
 
-interface SelectFieldProps {
-    field: RecipeField;
-    removeMargin?: boolean;
-}
-
-function ListField({ field, removeMargin }: ListFieldProps) {
+function ListField({ field, removeMargin }: CommonFieldProps) {
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -58,9 +64,10 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
-function SelectField({ field, removeMargin }: SelectFieldProps) {
+function SelectField({ field, removeMargin }: CommonFieldProps) {
     return (
         <StyledFormItem
+            required={field.required}
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
@@ -68,7 +75,7 @@ function SelectField({ field, removeMargin }: SelectFieldProps) {
             rules={field.rules || undefined}
         >
             {field.options && (
-                <Select placeholder={field.placeholder}>
+                <Select placeholder={field.placeholder} allowClear={!field.required}>
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
@@ -78,36 +85,62 @@ function SelectField({ field, removeMargin }: SelectFieldProps) {
     );
 }
 
+function DateField({ field, removeMargin }: CommonFieldProps) {
+    return (
+        <StyledFormItem
+            required={field.required}
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            removeMargin={!!removeMargin}
+            rules={field.rules || undefined}
+        >
+            <DatePicker showTime />
+        </StyledFormItem>
+    );
+}
+
 interface Props {
     field: RecipeField;
     secrets: Secret[];
     refetchSecrets: () => void;
     removeMargin?: boolean;
+    updateFormValue: (field, value) => void;
 }
 
 function FormField(props: Props) {
-    const { field, secrets, refetchSecrets, removeMargin } = props;
+    const { field, secrets, refetchSecrets, removeMargin, updateFormValue } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
     if (field.type === FieldType.SELECT) return <SelectField field={field} removeMargin={removeMargin} />;
 
+    if (field.type === FieldType.DATE) return <DateField field={field} removeMargin={removeMargin} />;
+
     if (field.type === FieldType.SECRET)
         return (
-            <SecretField field={field} secrets={secrets} removeMargin={removeMargin} refetchSecrets={refetchSecrets} />
+            <SecretField
+                field={field}
+                secrets={secrets}
+                removeMargin={removeMargin}
+                refetchSecrets={refetchSecrets}
+                updateFormValue={updateFormValue}
+            />
         );
 
     if (field.type === FieldType.DICT) return <DictField field={field} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     let input = <Input placeholder={field.placeholder} />;
-    if (isBoolean) input = <Checkbox />;
-    if (field.type === FieldType.TEXTAREA) input = <Input.TextArea placeholder={field.placeholder} />;
+    if (isBoolean) input = <StyledCheckbox />;
+    if (field.type === FieldType.TEXTAREA)
+        input = <Input.TextArea required={field.required} placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 
     return (
         <StyledFormItem
+            required={field.required}
             style={isBoolean ? { flexDirection: 'row', alignItems: 'center' } : {}}
             label={field.label}
             name={field.name}

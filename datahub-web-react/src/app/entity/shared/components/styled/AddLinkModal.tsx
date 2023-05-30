@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useGetAuthenticatedUser } from '../../../../useGetAuthenticatedUser';
 import { useEntityData, useMutationUrn } from '../../EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
+import { useUserContext } from '../../../../context/useUserContext';
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
@@ -14,7 +14,7 @@ type AddLinkProps = {
 export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const mutationUrn = useMutationUrn();
-    const user = useGetAuthenticatedUser();
+    const user = useUserContext();
     const { entityType } = useEntityData();
     const [addLinkMutation] = useAddLinkMutation();
 
@@ -30,7 +30,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
     };
 
     const handleAdd = async (formData: any) => {
-        if (user?.corpUser.urn) {
+        if (user?.urn) {
             try {
                 await addLinkMutation({
                     variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
@@ -85,6 +85,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                             },
                             {
                                 type: 'url',
+                                warningOnly: true,
                                 message: 'This field must be a valid url.',
                             },
                         ]}

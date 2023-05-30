@@ -7,8 +7,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.Constants;
@@ -88,7 +88,7 @@ public class DomainUtils {
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor));
+      entityService.ingestProposal(change, getAuditStamp(actor), false);
     }
   }
 }

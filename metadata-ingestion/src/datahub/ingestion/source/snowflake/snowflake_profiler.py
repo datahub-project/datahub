@@ -1,12 +1,16 @@
 import dataclasses
-import datetime
 import logging
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, cast
+from datetime import datetime
+from typing import Callable, Dict, Iterable, List, Optional, cast
 
+from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.sql import sqltypes
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.ingestion.api.common import WorkUnit
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
@@ -19,8 +23,13 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTable,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
-from datahub.metadata.schema_classes import DatasetProfileClass
+from datahub.ingestion.source.sql.sql_generic_profiler import (
+    GenericProfiler,
+    TableProfilerRequest,
+)
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+
+snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +40,21 @@ class SnowflakeProfilerRequest(GEProfilerRequest):
     profile_table_level_only: bool = False
 
 
-class SnowflakeProfiler(SnowflakeCommonMixin):
-    def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
-        self.config = config
-        self.report = report
+class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
+    def __init__(
+        self,
+        config: SnowflakeV2Config,
+        report: SnowflakeV2Report,
+        state_handler: Optional[ProfilingHandler] = None,
+    ) -> None:
+        super().__init__(config, report, self.platform, state_handler)
+        self.config: SnowflakeV2Config = config
+        self.report: SnowflakeV2Report = report
         self.logger = logger
 
-    def get_workunits(self, databases: List[SnowflakeDatabase]) -> Iterable[WorkUnit]:
-
+    def get_workunits(
+        self, database: SnowflakeDatabase, db_tables: Dict[str, List[SnowflakeTable]]
+    ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.profiling.enabled:
@@ -46,50 +62,57 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                 "max_overflow", self.config.profiling.max_workers
             )
 
-        # Otherwise, if column level profiling is enabled, use  GE profiler.
-        for db in databases:
-            if not self.config.database_pattern.allowed(db.name):
-                continue
-            profile_requests = []
-            for schema in db.schemas:
-                if not self.config.schema_pattern.allowed(schema.name):
-                    continue
-                for table in schema.tables:
-
-                    # Emit the profile work unit
-                    profile_request = self.get_snowflake_profile_request(
-                        table, schema.name, db.name
-                    )
-                    if profile_request is not None:
-                        profile_requests.append(profile_request)
-
-            if len(profile_requests) == 0:
-                continue
-            for request, profile in self.generate_profiles(
-                db.name,
-                profile_requests,
-                self.config.profiling.max_workers,
-                platform=self.platform,
-                profiler_args=self.get_profile_args(),
+        profile_requests = []
+        for schema in database.schemas:
+            if not is_schema_allowed(
+                self.config.schema_pattern,
+                schema.name,
+                database.name,
+                self.config.match_fully_qualified_names,
             ):
-                if profile is None:
-                    continue
-                profile.sizeInBytes = cast(
-                    SnowflakeProfilerRequest, request
-                ).table.size_in_bytes
-                dataset_name = request.pretty_name
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
+                continue
+
+            for table in db_tables[schema.name]:
+                profile_request = self.get_snowflake_profile_request(
+                    table, schema.name, database.name
                 )
-                yield self.wrap_aspect_as_workunit(
-                    "dataset",
-                    dataset_urn,
-                    "datasetProfile",
-                    profile,
+                if profile_request is not None:
+                    profile_requests.append(profile_request)
+
+        if len(profile_requests) == 0:
+            return
+
+        table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
+
+        for request, profile in self.generate_profiles(
+            table_profile_requests,
+            self.config.profiling.max_workers,
+            database.name,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        ):
+            if profile is None:
+                continue
+            profile.sizeInBytes = cast(
+                SnowflakeProfilerRequest, request
+            ).table.size_in_bytes
+            dataset_name = request.pretty_name
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+
+            # We don't add to the profiler state if we only do table level profiling as it always happens
+            if self.state_handler:
+                self.state_handler.add_to_state(
+                    dataset_urn, int(datetime.now().timestamp() * 1000)
                 )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=profile
+            ).as_workunit()
 
     def get_snowflake_profile_request(
         self,
@@ -130,47 +153,11 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
         )
         return profile_request
 
-    def is_dataset_eligible_for_profiling(
-        self,
-        dataset_name: str,
-        last_altered: datetime.datetime,
-        size_in_bytes: int,
-        rows_count: Optional[int],
-    ) -> bool:
-        threshold_time: Optional[datetime.datetime] = None
-        if self.config.profiling.profile_if_updated_since_days is not None:
-            threshold_time = datetime.datetime.now(
-                datetime.timezone.utc
-            ) - datetime.timedelta(self.config.profiling.profile_if_updated_since_days)
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> "DatahubGEProfiler":
+        assert db_name
 
-        return (
-            (
-                self.config.table_pattern.allowed(dataset_name)
-                and self.config.profile_pattern.allowed(dataset_name)
-            )
-            and (threshold_time is None or last_altered >= threshold_time)
-            and (
-                self.config.profiling.profile_table_size_limit is None
-                or (
-                    size_in_bytes is not None
-                    and size_in_bytes / (2**30)
-                    <= self.config.profiling.profile_table_size_limit
-                )
-                # Note: Profiling is not allowed is size_in_bytes is not available
-                # and self.config.profiling.profile_table_size_limit is set
-            )
-            and (
-                self.config.profiling.profile_table_row_limit is None
-                or (
-                    rows_count is not None
-                    and rows_count <= self.config.profiling.profile_table_row_limit
-                )
-                # Note: Profiling is not allowed is rows_count is not available
-                # and self.config.profiling.profile_table_row_limit is set
-            )
-        )
-
-    def get_profiler_instance(self, db_name: str) -> "DatahubGEProfiler":
         url = self.config.get_sql_alchemy_url(
             database=db_name,
             username=self.config.username,
@@ -195,10 +182,6 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
             platform=self.platform,
         )
 
-    def get_profile_args(self) -> Dict:
-        """Passed down to GE profiler"""
-        return {}
-
     def callable_for_db_connection(self, db_name: str) -> Callable:
         def get_db_connection():
             conn = self.config.get_connection()
@@ -206,37 +189,3 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
             return conn
 
         return get_db_connection
-
-    def generate_profiles(
-        self,
-        db_name: str,
-        requests: List[SnowflakeProfilerRequest],
-        max_workers: int,
-        platform: Optional[str] = None,
-        profiler_args: Optional[Dict] = None,
-    ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-
-        ge_profile_requests: List[GEProfilerRequest] = [
-            cast(GEProfilerRequest, request)
-            for request in requests
-            if not request.profile_table_level_only
-        ]
-        table_level_profile_requests: List[SnowflakeProfilerRequest] = [
-            request for request in requests if request.profile_table_level_only
-        ]
-        for request in table_level_profile_requests:
-            profile = DatasetProfile(
-                timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
-                columnCount=len(request.table.columns),
-                rowCount=request.table.rows_count,
-                sizeInBytes=request.table.size_in_bytes,
-            )
-            yield (request, profile)
-
-        if len(ge_profile_requests) == 0:
-            return
-
-        ge_profiler = self.get_profiler_instance(db_name)
-        yield from ge_profiler.generate_profiles(
-            ge_profile_requests, max_workers, platform, profiler_args
-        )

@@ -9,7 +9,7 @@ import ColorHash from 'color-hash';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetTagQuery } from '../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
-import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner';
+import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../entity/shared/constants';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -22,6 +22,8 @@ import CopyUrn from './CopyUrn';
 import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
 import { ErrorSection } from './error/ErrorSection';
+import { generateOrFilters } from '../search/utils/generateOrFilters';
+import { UnionType } from '../search/utils/constants';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -184,8 +186,24 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     const { error, data, refetch } = useGetTagQuery({ variables: { urn } });
     const [updateDescription] = useUpdateDescriptionMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
-    const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
-    const entityQuery = `tags:"${data?.tag?.name}"`;
+    const entityUrn = data?.tag?.urn;
+    const entityFilters =
+        (entityUrn && [
+            {
+                field: 'tags',
+                values: [entityUrn],
+            },
+        ]) ||
+        [];
+    const entityAndSchemaFilters =
+        (entityUrn && [
+            ...entityFilters,
+            {
+                field: 'fieldTags',
+                values: [entityUrn],
+            },
+        ]) ||
+        [];
 
     const description = data?.tag?.properties?.description || '';
     const [updatedDescription, setUpdatedDescription] = useState('');
@@ -207,10 +225,10 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     const { data: facetData, loading: facetLoading } = useGetSearchResults({
         variables: {
             input: {
-                query: entityAndSchemaQuery,
+                query: '*',
                 start: 0,
                 count: 1,
-                filters: [],
+                orFilters: generateOrFilters(UnionType.OR, entityAndSchemaFilters),
             },
         },
     });
@@ -332,7 +350,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         urn={urn}
                         entityType={EntityType.Tag}
                         entityData={data?.tag}
-                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                        menuItems={new Set([EntityMenuItems.DELETE])}
                     />
                 </ActionButtons>
                 {displayColorPicker && (
@@ -378,10 +396,11 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                                         onClick={() =>
                                             navigateToSearchUrl({
                                                 type: aggregation?.value as EntityType,
-                                                query:
+                                                filters:
                                                     aggregation?.value === EntityType.Dataset
-                                                        ? entityAndSchemaQuery
-                                                        : entityQuery,
+                                                        ? entityAndSchemaFilters
+                                                        : entityFilters,
+                                                unionType: UnionType.OR,
                                                 history,
                                             })
                                         }

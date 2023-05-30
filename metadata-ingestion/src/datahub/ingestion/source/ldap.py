@@ -1,13 +1,13 @@
 """LDAP Source"""
 import dataclasses
-import re
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -15,8 +15,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
@@ -86,7 +95,7 @@ def set_cookie(
     return bool(cookie)
 
 
-class LDAPSourceConfig(ConfigModel):
+class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     """Config used by the LDAP Source."""
 
     # Server configuration.
@@ -94,11 +103,19 @@ class LDAPSourceConfig(ConfigModel):
     ldap_user: str = Field(description="LDAP user.")
     ldap_password: str = Field(description="LDAP password.")
 
+    # Custom Stateful Ingestion settings
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
     filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
     attrs_list: Optional[List[str]] = Field(
         default=None, description="Retrieved attributes list"
+    )
+
+    custom_props_list: Optional[List[str]] = Field(
+        default=None,
+        description="A list of custom attributes to extract from the LDAP provider.",
     )
 
     # If set to true, any users without first and last names will be dropped.
@@ -117,8 +134,7 @@ class LDAPSourceConfig(ConfigModel):
 
 
 @dataclasses.dataclass
-class LDAPSourceReport(SourceReport):
-
+class LDAPSourceReport(StaleEntityRemovalSourceReport):
     dropped_dns: List[str] = dataclasses.field(default_factory=list)
 
     def report_dropped(self, dn: str) -> None:
@@ -151,7 +167,7 @@ def guess_person_ldap(
 @config_class(LDAPSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @dataclasses.dataclass
-class LDAPSource(Source):
+class LDAPSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - People
@@ -161,11 +177,13 @@ class LDAPSource(Source):
 
     config: LDAPSourceConfig
     report: LDAPSourceReport
+    platform: str = "ldap"
 
     def __init__(self, ctx: PipelineContext, config: LDAPSourceConfig):
         """Constructor."""
-        super().__init__(ctx)
+        super(LDAPSource, self).__init__(config, ctx)
         self.config = config
+
         # ensure prior defaults are in place
         for k in user_attrs_map:
             if k not in self.config.user_attrs_map:
@@ -198,7 +216,15 @@ class LDAPSource(Source):
         config = LDAPSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Returns an Iterable containing the workunits to ingest LDAP users or groups."""
         cookie = True
         while cookie:
@@ -274,9 +300,7 @@ class LDAPSource(Source):
                 self.report.report_warning(dn, f"manager LDAP search failed: {e}")
         mce = self.build_corp_user_mce(dn, attrs, manager_ldap)
         if mce:
-            wu = MetadataWorkUnit(dn, mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(dn, mce)
         else:
             self.report.report_dropped(dn)
 
@@ -287,9 +311,7 @@ class LDAPSource(Source):
 
         mce = self.build_corp_group_mce(attrs)
         if mce:
-            wu = MetadataWorkUnit(dn, mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(dn, mce)
         else:
             self.report.report_dropped(dn)
 
@@ -341,6 +363,12 @@ class LDAPSource(Source):
             if self.config.user_attrs_map["title"] in attrs
             else None
         )
+        custom_props_map = {}
+        if self.config.custom_props_list:
+            for prop in self.config.custom_props_list:
+                if prop in attrs:
+                    custom_props_map[prop] = (attrs[prop][0]).decode()
+
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
         user_snapshot = CorpUserSnapshotClass(
@@ -358,12 +386,12 @@ class LDAPSource(Source):
                     countryCode=country_code,
                     title=title,
                     managerUrn=manager_urn,
-                )
+                    customProperties=custom_props_map,
+                ),
             ],
         )
 
-        if groups:
-            user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
+        user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 
@@ -372,8 +400,8 @@ class LDAPSource(Source):
         cn = attrs.get(self.config.group_attrs_map["urn"])
         if cn:
             full_name = cn[0].decode()
-            admins = parse_from_attrs(attrs, self.config.group_attrs_map["admins"])
-            members = parse_from_attrs(attrs, self.config.group_attrs_map["members"])
+            admins = parse_users(attrs, self.config.group_attrs_map["admins"])
+            members = parse_users(attrs, self.config.group_attrs_map["members"])
             email = (
                 attrs[self.config.group_attrs_map["email"]][0].decode()
                 if self.config.group_attrs_map["email"] in attrs
@@ -389,21 +417,20 @@ class LDAPSource(Source):
                 if self.config.group_attrs_map["displayName"] in attrs
                 else None
             )
-            return MetadataChangeEvent(
-                proposedSnapshot=CorpGroupSnapshotClass(
-                    urn=f"urn:li:corpGroup:{full_name}",
-                    aspects=[
-                        CorpGroupInfoClass(
-                            email=email,
-                            admins=admins,
-                            members=members,
-                            groups=[],
-                            description=description,
-                            displayName=displayName,
-                        )
-                    ],
-                )
+            group_snapshot = CorpGroupSnapshotClass(
+                urn=f"urn:li:corpGroup:{full_name}",
+                aspects=[
+                    CorpGroupInfoClass(
+                        email=email,
+                        admins=admins,
+                        members=members,
+                        groups=[],
+                        description=description,
+                        displayName=displayName,
+                    ),
+                ],
             )
+            return MetadataChangeEvent(proposedSnapshot=group_snapshot)
         return None
 
     def get_report(self) -> LDAPSourceReport:
@@ -411,37 +438,37 @@ class LDAPSource(Source):
         return self.report
 
     def close(self) -> None:
-        """Closes the Source."""
         self.ldap_client.unbind()
+        super().close()
 
 
-def parse_from_attrs(attrs: Dict[str, Any], filter_key: str) -> List[str]:
-    """Converts a list of LDAP formats to Datahub corpuser strings."""
+def parse_users(attrs: Dict[str, Any], filter_key: str) -> List[str]:
+    """Converts a list of LDAP DNs to Datahub corpuser strings."""
     if filter_key in attrs:
         return [
-            f"urn:li:corpuser:{strip_ldap_info(ldap_user)}"
+            f"urn:li:corpuser:{parse_ldap_dn(ldap_user)}"
             for ldap_user in attrs[filter_key]
         ]
     return []
 
 
-def strip_ldap_info(input_clean: bytes) -> str:
-    """Converts a b'uid=username,ou=Groups,dc=internal,dc=machines'
-    format to username"""
-    return input_clean.decode().split(",")[0].lstrip("uid=")
-
-
 def parse_groups(attrs: Dict[str, Any], filter_key: str) -> List[str]:
-    """Converts a list of LDAP groups to Datahub corpgroup strings"""
+    """Converts a list of LDAP DNs to Datahub corpgroup strings"""
     if filter_key in attrs:
         return [
-            f"urn:li:corpGroup:{strip_ldap_group_cn(ldap_group)}"
+            f"urn:li:corpGroup:{parse_ldap_dn(ldap_group)}"
             for ldap_group in attrs[filter_key]
         ]
     return []
 
 
-def strip_ldap_group_cn(input_clean: bytes) -> str:
-    """Converts a b'cn=group_name,ou=Groups,dc=internal,dc=machines'
-    format to group name"""
-    return re.sub("cn=", "", input_clean.decode().split(",")[0], flags=re.IGNORECASE)
+def parse_ldap_dn(input_clean: bytes) -> str:
+    """
+    Converts an LDAP DN of format b'cn=group_name,ou=Groups,dc=internal,dc=machines'
+    or b'uid=username,ou=Groups,dc=internal,dc=machines' to group name or username.
+    Inputs which are not valid LDAP DNs are simply decoded and returned as strings.
+    """
+    if ldap.dn.is_dn(input_clean):
+        return ldap.dn.str2dn(input_clean, flags=ldap.DN_FORMAT_LDAPV3)[0][0][1]
+    else:
+        return input_clean.decode()

@@ -7,11 +7,6 @@ import { mocks } from '../../../Mocks';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { PageRoutes } from '../../../conf/Global';
 import { SearchPage } from '../../search/SearchPage';
-import { EntityType } from '../../../types.generated';
-import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { EntityProfile } from '../../entity/shared/containers/profile/EntityProfile';
-import { SchemaTab } from '../../entity/shared/tabs/Dataset/Schema/SchemaTab';
-import { SidebarRecommendationsSection } from '../../entity/shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 
 describe('Recommendations', () => {
     it('home renders recommendations', async () => {
@@ -30,7 +25,7 @@ describe('Recommendations', () => {
             </MockedProvider>,
         );
         await waitFor(() => expect(getByText('Datasets')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Explore your Metadata')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Explore your data')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Top Platforms')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Popular Tags')).toBeInTheDocument());
@@ -63,45 +58,46 @@ describe('Recommendations', () => {
         await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument());
     });
 
-    it('renders entity page sidebar recommendations', async () => {
-        const { getByText } = render(
-            <MockedProvider
-                mocks={mocks}
-                addTypename={false}
-                defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
-                }}
-            >
-                <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
-                    <EntityProfile
-                        urn="urn:li:dataset:3"
-                        entityType={EntityType.Dataset}
-                        useEntityQuery={useGetDatasetQuery}
-                        useUpdateQuery={useUpdateDatasetMutation}
-                        getOverrideProperties={() => ({})}
-                        tabs={[
-                            {
-                                name: 'Schema',
-                                component: SchemaTab,
-                            },
-                        ]}
-                        sidebarSections={[
-                            {
-                                component: SidebarRecommendationsSection,
-                            },
-                        ]}
-                    />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
+    // TODO: Uncomment once entity sidebar recs are fully supported.
+    // it('renders entity page sidebar recommendations', async () => {
+    //     const { getByText } = render(
+    //         <MockedProvider
+    //             mocks={mocks}
+    //             addTypename={false}
+    //             defaultOptions={{
+    //                 watchQuery: { fetchPolicy: 'no-cache' },
+    //                 query: { fetchPolicy: 'no-cache' },
+    //             }}
+    //         >
+    //             <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
+    //                 <EntityProfile
+    //                     urn="urn:li:dataset:3"
+    //                     entityType={EntityType.Dataset}
+    //                     useEntityQuery={useGetDatasetQuery}
+    //                     useUpdateQuery={useUpdateDatasetMutation}
+    //                     getOverrideProperties={() => ({})}
+    //                     tabs={[
+    //                         {
+    //                             name: 'Schema',
+    //                             component: SchemaTab,
+    //                         },
+    //                     ]}
+    //                     sidebarSections={[
+    //                         {
+    //                             component: SidebarRecommendationsSection,
+    //                         },
+    //                     ]}
+    //                 />
+    //             </TestPageContainer>
+    //         </MockedProvider>,
+    //     );
 
-        // find recommendation modules
-        await waitFor(() => expect(getByText('Top Platforms')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Popular Tags')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Most Popular')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument());
-    });
+    //     // find recommendation modules
+    //     await waitFor(() => expect(getByText('Top Platforms')).toBeInTheDocument());
+    //     await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument());
+    //     await waitFor(() => expect(getByText('Popular Tags')).toBeInTheDocument());
+    //     await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument());
+    //     await waitFor(() => expect(getByText('Most Popular')).toBeInTheDocument());
+    //     await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument());
+    // });
 });

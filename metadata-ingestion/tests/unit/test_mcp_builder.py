@@ -1,7 +1,5 @@
 import datahub.emitter.mcp_builder as builder
-import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import datahub_guid
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 
 def test_guid_generator():
@@ -31,9 +29,51 @@ def test_guid_generator_with_instance():
         schema="Test",
         platform="mysql",
         instance="TestInstance",
+        backcompat_env_as_instance=True,
     )
     guid = key.guid()
     assert guid == "f096b3799fc86a3e5d5d0c083eb1f2a4"
+
+
+def test_guid_generator_with_instance_and_env():
+    key = builder.SchemaKey(
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance="TestInstance",
+        env="PROD",
+        backcompat_env_as_instance=True,
+    )
+    guid = key.guid()
+    assert guid == "f096b3799fc86a3e5d5d0c083eb1f2a4"
+
+    assert key.property_dict() == {
+        "database": "test",
+        "schema": "Test",
+        "platform": "mysql",
+        "instance": "TestInstance",
+        "env": "PROD",
+    }
+
+
+def test_guid_generator_with_env():
+    key = builder.SchemaKey(
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance=None,
+        env="TestInstance",
+        backcompat_env_as_instance=True,
+    )
+    guid = key.guid()
+    assert guid == "f096b3799fc86a3e5d5d0c083eb1f2a4"
+
+    assert key.property_dict() == {
+        "database": "test",
+        "schema": "Test",
+        "platform": "mysql",
+        "env": "TestInstance",
+    }
 
 
 def test_guid_generators():
@@ -44,12 +84,3 @@ def test_guid_generators():
 
     guid = key.guid()
     assert guid == guid_datahub
-
-
-def test_mcpw_inference():
-    mcpw = MetadataChangeProposalWrapper(
-        entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
-        aspect=models.DomainsClass(domains=["urn:li:domain:health"]),
-    )
-    assert mcpw.entityType == "dataset"
-    assert mcpw.aspectName == "domains"

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.utilities.urns.error import InvalidUrnError
@@ -49,13 +49,21 @@ class DataFlowUrn(Urn):
 
     @classmethod
     def create_from_ids(
-        cls, orchestrator: str, flow_id: str, env: str
+        cls,
+        orchestrator: str,
+        flow_id: str,
+        env: str,
+        platform_instance: Optional[str] = None,
     ) -> "DataFlowUrn":
-        entity_id: List[str] = [
-            orchestrator,
-            flow_id,
-            env,
-        ]
+        entity_id: List[str]
+        if platform_instance:
+            entity_id = [
+                orchestrator,
+                f"{platform_instance}.{flow_id}",
+                env,
+            ]
+        else:
+            entity_id = [orchestrator, flow_id, env]
         return cls(DataFlowUrn.ENTITY_TYPE, entity_id)
 
     @staticmethod
@@ -75,4 +83,6 @@ class DataFlowUrn(Urn):
 
         env = entity_id[2].upper()
         if env not in ALL_ENV_TYPES:
-            raise InvalidUrnError(f"Invalid env:{env}. Allowed evn are {ALL_ENV_TYPES}")
+            raise InvalidUrnError(
+                f"Invalid env:{env}. Allowed envs are {ALL_ENV_TYPES}"
+            )

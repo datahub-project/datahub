@@ -13,7 +13,7 @@ class Cardinality(Enum):
     UNIQUE = 7
 
 
-def _convert_to_cardinality(
+def convert_to_cardinality(
     unique_count: Optional[int], pct_unique: Optional[float]
 ) -> Optional[Cardinality]:
     """

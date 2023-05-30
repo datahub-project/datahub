@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
@@ -33,6 +34,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 @Slf4j
 @RequiredArgsConstructor
@@ -55,6 +58,9 @@ public class IngestPoliciesStep implements BootstrapStep {
   public void execute() throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+        .maxStringLength(maxSize).build());
 
     // 0. Execute preflight check to see whether we need to ingest policies
     log.info("Ingesting default access policies...");
@@ -167,7 +173,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     keyAspectProposal.setEntityUrn(urn);
 
     _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -177,7 +183,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
   }
 
   private boolean hasPolicy(Urn policyUrn) {

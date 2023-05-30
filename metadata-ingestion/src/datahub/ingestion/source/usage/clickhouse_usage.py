@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -22,6 +22,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 from datahub.ingestion.source.usage.usage_common import (
@@ -68,9 +69,7 @@ class ClickHouseJoinedAccessEvent(BaseModel):
     endtime: datetime
 
 
-class ClickHouseUsageConfig(
-    ClickHouseConfig, BaseUsageConfig, EnvBasedSourceConfigBase
-):
+class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     email_domain: str = Field(description="")
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
@@ -113,6 +112,9 @@ class ClickHouseUsageSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets ClickHouse usage stats as work units"""
         access_events = self._get_clickhouse_history()
         # If the query results is empty, we don't want to proceed
@@ -124,9 +126,7 @@ class ClickHouseUsageSource(Source):
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
 
     def _make_usage_query(self) -> str:
         return clickhouse_usage_sql_comment.format(
@@ -192,7 +192,6 @@ class ClickHouseUsageSource(Source):
     def _get_joined_access_event(self, events):
         joined_access_events = []
         for event_dict in events:
-
             event_dict["starttime"] = self._convert_str_to_datetime(
                 event_dict.get("starttime")
             )
@@ -257,6 +256,3 @@ class ClickHouseUsageSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass

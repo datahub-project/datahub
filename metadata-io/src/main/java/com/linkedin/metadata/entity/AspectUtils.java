@@ -1,10 +1,13 @@
 package com.linkedin.metadata.entity;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -17,10 +20,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.joda.time.DateTimeUtils;
+
 
 @Slf4j
 public class AspectUtils {
@@ -69,25 +72,39 @@ public class AspectUtils {
 
   private static MetadataChangeProposal getProposalFromAspect(String aspectName, RecordTemplate aspect,
       MetadataChangeProposal original) {
-    try {
-      MetadataChangeProposal proposal = original.copy();
-      GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
-      // Set UPSERT changetype here as additional changes being added should always be
-      // done in UPSERT mode even for patches
-      // proposal.setChangeType(ChangeType.UPSERT);
-      proposal.setAspect(genericAspect);
-      proposal.setAspectName(aspectName);
-      return proposal;
-    } catch (CloneNotSupportedException e) {
-      log.error("Issue while generating additional proposals corresponding to the input proposal", e);
+    MetadataChangeProposal proposal = new MetadataChangeProposal();
+    GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
+    // Set net new fields
+    proposal.setAspect(genericAspect);
+    proposal.setAspectName(aspectName);
+
+    // Set fields determined from original
+    // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an UPSERT
+    proposal.setChangeType(original.getChangeType());
+    if (ChangeType.PATCH.equals(proposal.getChangeType())) {
+      proposal.setChangeType(ChangeType.UPSERT);
     }
-    return null;
+
+    if (original.getSystemMetadata() != null) {
+      proposal.setSystemMetadata(original.getSystemMetadata());
+    }
+    if (original.getEntityUrn() != null) {
+      proposal.setEntityUrn(original.getEntityUrn());
+    }
+    if (original.getEntityKeyAspect() != null) {
+      proposal.setEntityKeyAspect(original.getEntityKeyAspect());
+    }
+    if (original.getAuditHeader() != null) {
+      proposal.setAuditHeader(original.getAuditHeader());
+    }
+    
+    proposal.setEntityType(original.getEntityType());
+
+    return proposal;
   }
 
   public static MetadataChangeProposal buildMetadataChangeProposal(
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      @Nonnull RecordTemplate aspect) {
+      @Nonnull Urn urn, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(urn.getEntityType());
@@ -95,5 +112,23 @@ public class AspectUtils {
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
     return proposal;
+  }
+
+  public static MetadataChangeProposal buildMetadataChangeProposal(@Nonnull String entityType,
+      @Nonnull RecordTemplate keyAspect, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityType(entityType);
+    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(keyAspect));
+    proposal.setAspectName(aspectName);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+    return proposal;
+  }
+
+  public static AuditStamp getAuditStamp(Urn actor) {
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(DateTimeUtils.currentTimeMillis());
+    auditStamp.setActor(actor);
+    return auditStamp;
   }
 }

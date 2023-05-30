@@ -66,6 +66,47 @@ container.
 
 If you're deploying with Docker Compose, you do not need to deploy the Zookeeper, Kafka Broker, or Schema Registry containers that ship by default.
 
+#### DataHub Actions
+
+Configuring Confluent Cloud for DataHub Actions requires some additional edits to your `executor.yaml`. Under the Kafka
+source connection config you will need to add the Python style client connection information:
+
+```yaml
+    connection:
+        bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+        schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+        consumer_config:
+          security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+          sasl.mechanism: ${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}
+          sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME}
+          sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD}
+        schema_registry_config:
+          basic.auth.user.info: ${KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO}
+```
+
+Specifically `sasl.username` and `sasl.password` are the differences from the base `executor.yaml` example file.
+
+Additionally, you will need to set up environment variables for `KAFKA_PROPERTIES_SASL_USERNAME` and `KAFKA_PROPERTIES_SASL_PASSWORD`
+which will use the same username and API Key you generated for the JAAS config.
+
+See [Overwriting a System Action Config](https://github.com/acryldata/datahub-actions/blob/main/docker/README.md#overwriting-a-system-action-config) for detailed reflection procedures.
+
+Next, configure datahub-actions to connect to Confluent Cloud by changing `docker/datahub-actions/env/docker.env`:
+
+```
+KAFKA_BOOTSTRAP_SERVER=pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
+SCHEMA_REGISTRY_URL=https://plrm-qwlpp.us-east-2.aws.confluent.cloud
+
+# Confluent Cloud Configs
+KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+KAFKA_PROPERTIES_SASL_USERNAME=XFA45EL1QFUQP4PA
+KAFKA_PROPERTIES_SASL_PASSWORD=ltyf96EvR1YYutsjLB3ZYfrk+yfCXD8sQHCE3EMp57A2jNs4RR7J1bU9k6lM6rU
+KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+KAFKA_PROPERTIES_CLIENT_DNS_LOOKUP=use_all_dns_ips
+KAFKA_PROPERTIES_BASIC_AUTH_CREDENTIALS_SOURCE=USER_INFO
+KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO=P2ETAN5QR2LCWL14:RTjqw7AfETDl0RZo/7R0123LhPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjjNi1m23
+```
+
 ### Helm
 
 If you're deploying on K8s using Helm, you can simply change the **datahub-helm** `values.yml` to point to Confluent Cloud and disable some default containers:
@@ -142,6 +183,43 @@ springKafkaConfigurationOverrides:
 ```
 
 Then simply apply the updated `values.yaml` to your K8s cluster via `kubectl apply`. 
+
+#### DataHub Actions
+
+Configuring Confluent Cloud for DataHub Actions requires some additional edits to your `executor.yaml`. Under the Kafka
+source connection config you will need to add the Python style client connection information:
+
+```yaml
+    connection:
+        bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+        schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+        consumer_config:
+          security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+          sasl.mechanism: ${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}
+          sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME}
+          sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD}
+        schema_registry_config:
+          basic.auth.user.info: ${KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO}
+```
+
+Specifically `sasl.username` and `sasl.password` are the differences from the base `executor.yaml` example file.
+
+Additionally, you will need to set up secrets for `KAFKA_PROPERTIES_SASL_USERNAME` and `KAFKA_PROPERTIES_SASL_PASSWORD`
+which will use the same username and API Key you generated for the JAAS config.
+
+See [Overwriting a System Action Config](https://github.com/acryldata/datahub-actions/blob/main/docker/README.md#overwriting-a-system-action-config) for detailed reflection procedures.
+
+```yaml
+credentialsAndCertsSecrets:
+  name: confluent-secrets
+  secureEnv:
+    sasl.jaas.config: sasl_jaas_config
+    basic.auth.user.info: basic_auth_user_info
+    sasl.username: sasl_username
+    sasl.password: sasl_password
+```
+
+The Actions pod will automatically pick these up in the correctly named environment variables when they are named this exact way.
 
 ## Contribution
 Accepting contributions for a setup script compatible with Confluent Cloud!

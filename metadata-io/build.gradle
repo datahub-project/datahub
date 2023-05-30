@@ -19,16 +19,19 @@ dependencies {
   compile spec.product.pegasus.generator
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  implementation externalDependency.slf4jApi
+  testImplementation project(path: ':metadata-integration:java:datahub-client')
+  runtime externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   compile externalDependency.datastaxOssNativeProtocol
   compile externalDependency.datastaxOssCore
   compile externalDependency.datastaxOssQueryBuilder
-  compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.javatuples
   compile externalDependency.javaxValidation
+  runtimeOnly externalDependency.jna
   compile externalDependency.kafkaClients
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
@@ -37,7 +40,9 @@ dependencies {
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
-  compile externalDependency.mixpanel
+  compile (externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
 
   annotationProcessor externalDependency.lombok
 
@@ -55,15 +60,31 @@ dependencies {
   testCompile externalDependency.testContainersCassandra
   testCompile externalDependency.lombok
   testCompile project(':test-models')
+  testImplementation externalDependency.springBootTest
+  testImplementation project(':datahub-graphql-core')
+  // logback >=1.3 required due to `testcontainers` only
+  testImplementation 'ch.qos.logback:logback-classic:1.4.7'
 
   testAnnotationProcessor externalDependency.lombok
 
   constraints {
-    implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+    implementation(externalDependency.log4jCore) {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
-    implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+    implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.commonsText) {
+      because("previous versions are vulnerable to CVE-2022-42889")
+    }
+    implementation(externalDependency.snakeYaml) {
+      because("previous versions are vulnerable to CVE-2022-25857")
+    }
+    implementation(externalDependency.woodstoxCore) {
+      because("previous versions are vulnerable to CVE-2022-40151-2")
+    }
+    implementation(externalDependency.jettison) {
+      because("previous versions are vulnerable")
     }
   }
 }
@@ -101,7 +122,7 @@ tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
   it.setAdditionalProperties([
       "group-id" : "io.datahubproject",
       "dateLibrary" : "java8",
-      "java8" : "true",
+      "java11" : "true",
       "modelPropertyNaming" : "original",
       "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
 

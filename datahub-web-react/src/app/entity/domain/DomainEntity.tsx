@@ -5,13 +5,14 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Ent
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import DataProductsTab from './DataProductsTab/DataProductsTab';
 // import { EntityActionItem } from '../shared/entity/EntityActions';
 
 /**
@@ -20,13 +21,13 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 export class DomainEntity implements Entity<Domain> {
     type: EntityType = EntityType.Domain;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <FolderOutlined />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderOutlined style={{ fontSize, color: '#B37FEB' }} />;
+            return <FolderOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -39,7 +40,7 @@ export class DomainEntity implements Entity<Domain> {
             <FolderOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -66,17 +67,21 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+            headerDropdownItems={new Set([EntityMenuItems.DELETE])}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
             isNameEditable
             tabs={[
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
                 {
                     name: 'Entities',
                     component: DomainEntitiesTab,
                 },
                 {
-                    name: 'Documentation',
-                    component: DocumentationTab,
+                    name: 'Data Products',
+                    component: DataProductsTab,
                 },
             ]}
             sidebarSections={[
@@ -85,9 +90,6 @@ export class DomainEntity implements Entity<Domain> {
                 },
                 {
                     component: SidebarOwnerSection,
-                    properties: {
-                        hideOwnerType: true,
-                    },
                 },
             ]}
         />

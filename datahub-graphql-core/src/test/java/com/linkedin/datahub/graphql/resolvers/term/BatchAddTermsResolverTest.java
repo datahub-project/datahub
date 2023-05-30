@@ -14,7 +14,6 @@ import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -67,10 +66,7 @@ public class BatchAddTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class), // glossary terms contains a dynamically generated audit stamp
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 2);
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_GLOSSARY_TERM_1_URN))
@@ -122,10 +118,7 @@ public class BatchAddTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class), // glossary terms contains a dynamically generated audit stamp
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 2);
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_GLOSSARY_TERM_1_URN))
@@ -162,9 +155,7 @@ public class BatchAddTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -200,9 +191,7 @@ public class BatchAddTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -223,9 +212,7 @@ public class BatchAddTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -234,7 +221,7 @@ public class BatchAddTermsResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchAddTermsResolver resolver = new BatchAddTermsResolver(mockService);
 

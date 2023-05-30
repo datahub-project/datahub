@@ -1,0 +1,159 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertica",
+                "instance": "PROD",
+                "database": "vmart",
+                "cluster_type": "Enterprise",
+                "cluster_size": "87 GB",
+                "subcluster": " ",
+                "communal_storage_path": ""
+            },
+            "name": "vmart"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertica"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertica",
+                "instance": "PROD",
+                "database": "vmart",
+                "schema": "public",
+                "projection_count": "0",
+                "udx_list": "",
+                "Udx_langauge": ""
+            },
+            "name": "public"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertica"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+}
+]

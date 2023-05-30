@@ -46,6 +46,13 @@ public class GenericRecordUtils {
   }
 
   @Nonnull
+  public static <T extends RecordTemplate> T deserializePayload(
+      @Nonnull ByteString payloadValue,
+      @Nonnull Class<T> clazz) {
+    return deserializePayload(payloadValue, JSON, clazz);
+  }
+
+  @Nonnull
   public static GenericAspect serializeAspect(@Nonnull RecordTemplate aspect) {
     GenericAspect genericAspect = new GenericAspect();
     genericAspect.setValue(

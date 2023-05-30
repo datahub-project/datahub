@@ -1,22 +1,11 @@
 from dataclasses import dataclass, field
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     AzkabanJobTypeClass,
-    ChangeTypeClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
@@ -51,6 +40,8 @@ class DataJob:
         parent_instance (Optional[DataProcessInstanceUrn]): The parent execution's urn if applicable
         properties Dict[str, str]: Custom properties to set for the DataProcessInstance
         url (Optional[str]): Url which points to the DataJob at the orchestrator
+        owners Set[str]): A list of user ids that own this job.
+        group_owners Set[str]): A list of group ids that own this job.
         inlets (List[str]): List of urns the DataProcessInstance consumes
         outlets (List[str]): List of urns the DataProcessInstance produces
         input_datajob_urns: List[DataJobUrn] = field(default_factory=list)
@@ -65,6 +56,7 @@ class DataJob:
     url: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
     owners: Set[str] = field(default_factory=set)
+    group_owners: Set[str] = field(default_factory=set)
     inlets: List[DatasetUrn] = field(default_factory=list)
     outlets: List[DatasetUrn] = field(default_factory=list)
     upstream_urns: List[DataJobUrn] = field(default_factory=list)
@@ -80,17 +72,20 @@ class DataJob:
         )
 
     def generate_ownership_aspect(self) -> Iterable[OwnershipClass]:
+        owners = set([builder.make_user_urn(owner) for owner in self.owners]) | set(
+            [builder.make_group_urn(owner) for owner in self.group_owners]
+        )
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
-                    owner=builder.make_user_urn(owner),
+                    owner=urn,
                     type=OwnershipTypeClass.DEVELOPER,
                     source=OwnershipSourceClass(
                         type=OwnershipSourceTypeClass.SERVICE,
                         # url=dag.filepath,
                     ),
                 )
-                for owner in (self.owners or [])
+                for urn in (owners or [])
             ],
             lastModified=AuditStampClass(
                 time=0,
@@ -135,9 +130,7 @@ class DataJob:
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="datajob",
             entityUrn=str(self.urn),
-            aspectName="dataJobInfo",
             aspect=DataJobInfoClass(
                 name=self.name if self.name is not None else self.id,
                 type=AzkabanJobTypeClass.COMMAND,
@@ -145,7 +138,6 @@ class DataJob:
                 customProperties=self.properties,
                 externalUrl=self.url,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
@@ -153,21 +145,15 @@ class DataJob:
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="datajob",
                 entityUrn=str(self.urn),
-                aspectName="ownership",
                 aspect=owner,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
         for tag in self.generate_tags_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="datajob",
                 entityUrn=str(self.urn),
-                aspectName="globalTags",
                 aspect=tag,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
@@ -181,39 +167,27 @@ class DataJob:
 
         :param emitter: Datahub Emitter to emit the process event
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
-        :rtype: None
         """
+
         for mcp in self.generate_mcp():
-            if type(emitter).__name__ == "DatahubKafkaEmitter":
-                assert callback is not None
-                kafka_emitter = cast("DatahubKafkaEmitter", emitter)
-                kafka_emitter.emit(mcp, callback)
-            else:
-                rest_emitter = cast("DatahubRestEmitter", emitter)
-                rest_emitter.emit(mcp)
+            emitter.emit(mcp, callback)
 
     def generate_data_input_output_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="datajob",
             entityUrn=str(self.urn),
-            aspectName="dataJobInputOutput",
             aspect=DataJobInputOutputClass(
                 inputDatasets=[str(urn) for urn in self.inlets],
                 outputDatasets=[str(urn) for urn in self.outlets],
                 inputDatajobs=[str(urn) for urn in self.upstream_urns],
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
         # Force entity materialization
         for iolet in self.inlets + self.outlets:
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
                 entityUrn=str(iolet),
-                aspectName="status",
                 aspect=StatusClass(removed=False),
-                changeType=ChangeTypeClass.UPSERT,
             )
 
             yield mcp

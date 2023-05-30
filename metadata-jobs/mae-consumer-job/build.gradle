@@ -1,20 +1,61 @@
 plugins {
     id 'org.springframework.boot'
     id 'java'
+    id 'com.palantir.docker'
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+
+ext {
+    docker_repo = 'datahub-mae-consumer'
 }
 
 dependencies {
-    compile project(':metadata-jobs:mae-consumer')
+    implementation project(':metadata-jobs:mae-consumer')
     // TODO: Extract PE consumer into separate pod.
-    compile project(':metadata-jobs:pe-consumer')
-
-    compile(externalDependency.springBootStarterWeb) {
+    implementation project(':metadata-jobs:pe-consumer')
+    implementation(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }
-    compile externalDependency.springBootStarterJetty
-    compile externalDependency.springKafka
+    implementation externalDependency.springBootStarterJetty
+    implementation externalDependency.springKafka
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.log4j2Api
+    compileOnly externalDependency.lombok
+    implementation externalDependency.logbackClassic
+
+    testImplementation externalDependency.springBootTest
+    testCompile externalDependency.mockito
+    testCompile externalDependency.testng
 }
 
 bootJar {
-    mainClassName = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
+    mainClass = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
+    archiveFileName = "${project.name}.jar"
 }
+
+docker {
+    name "${docker_registry}/${docker_repo}:v${version}"
+    version "v${version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+    files bootJar.outputs.files
+    files fileTree(rootProject.projectDir) {
+        include 'docker/monitoring/*'
+        include "docker/${docker_repo}/*"
+        include 'metadata-models/src/main/resources/*'
+    }
+    tag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+    // platform('linux/arm64', 'linux/amd64')
+    buildx(true)
+    load(true)
+    push(false)
+}
+tasks.getByName("docker").dependsOn([bootJar])
+
+task cleanLocalDockerImages {
+    doLast {
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

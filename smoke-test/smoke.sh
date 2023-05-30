@@ -14,16 +14,23 @@ set -euxo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip wheel setuptools
-pip install -r requirements.txt
+if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
+    source ./run-quickstart.sh
+fi
 
-echo "DATAHUB_VERSION = $DATAHUB_VERSION"
-# Commented as it will use images from linkedin repo
-# DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --standalone_consumers --dump-logs-on-failure
-DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --quickstart-compose-file ../docker/quickstart/docker-compose-without-neo4j.quickstart.yml --dump-logs-on-failure
+source venv/bin/activate
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
-pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+source ./set-cypress-creds.sh
+
+# no_cypress, cypress_suite1, cypress_rest
+if [[ -z "${TEST_STRATEGY}" ]]; then
+    pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+else
+    if [ "$TEST_STRATEGY" == "no_cypress" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress'
+    else
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress_${TEST_STRATEGY}.xml tests/cypress/integration_test.py
+    fi
+fi

@@ -23,7 +23,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/spark_spark-master_7077/pythonhdfsin2hivecreatetable"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -69,15 +69,15 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/pythonhdfsin2hivecreatetable/queryexecid_5"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,PythonHdfsIn2HiveCreateTable.foo3,PROD)"

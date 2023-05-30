@@ -3,20 +3,24 @@ from unittest import mock
 
 import expandvars
 import pytest
+import yaml
 
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.config_loader import load_config_file
+from datahub.configuration.config_loader import (
+    list_referenced_env_variables,
+    load_config_file,
+)
 
 
 @pytest.mark.parametrize(
-    "filename,golden_config,env,error_type",
+    "filename,golden_config,env,referenced_env_vars",
     [
         (
             # Basic YAML load
             "tests/unit/config/basic.yml",
             {"foo": "bar", "nested": {"array": ["one", "two"], "hi": "hello"}},
             {},
-            None,
+            set(),
         ),
         (
             # Basic TOML load
@@ -38,35 +42,7 @@ from datahub.configuration.config_loader import load_config_file
                 "VAR1": "stuff1",
                 "VAR2": "stuff2",
             },
-            None,
-        ),
-        (
-            # Variable expansion error
-            "tests/unit/config/bad_variable_expansion.yml",
-            None,
-            {},
-            expandvars.ParameterNullOrNotSet,
-        ),
-        (
-            # Missing file
-            "tests/unit/config/this_file_does_not_exist.yml",
-            None,
-            {},
-            ConfigurationError,
-        ),
-        (
-            # Unknown extension
-            "tests/unit/config/bad_extension.whatevenisthis",
-            None,
-            {},
-            ConfigurationError,
-        ),
-        (
-            # Variable expansion error
-            "tests/unit/config/bad_complex_variable_expansion.yml",
-            None,
-            {},
-            expandvars.MissingClosingBrace,
+            set(["VAR1", "UNSET_VAR3", "VAR2"]),
         ),
         (
             "tests/unit/config/complex_variable_expansion.yml",
@@ -121,17 +97,71 @@ from datahub.configuration.config_loader import load_config_file
                 "VAR10": "stuff10",
                 "VAR11": "stuff11",
             },
-            None,
+            set(
+                [
+                    "VAR1",
+                    "VAR2",
+                    "VAR3",
+                    "VAR4",
+                    "VAR5",
+                    "VAR6",
+                    "VAR7",
+                    "VAR8",
+                    "VAR9",
+                    "VAR10",
+                    # VAR11 is escaped and hence not referenced
+                    "VARNONEXISTENT",
+                ]
+            ),
         ),
     ],
 )
-def test_load(pytestconfig, filename, golden_config, env, error_type):
+def test_load_success(pytestconfig, filename, golden_config, env, referenced_env_vars):
+    filepath = pytestconfig.rootpath / filename
+
+    if referenced_env_vars is not None:
+        raw_config = yaml.safe_load(filepath.read_text())
+        assert list_referenced_env_variables(raw_config) == referenced_env_vars
+
+    with mock.patch.dict(os.environ, env):
+        loaded_config = load_config_file(filepath)
+        assert loaded_config == golden_config
+
+        # TODO check referenced env vars
+
+
+@pytest.mark.parametrize(
+    "filename,env,error_type",
+    [
+        (
+            # Variable expansion error
+            "tests/unit/config/bad_variable_expansion.yml",
+            {},
+            expandvars.ParameterNullOrNotSet,
+        ),
+        (
+            # Missing file
+            "tests/unit/config/this_file_does_not_exist.yml",
+            {},
+            ConfigurationError,
+        ),
+        (
+            # Unknown extension
+            "tests/unit/config/bad_extension.whatevenisthis",
+            {},
+            ConfigurationError,
+        ),
+        (
+            # Variable expansion error
+            "tests/unit/config/bad_complex_variable_expansion.yml",
+            {},
+            expandvars.MissingClosingBrace,
+        ),
+    ],
+)
+def test_load_error(pytestconfig, filename, env, error_type):
     filepath = pytestconfig.rootpath / filename
 
     with mock.patch.dict(os.environ, env):
-        if error_type:
-            with pytest.raises(error_type):
-                _ = load_config_file(filepath)
-        else:
-            loaded_config = load_config_file(filepath)
-            assert loaded_config == golden_config
+        with pytest.raises(error_type):
+            _ = load_config_file(filepath)

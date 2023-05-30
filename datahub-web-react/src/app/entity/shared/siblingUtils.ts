@@ -1,5 +1,5 @@
 import merge from 'deepmerge';
-import { unionBy } from 'lodash';
+import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
@@ -51,6 +51,18 @@ const combineMerge = (target, source, options) => {
     return destination;
 };
 
+function convertObjectKeysToLowercase(object: Record<string, unknown>) {
+    return Object.fromEntries(Object.entries(object).map(([key, value]) => [key.toLowerCase(), value]));
+}
+
+// use when you want to merge an array of objects by key in the object as opposed to by index of array
+const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], key: string) => {
+    const destination = convertObjectKeysToLowercase(keyBy(destinationArray, key));
+    const source = convertObjectKeysToLowercase(keyBy(sourceArray, key));
+
+    return values(merge(destination, source));
+};
+
 const mergeTags = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'tag.urn');
 };
@@ -71,6 +83,10 @@ const mergeOwners = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'owner.urn');
 };
 
+const mergeFields = (destinationArray, sourceArray, _options) => {
+    return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
+};
+
 function getArrayMergeFunction(key) {
     switch (key) {
         case 'tags':
@@ -83,6 +99,10 @@ function getArrayMergeFunction(key) {
             return mergeProperties;
         case 'owners':
             return mergeOwners;
+        case 'fields':
+            return mergeFields;
+        case 'editableSchemaFieldInfo':
+            return mergeFields;
         default:
             return undefined;
     }
@@ -92,10 +112,19 @@ const customMerge = (isPrimary, key) => {
     if (key === 'upstream' || key === 'downstream') {
         return (_secondary, primary) => primary;
     }
-    if (key === 'platform') {
+    // take the platform & siblings of whichever entity we're merging with, rather than the primary
+    if (key === 'platform' || key === 'siblings') {
         return (secondary, primary) => (isPrimary ? primary : secondary);
     }
-    if (key === 'tags' || key === 'terms' || key === 'assertions' || key === 'customProperties' || key === 'owners') {
+    if (
+        key === 'tags' ||
+        key === 'terms' ||
+        key === 'assertions' ||
+        key === 'customProperties' ||
+        key === 'owners' ||
+        key === 'fields' ||
+        key === 'editableSchemaFieldInfo'
+    ) {
         return (secondary, primary) => {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),
@@ -122,6 +151,24 @@ export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties>
     return extractedBaseEntity?.['siblings'];
 };
 
+// should the entity's metadata win out against its siblings?
+export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: { siblings?: SiblingProperties | null }) => {
+    const siblingAspect = extractedBaseEntity?.siblings;
+
+    const siblingsList = siblingAspect?.siblings || [];
+
+    // if the entity is marked as primary, take its metadata first
+    const isPrimarySibling = !!siblingAspect?.isPrimary;
+
+    // if no entity in the cohort is primary, just have the entity whos urn is navigated
+    // to be primary
+    const hasAnyPrimarySibling = siblingsList.find((sibling) => !!(sibling as any)?.siblings?.isPrimary) !== undefined;
+
+    const isPrimary = isPrimarySibling || !hasAnyPrimarySibling;
+
+    return isPrimary;
+};
+
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {
         return baseEntity;
@@ -137,7 +184,8 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
 
     // eslint-disable-next-line @typescript-eslint/dot-notation
     const siblings: T[] = siblingAspect?.siblings || [];
-    const isPrimary = !!extractedBaseEntity?.siblings?.isPrimary;
+
+    const isPrimary = shouldEntityBeTreatedAsPrimary(extractedBaseEntity);
 
     const combinedBaseEntity: any = siblings.reduce(
         (prev, current) =>

@@ -1,9 +1,9 @@
 import logging
-from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
 
 import pydantic
+from pydantic import root_validator
 from pydantic.fields import Field
 from pydantic.generics import GenericModel
 
@@ -11,8 +11,9 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
+    LineageConfig,
 )
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
@@ -26,10 +27,7 @@ from datahub.ingestion.source.state.use_case_handler import (
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
-from datahub.metadata.schema_classes import (
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-)
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -57,12 +55,15 @@ class StatefulIngestionConfig(ConfigModel):
         default=False,
         description="The type of the ingestion state provider registered with datahub.",
     )
-    # fmt: off
-    # 16MB
-    max_checkpoint_state_size: pydantic.PositiveInt = Field(default=2**24, description="The maximum size of the checkpoint state in bytes. Default is 16MB")  # 16MB
-    # fmt: on
+    max_checkpoint_state_size: pydantic.PositiveInt = Field(
+        default=2**24,  # 16 MB
+        description="The maximum size of the checkpoint state in bytes. Default is 16MB",
+        hidden_from_docs=True,
+    )
     state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
-        default=None, description="The ingestion state provider configuration."
+        default=None,
+        description="The ingestion state provider configuration.",
+        hidden_from_docs=True,
     )
     ignore_old_state: bool = Field(
         default=False,
@@ -86,9 +87,7 @@ class StatefulIngestionConfig(ConfigModel):
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
 
 
-class StatefulIngestionConfigBase(
-    DatasetSourceConfigBase, GenericModel, Generic[CustomConfig]
-):
+class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
@@ -96,6 +95,61 @@ class StatefulIngestionConfigBase(
     stateful_ingestion: Optional[CustomConfig] = Field(
         default=None, description="Stateful Ingestion Config"
     )
+
+
+class StatefulLineageConfigMixin(LineageConfig):
+    store_last_lineage_extraction_timestamp: bool = Field(
+        default=False,
+        description="Enable checking last lineage extraction date in store.",
+    )
+
+    @root_validator(pre=False)
+    def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_lineage_extraction_timestamp"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_lineage_extraction_timestamp config option as well"
+                )
+                values["store_last_lineage_extraction_timestamp"] = False
+
+        return values
+
+
+class StatefulProfilingConfigMixin(ConfigModel):
+    store_last_profiling_timestamps: bool = Field(
+        default=False,
+        description="Enable storing last profile timestamp in store.",
+    )
+
+    @root_validator(pre=False)
+    def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_profiling_timestamps"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_profiling_timestamps config option as well"
+                )
+                values["store_last_profiling_timestamps"] = False
+        return values
+
+
+class StatefulUsageConfigMixin(BaseTimeWindowConfig):
+    store_last_usage_extraction_timestamp: bool = Field(
+        default=True,
+        description="Enable checking last usage timestamp in store.",
+    )
+
+    @root_validator(pre=False)
+    def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_usage_extraction_timestamp"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_usage_extraction_timestamp config option as well"
+                )
+                values["store_last_usage_extraction_timestamp"] = False
+        return values
 
 
 @dataclass
@@ -109,17 +163,13 @@ class StatefulIngestionSourceBase(Source):
     """
 
     def __init__(
-        self, config: StatefulIngestionConfigBase, ctx: PipelineContext
+        self,
+        config: StatefulIngestionConfigBase[StatefulIngestionConfig],
+        ctx: PipelineContext,
     ) -> None:
         super().__init__(ctx)
-        self.stateful_ingestion_config = config.stateful_ingestion
-        self.source_config_type = type(config)
-        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
         self.report: StatefulIngestionReport = StatefulIngestionReport()
-        self._initialize_checkpointing_state_provider()
-        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
+        self.state_provider = StateProviderWrapper(config.stateful_ingestion, ctx)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -128,6 +178,26 @@ class StatefulIngestionSourceBase(Source):
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
+
+    def close(self) -> None:
+        self.state_provider.prepare_for_commit()
+        super().close()
+
+
+class StateProviderWrapper:
+    def __init__(
+        self,
+        config: Optional[StatefulIngestionConfig],
+        ctx: PipelineContext,
+    ) -> None:
+        self.ctx = ctx
+        self.stateful_ingestion_config = config
+
+        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.report: StatefulIngestionReport = StatefulIngestionReport()
+        self._initialize_checkpointing_state_provider()
+        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
 
     #
     # Checkpointing specific support.
@@ -160,10 +230,12 @@ class StatefulIngestionSourceBase(Source):
                 Dict[str, Any],
                 self.stateful_ingestion_config.state_provider.dict().get("config", {}),
             )
-            self.ingestion_checkpointing_state_provider = checkpointing_state_provider_class.create(  # type: ignore
-                config_dict=config_dict,
-                ctx=self.ctx,
-                name=checkpointing_state_provider_class.__name__,
+            self.ingestion_checkpointing_state_provider = (
+                checkpointing_state_provider_class.create(
+                    config_dict=config_dict,
+                    ctx=self.ctx,
+                    name=checkpointing_state_provider_class.__name__,
+                )
             )
             assert self.ingestion_checkpointing_state_provider
             if self.stateful_ingestion_config.ignore_old_state:
@@ -220,11 +292,6 @@ class StatefulIngestionSourceBase(Source):
             raise ValueError(f"No use-case handler for job_id{job_id}")
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
-    # Methods that sub-classes must implement
-    @abstractmethod
-    def get_platform_instance_id(self) -> str:
-        raise NotImplementedError("Sub-classes must implement this method.")
-
     def _get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
@@ -234,16 +301,19 @@ class StatefulIngestionSourceBase(Source):
         last_checkpoint: Optional[Checkpoint] = None
         if self.is_stateful_ingestion_configured():
             # Obtain the latest checkpoint from GMS for this job.
-            last_checkpoint_aspect = self.ingestion_checkpointing_state_provider.get_latest_checkpoint(  # type: ignore
-                pipeline_name=self.ctx.pipeline_name,  # type: ignore
-                platform_instance_id=self.get_platform_instance_id(),
-                job_name=job_id,
+            assert self.ctx.pipeline_name
+            assert self.ingestion_checkpointing_state_provider
+            last_checkpoint_aspect = (
+                self.ingestion_checkpointing_state_provider.get_latest_checkpoint(
+                    pipeline_name=self.ctx.pipeline_name,
+                    job_name=job_id,
+                )
             )
+
             # Convert it to a first-class Checkpoint object.
             last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
                 job_name=job_id,
                 checkpoint_aspect=last_checkpoint_aspect,
-                config_class=self.source_config_type,
                 state_class=checkpoint_state_class,
             )
         return last_checkpoint
@@ -280,6 +350,8 @@ class StatefulIngestionSourceBase(Source):
         # Perform validations
         if not self.is_stateful_ingestion_configured():
             return None
+        assert self.stateful_ingestion_config
+
         if (
             self.stateful_ingestion_config
             and self.stateful_ingestion_config.ignore_new_state
@@ -303,7 +375,7 @@ class StatefulIngestionSourceBase(Source):
             job_checkpoint.prepare_for_commit()
             try:
                 checkpoint_aspect = job_checkpoint.to_checkpoint_aspect(
-                    self.stateful_ingestion_config.max_checkpoint_state_size  # type: ignore
+                    self.stateful_ingestion_config.max_checkpoint_state_size
                 )
             except Exception as e:
                 logger.error(

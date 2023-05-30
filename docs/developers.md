@@ -5,14 +5,14 @@ title: "Local Development"
 # DataHub Developer's Guide
 
 ## Pre-requirements
- - [Java 1.8 SDK](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=hotspot)
+ - [Java 11 SDK](https://openjdk.org/projects/jdk/11/)
  - [Docker](https://www.docker.com/)
  - [Docker Compose](https://docs.docker.com/compose/)
  - Docker engine with at least 8GB of memory to run tests.
 
  :::note
 
- Do not try to use a JDK newer than JDK 8. The build process does not work with newer JDKs currently.
+ Do not try to use a JDK newer than JDK 11. The build process does not work with newer JDKs currently.
 
  :::
 
@@ -70,18 +70,18 @@ cd ../
 
 Once you have compiled & packaged the project or appropriate module you can deploy the entire system via docker-compose by running:
 ```
-datahub docker quickstart --build-locally
+./gradlew quickstart
 ```
 
 Replace whatever container you want in the existing deployment.
 I.e, replacing datahub's backend (GMS):
 ```
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate datahub-gms)
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-gms)
 ```
 
 Running the local version of the frontend
 ```
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate datahub-frontend-react)
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-frontend-react)
 ```
 ## IDE Support
 The recommended IDE for DataHub development is [IntelliJ IDEA](https://www.jetbrains.com/idea/). 
@@ -93,6 +93,15 @@ Open `datahub.ipr` in IntelliJ to start developing!
 
 For consistency please import and auto format the code using [LinkedIn IntelliJ Java style](../gradle/idea/LinkedIn%20Style.xml).
 
+
+## Windows Compatibility
+
+For optimal performance and compatibility, we strongly recommend building on a Mac or Linux system. 
+Please note that we do not actively support Windows in a non-virtualized environment.
+
+If you must use Windows, one workaround is to build within a virtualized environment, such as a VM(Virtual Machine) or [WSL(Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl).
+This approach can help ensure that your build environment remains isolated and stable, and that your code is compiled correctly.
+
 ## Common Build Issues
 
 ### Getting `Unsupported class file major version 57`
@@ -101,7 +110,7 @@ You're probably using a Java version that's too new for gradle. Run the followin
 ```
 java --version
 ```
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/datahub-project/datahub/issues/1699).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 11](https://openjdk.org/projects/jdk/11/) (aka Java 11).
 
 ### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
@@ -110,7 +119,7 @@ You can install multiple version of Java on a single machine and switch between 
 
 ### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error
 
-This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when building the project on Windows due a bug in the Pegasus plugin. Please build on a Mac or Linux instead. 
+This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when building the project on Windows due a bug in the Pegasus plugin. Please refer to [Windows Compatibility](/docs/developers.md#windows-compatibility). 
 
 ### Various errors related to `generateDataTemplate` or other `generate` tasks
 
@@ -126,3 +135,6 @@ This generally means that an [incompatible change](https://linkedin.github.io/re
 ### `java.io.IOException: No space left on device`
 
 This means you're running out of space on your disk to build. Please free up some space or try a different disk.
+
+### `Build failed` for task `./gradlew :datahub-frontend:dist -x yarnTest -x yarnLint`
+This could mean that you need to update your [Yarn](https://yarnpkg.com/getting-started/install) version

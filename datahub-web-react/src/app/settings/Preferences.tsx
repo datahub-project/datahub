@@ -2,9 +2,11 @@ import React from 'react';
 import styled from 'styled-components';
 import { Divider, Typography, Switch, Card, message } from 'antd';
 
-import { useGetMeQuery, useUpdateUserSettingMutation } from '../../graphql/me.generated';
+import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import analytics, { EventType } from '../analytics';
+import { useUserContext } from '../context/useUserContext';
 
 const Page = styled.div`
     width: 100%;
@@ -51,9 +53,9 @@ const SettingText = styled(Typography.Text)`
 
 export const Preferences = () => {
     // Current User Urn
-    const { data, refetch } = useGetMeQuery({ fetchPolicy: 'no-cache' });
+    const { user, refetchUser } = useUserContext();
 
-    const showSimplifiedHomepage = !!data?.me?.corpUser?.settings?.appearance?.showSimplifiedHomepage;
+    const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
 
     return (
@@ -69,7 +71,7 @@ export const Preferences = () => {
                 <Card>
                     <UserSettingRow>
                         <span>
-                            <SettingText>Show simplified hompeage </SettingText>
+                            <SettingText>Show simplified homepage </SettingText>
                             <div>
                                 <DescriptionText>
                                     Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and
@@ -88,8 +90,13 @@ export const Preferences = () => {
                                         },
                                     },
                                 });
+                                analytics.event({
+                                    type: showSimplifiedHomepage
+                                        ? EventType.ShowStandardHomepageEvent
+                                        : EventType.ShowSimplifiedHomepageEvent,
+                                });
                                 message.success({ content: 'Setting updated!', duration: 2 });
-                                refetch?.();
+                                refetchUser?.();
                             }}
                         />
                     </UserSettingRow>

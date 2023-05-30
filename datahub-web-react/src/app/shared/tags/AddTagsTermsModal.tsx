@@ -12,13 +12,13 @@ import {
     useBatchRemoveTermsMutation,
 } from '../../../graphql/mutations.generated';
 import { useEnterKeyListener } from '../useEnterKeyListener';
-import TermLabel from '../TermLabel';
-import TagLabel from '../TagLabel';
 import GlossaryBrowser from '../../glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '../ClickOutside';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../recommendation';
-import { FORBIDDEN_URN_CHARS_REGEX } from '../../entity/shared/utils';
+import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
+import { TagTermLabel } from './TagTermLabel';
+import { ENTER_KEY_CODE } from '../constants';
 
 export enum OperationType {
     ADD,
@@ -29,10 +29,10 @@ type EditTagsModalProps = {
     visible: boolean;
     onCloseModal: () => void;
     resources: ResourceRefInput[];
-    // eslint-disable-next-line
-    entityType: EntityType;
     type?: EntityType;
     operationType?: OperationType;
+    defaultValues?: { urn: string; entity?: Entity | null }[];
+    onOkOverride?: (result: string[]) => void;
 };
 
 const TagSelect = styled(Select)`
@@ -40,7 +40,7 @@ const TagSelect = styled(Select)`
 `;
 
 const StyleTag = styled(CustomTag)`
-    margin-right: 3px;
+    margin: 2px;
     display: flex;
     justify-content: start;
     align-items: center;
@@ -74,20 +74,37 @@ const isValidTagName = (tagName: string) => {
     return tagName && tagName.length > 0 && !FORBIDDEN_URN_CHARS_REGEX.test(tagName);
 };
 
+const defaultValuesToSelectedValue = (defaultValues?: { urn: string; entity?: Entity | null }[]): any[] => {
+    return (
+        defaultValues?.map((defaultValue) => ({
+            urn: defaultValue.urn,
+            component: <TagTermLabel entity={defaultValue.entity} />,
+        })) || []
+    );
+};
+
 export default function EditTagTermsModal({
     visible,
     onCloseModal,
     resources,
     type = EntityType.Tag,
     operationType = OperationType.ADD,
+    defaultValues = [],
+    onOkOverride,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAction, setDisableAction] = useState(false);
-    const [urns, setUrns] = useState<string[]>([]);
-    const [selectedTerms, setSelectedTerms] = useState<any[]>([]);
-    const [selectedTags, setSelectedTags] = useState<any[]>([]);
+    const [urns, setUrns] = useState<string[]>(defaultValues.map((defaultValue) => defaultValue.urn));
+    const [selectedTerms, setSelectedTerms] = useState<any[]>(
+        type === EntityType.GlossaryTerm ? defaultValuesToSelectedValue(defaultValues) : [],
+    );
+
+    const [selectedTags, setSelectedTags] = useState<any[]>(
+        type === EntityType.Tag ? defaultValuesToSelectedValue(defaultValues) : [],
+    );
+
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
 
     const [batchAddTagsMutation] = useBatchAddTagsMutation();
@@ -118,18 +135,9 @@ export default function EditTagTermsModal({
     const renderSearchResult = (entity: Entity) => {
         const displayName =
             entity.type === EntityType.Tag ? (entity as Tag).name : entityRegistry.getDisplayName(entity.type, entity);
-        const tagOrTermComponent =
-            entity.type === EntityType.Tag ? (
-                <TagLabel
-                    name={displayName}
-                    colorHash={(entity as Tag).urn}
-                    color={(entity as Tag).properties?.colorHex}
-                />
-            ) : (
-                <TermLabel name={displayName} />
-            );
+        const tagOrTermComponent = <TagTermLabel entity={entity} />;
         return (
-            <Select.Option value={entity.urn} key={entity.urn} name={displayName}>
+            <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
                 {tagOrTermComponent}
             </Select.Option>
         );
@@ -185,12 +193,17 @@ export default function EditTagTermsModal({
         querySelectorToExecuteClick: '#addTagButton',
     });
 
+    function handleOnClickBack() {
+        setInputValue('');
+        setShowCreateModal(false);
+    }
+
     if (showCreateModal) {
         return (
             <CreateTagModal
                 visible={visible}
                 onClose={onCloseModal}
-                onBack={() => setShowCreateModal(false)}
+                onBack={handleOnClickBack}
                 tagName={inputValue}
                 resources={resources}
             />
@@ -209,18 +222,15 @@ export default function EditTagTermsModal({
         const selectedSearchOption = tagSearchOptions?.find((option) => option.props.value === urn);
         const selectedTagOption = tagResult?.find((tag) => tag.urn === urn);
         setUrns(newUrns);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={selectedSearchOption?.props.name} /> }]);
+        setSelectedTerms([
+            ...selectedTerms,
+            { urn, component: <TagTermLabel termName={selectedSearchOption?.props.name} /> },
+        ]);
         setSelectedTags([
             ...selectedTags,
             {
                 urn,
-                component: (
-                    <TagLabel
-                        name={selectedSearchOption?.props.name}
-                        colorHash={(selectedTagOption as Tag).urn}
-                        color={(selectedTagOption as Tag).properties?.colorHex}
-                    />
-                ),
+                component: <TagTermLabel entity={selectedTagOption} />,
             },
         ]);
         if (inputEl && inputEl.current) {
@@ -257,7 +267,9 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
+                );
             })
             .finally(() => {
                 setDisableAction(false);
@@ -285,7 +297,9 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
+                );
             })
             .finally(() => {
                 setDisableAction(false);
@@ -313,7 +327,9 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
+                );
             })
             .finally(() => {
                 setDisableAction(false);
@@ -341,7 +357,9 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
+                );
             })
             .finally(() => {
                 setDisableAction(false);
@@ -368,6 +386,11 @@ export default function EditTagTermsModal({
 
     // Function to handle the modal action's
     const onOk = () => {
+        if (onOkOverride) {
+            onOkOverride(urns);
+            return;
+        }
+
         if (!resources) {
             onCloseModal();
             return;
@@ -385,7 +408,7 @@ export default function EditTagTermsModal({
         setIsFocusedOnInput(false);
         const newUrns = [...(urns || []), urn];
         setUrns(newUrns);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={displayName} /> }]);
+        setSelectedTerms([...selectedTerms, { urn, component: <TagTermLabel termName={displayName} /> }]);
     }
 
     function clearInput() {
@@ -395,6 +418,12 @@ export default function EditTagTermsModal({
 
     function handleBlur() {
         setInputValue('');
+    }
+
+    function handleKeyDown(event) {
+        if (event.keyCode === ENTER_KEY_CODE) {
+            (inputEl.current as any).blur();
+        }
     }
 
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
@@ -422,6 +451,7 @@ export default function EditTagTermsModal({
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <TagSelect
+                    data-testid="tag-term-modal-input"
                     autoFocus
                     defaultOpen
                     mode="multiple"
@@ -443,6 +473,7 @@ export default function EditTagTermsModal({
                     onClear={clearInput}
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
+                    onInputKeyDown={handleKeyDown}
                     dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
                 >
                     {tagSearchOptions}

@@ -28,7 +28,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/spark_spark-master_7077/pythonhdfsin2hivecreateinserttable"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }
@@ -55,8 +55,8 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,PythonHdfsIn2HiveCreateInsertTable.foo4,PROD)"
@@ -66,7 +66,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/pythonhdfsin2hivecreateinserttable/queryexecid_5"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -102,7 +102,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/pythonhdfsin2hivecreateinserttable/queryexecid_6"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -123,8 +123,8 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,pythonhdfsin2hivecreateinserttable.foo4,PROD)"
@@ -154,8 +154,8 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,pythonhdfsin2hivecreateinserttable.foo4,PROD)"
@@ -165,7 +165,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/pythonhdfsin2hivecreateinserttable/queryexecid_7"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },

@@ -58,6 +58,9 @@ public class DatasetExtractor {
       CreateDataSourceTableAsSelectCommand.class, CreateHiveTableAsSelectCommand.class, InsertIntoHiveTable.class);
   private static final String DATASET_ENV_KEY = "metadata.dataset.env";
   private static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
+  private static final String TABLE_HIVE_PLATFORM_ALIAS = "metadata.table.hive_platform_alias";
+  private static final String INCLUDE_SCHEME_KEY = "metadata.include_scheme";
+  private static final String REMOVE_PARTITION_PATTERN = "metadata.remove_partition_pattern";
   // TODO InsertIntoHiveDirCommand, InsertIntoDataSourceDirCommand
 
   private DatasetExtractor() {
@@ -120,10 +123,12 @@ public class DatasetExtractor {
       InsertIntoHadoopFsRelationCommand cmd = (InsertIntoHadoopFsRelationCommand) p;
       if (cmd.catalogTable().isDefined()) {
         return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.catalogTable().get(),
-            getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+            getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
+            getCommonFabricType(datahubConfig))));
       }
       return Optional.of(Collections.singletonList(new HdfsPathDataset(cmd.outputPath(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+          getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
+          getCommonFabricType(datahubConfig), getRemovePartitionPattern(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(LogicalRelation.class, (p, ctx, datahubConfig) -> {
@@ -139,37 +144,45 @@ public class DatasetExtractor {
       SaveIntoDataSourceCommand cmd = (SaveIntoDataSourceCommand) p;
 
       Map<String, String> options = JavaConversions.mapAsJavaMap(cmd.options());
-      String url = options.get("url"); // e.g. jdbc:postgresql://localhost:5432/sparktestdb
-      if (!url.contains("jdbc")) {
+      String url = options.getOrDefault("url", ""); // e.g. jdbc:postgresql://localhost:5432/sparktestdb
+      if (url.contains("jdbc")) {
+        String tbl = options.get("dbtable");
+        return Optional.of(Collections.singletonList(
+            new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      } else if (options.containsKey("path")) {
+        return Optional.of(Collections.singletonList(new HdfsPathDataset(new Path(options.get("path")),
+            getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
+            getCommonFabricType(datahubConfig), getRemovePartitionPattern(datahubConfig))));
+      } else {
         return Optional.empty();
       }
-
-      String tbl = options.get("dbtable");
-      return Optional.of(Collections.singletonList(
-          new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(CreateDataSourceTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
       CreateDataSourceTableAsSelectCommand cmd = (CreateDataSourceTableAsSelectCommand) p;
       // TODO what of cmd.mode()
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
+          getCommonFabricType(datahubConfig))));
     });
     PLAN_TO_DATASET.put(CreateHiveTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
       CreateHiveTableAsSelectCommand cmd = (CreateHiveTableAsSelectCommand) p;
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableDesc(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
+          getCommonFabricType(datahubConfig))));
     });
     PLAN_TO_DATASET.put(InsertIntoHiveTable.class, (p, ctx, datahubConfig) -> {
       InsertIntoHiveTable cmd = (InsertIntoHiveTable) p;
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
+          getCommonFabricType(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(HiveTableRelation.class, (p, ctx, datahubConfig) -> {
       HiveTableRelation cmd = (HiveTableRelation) p;
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableMeta(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
+          getCommonFabricType(datahubConfig))));
     });
 
     REL_TO_DATASET.put(HadoopFsRelation.class, (r, ctx, datahubConfig) -> {
@@ -178,7 +191,8 @@ public class DatasetExtractor {
 
       // TODO mapping to URN TBD
       return Optional.of(Collections.singletonList(new HdfsPathDataset(res.get(0),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+          getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
+          getCommonFabricType(datahubConfig), getRemovePartitionPattern(datahubConfig))));
     });
     REL_TO_DATASET.put(JDBCRelation.class, (r, ctx, datahubConfig) -> {
       JDBCRelation rel = (JDBCRelation) r;
@@ -256,6 +270,21 @@ public class DatasetExtractor {
 
   private static String getCommonPlatformInstance(Config datahubConfig) {
     return datahubConfig.hasPath(DATASET_PLATFORM_INSTANCE_KEY) ? datahubConfig.getString(DATASET_PLATFORM_INSTANCE_KEY)
+        : null;
+  }
+
+  private static String getTableHivePlatformAlias(Config datahubConfig) {
+   return datahubConfig.hasPath(TABLE_HIVE_PLATFORM_ALIAS) ? datahubConfig.getString(TABLE_HIVE_PLATFORM_ALIAS)
+       : "hive";
+  }
+
+  private static boolean getIncludeScheme(Config datahubConfig) {
+    return datahubConfig.hasPath(INCLUDE_SCHEME_KEY) ? datahubConfig.getBoolean(INCLUDE_SCHEME_KEY)
+        : true;
+  }
+
+  private static String getRemovePartitionPattern(Config datahubConfig) {
+    return datahubConfig.hasPath(REMOVE_PARTITION_PATTERN) ? datahubConfig.getString(REMOVE_PARTITION_PATTERN)
         : null;
   }
 }

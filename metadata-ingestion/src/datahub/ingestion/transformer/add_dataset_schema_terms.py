@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -21,12 +21,7 @@ from datahub.metadata.schema_classes import (
 
 
 class AddDatasetSchemaTermsConfig(TransformerSemanticsConfigModel):
-    # Workaround for https://github.com/python/mypy/issues/708.
-    # Suggested by https://stackoverflow.com/a/64528725/5004662.
-    get_terms_to_add: Union[
-        Callable[[str], List[GlossaryTermAssociationClass]],
-        Callable[[str], List[GlossaryTermAssociationClass]],
-    ]
+    get_terms_to_add: Callable[[str], List[GlossaryTermAssociationClass]]
 
     _resolve_term_fn = pydantic_resolve_key("get_terms_to_add")
 
@@ -95,11 +90,8 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
     ) -> Optional[builder.Aspect]:
         schema_metadata_aspect: SchemaMetadataClass = cast(SchemaMetadataClass, aspect)
-
-        assert (
-            schema_metadata_aspect is None
-            or isinstance(schema_metadata_aspect, SchemaMetadataClass)
-            or schema_metadata_aspect.field is None
+        assert schema_metadata_aspect is None or isinstance(
+            schema_metadata_aspect, SchemaMetadataClass
         )
 
         server_field_map: Dict[
@@ -111,20 +103,24 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
                 SchemaMetadataClass
             ] = self.ctx.graph.get_schema_metadata(entity_urn=entity_urn)
             if server_schema_metadata_aspect is not None:
-                input_field_path = [
-                    field.fieldPath
-                    for field in schema_metadata_aspect.fields
-                    if field is not None
-                ]
-                server_field_to_add: List[SchemaFieldClass] = []
-                # cache the server field to use in patching the schema-field later
-                for field in server_schema_metadata_aspect.fields:
-                    server_field_map[field.fieldPath] = field
-                    if field.fieldPath not in input_field_path:
-                        # This field is present on server but not in input aspect
-                        server_field_to_add.append(field)
-                # Add field present on server
-                schema_metadata_aspect.fields.extend(server_field_to_add)
+                if not schema_metadata_aspect:
+                    schema_metadata_aspect = server_schema_metadata_aspect
+                else:
+                    input_field_path = [
+                        field.fieldPath
+                        for field in schema_metadata_aspect.fields
+                        if field is not None
+                    ]
+                    # cache the server field to use in patching the schema-field later
+                    for field in server_schema_metadata_aspect.fields:
+                        server_field_map[field.fieldPath] = field
+                        if field.fieldPath not in input_field_path:
+                            # This field is present on server but not in input aspect, so we add it.
+                            schema_metadata_aspect.fields.append(field)
+
+        if not schema_metadata_aspect:
+            # We can't add terms to a schema that doesn't exist.
+            return None
 
         schema_metadata_aspect.fields = [
             self.extend_field(field, server_field=server_field_map.get(field.fieldPath))

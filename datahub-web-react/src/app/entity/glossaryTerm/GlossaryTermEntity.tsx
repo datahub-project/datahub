@@ -13,10 +13,10 @@ import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
-import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -24,20 +24,20 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     type: EntityType = EntityType.GlossaryTerm;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookOutlined style={{ fontSize }} />;
+            return <BookOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <BookFilled style={{ fontSize, color: '#B37FEB' }} />;
+            return <BookFilled style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
             <BookOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -65,15 +65,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={
-                    new Set([
-                        EntityMenuItems.COPY_URL,
-                        EntityMenuItems.UPDATE_DEPRECATION,
-                        EntityMenuItems.MOVE,
-                        EntityMenuItems.DELETE,
-                    ])
+                    new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.MOVE, EntityMenuItems.DELETE])
                 }
-                displayGlossaryBrowser
                 isNameEditable
+                hideBrowseBar
                 tabs={[
                     {
                         name: 'Documentation',
@@ -112,9 +107,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     {
                         component: SidebarOwnerSection,
                     },
+                    {
+                        component: SidebarDomainSection,
+                        properties: {
+                            hideOwnerType: true,
+                        },
+                    },
                 ]}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
-                customNavBar={<GlossaryEntitiesPath />}
             />
         );
     };
@@ -139,6 +139,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
+                domain={data.domain?.domain}
             />
         );
     };

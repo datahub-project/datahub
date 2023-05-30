@@ -11,6 +11,17 @@ apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
 //to rename artifacts for publish
 project.archivesBaseName = 'datahub-'+project.name
 
@@ -36,6 +47,7 @@ dependencies {
     force = true
   } // required for org.apache.commons.io.Charsets that is used internally
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
@@ -44,14 +56,13 @@ dependencies {
 
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
-
   provided(externalDependency.sparkSql)
   provided(externalDependency.sparkHive)
+  implementation externalDependency.httpAsyncClient
 
   // Tests need a concrete log4j available. Providing it here
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
   testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
-
 
   testImplementation(externalDependency.postgresql){
     exclude group: "com.fasterxml.jackson.core"
@@ -92,9 +103,18 @@ shadowJar {
     exclude(dependency {
             exclude_modules.contains(it.name)
         })
-
   }
+
+  // preventing java multi-release JAR leakage
+  // https://github.com/johnrengelman/shadow/issues/729
+  exclude('module-info.class', 'META-INF/versions/**')
+
+  // prevent jni conflict with spark
+  exclude '**/libzstd-jni.*'
+  exclude '**/com_github_luben_zstd_*'
+
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  relocate 'org.slf4j','datahub.shaded.org.slf4j'
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
@@ -102,6 +122,7 @@ shadowJar {
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
   relocate 'io.netty','datahub.spark2.shaded.io.netty'
+  relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
   finalizedBy checkShadowJar
 }
 
@@ -124,8 +145,9 @@ assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec ) {
-  commandLine "spark-smoke-test/smoke.sh"
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart'] ) {
+    environment "RUN_QUICKSTART", "false"
+    commandLine "spark-smoke-test/smoke.sh"
 }
 
 task sourcesJar(type: Jar) {

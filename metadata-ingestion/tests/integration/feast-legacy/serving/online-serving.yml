@@ -1,6 +1,0 @@
-COMPOSE_PROJECT_NAME=feast
-FEAST_VERSION=develop
-FEAST_CORE_CONFIG=./core/core.yml
-FEAST_ONLINE_SERVING_CONFIG=./serving/online-serving.yml
-GCP_SERVICE_ACCOUNT=./gcp-service-accounts/placeholder.json
-INGESTION_JAR_PATH=https://storage.googleapis.com/feast-jobs/spark/ingestion/feast-ingestion-spark-develop.jar

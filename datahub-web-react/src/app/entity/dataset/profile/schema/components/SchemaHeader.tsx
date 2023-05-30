@@ -47,7 +47,17 @@ const RawButton = styled(Button)`
         display: flex;
         margin-right: 10px;
         justify-content: left;
+        align-items: center;
     }
+`;
+
+const RawButtonTitleContainer = styled.span`
+    display: flex;
+    align-items: center;
+`;
+
+const RawButtonTitle = styled(Typography.Text)`
+    margin-left: 6px;
 `;
 
 const KeyButton = styled(Button)<{ $highlighted: boolean }>`
@@ -105,12 +115,6 @@ const StyledQuestionCircleOutlined = styled(QuestionCircleOutlined)`
         margin-top: 14px;
         font-size: 16px;
         color: ${ANTD_GRAY[6]};
-    }
-`;
-
-const StyledCaretDownOutlined = styled(CaretDownOutlined)`
-    &&& {
-        margin-top: 8px;
     }
 `;
 
@@ -212,15 +216,15 @@ export default function SchemaHeader({
                     {hasRaw && (
                         <RawButton type="text" onClick={() => setShowRaw(!showRaw)}>
                             {showRaw ? (
-                                <>
-                                    <TableOutlined />
-                                    <Typography.Text>Tabular</Typography.Text>
-                                </>
+                                <RawButtonTitleContainer>
+                                    <TableOutlined style={{ padding: 0, margin: 0 }} />
+                                    <RawButtonTitle>Tabular</RawButtonTitle>
+                                </RawButtonTitleContainer>
                             ) : (
-                                <>
-                                    <FileTextOutlined />
-                                    <Typography.Text>Raw</Typography.Text>
-                                </>
+                                <RawButtonTitleContainer>
+                                    <FileTextOutlined style={{ padding: 0, margin: 0 }} />
+                                    <RawButtonTitle>Raw</RawButtonTitle>
+                                </RawButtonTitleContainer>
                             )}
                         </RawButton>
                     )}
@@ -275,7 +279,7 @@ export default function SchemaHeader({
                                     });
                                 }}
                                 data-testid="schema-version-selector-dropdown"
-                                suffixIcon={<StyledCaretDownOutlined />}
+                                suffixIcon={<CaretDownOutlined />}
                             >
                                 {renderOptions()}
                             </SchemaBlameSelector>

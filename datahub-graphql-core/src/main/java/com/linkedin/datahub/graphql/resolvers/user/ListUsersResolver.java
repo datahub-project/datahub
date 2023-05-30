@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.ListUsersResult;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -53,7 +54,8 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
         try {
           // First, get all policy Urns.
           final SearchResult gmsResult =
-              _entityClient.search(CORP_USER_ENTITY_NAME, query, Collections.emptyMap(), start, count, context.getAuthentication());
+              _entityClient.search(CORP_USER_ENTITY_NAME, query, Collections.emptyMap(), start, count,
+                      context.getAuthentication(), new SearchFlags().setFulltext(true));
 
           // Then, get hydrate all users.
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME,

@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 
 
 /**
@@ -16,7 +16,7 @@ public interface QueryContext {
     boolean isAuthenticated();
 
     /**
-     * Returns the {@link com.datahub.authentication.Authentication} associated with the current query context.
+     * Returns the {@link Authentication} associated with the current query context.
      */
     Authentication getAuthentication();
 

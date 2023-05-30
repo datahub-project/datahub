@@ -1,5 +1,6 @@
 import React from 'react';
 import { set, get } from 'lodash';
+import moment, { Moment } from 'moment-timezone';
 
 export enum FieldType {
     TEXT,
@@ -9,6 +10,7 @@ export enum FieldType {
     SECRET,
     DICT,
     TEXTAREA,
+    DATE,
 }
 
 interface Option {
@@ -23,6 +25,7 @@ export interface RecipeField {
     type: FieldType;
     fieldPath: string | string[];
     rules: any[] | null;
+    required?: boolean; // Today, Only makes a difference on Selects
     section?: string;
     options?: Option[];
     buttonLabel?: string;
@@ -53,13 +56,11 @@ function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
 }
 export function setFieldValueOnRecipe(recipe: any, value: any, fieldPath: string | string[]) {
     const updatedRecipe = { ...recipe };
-    if (value !== undefined) {
-        if (value === null) {
-            clearFieldAndParents(updatedRecipe, fieldPath);
-            return updatedRecipe;
-        }
-        set(updatedRecipe, fieldPath, value);
+    if (value === null || value === '' || value === undefined) {
+        clearFieldAndParents(updatedRecipe, fieldPath);
+        return updatedRecipe;
     }
+    set(updatedRecipe, fieldPath, value);
     return updatedRecipe;
 }
 
@@ -74,13 +75,31 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
     return updatedRecipe;
 }
 
+const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
+
+export function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
+    const updatedRecipe = { ...recipe };
+    if (value !== undefined) {
+        if (!value) {
+            return setFieldValueOnRecipe(updatedRecipe, null, fieldPath);
+        }
+        const isoDateString = value.toISOString();
+        const formattedDateString = isoDateString
+            .substring(0, isoDateString.length - NUM_CHARACTERS_TO_REMOVE_FROM_DATE)
+            .concat('Z');
+        return setFieldValueOnRecipe(updatedRecipe, formattedDateString, fieldPath);
+    }
+    return updatedRecipe;
+}
+
 /* ---------------------------------------------------- Filter Section ---------------------------------------------------- */
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
 export const DATABASE_ALLOW: RecipeField = {
     name: 'database_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_db$',
+    tooltip:
+        'Only include specific Databases by providing the name of a Database, or a Regular Expression (REGEX). If not provided, all Databases will be included.',
+    placeholder: 'database_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: databaseAllowFieldPath,
@@ -94,8 +113,9 @@ const databaseDenyFieldPath = 'source.config.database_pattern.deny';
 export const DATABASE_DENY: RecipeField = {
     name: 'database_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_db$',
+    tooltip:
+        'Exclude specific Databases by providing the name of a Database, or a Regular Expression (REGEX). If not provided, all Databases will be included. Deny patterns always take precedence over Allow patterns.',
+    placeholder: 'database_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: databaseDenyFieldPath,
@@ -109,12 +129,14 @@ const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
 export const DASHBOARD_ALLOW: RecipeField = {
     name: 'dashboard_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
+    tooltip:
+        'Only include specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: dashboardAllowFieldPath,
     rules: null,
     section: 'Dashboards',
+    placeholder: 'my_dashboard',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
 };
@@ -123,12 +145,14 @@ const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
 export const DASHBOARD_DENY: RecipeField = {
     name: 'dashboard_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
+    tooltip:
+        'Exclude specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: dashboardDenyFieldPath,
     rules: null,
     section: 'Dashboards',
+    placeholder: 'my_dashboard',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),
 };
@@ -137,7 +161,10 @@ const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
 export const SCHEMA_ALLOW: RecipeField = {
     name: 'schema_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
+    // TODO: Change this to FULLY qualified names once the allow / deny consistency track is completed.
+    tooltip:
+        'Only include specific Schemas by providing the name of a Schema, or a Regular Expression (REGEX) to include specific Schemas. If not provided, all Schemas inside allowed Databases will be included.',
+    placeholder: 'company_schema',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPath,
@@ -151,7 +178,9 @@ const schemaDenyFieldPath = 'source.config.schema_pattern.deny';
 export const SCHEMA_DENY: RecipeField = {
     name: 'schema_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
+    tooltip:
+        'Exclude specific Schemas by providing the name of a Schema, or a Regular Expression (REGEX). If not provided, all Schemas inside allowed Databases will be included. Deny patterns always take precedence over Allow patterns.',
+    placeholder: 'company_schema',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPath,
@@ -161,39 +190,13 @@ export const SCHEMA_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
 
-const viewAllowFieldPath = 'source.config.view_pattern.allow';
-export const VIEW_ALLOW: RecipeField = {
-    name: 'view_pattern.allow',
-    label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: viewAllowFieldPath,
-    rules: null,
-    section: 'Views',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, viewAllowFieldPath),
-};
-
-const viewDenyFieldPath = 'source.config.view_pattern.deny';
-export const VIEW_DENY: RecipeField = {
-    name: 'view_pattern.deny',
-    label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: viewDenyFieldPath,
-    rules: null,
-    section: 'Views',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, viewDenyFieldPath),
-};
-
 const tableAllowFieldPath = 'source.config.table_pattern.allow';
 export const TABLE_ALLOW: RecipeField = {
     name: 'table_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
+    tooltip:
+        'Only include Tables with particular names by providing the fully qualified name of a Table, or a Regular Expression (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion.',
+    placeholder: 'database_name.company_schema.table_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: tableAllowFieldPath,
@@ -207,7 +210,9 @@ const tableDenyFieldPath = 'source.config.table_pattern.deny';
 export const TABLE_DENY: RecipeField = {
     name: 'table_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
+    tooltip:
+        'Exclude Tables with particular names by providing the fully qualified name of a Table, or a Regular Expression (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
+    placeholder: 'database_name.company_schema.table_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: tableDenyFieldPath,
@@ -215,6 +220,38 @@ export const TABLE_DENY: RecipeField = {
     section: 'Tables',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
+};
+
+const viewAllowFieldPath = 'source.config.view_pattern.allow';
+export const VIEW_ALLOW: RecipeField = {
+    name: 'view_pattern.allow',
+    label: 'Allow Patterns',
+    tooltip:
+        'Only include Views with particular names by providing the fully qualified name of a View, or a Regular Expression (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion.',
+    placeholder: 'database_name.company_schema.view_name',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: viewAllowFieldPath,
+    rules: null,
+    section: 'Views',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, viewAllowFieldPath),
+};
+
+const viewDenyFieldPath = 'source.config.view_pattern.deny';
+export const VIEW_DENY: RecipeField = {
+    name: 'view_pattern.deny',
+    label: 'Deny Patterns',
+    tooltip:
+        'Exclude Views with particular names by providing the fully qualified name of a View, or a Regular Expression (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
+    placeholder: 'database_name.company_schema.view_name',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: viewDenyFieldPath,
+    rules: null,
+    section: 'Views',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, viewDenyFieldPath),
 };
 
 /* ---------------------------------------------------- Advance Section ---------------------------------------------------- */
@@ -236,19 +273,47 @@ export const INCLUDE_LINEAGE: RecipeField = {
     },
 };
 
-export const PROFILING_ENABLED: RecipeField = {
-    name: 'profiling.enabled',
-    label: 'Enable Profiling',
-    tooltip: 'Whether profiling should be done.',
+export const INCLUDE_TABLE_LINEAGE: RecipeField = {
+    name: 'include_table_lineage',
+    label: 'Include Table Lineage',
+    tooltip: 'Extract Tabel-Level lineage metadata. Enabling this may increase the duration of the extraction process.',
     type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.profiling.enabled',
+    fieldPath: 'source.config.include_table_lineage',
     rules: null,
+};
+
+const isProfilingEnabledFieldPath = 'source.config.profiling.enabled';
+export const TABLE_PROFILING_ENABLED: RecipeField = {
+    name: 'profiling.enabled',
+    label: 'Enable Table Profiling',
+    tooltip:
+        'Generate Data Profiles for extracted Tables. Enabling this may increase the duration of the extraction process.',
+    type: FieldType.BOOLEAN,
+    fieldPath: isProfilingEnabledFieldPath,
+    rules: null,
+};
+
+const isTableProfilingOnlyFieldPath = 'source.config.profiling.profile_table_level_only';
+export const COLUMN_PROFILING_ENABLED: RecipeField = {
+    name: 'column_profiling.enabled',
+    label: 'Enable Column Profiling',
+    tooltip:
+        'Generate Data Profiles for the Columns in extracted Tables. Enabling this may increase the duration of the extraction process.',
+    type: FieldType.BOOLEAN,
+    fieldPath: isTableProfilingOnlyFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => {
+        return get(recipe, isProfilingEnabledFieldPath) && !get(recipe, isTableProfilingOnlyFieldPath);
+    },
+    setValueOnRecipeOverride: (recipe: any, value: boolean) => {
+        return setFieldValueOnRecipe(recipe, !value, isTableProfilingOnlyFieldPath);
+    },
 };
 
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     name: 'stateful_ingestion.enabled',
     label: 'Enable Stateful Ingestion',
-    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
+    tooltip: 'Remove stale assets from DataHub once they have been deleted in the ingestion source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
@@ -294,7 +359,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
 export const INGEST_TAGS: RecipeField = {
     name: 'ingest_tags',
     label: 'Ingest Tags',
-    tooltip: 'Ingest Tags from source. This will override Tags entered from UI',
+    tooltip: 'Ingest Tags from the source. Be careful: This can override Tags entered by users of DataHub.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_tags',
     rules: null,
@@ -303,9 +368,47 @@ export const INGEST_TAGS: RecipeField = {
 export const INGEST_OWNER: RecipeField = {
     name: 'ingest_owner',
     label: 'Ingest Owner',
-    tooltip: 'Ingest Owner from source. This will override Owner info entered from UI',
+    tooltip: 'Ingest Owner from source. Be careful: This cah override Owners added by users of DataHub.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_owner',
+    rules: null,
+};
+
+const includeTablesPath = 'source.config.include_tables';
+export const INCLUDE_TABLES: RecipeField = {
+    name: 'include_tables',
+    label: 'Include Tables',
+    tooltip: 'Extract Tables from source.',
+    type: FieldType.BOOLEAN,
+    fieldPath: includeTablesPath,
+    // Always set include views indicator to true by default.
+    // This is in accordance with what the ingestion sources do.
+    getValueFromRecipeOverride: (recipe: any) => {
+        const includeTables = get(recipe, includeTablesPath);
+        if (includeTables !== undefined && includeTables !== null) {
+            return includeTables;
+        }
+        return true;
+    },
+    rules: null,
+};
+
+const includeViewsPath = 'source.config.include_views';
+export const INCLUDE_VIEWS: RecipeField = {
+    name: 'include_views',
+    label: 'Include Views',
+    tooltip: 'Extract Views from source.',
+    type: FieldType.BOOLEAN,
+    fieldPath: includeViewsPath,
+    // Always set include views indicator to true by default.
+    // This is in accordance with what the ingestion sources do.
+    getValueFromRecipeOverride: (recipe: any) => {
+        const includeViews = get(recipe, includeViewsPath);
+        if (includeViews !== undefined && includeViews !== null) {
+            return includeViews;
+        }
+        return true;
+    },
     rules: null,
 };
 
@@ -356,4 +459,24 @@ export const SKIP_PERSONAL_FOLDERS: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.skip_personal_folders',
     rules: null,
+};
+
+const startTimeFieldPath = 'source.config.start_time';
+export const START_TIME: RecipeField = {
+    name: 'start_time',
+    label: 'Start Time',
+    tooltip:
+        'Earliest date used when processing audit logs for lineage, usage, and more. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) to bootstrap your first ingestion run, and then reduce for subsequent runs. Changing this may increase the duration of the extraction process.',
+    placeholder: 'Select date and time',
+    type: FieldType.DATE,
+    fieldPath: startTimeFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => {
+        const isoDateString = get(recipe, startTimeFieldPath);
+        if (isoDateString) {
+            return moment(isoDateString);
+        }
+        return isoDateString;
+    },
+    setValueOnRecipeOverride: (recipe: any, value?: Moment) => setDateValueOnRecipe(recipe, value, startTimeFieldPath),
 };

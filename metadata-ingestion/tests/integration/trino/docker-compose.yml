@@ -3,7 +3,7 @@
 version: "3"
 
 services:
- 
+
   testtrino:
     image: trinodb/trino:369
     container_name: "testtrino"
@@ -14,13 +14,13 @@ services:
     depends_on:
       - "trinodb_postgres"
       - "hive-metastore"
-  
+
   trinodb_postgres:
     image: postgres:alpine
     container_name: "trinodb_postgres"
     environment:
       POSTGRES_PASSWORD: datahub
-    volumes:  
+    volumes:
       - ./setup/setup.sql:/docker-entrypoint-initdb.d/postgres_setup.sql
     ports:
       - "5432:5432"
@@ -33,7 +33,7 @@ services:
     env_file:
       - ./setup/hadoop-hive.env
     ports:
-      - "50070:50070"
+      - "50070"
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
     volumes:
@@ -43,7 +43,7 @@ services:
     environment:
       SERVICE_PRECONDITION: "namenode:50070"
     ports:
-      - "50075:50075"
+      - "50075"
   hive-server:
     image: bde2020/hive:2.3.2-postgresql-metastore
     container_name: "testhiveserver2"
@@ -58,7 +58,6 @@ services:
       - ./setup/hive_setup.sql:/hive_setup.sql
   hive-metastore:
     image: bde2020/hive:2.3.2-postgresql-metastore
-    container_name: "hive-metastore"
     env_file:
       - ./setup/hadoop-hive.env
     command: /opt/hive/bin/hive --service metastore

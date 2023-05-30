@@ -47,7 +47,6 @@ export default function TagsDropdown({ urns, disabled = false, refetch }: Props)
                     resources={urns.map((urn) => ({
                         resourceUrn: urn,
                     }))}
-                    entityType={EntityType.DataFlow}
                     operationType={operationType}
                 />
             )}

@@ -1,0 +1,37 @@
+namespace com.linkedin.post
+
+import com.linkedin.common.Media
+import com.linkedin.common.Url
+
+/**
+ * Content stored inside a Post.
+ */
+record PostContent {
+  /**
+   * Title of the post.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  title: string
+
+  /**
+   * Type of content held in the post.
+   */
+  type: PostContentType
+
+  /**
+   * Optional description of the post.
+   */
+  description: optional string
+
+  /**
+   * Optional link that the post is associated with.
+   */
+  link: optional Url
+
+  /**
+   * Optional media that the post is storing
+   */
+  media: optional Media
+}

@@ -1,19 +1,19 @@
-name: Unified Docker Workflow
+name: Docker Build, Scan, Test
 on:
   push:
     branches:
       - master
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
+      - "docs/**"
+      - "**.md"
   pull_request:
     branches:
       - master
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
+      - "docs/**"
+      - "**.md"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
@@ -42,38 +42,34 @@ jobs:
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Compute Tag
         id: tag
         run: |
-          echo "GITHUB_REF: $GITHUB_REF"
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
-          UNIQUE_TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
-          echo "tag=$TAG"
-          echo "unique_tag=$UNIQUE_TAG"
-          echo "::set-output name=tag::$TAG"
-          echo "::set-output name=unique_tag::$UNIQUE_TAG"
+          source .github/scripts/docker_helpers.sh
+          echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
+          echo "unique_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
           ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_GMS_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-service:war:build -x test --parallel
+          mv ./metadata-service/war/build/libs/war.war .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -85,38 +81,53 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
   gms_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, gms_build]
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
 
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -128,38 +139,53 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup,mae_consumer_build]
+    needs: [setup, mae_consumer_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
 
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -171,38 +197,53 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup,mce_consumer_build]
+    needs: [setup, mce_consumer_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
 
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_UPGRADE_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :datahub-upgrade:build -x test --parallel
+          mv ./datahub-upgrade/build/libs/datahub-upgrade.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -214,38 +255,55 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_upgrade_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
 
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_FRONTEND_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
+          mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
+        env:
+          NODE_OPTIONS: "--max-old-space-size=3072"
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -257,36 +315,47 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, frontend_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
 
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -298,20 +367,17 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
-          context: ./docker/kafka-setup
+          context: .
           file: ./docker/kafka-setup/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
 
   mysql_setup_build:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -325,18 +391,15 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
 
   elasticsearch_setup_build:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -350,22 +413,39 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
 
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
-    needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elasticsearch_setup_build]
+    strategy:
+      fail-fast: false
+      matrix:
+        test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
+    needs:
+      [
+        setup,
+        gms_build,
+        frontend_build,
+        kafka_setup_build,
+        mysql_setup_build,
+        elasticsearch_setup_build,
+        mae_consumer_build,
+        mce_consumer_build,
+        datahub_upgrade_build,
+      ]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
+        uses: actions/checkout@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
         with:
-          java-version: 1.8
-      - uses: actions/setup-python@v2
+          distribution: "zulu"
+          java-version: 11
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
+          cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build datahub cli
@@ -380,7 +460,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
-          image:  ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Kafka Setup image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -401,15 +481,34 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download MCE Consumer image
+      - name: Download MAE Consumer image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download upgrade image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: run quickstart
+        env:
+          DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
+        run: |
+          ./smoke-test/run-quickstart.sh
+      - name: sleep 60s
+        run: |
+          # we are doing this because gms takes time to get ready
+          # and we don't have a better readiness check when bootstrap is done
+          sleep 60s
       - name: Smoke test
         env:
+          RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: ${{ matrix.test_strategy }}
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
@@ -417,23 +516,23 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          docker logs datahub-gms >& gms.log
+          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log
       - name: Upload logs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: docker logs
           path: "*.log"
       - name: Upload screenshots
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: cypress-snapshots
+          name: cypress-snapshots-${{ matrix.test_strategy }}
           path: smoke-test/tests/cypress/cypress/screenshots/
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: Test Results (smoke tests)
+          name: Test Results (smoke tests) ${{ matrix.test_strategy }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**

@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Input, Button, Form, message, Image } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
-import styled, { useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components/macro';
 import { Redirect } from 'react-router';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
@@ -36,6 +36,12 @@ const FormInput = styled(Input)`
     > .ant-input:hover {
         color: white;
         font-size: 14px;
+        background-color: transparent;
+    }
+`;
+
+const StyledFormItem = styled(Form.Item)`
+    .ant-input-affix-wrapper-status-error:not(.ant-input-affix-wrapper-disabled):not(.ant-input-affix-wrapper-borderless).ant-input-affix-wrapper {
         background-color: transparent;
     }
 `;
@@ -96,22 +102,22 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                 <div className={styles.login_form_box}>
                     {loading && <Message type="loading" content="Resetting credentials..." />}
                     <Form onFinish={handleResetCredentials} layout="vertical">
-                        <Form.Item
-                            rules={[{ required: true, message: 'Please fill in your email!' }]}
+                        <StyledFormItem
+                            rules={[{ required: true, message: 'Please fill in your email' }]}
                             name="email"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
                             label={<label style={{ color: 'white' }}>Email</label>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="email" />
-                        </Form.Item>
-                        <Form.Item
+                        </StyledFormItem>
+                        <StyledFormItem
                             rules={[
-                                { required: true, message: 'Please fill in your password!' },
+                                { required: true, message: 'Please fill in your password' },
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('password').length < 8) {
                                             return Promise.reject(
-                                                new Error('Your password is less than 8 characters!'),
+                                                new Error('Your password is fewer than 8 characters'),
                                             );
                                         }
                                         return Promise.resolve();
@@ -123,14 +129,14 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                             label={<label style={{ color: 'white' }}>Password</label>}
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="password" />
-                        </Form.Item>
-                        <Form.Item
+                        </StyledFormItem>
+                        <StyledFormItem
                             rules={[
-                                { required: true, message: 'Please confirm your password!' },
+                                { required: true, message: 'Please confirm your password' },
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('confirmPassword') !== getFieldValue('password')) {
-                                            return Promise.reject(new Error('Your passwords do not match!'));
+                                            return Promise.reject(new Error('Your passwords do not match'));
                                         }
                                         return Promise.resolve();
                                     },
@@ -141,10 +147,14 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                             label={<label style={{ color: 'white' }}>Confirm Password</label>}
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="confirmPassword" />
-                        </Form.Item>
-                        <Form.Item style={{ marginBottom: '0px' }} shouldUpdate>
+                        </StyledFormItem>
+                        <StyledFormItem style={{ marginBottom: '0px' }} shouldUpdate>
                             {({ getFieldsValue }) => {
-                                const { email, password, confirmPassword } = getFieldsValue();
+                                const { email, password, confirmPassword } = getFieldsValue() as {
+                                    email: string;
+                                    password: string;
+                                    confirmPassword: string;
+                                };
                                 const fieldsAreNotEmpty = !!email && !!password && !!confirmPassword;
                                 const passwordsMatch = password === confirmPassword;
                                 const formIsComplete = fieldsAreNotEmpty && passwordsMatch;
@@ -160,7 +170,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                                     </Button>
                                 );
                             }}
-                        </Form.Item>
+                        </StyledFormItem>
                     </Form>
                 </div>
             </div>

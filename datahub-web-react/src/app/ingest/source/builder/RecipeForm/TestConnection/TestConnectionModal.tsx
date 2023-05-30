@@ -20,6 +20,7 @@ const LoadingSubheader = styled.div`
     display: flex;
     justify-content: center;
     font-size: 12px;
+    color: ${ANTD_GRAY[7]};
 `;
 
 const LoadingHeader = styled(Typography.Title)`
@@ -53,12 +54,11 @@ const ModalHeader = styled.div`
     display: flex;
     padding: 10px 10px 0 10px;
     padding: 5px;
-    font-size: 20px;
+    font-size: 18px;
 `;
 
 const SourceIcon = styled.img`
     height: 22px;
-    width: 22px;
     margin-right: 10px;
 `;
 
@@ -115,7 +115,7 @@ function TestConnectionModal({
             {isLoading && (
                 <ResultsWrapper>
                     <LoadingHeader level={4}>Testing your connection...</LoadingHeader>
-                    <LoadingSubheader>This could take a few minutes</LoadingSubheader>
+                    <LoadingSubheader>This could take a few minutes.</LoadingSubheader>
                     <LoadingWrapper>
                         <LoadingSvg height={100} width={100} />
                     </LoadingWrapper>

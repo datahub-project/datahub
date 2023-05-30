@@ -1,0 +1,577 @@
+// MODIFICATIONS:
+// - The let_expression definition has added the whitespace rule instead of the required newline.
+//   This allows the parser to be less strict about whitespace.
+// - Add inline whitespace to item_selection and optional_item_selection.
+// - Tweak unary_expression to allow arbitrary operators within it.
+//   This is necessary because unary_expression is the base for the
+//   whole relational_expression parse tree.
+
+
+lexical_unit:   lexical_elements?
+
+lexical_elements:   lexical_element 
+                |   lexical_elements?
+
+lexical_element:    whitespace
+                |   token comment
+
+whitespace: WS
+        |   new_line_character
+
+new_line_character: CR
+                |   LF
+                |   NEWLINE
+
+comment:    single_line_comment
+        |   delimited_comment
+
+
+single_line_comment:    single_line_comment_characters?
+
+single_line_comment_characters: single_line_comment_character 
+                            |   single_line_comment_characters?
+
+single_line_comment_character: CPP_COMMENT
+
+delimited_comment: C_COMMENT
+
+asterisks:  "*"
+        |   asterisks?
+
+token:  identifier
+    |   keyword
+    |   literal
+    |   operator_or_punctuator
+
+character_escape_sequence: "#(" escape_sequence_list ")"
+
+escape_sequence_list:   single_escape_sequence
+                    |   escape_sequence_list "," single_escape_sequence
+
+single_escape_sequence: long_unicode_escape_sequence
+                  |     short_unicode_escape_sequence
+                  |     control_character_escape_sequence
+                  |     escape_escape
+
+long_unicode_escape_sequence:       hex_digit hex_digit hex_digit hex_digit hex_digit hex_digit hex_digit hex_digit
+
+short_unicode_escape_sequence:      hex_digit hex_digit hex_digit hex_digit
+
+control_character_escape_sequence:  control_character
+
+control_character:  CR
+                |   LF
+                |   /\t/
+
+escape_escape:  "#"
+
+literal:    logical_literal
+        |   number_literal
+        |   text_literal
+        |   null_literal
+        |   verbatim_literal
+
+logical_literal:    "true"
+                |   "false"
+
+number_literal: decimal_number_literal
+            |   hexadecimal_number_literal
+
+decimal_digits: decimal_digit
+            |   decimal_digits?
+
+decimal_digit: /\d+/
+
+hexadecimal_number_literal: "0x" hex_digits
+                        |   "0X" hex_digits
+
+hex_digits: hex_digit 
+        |   hex_digits?
+
+hex_digit: HEXDIGIT
+
+decimal_number_literal: decimal_digits
+                    |   decimal_digits "." decimal_digits exponent_part?
+                    |   decimal_digits exponent_part?
+                    |   decimal_digits exponent_part?
+
+exponent_part:  "e" sign? decimal_digits
+            |   "E" sign? decimal_digits
+
+sign: ["+"|"-"]
+
+text_literal:   ESCAPED_STRING
+
+text_literal_characters:    text_literal_character 
+                    |       text_literal_characters?
+
+text_literal_character:     single_text_character
+                    |       character_escape_sequence
+                    |       double_quote_escape_sequence
+
+single_text_character: /./
+                     | /[^#]/
+
+double_quote_escape_sequence:   "\"\""
+
+null_literal: "null"
+
+verbatim_literal: "#!\"" text_literal_characters? "\""
+
+identifier: regular_identifier
+      |     quoted_identifier
+
+regular_identifier:     available_identifier
+                  |     available_identifier dot_character regular_identifier
+
+available_identifier:   keyword_or_identifier
+
+keyword_or_identifier:  letter_character
+                  |     underscore_character
+                  |     identifier_start_character identifier_part_characters
+
+identifier_start_character:   letter_character
+                  |           underscore_character
+
+identifier_part_characters:   identifier_part_character identifier_part_characters?
+
+identifier_part_character:    letter_character
+                        |     decimal_digit_character
+                        |     underscore_character
+                        |     connecting_character
+                        |     combining_character
+                        |     formatting_character
+
+generalized_identifier: generalized_identifier_part
+                  |     generalized_identifier  WS_INLINE generalized_identifier_part
+
+generalized_identifier_part:  generalized_identifier_segment
+                        |     decimal_digit_character generalized_identifier_segment
+
+generalized_identifier_segment:     keyword_or_identifier
+                              |     keyword_or_identifier dot_character keyword_or_identifier
+
+dot_character:    "."
+
+underscore_character:   "_"
+
+letter_character: /[_\-\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}]+/
+
+combining_character:    /[_\p{Mn}\p{Mc}]+/
+
+decimal_digit_character: /[\p{Nd}]+/
+
+connecting_character:   /[\p{Pc}]+/
+
+formatting_character:   /[\p{Cf}]+/
+      
+quoted_identifier:      "#" ESCAPED_STRING
+
+keyword:    "and"
+        |   "as"
+        |   "each"
+        |   "else"
+        |   "error" 
+        |   "false"
+        |   "if"
+        |   "in"
+        |   "is" 
+        |   "let"
+        |   "meta"
+        |   "not" 
+        |   "null"
+        |   "or"
+        |   "otherwise"
+        |   "section"
+        |   "shared"
+        |   "then" 
+        |   "true"
+        |   "try" 
+        |   "type" 
+        |   "#binary"
+        |   "#date" 
+        |   "#datetime"
+        |   "#datetimezone"
+        |   "#duration"
+        |   "#infinity"
+        |   "#nan" 
+        |   "#sections" 
+        |   "#shared" 
+        |   "#table" 
+        |   "#time"
+
+
+operator_or_punctuator: ","
+                    |   ";"
+                    |   "="
+                    |   "<"
+                    |   "<="
+                    |   ">"
+                    |   ">=" 
+                    |   "<>"
+                    |   "+" 
+                    |   "_" 
+                    |   "*" 
+                    |   "/"
+                    |   "&"
+                    |   "(" 
+                    |   ")" 
+                    |   "[" 
+                    |   "]" 
+                    |   "{" 
+                    |   "}" 
+                    |   "@" 
+                    |   "?" 
+                    |   "??" 
+                    |   "=>" 
+                    |   ".." 
+                    |   "..."
+
+document:   section_document
+      |     expression_document
+
+section_document:   section
+
+section:    literal_attributes? 
+        |   section 
+        |   section_name ";" section_members?
+
+section_name:   identifier
+
+section_members: section_member 
+            |    section_members?
+
+section_member: literal_attributes? 
+            |   "shared"? 
+            |   section_member_name "=" expression ";"
+
+section_member_name:    identifier
+
+expression_document:    expression
+
+expression: logical_or_expression
+      |     each_expression
+      |     function_expression
+      |     let_expression
+      |     if_expression
+      |     error_raising_expression
+      |     error_handling_expression
+
+logical_or_expression:  logical_and_expression
+                    |   logical_and_expression "or" logical_or_expression
+
+logical_and_expression: WS_INLINE? NEWLINE? is_expression WS_INLINE? NEWLINE?
+                    |   WS_INLINE?
+                    |   NEWLINE?     
+                    |   logical_and_expression WS_INLINE? "and" WS_INLINE? is_expression
+
+is_expression:  as_expression
+            |   WS_INLINE?
+            |   NEWLINE?     
+            |   is_expression "is" nullable_primitive_type
+
+nullable_primitive_type:    "nullable"? primitive_type
+
+as_expression:  WS_INLINE? equality_expression
+            |   as_expression "as" nullable_primitive_type
+            |   WS_INLINE? multiplicative_expression
+
+equality_expression:    WS_INLINE? relational_expression
+                   |    WS_INLINE? relational_expression WS_INLINE? "=" WS_INLINE? equality_expression
+                   |    relational_expression WS_INLINE? "<>" WS_INLINE? equality_expression
+
+relational_expression:  additive_expression
+                    |   additive_expression "<" relational_expression
+                    |   additive_expression ">" relational_expression
+                    |   additive_expression "<=" relational_expression
+                    |   additive_expression ">=" relational_expression
+
+additive_expression:    multiplicative_expression
+                    |   multiplicative_expression "+" additive_expression
+                    |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
+                    |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
+
+
+multiplicative_expression:  WS_INLINE? metadata_expression
+                        |   metadata_expression WS_INLINE? "*" WS_INLINE? multiplicative_expression
+                        |   metadata_expression "/" multiplicative_expression
+
+metadata_expression:    unary_expression
+                |       unary_expression 
+                |       "meta" 
+                |       unary_expression
+
+unary_expression:   type_expression
+                |   "+" unary_expression
+                |   "_" unary_expression
+                |   "not" unary_expression
+                |   expression
+
+primary_expression: literal_expression
+                |   list_expression
+                |   record_expression
+                |   identifier_expression
+                |   section_access_expression
+                |   parenthesized_expression
+                |   field_access_expression
+                |   item_access_expression
+                |   invoke_expression
+                |   not_implemented_expression
+
+literal_expression: literal
+
+identifier_expression:  identifier_reference
+
+identifier_reference:   exclusive_identifier_reference
+                    |   inclusive_identifier_reference
+
+exclusive_identifier_reference: identifier
+
+inclusive_identifier_reference: "@" identifier
+
+section_access_expression:  identifier "!" identifier
+
+parenthesized_expression:   "(" WS_INLINE? expression WS_INLINE? ")"
+
+not_implemented_expression: "..."
+
+invoke_expression:  "#"? primary_expression "(" NEWLINE? argument_list? NEWLINE? ")"
+
+argument_list:  WS_INLINE? expression
+            |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
+            |   "\"" identifier "\""
+            |   "\"" identifier "\"" "," argument_list
+            |   WS_INLINE
+            |   WS_INLINE? ESCAPED_STRING
+            |   WS_INLINE? ESCAPED_STRING "," argument_list
+            |   WS_INLINE? record_literal
+            |   WS_INLINE? record_literal "," argument_list
+            |   WS_INLINE? null_literal
+            |   WS_INLINE? null_literal "," argument_list
+
+
+list_expression:    "{" item_list? "}"
+
+item_list:  item
+        |   item "," item_list
+
+item:   expression
+    |   expression ".." expression
+
+record_expression:  "[" field_list? "]"
+
+field_list: field
+        |   field "," field_list
+
+field:  field_name WS_INLINE? "=" WS_INLINE? expression
+
+field_name: generalized_identifier
+        |   quoted_identifier
+
+item_access_expression: item_selection
+                    |   optional_item_selection
+
+item_selection: primary_expression whitespace? "{" item_selector "}"
+
+optional_item_selection:    primary_expression whitespace? "{" item_selector "}" "?"
+
+item_selector:  expression
+
+field_access_expression:    field_selection
+                        |   implicit_target_field_selection
+                        |   projection
+                        |   implicit_target_projection
+
+field_selection:    primary_expression field_selector
+
+field_selector: required_field_selector
+            |   optional_field_selector
+
+required_field_selector:    "[" WS_INLINE? field_name WS_INLINE? "]"
+
+optional_field_selector:    "[" WS_INLINE? field_name WS_INLINE? "]" "?"
+
+implicit_target_field_selection:    field_selector
+
+projection: primary_expression required_projection
+        |   primary_expression optional_projection
+
+required_projection:    "[" WS_INLINE? required_selector_list WS_INLINE? "]"
+
+optional_projection:    "[" WS_INLINE? required_selector_list WS_INLINE? "]" "?"
+
+required_selector_list: required_field_selector
+                    |   required_field_selector "," required_selector_list
+
+implicit_target_projection: required_projection
+                        |   optional_projection
+
+function_expression:    "(" WS_INLINE? parameter_list?  WS_INLINE? ")" WS_INLINE return_type? "=>" function_body
+
+function_body:  expression
+
+parameter_list: fixed_parameter_list
+            |   fixed_parameter_list "," optional_parameter_list
+            |   optional_parameter_list
+
+fixed_parameter_list:   parameter
+                    |   parameter "," fixed_parameter_list
+
+parameter:  parameter_name parameter_type?
+
+parameter_name: identifier
+
+parameter_type: assertion
+
+return_type:    assertion
+
+assertion:  "as" WS_INLINE nullable_primitive_type
+
+optional_parameter_list:    optional_parameter
+                        |   optional_parameter "," optional_parameter_list
+
+optional_parameter: "optional" WS_INLINE parameter
+
+each_expression:    "each" WS_INLINE each_expression_body
+
+each_expression_body:   function_body
+
+let_expression: "let" whitespace variable_list WS_INLINE? NEWLINE? in_expression
+
+in_expression: "in" NEWLINE? WS_INLINE? NEWLINE? expression
+
+variable_list:    variable
+            |     variable NEWLINE? WS_INLINE? "," NEWLINE? WS_INLINE? variable_list
+
+variable:   variable_name WS_INLINE? "=" WS_INLINE? expression
+
+variable_name:    identifier
+
+if_expression:    "if" WS_INLINE if_condition WS_INLINE? NEWLINE? WS_INLINE? "then" WS_INLINE? NEWLINE? true_expression WS_INLINE? NEWLINE? "else" WS_INLINE false_expression
+
+if_condition:     expression
+
+true_expression:  NEWLINE? WS_INLINE? expression
+                | multiplicative_expression
+
+false_expression: expression
+
+type_expression:  primary_expression
+            |     "type" WS_INLINE primary_type
+
+type: parenthesized_expression
+    | primary_type
+
+primary_type:   primitive_type
+            |   record_type
+            |   list_type
+            |   function_type
+            |   table_type
+            |   nullable_type
+
+primitive_type: "any" 
+            |   "anynonnull"
+            |   "binary"
+            |   "date" 
+            |   "datetime" 
+            |   "datetimezone" 
+            |   "duration" 
+            |   "function"
+            |   "list" 
+            |   "logical" 
+            |   "none" 
+            |   "null" 
+            |   "number" 
+            |   "record" 
+            |   "table" 
+            |   "text" 
+            |   "time" 
+            |   "type"
+
+record_type:      "[" WS_INLINE? open_record_marker WS_INLINE? "]"
+            |     "[" WS_INLINE? field_specification_list? WS_INLINE "]"
+            |     "[" WS_INLINE? field_specification_list WS_INLINE "," WS_INLINE? open_record_marker WS_INLINE? "]"
+
+field_specification_list:     field_specification
+                        |     field_specification WS_INLINE? "," WS_INLINE? field_specification_list
+
+field_specification:    "optional"? WS_INLINE? field_name WS_INLINE field_type_specification?
+
+field_type_specification:     "=" WS_INLINE field_type
+
+field_type: type
+
+open_record_marker:     "..."
+
+list_type:  "{" WS_INLINE? item_type WS_INLINE? "}"
+
+item_type: type
+
+function_type: "function" WS_INLINE? "(" WS_INLINE? parameter_specification_list? WS_INLINE? ")" WS_INLINE? return_type
+
+parameter_specification_list: required_parameter_specification_list
+                        |     required_parameter_specification_list WS_INLINE? "," WS_INLINE? optional_parameter_specification_list
+                        |     optional_parameter_specification_list
+
+required_parameter_specification_list:    required_parameter_specification
+                                    |     required_parameter_specification WS_INLINE? "," WS_INLINE? required_parameter_specification_list
+
+required_parameter_specification:   parameter_specification
+
+optional_parameter_specification_list:    optional_parameter_specification
+                                    |     optional_parameter_specification WS_INLINE? "," WS_INLINE? optional_parameter_specification_list
+
+optional_parameter_specification:   "optional" parameter_specification
+
+parameter_specification:      parameter_name WS_INLINE parameter_type
+
+table_type: "table" WS_INLINE row_type
+
+row_type:   "[" WS_INLINE? field_specification_list? WS_INLINE? "]"
+
+nullable_type:    "nullable" WS_INLINE type
+
+error_raising_expression:     "error" WS_INLINE expression "_"
+
+error_handling_expression:    "try" WS_INLINE protected_expression WS_INLINE otherwise_clause?
+
+protected_expression:   expression
+
+otherwise_clause: "otherwise" WS_INLINE default_expression
+
+default_expression:     expression
+
+literal_attributes:     record_literal
+
+record_literal:   "[" WS_INLINE? literal_field_list? WS_INLINE? "]"
+
+literal_field_list:     literal_field
+                  |     literal_field WS_INLINE? "," WS_INLINE? literal_field_list
+
+literal_field:  field_name WS_INLINE? "=" WS_INLINE? any_literal
+             |  field_name WS_INLINE? "=" WS_INLINE? invoke_expression
+
+list_literal:     "{" WS_INLINE? literal_item_list? WS_INLINE? "}"
+
+literal_item_list:      any_literal
+                  |     any_literal WS_INLINE? "," WS_INLINE? literal_item_list
+
+any_literal:      record_literal
+            |     list_literal
+            |     logical_literal
+            |     number_literal
+            |     text_literal
+            |     null_literal
+
+
+%import common.WORD
+%import common.WS_INLINE
+%import common.CPP_COMMENT
+%import common.C_COMMENT
+%import common.WS
+%import common.NEWLINE
+%import common.HEXDIGIT
+%import common.DIGIT
+%import common.LF
+%import common.CR
+%import common.ESCAPED_STRING

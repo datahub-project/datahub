@@ -3,8 +3,7 @@ from typing import Optional, cast
 
 import pydantic
 
-from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
@@ -42,22 +41,22 @@ class RedundantRunSkipHandler(
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
-        config: Optional[StatefulIngestionConfigBase],
+        config: StatefulIngestionConfigBase[StatefulRedundantRunSkipConfig],
         pipeline_name: Optional[str],
         run_id: str,
     ):
         self.source = source
-        self.config = config
-        self.stateful_ingestion_config = (
-            cast(StatefulRedundantRunSkipConfig, self.config.stateful_ingestion)
-            if self.config
-            else None
-        )
+        self.state_provider = source.state_provider
+        self.stateful_ingestion_config: Optional[
+            StatefulRedundantRunSkipConfig
+        ] = config.stateful_ingestion
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.checkpointing_enabled: bool = source.is_stateful_ingestion_configured()
+        self.checkpointing_enabled: bool = (
+            self.state_provider.is_stateful_ingestion_configured()
+        )
         self._job_id = self._init_job_id()
-        self.source.register_stateful_ingestion_usecase_handler(self)
+        self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
     def _ignore_old_state(self) -> bool:
         if (
@@ -100,14 +99,11 @@ class RedundantRunSkipHandler(
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return None
 
-        assert self.config is not None
         assert self.pipeline_name is not None
         return Checkpoint(
             job_name=self.job_id,
             pipeline_name=self.pipeline_name,
-            platform_instance_id=self.source.get_platform_instance_id(),
             run_id=self.run_id,
-            config=cast(ConfigModel, self.config),
             state=BaseUsageCheckpointState(
                 begin_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,
                 end_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,
@@ -121,7 +117,7 @@ class RedundantRunSkipHandler(
     ) -> None:
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return
-        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
+        cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
         cur_state = cast(BaseUsageCheckpointState, cur_checkpoint.state)
         cur_state.begin_timestamp_millis = start_time_millis
@@ -132,7 +128,7 @@ class RedundantRunSkipHandler(
             return False
         # Determine from the last check point state
         last_successful_pipeline_run_end_time_millis: Optional[int] = None
-        last_checkpoint = self.source.get_last_checkpoint(
+        last_checkpoint = self.state_provider.get_last_checkpoint(
             self.job_id, BaseUsageCheckpointState
         )
         if last_checkpoint and last_checkpoint.state:
@@ -149,6 +145,5 @@ class RedundantRunSkipHandler(
                 f" is later than the current start_time: {get_datetime_from_ts_millis_in_utc(cur_start_time_millis)}"
             )
             logger.warning(warn_msg)
-            self.source.get_report().report_warning("skip-run", warn_msg)
             return True
         return False

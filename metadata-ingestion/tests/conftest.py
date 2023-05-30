@@ -17,7 +17,10 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
-from tests.test_helpers.docker_helpers import docker_compose_runner  # noqa: F401,E402
+from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
+    docker_compose_command,
+    docker_compose_runner,
+)
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401,E402
 
 try:
@@ -43,3 +46,4 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
     )
+    parser.addoption("--copy-output-files", action="store_true", default=False)

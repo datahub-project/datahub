@@ -1,9 +1,10 @@
+import logging
 from typing import Iterable, Union
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api import RecordEnvelope
+from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -11,12 +12,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
     SystemMetadata,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass
 
-try:
-    import black
-except ImportError:
-    black = None  # type: ignore
+logger = logging.getLogger(__name__)
+
+
+def _try_reformat_with_black(code: str) -> str:
+    try:
+        import black
+
+        return black.format_str(code, mode=black.FileMode())
+    except ImportError:
+        return code
 
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
@@ -37,7 +43,6 @@ class WorkUnitRecordExtractor(
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregationClass,
             ]
         ]
     ]:
@@ -67,11 +72,8 @@ class WorkUnitRecordExtractor(
                 ):
                     raise AttributeError("every mce must have at least one aspect")
             if not workunit.metadata.validate():
-
                 invalid_mce = str(workunit.metadata)
-
-                if black is not None:
-                    invalid_mce = black.format_str(invalid_mce, mode=black.FileMode())
+                invalid_mce = _try_reformat_with_black(invalid_mce)
 
                 raise ValueError(
                     f"source produced an invalid metadata work unit: {invalid_mce}"
@@ -84,23 +86,9 @@ class WorkUnitRecordExtractor(
                 },
             )
         elif isinstance(workunit, UsageStatsWorkUnit):
-            if not workunit.usageStats.validate():
-
-                invalid_usage_stats = str(workunit.usageStats)
-
-                if black is not None:
-                    invalid_usage_stats = black.format_str(
-                        invalid_usage_stats, mode=black.FileMode()
-                    )
-
-                raise ValueError(
-                    f"source produced an invalid usage stat: {invalid_usage_stats}"
-                )
-            yield RecordEnvelope(
-                workunit.usageStats,
-                {
-                    "workunit_id": workunit.id,
-                },
+            logger.error(
+                "Dropping deprecated `UsageStatsWorkUnit`. "
+                "Emit a `MetadataWorkUnit` with the `datasetUsageStatistics` aspect instead."
             )
         else:
             raise ValueError(f"unknown WorkUnit type {type(workunit)}")

@@ -7,10 +7,10 @@ import { FetchResult } from '@apollo/client';
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
-import MarkdownViewer from '../../../../shared/components/legacy/MarkdownViewer';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
 import { useEntityData } from '../../../../shared/EntityContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
+import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -56,12 +56,6 @@ const DescriptionContainer = styled.div`
         }
     }
 `;
-
-const DescriptionText = styled(MarkdownViewer)`
-    padding-right: 8px;
-    display: block;
-`;
-
 const EditedLabel = styled(Typography.Text)`
     position: absolute;
     right: -10px;
@@ -74,7 +68,18 @@ const ReadLessText = styled(Typography.Link)`
     margin-right: 4px;
 `;
 
+const StyledViewer = styled(Editor)`
+    padding-right: 8px;
+    display: block;
+
+    .remirror-editor.ProseMirror {
+        padding: 0;
+    }
+`;
+
 type Props = {
+    onExpanded: (expanded: boolean) => void;
+    expanded: boolean;
     description: string;
     original?: string | null;
     onUpdate: (
@@ -85,10 +90,16 @@ type Props = {
 
 const ABBREVIATED_LIMIT = 80;
 
-export default function DescriptionField({ description, onUpdate, isEdited = false, original }: Props) {
+export default function DescriptionField({
+    expanded,
+    onExpanded: handleExpanded,
+    description,
+    onUpdate,
+    isEdited = false,
+    original,
+}: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 80;
-    const [expanded, setExpanded] = useState(!overLimit);
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const onCloseModal = () => setShowAddModal(false);
     const { urn, entityType } = useEntityData();
@@ -126,15 +137,15 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
 
     return (
         <DescriptionContainer>
-            {expanded ? (
+            {expanded || !overLimit ? (
                 <>
-                    {!!description && <DescriptionText source={description} />}
+                    {!!description && <StyledViewer content={description} readOnly />}
                     {!!description && (
                         <ExpandedActions>
                             {overLimit && (
                                 <ReadLessText
                                     onClick={() => {
-                                        setExpanded(false);
+                                        handleExpanded(false);
                                     }}
                                 >
                                     Read Less
@@ -152,7 +163,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                             <>
                                 <Typography.Link
                                     onClick={() => {
-                                        setExpanded(true);
+                                        handleExpanded(true);
                                     }}
                                 >
                                     Read More
@@ -160,6 +171,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                             </>
                         }
                         suffix={EditButton}
+                        shouldWrap
                     >
                         {description}
                     </StripMarkdownText>

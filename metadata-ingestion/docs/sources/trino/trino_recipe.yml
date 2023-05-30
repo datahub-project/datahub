@@ -9,5 +9,10 @@ source:
     username: foo
     password: datahub
 
+    # If you need to connect to Trino over http and not https, uncomment this section.
+    # options:
+    #   connect_args:
+    #     http_scheme: http
+
 sink:
   # sink configs

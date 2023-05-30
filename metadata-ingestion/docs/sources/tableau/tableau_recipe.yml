@@ -4,7 +4,8 @@ source:
     # Coordinates
     connect_uri: https://prod-ca-a.online.tableau.com
     site: acryl
-    projects: ["default", "Project 2"]
+    platform_instance: acryl_instance
+    project_pattern: ["^default$", "^Project 2$", "^/Project A/Nested Project B$"]
 
     # Credentials
     username: "${TABLEAU_USER}"

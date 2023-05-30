@@ -1,10 +1,17 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
-import { Deprecation, Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
+import {
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityType,
+    GlobalTags,
+    Owner,
+    SearchInsight,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 
@@ -22,6 +29,7 @@ export const Preview = ({
     owners,
     globalTags,
     domain,
+    dataProduct,
     externalUrl,
     snippet,
     insights,
@@ -32,10 +40,11 @@ export const Preview = ({
     name: string;
     platformInstanceId?: string;
     description?: string | null;
-    platformName: string;
+    platformName?: string;
     platformLogo?: string | null;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     globalTags?: GlobalTags | null;
     deprecation?: Deprecation | null;
     externalUrl?: string | null;
@@ -44,20 +53,21 @@ export const Preview = ({
     jobCount?: number | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataFlow, urn)}
             name={name}
+            urn={urn}
             description={description || ''}
             platformInstanceId={platformInstanceId}
             type="Data Pipeline"
             typeIcon={entityRegistry.getIcon(EntityType.DataFlow, 14, IconStyleType.ACCENT)}
-            platform={capitalizedPlatform}
+            platform={platformName}
             logoUrl={platformLogo || ''}
             owners={owners}
             tags={globalTags || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             snippet={snippet}
             insights={insights}
             externalUrl={externalUrl}
