@@ -109,6 +109,10 @@ def test_entity_registry_completeness():
 
     errors: List[str] = []
 
+    def _err(msg: str) -> None:
+        print(msg)
+        errors.append(msg)
+
     snapshot_classes: List[Type] = typing_inspect.get_args(
         typing.get_type_hints(MetadataChangeEventClass.__init__)["proposedSnapshot"]
     )
@@ -119,7 +123,10 @@ def test_entity_registry_completeness():
         lowercase_entity_type: str = snapshot_class.__name__.replace(
             "SnapshotClass", ""
         ).lower()
-        entity_type = lowercase_entity_type_map[lowercase_entity_type]
+        entity_type = lowercase_entity_type_map.get(lowercase_entity_type)
+        if entity_type is None:
+            _err(f"entity {entity_type}: missing from the entity registry entirely")
+            continue
 
         key_aspect = KEY_ASPECTS[entity_type]
         supported_aspect_names = set(key_aspect.get_aspect_info()["entityAspects"])
@@ -143,9 +150,9 @@ def test_entity_registry_completeness():
                 if _UPDATE_ENTITY_REGISTRY:
                     _add_to_registry(entity_type, aspect_name)
                 else:
-                    error = f"entity {entity_type}: aspect {aspect_name} is missing from the entity registry"
-                    print(error)
-                    errors.append(error)
+                    _err(
+                        f"entity {entity_type}: aspect {aspect_name} is missing from the entity registry"
+                    )
 
     assert (
         not errors

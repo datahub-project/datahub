@@ -1,11 +1,10 @@
 {
   "type": "s3",
   "config": {
-    "update_schema_on_partition_file_updates":true,
     "env": "UAT",
     "path_specs": [{
       "include": "s3://my-test-bucket/folder_a/folder_aa/{dept}/{table}/{partition[0]}/{partition[1]}/*.*",
-      "sample_files": false,
+      "sample_files": true,
       "table_name": "{dept}.{table}",
       "exclude":[
         "**/folder_aaaa/**"
