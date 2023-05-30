@@ -43,7 +43,7 @@ const BrowseSidebar = ({ facets, visible, width }: Props) => {
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>
             <SidebarBody>
-                {!entityAggregations?.length && <div>No results found</div>}
+                {entityAggregations && !entityAggregations.length && <div>No results found</div>}
                 {entityAggregations?.map((entityAggregation) => (
                     <BrowseProvider
                         key={entityAggregation.value}
