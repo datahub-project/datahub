@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
+    DefaultDict,
     Dict,
     Iterable,
     List,
@@ -11,7 +12,6 @@ from typing import (
     Set,
     Tuple,
     Union,
-    DefaultDict,
 )
 
 import pydantic
