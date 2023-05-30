@@ -716,7 +716,7 @@ class S3Source(StatefulIngestionSourceBase):
                 reverse=True,
             )
             for dir in sorted_dirs:
-                if path_spec.dir_allowed(f"{protocol}" + bucket_name + "/" + dir + "/"):
+                if path_spec.dir_allowed(f"{protocol}{bucket_name}/{dir}/"):
                     return self.get_dir_to_process(
                         bucket_name=bucket_name,
                         folder=dir + "/",

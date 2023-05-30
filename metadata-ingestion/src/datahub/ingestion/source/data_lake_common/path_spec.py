@@ -86,9 +86,13 @@ class PathSpec(ConfigModel):
         glob_slash = self.glob_include.count("/")
         if path_slash > glob_slash:
             return False
-        slash_to_remove_from_glob = glob_slash - path_slash
 
-        glob_include = self.glob_include.rsplit("/", 1)[0]
+        # We need to remove the extra slashes from the glob include other wise it would keep the part after the last slash
+        # which wouldn't match to the dir path
+        slash_to_remove_from_glob = (glob_slash - path_slash) + 1
+
+        # glob_include = self.glob_include.rsplit("/", 1)[0]
+        glob_include = self.glob_include
 
         for i in range(slash_to_remove_from_glob):
             glob_include = glob_include.rsplit("/", 1)[0]

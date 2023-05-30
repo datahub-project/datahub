@@ -91,7 +91,7 @@ class ContainerWUCreator:
             return protocol
         else:
             raise ValueError(
-                f"Unable to get protocol or invalid protocol form path: {path}"
+                f"Unable to get protocol or invalid protocol from path: {path}"
             )
 
     @staticmethod
