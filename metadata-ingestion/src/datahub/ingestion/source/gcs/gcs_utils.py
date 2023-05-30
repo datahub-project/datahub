@@ -1,3 +1,5 @@
+from typing import Optional
+
 GCS_PREFIX = "gs://"
 
 
@@ -5,13 +7,19 @@ def is_gcs_uri(uri: str) -> bool:
     return uri.startswith(GCS_PREFIX)
 
 
+def get_gcs_prefix(gcs_uri: str) -> Optional[str]:
+    if gcs_uri.startswith(GCS_PREFIX):
+        return GCS_PREFIX
+    return None
+
+
 def strip_gcs_prefix(gcs_uri: str) -> str:
     # remove GCS prefix (gs://)
-    if gcs_uri.startswith(GCS_PREFIX):
-        plain_base_path = gcs_uri[len(GCS_PREFIX) :]
-        return plain_base_path
+    prefix = get_gcs_prefix(gcs_uri)
+    if not prefix:
+        raise ValueError(f"Not an GCS URI. Must start with prefix: {GCS_PREFIX}")
 
-    raise ValueError(f"Not an GCS URI. Must start with prefix: {GCS_PREFIX}")
+    return gcs_uri[len(GCS_PREFIX) :]
 
 
 def get_gcs_bucket_name(path):
