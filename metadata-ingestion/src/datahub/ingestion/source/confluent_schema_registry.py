@@ -67,7 +67,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             self.source_config.tag_prefix,
             OwnershipSourceTypeClass.SERVICE,
             self.source_config.strip_user_ids_from_email,
-            match_nested_props=True,
         )
 
     @classmethod
