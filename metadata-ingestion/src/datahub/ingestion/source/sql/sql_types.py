@@ -362,6 +362,12 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "array": ArrayType,
 }
 
+
+class MapType(types.TupleType):
+    # Wrapper class around SQLalchemy's TupleType to increase compatibility with DataHub
+    pass
+
+
 # https://docs.aws.amazon.com/athena/latest/ug/data-types.html
 # https://github.com/dbt-athena/dbt-athena/tree/main
 ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {
@@ -423,8 +429,3 @@ VERTICA_SQL_TYPES_MAP: Dict[str, Any] = {
     "geography": None,
     "uuid": StringType,
 }
-
-
-class MapType(types.TupleType):
-    # Wrapper class around SQLalchemy's TupleType to increase compatibility with DataHub
-    pass
