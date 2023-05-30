@@ -35,7 +35,7 @@ jobs:
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
-            acryldata/datahub-ingestion-base
+            heruko/datahub-ingestion-base
           tags: latest
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}

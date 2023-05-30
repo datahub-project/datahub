@@ -53,7 +53,7 @@ jobs:
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
-            acryldata/datahub-postgres-setup
+            heruko/datahub-postgres-setup
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
