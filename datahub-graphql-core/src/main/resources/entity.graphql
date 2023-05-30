@@ -215,6 +215,13 @@ type Query {
     Fetch a DataProduct by primary key (urn)
     """
     dataProduct(urn: String!): DataProduct
+
+    """
+    List Custom Ownership Types
+    """
+    listOwnershipTypes(
+        "Input required for listing custom ownership types"
+        input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
 }
 
 """
@@ -651,6 +658,29 @@ type Mutation {
     batchSetDataProduct(
         "Input for batch setting data product"
         input: BatchSetDataProductInput!): Boolean
+
+    """
+    Create a Custom Ownership Type. This requires the 'Manage Ownership Types' Metadata Privilege.
+    """
+    createOwnershipType(
+        "Inputs required to create a new Query."
+        input: CreateOwnershipTypeInput!): OwnershipTypeEntity
+
+    """
+    Update an existing Query. This requires the 'Manage Ownership Types' Metadata Privilege.
+    """
+    updateOwnershipType(
+        "The urn identifier for the custom ownership type to update."
+        urn: String!,
+        "Inputs required to update an existing Custom Ownership Type."
+        input: UpdateOwnershipTypeInput!): OwnershipTypeEntity
+
+    """
+    Delete a Custom Ownership Type by urn. This requires the 'Manage Ownership Types' Metadata Privilege.
+    """
+    deleteOwnershipType(
+        "Urn of the Custom Ownership Type to remove."
+        urn: String!, deleteReferences: Boolean): Boolean
 }
 
 """
@@ -851,6 +881,11 @@ enum EntityType {
     A Data Product
     """
     DATA_PRODUCT
+
+    """
+    A Custom Ownership Type
+    """
+    CUSTOM_OWNERSHIP_TYPE
 }
 
 """
@@ -3146,6 +3181,11 @@ enum OwnershipType {
     NONE
 
     """
+    Associated ownership type is a custom ownership type. Please check OwnershipTypeEntity urn for custom value.
+    """
+    CUSTOM
+
+    """
     A person or group that owns the data.
     Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
@@ -3740,9 +3780,14 @@ type Owner {
     owner: OwnerType!
 
     """
-    The type of the ownership
+    The type of the ownership. Deprecated - Use ownershipType field instead.
     """
-    type: OwnershipType!
+    type: OwnershipType @deprecated
+
+    """
+    Ownership type information
+    """
+    ownershipType: OwnershipTypeEntity
 
     """
     Source information for the ownership
@@ -4276,9 +4321,14 @@ input OwnerUpdate {
     owner: String!
 
     """
-    The owner type
+    The owner type. Deprecated - Use ownershipTypeUrn field instead.
     """
-    type: OwnershipType!
+    type: OwnershipType @deprecated
+
+    """
+    The urn of the ownership type entity.
+    """
+    ownershipTypeUrn: String
 }
 
 """
@@ -7345,8 +7395,14 @@ input AddOwnerInput {
 
     """
     The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    Deprecated - Use ownershipTypeUrn field instead.
     """
-    type: OwnershipType
+    type: OwnershipType @deprecated
+
+    """
+    The urn of the ownership type entity.
+    """
+    ownershipTypeUrn: String
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
@@ -7370,8 +7426,14 @@ input OwnerInput {
 
     """
     The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    Deprecated - Use ownershipTypeUrn field instead.
     """
-    type: OwnershipType
+    type: OwnershipType @deprecated
+
+    """
+    The urn of the ownership type entity.
+    """
+    ownershipTypeUrn: String
 }
 
 """
@@ -7399,6 +7461,11 @@ input BatchAddOwnersInput {
     owners: [OwnerInput!]!
 
     """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
+
+    """
     The target assets to attach the owners to
     """
     resources: [ResourceRefInput]!
@@ -7414,6 +7481,11 @@ input BatchRemoveOwnersInput {
     ownerUrns: [String!]!
 
     """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
+
+    """
     The target assets to remove the owners from
     """
     resources: [ResourceRefInput]!
@@ -7427,6 +7499,11 @@ input RemoveOwnerInput {
     The primary key of the Owner to add or remove
     """
     ownerUrn: String!
+
+    """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
@@ -10770,3 +10847,135 @@ input BatchSetDataProductInput {
     resourceUrns: [String!]!
 }
 
+
+
+"""
+Properties about an individual Custom Ownership Type.
+"""
+type OwnershipTypeInfo {
+
+    """
+    The name of the Custom Ownership Type
+    """
+    name: String!
+
+    """
+    The description of the Custom Ownership Type
+    """
+    description: String
+
+    """
+    An Audit Stamp corresponding to the creation of this resource
+    """
+    created: AuditStamp
+
+    """
+    An Audit Stamp corresponding to the update of this resource
+    """
+    lastModified: AuditStamp
+}
+
+"""
+A single Custom Ownership Type
+"""
+type OwnershipTypeEntity implements Entity {
+    """
+    A primary key associated with the custom ownership type.
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Information about the Custom Ownership Type
+    """
+    info: OwnershipTypeInfo
+
+    """
+    Status of the Custom Ownership Type
+    """
+    status: Status
+
+    """
+    Granular API for querying edges extending from the Custom Ownership Type
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Input required for listing custom ownership types entities
+"""
+input ListOwnershipTypesInput {
+    """
+    The starting offset of the result set returned, default is 0
+    """
+    start: Int
+
+    """
+    The maximum number of Custom Ownership Types to be returned in the result set, default is 20
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+
+    """
+    Optional Facet filters to apply to the result set
+    """
+    filters: [FacetFilterInput!]
+}
+
+"""
+Results when listing custom ownership types.
+"""
+type ListOwnershipTypesResult {
+    """
+    The starting offset of the result set
+    """
+    start: Int!
+
+    """
+    The number of results to be returned
+    """
+    count: Int!
+
+    """
+    The total number of results in the result set
+    """
+    total: Int!
+
+    """
+    The Custom Ownership Types themselves
+    """
+    ownershipTypes: [OwnershipTypeEntity!]!
+}
+
+input CreateOwnershipTypeInput {
+    """
+    The name of the Custom Ownership Type
+    """
+    name: String!
+
+    """
+    The description of the Custom Ownership Type
+    """
+    description: String!
+}
+
+
+input UpdateOwnershipTypeInput {
+    """
+    The name of the Custom Ownership Type
+    """
+    name: String
+
+    """
+    The description of the Custom Ownership Type
+    """
+    description: String
+}
