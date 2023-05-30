@@ -416,8 +416,13 @@ class KafkaSource(StatefulIngestionSourceBase):
         topic_configurations: dict,
     ) -> None:
         try:
-            assert config_result_future.done()
-            assert config_result_future.exception() is None
+            if not config_result_future.done():
+                raise TimeoutError(
+                    f"Timed out while fetching config details for topic {config_resource.name}"
+                )
+            exception = config_result_future.exception()
+            if exception:
+                raise exception
             topic_configurations[config_resource.name] = config_result_future.result()
         except Exception as e:
             logger.warning(
