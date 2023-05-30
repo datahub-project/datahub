@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
@@ -50,8 +51,9 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
         (input.getTypes() == null || input.getTypes().isEmpty()) ? SEARCHABLE_ENTITY_TYPES : input.getTypes();
     final List<String> entityNames = entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
-    // escape forward slash since it is a reserved character in Elasticsearch
-    final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
+    // escape forward slash since it is a reserved character in Elasticsearch, default to * if blank/empty
+    final String sanitizedQuery = StringUtils.isNotBlank(input.getQuery())
+        ? ResolverUtils.escapeForwardSlash(input.getQuery()) : "*";
 
     @Nullable
     final String scrollId = input.getScrollId();
