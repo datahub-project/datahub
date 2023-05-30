@@ -500,7 +500,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
             if par_columns != "":
                 properties["partitioned_columns"] = par_columns
 
-            table_description = columns[-1].get("description") or ""
+            table_description = (
+                columns[-1]["description"] if "description" in columns[-1] else ""
+            )
             if not self.config.enable_properties_merge:
                 # we add to the MCE to keep compatibility with previous output
                 # if merging is disabled
