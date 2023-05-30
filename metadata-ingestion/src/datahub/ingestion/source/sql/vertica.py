@@ -641,7 +641,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def get_view_properties(
-        self:Any, inspector: Inspector, schema: str
+        self, inspector: Inspector, schema: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
