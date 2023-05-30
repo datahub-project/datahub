@@ -219,7 +219,7 @@ export const CsvForm = () => {
                     <Form.List name="fields">
                         {(fields, { add, remove }) => (
                             <>
-                                {fields.map(({ key, name, fieldKey, ...restField }) => (
+                                {fields.map(({ key, name, ...restField }) => (
                                     <Row key={key}>
                                         <Col span={6}>
                                             <Form.Item
