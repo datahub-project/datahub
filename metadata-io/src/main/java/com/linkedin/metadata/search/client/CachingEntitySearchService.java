@@ -251,12 +251,13 @@ public class CachingEntitySearchService {
             filters != null ? toJsonString(filters) : null,
             sortCriterion != null ? toJsonString(sortCriterion) : null,
             scrollId, size);
-        result = cache.get(cacheKey, ScrollResult.class);
+        String json = cache.get(cacheKey, String.class);
+        result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
         cacheAccess.stop();
         if (result == null) {
           Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "scroll_cache_miss").time();
           result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText);
-          cache.put(cacheKey, result);
+          cache.put(cacheKey, toJsonString(result));
           cacheMiss.stop();
           MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
         }
