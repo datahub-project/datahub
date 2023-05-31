@@ -1,11 +1,14 @@
 import logging
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Dict, Iterable, Optional, Set, Type, cast
 
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
+from datahub.ingestion.api.source_helpers import auto_stale_entity_removal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -88,6 +91,20 @@ class StaleEntityRemovalHandler(
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
+
+    @classmethod
+    def create(
+        cls,
+        source: StatefulIngestionSourceBase,
+        config: StatefulIngestionConfigBase,
+        ctx: PipelineContext,
+        state_type_class: Type["GenericCheckpointState"] = GenericCheckpointState,
+    ) -> "StaleEntityRemovalHandler":
+        return cls(source, config, state_type_class, ctx.pipeline_name, ctx.run_id)
+
+    @property
+    def workunit_processor(self):
+        return partial(auto_stale_entity_removal, self)
 
     @classmethod
     def compute_job_id(

@@ -32,11 +32,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -50,9 +46,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_container,
     gen_schema_key,
     get_domain_wu,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -325,15 +318,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
 
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -474,6 +458,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             parent_container_key=schema_container_key,
         )
 
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -524,14 +516,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
 
     def standardize_schema_table_names(
         self, schema: str, entity: str

@@ -9,7 +9,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
 class FakeSource(Source):
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return [
             MetadataWorkUnit(
                 id="test-workunit",

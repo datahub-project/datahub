@@ -6,7 +6,7 @@ import yaml
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.metadata.lineage import LineageConfig, _get_lineage_mcp
-from datahub.metadata.schema_classes import UpstreamClass
+from datahub.metadata.schema_classes import FineGrainedLineageClass, UpstreamClass
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,15 @@ def basic_mcp():
                   type: dataset
                   env: DEV
                   platform: kafka
+            fineGrainedLineages:
+            - upstreamType: FIELD_SET
+              upstreams:
+                - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,PROD),user_id)
+              downstreamType: FIELD_SET
+              downstreams:
+                - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,topic3,PROD),user_id)
+              confidenceScore: 0.9
+              transformOperation: func1
         """
     config = yaml.safe_load(sample_lineage)
     lineage_config: LineageConfig = LineageConfig.parse_obj(config)
@@ -169,6 +178,19 @@ def test_basic_lineage_upstream_urns(basic_mcp):
         and basic_mcp_upstreams[1].dataset
         == "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)"
     )
+
+
+def test_basic_lineage_finegrained_upstream_urns(basic_mcp):
+    """
+    Checks to see if the finegrained urns are correct for a basic_mcp example
+    """
+    fine_grained_lineage: FineGrainedLineageClass = (
+        basic_mcp.aspect.fineGrainedLineages[0]
+    )
+    assert fine_grained_lineage.upstreamType == "FIELD_SET"
+    assert fine_grained_lineage.downstreamType == "FIELD_SET"
+    assert fine_grained_lineage.confidenceScore == 0.9
+    assert fine_grained_lineage.transformOperation == "func1"
 
 
 def test_unsupported_entity_type():

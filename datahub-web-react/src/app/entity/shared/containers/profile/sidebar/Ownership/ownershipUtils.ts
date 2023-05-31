@@ -1,4 +1,4 @@
-import { OwnershipType } from '../../../../../../../types.generated';
+import { OwnershipType, OwnershipTypeEntity } from '../../../../../../../types.generated';
 
 /**
  * A mapping from OwnershipType to it's display name & description. In the future,
@@ -39,3 +39,7 @@ export const getNameFromType = (type: OwnershipType) => {
 export const getDescriptionFromType = (type: OwnershipType) => {
     return ownershipTypeToDetails.get(type)?.description || 'No description';
 };
+
+export function getOwnershipTypeName(ownershipType?: OwnershipTypeEntity | null) {
+    return ownershipType?.info?.name || 'Other';
+}
