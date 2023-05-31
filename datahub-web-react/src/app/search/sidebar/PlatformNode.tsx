@@ -38,7 +38,6 @@ const BrowseGroupListContainer = styled.div`
     background: white;
     border-radius: 8px;
     padding-bottom: 8px;
-    // todo - play with this, also add a 2px padding-top
     padding-right: 8px;
 `;
 
