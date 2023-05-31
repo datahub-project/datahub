@@ -22,6 +22,9 @@ dependencies {
 
     implementation externalDependency.slf4jApi
   implementation externalDependency.lombok
+    implementation project(path: ':li-utils')
+    implementation project(path: ':li-utils')
+    implementation project(path: ':li-utils')
     annotationProcessor externalDependency.lombok
 
    testImplementation externalDependency.assertJ

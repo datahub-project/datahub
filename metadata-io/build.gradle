@@ -39,7 +39,7 @@ implementation externalDependency.lombok
  implementation externalDependency.resilience4j
  implementation externalDependency.springContext
  implementation externalDependency.swaggerAnnotations
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.41'
  implementation (externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -94,6 +94,10 @@ test {
   maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
+}
+
+repositories {
+    mavenCentral()
 }
 
 tasks.withType(Test) {

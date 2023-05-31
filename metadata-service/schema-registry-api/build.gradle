@@ -20,9 +20,13 @@ dependencies {
 
     // End of dependencies
    implementation externalDependency.swaggerAnnotations
-    swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+    swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.41'
 
    testImplementation externalDependency.assertJ
+}
+
+repositories {
+    mavenCentral()
 }
 
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {

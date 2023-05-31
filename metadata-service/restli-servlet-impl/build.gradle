@@ -18,7 +18,7 @@ idea {
 
 configurations {
   integTestImplementation.extendsFrom implementation
-  integtestImplementationOnly.extendsFrom runtimeOnly
+  integtestImplementation.extendsFrom runtimeOnly
   modelValidation
 }
 
@@ -55,7 +55,7 @@ dependencies {
  testImplementation externalDependency.testng
 
   integTestImplementation externalDependency.junitJupiterApi
-  integtestImplementationOnly externalDependency.junitJupiterEngine
+  integtestImplementation externalDependency.junitJupiterEngine
 
  testImplementation externalDependency.junitJupiterApi
  testImplementation externalDependency.junitJupiterParams

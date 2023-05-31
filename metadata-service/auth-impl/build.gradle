@@ -11,9 +11,9 @@ dependencies {
  implementation project(path: ':metadata-service:auth-config')
  implementation project(path: ':metadata-io')
 
-  implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
-  runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2',
-      'io.jsonwebtoken:jjwt-jackson:0.11.2'
+  implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+  runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5',
+          'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
   implementation externalDependency.slf4jApi
 implementation externalDependency.lombok
@@ -22,4 +22,8 @@ implementation externalDependency.lombok
 
  testImplementation externalDependency.mockito
 
+}
+
+repositories {
+    mavenCentral()
 }

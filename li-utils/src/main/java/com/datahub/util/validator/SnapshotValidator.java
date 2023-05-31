@@ -1,17 +1,14 @@
 package com.datahub.util.validator;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.ArrayDataSchema;
-import com.linkedin.data.schema.DataSchema;
-import com.linkedin.data.schema.RecordDataSchema;
-import com.linkedin.data.schema.TyperefDataSchema;
-import com.linkedin.data.schema.UnionDataSchema;
+import com.linkedin.data.schema.*;
 import com.linkedin.data.template.RecordTemplate;
+
+import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nonnull;
 
 
 public class SnapshotValidator {

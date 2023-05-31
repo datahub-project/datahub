@@ -28,8 +28,8 @@ implementation externalDependency.lombok
   implementation externalDependency.httpAsyncClient
 
   // Tests need a concrete log4j available. Providing it here
-  testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
-  testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+  testImplementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+  testImplementation 'org.apache.logging.log4j:log4j-core:2.20.0'
 
   testImplementation externalDependency.mockito
 
@@ -49,4 +49,8 @@ task integrationTest(type: Exec, dependsOn: [build, ':docker:quickstart'] ) {
 
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
+}
+
+repositories {
+    mavenCentral()
 }

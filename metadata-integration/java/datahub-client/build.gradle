@@ -55,7 +55,7 @@ implementation externalDependency.lombok
  testImplementation externalDependency.httpAsyncClient
   testImplementation externalDependency.logbackClassic
 
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.41'
 }
 
 task copyAvroSchemas {
@@ -213,6 +213,10 @@ nexusStaging {
   //required only for projects registered in Sonatype after 2021-02-24
   username = System.getenv("NEXUS_USERNAME")
   password = System.getenv("NEXUS_PASSWORD")
+}
+
+repositories {
+    mavenCentral()
 }
 
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {

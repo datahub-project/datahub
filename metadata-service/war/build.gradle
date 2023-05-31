@@ -50,7 +50,7 @@ configurations {
 }
 
 dependencies {
-  jetty9 "org.eclipse.jetty:jetty-runner:9.4.46.v20220331"
+  jetty9 'org.eclipse.jetty:jetty-runner:11.0.14'
 }
 
 task run(type: JavaExec, dependsOn: build) {
@@ -86,5 +86,9 @@ task cleanLocalDockerImages {
   doLast {
     rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}")
   }
+}
+
+repositories {
+    mavenCentral()
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

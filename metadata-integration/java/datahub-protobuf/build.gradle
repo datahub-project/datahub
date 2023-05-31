@@ -39,7 +39,7 @@ dependencies {
   implementation externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.junitJupiterApi
-    testImplementationOnly externalDependency.junitJupiterEngine
+    testImplementation externalDependency.junitJupiterEngine
 }
 
 import java.nio.file.Paths

@@ -8,8 +8,8 @@ dependencies {
   implementation externalDependency.lombok
   implementation externalDependency.logbackClassic;
 
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
-  testImplementationOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
 
   annotationProcessor externalDependency.lombok
 }
@@ -21,5 +21,9 @@ task copyJar(type: Copy) {
 
 clean {
   delete 'buildDir', '../resources/sample-plugins'
+}
+
+repositories {
+    mavenCentral()
 }
 build.dependsOn copyJar

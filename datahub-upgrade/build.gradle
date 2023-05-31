@@ -103,5 +103,9 @@ task cleanLocalDockerImages {
     rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
   }
 }
+
+repositories {
+    mavenCentral()
+}
 dockerClean.finalizedBy(cleanLocalDockerImages)
 
