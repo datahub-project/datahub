@@ -265,13 +265,9 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
-                schema, view = self.standardize_schema_table_names(
-                    schema=schema, entity=view
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
 
@@ -396,13 +392,9 @@ class VerticaSource(SQLAlchemySource):
         try:
             # table_tags = self.get_extra_tags(inspector, schema, "projection")
             for projection in inspector.get_projection_names(schema):  # type: ignore
-                schema, projection = self.standardize_schema_table_names(
-                    schema=schema, entity=projection
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=projection, inspector=inspector
                 )
-                dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in projections_seen:
                     projections_seen.add(dataset_name)
                 else:
@@ -479,18 +471,8 @@ class VerticaSource(SQLAlchemySource):
             inspector, schema, projection
         )
 
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = projection
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != projection:
-                properties["original_table_name"] = projection
-
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=projection,
             description=description,
             customProperties=properties,
         )
@@ -618,14 +600,10 @@ class VerticaSource(SQLAlchemySource):
         models_seen: Set[str] = set()
         try:
             for models in inspector.get_models_names(schema):  # type: ignore
-                schema, models = self.standardize_schema_table_names(
-                    schema=schema, entity=models
-                )
                 dataset_name = self.get_identifier(
                     schema="Entities", entity=models, inspector=inspector
                 )
 
-                dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in models_seen:
                     models_seen.add(dataset_name)
                 else:
@@ -687,22 +665,12 @@ class VerticaSource(SQLAlchemySource):
         description, properties, location = self.get_model_properties(
             inspector, schema, table
         )
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
 
-        normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=table,
             description=description,
             customProperties=properties,
         )
-
         dataset_snapshot.aspects.append(dataset_properties)
 
         schema_fields = self.get_schema_fields(dataset_name, columns)
@@ -796,14 +764,10 @@ class VerticaSource(SQLAlchemySource):
         oauth_seen: Set[str] = set()
         try:
             for oauth in inspector.get_Oauth_names(schema):  # type: ignore
-                schema, oauth = self.standardize_schema_table_names(
-                    schema=schema, entity=oauth
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=oauth, inspector=inspector
                 )
 
-                dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in oauth_seen:
                     oauth_seen.add(dataset_name)
                 else:
@@ -861,17 +825,9 @@ class VerticaSource(SQLAlchemySource):
         description, properties, location_urn = self.get_oauth_properties(
             inspector, schema, oauth
         )
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = oauth
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != oauth:
-                properties["original_table_name"] = oauth
+
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=oauth,
             description=description,
             customProperties=properties,
         )
@@ -966,9 +922,6 @@ class VerticaSource(SQLAlchemySource):
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
         for projection in inspector.get_projection_names(schema):  # type: ignore
-            schema, projection = self.standardize_schema_table_names(
-                schema=schema, entity=projection
-            )
             dataset_name = self.get_identifier(
                 schema=schema, entity=projection, inspector=inspector
             )
@@ -979,7 +932,6 @@ class VerticaSource(SQLAlchemySource):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
-            dataset_name = self.normalise_dataset_name(dataset_name)
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
             else:
