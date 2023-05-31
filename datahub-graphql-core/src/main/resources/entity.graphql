@@ -383,7 +383,7 @@ type JoinProperties {
     """
     The joinFieldMappings
     """
-    joinFieldMappings: [JoinFieldMapping!]
+    joinFieldMappings: JoinFieldMapping!
 
 }
 
@@ -414,7 +414,6 @@ type FieldMap {
     """
     bfield: String!
 }
-
 
 """
 Root type used for updating DataHub Metadata

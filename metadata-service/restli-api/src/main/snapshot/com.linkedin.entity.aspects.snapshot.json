@@ -1777,7 +1777,7 @@
           } ]
         }
       },
-      "doc" : "Fine-grained column-level lineages",
+      "doc" : "Fine-grained column-level lineages\nNot currently supported in the UI\nUse UpstreamLineage aspect for datasets to express Column Level Lineage for the UI",
       "optional" : true
     } ],
     "Aspect" : {
@@ -2743,7 +2743,8 @@
               "Searchable" : {
                 "boostScore" : 5.0,
                 "fieldName" : "fieldPaths",
-                "fieldType" : "TEXT"
+                "fieldType" : "TEXT",
+                "queryByDefault" : "true"
               }
             }, {
               "name" : "jsonPath",

@@ -13,11 +13,9 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.generated.FieldSortInput;
 import com.linkedin.datahub.graphql.generated.Join;
 import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.generated.Sort;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
@@ -32,8 +30,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -177,31 +175,20 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
 
   @Override
   public SearchResults search(@Nonnull String query, @Nullable List<FacetFilterInput> filters,
-      @Nullable FieldSortInput sort, int start, int count, @Nonnull QueryContext context) throws Exception {
+      int start, int count, @Nonnull QueryContext context) throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-    String sortField = sort != null ? sort.getField() : null;
-    SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
-    SortCriterion sortCriterion = null;
-    if (sortField != null && sortOrder != null) {
-      sortCriterion =
-          new SortCriterion().setField(sortField).setOrder(sortOrder);
-    }
-    final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, sortCriterion, start,
-        count, context.getAuthentication());
+    final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start,
+        count, context.getAuthentication(), new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
 
   }
 
   @Override
   public AutoCompleteResults autoComplete(@Nonnull String query, @Nullable String field,
-      @Nullable List<FacetFilterInput> filters, int limit, @Nonnull QueryContext context) throws Exception {
-    final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-    final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, facetFilters, limit, context.getAuthentication());
+      @Nullable Filter filters, int limit, @Nonnull QueryContext context) throws Exception {
+    final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
     return AutoCompleteResultsMapper.map(result);
   }
-
-
-
 
   @Override
   public Join update(String urn, @Nonnull JoinUpdateInput input, @Nonnull QueryContext context)
