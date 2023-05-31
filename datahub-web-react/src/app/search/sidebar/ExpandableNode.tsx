@@ -52,9 +52,14 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
 `;
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
-    border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
-    background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
-    border-radius: 8px;
+    && {
+        border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
+        background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
+        border-radius: 8px;
+    }
+    &&:hover {
+        box-shadow: ${(props) => (props.isSelected ? 'none' : props.theme.styles['box-shadow-hover'])};
+    }
 `;
 
 ExpandableNode.HeaderLeft = styled.div`

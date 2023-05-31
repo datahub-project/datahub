@@ -9,6 +9,10 @@ type Props = {
     skip: boolean;
 };
 
+// todo:
+// - detect changed filters
+// - update all state (page state)/filters all at once (force it to batch)
+// - ie. make the changeable inputs to the query change at a controled rate
 const useBrowseV2Query = ({ skip }: Props) => {
     const type = useEntityType();
     const path = useBrowsePath();
@@ -32,8 +36,6 @@ const useBrowseV2Query = ({ skip }: Props) => {
         ),
     );
 
-    const pathResult = latestData?.browseV2?.metadata.path ?? [];
-
     const { data, loading, error, refetch } = useGetBrowseResultsV2Query({
         skip,
         fetchPolicy: 'cache-first',
@@ -48,8 +50,6 @@ const useBrowseV2Query = ({ skip }: Props) => {
         },
     });
 
-    const loaded = !!latestData || !!error;
-
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
         if (!data || newStart < 0 || hasPage(newStart)) return;
@@ -58,10 +58,10 @@ const useBrowseV2Query = ({ skip }: Props) => {
 
     return {
         loading,
-        loaded,
+        loaded: !!latestData || !!error,
         error,
         groups,
-        pathResult,
+        pathResult: latestData?.browseV2?.metadata.path ?? [],
         advancePage,
         refetch,
     } as const;
