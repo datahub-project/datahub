@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
@@ -39,7 +39,10 @@ const BrowseNode = () => {
     const { isOpen, toggle } = useToggle();
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
-    const iconProps: CSSProperties = { visibility: browseResultGroup.hasSubGroups ? 'visible' : 'hidden' };
+
+    // todo - set the selected browse path (useBrowsePath) in a global context
+    const [isSelected, setIsSelected] = useState(false);
+    const onClickHeader = () => setIsSelected((s) => !s);
 
     const { error, groups, loaded, observable, pathResult, retry } = useBrowsePagination({ skip });
 
@@ -47,14 +50,18 @@ const BrowseNode = () => {
         <ExpandableNode
             isOpen={isOpen && loaded}
             header={
-                <ExpandableNode.Header isOpen={isOpen} onClick={toggle}>
+                <ExpandableNode.SelectableHeader isOpen={isOpen} isSelected={isSelected} onClick={onClickHeader}>
                     <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.Triangle isOpen={isOpen} style={iconProps} />
+                        <ExpandableNode.TriangleButton
+                            isOpen={isOpen}
+                            isVisible={browseResultGroup.hasSubGroups}
+                            onClick={toggle}
+                        />
                         <FolderStyled />
                         <Title color={color}>{browseResultGroup.name}</Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(browseResultGroup.count)}</Count>
-                </ExpandableNode.Header>
+                </ExpandableNode.SelectableHeader>
             }
             body={
                 <ExpandableNode.Body>

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { DownCircleOutlined, UpCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
@@ -47,11 +46,13 @@ const EntityNode = () => {
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle} style={{ paddingTop: '16px' }}>
                     <ExpandableNode.HeaderLeft>
-                        {registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
+                        <ExpandableNode.StaticButton
+                            icon={registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
+                        />
                         <Title color={color}>{registry.getCollectionName(entityType)}</Title>
                         <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
                     </ExpandableNode.HeaderLeft>
-                    {isOpen ? <UpCircleOutlined style={{ color }} /> : <DownCircleOutlined style={{ color }} />}
+                    <ExpandableNode.CircleButton isOpen={isOpen} />
                 </ExpandableNode.Header>
             }
             body={

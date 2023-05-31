@@ -67,7 +67,11 @@ const PlatformNode = () => {
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.Triangle isOpen={isOpen} />
+                        <ExpandableNode.TriangleButton
+                            isOpen={isOpen}
+                            isVisible={!!platformAggregation.count}
+                            onClick={toggle}
+                        />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
                         <Title color={color}>{label}</Title>
                     </ExpandableNode.HeaderLeft>

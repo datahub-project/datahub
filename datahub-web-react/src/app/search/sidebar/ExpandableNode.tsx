@@ -1,6 +1,8 @@
-import React, { ReactNode } from 'react';
+import React, { MouseEventHandler, ReactNode } from 'react';
 import styled from 'styled-components';
 import { VscTriangleRight } from 'react-icons/vsc';
+import { Button } from 'antd';
+import { UpCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const Layout = styled.div`
@@ -37,27 +39,88 @@ const ExpandableNode = ({ isOpen, header, body }: ExpandableNodeProps) => {
     );
 };
 
-ExpandableNode.Header = styled.div<{ isOpen: boolean; showBorder?: boolean }>`
+// todo - add a nice hover effect maybe?
+
+ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; showBorder?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
     user-select: none;
-    padding-top: 8px;
+    padding: 2px 4px 2px 4px;
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
+`;
+
+ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
+    border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
+    background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
+    border-radius: 8px;
 `;
 
 ExpandableNode.HeaderLeft = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 `;
 
-ExpandableNode.Triangle = styled(VscTriangleRight)<{ isOpen: boolean }>`
-    color: ${ANTD_GRAY[9]};
-    transform: rotate(${(props) => (props.isOpen ? 90 : 0)}deg);
+ExpandableNode.BaseButton = styled(Button)`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    box-shadow: none;
+`;
+
+ExpandableNode.RotatingButton = styled(ExpandableNode.BaseButton)<{ deg: number }>`
+    transform: rotate(${(props) => props.deg}deg);
     transition: transform 250ms;
 `;
+
+// todo - try letting all queries go out (just reset state of each pagination map when filters change)
+// - just set the cached filters as everything but the browse path (exclude it)
+// - let apollo detect the variables changed in each query
+// - move the cachedFilters to a top level context?
+
+ExpandableNode.StaticButton = ({ icon }: { icon: JSX.Element }) => {
+    return <ExpandableNode.BaseButton ghost size="small" type="ghost" icon={icon} />;
+};
+
+ExpandableNode.TriangleButton = ({
+    isOpen,
+    isVisible,
+    onClick,
+}: {
+    isOpen: boolean;
+    isVisible: boolean;
+    onClick?: () => void;
+}) => {
+    const onClickButton: MouseEventHandler = (e) => {
+        e.stopPropagation();
+        onClick?.();
+    };
+    return (
+        <ExpandableNode.RotatingButton
+            ghost
+            size="small"
+            type="ghost"
+            deg={isOpen ? 90 : 0}
+            icon={<VscTriangleRight style={{ color: ANTD_GRAY[9], visibility: isVisible ? 'visible' : 'hidden' }} />}
+            onClick={onClickButton}
+        />
+    );
+};
+
+ExpandableNode.CircleButton = ({ isOpen }: { isOpen: boolean }) => {
+    return (
+        <ExpandableNode.RotatingButton
+            ghost
+            size="small"
+            type="ghost"
+            deg={isOpen ? 0 : 180}
+            icon={<UpCircleOutlined style={{ color: isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7] }} />}
+        />
+    );
+};
 
 ExpandableNode.Body = styled.div``;
 
