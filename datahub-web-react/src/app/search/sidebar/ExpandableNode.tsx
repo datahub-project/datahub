@@ -39,8 +39,6 @@ const ExpandableNode = ({ isOpen, header, body }: ExpandableNodeProps) => {
     );
 };
 
-// todo - add a nice hover effect maybe?
-
 ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; showBorder?: boolean }>`
     display: flex;
     align-items: center;
@@ -56,9 +54,11 @@ ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: bo
         border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
         background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
         border-radius: 8px;
+        transition: box-shadow 100ms ease-in-out;
+        box-shadow: 'none';
     }
     &&:hover {
-        box-shadow: ${(props) => (props.isSelected ? 'none' : props.theme.styles['box-shadow-hover'])};
+        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
     }
 `;
 
