@@ -3,7 +3,7 @@
 New user accounts can be provisioned on DataHub in 3 ways:
 
 1. Shared Invite Links
-2. Single Sign-On using [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8) 
+2. Single Sign-On using [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8)
 3. Static Credential Configuration File (Self-Hosted Only)
 
 The first option is the easiest to get started with. The second is recommended for deploying DataHub in production. The third should
@@ -46,7 +46,6 @@ To reset the password, simply share the password reset link with the user who ne
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/reset-user-password-popup.png"/>
 </p>
 
-
 # Configuring Single Sign-On with OpenID Connect
 
 Setting up Single Sign-On via OpenID Connect enables your organization's users to login to DataHub via a central Identity Provider such as
@@ -59,13 +58,13 @@ Setting up Single Sign-On via OpenID Connect enables your organization's users t
 
 and many more.
 
-This option is strongly recommended for production deployments of DataHub. 
+This option is strongly recommended for production deployments of DataHub.
 
 ### Managed DataHub
 
 Single Sign-On can be configured and enabled by navigating to **Settings** > **SSO** > **OIDC**. Note
-that a user must have the **Manage Platform Settings** [Platform Privilege](../../authorization/access-policies-guide.md) 
-in order to configure SSO settings. 
+that a user must have the **Manage Platform Settings** [Platform Privilege](../../authorization/access-policies-guide.md)
+in order to configure SSO settings.
 
 To complete the integration, you'll need the following:
 
@@ -73,7 +72,7 @@ To complete the integration, you'll need the following:
 2. **Client Secret** - A shared secret to use for exchange between you and your identity provider
 3. **Discovery URL** - A URL where the OpenID settings for your identity provider can be discovered.
 
-These values can be obtained from your Identity Provider by following Step 1 on the [OpenID Connect Authentication](sso/configure-oidc-react.md)) Guide. 
+These values can be obtained from your Identity Provider by following Step 1 on the [OpenID Connect Authentication](sso/configure-oidc-react.md)) Guide.
 
 ### Self-Hosted DataHub
 
@@ -111,23 +110,23 @@ johndoe:johnspassword
 Once you've saved the file, simply start the DataHub containers & navigate to `http://localhost:9002/login`
 to verify that your new credentials work.
 
-To change or remove existing login credentials, edit and save the `user.props` file. Then restart DataHub containers. 
+To change or remove existing login credentials, edit and save the `user.props` file. Then restart DataHub containers.
 
 If you want to customize the location of the `user.props` file, or if you're deploying DataHub via Helm, proceed to Step 2.
 
 ### (Advanced) Mount custom user.props file to container
 
 This step is only required when mounting custom credentials into a Kubernetes pod (e.g. Helm) **or** if you want to change
-the default filesystem location from which DataHub mounts a custom `user.props` file (`${HOME}/.datahub/plugins/frontend/auth/user.props)`. 
+the default filesystem location from which DataHub mounts a custom `user.props` file (`${HOME}/.datahub/plugins/frontend/auth/user.props)`.
 
 If you are deploying with `datahub docker quickstart`, or running using Docker Compose, you can most likely skip this step.
 
 #### Docker Compose
 
-You'll need to modify the `docker-compose.yml` file to mount a container volume mapping your custom user.props to the standard location inside the container 
+You'll need to modify the `docker-compose.yml` file to mount a container volume mapping your custom user.props to the standard location inside the container
 (`/etc/datahub/plugins/frontend/auth/user.props`).
 
-For example, to mount a user.props file that is stored on my local filesystem at `/tmp/datahub/user.props`, we'd modify the YAML for the 
+For example, to mount a user.props file that is stored on my local filesystem at `/tmp/datahub/user.props`, we'd modify the YAML for the
 `datahub-web-react` config to look like the following:
 
 ```aidl
@@ -147,7 +146,7 @@ Once you've made this change, restarting DataHub enable authentication for the c
 
 #### Helm
 
-You'll need to create a Kubernetes secret, then mount the file as a volume to the `datahub-frontend` pod. 
+You'll need to create a Kubernetes secret, then mount the file as a volume to the `datahub-frontend` pod.
 
 First, create a secret from your local `user.props` file
 
@@ -182,42 +181,7 @@ kubectl create secret generic datahub-users-secret --from-file=user.props=./<pat
 
 ## Changing the default 'datahub' user credentials (Recommended)
 
-The 'datahub' root user is created for you by default. This user is controlled via a user.props file which [JaaS Authentication](./jaas.md) is configured to use:
-
-By default, the credential file looks like this for each and every self-hosted DataHub deployment: 
-
-```
-// default user.props
-datahub:datahub
-```
-
-Obviously, this is not ideal from a security perspective. It is highly recommended that this file
-is changed *prior* to deploying DataHub to production at your organization.
-
-To change the default password for this user, or remove it altogether:
-
-1. **Create a new config file**: Create a new version of `user.props` which defines the updated password for the datahub user.
-To remove this user, simply omit the username 'datahub' from the new file. For example, to change the
-password for the DataHub root user to 'newpassword', your file would contain the following:
-
-   ```
-   // new user.props
-   datahub:newpassword
-   ```
-
-2. **Mount the updated config file**: Change the `docker-compose.yaml` to mount an updated user.props file to the following location inside the `datahub-frontend-react` container using a volume:
-   `/datahub-frontend/conf/user.props`
-
-2. **Restart DataHub**: Restart the DataHub containers or pods to pick up the new configs
-
-
-If you're deploying using the CLI quickstart, you can simply download a copy of the [docker-compose file used in quickstart](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml),
-and modify the `datahub-frontend-react` block to contain the extra volume mount. Then run
-
-```
-datahub docker quickstart —quickstart-compose-file <your-modified-compose>.yml
-```
-
+Please refer to [Changing the default user credentials](../changing-default-credentials.md).
 
 ## Caveats
 
@@ -234,13 +198,12 @@ to find the user via search.
 
 For a more comprehensive overview of how users & groups are managed within DataHub, check out [this video](https://www.youtube.com/watch?v=8Osw6p9vDYY).
 
-
 ## FAQ
 
-1. Can I enable OIDC and username / password (JaaS) authentication at the same time? 
+1. Can I enable OIDC and username / password (JaaS) authentication at the same time?
 
 YES! If you have not explicitly disabled JaaS via an environment variable on the datahub-frontend container (AUTH_JAAS_ENABLED),
-then you can always access the standard login flow at `http://your-datahub-url.com/login`. 
+then you can always access the standard login flow at `http://your-datahub-url.com/login`.
 
 ## Feedback / Questions / Concerns
 

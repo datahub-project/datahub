@@ -149,6 +149,7 @@ module.exports = {
           Authentication: [
             "docs/authentication/README",
             "docs/authentication/concepts",
+            "docs/authentication/changing-default-credentials",
             "docs/authentication/guides/add-users",
             {
               "Frontend Authentication": [
