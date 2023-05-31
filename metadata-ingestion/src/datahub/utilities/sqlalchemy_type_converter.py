@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Union, Dict, Type, Any, Optional
+from typing import Any, Dict, Optional, Type, Union
 
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
