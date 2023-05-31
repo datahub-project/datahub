@@ -1,0 +1,42 @@
+query getJoin($urn: String!) {
+    join(urn: $urn) {
+        urn
+        type
+        joinId
+        properties {
+            ...joinPropertiesFields
+        }
+        editableProperties {
+            ...joinEditablePropertiesFields
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        status {
+            removed
+        }
+        container {
+            ...entityContainer
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        outgoing: relationships(
+            input: { types: ["JoinA", "JoinB"], direction: OUTGOING, start: 0, count: 100 }
+        ) {
+            ...fullRelationshipResults
+        }
+        browsePaths {
+            path
+        }
+    }
+}

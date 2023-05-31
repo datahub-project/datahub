@@ -631,6 +631,17 @@ fragment searchResultFields on Entity {
             ...parentContainersFields
         }
     }
+    ... on Join {
+        urn
+        type
+        joinId
+        properties {
+            ...joinPropertiesFields
+        }
+        editableProperties {
+            ...joinEditablePropertiesFields
+        }
+    }
     ... on MLFeatureTable {
         name
         description
@@ -706,6 +717,17 @@ fragment searchResultFields on Entity {
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields
+    }
+    ... on Join {
+        urn
+        type
+        joinId
+        properties {
+            ...joinPropertiesFields
+        }
+        editableProperties {
+            ...joinEditablePropertiesFields
+        }
     }
 }
 
@@ -802,6 +824,28 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     }
 }
 
+fragment searchResultsWithRelationships on SearchResults {
+    start
+    count
+    total
+    searchResults {
+        entity {
+            ...searchResultFieldsWithRelationships
+        }
+        matchedFields {
+            name
+            value
+        }
+        insights {
+            text
+            icon
+        }
+    }
+    facets {
+        ...facetFields
+    }
+}
+
 fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     start
     count
@@ -850,12 +894,23 @@ query getSearchResults($input: SearchInput!) {
     }
 }
 
+query getSearchResultsWithRelationships($input: SearchInput!) {
+    search(input: $input) {
+        ...searchResultsWithRelationships
+    }
+}
+
 query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         ...searchResults
     }
 }
 
+query getSearchResultsForMultipleWithRelationships($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        ...searchResultsWithRelationships
+    }
+}
 query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults

@@ -9,11 +9,21 @@ record FieldMap {
   /**
    * All fields from dataset A that are required for the join, maps to bFields 1:1
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   afield: SchemaFieldPath
 
   /**
    * All fields from dataset B that are required for the join, maps to aFields 1:1
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   bfield: SchemaFieldPath
 
 }

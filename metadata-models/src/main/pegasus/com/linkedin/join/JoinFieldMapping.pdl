@@ -6,6 +6,7 @@ import com.linkedin.dataset.SchemaFieldPath
  * Field Mapping about a join between two datasets
  */
 record JoinFieldMapping {
+
   /**
    * All fields from dataset A that are required for the join to dataset B
    */
@@ -14,5 +15,10 @@ record JoinFieldMapping {
   /**
    *  Any transformation logic or notes pertaining to this specific join
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   details: string
 }

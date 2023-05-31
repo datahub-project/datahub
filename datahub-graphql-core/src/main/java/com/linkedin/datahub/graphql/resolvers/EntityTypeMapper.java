@@ -36,6 +36,7 @@ public class EntityTypeMapper {
           .put(EntityType.NOTEBOOK, "notebook")
           .put(EntityType.DATA_PLATFORM_INSTANCE, "dataPlatformInstance")
           .put(EntityType.TEST, "test")
+          .put(EntityType.JOIN, Constants.JOIN_ENTITY_NAME)
           .put(EntityType.DATAHUB_VIEW, Constants.DATAHUB_VIEW_ENTITY_NAME)
           .build();
 

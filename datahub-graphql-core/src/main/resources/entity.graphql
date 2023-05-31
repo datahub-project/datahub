@@ -70,6 +70,11 @@ type Query {
     tag(urn: String!): Tag
 
     """
+    Fetch a Join by primary key (urn)
+    """
+    join(urn: String!): Join
+
+    """
     Fetch a Glossary Term by primary key (urn)
     """
     glossaryTerm(urn: String!): GlossaryTerm
@@ -185,6 +190,11 @@ type Query {
     getInviteToken(input: GetInviteTokenInput!): InviteToken
 
     """
+    List all Join
+    """
+    listJoin(input: ListJoinInput!): ListJoinResult
+
+    """
     List all Posts
     """
     listPosts(input: ListPostsInput!): ListPostsResult
@@ -211,6 +221,200 @@ type Query {
     """
     getQuickFilters(input: GetQuickFiltersInput!): GetQuickFiltersResult
 }
+
+"""
+Input provided when listing existing join
+"""
+input ListJoinInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Roles to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+"""
+The result obtained when listing Join
+"""
+type ListJoinResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Join in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Join in the result set
+    """
+    total: Int!
+
+    """
+    The Join themselves
+    """
+    join: [Join!]!
+}
+
+
+"""
+A Join is a high-level abstraction that dictates what datasets fields are joined.
+"""
+type Join implements EntityWithRelationships & Entity & BrowsableEntity {
+    """
+    The primary key of the role
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Unique id for the join
+    """
+    joinId: String!
+
+    """
+    An additional set of read only properties
+    """
+    properties: JoinProperties
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: JoinEditableProperties
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    Status of the Dataset
+    """
+    status: Status
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the dataset. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
+}
+
+"""
+Additional properties about a Join
+"""
+type JoinEditableProperties {
+
+    """
+    Documentation of the Join
+    """
+    description: String
+    """
+    Display name of the Join
+    """
+    name: String
+}
+
+"""
+Additional properties about a Join
+"""
+type JoinProperties {
+
+    """
+    The name of the Join used in display
+    """
+    name: String!
+    """
+    The urn of datasetA
+    """
+    datasetA: String!
+
+    """
+    The urn of datasetB
+    """
+    datasetB: String!
+
+    """
+    The joinFieldMappings
+    """
+    joinFieldMappings: [JoinFieldMapping!]
+
+}
+
+"""
+Join Field Mapping
+"""
+type JoinFieldMapping {
+    """
+    The Array of FieldMap
+    """
+    fieldMapping: [FieldMap!]
+    """
+    Any transformation logic or notes pertaining to this specific join
+    """
+    details: String!
+}
+
+"""
+Join FieldMap
+"""
+type FieldMap {
+    """
+    afield
+    """
+    afield: String!
+    """
+    bfield
+    """
+    bfield: String!
+}
+
 
 """
 Root type used for updating DataHub Metadata
@@ -440,6 +644,31 @@ type Mutation {
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
+
+    """
+    Create a new DataHub View (Saved Filter)
+    """
+    createJoin(
+        "Input required to create a new Join"
+        input: JoinUpdateInput!): Join
+
+    """
+    Update a Join
+    """
+    updateJoin(
+        "The urn of the Join to update"
+        urn: String!,
+        "Input required to updat an existing DataHub View"
+        input: JoinUpdateInput!): Join
+
+    """
+    Delete a Join
+    """
+    deleteJoin(
+        "The urn of the Join to delete"
+        urn: String!): Boolean
+
+
 
     """
     Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
@@ -676,6 +905,11 @@ enum EntityType {
     The DataPlatform Entity
     """
     DATA_PLATFORM
+
+    """
+    The Join Entity
+    """
+    JOIN
 
     """
     The Dashboard Entity
@@ -4098,6 +4332,21 @@ input DatasetEditablePropertiesUpdate {
 }
 
 """
+Update to writable Dataset fields
+"""
+input JoinEditablePropertiesUpdate {
+    """
+    Display name of the Join
+    """
+    name: String
+
+    """
+    Writable description for Join
+    """
+    description: String!
+}
+
+"""
 Update to writable Chart fields
 """
 input ChartEditablePropertiesUpdate {
@@ -4213,6 +4462,82 @@ input CreateTagInput {
   Optional description for the Tag
   """
   description: String
+}
+
+"""
+Input required to create/update a new Join
+"""
+input JoinUpdateInput {
+    """
+    Details about the Join
+    """
+    properties: JoinPropertiesInput
+    """
+    Update to editable properties
+    """
+    editableProperties: JoinEditablePropertiesUpdate
+    """
+    Update to institutional memory, ie documentation
+    """
+    institutionalMemory: InstitutionalMemoryUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
+    """
+    Update to tags
+    """
+    tags: GlobalTagsUpdate
+}
+
+"""
+Details about the Join
+"""
+input JoinPropertiesInput {
+    """
+    Details about the Join
+    """
+    name: String!
+    """
+    Details about the Join
+    """
+    dataSetA: String!
+    """
+    Details about the Join
+    """
+    datasetB: String!
+    """
+    Details about the Join
+    """
+    joinFieldmappings: JoinFieldMappingInput!
+
+}
+
+"""
+Details about the Join
+"""
+input JoinFieldMappingInput {
+    """
+    Details about the Join
+    """
+    fieldMapping: [FieldMappingInput]
+    """
+    Details about the Join
+    """
+    details: String
+}
+"""
+Details about the Join
+"""
+input FieldMappingInput {
+    """
+    Details about the Join
+    """
+    afield: String
+    """
+    Details about the Join
+    """
+    bfield: String
 }
 
 """

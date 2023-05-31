@@ -13,7 +13,7 @@ import com.linkedin.common.CustomProperties
 record JoinProperties includes CustomProperties {
 
   /**
-   * Display name of the Join
+   * Name of the Join
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
@@ -29,6 +29,11 @@ record JoinProperties includes CustomProperties {
      "name": "joinA",
      "entityTypes": [ "dataset" ]
    }
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   datasetA: DatasetUrn
 
   /**
@@ -38,12 +43,17 @@ record JoinProperties includes CustomProperties {
      "name": "joinB",
      "entityTypes": [ "dataset" ]
    }
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   datasetB: DatasetUrn
 
   /**
-   * Array of JoinFieldMapping
+   * JoinFieldMapping (in future we can make it an array)
    */
-  joinFieldMappings: array[JoinFieldMapping]
+  joinFieldMappings: JoinFieldMapping
 
   /**
    * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)

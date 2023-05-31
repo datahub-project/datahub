@@ -224,6 +224,17 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
+    ... on Join {
+        urn
+        type
+        joinId
+        properties {
+            ...joinPropertiesFields
+        }
+        editableProperties {
+            ...joinEditablePropertiesFields
+        }
+    }
 }
 
 fragment lineageFields on EntityWithRelationships {

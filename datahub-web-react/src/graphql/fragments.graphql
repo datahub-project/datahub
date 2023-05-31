@@ -907,3 +907,25 @@ fragment inputFieldsFields on InputFields {
         }
     }
 }
+
+fragment joinPropertiesFields on JoinProperties {
+    name
+    datasetA
+    datasetB
+    joinFieldMappings {
+        ...joinFieldMappingFields
+    }
+}
+
+fragment joinFieldMappingFields on JoinFieldMapping {
+    fieldMapping {
+        afield
+        bfield
+    }
+    details
+}
+
+fragment joinEditablePropertiesFields on JoinEditableProperties {
+    description
+    name
+}

@@ -11,12 +11,12 @@ public class JoinUrn extends Urn {
 
   private final String _joinId;
 
-  public JoinUrn(String name) {
-    super(ENTITY_TYPE, TupleKey.create(name));
-    this._joinId = name;
+  public JoinUrn(String joinId) {
+    super(ENTITY_TYPE, TupleKey.create(joinId));
+    this._joinId = joinId;
   }
 
-  public String getName() {
+  public String getJoinIdEntity() {
     return _joinId;
   }
 
