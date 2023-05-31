@@ -46,7 +46,6 @@ workbook_graphql_query = """
       luid
       uri
       projectName
-      projectLuid
       owner {
         username
       }
@@ -89,7 +88,7 @@ sheet_graphql_query = """
         id
         name
         projectName
-        projectLuid
+        luid
         owner {
           username
         }
@@ -167,7 +166,7 @@ dashboard_graphql_query = """
         id
         name
         projectName
-        projectLuid
+        luid
         owner {
           username
         }
@@ -251,7 +250,7 @@ embedded_datasource_graphql_query = """
         id
         name
         projectName
-        projectLuid
+        luid
         owner {
           username
         }
@@ -264,7 +263,6 @@ custom_sql_graphql_query = """
       id
       name
       query
-      isUnsupportedCustomSql
       columns {
         id
         name
@@ -295,7 +293,7 @@ custom_sql_graphql_query = """
                 id
                 name
                 projectName
-                projectLuid
+                luid
               }
             }
           }
@@ -625,7 +623,9 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
         unique_csql = {
             "id": custom_sql.get("id"),
             "name": custom_sql.get("name"),
-            "isUnsupportedCustomSql": custom_sql.get("isUnsupportedCustomSql"),
+            # We assume that this is unsupported custom sql if "actual tables that this query references"
+            # are missing from api result.
+            "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
             "query": custom_sql.get("query"),
             "columns": custom_sql.get("columns"),
             "tables": custom_sql.get("tables"),

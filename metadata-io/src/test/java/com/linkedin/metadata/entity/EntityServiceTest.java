@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -9,6 +10,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.TupleKey;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
@@ -58,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -1148,6 +1151,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected <T extends RecordTemplate> T simulatePullFromDB(T aspect, Class<T> clazz) throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     }
     
@@ -1190,6 +1196,66 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         }
     }
 
+    @Test
+    public void testValidateUrn() throws Exception {
+        // Valid URN
+        Urn validTestUrn = new Urn("li", "testType", new TupleKey("testKey"));
+        EntityService.validateUrn(validTestUrn);
+
+        // URN with trailing whitespace
+        Urn testUrnWithTrailingWhitespace = new Urn("li", "testType", new TupleKey("testKey   "));
+        try {
+            EntityService.validateUrn(testUrnWithTrailingWhitespace);
+            Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: cannot provide an URN with leading or trailing whitespace");
+
+        }
+
+        // Urn purely too long
+        StringBuilder buildStringTooLong = new StringBuilder();
+        for (int i = 0; i < 510; i++) {
+            buildStringTooLong.append('a');
+        }
+
+        Urn testUrnTooLong = new Urn("li", "testType", new TupleKey(buildStringTooLong.toString()));
+        try {
+            EntityService.validateUrn(testUrnTooLong);
+            Assert.fail("Should have raised IllegalArgumentException for URN too long");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
+        }
+
+        // Urn too long when URL encoded
+        StringBuilder buildStringTooLongWhenEncoded = new StringBuilder();
+        StringBuilder buildStringSameLengthWhenEncoded = new StringBuilder();
+        for (int i = 0; i < 200; i++) {
+            buildStringTooLongWhenEncoded.append('>');
+            buildStringSameLengthWhenEncoded.append('a');
+        }
+        Urn testUrnTooLongWhenEncoded = new Urn("li", "testType", new TupleKey(buildStringTooLongWhenEncoded.toString()));
+        Urn testUrnSameLengthWhenEncoded = new Urn("li", "testType", new TupleKey(buildStringSameLengthWhenEncoded.toString()));
+        // Same length when encoded should be allowed, the encoded one should not be
+        EntityService.validateUrn(testUrnSameLengthWhenEncoded);
+        try {
+            EntityService.validateUrn(testUrnTooLongWhenEncoded);
+            Assert.fail("Should have raised IllegalArgumentException for URN too long");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
+        }
+
+        // Urn containing disallowed character
+        Urn testUrnSpecialCharValid = new Urn("li", "testType", new TupleKey("entity␇"));
+        Urn testUrnSpecialCharInvalid = new Urn("li", "testType", new TupleKey("entity␟"));
+        EntityService.validateUrn(testUrnSpecialCharValid);
+        try {
+            EntityService.validateUrn(testUrnSpecialCharInvalid);
+            Assert.fail("Should have raised IllegalArgumentException for URN containing the illegal char");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: URN cannot contain ␟ character");
+        }
+    }
+
     @Nonnull
     protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
         CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);
@@ -1209,6 +1275,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
         return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
     }

@@ -10,21 +10,19 @@ export function useInitialRedirect(state, localState, setState, setLocalState) {
      * Route to the most recently visited path once on first load of home page, if present in local storage.
      */
     useEffect(() => {
-        if (
-            location.pathname === PageRoutes.ROOT &&
-            !state.loadedInitialPath &&
-            localState.selectedPath !== location.pathname
-        ) {
+        if (!state.loadedInitialPath) {
+            if (location.pathname === PageRoutes.ROOT && localState.selectedPath !== location.pathname) {
+                if (localState.selectedPath && !localState.selectedPath.includes(PageRoutes.EMBED)) {
+                    history.replace({
+                        pathname: localState.selectedPath,
+                        search: localState.selectedSearch || '',
+                    });
+                }
+            }
             setState({
                 ...state,
                 loadedInitialPath: true,
             });
-            if (localState.selectedPath && !localState.selectedPath.includes(PageRoutes.EMBED)) {
-                history.replace({
-                    pathname: localState.selectedPath,
-                    search: localState.selectedSearch || '',
-                });
-            }
         }
     }, [
         localState.selectedPath,

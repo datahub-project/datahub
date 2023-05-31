@@ -199,6 +199,7 @@ def run(
 
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
+    connection_report = None
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
         logger.info(connection_report.as_json())
@@ -231,6 +232,31 @@ def parse_restli_response(response):
         exit()
 
     return rows
+
+
+@ingest.command()
+@click.argument("path", type=click.Path(exists=True))
+def mcps(path: str) -> None:
+    """
+    Ingest metadata from a mcp json file or directory of files.
+
+    This requires that you've run `datahub init` to set up your config.
+    """
+
+    click.echo("Starting ingestion...")
+    recipe: dict = {
+        "source": {
+            "type": "file",
+            "config": {
+                "path": path,
+            },
+        },
+    }
+
+    pipeline = Pipeline.create(recipe)
+    pipeline.run()
+    ret = pipeline.pretty_print_summary()
+    sys.exit(ret)
 
 
 @ingest.command()

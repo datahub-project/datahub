@@ -44,6 +44,7 @@ html[data-theme="dark"] {
   --ifm-heading-color: #ffffff;
   --ifm-hr-border-color: #313131;
   --ifm-background-surface-color: #0b0b0b;
+  --ifm-hr-background-color: rgba(255, 255, 255, 0.1);
 
   .button--primary {
     color: #fff;
@@ -227,7 +228,7 @@ div[class^="announcementBar"] {
 .quickstart__codeblock {
   text-align: left;
   padding: 0 20vh;
-  }
+}
 
 .theme-doc-sidebar-menu ul li.saasOnly a.menu__link {
   &:after {
@@ -283,4 +284,19 @@ div[class^="announcementBar"] {
   /* Footer */
   --docsearch-footer-background: var(--ifm-background-surface-color);
   --docsearch-key-gradient: linear-gradient(-26.5deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-color-emphasis-100) 100%);
+}
+
+.theme-doc-sidebar-item-category-level-1 > div > a:first-child {
+  color: var(--ifm-navbar-link-color);
+  font-size: 17px;
+}
+
+.theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
+  color: var(--ifm-menu-color-active);
+  font-size: 17px;
+}
+
+/* Increase padding for levels greater than 1 */
+[class^="theme-doc-sidebar-item"][class*="-level-"]:not(.theme-doc-sidebar-item-category-level-1) {
+  padding-left: 8px;
 }

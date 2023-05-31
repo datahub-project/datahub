@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "snowflake",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "test_db"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/",
@@ -118,7 +118,7 @@
         "json": {
             "customProperties": {
                 "platform": "snowflake",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "test_db",
                 "schema": "test_schema"
             },
@@ -3634,9 +3634,28 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
                     "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.table_1,PROD)",
+                    "type": "TRANSFORMED"
                 }
             ],
             "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.table_1,PROD),col_1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [

@@ -159,12 +159,6 @@ timestamp < "{end_time}"
             of upstream tables identifiers.
         """
         logger.info("Populating lineage info via Catalog Data Linage API")
-        #  Data Catalog API version 0.2.0 don't export views lineage, but future versions can cover it
-        #  NOTE: Users can enable to parse views DDL to build views lineage
-        if self.config.include_views:
-            logger.warning(
-                "It's not possible to extract views lineage from Catalog API. Views will be ignored."
-            )
 
         # Regions to search for BigQuery tables: projects/{project_id}/locations/{region}
         enabled_regions: List[str] = ["US", "EU"]
@@ -176,12 +170,12 @@ timestamp < "{end_time}"
             datasets = list(bigquery_client.list_datasets(project_id))
             project_tables = []
             for dataset in datasets:
-                # Enables only tables where type is TABLE (removes VIEWS)
+                # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
                 project_tables.extend(
                     [
                         table
                         for table in bigquery_client.list_tables(dataset.dataset_id)
-                        if table.table_type == "TABLE"
+                        if table.table_type in ["TABLE", "VIEW", "MATERIALIZED_VIEW"]
                     ]
                 )
 
@@ -199,7 +193,7 @@ timestamp < "{end_time}"
             curr_date = datetime.now()
             for table in project_tables:
                 logger.info("Creating lineage map for table %s", table)
-                upstreams = []
+                upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
                 # fully_qualified_name in format: "bigquery:<project_id>.<dataset_id>.<table_id>"
                 downstream_table.fully_qualified_name = f"bigquery:{table}"
@@ -210,7 +204,7 @@ timestamp < "{end_time}"
                         parent=f"projects/{project_id}/locations/{region.lower()}",
                     )
                     response = lineage_client.search_links(request=location_request)
-                    upstreams.extend(
+                    upstreams.update(
                         [
                             str(lineage.source.fully_qualified_name).replace(
                                 "bigquery:", ""
@@ -450,11 +444,13 @@ timestamp < "{end_time}"
                 self.report.num_skipped_lineage_entries_not_allowed[e.project_id] += 1
                 continue
 
+            lineage_from_event: Set[LineageEdge] = set()
+
             destination_table_str = str(e.destinationTable)
             has_table = False
             for ref_table in e.referencedTables:
                 if str(ref_table) != destination_table_str:
-                    lineage_map[destination_table_str].add(
+                    lineage_from_event.add(
                         LineageEdge(
                             table=str(ref_table),
                             auditStamp=e.end_time
@@ -466,7 +462,7 @@ timestamp < "{end_time}"
             has_view = False
             for ref_view in e.referencedViews:
                 if str(ref_view) != destination_table_str:
-                    lineage_map[destination_table_str].add(
+                    lineage_from_event.add(
                         LineageEdge(
                             table=str(ref_view),
                             auditStamp=e.end_time
@@ -475,7 +471,10 @@ timestamp < "{end_time}"
                         )
                     )
                     has_view = True
-            if self.config.lineage_use_sql_parser and has_table and has_view:
+
+            if not lineage_from_event:
+                self.report.num_skipped_lineage_entries_other[e.project_id] += 1
+            elif self.config.lineage_use_sql_parser and has_table and has_view:
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
@@ -496,15 +495,14 @@ timestamp < "{end_time}"
                         e.project_id
                     ] += 1
                     continue
-                curr_lineage = lineage_map[destination_table_str]
                 new_lineage = set()
-                for lineage in curr_lineage:
+                for lineage in lineage_from_event:
                     name = lineage.table.split("/")[-1]
                     if name in referenced_objs:
                         new_lineage.add(lineage)
-                lineage_map[destination_table_str] = new_lineage
-            if not (has_table or has_view):
-                self.report.num_skipped_lineage_entries_other[e.project_id] += 1
+                lineage_from_event = new_lineage
+
+            lineage_map[destination_table_str].update(lineage_from_event)
 
         logger.info("Exiting create lineage map function")
         return lineage_map
@@ -560,7 +558,7 @@ timestamp < "{end_time}"
     def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[LineageEdge]]:
         lineage_metadata: Dict[str, Set[LineageEdge]]
         try:
-            if self.config.extract_lineage_from_catalog and self.config.include_tables:
+            if self.config.extract_lineage_from_catalog:
                 lineage_metadata = self.lineage_via_catalog_lineage_api(project_id)
             else:
                 events = self._get_parsed_audit_log_events(project_id)

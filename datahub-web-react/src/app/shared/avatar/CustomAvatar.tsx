@@ -7,9 +7,9 @@ import styled from 'styled-components';
 import defaultAvatar from '../../../images/default_avatar.png';
 import getAvatarColor from './getAvatarColor';
 
-const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor: string }>`
+const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor?: string }>`
     color: #fff;
-    background-color: ${(props) => props.$backgroundColor};
+    background-color: ${(props) => (props.$backgroundColor ? `${props.$backgroundColor}` : 'transparent')};
     font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 12)}px` : '14px')} !important;
     margin-right: 4px;
     height: 24px;
@@ -33,6 +33,7 @@ type Props = {
     isGroup?: boolean;
     isPolicy?: boolean;
     isRole?: boolean;
+    hideTooltip?: boolean;
 };
 
 // TODO: Refactor Policy and Role to NOT use CustomAvatar and use a clickable link instead
@@ -47,6 +48,7 @@ export default function CustomAvatar({
     isGroup = false,
     isPolicy = false,
     isRole = false,
+    hideTooltip = false,
 }: Props) {
     const avatarWithInitial = name ? (
         <AvatarStyled style={style} size={size} $backgroundColor={getAvatarColor(name)}>
@@ -61,11 +63,7 @@ export default function CustomAvatar({
         avatarWithInitial
     );
     const avatar =
-        photoUrl && photoUrl !== '' ? (
-            <AvatarStyled src={photoUrl} style={style} size={size} $backgroundColor={getAvatarColor(name)} />
-        ) : (
-            avatarWithDefault
-        );
+        photoUrl && photoUrl !== '' ? <AvatarStyled src={photoUrl} style={style} size={size} /> : avatarWithDefault;
     if (!name) {
         return url ? <Link to={url}>{avatar}</Link> : avatar;
     }
@@ -82,9 +80,13 @@ export default function CustomAvatar({
         return title;
     };
 
-    return (
+    const linkNode = url ? <Link to={url}>{avatar}</Link> : avatar;
+
+    return hideTooltip ? (
+        linkNode
+    ) : (
         <Tooltip title={renderTitle(name)} placement={placement}>
-            {url ? <Link to={url}>{avatar}</Link> : avatar}
+            {linkNode}
         </Tooltip>
     );
 }

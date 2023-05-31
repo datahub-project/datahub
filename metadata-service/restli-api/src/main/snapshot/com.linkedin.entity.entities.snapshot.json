@@ -82,7 +82,10 @@
           }
         },
         "doc" : "URL where the reference exist",
-        "optional" : true
+        "optional" : true,
+        "Searchable" : {
+          "fieldType" : "KEYWORD"
+        }
       } ]
     } ],
     "fields" : [ {
@@ -168,7 +171,10 @@
       "name" : "chartUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
     }, {
       "name" : "inputs",
       "type" : {
@@ -193,11 +199,12 @@
           "type" : "record",
           "name" : "Edge",
           "namespace" : "com.linkedin.common",
-          "doc" : "Information about a relatonship edge.",
+          "doc" : "A common structure to represent all edges to entities when used inside aspects as collections\nThis ensures that all edges have common structure around audit-stamps and will support PATCH, time-travel automatically.\n",
           "fields" : [ {
             "name" : "sourceUrn",
             "type" : "Urn",
-            "doc" : "Urn of the source of this relationship edge."
+            "doc" : "Urn of the source of this relationship edge.\nIf not specified, assumed to be the entity that this aspect belongs to.",
+            "optional" : true
           }, {
             "name" : "destinationUrn",
             "type" : "Urn",
@@ -205,11 +212,13 @@
           }, {
             "name" : "created",
             "type" : "AuditStamp",
-            "doc" : "Audit stamp containing who created this relationship edge and when"
+            "doc" : "Audit stamp containing who created this relationship edge and when",
+            "optional" : true
           }, {
             "name" : "lastModified",
             "type" : "AuditStamp",
-            "doc" : "Audit stamp containing who last modified this relationship edge and when"
+            "doc" : "Audit stamp containing who last modified this relationship edge and when",
+            "optional" : true
           }, {
             "name" : "properties",
             "type" : {
@@ -844,18 +853,7 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag",
-            "Relationship" : {
-              "entityTypes" : [ "tag" ],
-              "name" : "TaggedWith"
-            },
-            "Searchable" : {
-              "addToFilters" : true,
-              "fieldName" : "tags",
-              "fieldType" : "URN",
-              "filterNameOverride" : "Tag",
-              "hasValuesFieldName" : "hasTags"
-            }
+            "doc" : "Urn of the applied tag"
           }, {
             "name" : "context",
             "type" : "string",
@@ -865,12 +863,20 @@
         }
       },
       "doc" : "Tags associated with a given entity",
+      "Relationship" : {
+        "/*/tag" : {
+          "entityTypes" : [ "tag" ],
+          "name" : "TaggedWith"
+        }
+      },
       "Searchable" : {
         "/*/tag" : {
           "addToFilters" : true,
           "boostScore" : 0.5,
           "fieldName" : "tags",
           "fieldType" : "URN",
+          "filterNameOverride" : "Tag",
+          "hasValuesFieldName" : "hasTags",
           "queryByDefault" : true
         }
       }
@@ -1130,10 +1136,11 @@
         "type" : "enum",
         "name" : "OwnershipType",
         "doc" : "Asset owner types",
-        "symbols" : [ "TECHNICAL_OWNER", "BUSINESS_OWNER", "DATA_STEWARD", "NONE", "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+        "symbols" : [ "CUSTOM", "TECHNICAL_OWNER", "BUSINESS_OWNER", "DATA_STEWARD", "NONE", "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
         "symbolDocs" : {
           "BUSINESS_OWNER" : "A person or group who is responsible for logical, or business related, aspects of the asset.",
           "CONSUMER" : "A person, group, or service that consumes the data\nDeprecated! Use TECHNICAL_OWNER or BUSINESS_OWNER instead.",
+          "CUSTOM" : "Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no\nenum value for. This is used for backwards compatibility",
           "DATAOWNER" : "A person or group that is owning the data\nDeprecated! Use TECHNICAL_OWNER instead.",
           "DATA_STEWARD" : "A steward, expert, or delegate responsible for the asset.",
           "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
@@ -1152,7 +1159,17 @@
           "STAKEHOLDER" : true
         }
       },
-      "doc" : "The type of the ownership"
+      "doc" : "The type of the ownership",
+      "deprecated" : true
+    }, {
+      "name" : "typeUrn",
+      "type" : "Urn",
+      "doc" : "The type of the ownership\nUrn of type O",
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "ownershipType" ],
+        "name" : "ownershipType"
+      }
     }, {
       "name" : "source",
       "type" : {
@@ -1364,7 +1381,10 @@
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
     }, {
       "name" : "access",
       "type" : "com.linkedin.common.AccessLevel",
@@ -1811,7 +1831,7 @@
           } ]
         }
       },
-      "doc" : "Fine-grained column-level lineages",
+      "doc" : "Fine-grained column-level lineages\nNot currently supported in the UI\nUse UpstreamLineage aspect for datasets to express Column Level Lineage for the UI",
       "optional" : true
     } ],
     "Aspect" : {
@@ -3041,9 +3061,19 @@
                         "type" : "string",
                         "doc" : "The native kafka document schema. This is a human readable avro document schema."
                       }, {
+                        "name" : "documentSchemaType",
+                        "type" : "string",
+                        "doc" : "The native kafka document schema type. This can be AVRO/PROTOBUF/JSON.",
+                        "optional" : true
+                      }, {
                         "name" : "keySchema",
                         "type" : "string",
                         "doc" : "The native kafka key schema as retrieved from Schema Registry",
+                        "optional" : true
+                      }, {
+                        "name" : "keySchemaType",
+                        "type" : "string",
+                        "doc" : "The native kafka key schema type. This can be AVRO/PROTOBUF/JSON.",
                         "optional" : true
                       } ]
                     }, {
@@ -3106,8 +3136,10 @@
                           "type" : "com.linkedin.dataset.SchemaFieldPath",
                           "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
                           "Searchable" : {
+                            "boostScore" : 5.0,
                             "fieldName" : "fieldPaths",
-                            "fieldType" : "TEXT"
+                            "fieldType" : "TEXT",
+                            "queryByDefault" : "true"
                           }
                         }, {
                           "name" : "jsonPath",
@@ -5641,11 +5673,12 @@
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query.filter",
     "doc" : "The matching condition in a filter criterion",
-    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IS_NULL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
     "symbolDocs" : {
       "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
       "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
       "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "EXISTS" : "Represents the relation: field exists and is non-empty, e.g. owners is not null and != [] (empty)",
       "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
       "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
       "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",

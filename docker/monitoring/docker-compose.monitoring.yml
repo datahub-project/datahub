@@ -1,17 +1,6 @@
 ---
-version: '3.8'
+version: '3.9'
 services:
-  datahub-gms:
-    environment:
-      - ENABLE_PROMETHEUS=true
-      - ENABLE_OTEL=true
-      - OTEL_TRACES_EXPORTER=jaeger
-      - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
-      - OTEL_METRICS_EXPORTER=none
-      - OTEL_SERVICE_NAME=datahub-gms
-    ports:
-      - "4318"
-
   datahub-frontend-react:
     environment:
       - ENABLE_PROMETHEUS=true
@@ -21,34 +10,39 @@ services:
       - OTEL_METRICS_EXPORTER=none
       - OTEL_SERVICE_NAME=datahub-gms
     ports:
-      - "4318"
-
-  # Jaeger
-  jaeger-all-in-one:
-    image: jaegertracing/all-in-one:latest
+      - '4318'
+  datahub-gms:
+    environment:
+      - ENABLE_PROMETHEUS=true
+      - ENABLE_OTEL=true
+      - OTEL_TRACES_EXPORTER=jaeger
+      - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_SERVICE_NAME=datahub-gms
     ports:
-      - "16686:16686"
-      - "14268"
-      - "14250"
-
-  prometheus:
-    container_name: prometheus
-    image: prom/prometheus:latest
-    volumes:
-      - ./monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9089:9090"
-
+      - '4318'
   grafana:
     image: grafana/grafana:9.1.4
     ports:
-      - "3001:3000"
+      - 3001:3000
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
     depends_on:
       - prometheus
-
+  jaeger-all-in-one:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - 16686:16686
+      - '14268'
+      - '14250'
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9089:9090
 volumes:
   grafana-storage:

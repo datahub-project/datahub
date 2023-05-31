@@ -1,6 +1,7 @@
 package com.datahub.telemetry;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
@@ -37,6 +38,10 @@ public class TrackingServiceTest {
   private static final String ACTOR_URN_STRING = "urn:li:corpuser:user";
   private static final String HASHED_ACTOR_URN_STRING = "hashedActorUrn";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
   private Urn _clientIdUrn;
   private JSONObject _mixpanelMessage;
   private MixpanelAPI _mixpanelAPI;

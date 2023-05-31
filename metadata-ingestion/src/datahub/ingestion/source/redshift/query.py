@@ -10,19 +10,19 @@ class RedshiftQuery:
         AND (datname <> ('template1')::name)
         """
 
-    list_schemas: str = """SELECT database_name,
-        schema_name,
-        schema_type,
-        usename as schema_owner_name,
-        schema_option,
-        NULL::varchar(255) as external_database
-        FROM SVV_REDSHIFT_SCHEMAS as s
-        inner join pg_catalog.pg_user_info as i on i.usesysid = s.schema_owner
-        where schema_name !~ '^pg_'
-        AND   schema_name != 'information_schema'
+    list_schemas: str = """SELECT distinct n.nspname AS "schema_name",
+        'local' as schema_type,
+        null as schema_owner_name,
+        '' as schema_option,
+        null as external_database
+        FROM pg_catalog.pg_class c
+        LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
+        WHERE c.relkind IN ('r','v','m','S','f')
+        AND   n.nspname !~ '^pg_'
+        AND   n.nspname != 'information_schema'
 UNION ALL
-SELECT null as database_name,
-        schemaname as schema_name,
+SELECT  schemaname as schema_name,
         CASE s.eskind
             WHEN '1' THEN 'GLUE'
             WHEN '2' THEN 'HIVE'
@@ -30,13 +30,14 @@ SELECT null as database_name,
             WHEN '4' THEN 'REDSHIFT'
             ELSE 'OTHER'
         END as schema_type,
-        usename as schema_owner_name,
+        -- setting user_name to null as we don't use it now now and it breaks backward compatibility due to additional permission need
+        -- usename as schema_owner_name,
+        null as schema_owner_name,
         esoptions as schema_option,
         databasename as external_database
         FROM SVV_EXTERNAL_SCHEMAS as s
-        inner join pg_catalog.pg_user_info as i on i.usesysid = s.esowner
-        ORDER BY database_name,
-            SCHEMA_NAME;
+        -- inner join pg_catalog.pg_user_info as i on i.usesysid = s.esowner
+        ORDER BY SCHEMA_NAME;
         """
 
     list_tables: str = """
@@ -57,7 +58,9 @@ SELECT null as database_name,
                 WHEN 8 THEN 'ALL'
             END AS "diststyle",
             c.relowner AS "owner_id",
-            u.usename AS "owner_name",
+            -- setting user_name to null as we don't use it now now and it breaks backward compatibility due to additional permission need
+            -- u.usename AS "owner_name",
+            null as "owner_name",
             TRIM(TRAILING ';' FROM pg_catalog.pg_get_viewdef (c.oid,TRUE)) AS "view_definition",
             pg_catalog.array_to_string(c.relacl,'\n') AS "privileges",
             NULL as "location",
@@ -70,7 +73,7 @@ SELECT null as database_name,
         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_class_info as ci on c.oid = ci.reloid
         LEFT JOIN pg_catalog.pg_description pgd ON pgd.objsubid = 0 AND pgd.objoid = c.oid
-        JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
+        -- JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
         AND   n.nspname != 'information_schema'
@@ -383,14 +386,14 @@ SELECT null as database_name,
                         stl_insert as si
                     join SVV_TABLE_INFO sti on
                         sti.table_id = tbl
-                    left join pg_user pu on
-                        pu.usesysid = si.userid
+                    left join svl_user_info sui on
+                        si.userid = sui.usesysid
                     left join stl_query sq on
                         si.query = sq.query
                     left join stl_load_commits slc on
                         slc.query = si.query
                     where
-                        pu.usename <> 'rdsdb'
+                        sui.usename <> 'rdsdb'
                         and sq.aborted = 0
                         and slc.query IS NULL
                         and cluster = '{db_name}'

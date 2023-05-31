@@ -1,7 +1,7 @@
 name: ingestion smoke
 on:
   release:
-    types: [published, edited]
+    types: [published]
   push:
     branches:
       - master
@@ -65,6 +65,6 @@ jobs:
           publish: ${{ needs.setup.outputs.publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/smoke.Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
           build-args: |
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}

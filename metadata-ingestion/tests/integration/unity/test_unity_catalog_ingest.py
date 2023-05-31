@@ -1,11 +1,15 @@
+import uuid
 from unittest import mock
 
+from databricks.sdk.service.catalog import GetMetastoreSummaryResponse
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
+SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())
+SERVICE_PRINCIPAL_ID_2 = str(uuid.uuid4())
 
 
 def register_mock_api(request_mock):
@@ -26,29 +30,28 @@ def register_mock_api(request_mock):
         )
 
 
-def register_mock_data(unity_catalog_api_instance):
-    unity_catalog_api_instance.list_metastores.return_value = {
-        "metastores": [
-            {
-                "name": "acryl metastore",
-                "storage_root": "s3://db-9063-5b7e3b6d3736-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "default_data_access_config_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
-                "storage_root_credential_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
-                "storage_root_credential_name": "2c983545-d403-4f87-9063-5b7e3b6d3736-data-access-config-1666185153576",
-                "delta_sharing_scope": "INTERNAL",
-                "owner": "abc@acryl.io",
-                "privilege_model_version": "1.0",
-                "region": "us-west-1",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "created_at": 1666185153375,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666185154797,
-                "updated_by": "abc@acryl.io",
-                "cloud": "aws",
-                "global_metastore_id": "aws:us-west-1:2c983545-d403-4f87-9063-5b7e3b6d3736",
-            }
-        ]
-    }
+def register_mock_data(unity_catalog_api_instance, workspace_client):
+    workspace_client.metastores.summary.return_value = GetMetastoreSummaryResponse.from_dict(
+        {
+            "name": "acryl metastore",
+            "storage_root": "s3://db-9063-5b7e3b6d3736-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736",
+            "default_data_access_config_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
+            "storage_root_credential_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
+            "storage_root_credential_name": "2c983545-d403-4f87-9063-5b7e3b6d3736-data-access-config-1666185153576",
+            "delta_sharing_scope": "INTERNAL",
+            "owner": "abc@acryl.io",
+            "privilege_model_version": "1.0",
+            "region": "us-west-1",
+            "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+            "created_at": 1666185153375,
+            "created_by": "abc@acryl.io",
+            "updated_at": 1666185154797,
+            "updated_by": "abc@acryl.io",
+            "cloud": "aws",
+            "global_metastore_id": "aws:us-west-1:2c983545-d403-4f87-9063-5b7e3b6d3736",
+        }
+    )
+
     unity_catalog_api_instance.get_metastore_summary.return_value = {
         "name": "acryl metastore",
         "storage_root": "s3://db-9063-5b7e3b6d3736-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736",
@@ -93,7 +96,7 @@ def register_mock_data(unity_catalog_api_instance):
             },
             {
                 "name": "system",
-                "owner": "System user",
+                "owner": SERVICE_PRINCIPAL_ID_2,
                 "comment": "System catalog (auto-created)",
                 "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
                 "created_at": 1666185153391,
@@ -123,7 +126,7 @@ def register_mock_data(unity_catalog_api_instance):
             {
                 "name": "information_schema",
                 "catalog_name": "quickstart_catalog",
-                "owner": "System user",
+                "owner": SERVICE_PRINCIPAL_ID_1,
                 "comment": "Information schema (auto-created)",
                 "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
                 "full_name": "quickstart_catalog.information_schema",
@@ -201,6 +204,34 @@ def register_mock_data(unity_catalog_api_instance):
     }
 
 
+def mock_perform_query(method, path, *args, **kwargs):
+    if method == "GET" and path == "/account/scim/v2/ServicePrincipals":
+        return {
+            "Resources": [
+                {
+                    "displayName": "Service Principal 1",
+                    "active": True,
+                    "id": "4940620261358622",
+                    "applicationId": SERVICE_PRINCIPAL_ID_1,
+                },
+                {
+                    "displayName": "Service Principal 2",
+                    "active": True,
+                    "id": "8202844266343024",
+                    "applicationId": SERVICE_PRINCIPAL_ID_2,
+                },
+            ],
+            "totalResults": 2,
+            "startIndex": 1,
+            "itemsPerPage": 2,
+            "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+        }
+    elif method == "get" and path == "/sql/history/queries":
+        return {"next_page_token": "next_token", "has_next_page": False, "res": []}
+    else:
+        return {}
+
+
 @freeze_time(FROZEN_TIME)
 def test_ingestion(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
@@ -211,10 +242,19 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
     with mock.patch(
         "databricks_cli.unity_catalog.api.UnityCatalogApi"
-    ) as UnityCatalogApi:
+    ) as UnityCatalogApi, mock.patch(
+        "databricks.sdk.WorkspaceClient"
+    ) as WorkspaceClient:
         unity_catalog_api_instance: mock.MagicMock = mock.MagicMock()
+        unity_catalog_api_instance.client.client.perform_query.side_effect = (
+            mock_perform_query
+        )
         UnityCatalogApi.return_value = unity_catalog_api_instance
-        register_mock_data(unity_catalog_api_instance)
+
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        WorkspaceClient.return_value = workspace_client
+        register_mock_data(unity_catalog_api_instance, workspace_client)
+
         config_dict: dict = {
             "run_id": "unity-catalog-test",
             "pipeline_name": "unity-catalog-test-pipeline",
@@ -223,7 +263,7 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                 "config": {
                     "workspace_url": "https://dummy.cloud.databricks.com",
                     "token": "fake",
-                    "include_table_ownership": True,
+                    "include_ownership": True,
                 },
             },
             "sink": {

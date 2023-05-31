@@ -110,3 +110,5 @@ def send_lineage_to_datahub(
             end_timestamp_millis=int(datetime.utcnow().timestamp() * 1000),
         )
         operator.log.info(f"Emitted from Lineage: {dpi}")
+
+    emitter.flush()

@@ -2,11 +2,14 @@ export const FILTER_URL_PREFIX = 'filter_';
 export const SEARCH_FOR_ENTITY_PREFIX = 'SEARCH__';
 export const EXACT_SEARCH_PREFIX = 'EXACT__';
 
-export const ENTITY_FILTER_NAME = 'entity';
+export const ENTITY_FILTER_NAME = '_entityType';
+export const LEGACY_ENTITY_FILTER_NAME = 'entity';
+export const ENTITY_INDEX_FILTER_NAME = '_index';
 export const TAGS_FILTER_NAME = 'tags';
 export const GLOSSARY_TERMS_FILTER_NAME = 'glossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
+export const DATA_PRODUCTS_FILTER_NAME = 'dataProducts';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
@@ -41,6 +44,7 @@ export const ORDERED_FIELDS = [
     TAGS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     DOMAINS_FILTER_NAME,
+    DATA_PRODUCTS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
     FIELD_GLOSSARY_TERMS_FILTER_NAME,
     FIELD_PATHS_FILTER_NAME,
@@ -57,6 +61,7 @@ export const FIELD_TO_LABEL = {
     owners: 'Owner',
     tags: 'Tag',
     domains: 'Domain',
+    [DATA_PRODUCTS_FILTER_NAME]: 'Data Product',
     platform: 'Platform',
     fieldTags: 'Column Tag',
     glossaryTerms: 'Glossary Term',
@@ -66,6 +71,8 @@ export const FIELD_TO_LABEL = {
     fieldDescriptions: 'Column Description',
     removed: 'Soft Deleted',
     entity: 'Entity Type',
+    entityType: 'Entity Type',
+    _entityType: 'Entity Type',
     container: 'Container',
     typeNames: 'Sub Type',
     origin: 'Environment',

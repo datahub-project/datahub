@@ -176,7 +176,10 @@ task testSlowIntegration(type: Exec, dependsOn: [installDevTest]) {
     "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.slow.integration.xml"
 }
 
-task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
+task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/specgen.sh"
+}
+task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
 }
 task buildWheel(type: Exec, dependsOn: [install, codegen]) {

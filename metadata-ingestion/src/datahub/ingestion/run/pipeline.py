@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import platform
+import shutil
 import sys
 import time
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -128,14 +130,30 @@ class CliReport(Report):
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
     _peak_memory_usage: int = 0
+    _peak_disk_usage: int = 0
 
     def compute_stats(self) -> None:
-        mem_usage = psutil.Process(os.getpid()).memory_info().rss
-        if self._peak_memory_usage < mem_usage:
-            self._peak_memory_usage = mem_usage
-            self.peak_memory_usage = humanfriendly.format_size(self._peak_memory_usage)
+        try:
+            mem_usage = psutil.Process(os.getpid()).memory_info().rss
+            if self._peak_memory_usage < mem_usage:
+                self._peak_memory_usage = mem_usage
+                self.peak_memory_usage = humanfriendly.format_size(
+                    self._peak_memory_usage
+                )
+            self.mem_info = humanfriendly.format_size(mem_usage)
 
-        self.mem_info = humanfriendly.format_size(mem_usage)
+            disk_usage = shutil.disk_usage("/")
+            if self._peak_disk_usage < disk_usage.used:
+                self._peak_disk_usage = disk_usage.used
+                self.peak_disk_usage = humanfriendly.format_size(self._peak_disk_usage)
+            self.disk_info = {
+                "total": humanfriendly.format_size(disk_usage.total),
+                "used": humanfriendly.format_size(disk_usage.used),
+                "free": humanfriendly.format_size(disk_usage.free),
+            }
+        except Exception as e:
+            logger.warning(f"Failed to compute report memory usage: {e}")
+
         return super().compute_stats()
 
 
@@ -166,10 +184,15 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
+        self.graph = None
+        with _add_init_error_context("connect to DataHub"):
+            if self.config.datahub_api:
+                self.graph = DataHubGraph(self.config.datahub_api)
+
         with _add_init_error_context("set up framework context"):
             self.ctx = PipelineContext(
                 run_id=self.config.run_id,
-                datahub_api=self.config.datahub_api,
+                graph=self.graph,
                 pipeline_name=self.config.pipeline_name,
                 dry_run=dry_run,
                 preview_mode=preview_mode,

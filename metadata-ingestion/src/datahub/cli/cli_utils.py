@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 import click
 import requests
 import yaml
+from deprecated import deprecated
 from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
@@ -317,50 +318,7 @@ def post_rollback_endpoint(
     )
 
 
-def post_delete_references_endpoint(
-    payload_obj: dict,
-    path: str,
-    cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Tuple[int, List[Dict]]:
-    session, gms_host = cached_session_host or get_session_and_host()
-    url = gms_host + path
-
-    payload = json.dumps(payload_obj)
-    response = session.post(url, payload)
-    summary = parse_run_restli_response(response)
-    reference_count = summary.get("total", 0)
-    related_aspects = summary.get("relatedAspects", [])
-    return reference_count, related_aspects
-
-
-def post_delete_endpoint(
-    payload_obj: dict,
-    path: str,
-    cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> typing.Tuple[str, int, int]:
-    session, gms_host = cached_session_host or get_session_and_host()
-    url = gms_host + path
-
-    return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
-
-
-def post_delete_endpoint_with_session_and_url(
-    session: Session,
-    url: str,
-    payload_obj: dict,
-) -> typing.Tuple[str, int, int]:
-    payload = json.dumps(payload_obj)
-
-    response = session.post(url, payload)
-
-    summary = parse_run_restli_response(response)
-    urn: str = summary.get("urn", "")
-    rows_affected: int = summary.get("rows", 0)
-    timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
-
-    return urn, rows_affected, timeseries_rows_affected
-
-
+@deprecated(reason="Use DataHubGraph.get_urns_by_filter instead")
 def get_urns_by_filter(
     platform: Optional[str],
     env: Optional[str] = None,
@@ -369,6 +327,7 @@ def get_urns_by_filter(
     include_removed: bool = False,
     only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
+    # TODO: Replace with DataHubGraph call
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
     url = gms_host + endpoint

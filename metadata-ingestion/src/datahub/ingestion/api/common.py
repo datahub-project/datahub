@@ -2,12 +2,9 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, TypeVar
 
-import requests
-
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 
 if TYPE_CHECKING:
     from datahub.ingestion.run.pipeline import PipelineConfig
@@ -46,26 +43,19 @@ class PipelineContext:
     def __init__(
         self,
         run_id: str,
-        datahub_api: Optional["DatahubClientConfig"] = None,
+        graph: Optional[DataHubGraph] = None,
         pipeline_name: Optional[str] = None,
         dry_run: bool = False,
         preview_mode: bool = False,
         pipeline_config: Optional["PipelineConfig"] = None,
     ) -> None:
         self.pipeline_config = pipeline_config
+        self.graph = graph
         self.run_id = run_id
         self.pipeline_name = pipeline_name
         self.dry_run_mode = dry_run
         self.preview_mode = preview_mode
         self.checkpointers: Dict[str, Committable] = {}
-        try:
-            self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
-        except (requests.exceptions.ConnectionError, ConfigurationError) as e:
-            raise Exception("Failed to connect to DataHub") from e
-        except Exception as e:
-            raise Exception(
-                "Failed to instantiate a valid DataHub Graph instance"
-            ) from e
 
         self._set_dataset_urn_to_lower_if_needed()
 
