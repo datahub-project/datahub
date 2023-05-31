@@ -119,6 +119,11 @@ fragment autoCompleteFields on Entity {
             name
         }
     }
+    ... on DataProduct {
+        properties {
+            name
+        }
+    }
     ... on Container {
         properties {
             name
@@ -284,6 +289,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         parentContainers {
             ...parentContainersFields
         }
@@ -381,6 +387,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -446,6 +453,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -502,6 +510,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -534,6 +543,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -728,6 +738,8 @@ fragment searchResultFields on Entity {
         editableProperties {
             ...joinEditablePropertiesFields
         }
+    ... on DataProduct {
+        ...dataProductSearchFields
     }
 }
 
@@ -787,6 +799,11 @@ fragment facetFields on FacetMetadata {
                 name
                 properties {
                     displayName
+                }
+            }
+            ... on DataProduct {
+                properties {
+                    name
                 }
             }
         }
@@ -922,5 +939,19 @@ query getEntityMentionNode($urn: String!) {
         urn
         type
         ...searchResultFields
+    }
+}
+
+query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
+    aggregateAcrossEntities(input: $input) {
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
+    listDataProductAssets(urn: $urn, input: $input) {
+        ...searchResults
     }
 }

@@ -20,7 +20,7 @@ def get_long_description():
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
     "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
-    "typing_extensions>=3.10.0.2 ;  python_version >= '3.8'",
+    "typing_extensions>=3.10.0.2,<4.6.0 ;  python_version >= '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -57,6 +57,7 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
+    "ruamel.yaml",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -214,6 +215,7 @@ iceberg_common = {
 
 s3_base = {
     *aws_common,
+    "more-itertools>=8.12.0",
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
@@ -240,7 +242,12 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {"databricks-cli==0.17.3", "pyspark", "requests"}
+databricks_cli = {
+    "databricks-cli>=0.17.7",
+    "databricks-sdk>=0.1.1",
+    "pyspark",
+    "requests",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -272,7 +279,7 @@ plugins: Dict[str, Set[str]] = {
         *sqllineage_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
-        "google-cloud-datacatalog-lineage==0.2.0",
+        "google-cloud-datacatalog-lineage==0.2.2",
     },
     "bigquery-beta": sql_common
     | bigquery_common
@@ -364,7 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
-    "nifi": {"requests", "packaging"},
+    "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
@@ -472,7 +479,8 @@ base_dev_requirements = {
             "powerbi",
             "powerbi-report-server",
             "salesforce",
-            "unity-catalog"
+            "unity-catalog",
+            "nifi"
             # airflow is added below
         ]
         if plugin

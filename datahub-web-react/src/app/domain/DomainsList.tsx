@@ -23,7 +23,7 @@ import { DomainOwnersColumn, DomainListMenuColumn, DomainNameColumn } from './Do
 
 const DomainsContainer = styled.div``;
 
-const DomainsPaginationContainer = styled.div`
+export const DomainsPaginationContainer = styled.div`
     display: flex;
     justify-content: center;
     padding: 12px;

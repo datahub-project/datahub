@@ -318,12 +318,14 @@ module.exports = {
             "docs/api/tutorials/deprecation",
             "docs/api/tutorials/descriptions",
             "docs/api/tutorials/custom-properties",
+            "docs/api/tutorials/ml",
           ],
         },
         {
           type: "category",
-          label: "Datahub CLI",
-          items: ["docs/cli", "docs/datahub_lite"],
+          label: "DataHub CLI",
+          link: { type: "doc", id: "docs/cli" },
+          items: ["docs/datahub_lite"],
         },
         {
           type: "category",
@@ -376,8 +378,10 @@ module.exports = {
         "docs/schema-history",
         // "docs/how/ui-tabs-guide",
         "docs/domains",
+        "docs/dataproducts",
         "docs/glossary/business-glossary",
         "docs/tags",
+        "docs/ownership/ownership-types",
         "docs/browse",
         "docs/authorization/access-policies-guide",
         "docs/features/dataset-usage-and-query-history",
@@ -546,6 +550,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_7",
             "docs/managed-datahub/release-notes/v_0_2_6",
             "docs/managed-datahub/release-notes/v_0_2_5",
             "docs/managed-datahub/release-notes/v_0_2_4",

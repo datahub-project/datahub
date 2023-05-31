@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.transformer;
 
 import com.datahub.test.TestEntitySnapshot;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -14,6 +16,7 @@ import java.util.Optional;
 
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -21,6 +24,10 @@ import static org.testng.Assert.assertTrue;
 
 public class SearchDocumentTransformerTest {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
 
   @Test
   public void testTransform() throws IOException {
@@ -52,6 +59,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(browsePaths.get(1).asText(), "d/e/f");
     assertEquals(parsedJson.get("feature1").asInt(), 2);
     assertEquals(parsedJson.get("feature2").asInt(), 1);
+    JsonNode browsePathV2 = (JsonNode) parsedJson.get("browsePathV2");
+    assertEquals(browsePathV2.asText(), "␟levelOne␟levelTwo");
   }
 
   @Test

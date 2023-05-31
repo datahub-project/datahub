@@ -9,13 +9,15 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -98,6 +100,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 {
                     component: SidebarDomainSection,
                 },
+                {
+                    component: DataProductSection,
+                },
             ]}
         />
     );
@@ -113,6 +118,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
     };
 
     renderPreview = (_: PreviewType, data: DataFlow) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -125,6 +131,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
             />
         );
@@ -132,6 +139,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataFlow;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -146,6 +154,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 globalTags={data.globalTags}
                 insights={result.insights}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 jobCount={(data as any).childJobs?.total}
                 deprecation={data.deprecation}
@@ -173,6 +182,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
 }

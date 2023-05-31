@@ -57,6 +57,7 @@ import static com.linkedin.metadata.ESTestUtils.autocomplete;
 import static com.linkedin.metadata.ESTestUtils.search;
 import static com.linkedin.metadata.ESTestUtils.searchStructured;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
+import static com.linkedin.metadata.utils.SearchUtil.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
@@ -698,6 +699,49 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                             testResult.getMetadata().getAggregations().stream()
                                     .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
+    }
+
+    @Test
+    public void testNestedAggregation() {
+        Set<String> expectedFacets = Set.of("platform");
+        SearchResult testResult = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResult.getMetadata().getAggregations().size(), 1);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResult.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResult.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+
+        expectedFacets = Set.of("platform", "typeNames", "_entityType", "entity");
+        SearchResult testResult2 = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResult2.getMetadata().getAggregations().size(), 4);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResult2.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResult2.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+        String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
+        expectedFacets = Set.of(singleNestedFacet);
+        SearchResult testResultSingleNested = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
+
+        expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
+        SearchResult testResultNested = search(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResultNested.getMetadata().getAggregations().size(), 4);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResultNested.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResultNested.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+
+        List<AggregationMetadata> expectedNestedAgg = testResultNested.getMetadata().getAggregations().stream().filter(
+            agg -> agg.getName().equals(singleNestedFacet)).collect(Collectors.toList());
+        assertEquals(expectedNestedAgg.size(), 1);
+        AggregationMetadata nestedAgg = expectedNestedAgg.get(0);
+        assertEquals(nestedAgg.getDisplayName(), String.format("Type%sOwned By", AGGREGATION_SEPARATOR_CHAR));
     }
 
     @Test

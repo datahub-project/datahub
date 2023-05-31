@@ -163,14 +163,14 @@ class RedshiftDataDictionary:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
 
-        # This query needs to run separately as we can't join witht the main query because it works with
+        # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
         enriched_table = RedshiftDataDictionary.enrich_tables(conn)
 
         cur = RedshiftDataDictionary.get_query_result(conn, RedshiftQuery.list_tables)
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
-
+        logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")
         for table in db_tables:
             schema = table[field_names.index("schema")]
             if table[field_names.index("tabletype")] not in [
@@ -241,6 +241,12 @@ class RedshiftDataDictionary:
                         comment=table[field_names.index("table_description")],
                     )
                 )
+        for schema_key, schema_tables in tables.items():
+            logger.info(
+                f"In schema: {schema_key} discovered {len(schema_tables)} tables"
+            )
+        for schema_key, schema_views in views.items():
+            logger.info(f"In schema: {schema_key} discovered {len(schema_views)} views")
 
         return tables, views
 

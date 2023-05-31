@@ -1,9 +1,10 @@
 import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
 import { EntityType, Owner } from '../../../../../../types.generated';
+import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../EntityContext';
@@ -23,18 +24,25 @@ type Props = {
     hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
+    fontSize?: number;
 };
 
-export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
     let name = '';
+    let ownershipTypeName = '';
     if (owner.owner.__typename === 'CorpGroup') {
         name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner);
     }
     if (owner.owner.__typename === 'CorpUser') {
         name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
+    }
+    if (owner.ownershipType && owner.ownershipType.info) {
+        ownershipTypeName = owner.ownershipType.info.name;
+    } else if (owner.type) {
+        ownershipTypeName = getNameFromType(owner.type);
     }
     const pictureLink =
         (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
@@ -47,6 +55,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                 variables: {
                     input: {
                         ownerUrn: owner.owner.urn,
+                        ownershipTypeUrn: owner.ownershipType?.urn,
                         resourceUrn: entityUrn,
                     },
                 },
@@ -70,7 +79,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         e.preventDefault();
         Modal.confirm({
             title: `Do you want to remove ${name}?`,
-            content: `Are you sure you want to remove ${name} as an owner?`,
+            content: `Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`,
             onOk() {
                 onDelete();
             },
@@ -86,7 +95,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
                 <Link to={entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}>
-                    <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />
+                    <OwnerContent
+                        name={name}
+                        owner={owner}
+                        hidePopOver={hidePopOver}
+                        pictureLink={pictureLink}
+                        fontSize={fontSize}
+                    />
                 </Link>
             )}
         </OwnerTag>

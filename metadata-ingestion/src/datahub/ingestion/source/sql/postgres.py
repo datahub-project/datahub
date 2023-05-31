@@ -97,21 +97,33 @@ class ViewLineageEntry(BaseModel):
     dependent_schema: str
 
 
-class PostgresConfig(BasicSQLAlchemyConfig):
-    # defaults
+class BasePostgresConfig(BasicSQLAlchemyConfig):
     scheme = Field(default="postgresql+psycopg2", description="database scheme")
     schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
+
+
+class PostgresConfig(BasePostgresConfig):
     include_view_lineage = Field(
         default=False, description="Include table lineage for views"
     )
 
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for databases to filter in ingestion.",
+        description=(
+            "Regex patterns for databases to filter in ingestion. "
+            "Note: this is not used if `database` or `sqlalchemy_uri` are provided."
+        ),
     )
     database: Optional[str] = Field(
         default=None,
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
+    )
+    initial_database: Optional[str] = Field(
+        default="postgres",
+        description=(
+            "Initial database used to query for the list of databases, when ingesting multiple databases. "
+            "Note: this is not used if `database` or `sqlalchemy_uri` are provided."
+        ),
     )
 
 
@@ -144,13 +156,14 @@ class PostgresSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
-        # This method can be overridden in the case that you want to dynamically
-        # run on multiple databases.
-        url = self.config.get_sql_alchemy_url()
+        # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
+        url = self.config.get_sql_alchemy_url(
+            database=self.config.database or self.config.initial_database
+        )
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
-            if self.config.database and self.config.database != "":
+            if self.config.database or self.config.sqlalchemy_uri:
                 inspector = inspect(conn)
                 yield inspector
             else:
@@ -160,15 +173,15 @@ class PostgresSource(SQLAlchemySource):
                     "SELECT datname from pg_database where datname not in ('template0', 'template1')"
                 )
                 for db in databases:
-                    if self.config.database_pattern.allowed(db["datname"]):
-                        url = self.config.get_sql_alchemy_url(database=db["datname"])
-                        inspector = inspect(
-                            create_engine(url, **self.config.options).connect()
-                        )
+                    if not self.config.database_pattern.allowed(db["datname"]):
+                        continue
+                    url = self.config.get_sql_alchemy_url(database=db["datname"])
+                    with create_engine(url, **self.config.options).connect() as conn:
+                        inspector = inspect(conn)
                         yield inspector
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_workunits()
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from super().get_workunits_internal()
 
         for inspector in self.get_inspectors():
             if self.config.include_view_lineage:
@@ -247,9 +260,7 @@ class PostgresSource(SQLAlchemySource):
             )
 
             for item in mcps_from_mce(lineage_mce):
-                wu = item.as_workunit()
-                self.report.report_workunit(wu)
-                yield wu
+                yield item.as_workunit()
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any

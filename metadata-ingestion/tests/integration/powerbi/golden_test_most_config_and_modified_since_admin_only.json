@@ -1114,5 +1114,20 @@
         "lastObserved": 1643871600000,
         "runId": "powerbi-test"
     }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Certified",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Certified"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
 }
 ]
