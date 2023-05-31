@@ -2,13 +2,12 @@ import { useMemo } from 'react';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import applyOrFilterOverrides from '../utils/applyOrFilterOverrides';
 import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
+import { useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
 
-type Props = {
-    environment?: string | null;
-    platform?: string | null;
-};
+const useSidebarFilters = () => {
+    const environment = useMaybeEnvironmentAggregation()?.value;
+    const platform = useMaybePlatformAggregation()?.value;
 
-const useSidebarFilters = ({ environment, platform }: Props) => {
     const filterOverrides = useMemo(
         () => [
             ...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : []),
@@ -28,5 +27,7 @@ const useSidebarFilters = ({ environment, platform }: Props) => {
 
     return useMemo(() => ({ query, orFilters, viewUrn } as const), [orFilters, query, viewUrn]);
 };
+
+export type SidebarFilters = ReturnType<typeof useSidebarFilters>;
 
 export default useSidebarFilters;

@@ -14,7 +14,7 @@ import useToggle from '../../shared/useToggle';
 import {
     BrowseProvider,
     useEntityAggregation,
-    useEnvironmentAggregation,
+    useMaybeEnvironmentAggregation,
     usePlatformAggregation,
 } from './BrowseContext';
 
@@ -38,12 +38,13 @@ const BrowseGroupListContainer = styled.div`
     background: white;
     border-radius: 8px;
     padding-bottom: 8px;
+    // todo - play with this, also add a 2px padding-top
     padding-right: 8px;
 `;
 
 const PlatformNode = () => {
     const entityAggregation = useEntityAggregation();
-    const environmentAggregation = useEnvironmentAggregation();
+    const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const registry = useEntityRegistry();
 
@@ -59,7 +60,7 @@ const PlatformNode = () => {
     const skip = !isOpen;
     const color = ANTD_GRAY[9];
 
-    const { error, groups, loaded, observable, pathResult, retry } = useBrowsePagination({ skip });
+    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
 
     return (
         <ExpandableNode
@@ -88,12 +89,12 @@ const PlatformNode = () => {
                                 environmentAggregation={environmentAggregation}
                                 platformAggregation={platformAggregation}
                                 browseResultGroup={group}
-                                path={[...pathResult, group.name]}
+                                parentPath={path}
                             >
                                 <BrowseNode />
                             </BrowseProvider>
                         ))}
-                        {error && <SidebarLoadingError onClickRetry={retry} />}
+                        {error && <SidebarLoadingError onClickRetry={refetch} />}
                         {observable}
                     </BrowseGroupListContainer>
                 </ExpandableNode.Body>

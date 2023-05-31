@@ -12,7 +12,7 @@ import {
     BrowseProvider,
     useBrowseResultGroup,
     useEntityAggregation,
-    useEnvironmentAggregation,
+    useMaybeEnvironmentAggregation,
     usePlatformAggregation,
 } from './BrowseContext';
 
@@ -33,7 +33,7 @@ const Count = styled(Typography.Text)`
 
 const BrowseNode = () => {
     const entityAggregation = useEntityAggregation();
-    const environmentAggregation = useEnvironmentAggregation();
+    const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
     const { isOpen, toggle } = useToggle();
@@ -44,7 +44,7 @@ const BrowseNode = () => {
     const [isSelected, setIsSelected] = useState(false);
     const onClickHeader = () => setIsSelected((s) => !s);
 
-    const { error, groups, loaded, observable, pathResult, retry } = useBrowsePagination({ skip });
+    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
 
     return (
         <ExpandableNode
@@ -72,12 +72,12 @@ const BrowseNode = () => {
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
                             browseResultGroup={group}
-                            path={[...pathResult, group.name]}
+                            parentPath={path}
                         >
                             <BrowseNode />
                         </BrowseProvider>
                     ))}
-                    {error && <SidebarLoadingError onClickRetry={retry} />}
+                    {error && <SidebarLoadingError onClickRetry={refetch} />}
                     {observable}
                 </ExpandableNode.Body>
             }

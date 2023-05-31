@@ -1,15 +1,12 @@
-import React, { ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import { AggregationMetadata, BrowseResultGroupV2, EntityType } from '../../../types.generated';
-import useSidebarFilters from './useSidebarFilters';
 
 type BrowseContextValue = {
     entityAggregation: AggregationMetadata;
-    environmentAggregation: AggregationMetadata | null;
-    platformAggregation: AggregationMetadata | null;
-    browseResultGroup: BrowseResultGroupV2 | null;
-    path: Array<string> | null;
-    filters: ReturnType<typeof useSidebarFilters>;
-    filterVersion: number;
+    environmentAggregation?: AggregationMetadata | null;
+    platformAggregation?: AggregationMetadata | null;
+    browseResultGroup?: BrowseResultGroupV2 | null;
+    path: Array<string>;
 };
 
 const BrowseContext = createContext<BrowseContextValue | null>(null);
@@ -17,10 +14,10 @@ const BrowseContext = createContext<BrowseContextValue | null>(null);
 type Props = {
     children: ReactNode;
     entityAggregation: AggregationMetadata;
-    environmentAggregation: AggregationMetadata | null;
-    platformAggregation: AggregationMetadata | null;
-    browseResultGroup: BrowseResultGroupV2 | null;
-    path: Array<string> | null;
+    environmentAggregation?: AggregationMetadata | null;
+    platformAggregation?: AggregationMetadata | null;
+    browseResultGroup?: BrowseResultGroupV2 | null;
+    parentPath?: Array<string> | null;
 };
 
 export const BrowseProvider = ({
@@ -29,21 +26,12 @@ export const BrowseProvider = ({
     environmentAggregation,
     platformAggregation,
     browseResultGroup,
-    path,
+    parentPath,
 }: Props) => {
-    const [filterVersion, setFilterVersion] = useState(0);
-    const latestSidebarFilters = useSidebarFilters({
-        environment: environmentAggregation?.value,
-        platform: platformAggregation?.value,
-    });
-    const [cachedFilters, setCachedFilters] = useState(latestSidebarFilters);
-
-    useEffect(() => {
-        if (latestSidebarFilters !== cachedFilters) {
-            setFilterVersion(filterVersion + 1);
-            setCachedFilters(latestSidebarFilters);
-        }
-    }, [cachedFilters, filterVersion, latestSidebarFilters]);
+    const path = useMemo(() => {
+        const basePath = [...(parentPath ?? [])];
+        return browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
+    }, [browseResultGroup, parentPath]);
 
     const value = useMemo(
         () => ({
@@ -52,18 +40,8 @@ export const BrowseProvider = ({
             platformAggregation,
             browseResultGroup,
             path,
-            filters: cachedFilters,
-            filterVersion,
         }),
-        [
-            browseResultGroup,
-            cachedFilters,
-            entityAggregation,
-            environmentAggregation,
-            filterVersion,
-            path,
-            platformAggregation,
-        ],
+        [browseResultGroup, entityAggregation, environmentAggregation, path, platformAggregation],
     );
 
     return <BrowseContext.Provider value={value}>{children}</BrowseContext.Provider>;
@@ -84,14 +62,18 @@ export const useEntityType = () => {
     return useEntityAggregation().value as EntityType;
 };
 
-export const useEnvironmentAggregation = () => {
-    return useBrowseContext(useEnvironmentAggregation.name).environmentAggregation;
+export const useMaybeEnvironmentAggregation = () => {
+    return useBrowseContext(useMaybeEnvironmentAggregation.name).environmentAggregation;
+};
+
+export const useMaybePlatformAggregation = () => {
+    return useBrowseContext(useMaybePlatformAggregation.name).platformAggregation;
 };
 
 export const usePlatformAggregation = () => {
-    const context = useBrowseContext(usePlatformAggregation.name);
-    if (!context.platformAggregation) throw new Error('platformAggregation is missing in context');
-    return context.platformAggregation;
+    const platformAggregation = useMaybePlatformAggregation();
+    if (!platformAggregation) throw new Error('platformAggregation is missing in context');
+    return platformAggregation;
 };
 
 export const useBrowseResultGroup = () => {
@@ -104,12 +86,4 @@ export const useBrowsePath = () => {
     const context = useBrowseContext(useBrowsePath.name);
     if (!context.path) throw new Error('path is missing in context');
     return context.path;
-};
-
-export const useFilters = () => {
-    return useBrowseContext(useFilters.name).filters;
-};
-
-export const useFilterVersion = () => {
-    return useBrowseContext(useFilterVersion.name).filterVersion;
 };

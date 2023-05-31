@@ -45,14 +45,7 @@ const BrowseSidebar = ({ facets, visible, width }: Props) => {
             <SidebarBody>
                 {entityAggregations && !entityAggregations.length && <div>No results found</div>}
                 {entityAggregations?.map((entityAggregation) => (
-                    <BrowseProvider
-                        key={entityAggregation.value}
-                        entityAggregation={entityAggregation}
-                        environmentAggregation={null}
-                        platformAggregation={null}
-                        browseResultGroup={null}
-                        path={null}
-                    >
+                    <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
                         <EntityNode />
                     </BrowseProvider>
                 ))}

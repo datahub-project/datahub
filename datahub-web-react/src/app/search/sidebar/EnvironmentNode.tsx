@@ -9,7 +9,7 @@ import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
-import { BrowseProvider, useEntityAggregation, useEnvironmentAggregation, useFilterVersion } from './BrowseContext';
+import { BrowseProvider, useEntityAggregation, useMaybeEnvironmentAggregation } from './BrowseContext';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -23,8 +23,7 @@ const Count = styled(Typography.Text)`
 
 const EnvironmentNode = () => {
     const entityAggregation = useEntityAggregation();
-    const environmentAggregation = useEnvironmentAggregation();
-    const filterVersion = useFilterVersion();
+    const environmentAggregation = useMaybeEnvironmentAggregation();
     const { isOpen, toggle } = useToggle();
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
@@ -50,12 +49,10 @@ const EnvironmentNode = () => {
                 <ExpandableNode.Body>
                     {platformAggregations.map((platformAggregation) => (
                         <BrowseProvider
-                            key={`${platformAggregation.value}-${filterVersion}`}
+                            key={platformAggregation.value}
                             entityAggregation={entityAggregation}
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
-                            browseResultGroup={null}
-                            path={[]}
                         >
                             <PlatformNode />
                         </BrowseProvider>

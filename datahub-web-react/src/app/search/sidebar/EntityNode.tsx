@@ -12,7 +12,7 @@ import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
-import { BrowseProvider, useEntityAggregation, useEntityType, useFilterVersion } from './BrowseContext';
+import { BrowseProvider, useEntityAggregation, useEntityType } from './BrowseContext';
 
 const Title = styled(Typography.Text)`
     font-size: 16px;
@@ -27,7 +27,6 @@ const Count = styled(Typography.Text)`
 const EntityNode = () => {
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
-    const filterVersion = useFilterVersion();
     const registry = useEntityRegistry();
 
     const { isOpen, toggle } = useToggle();
@@ -63,21 +62,15 @@ const EntityNode = () => {
                                   key={environmentAggregation.value}
                                   entityAggregation={entityAggregation}
                                   environmentAggregation={environmentAggregation}
-                                  platformAggregation={null}
-                                  browseResultGroup={null}
-                                  path={null}
                               >
                                   <EnvironmentNode />
                               </BrowseProvider>
                           ))
                         : platformAggregations.map((platformAggregation) => (
                               <BrowseProvider
-                                  key={`${platformAggregation.value}-${filterVersion}`}
+                                  key={platformAggregation.value}
                                   entityAggregation={entityAggregation}
-                                  environmentAggregation={null}
                                   platformAggregation={platformAggregation}
-                                  browseResultGroup={null}
-                                  path={[]}
                               >
                                   <PlatformNode />
                               </BrowseProvider>
