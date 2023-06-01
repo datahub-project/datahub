@@ -105,7 +105,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
         default=True,
         description="If the source supports it, include view lineage to the underlying storage location.",
     )
-    
+
     include_projection_lineage: Optional[bool] = pydantic.Field(
         default=True,
         description="If the source supports it, include view lineage to the underlying storage location.",
@@ -449,9 +449,7 @@ class VerticaSource(SQLAlchemySource):
             )  # type: ignore
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
-            view_owner = inspector.get_view_owner(
-                schema
-            )  # type: ignore
+            view_owner = inspector.get_view_owner(schema)  # type: ignore
 
             # started a loop on each view in the schema
             for view in self.views[schema]:
@@ -683,7 +681,7 @@ class VerticaSource(SQLAlchemySource):
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
             return None
 
-        self.view_lineage_map = inspector._populate_view_lineage(schema)
+        self.view_lineage_map = inspector._populate_view_lineage(schema)  # type: ignore
         dataset_name = dataset_key.name
         lineage = self.view_lineage_map[dataset_name]  # type: ignore
 
@@ -724,7 +722,7 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         projection_seen: Set[str] = set()
         try:
-            self.projection[schema] = inspector.get_projection_names(schema)
+            self.projection[schema] = inspector.get_projection_names(schema)  # type: ignore
 
             # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
             columns = inspector.get_all_projection_columns(schema)  # type: ignore
@@ -732,7 +730,7 @@ class VerticaSource(SQLAlchemySource):
             # called get_projection_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_projection_properties(
                 inspector, schema
-            ) # type: ignore  
+            )  # type: ignore
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             projection_owner = inspector.get_projection_owner(schema)  # type: ignore

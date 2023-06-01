@@ -25,14 +25,14 @@ def is_vertica_responsive(
     container_name: str, port: int, hostname: Optional[str]
 ) -> bool:
     if hostname:
-        cmd = f"docker logs {container_name} "
+        cmd = f"docker logs {container_name} 2>&1 | grep 'Vertica is now running' "
     ret = subprocess.run(
-        cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        cmd, shell=True
     )
 
     return ret.returncode == 0
 
-@freeze_time(FROZEN_TIME)
+
 @pytest.fixture(scope="module")
 def vertica_runner(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
@@ -42,7 +42,10 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
             docker_services,
             "vertica-ce",
             5433,
-           
+            timeout=120,
+            checker=lambda: is_vertica_responsive(
+                "vertica-ce", 5433, hostname="vertica-ce"
+            ),
         )
 
         commands = """
@@ -59,10 +62,10 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
                 """
 
         ret = subprocess.run(
-            commands, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            commands, shell=True
         )
         # waiting for vertica to create default table and system table and ml models
-        time.sleep(80)
+        time.sleep(100)
 
         assert ret.returncode == 2
 
