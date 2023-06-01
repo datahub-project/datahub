@@ -1,7 +1,7 @@
 from typing import Any, Dict, Iterable, List, Union
 
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mce_builder import make_container_urn
+from datahub.emitter.mce_builder import make_container_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
@@ -100,11 +100,17 @@ def _create_container_aspects(d: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
             yield from _create_container_aspects(v)
 
 
-def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryClass]:
+def _make_container_browse_path_entries(
+    path: List[str],
+) -> List[models.BrowsePathEntryClass]:
     return [
         models.BrowsePathEntryClass(id=make_container_urn(s), urn=make_container_urn(s))
         for s in path
     ]
+
+
+def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryClass]:
+    return [models.BrowsePathEntryClass(id=s, urn=None) for s in path]
 
 
 def _get_browse_paths_from_wu(
@@ -119,7 +125,7 @@ def _get_browse_paths_from_wu(
     return paths
 
 
-def test_auto_browse_path_v2():
+def test_auto_browse_path_v2_by_container_hierarchy():
     structure = {
         "one": {
             "a": {"i": ["1", "2", "3"], "ii": ["4"]},
@@ -145,29 +151,104 @@ def test_auto_browse_path_v2():
 
     paths = _get_browse_paths_from_wu(new_wus)
     assert paths["one"] == []
-    assert paths["7"] == paths["8"] == _make_browse_path_entries(["two", "c", "v"])
-    assert paths["d"] == _make_browse_path_entries(["three"])
-    assert paths["i"] == _make_browse_path_entries(["one", "a"])
+    assert (
+        paths["7"]
+        == paths["8"]
+        == _make_container_browse_path_entries(["two", "c", "v"])
+    )
+    assert paths["d"] == _make_container_browse_path_entries(["three"])
+    assert paths["i"] == _make_container_browse_path_entries(["one", "a"])
 
 
 def test_auto_browse_path_v2_ignores_urns_already_with():
     structure = {"a": {"b": {"c": {"d": ["e"]}}}}
 
-    mcp = MetadataChangeProposalWrapper(
-        entityUrn=make_container_urn("c"),
-        aspect=models.BrowsePathsV2Class(
-            path=_make_browse_path_entries(["custom", "path"])
+    mcps = [
+        *MetadataChangeProposalWrapper.construct_many(
+            entityUrn=make_container_urn("f"),
+            aspects=[
+                models.BrowsePathsClass(paths=["/one/two"]),
+                models.BrowsePathsV2Class(
+                    path=_make_browse_path_entries(["my", "path"])
+                ),
+            ],
         ),
-    )
-    wus = [*auto_status_aspect(_create_container_aspects(structure)), mcp.as_workunit()]
-
+        MetadataChangeProposalWrapper(
+            entityUrn=make_container_urn("c"),
+            aspect=models.BrowsePathsV2Class(
+                path=_make_container_browse_path_entries(["custom", "path"])
+            ),
+        ),
+    ]
+    wus = [
+        *auto_status_aspect(
+            [
+                *_create_container_aspects(structure),
+                *(mcp.as_workunit() for mcp in mcps),
+            ]
+        )
+    ]
     new_wus = list(auto_browse_path_v2([], wus))
     assert (
         sum(len(wu.get_aspects_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
-        == 5
+        == 6
     )
 
     paths = _get_browse_paths_from_wu(new_wus)
     assert paths["a"] == []
-    assert paths["c"] == _make_browse_path_entries(["custom", "path"])
-    assert paths["e"] == _make_browse_path_entries(["a", "b", "c", "d"])
+    assert paths["c"] == _make_container_browse_path_entries(["custom", "path"])
+    assert paths["e"] == _make_container_browse_path_entries(["a", "b", "c", "d"])
+    assert paths["f"] == _make_browse_path_entries(["my", "path"])
+
+
+def test_auto_browse_path_v2_legacy_browse_path():
+    platform = "platform"
+    env = "PROD"
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn(platform, "dataset-1", env),
+            aspect=models.BrowsePathsClass(["/one/two"]),
+        ).as_workunit(),
+        MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn(platform, "dataset-2", env),
+            aspect=models.BrowsePathsClass([f"/{platform}/{env}/something"]),
+        ).as_workunit(),
+        MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn(platform, "dataset-3", env),
+            aspect=models.BrowsePathsClass([f"/{platform}/one/two"]),
+        ).as_workunit(),
+    ]
+    new_wus = list(auto_browse_path_v2(["platform", "PROD", "unused"], wus))
+    assert len(new_wus) == 6
+    paths = _get_browse_paths_from_wu(new_wus)
+    assert (
+        paths["platform,dataset-1,PROD)"]
+        == paths["platform,dataset-3,PROD)"]
+        == _make_browse_path_entries(["one", "two"])
+    )
+    assert paths["platform,dataset-2,PROD)"] == _make_browse_path_entries(["something"])
+
+
+def test_auto_browse_path_v2_container_over_legacy_browse_path():
+    structure = {"a": {"b": ["c"]}}
+    wus = list(
+        auto_status_aspect(
+            [
+                *_create_container_aspects(structure),
+                MetadataChangeProposalWrapper(
+                    entityUrn=make_container_urn("b"),
+                    aspect=models.BrowsePathsClass(paths=["/one/two"]),
+                ).as_workunit(),
+            ]
+        )
+    )
+    new_wus = list(auto_browse_path_v2([], wus))
+    assert (
+        sum(len(wu.get_aspects_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
+        == 3
+    )
+
+    paths = _get_browse_paths_from_wu(new_wus)
+    assert paths["a"] == []
+    assert paths["b"] == _make_container_browse_path_entries(["a"])
+    assert paths["c"] == _make_container_browse_path_entries(["a", "b"])
