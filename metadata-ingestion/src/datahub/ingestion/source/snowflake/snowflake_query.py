@@ -332,7 +332,8 @@ class SnowflakeQuery:
             ON access_history.user_name = users.name
         WHERE query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
             AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-            AND query_history.query_type in ('INSERT', 'UPDATE', 'DELETE', 'CREATE', 'CREATE_TABLE', 'CREATE_TABLE_AS_SELECT')
+            AND access_history.objects_modified is not null
+            AND ARRAY_SIZE(access_history.objects_modified) > 0
         ORDER BY query_start_time DESC
         ;"""
 
