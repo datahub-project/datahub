@@ -3,7 +3,21 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Generic, Iterable, Optional, Set, Type, TypeVar, Union, cast
+from functools import partial
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from pydantic import BaseModel
 
@@ -12,6 +26,11 @@ from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.source_helpers import (
+    auto_materialize_referenced_tags,
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -118,6 +137,9 @@ class TestConnectionReport(Report):
 WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
 ExtractorConfig = TypeVar("ExtractorConfig", bound=ConfigModel)
 
+WorkUnitProcessor = Callable[[Iterable[WorkUnitType]], Iterable[WorkUnitType]]
+MetadataWorkUnitProcessor = WorkUnitProcessor[MetadataWorkUnit]
+
 
 class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
@@ -155,9 +177,35 @@ class Source(Closeable, metaclass=ABCMeta):
         # can't make this method abstract.
         raise NotImplementedError('sources must implement "create"')
 
-    @abstractmethod
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        """A list of functions that transforms the workunits produced by this source.
+        Run in order, first in list is applied first. Be careful with order when overriding.
+        """
+        return [
+            auto_status_aspect,
+            auto_materialize_referenced_tags,
+            partial(auto_workunit_reporter, self.get_report()),
+        ]
+
+    @staticmethod
+    def _apply_workunit_processors(
+        workunit_processors: Sequence[Optional[MetadataWorkUnitProcessor]],
+        stream: Iterable[MetadataWorkUnit],
+    ) -> Iterable[MetadataWorkUnit]:
+        for processor in workunit_processors:
+            if processor is not None:
+                stream = processor(stream)
+        return stream
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        pass
+        return self._apply_workunit_processors(
+            self.get_workunit_processors(), self.get_workunits_internal()
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        raise NotImplementedError(
+            "get_workunits_internal must be implemented if get_workunits is not overriden."
+        )
 
     @abstractmethod
     def get_report(self) -> SourceReport:

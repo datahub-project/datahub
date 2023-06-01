@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { FilterOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
+import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
@@ -74,6 +74,13 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
         .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
     const finalEntityTypes = (entityFilters.length > 0 && entityFilters) || fixedEntityTypes || [];
 
+    const finalEntityFilter: FacetFilterInput = {
+        field: ENTITY_FILTER_NAME,
+        condition: FilterOperator.Equal,
+        values: finalEntityTypes,
+        negated: false,
+    };
+
     // Execute search
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -82,7 +89,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: filtersWithoutEntities,
+                filters: [...filtersWithoutEntities, finalEntityFilter],
             },
         },
     });

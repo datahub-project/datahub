@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLocation } from 'react-router';
 import { Button, Input, Modal, Spin, notification } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
-import { EntityType, AndFilterInput } from '../../../../../../types.generated';
+import { AndFilterInput } from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -12,7 +12,6 @@ import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../.
 
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
-    entityFilters: EntityType[];
     filters: AndFilterInput[];
     query: string;
     viewUrn?: string;
@@ -26,7 +25,6 @@ const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 500;
 
 export default function DownloadAsCsvModal({
     downloadSearchResults,
-    entityFilters,
     filters,
     query,
     viewUrn,
@@ -87,7 +85,6 @@ export default function DownloadAsCsvModal({
         function fetchNextPage() {
             downloadSearchResults({
                 scrollId: nextScrollId,
-                types: entityFilters,
                 query,
                 count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
                 orFilters: filters,

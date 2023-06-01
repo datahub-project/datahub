@@ -26,7 +26,18 @@ record Owner {
   /**
    * The type of the ownership
    */
+  @deprecated
   type: OwnershipType
+
+  /**
+   * The type of the ownership
+   * Urn of type O
+   */
+  @Relationship = {
+    "name": "ownershipType",
+    "entityTypes": [ "ownershipType" ]
+  }
+  typeUrn: optional Urn
 
   /**
    * Source information for the ownership
