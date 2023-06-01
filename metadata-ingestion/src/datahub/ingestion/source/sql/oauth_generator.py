@@ -1,31 +1,45 @@
 import base64
 import logging
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 import msal
+import requests
 from OpenSSL.crypto import FILETYPE_PEM, load_certificate
+from pydantic.types import SecretStr
+
+from datahub.configuration.oauth import OAuthIdentityProvider
 
 logger = logging.getLogger(__name__)
 
 
-class OauthTokenGenerator:
-    def __init__(self, client_id, authority_url, provider):
-        self.client_id = client_id
-        self.authority_url = authority_url
-        self.provider = provider
+OKTA_SCOPE_DELIMITER = ","
+
+
+@dataclass
+class OAuthTokenGenerator:
+    client_id: str
+    authority_url: str
+    provider: OAuthIdentityProvider
+    username: Optional[str] = None
+    password: Optional[SecretStr] = None
 
     def _get_token(
         self,
         credentials: Union[str, Dict[str, Any]],
         scopes: Optional[List[str]],
         check_cache: bool,
-    ) -> str:
-        token = getattr(self, "_get_{}_token".format(self.provider))(
-            scopes, check_cache, credentials
-        )
-        return token
+    ) -> dict:
+        if self.provider == OAuthIdentityProvider.MICROSOFT:
+            return self._get_microsoft_token(credentials, scopes, check_cache)
+        elif self.provider == OAuthIdentityProvider.OKTA:
+            assert isinstance(credentials, str)
+            assert scopes is not None
+            return self._get_okta_token(credentials, scopes)
+        else:
+            raise Exception(f"Unknown oauth provider: {self.provider}")
 
-    def _get_microsoft_token(self, scopes, check_cache, credentials):
+    def _get_microsoft_token(self, credentials, scopes, check_cache):
         app = msal.ConfidentialClientApplication(
             self.client_id, authority=self.authority_url, client_credential=credentials
         )
@@ -37,6 +51,24 @@ class OauthTokenGenerator:
             _token = app.acquire_token_for_client(scopes=scopes)
 
         return _token
+
+    def _get_okta_token(self, credentials: str, scopes: List[str]) -> dict:
+        data = {
+            "grant_type": "client_credentials",
+            "scope": OKTA_SCOPE_DELIMITER.join(scopes),
+        }
+        if self.username and self.password:
+            data["grant_type"] = "password"
+            data["username"] = self.username
+            data["password"] = self.password.get_secret_value()
+
+        resp = requests.post(
+            self.authority_url,
+            headers={"Accept": "application/json"},
+            auth=(self.client_id, credentials),
+            data=data,
+        )
+        return resp.json()
 
     def get_public_certificate_thumbprint(self, public_cert_str: str) -> str:
         cert_str = public_cert_str
