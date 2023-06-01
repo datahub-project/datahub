@@ -39,7 +39,11 @@ const EnvironmentNode = () => {
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.TriangleButton isOpen={isOpen} isVisible={!!environmentAggregation?.count} />
+                        <ExpandableNode.TriangleButton
+                            isOpen={isOpen}
+                            isVisible={!!environmentAggregation?.count}
+                            onClick={toggle}
+                        />
                         <Title color={color}>{environmentAggregation?.value}</Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(environmentAggregation?.count)}</Count>
