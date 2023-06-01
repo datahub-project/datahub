@@ -128,27 +128,23 @@ class GenericCheckpointState(CheckpointStateBase):
         :return: (1-|intersection(self, old_checkpoint_state)| / |old_checkpoint_state|) * 100.0
         """
         return compute_percent_entities_changed(
-            [(self.urns, old_checkpoint_state.urns)]
+            new_entities=self.urns, old_entities=old_checkpoint_state.urns
         )
 
 
 def compute_percent_entities_changed(
-    new_old_entity_list: List[Tuple[List[str], List[str]]]
+    new_entities: List[str], old_entities: List[str]
 ) -> float:
-    old_count_all = 0
-    overlap_count_all = 0
-    for new_entities, old_entities in new_old_entity_list:
-        (overlap_count, old_count, _,) = get_entity_overlap_and_cardinalities(
-            new_entities=new_entities, old_entities=old_entities
-        )
-        overlap_count_all += overlap_count
-        old_count_all += old_count
-    if old_count_all:
-        return (1 - overlap_count_all / old_count_all) * 100.0
+    (overlap_count, old_count, _,) = _get_entity_overlap_and_cardinalities(
+        new_entities=new_entities, old_entities=old_entities
+    )
+
+    if old_count:
+        return (1 - overlap_count / old_count) * 100.0
     return 0.0
 
 
-def get_entity_overlap_and_cardinalities(
+def _get_entity_overlap_and_cardinalities(
     new_entities: List[str], old_entities: List[str]
 ) -> Tuple[int, int, int]:
     new_set = set(new_entities)
