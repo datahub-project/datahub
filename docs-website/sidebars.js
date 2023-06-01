@@ -87,7 +87,7 @@ module.exports = {
                 "docs/quick-ingestion-guides/looker/setup",
                 "docs/quick-ingestion-guides/looker/configuration",
               ],
-            }		  
+            },
           ],
         },
         {
