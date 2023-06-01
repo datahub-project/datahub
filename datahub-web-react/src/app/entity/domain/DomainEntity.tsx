@@ -72,12 +72,12 @@ export class DomainEntity implements Entity<Domain> {
             isNameEditable
             tabs={[
                 {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                },
-                {
                     name: 'Entities',
                     component: DomainEntitiesTab,
+                },
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
                 },
                 {
                     name: 'Data Products',
