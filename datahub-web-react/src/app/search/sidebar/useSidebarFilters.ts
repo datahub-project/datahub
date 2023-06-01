@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import isEqual from 'lodash/isEqual';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import applyOrFilterOverrides from '../utils/applyOrFilterOverrides';
 import { BROWSE_PATH_V2_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
 
-const useSidebarFilters = () => {
+export const useSidebarFilters = () => {
     const environment = useMaybeEnvironmentAggregation()?.value;
     const platform = useMaybePlatformAggregation()?.value;
 
@@ -21,16 +22,32 @@ const useSidebarFilters = () => {
         [filterOverrides],
     );
 
-    const { query, orFilters: orFiltersWithoutOverrides, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
+    const {
+        query: latestQuery,
+        orFilters: latestOrFilters,
+        viewUrn: latestViewUrn,
+    } = useGetSearchQueryInputs(excludedFilterFields);
 
-    const orFilters = useMemo(
-        () => applyOrFilterOverrides(orFiltersWithoutOverrides, filterOverrides),
-        [filterOverrides, orFiltersWithoutOverrides],
+    const createSidebarFilters = useCallback(
+        () => ({
+            query: latestQuery,
+            orFilters: applyOrFilterOverrides(latestOrFilters, filterOverrides),
+            viewUrn: latestViewUrn,
+        }),
+        [filterOverrides, latestOrFilters, latestQuery, latestViewUrn],
     );
 
-    return useMemo(() => ({ query, orFilters, viewUrn } as const), [orFilters, query, viewUrn]);
+    const [sidebarFilters, setSidebarFilters] = useState(createSidebarFilters);
+
+    // Ensures we only trigger filter updates in the sidebar if they truly changed (clicking browse could trigger this when we don't want)
+    useEffect(() => {
+        setSidebarFilters((sf) => {
+            const latestSidebarFilters = createSidebarFilters();
+            return isEqual(sf, latestSidebarFilters) ? sf : latestSidebarFilters;
+        });
+    }, [createSidebarFilters]);
+
+    return sidebarFilters;
 };
 
 export type SidebarFilters = ReturnType<typeof useSidebarFilters>;
-
-export default useSidebarFilters;

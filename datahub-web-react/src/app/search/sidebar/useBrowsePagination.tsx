@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useIntersect from '../../shared/useIntersect';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from './constants';
 import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
-import useSidebarFilters, { SidebarFilters } from './useSidebarFilters';
+import { SidebarFilters, useSidebarFilters } from './useSidebarFilters';
 import { useBrowsePath, useEntityType } from './BrowseContext';
 
 type Props = {
@@ -26,7 +26,7 @@ const getInitialState = (): State => ({
 const useBrowsePagination = ({ skip }: Props) => {
     const type = useEntityType();
     const path = useBrowsePath();
-    const latestSidebarFilters = useSidebarFilters();
+    const sidebarFilters = useSidebarFilters();
     const [{ current, list, map, filters }, setState] = useState(getInitialState);
     const groups = useMemo(() => list.flatMap((start) => map[start]?.browseV2?.groups ?? []), [list, map]);
     const latestStart = list.length ? list[list.length - 1] : -1;
@@ -48,28 +48,24 @@ const useBrowsePagination = ({ skip }: Props) => {
         },
     });
 
-    // This is probably why the second level is closing?
-    // we actually want to leave all things expanded...
-    // but, our React children change due to the filtering
-    // we actually only want this to run if any filters changed (other than our browsev2 filter)
     useEffect(() => {
-        setState({
+        setState(() => ({
             current: 0,
             list: [],
             map: {},
-            filters: latestSidebarFilters,
-        });
-    }, [latestSidebarFilters]);
+            filters: sidebarFilters,
+        }));
+    }, [sidebarFilters]);
 
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
         if (!data || newStart < 0) return;
         setState((s) =>
-            newStart in s.map
+            s.map[newStart]
                 ? s
                 : {
                       ...s,
-                      list: [...s.list, newStart],
+                      list: [...s.list, newStart].sort((a, b) => a - b),
                       map: { ...s.map, [newStart]: data },
                   },
         );

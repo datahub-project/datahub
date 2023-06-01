@@ -4,7 +4,7 @@ import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { useMaybeEntityType } from './BrowseContext';
-import useSidebarFilters from './useSidebarFilters';
+import { useSidebarFilters } from './useSidebarFilters';
 
 type Props = {
     facets: string[];
