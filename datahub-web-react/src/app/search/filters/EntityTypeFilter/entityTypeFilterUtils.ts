@@ -5,6 +5,7 @@ import {
     LEGACY_ENTITY_FILTER_FIELDS,
     ENTITY_SUB_TYPE_FILTER_NAME,
     ENTITY_TYPE_FILTER_NAME,
+    FILTER_DELIMITER,
 } from '../../utils/constants';
 import { mapFilterOption } from '../mapFilterOption';
 import { FilterOptionType } from '../types';
@@ -13,10 +14,10 @@ import { filterOptionsWithSearch, getFilterIconAndLabel, getFilterOptions } from
 const BACKWARDS_COMPATIBLE_FILTER_FIELDS = [ENTITY_SUB_TYPE_FILTER_NAME, ...LEGACY_ENTITY_FILTER_FIELDS];
 
 function getAggregationsForFilterOptions(data?: AggregateAcrossEntitiesQuery) {
-    let aggregations: AggregationMetadata[] = [];
+    const aggregations: AggregationMetadata[] = [];
     data?.aggregateAcrossEntities?.facets?.forEach((facet) => {
         if (facet.field === ENTITY_SUB_TYPE_FILTER_NAME) {
-            aggregations = [...aggregations, ...facet.aggregations];
+            aggregations.push(...facet.aggregations);
         } else if (facet.field === ENTITY_TYPE_FILTER_NAME) {
             facet.aggregations.forEach((agg) => {
                 if (!aggregations.find((a) => a.value === agg.value)) {
@@ -45,10 +46,12 @@ export function getDisplayedFilterOptions(
 
     // map aggregations to filter options, removing nested options, and placing nested options under top level options
     const filterOptions = getFilterOptions(ENTITY_SUB_TYPE_FILTER_NAME, aggregations, selectedFilterOptions, [] as any)
-        .filter((option) => !option.value.includes('␞')) // remove nested options
+        .filter((option) => !option.value.includes(FILTER_DELIMITER)) // remove nested options
         .map((filterOption) => {
             const nestedOptions = aggregations
-                .filter((option) => option.value.includes('␞') && option.value.includes(filterOption.value))
+                .filter(
+                    (option) => option.value.includes(FILTER_DELIMITER) && option.value.includes(filterOption.value),
+                )
                 .map((option) => ({ field: ENTITY_SUB_TYPE_FILTER_NAME, ...option }))
                 .filter((o) => filterNestedOptions(o, entityRegistry, searchQuery));
             return mapFilterOption({
