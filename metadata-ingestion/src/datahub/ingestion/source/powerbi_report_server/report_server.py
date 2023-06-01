@@ -569,8 +569,5 @@ class PowerBiReportServerDashboardSource(Source):
             existing_owners=existing_ownership, owner_to_add=owner_to_add
         )
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self) -> SourceReport:
         return self.report

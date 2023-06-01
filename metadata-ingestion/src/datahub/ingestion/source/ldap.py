@@ -433,9 +433,6 @@ class LDAPSource(StatefulIngestionSourceBase):
             return MetadataChangeEvent(proposedSnapshot=group_snapshot)
         return None
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> LDAPSourceReport:
         """Returns the source report."""
         return self.report

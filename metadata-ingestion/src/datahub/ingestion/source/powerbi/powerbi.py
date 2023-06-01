@@ -1243,8 +1243,5 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     # Maintain backward compatibility
                     yield from self.get_workspace_workunit(workspace)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self) -> SourceReport:
         return self.reporter

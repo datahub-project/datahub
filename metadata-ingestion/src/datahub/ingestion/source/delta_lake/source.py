@@ -353,8 +353,5 @@ class DeltaLakeSource(Source):
         self.storage_options = self.get_storage_options()
         yield from self.process_folder(self.source_config.complete_path)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self) -> SourceReport:
         return self.report

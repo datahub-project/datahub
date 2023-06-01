@@ -35,9 +35,6 @@ class FakeSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FakeSource":
         return FakeSource(ctx)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return None
-
     def get_report(self) -> SourceReport:
         return self.source_report
 

@@ -370,9 +370,6 @@ class NifiSource(Source):
         config = NifiSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> SourceReport:
         return self.report
 

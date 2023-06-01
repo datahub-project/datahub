@@ -1228,9 +1228,6 @@ class SnowflakeV2Source(
                     dataset_name,
                 )
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> SourceReport:
         return self.report
 

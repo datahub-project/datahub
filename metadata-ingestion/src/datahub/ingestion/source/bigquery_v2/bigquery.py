@@ -1148,9 +1148,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> BigQueryV2Report:
         return self.report
 

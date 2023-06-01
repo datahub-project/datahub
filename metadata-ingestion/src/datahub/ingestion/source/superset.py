@@ -410,8 +410,5 @@ class SupersetSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

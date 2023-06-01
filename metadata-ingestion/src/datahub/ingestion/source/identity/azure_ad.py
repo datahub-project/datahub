@@ -473,9 +473,6 @@ class AzureADSource(StatefulIngestionSourceBase):
             user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
             yield MetadataWorkUnit(id=user_status_wu_id, mcp=user_status_mcp)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> SourceReport:
         return self.report
 

@@ -1187,8 +1187,5 @@ class GlueSource(StatefulIngestionSourceBase):
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self):
         return self.report

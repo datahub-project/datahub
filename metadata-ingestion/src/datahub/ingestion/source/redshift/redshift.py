@@ -277,9 +277,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
         return test_report
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> RedshiftReport:
         return self.report
 

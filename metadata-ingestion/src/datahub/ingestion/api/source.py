@@ -230,9 +230,8 @@ class Source(Closeable, metaclass=ABCMeta):
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
 
-    # Not abstract for backwards compatibility
     def get_config(self) -> Optional[ConfigModel]:
-        return None
+        return getattr(self, "config", None) or getattr(self, "source_config", None)
 
     @abstractmethod
     def get_report(self) -> SourceReport:

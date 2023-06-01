@@ -303,9 +303,6 @@ class IcebergSource(StatefulIngestionSourceBase):
             ],
         }
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> SourceReport:
         return self.report
 

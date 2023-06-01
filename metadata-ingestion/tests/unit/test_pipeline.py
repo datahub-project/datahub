@@ -347,9 +347,6 @@ class FakeSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return self.work_units
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return None
-
     def get_report(self) -> SourceReport:
         return self.source_report
 

@@ -1315,8 +1315,5 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 yield usage_mcp.as_workunit()
             self.reporter.report_stage_end("usage_extraction")
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self) -> SourceReport:
         return self.reporter

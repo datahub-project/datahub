@@ -289,8 +289,5 @@ class TrinoUsageSource(Source):
             self.config.include_top_n_queries,
         )
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> SourceReport:
         return self.report

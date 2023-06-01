@@ -119,9 +119,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: str
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> UnityCatalogReport:
         return self.report
 

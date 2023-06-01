@@ -371,8 +371,5 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 )
                 logger.error(f"Failed to process file {self.config.path}", exc_info=e)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self):
         return self.report

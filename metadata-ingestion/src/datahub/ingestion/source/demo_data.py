@@ -34,8 +34,5 @@ class DemoDataSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from self.file_source.get_workunits()
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return None
-
     def get_report(self) -> SourceReport:
         return self.file_source.get_report()

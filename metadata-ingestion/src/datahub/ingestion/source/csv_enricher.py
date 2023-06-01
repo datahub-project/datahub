@@ -666,8 +666,5 @@ class CSVEnricherSource(Source):
 
         yield from self.get_sub_resource_work_units()
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self):
         return self.report

@@ -107,8 +107,5 @@ class SagemakerSource(Source):
             )
             yield from model_processor.get_workunits()
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self):
         return self.report

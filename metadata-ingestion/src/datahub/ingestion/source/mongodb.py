@@ -430,9 +430,6 @@ class MongoDBSource(Source):
 
         return False
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> MongoDBSourceReport:
         return self.report
 

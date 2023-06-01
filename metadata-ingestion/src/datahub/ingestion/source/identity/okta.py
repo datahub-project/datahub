@@ -408,9 +408,6 @@ class OktaSource(StatefulIngestionSourceBase):
         # Step 4: Close the event loop
         event_loop.close()
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self):
         return self.report
 

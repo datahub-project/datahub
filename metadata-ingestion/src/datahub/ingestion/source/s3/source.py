@@ -901,8 +901,5 @@ class S3Source(StatefulIngestionSourceBase):
     def is_s3_platform(self):
         return self.source_config.platform == "s3"
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self):
         return self.report

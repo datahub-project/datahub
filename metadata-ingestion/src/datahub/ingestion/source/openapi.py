@@ -320,9 +320,6 @@ class APISource(Source, ABC):
                     else:
                         self.report_bad_responses(response.status_code, key=endpoint_k)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self):
         return self.report
 

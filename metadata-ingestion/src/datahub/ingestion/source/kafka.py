@@ -362,9 +362,6 @@ class KafkaSource(StatefulIngestionSourceBase):
             except Exception as e:
                 logger.info(f"{config_key} is not available for topic due to error {e}")
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self) -> KafkaSourceReport:
         return self.report
 

@@ -390,8 +390,5 @@ class FeastRepositorySource(Source):
 
             yield self._get_on_demand_feature_view_workunit(on_demand_feature_view)
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.source_config
-
     def get_report(self) -> SourceReport:
         return self.report

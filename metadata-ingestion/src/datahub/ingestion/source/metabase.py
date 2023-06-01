@@ -619,8 +619,5 @@ class MetabaseSource(Source):
         yield from self.emit_card_mces()
         yield from self.emit_dashboard_mces()
 
-    def get_config(self) -> Optional[ConfigModel]:
-        return self.config
-
     def get_report(self) -> SourceReport:
         return self.report
