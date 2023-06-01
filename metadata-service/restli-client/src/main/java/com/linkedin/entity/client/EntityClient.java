@@ -195,12 +195,6 @@ public interface EntityClient {
       SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication,
       @Nullable SearchFlags searchFlags) throws RemoteInvocationException;
 
-  @Nonnull
-  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-     @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-     @Nonnull Authentication authentication)
-      throws RemoteInvocationException;
-
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
    *
@@ -210,14 +204,13 @@ public interface EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @param searchFlags configuration flags for the search request
-   * @param facets list of facets we want aggregations for
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication, List<String> facets)
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**

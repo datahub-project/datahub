@@ -59,10 +59,6 @@ public interface EntitySearchService {
    */
   void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId);
 
-  @Nonnull
-  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-                      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags);
-
   /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
    * search hits and not the aggregation results.
@@ -77,12 +73,11 @@ public interface EntitySearchService {
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param searchFlags flags controlling search options
-   * @param facets list of facets we want aggregations for
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-                      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets);
+                      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
