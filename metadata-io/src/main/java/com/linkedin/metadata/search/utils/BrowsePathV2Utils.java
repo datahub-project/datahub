@@ -45,7 +45,8 @@ public class BrowsePathV2Utils {
       @Nonnull Urn urn,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull Character dataPlatformDelimiter,
-      @Nonnull EntityService entityService) throws URISyntaxException {
+      @Nonnull EntityService entityService,
+      boolean useContainerPaths) throws URISyntaxException {
 
     BrowsePathsV2 result = new BrowsePathsV2();
     BrowsePathEntryArray browsePathEntries = new BrowsePathEntryArray();
@@ -53,8 +54,8 @@ public class BrowsePathV2Utils {
     switch (urn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
         DatasetKey dsKey = (DatasetKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeyAspectSpec(urn.getEntityType(), entityRegistry));
-        BrowsePathEntryArray datasetContainerPathEntries = getContainerPathEntries(urn, entityService);
-        if (datasetContainerPathEntries.size() > 0) {
+        BrowsePathEntryArray datasetContainerPathEntries = useContainerPaths ? getContainerPathEntries(urn, entityService) : null;
+        if (useContainerPaths && datasetContainerPathEntries.size() > 0) {
           browsePathEntries.addAll(datasetContainerPathEntries);
         } else {
           BrowsePathEntryArray defaultDatasetPathEntries = getDefaultDatasetPathEntries(dsKey.getName(), dataPlatformDelimiter);
@@ -68,8 +69,8 @@ public class BrowsePathV2Utils {
       // Some sources produce charts and dashboards with containers. If we have containers, use them, otherwise use default folder
       case Constants.CHART_ENTITY_NAME:
       case Constants.DASHBOARD_ENTITY_NAME:
-        BrowsePathEntryArray containerPathEntries = getContainerPathEntries(urn, entityService);
-        if (containerPathEntries.size() > 0) {
+        BrowsePathEntryArray containerPathEntries = useContainerPaths ? getContainerPathEntries(urn, entityService) : null;
+        if (useContainerPaths && containerPathEntries.size() > 0) {
           browsePathEntries.addAll(containerPathEntries);
         } else {
           browsePathEntries.add(createBrowsePathEntry(DEFAULT_FOLDER_NAME, null));
@@ -109,7 +110,8 @@ public class BrowsePathV2Utils {
         DataMap dataMap = entityResponse.getAspects().get(CONTAINER_ASPECT_NAME).getValue().data();
         com.linkedin.container.Container container = new com.linkedin.container.Container(dataMap);
         Urn containerUrn = container.getContainer();
-        containerUrns.add(containerUrn);
+        // add to beginning of the array, we want the highest level container first
+        containerUrns.add(0, containerUrn);
         aggregateParentContainers(containerUrns, containerUrn, entityService);
       }
     } catch (Exception e) {

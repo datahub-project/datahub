@@ -2068,9 +2068,9 @@ public class EntityService {
    * will have a basic "Default" folder added to their browsePathV2.
    */
   @Nonnull
-  public BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn) throws URISyntaxException {
+  public BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException {
     Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
-    return BrowsePathV2Utils.getDefaultBrowsePathV2(urn, this.getEntityRegistry(), dataPlatformDelimiter, this);
+    return BrowsePathV2Utils.getDefaultBrowsePathV2(urn, this.getEntityRegistry(), dataPlatformDelimiter, this, useContainerPaths);
   }
 
   /**

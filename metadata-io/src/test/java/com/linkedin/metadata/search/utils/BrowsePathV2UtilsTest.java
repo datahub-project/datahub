@@ -32,7 +32,7 @@ import static org.mockito.Mockito.eq;
 
 public class BrowsePathV2UtilsTest {
 
-  private static final String DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
+  private static final String DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test.a.b,DEV)";
   private static final String CHART_URN = "urn:li:chart:(looker,baz)";
   private static final String DASHBOARD_URN = "urn:li:dashboard:(airflow,id)";
   private static final String DATA_FLOW_URN = "urn:li:dataFlow:(orchestrator,flowId,cluster)";
@@ -48,10 +48,26 @@ public class BrowsePathV2UtilsTest {
     final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
     EntityService mockService = initMockServiceWithContainerParents(datasetUrn, containerUrn1, containerUrn2);
 
-    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(datasetUrn, this.registry, '.', mockService);
+    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(datasetUrn, this.registry, '.', mockService, true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 = new BrowsePathEntry().setId(containerUrn1.toString()).setUrn(containerUrn1);
     BrowsePathEntry entry2 = new BrowsePathEntry().setId(containerUrn2.toString()).setUrn(containerUrn2);
+    expectedPath.add(entry2);
+    expectedPath.add(entry1);
+    Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
+  }
+
+  @Test
+  public void testGetDefaultDatasetBrowsePathV2WithContainersFlagOff() throws URISyntaxException {
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    final Urn containerUrn1 = UrnUtils.getUrn(CONTAINER_URN1);
+    final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
+    EntityService mockService = initMockServiceWithContainerParents(datasetUrn, containerUrn1, containerUrn2);
+
+    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(datasetUrn, this.registry, '.', mockService, false);
+    BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
+    BrowsePathEntry entry1 = new BrowsePathEntry().setId("test");
+    BrowsePathEntry entry2 = new BrowsePathEntry().setId("a");
     expectedPath.add(entry1);
     expectedPath.add(entry2);
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
@@ -64,12 +80,12 @@ public class BrowsePathV2UtilsTest {
     final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
     EntityService mockService = initMockServiceWithContainerParents(chartUrn, containerUrn1, containerUrn2);
 
-    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(chartUrn, this.registry, '.', mockService);
+    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(chartUrn, this.registry, '.', mockService, true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 = new BrowsePathEntry().setId(containerUrn1.toString()).setUrn(containerUrn1);
     BrowsePathEntry entry2 = new BrowsePathEntry().setId(containerUrn2.toString()).setUrn(containerUrn2);
-    expectedPath.add(entry1);
     expectedPath.add(entry2);
+    expectedPath.add(entry1);
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
   }
 
@@ -80,12 +96,12 @@ public class BrowsePathV2UtilsTest {
     final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
     EntityService mockService = initMockServiceWithContainerParents(dashboardUrn, containerUrn1, containerUrn2);
 
-    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dashboardUrn, this.registry, '.', mockService);
+    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dashboardUrn, this.registry, '.', mockService, true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 = new BrowsePathEntry().setId(containerUrn1.toString()).setUrn(containerUrn1);
     BrowsePathEntry entry2 = new BrowsePathEntry().setId(containerUrn2.toString()).setUrn(containerUrn2);
-    expectedPath.add(entry1);
     expectedPath.add(entry2);
+    expectedPath.add(entry1);
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
   }
 
@@ -102,7 +118,7 @@ public class BrowsePathV2UtilsTest {
     when(
         mockService.getEntityV2(eq(datasetUrn.getEntityType()), eq(datasetUrn), eq(Collections.singleton(CONTAINER_ASPECT_NAME)))
     ).thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
-    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(datasetUrn, this.registry, '.', mockService);
+    BrowsePathsV2 browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(datasetUrn, this.registry, '.', mockService, true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 = new BrowsePathEntry().setId("test");
     BrowsePathEntry entry2 = new BrowsePathEntry().setId("a");
@@ -115,7 +131,7 @@ public class BrowsePathV2UtilsTest {
     when(
         mockService.getEntityV2(eq(chartUrn.getEntityType()), eq(chartUrn), eq(Collections.singleton(CONTAINER_ASPECT_NAME)))
     ).thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
-    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(chartUrn, this.registry, '/', mockService);
+    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(chartUrn, this.registry, '/', mockService, true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId("Default");
     expectedPath.add(entry1);
@@ -126,7 +142,7 @@ public class BrowsePathV2UtilsTest {
     when(
         mockService.getEntityV2(eq(dashboardUrn.getEntityType()), eq(dashboardUrn), eq(Collections.singleton(CONTAINER_ASPECT_NAME)))
     ).thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
-    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dashboardUrn, this.registry, '/', mockService);
+    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dashboardUrn, this.registry, '/', mockService, true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId("Default");
     expectedPath.add(entry1);
@@ -137,7 +153,7 @@ public class BrowsePathV2UtilsTest {
     when(
         mockService.getEntityV2(eq(dataFlowUrn.getEntityType()), eq(dataFlowUrn), eq(Collections.singleton(CONTAINER_ASPECT_NAME)))
     ).thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
-    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dataFlowUrn, this.registry, '/', mockService);
+    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dataFlowUrn, this.registry, '/', mockService, true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId("Default");
     expectedPath.add(entry1);
@@ -148,7 +164,7 @@ public class BrowsePathV2UtilsTest {
         .setFlow(dataFlowUrn)
         .setJobId("Job/A/B");
     Urn dataJobUrn = EntityKeyUtils.convertEntityKeyToUrn(dataJobKey, "dataJob");
-    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dataJobUrn, this.registry, '/', mockService);
+    browsePathsV2 = BrowsePathV2Utils.getDefaultBrowsePathV2(dataJobUrn, this.registry, '/', mockService, true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId(dataFlowUrn.toString()).setUrn(dataFlowUrn);
     expectedPath.add(entry1);
