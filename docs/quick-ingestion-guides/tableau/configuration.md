@@ -73,7 +73,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
     c. **Password:** Use the TABLEAU_PASSWORD secret (e.g., "${TABLEAU_PASSWORD}").   
 
-    d. **site**: Required only if using tableau cloud/ tableau online
+    d. **Site**: Required only if using tableau cloud/ tableau online
     
 
 To filter specific project, use `project_pattern` fields.
