@@ -36,7 +36,7 @@ public class DeleteLegacyGraphRelationshipsStep implements UpgradeStep {
       try {
         ((Neo4jGraphService) _graphClient).removeNodesMatchingLabel(deletePattern);
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to delete legacy data from graph: %s", e.toString()));
+        context.report().addLine("Failed to delete legacy data from graph", e);
         return new DefaultUpgradeStepResult(
             id(),
             UpgradeStepResult.Result.FAILED);

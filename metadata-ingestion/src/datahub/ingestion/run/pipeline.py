@@ -308,8 +308,7 @@ class Pipeline:
                     status="CANCELLED"
                     if self.final_status == "cancelled"
                     else "FAILURE"
-                    if self.source.get_report().failures
-                    or self.sink.get_report().failures
+                    if self.has_failures()
                     else "SUCCESS"
                     if self.final_status == "completed"
                     else "UNKNOWN",
@@ -385,6 +384,7 @@ class Pipeline:
                 except SystemExit:
                     raise
                 except Exception as e:
+                    # TODO: Transformer errors should cause the pipeline to fail.
                     logger.error(
                         "Failed to process some records. Continuing.", exc_info=e
                     )
@@ -410,7 +410,7 @@ class Pipeline:
             self.sink.close()
             self.process_commits()
             self.final_status = "completed"
-        except (SystemExit, RuntimeError) as e:
+        except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
             self.final_status = "cancelled"
             logger.error("Caught error", exc_info=e)
             raise
@@ -533,6 +533,11 @@ class Pipeline:
                 return "bright_yellow"
             else:
                 return "bright_green"
+
+    def has_failures(self) -> bool:
+        return bool(
+            self.source.get_report().failures or self.sink.get_report().failures
+        )
 
     def pretty_print_summary(
         self, warnings_as_failure: bool = False, currently_running: bool = False

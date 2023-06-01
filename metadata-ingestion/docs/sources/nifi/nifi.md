@@ -4,13 +4,13 @@ This connector supports following authentication mechanisms
 
 #### Single User Authentication (`auth: SINGLE_USER`)
    
-Connector will pass this `username` and `password` as used on Nifi Login Page over `/access/token` REST endpoint. This mode also works when [Kerberos login identity provider](https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#Kerberos_login_identity_provider) is set up for Nifi.
+Connector will pass this `username` and `password` as used on Nifi Login Page over `/access/token` REST endpoint. This mode also works when [Kerberos login identity provider](https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#kerberos_login_identity_provider) is set up for Nifi.
 #### Client Certificates Authentication (`auth: CLIENT_CERT`)
   
 Connector will use `client_cert_file`(required) and `client_key_file`(optional), `client_key_password`(optional) for mutual TLS authentication. 
 #### Kerberos Authentication via SPNEGO (`auth: Kerberos`)
 
-If nifi has been configured to use [Kerberos SPNEGO](https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#Kerberos_service), connector will pass user’s Kerberos ticket to nifi over  `/access/kerberos` REST endpoint. It is assumed that user's Kerberos ticket is already present on the machine on which ingestion runs. This is usually done by installing krb5-user and then running kinit for user.
+If nifi has been configured to use [Kerberos SPNEGO](https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#kerberos_service), connector will pass user’s Kerberos ticket to nifi over  `/access/kerberos` REST endpoint. It is assumed that user's Kerberos ticket is already present on the machine on which ingestion runs. This is usually done by installing krb5-user and then running kinit for user.
    ```console
    sudo apt install krb5-user
    kinit user@REALM

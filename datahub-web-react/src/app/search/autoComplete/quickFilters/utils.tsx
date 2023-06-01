@@ -11,7 +11,7 @@ const StyledIcon = styled.img`
 
 export enum QuickFilterField {
     Platform = 'platform',
-    Entity = 'entity',
+    Entity = '_entityType',
 }
 
 export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: EntityRegistry) {
