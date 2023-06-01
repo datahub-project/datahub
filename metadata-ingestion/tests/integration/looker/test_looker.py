@@ -780,7 +780,9 @@ def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
 
 
 @freeze_time(FROZEN_TIME)
-def test_independent_looks_ingest(pytestconfig, tmp_path, mock_time):
+def test_independent_looks_ingest(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
     new_recipe["source"]["config"]["extract_independent_looks"] = True
@@ -793,7 +795,12 @@ def test_independent_looks_ingest(pytestconfig, tmp_path, mock_time):
     }
     new_recipe["pipeline_name"] = "execution-1"
 
-    with mock.patch("looker_sdk.init40") as mock_sdk:
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_checkpoint.return_value = mock_datahub_graph
+
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore(mocked_client)
