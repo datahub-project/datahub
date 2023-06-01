@@ -29,12 +29,15 @@ const SidebarBody = styled.div`
 `;
 
 type Props = {
+    // todo - remove and replace with agg query
     facets?: Array<FacetMetadata> | null;
     visible: boolean;
     width: number;
 };
 
 const BrowseSidebar = ({ facets, visible, width }: Props) => {
+    // todo - query the aggregations from useAggregationsQuery but that currently only works underneath a BrowseProvider
+    // maybe wrap the whole sidebar in a BrowseProvider?
     const entityAggregations = useBrowseV2EnabledEntities(facets);
 
     return (

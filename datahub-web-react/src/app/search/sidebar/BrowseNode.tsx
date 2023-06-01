@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
@@ -12,7 +12,9 @@ import {
     BrowseProvider,
     useBrowseResultGroup,
     useEntityAggregation,
+    useIsSelected,
     useMaybeEnvironmentAggregation,
+    useOnSelect,
     usePlatformAggregation,
 } from './BrowseContext';
 
@@ -32,6 +34,8 @@ const Count = styled(Typography.Text)`
 `;
 
 const BrowseNode = () => {
+    const isSelected = useIsSelected();
+    const onSelect = useOnSelect();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
@@ -40,17 +44,13 @@ const BrowseNode = () => {
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
 
-    // todo - set the selected browse path (useBrowsePath) in a global context
-    const [isSelected, setIsSelected] = useState(false);
-    const onClickHeader = () => setIsSelected((s) => !s);
-
     const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
 
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
             header={
-                <ExpandableNode.SelectableHeader isOpen={isOpen} isSelected={isSelected} onClick={onClickHeader}>
+                <ExpandableNode.SelectableHeader isOpen={isOpen} isSelected={isSelected} onClick={onSelect}>
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen}

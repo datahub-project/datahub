@@ -81,11 +81,6 @@ ExpandableNode.RotatingButton = styled(ExpandableNode.BaseButton)<{ deg: number 
     transition: transform 250ms;
 `;
 
-// todo - try letting all queries go out (just reset state of each pagination map when filters change)
-// - just set the cached filters as everything but the browse path (exclude it)
-// - let apollo detect the variables changed in each query
-// - move the cachedFilters to a top level context?
-
 ExpandableNode.StaticButton = ({ icon }: { icon: JSX.Element }) => {
     return <ExpandableNode.BaseButton ghost size="small" type="ghost" icon={icon} />;
 };

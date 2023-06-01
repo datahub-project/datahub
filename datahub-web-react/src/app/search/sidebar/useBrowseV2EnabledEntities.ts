@@ -3,6 +3,7 @@ import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from '../utils/constants';
 
+// todo - maybe move this / combine into useAggregationsQuery
 const useBrowseV2EnabledEntities = (facets?: Array<FacetMetadata> | null) => {
     const registry = useEntityRegistry();
 

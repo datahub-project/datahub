@@ -25,6 +25,7 @@ export const DESCRIPTION_FILTER_NAME = 'description';
 export const REMOVED_FILTER_NAME = 'removed';
 export const ORIGIN_FILTER_NAME = 'origin';
 export const DEGREE_FILTER_NAME = 'degree';
+export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
@@ -106,3 +107,5 @@ export enum UnionType {
     AND,
     OR,
 }
+
+export const UNIT_SEPARATOR = '␟';

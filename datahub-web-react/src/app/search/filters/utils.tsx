@@ -29,6 +29,7 @@ import {
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
+    UNIT_SEPARATOR,
 } from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -221,3 +222,5 @@ export function filterOptionsWithSearch(searchQuery: string, name: string, neste
     }
     return true;
 }
+
+export const createBrowseV2SearchFilter = (path: Array<string>) => `${UNIT_SEPARATOR}${path.join(UNIT_SEPARATOR)}`;

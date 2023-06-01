@@ -1,5 +1,20 @@
-import React, { ReactNode, createContext, useContext, useMemo } from 'react';
-import { AggregationMetadata, BrowseResultGroupV2, EntityType } from '../../../types.generated';
+import React, { ReactNode, createContext, useContext } from 'react';
+import { AggregationMetadata, BrowseResultGroupV2, EntityType, FilterOperator } from '../../../types.generated';
+import { createBrowseV2SearchFilter } from '../filters/utils';
+import {
+    BROWSE_PATH_V2_FILTER_NAME,
+    ENTITY_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+} from '../utils/constants';
+import {
+    useBrowseFilterValue,
+    useEntityFilterValue,
+    useEnvironmentFilterValue,
+    useOnChangeFilters,
+    usePlatformFilterValue,
+    useSelectedFilters,
+} from './SidebarProvider';
 
 type BrowseContextValue = {
     entityAggregation: AggregationMetadata;
@@ -7,6 +22,8 @@ type BrowseContextValue = {
     platformAggregation?: AggregationMetadata | null;
     browseResultGroup?: BrowseResultGroupV2 | null;
     path: Array<string>;
+    isSelected: boolean;
+    onSelect: () => void;
 };
 
 const BrowseContext = createContext<BrowseContextValue | null>(null);
@@ -20,6 +37,13 @@ type Props = {
     parentPath?: Array<string> | null;
 };
 
+const EXCLUDED_FILTER_NAMES = [
+    ENTITY_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+    BROWSE_PATH_V2_FILTER_NAME,
+];
+
 export const BrowseProvider = ({
     children,
     entityAggregation,
@@ -28,34 +52,82 @@ export const BrowseProvider = ({
     browseResultGroup,
     parentPath,
 }: Props) => {
-    const path = useMemo(() => {
-        const basePath = [...(parentPath ?? [])];
-        return browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
-    }, [browseResultGroup, parentPath]);
+    const selectedFilters = useSelectedFilters();
+    const onChangeFilters = useOnChangeFilters();
+    const selectedEntity = useEntityFilterValue();
+    const selectedEnvironment = useEnvironmentFilterValue();
+    const selectedPlatform = usePlatformFilterValue();
+    const selectedBrowsePath = useBrowseFilterValue();
 
-    const value = useMemo(
-        () => ({
-            entityAggregation,
-            environmentAggregation,
-            platformAggregation,
-            browseResultGroup,
-            path,
-        }),
-        [browseResultGroup, entityAggregation, environmentAggregation, path, platformAggregation],
+    const basePath = parentPath ? [...parentPath] : [];
+    const path = browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
+    const browseSearchFilter = createBrowseV2SearchFilter(path);
+
+    const isEntitySelected = selectedEntity === entityAggregation?.value;
+    const isEnvironmentSelected = !environmentAggregation || selectedEnvironment === environmentAggregation.value;
+    const isPlatformSelected = selectedPlatform === platformAggregation?.value;
+    const isBrowsePathSelected = selectedBrowsePath === browseSearchFilter;
+
+    const isSelected = isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathSelected;
+
+    const onSelect = () => {
+        const filters = selectedFilters.filter((sf) => !EXCLUDED_FILTER_NAMES.includes(sf.field));
+
+        filters.push({
+            field: ENTITY_FILTER_NAME,
+            condition: FilterOperator.Equal,
+            values: [entityAggregation.value],
+        });
+
+        if (environmentAggregation)
+            filters.push({
+                field: ORIGIN_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: [environmentAggregation.value],
+            });
+
+        if (platformAggregation) {
+            filters.push({
+                field: PLATFORM_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: [platformAggregation.value],
+            });
+        }
+
+        filters.push({
+            field: BROWSE_PATH_V2_FILTER_NAME,
+            condition: FilterOperator.Equal,
+            values: [browseSearchFilter],
+        });
+
+        onChangeFilters(filters);
+    };
+
+    return (
+        <BrowseContext.Provider
+            value={{
+                entityAggregation,
+                environmentAggregation,
+                platformAggregation,
+                browseResultGroup,
+                path,
+                isSelected,
+                onSelect,
+            }}
+        >
+            {children}
+        </BrowseContext.Provider>
     );
-
-    return <BrowseContext.Provider value={value}>{children}</BrowseContext.Provider>;
 };
 
-const useBrowseContext = (name: string) => {
+const useBrowseContext = () => {
     const context = useContext(BrowseContext);
-    if (context === null)
-        throw new Error(`${name || useBrowseContext.name} must be used under a ${BrowseProvider.name}`);
+    if (context === null) throw new Error(`${useBrowseContext.name} must be used under a ${BrowseProvider.name}`);
     return context;
 };
 
 export const useEntityAggregation = () => {
-    return useBrowseContext(useEntityAggregation.name).entityAggregation;
+    return useBrowseContext().entityAggregation;
 };
 
 export const useEntityType = () => {
@@ -63,11 +135,11 @@ export const useEntityType = () => {
 };
 
 export const useMaybeEnvironmentAggregation = () => {
-    return useBrowseContext(useMaybeEnvironmentAggregation.name).environmentAggregation;
+    return useBrowseContext().environmentAggregation;
 };
 
 export const useMaybePlatformAggregation = () => {
-    return useBrowseContext(useMaybePlatformAggregation.name).platformAggregation;
+    return useBrowseContext().platformAggregation;
 };
 
 export const usePlatformAggregation = () => {
@@ -77,13 +149,21 @@ export const usePlatformAggregation = () => {
 };
 
 export const useBrowseResultGroup = () => {
-    const context = useBrowseContext(useBrowseResultGroup.name);
+    const context = useBrowseContext();
     if (!context.browseResultGroup) throw new Error('browseResultGroup is missing in context');
     return context.browseResultGroup;
 };
 
 export const useBrowsePath = () => {
-    const context = useBrowseContext(useBrowsePath.name);
+    const context = useBrowseContext();
     if (!context.path) throw new Error('path is missing in context');
     return context.path;
+};
+
+export const useIsSelected = () => {
+    return useBrowseContext().isSelected;
+};
+
+export const useOnSelect = () => {
+    return useBrowseContext().onSelect;
 };
