@@ -24,6 +24,7 @@ import { useAppConfig } from '../useAppConfig';
 import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 import { SidebarProvider } from './sidebar/SidebarProvider';
+import { BrowseProvider } from './sidebar/BrowseContext';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     display: flex;
@@ -181,7 +182,9 @@ export const SearchResults = ({
                     )}
                     {showBrowseV2 && (
                         <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
-                            <BrowseSidebar facets={facets} visible={isSidebarOpen} width={360} />
+                            <BrowseProvider>
+                                <BrowseSidebar visible={isSidebarOpen} width={360} />
+                            </BrowseProvider>
                         </SidebarProvider>
                     )}
                     <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>

@@ -2,10 +2,11 @@ import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { FacetMetadata } from '../../../types.generated';
 import EntityNode from './EntityNode';
-import useBrowseV2EnabledEntities from './useBrowseV2EnabledEntities';
 import { BrowseProvider } from './BrowseContext';
+import useAggregationsQuery from './useAggregationsQuery';
+import { ENTITY_FILTER_NAME } from '../utils/constants';
+import SidebarLoadingError from './SidebarLoadingError';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -29,16 +30,14 @@ const SidebarBody = styled.div`
 `;
 
 type Props = {
-    // todo - remove and replace with agg query
-    facets?: Array<FacetMetadata> | null;
     visible: boolean;
     width: number;
 };
 
-const BrowseSidebar = ({ facets, visible, width }: Props) => {
-    // todo - query the aggregations from useAggregationsQuery but that currently only works underneath a BrowseProvider
-    // maybe wrap the whole sidebar in a BrowseProvider?
-    const entityAggregations = useBrowseV2EnabledEntities(facets);
+const BrowseSidebar = ({ visible, width }: Props) => {
+    const { error, entityAggregations } = useAggregationsQuery({
+        facets: [ENTITY_FILTER_NAME],
+    });
 
     return (
         <Sidebar visible={visible} width={width}>
@@ -52,6 +51,7 @@ const BrowseSidebar = ({ facets, visible, width }: Props) => {
                         <EntityNode />
                     </BrowseProvider>
                 ))}
+                {error && <SidebarLoadingError />}
             </SidebarBody>
         </Sidebar>
     );

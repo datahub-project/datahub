@@ -11,11 +11,11 @@ import useToggle from '../../shared/useToggle';
 import {
     BrowseProvider,
     useBrowseResultGroup,
-    useEntityAggregation,
     useIsSelected,
     useMaybeEnvironmentAggregation,
     useOnSelect,
     usePlatformAggregation,
+    useEntityAggregation,
 } from './BrowseContext';
 
 const Title = styled(Typography.Text)`

@@ -17,10 +17,10 @@ import {
 } from './SidebarProvider';
 
 type BrowseContextValue = {
-    entityAggregation: AggregationMetadata;
-    environmentAggregation?: AggregationMetadata | null;
-    platformAggregation?: AggregationMetadata | null;
-    browseResultGroup?: BrowseResultGroupV2 | null;
+    entityAggregation?: AggregationMetadata;
+    environmentAggregation?: AggregationMetadata;
+    platformAggregation?: AggregationMetadata;
+    browseResultGroup?: BrowseResultGroupV2;
     path: Array<string>;
     isSelected: boolean;
     onSelect: () => void;
@@ -30,11 +30,11 @@ const BrowseContext = createContext<BrowseContextValue | null>(null);
 
 type Props = {
     children: ReactNode;
-    entityAggregation: AggregationMetadata;
-    environmentAggregation?: AggregationMetadata | null;
-    platformAggregation?: AggregationMetadata | null;
-    browseResultGroup?: BrowseResultGroupV2 | null;
-    parentPath?: Array<string> | null;
+    entityAggregation?: AggregationMetadata;
+    environmentAggregation?: AggregationMetadata;
+    platformAggregation?: AggregationMetadata;
+    browseResultGroup?: BrowseResultGroupV2;
+    parentPath?: Array<string>;
 };
 
 const EXCLUDED_FILTER_NAMES = [
@@ -52,6 +52,7 @@ export const BrowseProvider = ({
     browseResultGroup,
     parentPath,
 }: Props) => {
+    // todo - this context is getting busy, let's move some stuff out to the edges
     const selectedFilters = useSelectedFilters();
     const onChangeFilters = useOnChangeFilters();
     const selectedEntity = useEntityFilterValue();
@@ -63,6 +64,11 @@ export const BrowseProvider = ({
     const path = browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
     const browseSearchFilter = createBrowseV2SearchFilter(path);
 
+    // todo - why does second level collapse when we click on it?
+    // oh, probably because we're setting search filters
+    // maybe need to try to re-open things if filters changed?
+
+    // todo - maybe move these into the isSelected hook since that'll enforce the non-null types of things
     const isEntitySelected = selectedEntity === entityAggregation?.value;
     const isEnvironmentSelected = !environmentAggregation || selectedEnvironment === environmentAggregation.value;
     const isPlatformSelected = selectedPlatform === platformAggregation?.value;
@@ -73,11 +79,12 @@ export const BrowseProvider = ({
     const onSelect = () => {
         const filters = selectedFilters.filter((sf) => !EXCLUDED_FILTER_NAMES.includes(sf.field));
 
-        filters.push({
-            field: ENTITY_FILTER_NAME,
-            condition: FilterOperator.Equal,
-            values: [entityAggregation.value],
-        });
+        if (entityAggregation)
+            filters.push({
+                field: ENTITY_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: [entityAggregation.value],
+            });
 
         if (environmentAggregation)
             filters.push({
@@ -126,8 +133,19 @@ const useBrowseContext = () => {
     return context;
 };
 
-export const useEntityAggregation = () => {
+export const useMaybeEntityAggregation = () => {
     return useBrowseContext().entityAggregation;
+};
+
+export const useMaybeEntityType = () => {
+    const entityAggregation = useMaybeEntityAggregation();
+    return entityAggregation ? (entityAggregation.value as EntityType) : null;
+};
+
+export const useEntityAggregation = () => {
+    const entityAggregation = useMaybeEntityAggregation();
+    if (!entityAggregation) throw new Error('entityAggregation is missing in context');
+    return entityAggregation;
 };
 
 export const useEntityType = () => {

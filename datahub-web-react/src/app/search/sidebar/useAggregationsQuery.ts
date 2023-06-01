@@ -1,16 +1,19 @@
 import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
+import { EntityType } from '../../../types.generated';
+import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { useEntityType } from './BrowseContext';
+import { useMaybeEntityType } from './BrowseContext';
 import useSidebarFilters from './useSidebarFilters';
 
 type Props = {
     facets: string[];
-    skip: boolean;
+    skip?: boolean;
 };
 
-// todo - maybe pull this out of context and just accept props?
-const useAggregationsQuery = ({ facets, skip }: Props) => {
-    const entityType = useEntityType();
+const useAggregationsQuery = ({ facets, skip = false }: Props) => {
+    const registry = useEntityRegistry();
+    const entityType = useMaybeEntityType();
     const filters = useSidebarFilters();
 
     const {
@@ -23,7 +26,7 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         fetchPolicy: 'cache-first',
         variables: {
             input: {
-                types: [entityType],
+                types: entityType ? [entityType] : null,
                 facets,
                 ...filters,
             },
@@ -33,10 +36,13 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
     const data = error ? null : newData ?? previousData;
     const loaded = !!data || !!error;
 
-    const entityAggregations =
-        data?.aggregateAcrossEntities?.facets
-            ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
-            ?.aggregations.filter((aggregation) => aggregation.count) ?? [];
+    const entityAggregations = data?.aggregateAcrossEntities?.facets
+        ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
+        ?.aggregations.filter(({ count, value }) => {
+            const type = value as EntityType;
+            return count && registry.getEntity(type).isBrowseEnabled() && !GLOSSARY_ENTITY_TYPES.includes(type);
+        })
+        .sort((a, b) => a.value.localeCompare(b.value));
 
     const environmentAggregations =
         data?.aggregateAcrossEntities?.facets

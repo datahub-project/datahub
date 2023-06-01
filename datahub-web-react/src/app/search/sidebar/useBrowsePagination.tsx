@@ -48,6 +48,10 @@ const useBrowsePagination = ({ skip }: Props) => {
         },
     });
 
+    // This is probably why the second level is closing?
+    // we actually want to leave all things expanded...
+    // but, our React children change due to the filtering
+    // we actually only want this to run if any filters changed (other than our browsev2 filter)
     useEffect(() => {
         setState({
             current: 0,
