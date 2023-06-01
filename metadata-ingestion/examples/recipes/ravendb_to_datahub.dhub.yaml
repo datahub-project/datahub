@@ -1,4 +1,3 @@
-# see https://datahubproject.io/docs/generated/ingestion/sources/mongodb for complete documentation
 source:
   type: "ravendb"
   config:

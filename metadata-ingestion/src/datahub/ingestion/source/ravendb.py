@@ -378,11 +378,14 @@ class RavenDBSource(Source):
 
             # last index time of all indices of collection
             latest_time = ""
-            try:
-                latest_time = str(
-                    max([i["lastIndexingTime"] for i in db_stats["indexes"]])
-                )
-            except KeyError:
+            if len(db_stats["indexes"]) > 0:
+                try:
+                    latest_time = str(
+                        max([i["lastIndexingTime"] for i in db_stats["indexes"]])
+                    )
+                except KeyError:
+                    logging.debug(f"Document Store '{database}': No lastIndexingTime available")
+            else:
                 logging.debug(f"Document Store '{database}': No indices available")
             platform_urn = make_data_platform_urn(self.platform)
             instance_urn = f"urn:li:dataPlatformInstance:({platform_urn},{database})"

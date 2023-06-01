@@ -1,0 +1,28 @@
+[
+{
+    "entityType": "dataPlatformInstance",
+    "entityUrn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:ravendb,testdb)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "nodeTag": "A",
+                "indexes": "[]",
+                "tempBuffersSizeOnDisk": "262144",
+                "sizeOnDisk": "25362432",
+                "databaseChangeVector": "",
+                "lastCollectionIndexingTime": "",
+                "lastDocEtag": "0",
+                "lastDatabaseEtag": "0"
+            },
+            "externalUrl": "http://localhost:8080",
+            "name": "testdb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1683809233983,
+        "runId": "ravendb-test"
+    }
+}
+]

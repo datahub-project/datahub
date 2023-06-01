@@ -1,125 +1,151 @@
 [
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:ravendb,testdb.Products,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "nodeTag": "A",
-                            "indexes": "[{'name': 'Products/Search', 'stale': False, 'lastIndexingTime': '2023-05-08T08:41:23.0710858Z'}]",
-                            "tempBuffersSizeOnDisk": "18350080",
-                            "sizeOnDisk": "115408896",
-                            "databaseChangeVector": "A:140-TudXOnkT4UiPyG0tZicEZA",
-                            "lastCollectionIndexingTime": "2023-05-08T08:41:23.0710858Z",
-                            "lastDocEtag": "140",
-                            "lastDatabaseEtag": "140"
-                        },
-                        "qualifiedName": "testdb.Products",
-                        "tags": []
-                    }
+    {
+        "entityType": "dataPlatformInstance",
+        "entityUrn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:ravendb,testdb)",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstanceProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "nodeTag": "A",
+                    "indexes": "[{'IsStale': False, 'Name': 'Products/Search', 'LockMode': 'Unlock', 'Priority': 'Normal', 'State': 'Normal', 'Type': 'Map', 'SourceType': 'Documents', 'LastIndexingTime': '2023-05-31T09:42:53.3636256Z'}]",
+                    "tempBuffersSizeOnDisk": "92274688",
+                    "sizeOnDisk": "40337408",
+                    "databaseChangeVector": "A:20-OinKmhVl60yx+i2xqdx2Lg",
+                    "lastCollectionIndexingTime": "",
+                    "lastDocEtag": "20",
+                    "lastDatabaseEtag": "20"
                 },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "testdb",
-                        "platform": "urn:li:dataPlatform:ravendb",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:ravendb,testdb.Products,PROD)",
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.Schemaless": {}
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "brand",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "str",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "category",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "str",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "name",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "str",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "price",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "str",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "shipping",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "bool",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "size",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "str",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                }
-            ]
+                "externalUrl": "http://172.17.0.3:8080",
+                "name": "testdb"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1685526173370,
+            "runId": "ravendb-test"
         }
     },
-    "systemMetadata": {
-        "lastObserved": 1683535436422,
-        "runId": "ravendb_source.RavenDBSource-2023_05_08-10_43_56"
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:ravendb,testdb.Products,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                            "platform": "urn:li:dataPlatform:ravendb",
+                            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:ravendb,testdb)"
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "indexes": "[{'name': 'Products/Search', 'stale': False, 'lastIndexingTime': '2023-05-31T09:42:53.3636256Z'}]",
+                                "lastCollectionIndexingTime": ""
+                            },
+                            "qualifiedName": "testdb.Products",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "testdb",
+                            "platform": "urn:li:dataPlatform:ravendb",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "dataset": "urn:li:dataset:(urn:li:dataPlatform:ravendb,testdb.Products,PROD)",
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.Schemaless": {}
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "brand",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "str",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "category",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "str",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "name",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "str",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "price",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "str",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "shipping",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "bool",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "size",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "str",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1685526173420,
+            "runId": "ravendb-test"
+        }
     }
-}
 ]

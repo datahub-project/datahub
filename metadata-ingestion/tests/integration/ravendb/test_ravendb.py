@@ -11,6 +11,9 @@ from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
+from datahub.ingestion.run.pipeline import Pipeline
+from ravendb.documents.commands.crud import PutDocumentCommand, GetDocumentsCommand
+
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
@@ -30,11 +33,33 @@ IGNORE_KEYS = [
     "lastDocEtag",
     "lastObserved",
     "databaseChangeVector",
+    "externalUrl",
+    "sizeOnDisk",
+    "tempBuffersSizeOnDisk",
+    "indexes"
 ]
 
 
-def get_container_ip():
-    return CONTAINER_IP
+def get_container_ip(container_name=CONTAINER_NAME):
+    if CONTAINER_IP:
+        return CONTAINER_IP
+    else:
+        import time
+        import docker
+
+        client = docker.from_env()
+        try:
+            container = client.containers.get(container_name)
+            ip = container.attrs["NetworkSettings"]["IPAddress"]
+            logging.debug(
+                f"Container with name {container_name} found. IP: {ip}"
+            )
+            time.sleep(60)
+            set_container_ip(ip)
+            return ip
+        except docker.errors.NotFound:
+            logging.debug(f"Container with name '{container_name}' not found.")
+            raise docker.errors.NotFound
 
 
 def set_container_ip(value):
@@ -51,7 +76,6 @@ def test_resources_dir(pytestconfig):
 def is_container_running(container_name: str) -> bool:
     """Returns true if the status of the container with the given name is 'Running'"""
     import time
-
     import docker
 
     client = docker.from_env()
@@ -84,35 +108,13 @@ def ravendb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         yield docker_services
 
 
-@pytest.fixture(scope="module")
-def prepare_config_file(test_resources_dir):
-    import yaml
-
-    file_path = (test_resources_dir / DB_RECIPE_FILE).resolve()
-    # Load the YAML file
-    with open(file_path, "r") as file:
-        data = yaml.safe_load(file)
-    # Modify the attribute value
-    data["source"]["config"]["connect_uri"] = data["source"]["config"][
-        "connect_uri"
-    ].replace("ravendb", get_container_ip())
-    logging.debug(f"Replacing connect_uri of config file with '{get_container_ip()}'")
-    logging.debug(data)
-
-    # Save the modified data back to the YAML file
-    with open(file_path, "w") as file:
-        yaml.safe_dump(data, file)
-
-
 def load_document_store():
     logging.debug(f"Loading document store of database '{TESTDB_NAME}'")
     container_ip = get_container_ip()
-    print(container_ip)
     store = DocumentStore(
         f"http://{container_ip}:{RAVENDB_PORT}", TESTDB_NAME
     )  # RAVEN_DATABASE)
     store.initialize()
-    logging.debug(store)
     return store
 
 
@@ -127,12 +129,30 @@ def remove_database():
 
 
 def prepare_database():
+    """
+        Fills the database with test items, if the test items are not yet in the collections.
+    """
+    from ravendb.documents.indexes.definitions import IndexDefinition
+    from ravendb.documents.operations.indexes import (
+        GetIndexOperation,
+        PutIndexesOperation,
+    )
+
     logging.debug("Preparing databases")
     store = load_document_store()
     request_executor = store.get_request_executor()
 
-    # inserts
-    from ravendb.documents.commands.crud import GetDocumentsCommand, PutDocumentCommand
+    def assert_entries_set():
+        command = GetDocumentsCommand.from_single_id("testing/art1")
+        request_executor.execute_command(command)
+        try:
+            return command.result.results[0]["@metadata"]["@id"] == "testing/art1"
+        except AttributeError:
+            return False
+
+    if assert_entries_set():
+        logging.debug("Skipping task: Database is already prepared")
+        return
 
     for i in range(5):
         put_command1 = PutDocumentCommand(
@@ -169,12 +189,6 @@ def prepare_database():
         logging.debug(f"Successfull iteration {i} of inserts.")
 
     # create index
-    from ravendb.documents.indexes.definitions import IndexDefinition
-    from ravendb.documents.operations.indexes import (
-        GetIndexOperation,
-        PutIndexesOperation,
-    )
-
     index = IndexDefinition()
     index.name = "Products/Search"
 
@@ -193,48 +207,74 @@ def prepare_database():
     # assert entries set
     command = GetDocumentsCommand.from_single_id("testing/art1")
     request_executor.execute_command(command)
-    assert command.result.results[0]["@metadata"]["@id"] == "testing/art1"
+    assert assert_entries_set()
     command = GetIndexOperation(index.name).get_command(store.conventions)
     request_executor.execute_command(command)
     assert command.result != None
 
 
-def test_ravendb_ingest_with_db(
-    ravendb_runner, prepare_config_file, test_resources_dir, tmp_path, pytestconfig
-):
-    # Set up database
-    prepare_database()
-    # Run the metadata ingestion pipeline
-    config_file = (test_resources_dir / DB_RECIPE_FILE).resolve()
-    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
-
-    golden_path = test_resources_dir / "ravendb_mces_with_db_golden.json"
-    output_path = test_resources_dir / "ravendb_mces.json"
-    check_golden_file(output_path, golden_path, pytestconfig)
+def run_pipeline(tmp_path):
+    logging.debug(f"Run database with container id {get_container_ip()}")
+    # Run the metadata ingestion pipeline.
+    pipeline = Pipeline.create(
+        {
+            "run_id": "ravendb-test",
+            "source": {
+                "type": "ravendb",
+                "config": {
+                    "connect_uri": f"http://{get_container_ip()}:8080",
+                    "collection_pattern":
+                    {
+                        'allow': [".*"],
+                        'deny': ["@.*"],
+                        'ignoreCase': True
+                    },
+                    "schema_sampling_size": 200,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/ravendb_mces.json"
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    pipeline.pretty_print_summary()
 
 
 def test_ravendb_ingest_without_collections(
-    ravendb_runner, prepare_config_file, test_resources_dir, tmp_path, pytestconfig
+    ravendb_runner, test_resources_dir, tmp_path, pytestconfig
 ):
-    # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / DB_RECIPE_FILE).resolve()
-    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+    run_pipeline(tmp_path)
 
     golden_path = test_resources_dir / "ravendb_mces_no_collections_golden.json"
-    output_path = test_resources_dir / "ravendb_mces.json"
+    output_path = tmp_path / "ravendb_mces.json"
+    check_golden_file(output_path, golden_path, pytestconfig)
+
+
+def test_ravendb_ingest_with_db(
+    ravendb_runner, test_resources_dir, tmp_path, pytestconfig
+):
+    # Set up database
+    prepare_database()
+    run_pipeline(tmp_path)
+
+    golden_path = test_resources_dir / "ravendb_mces_with_db_golden.json"
+    output_path = tmp_path / "ravendb_mces.json"
     check_golden_file(output_path, golden_path, pytestconfig)
 
 
 def test_ravendb_ingest_without_documentstore(
-    ravendb_runner, prepare_config_file, test_resources_dir, tmp_path, pytestconfig
+    ravendb_runner, test_resources_dir, tmp_path, pytestconfig
 ):
     remove_database()
-    # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / DB_RECIPE_FILE).resolve()
-    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+    run_pipeline(tmp_path)
 
     golden_path = test_resources_dir / "ravendb_mces_no_documentstore_golden.json"
-    output_path = test_resources_dir / "ravendb_mces.json"
+    output_path = tmp_path / "ravendb_mces.json"
     check_golden_file(output_path, golden_path, pytestconfig)
 
 
@@ -244,45 +284,51 @@ def check_golden_file(output_file_path, golden_file_path, pytestconfig):
     since they are run dependent.
     """
 
-    def find_key_structure(d, target_key):
+    def find_key_chains(d, target_key, current_chain=None, key_chains=None):
+        if current_chain is None:
+            current_chain = []
+        if key_chains is None:
+            key_chains = []
+
         if isinstance(d, dict):
             for k, v in d.items():
                 if k == target_key:
-                    return [k]
-                inner_keys = find_key_structure(v, target_key)
-                if inner_keys:
-                    return [k] + inner_keys
+                    key_chains.append(current_chain + [k])
+                find_key_chains(v, target_key, current_chain + [k], key_chains)
         elif isinstance(d, list):
             for i, v in enumerate(d):
-                inner_keys = find_key_structure(v, target_key)
-                if inner_keys:
-                    return [i] + inner_keys
-        return []
+                find_key_chains(v, target_key, current_chain + [i], key_chains)
 
-    def construct_key_regex(keys):
-        s = "root[XX]"
-        for key in keys:
-            # result = result[key]
-            if isinstance(key, int):
-                replace = f"[{str(key)}][XX]"
+        return key_chains
+
+    def construct_key_regex(keys_list, escape=True):
+        regex_list = []
+
+        for keys in keys_list:
+            s = "root[XX]"
+            for key in keys:
+                if isinstance(key, int):
+                    replace = f"[{str(key)}][XX]"
+                else:
+                    replace = f"['{str(key)}'][XX]"
+                s = s.replace("[XX]", replace)
+            s = s.replace("[XX]", "")
+            if escape:
+                regex_string = re.escape(s)
+                regex_string = re.sub(r"\d+", r"\\d+", regex_string)
+                # print(regex_string)
+                regex_list.append(regex_string)
             else:
-                replace = f"['{str(key)}'][XX]"
-            s = s.replace("[XX]", replace)
-        s = s.replace("[XX]", "")
-        # Escape special characters
-        regex_string = re.escape(s)
-        # Replace numbers with '\d+'
-        regex_string = re.sub(r"\d+", r"\\d+", regex_string)
-        return regex_string
+                regex_list.append(s)
+        return list(set(regex_list))
 
-    # ignore timestamps and random changing values triggered by container start
-    # correct key structure extracted from golden file
-    with open(str(golden_file_path)) as f:
+    with open(str(golden_file_path), "r") as f:
         golden = json.load(f)
     ignore_key_paths = []
     for key in IGNORE_KEYS:
-        keys = find_key_structure(golden, key)
-        ignore_key_paths.append(construct_key_regex(keys))
+        keys = find_key_chains(golden, key)
+        ignore_key_paths.extend(construct_key_regex(keys))
+
     logging.debug("Ignoring attributes during check:")
     [logging.debug(key) for key in ignore_key_paths]
 
