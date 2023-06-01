@@ -8,7 +8,7 @@ import unittest.mock
 from dataclasses import Field, dataclass, field
 from enum import auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, Iterable
+from typing import Any, Dict, List, Optional, Tuple, Iterable
 
 import avro.schema
 import click
@@ -27,7 +27,6 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     ForeignKeyConstraintClass,
     GlobalTagsClass,
-    MetadataChangeEventClass,
     OtherSchemaClass,
     SchemaFieldClass as SchemaField,
     SchemaFieldDataTypeClass,
@@ -320,9 +319,8 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
 
 def generate_stitched_record(
     relnships_graph: RelationshipGraph,
-) -> Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]:
+) -> Iterable[MetadataChangeProposalWrapper]:
     def strip_types(field_path: str) -> str:
-
         final_path = field_path
         final_path = re.sub(r"(\[type=[a-zA-Z]+\]\.)", "", final_path)
         final_path = re.sub(r"^\[version=2.0\]\.", "", final_path)
@@ -459,55 +457,41 @@ def generate_stitched_record(
                                 edge_id=f"{entity_display_name}:{fkey.name}:{destination_entity_name}:{strip_types(f_field.fieldPath)}",
                             )
 
-            schemaMetadata = SchemaMetadataClass(
-                schemaName=f"{entity_name}",
-                platform=make_data_platform_urn("datahub"),
-                platformSchema=OtherSchemaClass(rawSchema=rawSchema),
-                fields=schema_fields,
-                version=0,
-                hash="",
-                foreignKeys=foreign_keys if foreign_keys else None,
+            dataset_urn = make_dataset_urn(
+                platform="datahub",
+                name=entity_display_name,
             )
 
-            dataset = DatasetSnapshotClass(
-                urn=make_dataset_urn(
-                    platform="datahub",
-                    name=f"{entity_display_name}",
-                ),
+            yield from MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dataset_urn,
                 aspects=[
-                    schemaMetadata,
+                    SchemaMetadataClass(
+                        schemaName=str(entity_name),
+                        platform=make_data_platform_urn("datahub"),
+                        platformSchema=OtherSchemaClass(rawSchema=rawSchema),
+                        fields=schema_fields,
+                        version=0,
+                        hash="",
+                        foreignKeys=foreign_keys if foreign_keys else None,
+                    ),
                     GlobalTagsClass(
                         tags=[TagAssociationClass(tag="urn:li:tag:Entity")]
                     ),
                     BrowsePathsClass([f"/prod/datahub/entities/{entity_display_name}"]),
+                    BrowsePathsV2Class(
+                        [
+                            BrowsePathEntryClass(id="entities"),
+                            BrowsePathEntryClass(id=entity_display_name),
+                        ]
+                    ),
+                    DatasetPropertiesClass(
+                        description=make_entity_docs(
+                            dataset_urn.split(":")[-1].split(",")[1], relnships_graph
+                        )
+                    ),
+                    SubTypesClass(typeNames=["entity"]),
                 ],
             )
-            dataset.browse_path_v2 = BrowsePathsV2Class(  # type: ignore
-                [
-                    BrowsePathEntryClass(id="entities"),
-                    BrowsePathEntryClass(id=entity_display_name),
-                ]
-            )
-            datasets.append(dataset)
-
-    for d in datasets:
-        entity_name = d.urn.split(":")[-1].split(",")[1]
-        d.aspects.append(
-            DatasetPropertiesClass(
-                description=make_entity_docs(entity_name, relnships_graph)
-            )
-        )
-
-        yield MetadataChangeEventClass(
-            proposedSnapshot=d,
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=d.urn,
-            aspect=SubTypesClass(typeNames=["entity"]),
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=d.urn, aspect=d.browse_path_v2  # type: ignore
-        )
 
 
 class EntityRegistry(ConfigModel):
@@ -621,7 +605,7 @@ def generate(
             ]
 
     relationship_graph = RelationshipGraph()
-    events = generate_stitched_record(relationship_graph)
+    mcps = generate_stitched_record(relationship_graph)
 
     shutil.rmtree(f"{generated_docs_dir}/entities", ignore_errors=True)
     entity_names = [(x, entity_registry[x]) for x in generated_documentation]
@@ -652,7 +636,7 @@ def generate(
             PipelineContext(run_id="generated-metaModel"),
             FileSinkConfig(filename=file),
         )
-        for e in events:
+        for e in mcps:
             fileSink.write_record_async(
                 RecordEnvelope(e, metadata={}), write_callback=NoopWriteCallback()
             )
@@ -681,7 +665,7 @@ def generate(
         assert server.startswith("http://"), "server address must start with http://"
         emitter = DatahubRestEmitter(gms_server=server)
         emitter.test_connection()
-        for e in events:
+        for e in mcps:
             emitter.emit(e)
 
     if dot:
