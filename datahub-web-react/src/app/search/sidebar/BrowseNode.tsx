@@ -42,7 +42,7 @@ const BrowseNode = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { isOpen, toggle } = useToggle(isPrefix);
+    const { isOpen, toggle } = useToggle(isPrefix && !isSelected);
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
 

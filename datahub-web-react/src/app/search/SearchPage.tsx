@@ -32,11 +32,6 @@ export const SearchPage = () => {
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
-    // todo - this is what we use to get the facet aggregations
-    // it'll be wrong since we're searching this by facets that have this particular browse underneath it
-
-    // what we actually want is to leave the same results we had before we clicked on browseV2
-    // ie. we should populate our list of entities using our useAggregationsQuery and exclude the browsev2 filter from that as well
     const {
         data,
         loading,
