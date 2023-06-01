@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button, Dropdown, Menu } from 'antd';
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { EntityType, AndFilterInput } from '../../../../../../types.generated';
+import { AndFilterInput } from '../../../../../../types.generated';
 import DownloadAsCsvButton from './DownloadAsCsvButton';
 import DownloadAsCsvModal from './DownloadAsCsvModal';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
@@ -23,7 +23,6 @@ const MenuItem = styled(Menu.Item)`
 `;
 
 type Props = {
-    entityFilters: EntityType[];
     filters: AndFilterInput[];
     query: string;
     viewUrn?: string;
@@ -35,7 +34,6 @@ type Props = {
 // currently only contains Download As Csv but will be extended to contain other actions as well
 export default function SearchExtendedMenu({
     downloadSearchResults,
-    entityFilters,
     filters,
     query,
     viewUrn,
@@ -68,7 +66,6 @@ export default function SearchExtendedMenu({
         <>
             <DownloadAsCsvModal
                 downloadSearchResults={downloadSearchResults}
-                entityFilters={entityFilters}
                 filters={filters}
                 query={query}
                 viewUrn={viewUrn}

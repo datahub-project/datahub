@@ -49,7 +49,7 @@ public class ClearGraphServiceStep implements UpgradeStep {
       try {
         _graphService.clear();
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to clear graph indices: %s", e.toString()));
+        context.report().addLine("Failed to clear graph indices", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
