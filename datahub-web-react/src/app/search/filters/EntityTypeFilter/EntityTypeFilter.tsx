@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../../../types.generated';
 import { useAggregateAcrossEntitiesLazyQuery } from '../../../../graphql/search.generated';
 import useGetSearchQueryInputs from '../../useGetSearchQueryInputs';
@@ -12,7 +12,7 @@ import {
 import { getFilterDropdownIcon, getNewFilters } from '../utils';
 import { FilterOptionType } from '../types';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getDisplayedFilterOptions, getNumActiveFilters } from './entityTypeFilterUtils';
+import { getDisplayedFilterOptions, getInitialSelectedOptions, getNumActiveFilters } from './entityTypeFilterUtils';
 import SearchFilterView from '../SearchFilterView';
 
 const ENTITY_SUB_TYPE_FILTER_FIELDS = [
@@ -33,10 +33,12 @@ export default function EntityTypeFilter({ filter, activeFilters, onChangeFilter
     const [selectedFilterOptions, setSelectedFilterOptions] = useState<FilterOptionType[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    // TODO: pass in ENTITY_SUB_TYPE_FILTER_FIELDS and update useGetSearchQueryInputs in nest PR
-    console.log(ENTITY_SUB_TYPE_FILTER_FIELDS); // just to get build to pass until I update in next PR
-    const { query, orFilters, viewUrn } = useGetSearchQueryInputs();
+    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(ENTITY_SUB_TYPE_FILTER_FIELDS);
     const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
+
+    useEffect(() => {
+        setSelectedFilterOptions(getInitialSelectedOptions(activeFilters, data));
+    }, [activeFilters, data]);
 
     function updateIsMenuOpen(isOpen: boolean) {
         setIsMenuOpen(isOpen);

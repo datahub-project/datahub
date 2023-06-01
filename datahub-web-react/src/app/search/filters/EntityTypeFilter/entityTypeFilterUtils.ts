@@ -13,6 +13,41 @@ import { filterOptionsWithSearch, getFilterIconAndLabel, getFilterOptions } from
 
 const BACKWARDS_COMPATIBLE_FILTER_FIELDS = [ENTITY_SUB_TYPE_FILTER_NAME, ...LEGACY_ENTITY_FILTER_FIELDS];
 
+function getInitialSelectedOptionsFromAggregations(
+    aggregations: AggregationMetadata[],
+    activeFilterValues: string[],
+    initialSelectedOptions: FilterOptionType[],
+) {
+    return aggregations
+        .filter((agg) => activeFilterValues?.includes(agg.value))
+        .filter((agg) => !initialSelectedOptions?.find((initialFilter) => initialFilter.value === agg.value)) // make sure we don't have duplicates
+        .map((agg) => ({
+            field: ENTITY_SUB_TYPE_FILTER_NAME,
+            value: agg.value,
+            entity: agg.entity,
+            count: agg.count,
+        }));
+}
+
+export function getInitialSelectedOptions(activeFilters: FacetFilterInput[], data?: AggregateAcrossEntitiesQuery) {
+    let initialSelectedOptions: FilterOptionType[] = [];
+    const activeFilterValues = activeFilters.find((f) => BACKWARDS_COMPATIBLE_FILTER_FIELDS.includes(f.field))?.values;
+    data?.aggregateAcrossEntities?.facets?.forEach((facet) => {
+        if (BACKWARDS_COMPATIBLE_FILTER_FIELDS.includes(facet.field)) {
+            initialSelectedOptions = [
+                ...initialSelectedOptions,
+                ...getInitialSelectedOptionsFromAggregations(
+                    facet.aggregations,
+                    activeFilterValues || [],
+                    initialSelectedOptions,
+                ),
+            ];
+        }
+    });
+
+    return initialSelectedOptions;
+}
+
 function getAggregationsForFilterOptions(data?: AggregateAcrossEntitiesQuery) {
     const aggregations: AggregationMetadata[] = [];
     data?.aggregateAcrossEntities?.facets?.forEach((facet) => {

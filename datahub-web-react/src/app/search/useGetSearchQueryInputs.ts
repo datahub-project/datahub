@@ -2,7 +2,7 @@ import * as QueryString from 'query-string';
 import { useLocation, useParams } from 'react-router';
 import { FacetFilterInput, EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
+import { ENTITY_FILTER_NAME, FILTER_DELIMITER, UnionType } from './utils/constants';
 import { useUserContext } from '../context/useUserContext';
 import useFilters from './utils/useFilters';
 import { generateOrFilters } from './utils/generateOrFilters';
@@ -11,7 +11,7 @@ type SearchPageParams = {
     type?: string;
 };
 
-export default function useGetSearchQueryInputs(filterFieldToExclude?: string) {
+export default function useGetSearchQueryInputs(excludedFilterFields?: Array<string>) {
     const userContext = useUserContext();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
@@ -24,17 +24,18 @@ export default function useGetSearchQueryInputs(filterFieldToExclude?: string) {
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     const filters: Array<FacetFilterInput> = useFilters(params);
-    let filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
-        (filter) => filter.field !== ENTITY_FILTER_NAME,
+    const nonNestedFilters = filters.filter((f) => !f.field.includes(FILTER_DELIMITER));
+    const nestedFilters = filters.filter(
+        (f) => f.field.includes(FILTER_DELIMITER) && !excludedFilterFields?.includes(f.field),
     );
-    if (filterFieldToExclude) {
-        filtersWithoutEntities = filtersWithoutEntities.filter((filter) => filter.field !== filterFieldToExclude);
-    }
+    const filtersWithoutEntities = nonNestedFilters.filter(
+        (filter) => filter.field !== ENTITY_FILTER_NAME && !excludedFilterFields?.includes(filter.field),
+    );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => (filter.values || []).map((value) => value?.toUpperCase() as EntityType));
 
-    const orFilters = generateOrFilters(unionType, filtersWithoutEntities);
+    const orFilters = generateOrFilters(unionType, filtersWithoutEntities, nestedFilters);
 
     return { entityFilters, query, unionType, filters, orFilters, filtersWithoutEntities, viewUrn, page, activeType };
 }

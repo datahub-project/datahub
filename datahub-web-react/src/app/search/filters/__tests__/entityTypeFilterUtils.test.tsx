@@ -6,39 +6,44 @@ import {
     ENTITY_TYPE_FILTER_NAME,
     TAGS_FILTER_NAME,
 } from '../../utils/constants';
-import { getDisplayedFilterOptions, getNumActiveFilters } from '../EntityTypeFilter/entityTypeFilterUtils';
+import {
+    getDisplayedFilterOptions,
+    getInitialSelectedOptions,
+    getNumActiveFilters,
+} from '../EntityTypeFilter/entityTypeFilterUtils';
 import FilterOption from '../FilterOption';
+
+const mockData = {
+    aggregateAcrossEntities: {
+        facets: [
+            {
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                aggregations: [
+                    { value: 'DATASET', count: 12 },
+                    { value: 'DATASET␞table', count: 6 },
+                    { value: 'DATASET␞view', count: 6 },
+                    { value: 'CONTAINER', count: 6 },
+                    { value: 'CONTAINER␞test', count: 3 },
+                ],
+            },
+            {
+                field: ENTITY_TYPE_FILTER_NAME,
+                aggregations: [
+                    { value: 'DASHBOARD', count: 5 },
+                    { value: 'CHART', count: 100 },
+                ],
+            },
+            {
+                field: TAGS_FILTER_NAME,
+                aggregations: [{ value: 'urn:li:tag:tag1', count: 20 }],
+            },
+        ],
+    },
+};
 
 describe('getDisplayedFilterOptions', () => {
     const testEntityRegistry = getTestEntityRegistry();
     const mockSetSelectedFilterOptions = () => {};
-    const mockData = {
-        aggregateAcrossEntities: {
-            facets: [
-                {
-                    field: ENTITY_SUB_TYPE_FILTER_NAME,
-                    aggregations: [
-                        { value: 'DATASET', count: 12 },
-                        { value: 'DATASET␞table', count: 6 },
-                        { value: 'DATASET␞view', count: 6 },
-                        { value: 'CONTAINER', count: 6 },
-                        { value: 'CONTAINER␞test', count: 3 },
-                    ],
-                },
-                {
-                    field: ENTITY_TYPE_FILTER_NAME,
-                    aggregations: [
-                        { value: 'DASHBOARD', count: 5 },
-                        { value: 'CHART', count: 100 },
-                    ],
-                },
-                {
-                    field: TAGS_FILTER_NAME,
-                    aggregations: [{ value: 'urn:li:tag:tag1', count: 20 }],
-                },
-            ],
-        },
-    };
 
     it('should get the list of displayed filter options with nested filters underneath their parents', () => {
         const filterOptions = getDisplayedFilterOptions(
@@ -177,5 +182,44 @@ describe('getNumActiveFilters', () => {
         ];
         const numActiveFilters = getNumActiveFilters(activeFilters);
         expect(numActiveFilters).toBe(4); // should not count duplicate values
+    });
+});
+
+describe('getInitialSelectedOptions', () => {
+    it('should get a list of options that are initially selected when opening the dropdown', () => {
+        const activeFilters = [
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, values: ['DATASET␞view', 'DATASET␞table', 'DATASET'] },
+            { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'] },
+        ];
+        const initialSelectedOptions = getInitialSelectedOptions(activeFilters, mockData);
+        expect(initialSelectedOptions).toMatchObject([
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET', count: 12, entity: undefined },
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET␞table', count: 6, entity: undefined },
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET␞view', count: 6, entity: undefined },
+        ]);
+    });
+
+    it('should get a list of options that are initially selected when opening the dropdown with ENTITY_TYPE_FILTER_NAME filter', () => {
+        const activeFilters = [
+            { field: ENTITY_TYPE_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
+            { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'] },
+        ];
+        const initialSelectedOptions = getInitialSelectedOptions(activeFilters, mockData);
+        expect(initialSelectedOptions).toMatchObject([
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET', count: 12, entity: undefined },
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'CONTAINER', count: 6, entity: undefined },
+        ]);
+    });
+
+    it('should get a list of options that are initially selected when opening the dropdown with ENTITY_FILTER_NAME filter', () => {
+        const activeFilters = [
+            { field: ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
+            { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'] },
+        ];
+        const initialSelectedOptions = getInitialSelectedOptions(activeFilters, mockData);
+        expect(initialSelectedOptions).toMatchObject([
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET', count: 12, entity: undefined },
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'CONTAINER', count: 6, entity: undefined },
+        ]);
     });
 });

@@ -27,6 +27,13 @@ export const DropdownMenu = styled.div<{ alignRight?: boolean }>`
     left: 205px;
     top: -34px;
     `}
+
+    .ant-dropdown-menu-title-content {
+        background-color: white;
+        &:hover {
+            background-color: white;
+        }
+    }
 `;
 
 const ScrollableContent = styled.div`

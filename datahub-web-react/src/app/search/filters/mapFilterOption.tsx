@@ -41,6 +41,7 @@ export function mapFilterOption({
                 filterOption={filterOption}
                 selectedFilterOptions={selectedFilterOptions}
                 setSelectedFilterOptions={setSelectedFilterOptions}
+                nestedOptions={nestedOptions}
             />
         ),
         style: { padding: 0 },
