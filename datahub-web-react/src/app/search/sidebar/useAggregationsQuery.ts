@@ -8,10 +8,10 @@ import useSidebarFilters from './useSidebarFilters';
 
 type Props = {
     facets: string[];
-    skip?: boolean;
+    skip: boolean;
 };
 
-const useAggregationsQuery = ({ facets, skip = false }: Props) => {
+const useAggregationsQuery = ({ facets, skip }: Props) => {
     const registry = useEntityRegistry();
     const entityType = useMaybeEntityType();
     const filters = useSidebarFilters();
