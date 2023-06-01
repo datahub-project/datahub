@@ -22,6 +22,8 @@ import {
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
@@ -34,6 +36,7 @@ import { ReactComponent as DomainsIcon } from '../../../images/domain.svg';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FilterOptionType } from './types';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
@@ -82,6 +85,15 @@ export function getFilterIconAndLabel(
     if (filterField === ENTITY_FILTER_NAME) {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
+    } else if (filterField === ENTITY_SUB_TYPE_FILTER_NAME) {
+        // If this includes a delimiter, it is a subType
+        if (filterValue.includes(FILTER_DELIMITER)) {
+            const subType = filterValue.split(FILTER_DELIMITER)[1];
+            label = capitalizeFirstLetterOnly(subType);
+        } else {
+            icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+            label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
+        }
     } else if (filterField === PLATFORM_FILTER_NAME) {
         const logoUrl = (filterEntity as DataPlatform)?.properties?.logoUrl;
         icon = logoUrl ? (

@@ -23,6 +23,7 @@ import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
 import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
 import UserContextProvider from '../../app/context/UserContextProvider';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
+import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -44,6 +45,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new MLModelEntity());
     entityRegistry.register(new MLModelGroupEntity());
     entityRegistry.register(new DataPlatformEntity());
+    entityRegistry.register(new ContainerEntity());
     return entityRegistry;
 }
 
