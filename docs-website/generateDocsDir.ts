@@ -126,6 +126,9 @@ function list_markdown_files(): string[] {
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /^SECURITY\.md$/,
+    // specific to our deployment
+    /^ingest-api\/README\.md/,
+    /^docker\/keycloak\/README\.md/,
     /^\s*$/, //Empty string
   ];
 
