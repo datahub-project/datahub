@@ -14,6 +14,7 @@ import useToggle from '../../shared/useToggle';
 import {
     BrowseProvider,
     useEntityAggregation,
+    useIsPlatformSelected,
     useMaybeEnvironmentAggregation,
     usePlatformAggregation,
 } from './BrowseContext';
@@ -42,6 +43,7 @@ const BrowseGroupListContainer = styled.div`
 `;
 
 const PlatformNode = () => {
+    const isSelected = useIsPlatformSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
@@ -55,7 +57,7 @@ const PlatformNode = () => {
         16,
     );
 
-    const { isOpen, toggle } = useToggle();
+    const { isOpen, toggle } = useToggle(isSelected);
     const skip = !isOpen;
     const color = ANTD_GRAY[9];
 

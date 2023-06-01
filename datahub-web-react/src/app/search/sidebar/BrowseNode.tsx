@@ -11,11 +11,12 @@ import useToggle from '../../shared/useToggle';
 import {
     BrowseProvider,
     useBrowseResultGroup,
-    useIsSelected,
     useMaybeEnvironmentAggregation,
     useOnSelect,
     usePlatformAggregation,
     useEntityAggregation,
+    useIsBrowsePathSelected,
+    useIsBrowsePathPrefix,
 } from './BrowseContext';
 
 const Title = styled(Typography.Text)`
@@ -34,13 +35,14 @@ const Count = styled(Typography.Text)`
 `;
 
 const BrowseNode = () => {
-    const isSelected = useIsSelected();
+    const isPrefix = useIsBrowsePathPrefix();
+    const isSelected = useIsBrowsePathSelected();
     const onSelect = useOnSelect();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { isOpen, toggle } = useToggle();
+    const { isOpen, toggle } = useToggle(isPrefix);
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
 

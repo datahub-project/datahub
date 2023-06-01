@@ -43,6 +43,7 @@ export const useSelectedFilters = () => {
     return useSidebarContext().selectedFilters;
 };
 
+// todo - clean up these .values[0] things because they are not foolproof, ie. we need an "in" check
 export const useEntityFilterValue = () => {
     return useSelectedFilters().find((filter) => filter.field === ENTITY_FILTER_NAME)?.values?.[0];
 };

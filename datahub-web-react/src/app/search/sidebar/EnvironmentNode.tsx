@@ -9,7 +9,12 @@ import { PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
-import { BrowseProvider, useEntityAggregation, useMaybeEnvironmentAggregation } from './BrowseContext';
+import {
+    BrowseProvider,
+    useEntityAggregation,
+    useIsEnvironmentSelected,
+    useMaybeEnvironmentAggregation,
+} from './BrowseContext';
 
 const Title = styled(Typography.Text)`
     font-size: 14px;
@@ -22,9 +27,10 @@ const Count = styled(Typography.Text)`
 `;
 
 const EnvironmentNode = () => {
+    const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
-    const { isOpen, toggle } = useToggle();
+    const { isOpen, toggle } = useToggle(isSelected);
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,

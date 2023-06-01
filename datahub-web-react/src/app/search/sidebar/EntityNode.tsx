@@ -12,7 +12,7 @@ import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
-import { BrowseProvider, useEntityAggregation, useEntityType } from './BrowseContext';
+import { BrowseProvider, useEntityAggregation, useEntityType, useIsEntitySelected } from './BrowseContext';
 
 const Title = styled(Typography.Text)`
     font-size: 16px;
@@ -25,11 +25,12 @@ const Count = styled(Typography.Text)`
 `;
 
 const EntityNode = () => {
+    const isSelected = useIsEntitySelected();
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
     const registry = useEntityRegistry();
 
-    const { isOpen, toggle } = useToggle();
+    const { isOpen, toggle } = useToggle(isSelected);
 
     const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,

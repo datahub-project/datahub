@@ -23,7 +23,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
-import { SidebarProvider } from './sidebar/SidebarProvider';
+import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`

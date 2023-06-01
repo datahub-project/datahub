@@ -14,7 +14,7 @@ import {
     useOnChangeFilters,
     usePlatformFilterValue,
     useSelectedFilters,
-} from './SidebarProvider';
+} from './SidebarContext';
 
 type BrowseContextValue = {
     entityAggregation?: AggregationMetadata;
@@ -22,7 +22,11 @@ type BrowseContextValue = {
     platformAggregation?: AggregationMetadata;
     browseResultGroup?: BrowseResultGroupV2;
     path: Array<string>;
-    isSelected: boolean;
+    isEntitySelected: boolean;
+    isEnvironmentSelected: boolean;
+    isPlatformSelected: boolean;
+    isBrowsePathPrefix: boolean;
+    isBrowsePathSelected: boolean;
     onSelect: () => void;
 };
 
@@ -69,12 +73,22 @@ export const BrowseProvider = ({
     // maybe need to try to re-open things if filters changed?
 
     // todo - maybe move these into the isSelected hook since that'll enforce the non-null types of things
-    const isEntitySelected = selectedEntity === entityAggregation?.value;
-    const isEnvironmentSelected = !environmentAggregation || selectedEnvironment === environmentAggregation.value;
-    const isPlatformSelected = selectedPlatform === platformAggregation?.value;
-    const isBrowsePathSelected = selectedBrowsePath === browseSearchFilter;
-
-    const isSelected = isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathSelected;
+    // todo - what if they're both undefined
+    const isEntitySelected = !!selectedEntity && selectedEntity === entityAggregation?.value;
+    const isEnvironmentSelected =
+        isEntitySelected && (!environmentAggregation || selectedEnvironment === environmentAggregation.value);
+    const isPlatformSelected =
+        isEntitySelected &&
+        isEnvironmentSelected &&
+        !!selectedPlatform &&
+        selectedPlatform === platformAggregation?.value;
+    const isBrowsePathPrefix =
+        isEntitySelected &&
+        isEnvironmentSelected &&
+        isPlatformSelected &&
+        !!selectedBrowsePath &&
+        selectedBrowsePath.startsWith(browseSearchFilter);
+    const isBrowsePathSelected = isBrowsePathPrefix && selectedBrowsePath === browseSearchFilter;
 
     const onSelect = () => {
         const filters = selectedFilters.filter((sf) => !EXCLUDED_FILTER_NAMES.includes(sf.field));
@@ -118,7 +132,11 @@ export const BrowseProvider = ({
                 platformAggregation,
                 browseResultGroup,
                 path,
-                isSelected,
+                isEntitySelected,
+                isEnvironmentSelected,
+                isPlatformSelected,
+                isBrowsePathPrefix,
+                isBrowsePathSelected,
                 onSelect,
             }}
         >
@@ -178,8 +196,24 @@ export const useBrowsePath = () => {
     return context.path;
 };
 
-export const useIsSelected = () => {
-    return useBrowseContext().isSelected;
+export const useIsEntitySelected = () => {
+    return useBrowseContext().isEntitySelected;
+};
+
+export const useIsEnvironmentSelected = () => {
+    return useBrowseContext().isEnvironmentSelected;
+};
+
+export const useIsPlatformSelected = () => {
+    return useBrowseContext().isPlatformSelected;
+};
+
+export const useIsBrowsePathPrefix = () => {
+    return useBrowseContext().isBrowsePathPrefix;
+};
+
+export const useIsBrowsePathSelected = () => {
+    return useBrowseContext().isBrowsePathSelected;
 };
 
 export const useOnSelect = () => {
