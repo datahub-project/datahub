@@ -1,7 +1,6 @@
 from collections import defaultdict
-from typing import DefaultDict, Dict, Iterable, Optional
+from typing import DefaultDict, Dict, Iterable
 
-from datahub.configuration import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,

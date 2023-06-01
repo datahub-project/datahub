@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import Iterable
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext

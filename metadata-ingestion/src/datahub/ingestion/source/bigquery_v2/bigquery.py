@@ -10,7 +10,6 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,

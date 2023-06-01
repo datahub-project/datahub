@@ -10,7 +10,6 @@ from requests.models import HTTPError
 from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration import ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (

@@ -58,7 +58,7 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
-    flags: FlagsConfig = None
+    flags: FlagsConfig = Field(default=FlagsConfig())
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None

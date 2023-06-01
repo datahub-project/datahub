@@ -4,7 +4,6 @@ import time
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
 
-from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,

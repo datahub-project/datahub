@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Tuple
 
 import requests
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,

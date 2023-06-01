@@ -1,6 +1,5 @@
-from typing import Iterable, Optional
+from typing import Iterable
 
-from datahub.configuration import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport

@@ -10,7 +10,6 @@ from iceberg.core.base_table import BaseTable
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
 from iceberg.exceptions import NoSuchTableException
 
-from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,

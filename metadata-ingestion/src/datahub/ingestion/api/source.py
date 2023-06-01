@@ -183,7 +183,10 @@ class Source(Closeable, metaclass=ABCMeta):
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
         browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
-        if self.ctx.pipeline_config.flags.generate_browse_path_v2:
+        if (
+            self.ctx.pipeline_config
+            and self.ctx.pipeline_config.flags.generate_browse_path_v2
+        ):
             platform = getattr(self, "platform", None) or getattr(
                 self.get_config(), "platform", None
             )

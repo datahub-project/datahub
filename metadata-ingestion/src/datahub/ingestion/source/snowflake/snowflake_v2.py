@@ -9,7 +9,6 @@ from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,

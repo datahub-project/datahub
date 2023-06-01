@@ -1,12 +1,11 @@
 import logging
 import os
 import time
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
 from deltalake import DeltaTable
 
-from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
