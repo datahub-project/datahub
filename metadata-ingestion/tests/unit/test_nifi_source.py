@@ -2,6 +2,7 @@ import typing
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.nifi import (
@@ -396,3 +397,53 @@ def test_failure_to_create_nifi_flow():
         assert "Failed to get root process group flow" in list(
             source.get_report().failures[config.site_url]
         )
+
+
+def test_site_url_no_context():
+    supported_urls = [
+        "https://localhost:8443",
+        "https://localhost:8443/",
+        "https://localhost:8443/nifi",
+        "https://localhost:8443/nifi/",
+    ]
+    ctx = PipelineContext("run-id")
+
+    for url in supported_urls:
+        config = NifiSourceConfig(
+            site_url=url,
+        )
+        assert config.site_url == "https://localhost:8443/nifi/"
+        assert config.site_url_to_site_name["https://localhost:8443/nifi/"] == "default"
+
+        assert (
+            NifiSource(config, ctx).rest_api_base_url
+            == "https://localhost:8443/nifi-api/"
+        )
+
+
+def test_site_url_with_context():
+    supported_urls = [
+        "https://host/context",
+        "https://host/context/",
+        "https://host/context/nifi",
+        "https://host/context/nifi/",
+    ]
+    ctx = PipelineContext("run-id")
+
+    for url in supported_urls:
+        config = NifiSourceConfig(
+            site_url=url,
+        )
+        assert config.site_url == "https://host/context/nifi/"
+        assert config.site_url_to_site_name["https://host/context/nifi/"] == "default"
+        assert (
+            NifiSource(config, ctx).rest_api_base_url
+            == "https://host/context/nifi-api/"
+        )
+
+
+def test_incorrect_site_urls():
+    unsupported_urls = ["localhost:8443", "localhost:8443/context/"]
+    for url in unsupported_urls:
+        with pytest.raises(ValidationError, match="site_url must start with http"):
+            NifiSourceConfig(site_url=url)
