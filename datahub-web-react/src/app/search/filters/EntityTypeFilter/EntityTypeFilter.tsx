@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../../../types.generated';
 import { useAggregateAcrossEntitiesLazyQuery } from '../../../../graphql/search.generated';
 import useGetSearchQueryInputs from '../../useGetSearchQueryInputs';

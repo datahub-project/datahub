@@ -7,7 +7,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
-import { IconWrapper } from './SearchFilter';
+import { IconWrapper } from './SearchFilterView';
 import { getFilterDropdownIcon } from './utils';
 
 const OptionWrapper = styled.div<{ isActive: boolean; isOpen: boolean }>`

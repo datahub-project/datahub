@@ -200,9 +200,12 @@ export function getFilterOptions(
     return filterOptions;
 }
 
-export function filterOptionsWithSearch(searchQuery: string, name: string) {
+export function filterOptionsWithSearch(searchQuery: string, name: string, nestedOptions: FilterOptionType[] = []) {
     if (searchQuery) {
-        return name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase());
+        return (
+            name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()) ||
+            !!nestedOptions.find((option) => option.value.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()))
+        );
     }
     return true;
 }

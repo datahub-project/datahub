@@ -1,10 +1,10 @@
 import { CaretDownFilled } from '@ant-design/icons';
 import { Button, Dropdown } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DisplayedFilterOption } from './mapFilterOption';
-import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
 export const DropdownLabel = styled(Button)<{ isActive: boolean }>`
@@ -25,7 +25,7 @@ export const DropdownLabel = styled(Button)<{ isActive: boolean }>`
     `}
 `;
 
-const IconWrapper = styled.div`
+export const IconWrapper = styled.div`
     margin-right: 8px;
     display: flex;
     svg {
