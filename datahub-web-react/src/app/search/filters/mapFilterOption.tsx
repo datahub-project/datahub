@@ -4,11 +4,20 @@ import FilterOption from './FilterOption';
 import { FilterOptionType } from './types';
 import { getFilterIconAndLabel } from './utils';
 
+export interface DisplayedFilterOption {
+    key: string;
+    label: React.ReactNode;
+    style: any;
+    displayName?: string | null;
+    nestedOptions?: FilterOptionType[];
+}
+
 interface CreateFilterOptionProps {
     filterOption: FilterOptionType;
     entityRegistry: EntityRegistry;
     selectedFilterOptions: FilterOptionType[];
     setSelectedFilterOptions: (values: FilterOptionType[]) => void;
+    nestedOptions?: FilterOptionType[];
 }
 
 export function mapFilterOption({
@@ -16,7 +25,8 @@ export function mapFilterOption({
     entityRegistry,
     selectedFilterOptions,
     setSelectedFilterOptions,
-}: CreateFilterOptionProps) {
+    nestedOptions,
+}: CreateFilterOptionProps): DisplayedFilterOption {
     const { label: displayName } = getFilterIconAndLabel(
         filterOption.field,
         filterOption.value,
@@ -34,6 +44,7 @@ export function mapFilterOption({
             />
         ),
         style: { padding: 0 },
-        displayName,
+        displayName: displayName as string,
+        nestedOptions,
     };
 }

@@ -3,7 +3,13 @@ import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
-import { ORIGIN_FILTER_NAME, UnionType } from '../utils/constants';
+import {
+    ENTITY_TYPE_FILTER_NAME,
+    INDEX_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+    TYPE_NAMES_FILTER_NAME,
+    UnionType,
+} from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
 import { SORTED_FILTERS } from './constants';
 import MoreFilters from './MoreFilters';
@@ -34,6 +40,9 @@ export const FilterButtonsWrapper = styled.div`
     flex-wrap: nowrap;
 `;
 
+// remove legacy filter options as well as new _index filter from dropdowns
+const FILTERS_TO_REMOVE = [TYPE_NAMES_FILTER_NAME, ENTITY_TYPE_FILTER_NAME, INDEX_FILTER_NAME];
+
 interface Props {
     availableFilters: FacetMetadata[] | null;
     activeFilters: FacetFilterInput[];
@@ -47,7 +56,8 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
     // only want Environment filter if there's 2 or more envs
     const filters = availableFilters
-        ?.filter((f) => (f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true))
+        ?.filter((f) => (f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true)) // only want Environment filter if there's 2 or more envs
+        .filter((f) => !FILTERS_TO_REMOVE.includes(f.field))
         .sort((facetA, facetB) => sortFacets(facetA, facetB, SORTED_FILTERS));
     // if there will only be one filter in the "More Filters" dropdown, show that filter instead
     const shouldShowMoreDropdown = filters && filters.length > NUM_VISIBLE_FILTER_DROPDOWNS + 1;
