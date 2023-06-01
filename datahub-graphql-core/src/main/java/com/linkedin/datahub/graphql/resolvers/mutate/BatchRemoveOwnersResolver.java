@@ -12,6 +12,7 @@ import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,8 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
     final BatchRemoveOwnersInput input = bindArgument(environment.getArgument("input"), BatchRemoveOwnersInput.class);
     final List<String> owners = input.getOwnerUrns();
     final List<ResourceRefInput> resources = input.getResources();
+    final Optional<Urn> maybeOwnershipTypeUrn = input.getOwnershipTypeUrn() == null ? Optional.empty()
+        : Optional.of(Urn.createFromString(input.getOwnershipTypeUrn()));
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(() -> {
@@ -40,7 +43,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
 
       try {
         // Then execute the bulk remove
-        batchRemoveOwners(owners, resources, context);
+        batchRemoveOwners(owners, maybeOwnershipTypeUrn, resources, context);
         return true;
       } catch (Exception e) {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
@@ -68,11 +71,12 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
     LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }
 
-  private void batchRemoveOwners(List<String> ownerUrns, List<ResourceRefInput> resources, QueryContext context) {
+  private void batchRemoveOwners(List<String> ownerUrns, Optional<Urn> maybeOwnershipTypeUrn,
+      List<ResourceRefInput> resources, QueryContext context) {
     log.debug("Batch removing owners. owners: {}, resources: {}", ownerUrns, resources);
     try {
       OwnerUtils.removeOwnersFromResources(ownerUrns.stream().map(UrnUtils::getUrn).collect(
-          Collectors.toList()), resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+          Collectors.toList()), maybeOwnershipTypeUrn, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch remove Owners %s to resources with urns %s!",
           ownerUrns,

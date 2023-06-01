@@ -126,6 +126,8 @@ def bigquery_audit_metadata_query_template(
     else:
         from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access`"
 
+    # Deduplicates insertId via QUALIFY, see:
+    # https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry, insertId field
     query = f"""
         SELECT
             timestamp,
@@ -162,6 +164,7 @@ def bigquery_audit_metadata_query_template(
             OR
                 JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
         )
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY insertId, timestamp, logName) = 1
         {limit_text};
     """
 
