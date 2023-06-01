@@ -1,3 +1,4 @@
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import partitioned_folder_comparator
 
 
@@ -47,3 +48,40 @@ def test_partition_comparator_with_string_partition():
     folder1 = "year=year2020"
     folder2 = "year=year2021"
     assert partitioned_folder_comparator(folder1, folder2) == -1
+
+
+def test_path_spec():
+    path_spec = PathSpec(
+        include="s3://my-bucket/my-folder/year=*/month=*/day=*/*.csv",
+        default_extension="csv",
+    )
+    path = "s3://my-bucket/my-folder/year=2022/month=10/day=11/my_csv.csv"
+    assert path_spec.allowed(path)
+
+
+def test_path_spec_dir_allowed():
+    path_spec = PathSpec(
+        include="s3://my-bucket/my-folder/year=*/month=*/day=*/*.csv",
+        exclude=[
+            "s3://my-bucket/my-folder/year=2022/month=12/day=11",
+            "s3://my-bucket/my-folder/year=2022/month=10/**",
+        ],
+        default_extension="csv",
+    )
+    path = "s3://my-bucket/my-folder/year=2022/"
+    assert path_spec.dir_allowed(path) is True, f"{path} should be allowed"
+
+    path = "s3://my-bucket/my-folder/year=2022/month=12/"
+    assert path_spec.dir_allowed(path) is True, f"{path} should be allowed"
+
+    path = "s3://my-bucket/my-folder/year=2022/month=12/day=11/my_csv.csv"
+    assert path_spec.dir_allowed(path) is False, f"{path} should be denied"
+
+    path = "s3://my-bucket/my-folder/year=2022/month=12/day=10/"
+    assert path_spec.dir_allowed(path) is True, f"{path} should be allowed"
+
+    path = "s3://my-bucket/my-folder/year=2022/month=12/day=10/_temporary/"
+    assert path_spec.dir_allowed(path) is False, f"{path} should be denied"
+
+    path = "s3://my-bucket/my-folder/year=2022/month=10/day=10/"
+    assert path_spec.dir_allowed(path) is False, f"{path} should be denied"

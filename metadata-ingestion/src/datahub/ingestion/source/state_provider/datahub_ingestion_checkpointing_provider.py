@@ -11,7 +11,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass, StatusClass
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger = logging.getLogger(__name__)
 
@@ -115,14 +115,11 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                 job_name,
             )
 
-            self.graph.emit_mcp(
-                # We don't want the state payloads to show up in search. As such, we emit the
-                # dataJob aspects as soft-deleted. This doesn't affect the ability to query
-                # them using the timeseries API.
-                MetadataChangeProposalWrapper(
-                    entityUrn=datajob_urn,
-                    aspect=StatusClass(removed=True),
-                )
+            # We don't want the state payloads to show up in search. As such, we emit the
+            # dataJob aspects as soft-deleted. This doesn't affect the ability to query
+            # them using the timeseries API.
+            self.graph.soft_delete_entity(
+                urn=datajob_urn,
             )
             self.graph.emit_mcp(
                 MetadataChangeProposalWrapper(

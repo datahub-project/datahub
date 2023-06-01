@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntityLineageResultCacheKey;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -92,10 +93,9 @@ public class CacheTest extends JetTestSupport {
     public void hazelcastTestScroll() {
         CorpuserUrn corpuserUrn = new CorpuserUrn("user");
         SearchEntity searchEntity = new SearchEntity().setEntity(corpuserUrn);
-        SearchResult searchResult = new SearchResult()
+        ScrollResult scrollResult = new ScrollResult()
             .setEntities(new SearchEntityArray(List.of(searchEntity)))
             .setNumEntities(1)
-            .setFrom(0)
             .setPageSize(1)
             .setMetadata(new SearchResultMetadata());
 
@@ -126,7 +126,7 @@ public class CacheTest extends JetTestSupport {
         Cache cache2 = cacheManager2.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
 
         // Cache result
-        String json = toJsonString(searchResult);
+        String json = toJsonString(scrollResult);
         cache1.put(sextet, json);
         Assert.assertEquals(instance1.getMap(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME).get(sextet),
             instance2.getMap(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME).get(sextet));

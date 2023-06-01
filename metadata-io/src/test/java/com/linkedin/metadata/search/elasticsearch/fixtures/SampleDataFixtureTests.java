@@ -713,9 +713,9 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
 
-        expectedFacets = Set.of("platform", "typeNames", "_entityType");
+        expectedFacets = Set.of("platform", "typeNames", "_entityType", "entity");
         SearchResult testResult2 = search(searchService, "cypress", List.copyOf(expectedFacets));
-        assertEquals(testResult2.getMetadata().getAggregations().size(), 3);
+        assertEquals(testResult2.getMetadata().getAggregations().size(), 4);
         expectedFacets.forEach(facet -> {
             assertTrue(testResult2.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
                 String.format("Failed to find facet `%s` in %s", facet,
