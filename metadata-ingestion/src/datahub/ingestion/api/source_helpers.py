@@ -222,7 +222,8 @@ def auto_browse_path_v2(
             ).as_workunit()
             processed_urns.add(node)
 
-    # Yield browse paths v2 based on browse paths
+    # Yield browse paths v2 based on browse paths v1 (legacy)
+    # Only done if the entity is not part of a container hierarchy
     for urn in legacy_browse_paths.keys() - processed_urns - ignore_urns:
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
