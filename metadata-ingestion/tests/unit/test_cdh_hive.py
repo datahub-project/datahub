@@ -135,7 +135,7 @@ class CDHHiveSourceTest(unittest.TestCase):
         yield_profile = src.loop_profiler(mock_engine, "default", CDHHiveConfig())
         generated_profile = next(yield_profile)  # type: ignore
         expected_mcp = MetadataWorkUnit(
-            id="urn:li:dataset:(urn:li:dataPlatform:hive,default.my_first_table,PROD)",
+            id="container-urn:li:container:49bf859a5c09dfbdb4cbbdeb96daf518-to-urn:li:dataset:(urn:li:dataPlatform:hive,default.my_first_table,PROD)",
             mcp=MetadataChangeProposalWrapper(
                 entityType="dataset",
                 changeType="UPSERT",
@@ -144,7 +144,7 @@ class CDHHiveSourceTest(unittest.TestCase):
                 auditHeader=None,
                 aspectName="container",
                 aspect=ContainerClass(
-                    container="urn:li:container:80a9564e8e33aacbf9a023fa43b8ee03"
+                    container="urn:li:container:49bf859a5c09dfbdb4cbbdeb96daf518"
                 ),
             ),
         )
