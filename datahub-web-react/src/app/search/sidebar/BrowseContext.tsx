@@ -7,14 +7,7 @@ import {
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
 } from '../utils/constants';
-import {
-    useBrowseFilterValue,
-    useEntityFilterValue,
-    useEnvironmentFilterValue,
-    useOnChangeFilters,
-    usePlatformFilterValue,
-    useSelectedFilters,
-} from './SidebarContext';
+import { useIsMatchingFilter, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
 
 type BrowseContextValue = {
     entityAggregation?: AggregationMetadata;
@@ -22,12 +15,6 @@ type BrowseContextValue = {
     platformAggregation?: AggregationMetadata;
     browseResultGroup?: BrowseResultGroupV2;
     path: Array<string>;
-    isEntitySelected: boolean;
-    isEnvironmentSelected: boolean;
-    isPlatformSelected: boolean;
-    isBrowsePathPrefix: boolean;
-    isBrowsePathSelected: boolean;
-    onSelect: () => void;
 };
 
 const BrowseContext = createContext<BrowseContextValue | null>(null);
@@ -56,73 +43,8 @@ export const BrowseProvider = ({
     browseResultGroup,
     parentPath,
 }: Props) => {
-    // todo - this context is getting busy, let's move some stuff out to the edges
-    const selectedFilters = useSelectedFilters();
-    const onChangeFilters = useOnChangeFilters();
-    const selectedEntity = useEntityFilterValue();
-    const selectedEnvironment = useEnvironmentFilterValue();
-    const selectedPlatform = usePlatformFilterValue();
-    const selectedBrowsePath = useBrowseFilterValue();
-
     const basePath = parentPath ? [...parentPath] : [];
     const path = browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
-    const browseSearchFilter = createBrowseV2SearchFilter(path);
-
-    // todo - why does second level collapse when we click on it?
-    // oh, probably because we're setting search filters
-    // maybe need to try to re-open things if filters changed?
-
-    // todo - maybe move these into the isSelected hook since that'll enforce the non-null types of things
-    // todo - what if they're both undefined
-    const isEntitySelected = !!selectedEntity && selectedEntity === entityAggregation?.value;
-    const isEnvironmentSelected =
-        isEntitySelected && (!environmentAggregation || selectedEnvironment === environmentAggregation.value);
-    const isPlatformSelected =
-        isEntitySelected &&
-        isEnvironmentSelected &&
-        !!selectedPlatform &&
-        selectedPlatform === platformAggregation?.value;
-    const isBrowsePathPrefix =
-        isEntitySelected &&
-        isEnvironmentSelected &&
-        isPlatformSelected &&
-        !!selectedBrowsePath &&
-        selectedBrowsePath.startsWith(browseSearchFilter);
-    const isBrowsePathSelected = isBrowsePathPrefix && selectedBrowsePath === browseSearchFilter;
-
-    const onSelect = () => {
-        const filters = selectedFilters.filter((sf) => !EXCLUDED_FILTER_NAMES.includes(sf.field));
-
-        if (entityAggregation)
-            filters.push({
-                field: ENTITY_FILTER_NAME,
-                condition: FilterOperator.Equal,
-                values: [entityAggregation.value],
-            });
-
-        if (environmentAggregation)
-            filters.push({
-                field: ORIGIN_FILTER_NAME,
-                condition: FilterOperator.Equal,
-                values: [environmentAggregation.value],
-            });
-
-        if (platformAggregation) {
-            filters.push({
-                field: PLATFORM_FILTER_NAME,
-                condition: FilterOperator.Equal,
-                values: [platformAggregation.value],
-            });
-        }
-
-        filters.push({
-            field: BROWSE_PATH_V2_FILTER_NAME,
-            condition: FilterOperator.Equal,
-            values: [browseSearchFilter],
-        });
-
-        onChangeFilters(filters);
-    };
 
     return (
         <BrowseContext.Provider
@@ -132,12 +54,6 @@ export const BrowseProvider = ({
                 platformAggregation,
                 browseResultGroup,
                 path,
-                isEntitySelected,
-                isEnvironmentSelected,
-                isPlatformSelected,
-                isBrowsePathPrefix,
-                isBrowsePathSelected,
-                onSelect,
             }}
         >
             {children}
@@ -196,26 +112,87 @@ export const useBrowsePath = () => {
     return context.path;
 };
 
+export const useBrowseSearchFilter = () => {
+    return createBrowseV2SearchFilter(useBrowsePath());
+};
+
 export const useIsEntitySelected = () => {
-    return useBrowseContext().isEntitySelected;
+    return useIsMatchingFilter(ENTITY_FILTER_NAME, useEntityAggregation().value);
 };
 
 export const useIsEnvironmentSelected = () => {
-    return useBrowseContext().isEnvironmentSelected;
+    const environmentAggregation = useMaybeEnvironmentAggregation();
+    const isEntitySelected = useIsEntitySelected();
+    const isEnvironmentSelected = useIsMatchingFilter(ORIGIN_FILTER_NAME, environmentAggregation?.value);
+    return isEntitySelected && (!environmentAggregation || isEnvironmentSelected);
 };
 
 export const useIsPlatformSelected = () => {
-    return useBrowseContext().isPlatformSelected;
+    const isEntitySelected = useIsEntitySelected();
+    const isEnvironmentSelected = useIsEnvironmentSelected();
+    const isPlatformSelected = useIsMatchingFilter(PLATFORM_FILTER_NAME, usePlatformAggregation().value);
+    return isEntitySelected && isEnvironmentSelected && isPlatformSelected;
 };
 
 export const useIsBrowsePathPrefix = () => {
-    return useBrowseContext().isBrowsePathPrefix;
+    const isEntitySelected = useIsEntitySelected();
+    const isEnvironmentSelected = useIsEnvironmentSelected();
+    const isPlatformSelected = useIsPlatformSelected();
+    const isBrowsePathPrefix = useIsMatchingFilter(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter(), {
+        prefix: true,
+    });
+    return isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathPrefix;
 };
 
 export const useIsBrowsePathSelected = () => {
-    return useBrowseContext().isBrowsePathSelected;
+    const isEntitySelected = useIsEntitySelected();
+    const isEnvironmentSelected = useIsEnvironmentSelected();
+    const isPlatformSelected = useIsPlatformSelected();
+    const isBrowsePathSelected = useIsMatchingFilter(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter());
+    return isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathSelected;
 };
 
 export const useOnSelect = () => {
-    return useBrowseContext().onSelect;
+    const entityAggregation = useEntityAggregation();
+    const environmentAggregation = useMaybeEnvironmentAggregation();
+    const platformAggregation = usePlatformAggregation();
+    const browseSearchFilter = useBrowseSearchFilter();
+    const selectedFilters = useSelectedFilters();
+    const onChangeFilters = useOnChangeFilters();
+
+    const onSelect = () => {
+        const filters = selectedFilters.filter((sf) => !EXCLUDED_FILTER_NAMES.includes(sf.field));
+
+        if (entityAggregation)
+            filters.push({
+                field: ENTITY_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: [entityAggregation.value],
+            });
+
+        if (environmentAggregation)
+            filters.push({
+                field: ORIGIN_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: [environmentAggregation.value],
+            });
+
+        if (platformAggregation) {
+            filters.push({
+                field: PLATFORM_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: [platformAggregation.value],
+            });
+        }
+
+        filters.push({
+            field: BROWSE_PATH_V2_FILTER_NAME,
+            condition: FilterOperator.Equal,
+            values: [browseSearchFilter],
+        });
+
+        onChangeFilters(filters);
+    };
+
+    return onSelect;
 };
