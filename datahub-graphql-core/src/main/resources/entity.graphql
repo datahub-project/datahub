@@ -7965,7 +7965,7 @@ type ActorFilter {
   """
   resourceOwners: Boolean!
 
-  resourceOwnersTypes: [OwnershipType]
+  resourceOwnersTypesUrns: [String]
 
   """
   Whether the filter should apply to all users

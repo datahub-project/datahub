@@ -1,7 +1,6 @@
 namespace com.linkedin.policy
 
 import com.linkedin.common.Urn
-import com.linkedin.common.OwnershipType
 
 /**
  * Information used to filter DataHub actors.
@@ -27,7 +26,7 @@ record DataHubActorFilter {
   /**
    * Define type of ownership for policy
   */
-  resourceOwnersType: optional array[OwnershipType]
+  resourceOwnersTypesUrns: optional array[Urn]
 
   /**
    * Whether the filter should apply to all users.

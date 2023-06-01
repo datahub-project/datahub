@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
-import com.linkedin.common.OwnershipTypeArray;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -9,7 +9,6 @@ import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import java.net.URISyntaxException;
-import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -47,9 +46,9 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     result.setAllGroups(actorFilter.isAllGroups());
     result.setAllUsers(actorFilter.isAllUsers());
     result.setResourceOwners(actorFilter.isResourceOwners());
-    OwnershipTypeArray resourceOwnersTypes = actorFilter.getResourceOwnersType();
+    UrnArray resourceOwnersTypes = actorFilter.getResourceOwnersTypesUrns();
     if (resourceOwnersTypes != null) {
-      result.setResourceOwnersTypes(resourceOwnersTypes.stream().map(type -> OwnershipType.valueOf(type.toString())).collect(Collectors.toList()));
+      result.setResourceOwnersTypesUrns(resourceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
     }
     if (actorFilter.hasGroups()) {
       result.setGroups(actorFilter.getGroups().stream().map(Urn::toString).collect(Collectors.toList()));
