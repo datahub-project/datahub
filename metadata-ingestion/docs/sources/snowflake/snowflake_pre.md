@@ -93,7 +93,7 @@ The steps slightly differ based on which you decide to use.
   + Ensure client authentication method is `Client secret`
 - Create an Okta user to sign into, noting the `Username` and `Password`
 - Create a Snowflake user to correspond to your newly created Okta client credentials
-  + *Ensure the user's `Login Name` matches your Okta user's `Username` (likely a password)*
+  + *Ensure the user's `Login Name` matches your Okta user's `Username` (likely an email)*
   + Ensure the user has been granted your datahub role
 - When running ingestion, provide the required `oauth_config` fields,
   including `client_id` and `client_secret`, plus your Okta user's `Username` and `Password`
