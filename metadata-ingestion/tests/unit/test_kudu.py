@@ -166,7 +166,7 @@ class KuduSourceTest(unittest.TestCase):
             yield_profile = src.loop_profiler(mock_engine, "default", KuduConfig())
             generated_profile = next(yield_profile)  # type: ignore
         expected_mcp = MetadataWorkUnit(
-            id="container-urn:li:container:49bf859a5c09dfbdb4cbbdeb96daf518-to-urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
+            id="urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
             mcp=MetadataChangeProposalWrapper(
                 entityType="dataset",
                 changeType="UPSERT",
