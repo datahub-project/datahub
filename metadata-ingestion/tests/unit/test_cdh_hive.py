@@ -135,7 +135,7 @@ class CDHHiveSourceTest(unittest.TestCase):
         yield_profile = src.loop_profiler(mock_engine, "default", CDHHiveConfig())
         generated_profile = next(yield_profile)  # type: ignore
         expected_mcp = MetadataWorkUnit(
-            id="container-urn:li:container:80a9564e8e33aacbf9a023fa43b8ee03-to-urn:li:dataset:(urn:li:dataPlatform:hive,default.my_first_table,PROD)",
+            id="urn:li:dataset:(urn:li:dataPlatform:hive,default.my_first_table,PROD)",
             mcp=MetadataChangeProposalWrapper(
                 entityType="dataset",
                 changeType="UPSERT",
