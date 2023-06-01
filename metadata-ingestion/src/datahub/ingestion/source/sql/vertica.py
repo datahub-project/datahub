@@ -105,6 +105,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
         default=True,
         description="If the source supports it, include view lineage to the underlying storage location.",
     )
+    
     include_projection_lineage: Optional[bool] = pydantic.Field(
         default=True,
         description="If the source supports it, include view lineage to the underlying storage location.",
