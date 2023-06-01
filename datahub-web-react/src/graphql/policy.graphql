@@ -34,7 +34,7 @@ query listPolicies($input: ListPoliciesInput!) {
                 allUsers
                 allGroups
                 resourceOwners
-                resourceOwnersTypes
+                resourceOwnersTypesUrns
                 resolvedUsers {
                     username
                     urn
