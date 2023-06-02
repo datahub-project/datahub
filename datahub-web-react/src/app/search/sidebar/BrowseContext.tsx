@@ -1,5 +1,11 @@
 import React, { ReactNode, createContext, useContext } from 'react';
-import { AggregationMetadata, BrowseResultGroupV2, EntityType, FilterOperator } from '../../../types.generated';
+import {
+    AggregationMetadata,
+    BrowseResultGroupV2,
+    EntityType,
+    FacetFilterInput,
+    FilterOperator,
+} from '../../../types.generated';
 import { createBrowseV2SearchFilter } from '../filters/utils';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -27,13 +33,6 @@ type Props = {
     browseResultGroup?: BrowseResultGroupV2;
     parentPath?: Array<string>;
 };
-
-const EXCLUDED_FILTER_NAMES = [
-    ENTITY_FILTER_NAME,
-    ORIGIN_FILTER_NAME,
-    PLATFORM_FILTER_NAME,
-    BROWSE_PATH_V2_FILTER_NAME,
-];
 
 export const BrowseProvider = ({
     children,
@@ -161,37 +160,47 @@ export const useOnSelect = () => {
     const onChangeFilters = useOnChangeFilters();
 
     const onSelect = () => {
-        const filters = selectedFilters.filter((sf) => !EXCLUDED_FILTER_NAMES.includes(sf.field));
+        const overrides: Array<FacetFilterInput> = [];
 
-        if (entityAggregation)
-            filters.push({
-                field: ENTITY_FILTER_NAME,
-                condition: FilterOperator.Equal,
-                values: [entityAggregation.value],
-            });
+        overrides.push({
+            field: ENTITY_FILTER_NAME,
+            condition: FilterOperator.Equal,
+            values: [entityAggregation.value],
+        });
 
         if (environmentAggregation)
-            filters.push({
+            overrides.push({
                 field: ORIGIN_FILTER_NAME,
                 condition: FilterOperator.Equal,
                 values: [environmentAggregation.value],
             });
 
-        if (platformAggregation) {
-            filters.push({
-                field: PLATFORM_FILTER_NAME,
-                condition: FilterOperator.Equal,
-                values: [platformAggregation.value],
-            });
-        }
+        overrides.push({
+            field: PLATFORM_FILTER_NAME,
+            condition: FilterOperator.Equal,
+            values: [platformAggregation.value],
+        });
 
-        filters.push({
+        overrides.push({
             field: BROWSE_PATH_V2_FILTER_NAME,
             condition: FilterOperator.Equal,
             values: [browseSearchFilter],
         });
 
-        onChangeFilters(filters);
+        // Swap in new overrides at the same filter positions, removing as we go, then add in the remainder
+        const result = selectedFilters.map((sf) => {
+            const matchIndex = overrides.findIndex((o) => o.field === sf.field);
+            if (matchIndex >= 0) {
+                const match = overrides[matchIndex];
+                overrides.splice(matchIndex);
+                return match;
+            }
+            return sf;
+        });
+
+        result.push(...overrides);
+
+        onChangeFilters(result);
     };
 
     return onSelect;
