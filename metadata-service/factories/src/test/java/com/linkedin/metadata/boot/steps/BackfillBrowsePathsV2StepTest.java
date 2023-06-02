@@ -133,7 +133,7 @@ public class BackfillBrowsePathsV2StepTest {
           Mockito.eq(5000)
       )).thenReturn(new ListUrnsResult().setCount(1).setTotal(1).setEntities(new UrnArray(entityUrns.get(i))));
 
-      Mockito.when(mockService.buildDefaultBrowsePathV2(Mockito.eq(entityUrns.get(i)))).thenReturn(
+      Mockito.when(mockService.buildDefaultBrowsePathV2(Mockito.eq(entityUrns.get(i)), Mockito.eq(true))).thenReturn(
           new BrowsePathsV2().setPath(new BrowsePathEntryArray(new BrowsePathEntry().setId("test"))));
 
       Mockito.when(mockService.getEntityV2(

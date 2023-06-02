@@ -80,7 +80,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   }
 
   private void ingestBrowsePathsV2(Urn urn, AuditStamp auditStamp) throws Exception {
-    BrowsePathsV2 browsePathsV2 = _entityService.buildDefaultBrowsePathV2(urn);
+    BrowsePathsV2 browsePathsV2 = _entityService.buildDefaultBrowsePathV2(urn, true);
     log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
