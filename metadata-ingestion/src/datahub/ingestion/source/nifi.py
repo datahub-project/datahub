@@ -9,6 +9,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests
+from cached_property import cached_property
 from dateutil import parser
 from packaging import version
 from pydantic import root_validator, validator
@@ -387,8 +388,9 @@ class NifiSource(Source):
         if self.config.ca_file is not None:
             self.session.verify = self.config.ca_file
 
-        # remove trailing "nifi/" and replace with "nifi-api/"
-        self.rest_api_base_url = self.config.site_url[:-5] + "nifi-api/"
+    @cached_property
+    def rest_api_base_url(self):
+        return self.config.site_url[: -len("nifi/")] + "nifi-api/"
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
