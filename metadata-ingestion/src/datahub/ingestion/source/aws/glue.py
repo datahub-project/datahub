@@ -340,8 +340,8 @@ class GlueSource(StatefulIngestionSourceBase):
         try:
             obj = self.s3_client.get_object(Bucket=bucket, Key=key)
         except botocore.exceptions.ClientError as e:
-            self.report_failure(
-                script_path,
+            self.report_warning(
+                flow_urn,
                 f"Unable to download DAG for Glue job from {script_path}, so job subtasks and lineage will be missing: {e}",
             )
             self.report.num_job_script_failed_download += 1
@@ -1216,7 +1216,3 @@ class GlueSource(StatefulIngestionSourceBase):
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
         self.report.report_warning(key, reason)
-
-    def report_failure(self, key: str, reason: str) -> None:
-        logger.error(f"{key}: {reason}")
-        self.report.report_failure(key, reason)
