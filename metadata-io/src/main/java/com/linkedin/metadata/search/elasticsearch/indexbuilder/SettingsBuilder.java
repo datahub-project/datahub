@@ -108,7 +108,6 @@ public class SettingsBuilder {
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
   public static final String UNIT_SEPARATOR_PATH_TOKENIZER = "unit_separator_path_tokenizer";
   public static final String UNIT_SEPARATOR_TOKENIZER = "unit_separator_tokenizer";
-  public static final String UNIT_SEPARATOR_PATH_TOKENIZER = "unit_separator_path_tokenizer";
   // Do not remove the space, needed for multi-term synonyms
   public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of(
           "([a-z0-9 _-]{2,})",
@@ -302,12 +301,6 @@ public class SettingsBuilder {
             .put(TYPE, PATH_HIERARCHY_TOKENIZER)
             .put(DELIMITER, "␟")
             .build());
-
-    tokenizers.put(UNIT_SEPARATOR_PATH_TOKENIZER,
-        ImmutableMap.<String, Object>builder()
-                .put(TYPE, PATH_HIERARCHY_TOKENIZER)
-                .put(DELIMITER, "␟")
-                .build());
 
     // Tokenize by whitespace and most special chars
     tokenizers.put(MAIN_TOKENIZER,
