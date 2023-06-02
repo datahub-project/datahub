@@ -18,6 +18,15 @@ query getBrowseResultsV2($input: BrowseInputV2!) {
                         name
                     }
                 }
+                ... on DataPlatformInstance {
+                    platform {
+                        name
+                        properties {
+                            displayName
+                        }
+                    }
+                    instanceId
+                }
             }
         }
         start
