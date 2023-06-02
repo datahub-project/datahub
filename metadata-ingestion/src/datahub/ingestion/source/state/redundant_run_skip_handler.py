@@ -127,22 +127,24 @@ class RedundantRunSkipHandler(
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return False
         # Determine from the last check point state
-        last_successful_pipeline_run_end_time_millis: Optional[int] = None
+        last_successful_pipeline_run_start_time_millis: Optional[int] = None
         last_checkpoint = self.state_provider.get_last_checkpoint(
             self.job_id, BaseUsageCheckpointState
         )
         if last_checkpoint and last_checkpoint.state:
             state = cast(BaseUsageCheckpointState, last_checkpoint.state)
-            last_successful_pipeline_run_end_time_millis = state.end_timestamp_millis
+            last_successful_pipeline_run_start_time_millis = (
+                state.begin_timestamp_millis
+            )
 
         if (
-            last_successful_pipeline_run_end_time_millis is not None
-            and cur_start_time_millis <= last_successful_pipeline_run_end_time_millis
+            last_successful_pipeline_run_start_time_millis is not None
+            and cur_start_time_millis <= last_successful_pipeline_run_start_time_millis
         ):
             warn_msg = (
-                f"Skippig this run, since the last run's bucket duration end: "
-                f"{get_datetime_from_ts_millis_in_utc(last_successful_pipeline_run_end_time_millis)}"
-                f" is later than the current start_time: {get_datetime_from_ts_millis_in_utc(cur_start_time_millis)}"
+                f"Skippig this run, since the last run's bucket duration start: "
+                f"{get_datetime_from_ts_millis_in_utc(last_successful_pipeline_run_start_time_millis)}"
+                f" is later than or equal to the current start_time: {get_datetime_from_ts_millis_in_utc(cur_start_time_millis)}"
             )
             logger.warning(warn_msg)
             return True
