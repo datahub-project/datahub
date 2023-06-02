@@ -22,11 +22,16 @@ const SidebarHeader = styled.div`
     padding-left: 24px;
     height: 47px;
     border-bottom: 1px solid ${(props) => props.theme.styles['border-color-base']};
+    white-space: nowrap;
 `;
 
 const SidebarBody = styled.div`
+    height: calc(100% - 47px);
     padding-left: 16px;
     padding-right: 12px;
+    padding-bottom: 200px;
+    overflow: auto;
+    white-space: nowrap;
 `;
 
 type Props = {

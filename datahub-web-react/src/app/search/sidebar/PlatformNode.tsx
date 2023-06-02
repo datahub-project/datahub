@@ -19,11 +19,6 @@ import {
     usePlatformAggregation,
 } from './BrowseContext';
 
-const Title = styled(Typography.Text)`
-    font-size: 14px;
-    color: ${(props) => props.color};
-`;
-
 const PlatformIconContainer = styled.div`
     width: 16px;
     display: flex;
@@ -75,7 +70,9 @@ const PlatformNode = () => {
                             onClick={toggle}
                         />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
-                        <Title color={color}>{label}</Title>
+                        <ExpandableNode.Title color={color} size={14}>
+                            {label}
+                        </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
                 </ExpandableNode.Header>

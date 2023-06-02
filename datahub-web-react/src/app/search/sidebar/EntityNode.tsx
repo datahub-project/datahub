@@ -14,11 +14,6 @@ import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
 import { BrowseProvider, useEntityAggregation, useEntityType, useIsEntitySelected } from './BrowseContext';
 
-const Title = styled(Typography.Text)`
-    font-size: 16px;
-    color: ${(props) => props.color};
-`;
-
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
@@ -49,7 +44,9 @@ const EntityNode = () => {
                         <ExpandableNode.StaticButton
                             icon={registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
                         />
-                        <Title color={color}>{registry.getCollectionName(entityType)}</Title>
+                        <ExpandableNode.Title color={color} size={16}>
+                            {registry.getCollectionName(entityType)}
+                        </ExpandableNode.Title>
                         <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
                     </ExpandableNode.HeaderLeft>
                     <ExpandableNode.CircleButton isOpen={isOpen} />

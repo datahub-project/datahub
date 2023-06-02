@@ -16,11 +16,6 @@ import {
     useMaybeEnvironmentAggregation,
 } from './BrowseContext';
 
-const Title = styled(Typography.Text)`
-    font-size: 14px;
-    color: ${(props) => props.color};
-`;
-
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
@@ -50,7 +45,9 @@ const EnvironmentNode = () => {
                             isVisible={!!environmentAggregation?.count}
                             onClick={toggle}
                         />
-                        <Title color={color}>{environmentAggregation?.value}</Title>
+                        <ExpandableNode.Title color={color} size={14}>
+                            {environmentAggregation?.value}
+                        </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(environmentAggregation?.count)}</Count>
                 </ExpandableNode.Header>

@@ -17,12 +17,8 @@ import {
     useEntityAggregation,
     useIsBrowsePathSelected,
     useIsBrowsePathPrefix,
+    useBrowsePathLength,
 } from './BrowseContext';
-
-const Title = styled(Typography.Text)`
-    font-size: 14px;
-    color: ${(props) => props.color};
-`;
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -48,6 +44,8 @@ const BrowseNode = () => {
 
     const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
 
+    const browsePathLength = useBrowsePathLength();
+
     return (
         <ExpandableNode
             isOpen={isOpen && loaded}
@@ -60,7 +58,9 @@ const BrowseNode = () => {
                             onClick={toggle}
                         />
                         <FolderStyled />
-                        <Title color={color}>{browseResultGroup.name}</Title>
+                        <ExpandableNode.Title color={color} size={14} depth={browsePathLength}>
+                            {browseResultGroup.name}
+                        </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(browseResultGroup.count)}</Count>
                 </ExpandableNode.SelectableHeader>

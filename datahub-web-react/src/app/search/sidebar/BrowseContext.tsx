@@ -111,6 +111,10 @@ export const useBrowsePath = () => {
     return context.path;
 };
 
+export const useBrowsePathLength = () => {
+    return useBrowsePath().length;
+};
+
 export const useBrowseSearchFilter = () => {
     return createBrowseV2SearchFilter(useBrowsePath());
 };
