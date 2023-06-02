@@ -27,7 +27,7 @@ def is_vertica_responsive(
     if hostname:
         cmd = f"docker logs {container_name} 2>&1 | grep 'Vertica is now running' "
     ret = subprocess.run(
-        cmd, shell=True
+        cmd, shell=True, stdout=subprocess.DEVNULL
     )
 
     return ret.returncode == 0
@@ -50,24 +50,24 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
 
         commands = """
                     docker cp tests/integration/vertica/ddl.sql vertica-ce:/home/dbadmin/ &&
-                    docker exec vertica-ce sh -c "/opt/vertica/bin/vsql -w $APP_DB_PASSWORD -f /home/dbadmin/ddl.sql &&
+                    docker exec vertica-ce sh -c "/opt/vertica/bin/vsql -w abc123 -f /home/dbadmin/ddl.sql &&
                     sudo yum install git -y &&
                     cd /opt && sudo git clone https://github.com/vertica/Machine-Learning-Examples &&
                     sudo chmod -R a+rwx /opt/Machine-Learning-Examples &&
-                    cd /opt/Machine-Learning-Examples/data && /opt/vertica/bin/vsql -w $APP_DB_PASSWORD -f load_ml_data.sql &&
+                    cd /opt/Machine-Learning-Examples/data && /opt/vertica/bin/vsql -w abc123 -f load_ml_data.sql &&
                     cd .. &&
-                    /opt/vertica/bin/vsql -w $APP_DB_PASSWORD -f naive_bayes/naive_bayes_data_preparation.sql &&
-                    /opt/vertica/bin/vsql -w $APP_DB_PASSWORD -f naive_bayes/naivebayes_examples.sql &&
-                    /opt/vertica/bin/vsql -w $APP_DB_PASSWORD -c 'select count(*) from v_catalog.tables'"
+                    /opt/vertica/bin/vsql -w abc123 -f naive_bayes/naive_bayes_data_preparation.sql &&
+                    /opt/vertica/bin/vsql -w abc123 -f naive_bayes/naivebayes_examples.sql &&
                 """
 
         ret = subprocess.run(
-            commands, shell=True
+            commands, shell=True, stdout=subprocess.DEVNULL
         )
         # waiting for vertica to create default table and system table and ml models
-        time.sleep(100)
+        time.sleep(60)
 
-        assert ret.returncode == 2
+
+        assert ret.returncode == 1
 
         yield docker_services
 

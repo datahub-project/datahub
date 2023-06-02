@@ -10,7 +10,6 @@ CREATE TABLE clicks(user_id IDENTITY(1,1), page_id INTEGER, click_time TIMESTAMP
 CREATE PROJECTION clicks_agg AS SELECT page_id, click_time::DATE click_date, COUNT(*) num_clicks FROM clicks GROUP BY page_id, click_time::DATE;
 
 
-
 -- Create a VIEW
 CREATE VIEW sampleview AS SELECT SUM(annual_income), customer_state
 FROM public.customer_dimension
