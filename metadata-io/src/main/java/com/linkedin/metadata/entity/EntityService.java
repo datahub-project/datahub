@@ -1455,7 +1455,7 @@ public class EntityService {
 
     if (shouldCheckBrowsePathV2 && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null) {
       try {
-        BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn);
+        BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn, false);
         aspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
