@@ -109,6 +109,7 @@ In the second step, we can simply select the Privileges that this Platform Polic
 | Create Tags                         | Allow the actor to create new Tags                                                                                             |
 | Manage Tags                         | Allow the actor to create and remove any Tags                                                                                  |
 | Manage Public Views                 | Allow the actor to create, edit, and remove any public (shared) Views.                                                         |
+| Manage Ownership Types              | Allow the actor to create, edit, and remove any Ownership Types.                                                               |
 | Restore Indices API[^1]             | Allow the actor to restore indices for a set of entities via API                                                               |
 | Enable/Disable Writeability API[^1] | Allow the actor to enable or disable GMS writeability for use in data migrations                                               |
 | Apply Retention API[^1]             | Allow the actor to apply aspect retention via API                                                                              |

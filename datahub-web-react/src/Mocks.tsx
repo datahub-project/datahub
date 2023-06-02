@@ -3281,6 +3281,7 @@ export const mocks = [
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
                         manageGlobalViews: true,
+                        manageOwnershipTypes: true,
                     },
                 },
             },
@@ -3506,4 +3507,5 @@ export const platformPrivileges: PlatformPrivileges = {
     createTags: true,
     createDomains: true,
     manageGlobalViews: true,
+    manageOwnershipTypes: true,
 };

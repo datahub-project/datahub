@@ -6,7 +6,7 @@ import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
