@@ -28,9 +28,10 @@ class DataFlow:
     urn: DataFlowUrn = field(init=False)
     id: str
     orchestrator: str
-    cluster: str
+    env: str
     name: Optional[str] = None
     description: Optional[str] = None
+    platform_instance: Optional[str] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
@@ -38,7 +39,10 @@ class DataFlow:
 
     def __post_init__(self):
         self.urn = DataFlowUrn.create_from_ids(
-            orchestrator=self.orchestrator, env=self.cluster, flow_id=self.id
+            orchestrator=self.orchestrator,
+            env=self.env,
+            flow_id=self.id,
+            platform_instance=self.platform_instance,
         )
 
     def generate_ownership_aspect(self):
