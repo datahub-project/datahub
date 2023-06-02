@@ -156,7 +156,7 @@ export const useIsBrowsePathSelected = () => {
     return isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathSelected;
 };
 
-export const useOnSelect = () => {
+export const useOnSelectBrowsePath = () => {
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
@@ -164,8 +164,7 @@ export const useOnSelect = () => {
     const selectedFilters = useSelectedFilters();
     const onChangeFilters = useOnChangeFilters();
 
-    const onSelect = () => {
-        // todo - pull this out and test it
+    return () => {
         const overrides: Array<FacetFilterInput> = [];
 
         overrides.push({
@@ -197,6 +196,4 @@ export const useOnSelect = () => {
 
         onChangeFilters(filtersWithOverrides);
     };
-
-    return onSelect;
 };

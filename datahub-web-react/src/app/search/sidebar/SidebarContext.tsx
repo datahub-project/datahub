@@ -39,8 +39,6 @@ export const useSelectedFilters = () => {
 
 export const useIsMatchingFilter = (field: string, value: string | undefined, { prefix = false } = {}) => {
     const selectedFilters = useSelectedFilters();
-    // todo - pull this out and test it
-    // todo - what if this equality check could be extracted and reused for applying the overrides?
     return (
         !!value &&
         selectedFilters.some(

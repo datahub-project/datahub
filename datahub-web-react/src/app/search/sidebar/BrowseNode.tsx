@@ -12,7 +12,7 @@ import {
     BrowseProvider,
     useBrowseResultGroup,
     useMaybeEnvironmentAggregation,
-    useOnSelect,
+    useOnSelectBrowsePath,
     usePlatformAggregation,
     useEntityAggregation,
     useIsBrowsePathSelected,
@@ -31,14 +31,14 @@ const Count = styled(Typography.Text)`
 `;
 
 const BrowseNode = () => {
-    const isSelectedPrefix = useIsBrowsePathPrefix();
-    const isSelected = useIsBrowsePathSelected();
-    const onSelect = useOnSelect();
+    const isBrowsePathPrefix = useIsBrowsePathPrefix();
+    const isBrowsePathSelected = useIsBrowsePathSelected();
+    const onSelectBrowsePath = useOnSelectBrowsePath();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { isOpen, toggle } = useToggle(isSelectedPrefix && !isSelected);
+    const { isOpen, toggle } = useToggle(isBrowsePathPrefix && !isBrowsePathSelected);
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
 
@@ -50,7 +50,11 @@ const BrowseNode = () => {
         <ExpandableNode
             isOpen={isOpen && loaded}
             header={
-                <ExpandableNode.SelectableHeader isOpen={isOpen} isSelected={isSelected} onClick={onSelect}>
+                <ExpandableNode.SelectableHeader
+                    isOpen={isOpen}
+                    isSelected={isBrowsePathSelected}
+                    onClick={onSelectBrowsePath}
+                >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen}
