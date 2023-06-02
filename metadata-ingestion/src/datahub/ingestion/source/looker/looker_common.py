@@ -691,9 +691,7 @@ class LookerExplore:
                 fields=view_fields,
                 upstream_views=list(
                     ProjectInclude(
-                        project=_BASE_PROJECT_NAME
-                        if view_name not in view_project_map
-                        else view_project_map[view_name],
+                        project=view_project_map.get(view_name, _BASE_PROJECT_NAME),
                         include=view_name,
                     )
                     for view_name in views
