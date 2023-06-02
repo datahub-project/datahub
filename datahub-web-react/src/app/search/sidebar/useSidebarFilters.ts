@@ -1,7 +1,7 @@
 import isEqual from 'lodash/isEqual';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import applyOrFilterOverrides from '../utils/applyOrFilterOverrides';
+import { applyOrFilterOverrides } from '../utils/applyFilterOverrides';
 import { BROWSE_PATH_V2_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
 
@@ -43,6 +43,7 @@ export const useSidebarFilters = () => {
     useEffect(() => {
         setSidebarFilters((sf) => {
             const latestSidebarFilters = createSidebarFilters();
+            // todo - pull this out and write a more explicit comparison function/test
             return isEqual(sf, latestSidebarFilters) ? sf : latestSidebarFilters;
         });
     }, [createSidebarFilters]);

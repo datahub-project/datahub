@@ -14,6 +14,7 @@ import {
     PLATFORM_FILTER_NAME,
 } from '../utils/constants';
 import { useIsMatchingFilter, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
+import { applyFacetFilterOverrides } from '../utils/applyFilterOverrides';
 
 type BrowseContextValue = {
     entityAggregation?: AggregationMetadata;
@@ -164,6 +165,7 @@ export const useOnSelect = () => {
     const onChangeFilters = useOnChangeFilters();
 
     const onSelect = () => {
+        // todo - pull this out and test it
         const overrides: Array<FacetFilterInput> = [];
 
         overrides.push({
@@ -191,20 +193,9 @@ export const useOnSelect = () => {
             values: [browseSearchFilter],
         });
 
-        // Swap in new overrides at the same filter positions, removing as we go, then add in the remainder
-        const result = selectedFilters.map((sf) => {
-            const matchIndex = overrides.findIndex((o) => o.field === sf.field);
-            if (matchIndex >= 0) {
-                const match = overrides[matchIndex];
-                overrides.splice(matchIndex, 1);
-                return match;
-            }
-            return sf;
-        });
+        const filtersWithOverrides = applyFacetFilterOverrides(selectedFilters, overrides);
 
-        result.push(...overrides);
-
-        onChangeFilters(result);
+        onChangeFilters(filtersWithOverrides);
     };
 
     return onSelect;

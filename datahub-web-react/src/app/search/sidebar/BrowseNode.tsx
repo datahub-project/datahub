@@ -31,14 +31,14 @@ const Count = styled(Typography.Text)`
 `;
 
 const BrowseNode = () => {
-    const isPrefix = useIsBrowsePathPrefix();
+    const isSelectedPrefix = useIsBrowsePathPrefix();
     const isSelected = useIsBrowsePathSelected();
     const onSelect = useOnSelect();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { isOpen, toggle } = useToggle(isPrefix && !isSelected);
+    const { isOpen, toggle } = useToggle(isSelectedPrefix && !isSelected);
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
 

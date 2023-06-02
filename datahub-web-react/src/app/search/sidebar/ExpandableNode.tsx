@@ -69,11 +69,14 @@ ExpandableNode.HeaderLeft = styled.div`
 `;
 
 const BaseButton = styled(Button)`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    box-shadow: none;
+    &&& {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        box-shadow: none;
+        border-radius: 50%;
+    }
 `;
 
 const RotatingButton = styled(BaseButton)<{ deg: number }>`
