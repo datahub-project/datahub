@@ -192,7 +192,7 @@ export const useOnSelect = () => {
             const matchIndex = overrides.findIndex((o) => o.field === sf.field);
             if (matchIndex >= 0) {
                 const match = overrides[matchIndex];
-                overrides.splice(matchIndex);
+                overrides.splice(matchIndex, 1);
                 return match;
             }
             return sf;
