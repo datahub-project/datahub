@@ -230,6 +230,15 @@ class Source(Closeable, metaclass=ABCMeta):
         )
 
     def get_config(self) -> Optional[ConfigModel]:
+        """Overridable method to return the config object for this source.
+
+        Enables defining workunit processors in this class, rather than per source.
+        More broadly, this method contributes to the standardization of sources,
+        to promote more source-generic functionality.
+
+        Eventually, would like to replace this call with a Protocol that requires
+        a config object to be defined on each source.
+        """
         return getattr(self, "config", None) or getattr(self, "source_config", None)
 
     @abstractmethod

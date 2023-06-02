@@ -40,7 +40,7 @@ class FailureLoggingConfig(ConfigModel):
 class FlagsConfig(ConfigModel):
     """Experimental flags for the ingestion pipeline.
 
-    As this is an experimental feature, we do not guarantee backwards compatibility.
+    As ingestion flags an experimental feature, we do not guarantee backwards compatibility.
     Use at your own risk!
     """
 
