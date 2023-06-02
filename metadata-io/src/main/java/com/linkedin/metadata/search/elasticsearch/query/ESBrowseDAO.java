@@ -4,6 +4,7 @@ import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
@@ -468,8 +469,7 @@ public class ESBrowseDAO {
     final ParsedTerms groups = groupsResponse.getAggregations().get(GROUP_AGG);
     final List<BrowseResultGroupV2> groupsAgg = groups.getBuckets()
         .stream()
-        .map(group -> new BrowseResultGroupV2().setName(getSimpleNameV2(group.getKeyAsString()))
-            .setCount(group.getDocCount()).setHasSubGroups(hasSubGroups(group)))
+        .map(this::mapBrowseResultGroupV2)
         .collect(Collectors.toList());
 
     // Get the groups that are in the from to from + size range
@@ -485,5 +485,17 @@ public class ESBrowseDAO {
       return subGroups.getBuckets().size() > 0;
     }
     return false;
+  }
+
+  private BrowseResultGroupV2 mapBrowseResultGroupV2(Terms.Bucket group) {
+    BrowseResultGroupV2 browseGroup = new BrowseResultGroupV2();
+    String name = getSimpleNameV2(group.getKeyAsString());
+    browseGroup.setName(name);
+    browseGroup.setHasSubGroups(hasSubGroups(group));
+    browseGroup.setCount(group.getDocCount());
+    if (name.startsWith("urn:li:")) {
+      browseGroup.setUrn(UrnUtils.getUrn(name));
+    }
+    return browseGroup;
   }
 }

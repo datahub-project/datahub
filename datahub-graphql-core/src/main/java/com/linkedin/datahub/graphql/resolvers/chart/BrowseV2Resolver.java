@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.filter.Filter;
@@ -87,6 +88,9 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
       browseGroup.setName(group.getName());
       browseGroup.setCount(group.getCount());
       browseGroup.setHasSubGroups(group.isHasSubGroups());
+      if (group.hasUrn() && group.getUrn() != null) {
+        browseGroup.setEntity(UrnToEntityMapper.map(group.getUrn()));
+      }
       groups.add(browseGroup);
     });
     results.setGroups(groups);

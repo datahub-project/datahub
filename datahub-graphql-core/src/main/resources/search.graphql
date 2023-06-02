@@ -1158,6 +1158,12 @@ type BrowseResultGroupV2 {
   name: String!
 
   """
+  An optional entity associated with this browse group. This will usually be a container entity.
+  If this entity is not populated, the name must be used.
+  """
+  entity: Entity
+
+  """
   The number of entities within the group
   """
   count: Long!

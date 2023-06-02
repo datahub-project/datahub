@@ -4,6 +4,21 @@ query getBrowseResultsV2($input: BrowseInputV2!) {
             name
             count
             hasSubGroups
+            entity {
+                urn
+                type
+                ... on Container {
+                    properties {
+                        name
+                    }
+                    
+                }
+                ... on DataFlow {
+                    properties {
+                        name
+                    }
+                }
+            }
         }
         start
         count

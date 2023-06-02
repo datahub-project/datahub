@@ -19,6 +19,7 @@ import {
     useIsBrowsePathPrefix,
     useBrowsePathLength,
 } from './BrowseContext';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -46,6 +47,9 @@ const BrowseNode = () => {
 
     const browsePathLength = useBrowsePathLength();
 
+    const { entity } = browseResultGroup;
+    const displayedName = entity ? entityRegistry.getDisplayName(entity.type, entity) : browseResultGroup.name;
+
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
@@ -63,7 +67,7 @@ const BrowseNode = () => {
                         />
                         <FolderStyled />
                         <ExpandableNode.Title color={color} size={14} depth={browsePathLength}>
-                            {browseResultGroup.name}
+                            {displayedName}
                         </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(browseResultGroup.count)}</Count>
