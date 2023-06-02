@@ -116,6 +116,7 @@ class FeastRepositorySource(Source):
     - Column types associated with each entity and feature
     """
 
+    platform = "feast"
     source_config: FeastRepositorySourceConfig
     report: SourceReport
     feature_store: FeatureStore
