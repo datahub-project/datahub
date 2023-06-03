@@ -1,11 +1,10 @@
-import isEqual from 'lodash/isEqual';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import { applyOrFilterOverrides } from '../utils/applyFilterOverrides';
 import { BROWSE_PATH_V2_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
+import { SidebarFilters } from './types';
 
-export const useSidebarFilters = () => {
+export const useSidebarFilters = (): SidebarFilters => {
     const environment = useMaybeEnvironmentAggregation()?.value;
     const platform = useMaybePlatformAggregation()?.value;
 
@@ -22,33 +21,7 @@ export const useSidebarFilters = () => {
         [filterOverrides],
     );
 
-    const {
-        query: latestQuery,
-        orFilters: latestOrFilters,
-        viewUrn: latestViewUrn,
-    } = useGetSearchQueryInputs(excludedFilterFields);
+    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
 
-    const createSidebarFilters = useCallback(
-        () => ({
-            query: latestQuery,
-            orFilters: applyOrFilterOverrides(latestOrFilters, filterOverrides),
-            viewUrn: latestViewUrn,
-        }),
-        [filterOverrides, latestOrFilters, latestQuery, latestViewUrn],
-    );
-
-    const [sidebarFilters, setSidebarFilters] = useState(createSidebarFilters);
-
-    // Ensures we only trigger filter updates in the sidebar if they truly changed (clicking browse could trigger this when we don't want)
-    useEffect(() => {
-        setSidebarFilters((sf) => {
-            const latestSidebarFilters = createSidebarFilters();
-            // todo - pull this out and write a more explicit comparison function/test
-            return isEqual(sf, latestSidebarFilters) ? sf : latestSidebarFilters;
-        });
-    }, [createSidebarFilters]);
-
-    return sidebarFilters;
+    return { query, orFilters, viewUrn } as const;
 };
-
-export type SidebarFilters = ReturnType<typeof useSidebarFilters>;

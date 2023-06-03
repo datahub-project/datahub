@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useIntersect from '../../shared/useIntersect';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from './constants';
 import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '../../../graphql/browseV2.generated';
-import { SidebarFilters, useSidebarFilters } from './useSidebarFilters';
+import { useSidebarFilters } from './useSidebarFilters';
 import { useBrowsePath, useEntityType } from './BrowseContext';
+import { SidebarFilters } from './types';
 
 type Props = {
     skip: boolean;
@@ -48,13 +49,15 @@ const useBrowsePagination = ({ skip }: Props) => {
         },
     });
 
+    // todo - infinite loop, sidebar filters may be changing too often
     useEffect(() => {
-        setState(() => ({
-            current: 0,
-            list: [],
-            map: {},
-            filters: sidebarFilters,
-        }));
+        console.log('reset', sidebarFilters);
+        // setState(() => ({
+        //     current: 0,
+        //     list: [],
+        //     map: {},
+        //     filters: sidebarFilters,
+        // }));
     }, [sidebarFilters]);
 
     useEffect(() => {
