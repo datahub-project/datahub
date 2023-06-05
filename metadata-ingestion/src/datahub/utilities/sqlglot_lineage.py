@@ -7,10 +7,12 @@ import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.qualify
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class TableName:
     database: Optional[str]
     schema: Optional[str]
@@ -37,21 +39,21 @@ class TableName:
         )
 
 
-@dataclass
+@dataclass(frozen=True, order=True)
 class ColumnRef:
     table: TableName
     column: str
 
 
-@dataclass
-class UnresolvedColumnRef:
+@dataclass(frozen=True, order=True)
+class DownstreamColumnRef:
     table: Optional[TableName]
     column: str
 
 
-@dataclass
+@dataclass(frozen=True, order=True)
 class ColumnLineageInfo:
-    downstream: UnresolvedColumnRef
+    downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
     # Logic for this column, as a SQL expression.
@@ -101,8 +103,10 @@ def _table_level_lineage(
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
-        # TODO: add this back in
-        # - {cte.alias_or_name for cte in statement.find_all(sqlglot.exp.CTE)}
+        - {
+            TableName(database=None, schema=None, table=cte.alias_or_name)
+            for cte in statement.find_all(sqlglot.exp.CTE)
+        }
     )
     # TODO: If a CTAS has "LIMIT 0", it's not really lineage, just copying the schema.
 
@@ -114,18 +118,28 @@ SchemaInfo = Any
 
 
 class SchemaResolver:
-    def __init__(self, platform: str):
+    def __init__(self, platform: str, platform_instance: Optional[str] = None):
         self.platform = platform
+        self.platform_instance = platform_instance
+        # TODO env
 
         # TODO add a file-backed dict here
         # TODO add DataHubGraph
 
     def resolve_table(self, table: TableName) -> Tuple[str, Optional[SchemaInfo]]:
         # This must always generate an urn, and try to get the schema if possible.
+        # ASSUMPTION: The TableName is fully qualified.
+
+        table_name = ".".join(filter(None, [table.database, table.schema, table.table]))
+        urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=self.platform_instance,
+            name=table_name,
+        )
 
         # TODO implement this
 
-        return "", None
+        return urn, None
 
 
 class UnsupportedStatementTypeError(Exception):
@@ -144,7 +158,7 @@ def _column_level_lineage(
     output_table: Optional[TableName],
 ) -> List[ColumnLineageInfo]:
     sqlglot_db_schema = sqlglot.MappingSchema()
-    for table, schema in input_tables.items():
+    for table, table_schema in input_tables.items():
         sqlglot_db_schema.add_table(
             table.as_sqlglot_table(),
             column_mapping={
@@ -171,24 +185,22 @@ def _column_level_lineage(
     try:
         # List output columns.
         output_columns = [select_col.alias_or_name for select_col in statement.selects]
-        # breakpoint()
+        logger.debug("output columns: %s", output_columns)
         for output_col in output_columns:
             # print(f"output column: {output_col}")
 
             # Using a set here to deduplicate upstreams.
             output_col_upstreams = set()
 
-            try:
-                # TODO inject input_tables schema info here
-                lineage_node = sqlglot.lineage.lineage(
-                    output_col, statement, schema=schema
-                )
-            except ValueError as e:
-                if e.args[0].startswith("Could not find "):
-                    print(f" failed to find col {output_col} -> {e}")
-                    continue
-                else:
-                    raise
+            lineage_node = sqlglot.lineage.lineage(
+                output_col, statement, schema=sqlglot_db_schema
+            )
+            # except ValueError as e:
+            #     if e.args[0].startswith("Could not find "):
+            #         print(f" failed to find col {output_col} -> {e}")
+            #         continue
+            #     else:
+            #         raise
 
             for node in lineage_node.walk():
                 if node.downstream:
@@ -211,14 +223,15 @@ def _column_level_lineage(
                     # we don't get any column-level lineage for that.
                     pass
 
-        if output_col_upstreams:
-            column_lineage.append(
-                ColumnLineageInfo(
-                    downstream=UnresolvedColumnRef(output_table, output_col),
-                    upstreams=list(output_col_upstreams),
-                    logic=lineage_node.source.sql(pretty=True, dialect=dialect),
+            if output_col_upstreams:
+                column_lineage.append(
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(output_table, output_col),
+                        upstreams=sorted(output_col_upstreams),
+                        # TODO: Enable the column-level SQL logic in the future.
+                        # logic=lineage_node.source.sql(pretty=True, dialect=dialect),
+                    )
                 )
-            )
 
         # x = str(lineage.to_html(dialect=dialect))
         # pathlib.Path("sqlglot.html").write_text(x)
@@ -242,7 +255,11 @@ def sqlglot_tester(
     dialect = platform
 
     statement = _parse_statement(sql, dialect=dialect)
-    # original_statement = statement.copy()
+
+    original_statement = statement.copy()
+    logger.debug(
+        "Got sql statement: %s", original_statement.sql(pretty=True, dialect=dialect)
+    )
 
     # Make sure the tables are resolved with the default db / schema.
     # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
@@ -261,9 +278,6 @@ def sqlglot_tester(
     table_name_urn_mapping: Dict[TableName, str] = {}
     table_name_schema_mapping: Dict[TableName, SchemaInfo] = {}
     for table in tables:
-        # table.database can be None for platforms that only have a two-level namespace hierarchy.
-        assert table.schema
-
         urn, schema_info = schema_resolver.resolve_table(table)
 
         table_name_urn_mapping[table] = urn
@@ -303,7 +317,7 @@ def sqlglot_tester(
             f'  Cannot generate column-level lineage for statement type "{type(statement)}": {e}'
         )
         column_lineage = None
-    except Exception as e:
+    except SqlOptimizerError as e:
         # Cannot generate column-level lineage for this statement type.
         print(f" Failed to generate column-level lineage: {e}")
 
@@ -312,8 +326,10 @@ def sqlglot_tester(
     # TODO: Can we generate a common JOIN tables / keys section?
     # TODO: Can we generate a common WHERE clauses section?
 
+    # TODO convert TableNames to urns
+
     return SqlParsingResult(
-        in_tables=list(tables),
-        out_tables=list(modified),
+        in_tables=sorted(tables),
+        out_tables=sorted(modified),
         column_lineage=column_lineage,
     )
