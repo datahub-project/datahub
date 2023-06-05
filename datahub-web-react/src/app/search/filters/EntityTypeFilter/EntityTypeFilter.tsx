@@ -5,7 +5,7 @@ import useGetSearchQueryInputs from '../../useGetSearchQueryInputs';
 import {
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
-    ENTITY_TYPE_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
     LEGACY_ENTITY_FILTER_FIELDS,
     TYPE_NAMES_FILTER_NAME,
 } from '../../utils/constants';
@@ -18,7 +18,7 @@ import SearchFilterView from '../SearchFilterView';
 const ENTITY_SUB_TYPE_FILTER_FIELDS = [
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
-    ENTITY_TYPE_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 ];
 
@@ -51,7 +51,7 @@ export default function EntityTypeFilter({ filter, activeFilters, onChangeFilter
                         query,
                         orFilters,
                         viewUrn,
-                        facets: [ENTITY_SUB_TYPE_FILTER_NAME, ENTITY_TYPE_FILTER_NAME],
+                        facets: [ENTITY_SUB_TYPE_FILTER_NAME, ENTITY_FILTER_NAME],
                     },
                 },
             });

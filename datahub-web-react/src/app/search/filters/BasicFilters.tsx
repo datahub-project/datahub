@@ -4,8 +4,8 @@ import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import {
-    ENTITY_TYPE_FILTER_NAME,
-    INDEX_FILTER_NAME,
+    ENTITY_FILTER_NAME,
+    ENTITY_INDEX_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
     UnionType,
@@ -41,7 +41,7 @@ export const FilterButtonsWrapper = styled.div`
 `;
 
 // remove legacy filter options as well as new _index filter from dropdowns
-const FILTERS_TO_REMOVE = [TYPE_NAMES_FILTER_NAME, ENTITY_TYPE_FILTER_NAME, INDEX_FILTER_NAME];
+const FILTERS_TO_REMOVE = [TYPE_NAMES_FILTER_NAME, ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME];
 
 interface Props {
     availableFilters: FacetMetadata[] | null;

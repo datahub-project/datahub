@@ -4,7 +4,7 @@ import EntityRegistry from '../../../entity/EntityRegistry';
 import {
     LEGACY_ENTITY_FILTER_FIELDS,
     ENTITY_SUB_TYPE_FILTER_NAME,
-    ENTITY_TYPE_FILTER_NAME,
+    ENTITY_FILTER_NAME,
     FILTER_DELIMITER,
 } from '../../utils/constants';
 import { mapFilterOption } from '../mapFilterOption';
@@ -53,7 +53,7 @@ function getAggregationsForFilterOptions(data?: AggregateAcrossEntitiesQuery) {
     data?.aggregateAcrossEntities?.facets?.forEach((facet) => {
         if (facet.field === ENTITY_SUB_TYPE_FILTER_NAME) {
             aggregations.push(...facet.aggregations);
-        } else if (facet.field === ENTITY_TYPE_FILTER_NAME) {
+        } else if (facet.field === ENTITY_FILTER_NAME) {
             facet.aggregations.forEach((agg) => {
                 if (!aggregations.find((a) => a.value === agg.value)) {
                     aggregations.push(agg);
