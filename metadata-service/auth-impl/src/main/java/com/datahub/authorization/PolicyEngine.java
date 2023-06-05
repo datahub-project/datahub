@@ -4,7 +4,6 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
-import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -25,7 +24,13 @@ import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -323,8 +328,9 @@ public class PolicyEngine {
     }
     Ownership ownership = new Ownership(ownershipAspect.getValue().data());
     Stream<Owner> ownersStream = ownership.getOwners().stream();
-    if (ownershipTypesUrns != null)
+    if (ownershipTypesUrns != null) {
       ownersStream = ownersStream.filter(owner -> ownershipTypesUrns.contains(owner.getTypeUrn()));
+    }
     return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
   }
 
