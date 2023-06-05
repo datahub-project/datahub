@@ -4,8 +4,8 @@ from unittest.mock import patch
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
     make_container_urn,
-    make_dataset_urn,
     make_dataplatform_instance_urn,
+    make_dataset_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import PlatformKey
