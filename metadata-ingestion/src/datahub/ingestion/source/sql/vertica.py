@@ -273,8 +273,8 @@ class VerticaSource(SQLAlchemySource):
                 final_primary_key: dict = {}
                 # loops through primary_key in the schema and saves the pk of current table
                 for primary_key_column in primary_key:
-                    if primary_key_column["tablename"] == table.lower():
-                        final_primary_key = primary_key_column
+                    if primary_key_column["tablename"] == table.lower(): #type: ignore
+                        final_primary_key = primary_key_column # type: ignore
 
                 table_properties: Dict[str, str] = {}
                 # loops through properties  in the schema and saves the properties of current table
@@ -608,7 +608,7 @@ class VerticaSource(SQLAlchemySource):
 
                         lineage_info = self._get_upstream_lineage_info(
                             dataset_urn, schema, inspector
-                        )
+                        ) # type: ignore
 
                         if lineage_info is not None:
                             upstream_lineage = lineage_info
@@ -929,7 +929,7 @@ class VerticaSource(SQLAlchemySource):
 
                         lineage_info = self._get_upstream_lineage_info_projection(
                             dataset_urn, schema, inspector
-                        )
+                        ) # type: ignore
 
                         if lineage_info is not None:
                             upstream_lineage = lineage_info
