@@ -4,10 +4,9 @@ apply plugin: "org.gradle.playframework"
 project.ext.httpPort = 9001
 project.ext.playBinaryBaseName = "datahub-frontend"
 
-//Because of error  unknown property 'PlayRun'
-//tasks.withType(PlayRun) {
-//  httpPort = project.ext.httpPort
-//}
+play {
+    httpPort = project.ext.httpPort
+}
 
 configurations {
   play
@@ -85,11 +84,11 @@ implementation externalDependency.playGuice
 }
 
 play {
-  platform {
-    playVersion = '2.8.18'
-    scalaVersion = '2.12'
-    javaVersion = JavaVersion.VERSION_17
-  }
+    platform {
+        playVersion = '2.8.18'
+        scalaVersion = '2.13'
+        javaVersion = JavaVersion.VERSION_11
+    }
 
   injectedRoutesGenerator = true
 }
