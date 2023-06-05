@@ -1,5 +1,5 @@
 import { AggregateAcrossEntitiesQuery } from '../../../../graphql/search.generated';
-import { AggregationMetadata, FacetFilterInput } from '../../../../types.generated';
+import { AggregationMetadata, FacetFilterInput, FacetMetadata } from '../../../../types.generated';
 import EntityRegistry from '../../../entity/EntityRegistry';
 import {
     LEGACY_ENTITY_FILTER_FIELDS,
@@ -48,17 +48,21 @@ export function getInitialSelectedOptions(activeFilters: FacetFilterInput[], dat
     return initialSelectedOptions;
 }
 
+function addAggregationIfNotPresent(aggregations: AggregationMetadata[], facet: FacetMetadata) {
+    facet.aggregations.forEach((agg) => {
+        if (!aggregations.find((a) => a.value === agg.value)) {
+            aggregations.push(agg);
+        }
+    });
+}
+
 function getAggregationsForFilterOptions(data?: AggregateAcrossEntitiesQuery) {
     const aggregations: AggregationMetadata[] = [];
     data?.aggregateAcrossEntities?.facets?.forEach((facet) => {
         if (facet.field === ENTITY_SUB_TYPE_FILTER_NAME) {
-            aggregations.push(...facet.aggregations);
+            addAggregationIfNotPresent(aggregations, facet);
         } else if (facet.field === ENTITY_FILTER_NAME) {
-            facet.aggregations.forEach((agg) => {
-                if (!aggregations.find((a) => a.value === agg.value)) {
-                    aggregations.push(agg);
-                }
-            });
+            addAggregationIfNotPresent(aggregations, facet);
         }
     });
     return aggregations;
