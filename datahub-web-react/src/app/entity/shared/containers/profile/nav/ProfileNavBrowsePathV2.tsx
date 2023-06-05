@@ -13,7 +13,7 @@ import {
     PLATFORM_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '../../../../../search/utils/constants';
-import { useAggregateAcrossEntitiesQuery } from '../../../../../../graphql/search.generated';
+import useHasMultipleEnvironmentsQuery from './useHasMultipleEnvironmentsQuery';
 
 export default function ProfileNavBrowsePathV2() {
     const history = useHistory();
@@ -22,11 +22,7 @@ export default function ProfileNavBrowsePathV2() {
     const isBrowsable = entityRegistry.getBrowseEntityTypes().includes(entityType);
     const hasEnvironment = !!entityData?.origin;
 
-    const { data } = useAggregateAcrossEntitiesQuery({
-        variables: { input: { facets: [ORIGIN_FILTER_NAME], query: '*' } },
-    });
-    const environmentAggs = data?.aggregateAcrossEntities?.facets?.find((facet) => facet.field === ORIGIN_FILTER_NAME);
-    const hasMultipleEnvironments = environmentAggs && environmentAggs.aggregations.length > 1;
+    const hasMultipleEnvironments = useHasMultipleEnvironmentsQuery(entityType);
 
     function handlePathClick(filters: FacetFilterInput[]) {
         navigateToSearchUrl({ query: '*', filters, history });
