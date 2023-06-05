@@ -47,6 +47,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
                 <DropdownMenu padding="4px 0px">
                     {filters.map((filter) => (
                         <MoreFilterOption
+                            key={filter.field}
                             filter={filter}
                             activeFilters={activeFilters}
                             onChangeFilters={updateFiltersAndClose}

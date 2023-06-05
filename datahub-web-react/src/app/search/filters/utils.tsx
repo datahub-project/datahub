@@ -74,6 +74,26 @@ export const PlatformIcon = styled.img<{ size?: number }>`
     background-color: transparent;
 `;
 
+function getDataPlatformInstanceIconAndLabel(
+    filterEntity: Entity | null,
+    entityRegistry: EntityRegistry,
+    size?: number,
+) {
+    let icon: React.ReactNode = null;
+    let label: React.ReactNode = null;
+    const logoUrl = (filterEntity as DataPlatformInstance)?.platform.properties?.logoUrl;
+    icon = logoUrl ? (
+        <PlatformIcon src={logoUrl} size={size} />
+    ) : (
+        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
+    );
+    label = (filterEntity as DataPlatformInstance).instanceId
+        ? (filterEntity as DataPlatformInstance).instanceId
+        : (filterEntity as DataPlatformInstance).urn;
+
+    return { icon, label };
+}
+
 export function getFilterIconAndLabel(
     filterField: string,
     filterValue: string,
@@ -109,15 +129,13 @@ export function getFilterIconAndLabel(
             icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
             label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
         } else if (filterEntity.type === EntityType.DataPlatformInstance) {
-            const logoUrl = (filterEntity as DataPlatformInstance)?.platform.properties?.logoUrl;
-            icon = logoUrl ? (
-                <PlatformIcon src={logoUrl} size={size} />
-            ) : (
-                entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
+            const { icon: newIcon, label: newLabel } = getDataPlatformInstanceIconAndLabel(
+                filterEntity,
+                entityRegistry,
+                size,
             );
-            label = (filterEntity as DataPlatformInstance).instanceId
-                ? (filterEntity as DataPlatformInstance).instanceId
-                : (filterEntity as DataPlatformInstance).urn;
+            icon = newIcon;
+            label = newLabel;
         } else {
             label = filterValue;
         }
