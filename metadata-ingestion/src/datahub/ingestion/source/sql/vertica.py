@@ -608,7 +608,7 @@ class VerticaSource(SQLAlchemySource):
 
                         lineage_info = self._get_upstream_lineage_info(
                             dataset_urn, schema, inspector
-                        )  # type: ignore
+                        )
 
                         if lineage_info is not None:
                             upstream_lineage = lineage_info
@@ -674,7 +674,7 @@ class VerticaSource(SQLAlchemySource):
         return description, properties, location
 
     def _get_upstream_lineage_info(
-        self, dataset_urn: str, schema: str, inspector
+        self, dataset_urn: str, schema: str, inspector: Inspector
     ) -> Optional[_Aspect]:
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
@@ -929,7 +929,7 @@ class VerticaSource(SQLAlchemySource):
 
                         lineage_info = self._get_upstream_lineage_info_projection(
                             dataset_urn, schema, inspector
-                        )  # type: ignore
+                        )
 
                         if lineage_info is not None:
                             upstream_lineage = lineage_info
@@ -995,7 +995,7 @@ class VerticaSource(SQLAlchemySource):
         return description, properties, location
 
     def _get_upstream_lineage_info_projection(
-        self, dataset_urn: str, schema: str, inspector
+        self, dataset_urn: str, schema: str, inspector: Inspector
     ) -> Optional[_Aspect]:
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
