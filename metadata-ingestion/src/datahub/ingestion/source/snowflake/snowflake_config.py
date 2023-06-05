@@ -91,7 +91,7 @@ class SnowflakeV2Config(
     )
 
     use_legacy_lineage_method: bool = Field(
-        default=True,
+        default=False,
         description="Whether to use the legacy lineage computation method. If set to False, ingestion uses new optimised lineage extraction method that requires less ingestion process memory.",
     )
 
