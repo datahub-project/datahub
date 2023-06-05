@@ -132,6 +132,20 @@ export const dataPlatform = {
     },
 };
 
+export const dataPlatformInstance = {
+    urn: 'urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)',
+    type: EntityType.DataPlatformInstance,
+    instanceId: 'clickhousetestserver',
+    platform: {
+        type: 'DATA_PLATFORM',
+        urn: 'urn:li:dataPlatform:clickhouse',
+        properties: {
+            displayName: 'ClickHouse',
+            logoUrl: '/assets/platforms/clickhouselogo.png',
+        },
+    },
+};
+
 export const dataset1 = {
     urn: 'urn:li:dataset:1',
     type: EntityType.Dataset,

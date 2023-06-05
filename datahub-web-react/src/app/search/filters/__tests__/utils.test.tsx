@@ -1,5 +1,5 @@
 import React from 'react';
-import { dataPlatform, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
+import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
 import { EntityType } from '../../../../types.generated';
 import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
 import { IconStyleType } from '../../../entity/Entity';
@@ -117,6 +117,18 @@ describe('filter utils - getFilterIconAndLabel', () => {
             mockEntityRegistry.getIcon(EntityType.GlossaryTerm, 12, IconStyleType.ACCENT, ANTD_GRAY[9]),
         );
         expect(label).toBe(mockEntityRegistry.getDisplayName(EntityType.GlossaryTerm, glossaryTerm1));
+    });
+
+    it('should get the correct icon and label for filters with associated data platform instance entity', () => {
+        const { icon, label } = getFilterIconAndLabel(
+            'domains',
+            glossaryTerm1.urn,
+            mockEntityRegistry,
+            dataPlatformInstance,
+        );
+
+        expect(icon).toMatchObject(<PlatformIcon src={dataPlatformInstance.platform.properties.logoUrl} />);
+        expect(label).toBe(dataPlatformInstance.instanceId);
     });
 
     it('should get the correct icon and label for filters with no associated entity', () => {

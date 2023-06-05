@@ -26,6 +26,7 @@ import {
     ENTITY_SUB_TYPE_FILTER_NAME,
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
@@ -104,7 +105,7 @@ export function getFilterIconAndLabel(
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
 
-    if (filterField === ENTITY_FILTER_NAME) {
+    if (filterField === ENTITY_FILTER_NAME || filterField === LEGACY_ENTITY_FILTER_NAME) {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     } else if (filterField === ENTITY_SUB_TYPE_FILTER_NAME) {
