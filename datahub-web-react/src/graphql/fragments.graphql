@@ -257,6 +257,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     embed {
         ...embedFields
     }
+    browsePathV2 {
+        ...browsePathV2Fields
+    }
 }
 
 fragment nonRecursiveDataFlowFields on DataFlow {
@@ -365,6 +368,9 @@ fragment dataJobFields on DataJob {
     privileges {
         canEditLineage
     }
+    browsePathV2 {
+        ...browsePathV2Fields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -427,6 +433,9 @@ fragment dashboardFields on Dashboard {
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
     statsSummary {
         viewCount
@@ -514,6 +523,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
     featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
         relationships {
@@ -649,6 +661,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     deprecation {
         ...deprecationFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -795,6 +810,9 @@ fragment nonRecursiveMLModel on MLModel {
     institutionalMemory {
         ...institutionalMemoryFields
     }
+    browsePathV2 {
+        ...browsePathV2Fields
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -835,6 +853,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     properties {
         description
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -946,6 +967,36 @@ fragment inputFieldsFields on InputFields {
         schemaFieldUrn
         schemaField {
             ...schemaFieldFields
+        }
+    }
+}
+
+fragment browsePathV2Fields on BrowsePathV2 {
+    path {
+        name
+        entity {
+            urn
+            type
+            ... on Container {
+                properties {
+                    name
+                }
+                
+            }
+            ... on DataFlow {
+                properties {
+                    name
+                }
+            }
+            ... on DataPlatformInstance {
+                platform {
+                    name
+                    properties {
+                        displayName
+                    }
+                }
+                instanceId
+            }
         }
     }
 }
