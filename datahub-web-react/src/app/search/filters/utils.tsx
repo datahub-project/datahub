@@ -12,6 +12,7 @@ import styled from 'styled-components';
 import {
     AggregationMetadata,
     DataPlatform,
+    DataPlatformInstance,
     Entity,
     EntityType,
     FacetFilterInput,
@@ -104,8 +105,22 @@ export function getFilterIconAndLabel(
         );
         label = entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity);
     } else if (filterEntity) {
-        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
-        label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
+        if (entityRegistry.hasEntity(filterEntity.type)) {
+            icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+            label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
+        } else if (filterEntity.type === EntityType.DataPlatformInstance) {
+            const logoUrl = (filterEntity as DataPlatformInstance)?.platform.properties?.logoUrl;
+            icon = logoUrl ? (
+                <PlatformIcon src={logoUrl} size={size} />
+            ) : (
+                entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
+            );
+            label = (filterEntity as DataPlatformInstance).instanceId
+                ? (filterEntity as DataPlatformInstance).instanceId
+                : (filterEntity as DataPlatformInstance).urn;
+        } else {
+            label = filterValue;
+        }
     } else {
         label = filterValue;
     }
