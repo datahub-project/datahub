@@ -31,7 +31,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base as prod-install
 COPY war.war /datahub/datahub-gms/bin/war.war
-COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
+COPY metadata-models/src/main/resources/*.yml /datahub/datahub-gms/resources
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/datahub-gms/jetty.xml /datahub/datahub-gms/scripts/jetty.xml
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml

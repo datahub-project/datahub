@@ -17,7 +17,7 @@ services:
     - ELASTICSEARCH_PORT=9200
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
     - GRAPH_SERVICE_IMPL=elasticsearch
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mae-consumer/resources/entity-registry.yml
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mae-consumer/resources
     hostname: datahub-mae-consumer
     image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     ports:
@@ -37,7 +37,7 @@ services:
     - EBEAN_DATASOURCE_USERNAME=datahub
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mce-consumer/resources/entity-registry.yml
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mce-consumer/resources
     - ENTITY_SERVICE_ENABLE_RETENTION=true
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
     - GRAPH_SERVICE_DIFF_MODE_ENABLED=true

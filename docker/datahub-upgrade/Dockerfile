@@ -30,7 +30,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base as prod-install
 COPY datahub-upgrade.jar /datahub/datahub-upgrade/bin/
-COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
+COPY metadata-models/src/main/resources/*.yml /datahub/datahub-gms/resources/
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

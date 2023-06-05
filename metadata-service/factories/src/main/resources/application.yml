@@ -93,7 +93,7 @@ searchService:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
 
 configEntityRegistry:
-  path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
+  path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources}
   # Priority is given to the `path` setting above (outside jar)
   resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
 

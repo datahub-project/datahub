@@ -28,7 +28,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base as prod-install
 COPY mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
-COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
+COPY metadata-models/src/main/resources/*.yml /datahub/datahub-mce-consumer/resources/
 COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
@@ -36,7 +36,7 @@ RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
-COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
+COPY metadata-models/src/main/resources/*.yml /datahub/datahub-mce-consumer/resources/
 
 FROM ${APP_ENV}-install as final
 
