@@ -478,6 +478,7 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
 )
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 usageStats = DatasetUsageStatisticsClass(
