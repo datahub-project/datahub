@@ -166,6 +166,17 @@ fragment ownershipFields on Ownership {
             }
         }
         type
+        ownershipType {
+            urn
+            type
+            info {
+                name
+                description
+            }
+            status {
+                removed
+            }
+        }
         associatedUrn
     }
     lastModified {

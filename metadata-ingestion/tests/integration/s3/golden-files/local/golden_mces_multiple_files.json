@@ -439,7 +439,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1651257861690
+            "lastUpdatedTimestamp": 1684577324017
         }
     },
     "systemMetadata": {
@@ -457,6 +457,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests"
             },
             "name": "tests"
@@ -525,6 +526,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests/integration"
             },
             "name": "integration"
@@ -608,6 +610,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests/integration/s3"
             },
             "name": "s3"
@@ -691,6 +694,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data"
             },
             "name": "test_data"
@@ -774,6 +778,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system"
             },
             "name": "local_system"
@@ -857,6 +862,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a"
             },
             "name": "folder_a"
@@ -940,6 +946,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa"
             },
             "name": "folder_aa"
@@ -1023,6 +1030,7 @@
             "customProperties": {
                 "platform": "file",
                 "instance": "test-platform-instance",
+                "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa"
             },
             "name": "folder_aaa"
@@ -2536,7 +2544,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1650458499428
+            "lastUpdatedTimestamp": 1684577334017
         }
     },
     "systemMetadata": {
@@ -3021,7 +3029,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1651257861690
+            "lastUpdatedTimestamp": 1684577344017
         }
     },
     "systemMetadata": {
@@ -3498,7 +3506,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1651257861690
+            "lastUpdatedTimestamp": 1684577354017
         }
     },
     "systemMetadata": {
@@ -3682,7 +3690,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1650458499430
+            "lastUpdatedTimestamp": 1684577364017
         }
     },
     "systemMetadata": {
@@ -4137,7 +4145,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1651257861693
+            "lastUpdatedTimestamp": 1684577374017
         }
     },
     "systemMetadata": {
@@ -4763,7 +4771,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1651257861694
+            "lastUpdatedTimestamp": 1684577384017
         }
     },
     "systemMetadata": {

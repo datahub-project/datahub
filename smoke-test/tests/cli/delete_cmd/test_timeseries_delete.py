@@ -1,4 +1,5 @@
 import json
+import logging
 import tempfile
 import time
 import sys
@@ -15,6 +16,8 @@ from tests.aspect_generators.timeseries.dataset_profile_gen import \
     gen_dataset_profiles
 from tests.utils import get_strftime_from_timestamp_millis
 import requests_wrapper as requests
+
+logger = logging.getLogger(__name__)
 
 test_aspect_name: str = "datasetProfile"
 test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
@@ -79,6 +82,9 @@ def datahub_delete(params: List[str]) -> None:
     args.extend(params)
     args.append("--hard")
     delete_result: Result = runner.invoke(datahub, args, input="y\ny\n")
+    logger.info(delete_result.stdout)
+    if delete_result.stderr:
+        logger.error(delete_result.stderr)
     assert delete_result.exit_code == 0
 
 

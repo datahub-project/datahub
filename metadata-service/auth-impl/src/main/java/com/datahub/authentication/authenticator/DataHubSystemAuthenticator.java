@@ -24,11 +24,6 @@ import static com.datahub.authentication.AuthenticationConstants.*;
  * This makes use of a single "system client id" and "system shared secret" which each
  * component in the system is configured to provide.
  *
- * This authenticator also looks for a "delegated actor urn" which can be provided by system callers using the 'X-DataHub-Actor'
- * header. This indicates that the system is making a request on behalf of an end-user with the specified URN. In the future, we intend
- * to additionally pass the original credentials provided by the Actor along with the request, along with the Actor Type in the event that
- * service principals are added as a new entity type.
- *
  * This authenticator requires the following configurations:
  *
  *  - systemClientId: an identifier for internal system callers, provided in the Authorization header via Basic Authentication.

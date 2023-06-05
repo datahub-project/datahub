@@ -28,16 +28,12 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     Source,
     SourceCapability,
     SourceReport,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationHandler
@@ -97,9 +93,6 @@ from datahub.ingestion.source.sql.sql_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -228,15 +221,6 @@ class SnowflakeV2Source(
         self.logger = logger
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
@@ -481,6 +465,14 @@ class SnowflakeV2Source(
 
         return _report
 
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
@@ -585,15 +577,6 @@ class SnowflakeV2Source(
                 )
 
             yield from self.usage_extractor.get_workunits(discovered_datasets)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
-        )
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:
@@ -1436,17 +1419,20 @@ class SnowflakeV2Source(
 
     # Ideally we do not want null values in sample data for a column.
     # However that would require separate query per column and
-    # that would be expensive, hence not done.
+    # that would be expensive, hence not done. To compensale for possibility
+    # of some null values in collected sample, we fetch extra (20% more)
+    # rows than configured sample_size.
     def get_sample_values_for_table(self, table_name, schema_name, db_name):
         # Create a cursor object.
         logger.debug(
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
         )
+
+        actual_sample_size = self.config.classification.sample_size * 1.2
         with PerfTimer() as timer:
             cur = self.get_connection().cursor()
-            NUM_SAMPLED_ROWS = 1000
             # Execute a statement that will generate a result set.
-            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({actual_sample_size} rows);'
 
             cur.execute(sql)
             # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.

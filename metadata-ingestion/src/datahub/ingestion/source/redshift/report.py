@@ -14,7 +14,11 @@ class RedshiftReport(ProfilingSqlReport):
     usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     table_processed: TopKDict[str, int] = field(default_factory=TopKDict)
+    table_filtered: TopKDict[str, int] = field(default_factory=TopKDict)
+    view_filtered: TopKDict[str, int] = field(default_factory=TopKDict)
     view_processed: TopKDict[str, int] = field(default_factory=TopKDict)
+    table_cached: TopKDict[str, int] = field(default_factory=TopKDict)
+    view_cached: TopKDict[str, int] = field(default_factory=TopKDict)
     metadata_extraction_sec: TopKDict[str, float] = field(default_factory=TopKDict)
     operational_metadata_extraction_sec: TopKDict[str, float] = field(
         default_factory=TopKDict

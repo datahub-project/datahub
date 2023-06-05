@@ -13,7 +13,6 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
-from datahub.cli.delete_cli import delete_one_urn_cmd, delete_references
 from datahub.cli.specific.file_loader import load_file
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
@@ -213,6 +212,7 @@ def delete(urn: str, file: Path, hard: bool) -> None:
         )
         raise click.Abort()
 
+    graph: DataHubGraph
     with get_default_graph() as graph:
         data_product_urn = (
             urn if urn.startswith("urn:li:dataProduct") else f"urn:li:dataProduct:{urn}"
@@ -225,9 +225,10 @@ def delete(urn: str, file: Path, hard: bool) -> None:
 
         if hard:
             # we only delete references if this is a hard delete
-            delete_references(data_product_urn)
+            graph.delete_references_to_urn(data_product_urn)
 
-        delete_one_urn_cmd(data_product_urn, soft=not hard)
+        graph.delete_entity(data_product_urn, hard=hard)
+
         click.secho(f"Data Product {data_product_urn} deleted")
 
 

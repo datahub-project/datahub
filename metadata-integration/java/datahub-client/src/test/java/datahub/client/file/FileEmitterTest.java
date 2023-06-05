@@ -1,5 +1,7 @@
 package datahub.client.file;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,9 +29,20 @@ import datahub.client.Callback;
 import datahub.client.MetadataWriteResponse;
 import datahub.event.MetadataChangeProposalWrapper;
 
+import static com.linkedin.metadata.Constants.*;
+
+
 public class FileEmitterTest {
-  private final ObjectMapper objectMapper = new ObjectMapper();
-  private final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
+  private final ObjectMapper objectMapper;
+  private final JacksonDataTemplateCodec dataTemplateCodec;
+
+  public FileEmitterTest() {
+    objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+        .maxStringLength(maxSize).build());
+    dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
+  }
 
   @Rule
   public TemporaryFolder tempFolder = new TemporaryFolder();

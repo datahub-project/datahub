@@ -64,6 +64,9 @@ coverage.xml
 .pytest_cache/
 junit.*xml
 
+# Integration tests artifacts
+tests/integrations/
+
 # Translations
 *.mo
 *.pot

@@ -2,7 +2,6 @@ import concurrent.futures
 import datetime
 import json
 import logging
-import os
 from json import JSONDecodeError
 from typing import (
     Any,
@@ -20,12 +19,8 @@ from typing import (
 
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase, Query
-from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
-from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.common import PipelineContext
@@ -38,20 +33,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
     InputFieldElement,
-    LookerCommonConfig,
     LookerDashboard,
     LookerDashboardElement,
     LookerDashboardSourceReport,
@@ -63,17 +54,12 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
 )
-from datahub.ingestion.source.looker.looker_lib_wrapper import (
-    LookerAPI,
-    LookerAPIConfig,
-)
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
+from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -99,73 +85,6 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class LookerDashboardSourceConfig(
-    LookerAPIConfig,
-    LookerCommonConfig,
-    StatefulIngestionConfigBase,
-    EnvConfigMixin,
-):
-    _removed_github_info = pydantic_removed_field("github_info")
-
-    dashboard_pattern: AllowDenyPattern = Field(
-        AllowDenyPattern.allow_all(),
-        description="Patterns for selecting dashboard ids that are to be included",
-    )
-    chart_pattern: AllowDenyPattern = Field(
-        AllowDenyPattern.allow_all(),
-        description="Patterns for selecting chart ids that are to be included",
-    )
-    include_deleted: bool = Field(
-        False, description="Whether to include deleted dashboards."
-    )
-    extract_owners: bool = Field(
-        True,
-        description="When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty for dashboards and charts.",
-    )
-    actor: Optional[str] = Field(
-        None,
-        description="This config is deprecated in favor of `extract_owners`. Previously, was the actor to use in ownership properties of ingested metadata.",
-    )
-    strip_user_ids_from_email: bool = Field(
-        False,
-        description="When enabled, converts Looker user emails of the form name@domain.com to urn:li:corpuser:name when assigning ownership",
-    )
-    skip_personal_folders: bool = Field(
-        False,
-        description="Whether to skip ingestion of dashboards in personal folders. Setting this to True will only ingest dashboards in the Shared folder space.",
-    )
-    max_threads: int = Field(
-        os.cpu_count() or 40,
-        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
-    )
-    external_base_url: Optional[str] = Field(
-        None,
-        description="Optional URL to use when constructing external URLs to Looker if the `base_url` is not the correct one to use. For example, `https://looker-public.company.com`. If not provided, the external base URL will default to `base_url`.",
-    )
-    extract_usage_history: bool = Field(
-        True,
-        description="Whether to ingest usage statistics for dashboards. Setting this to True will query looker system activity explores to fetch historical dashboard usage.",
-    )
-    # TODO - stateful ingestion to autodetect usage history interval
-    extract_usage_history_for_interval: str = Field(
-        "30 days",
-        description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
-    )
-    extract_embed_urls: bool = Field(
-        True,
-        description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI. Embeds must be enabled inside of Looker to use this feature.",
-    )
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description=""
-    )
-
-    @validator("external_base_url", pre=True, always=True)
-    def external_url_defaults_to_api_config_base_url(
-        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
-    ) -> Optional[str]:
-        return v or values.get("base_url")
 
 
 @platform_name("Looker")
@@ -207,7 +126,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter = LookerDashboardSourceReport()
         self.looker_api: LookerAPI = LookerAPI(self.source_config)
         self.user_registry = LookerUserRegistry(self.looker_api)
-        self.explore_registry = LookerExploreRegistry(self.looker_api, self.reporter)
+        self.explore_registry = LookerExploreRegistry(
+            self.looker_api, self.reporter, self.source_config
+        )
         self.reporter._looker_explore_registry = self.explore_registry
         self.reporter._looker_api = self.looker_api
 
@@ -233,15 +154,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.chart_stat_generator = looker_usage.create_stat_entity_generator(
             looker_usage.SupportedStatEntity.CHART,
             config=stat_generator_config,
-        )
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
         )
 
     @staticmethod
@@ -1184,11 +1096,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return mcps
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.reporter.report_stage_start("list_dashboards")
@@ -1269,9 +1183,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
 
-                for mwu in work_units:
-                    yield mwu
-                    self.reporter.report_workunit(mwu)
+                yield from work_units
                 if dashboard_object is not None:
                     looker_dashboards_for_usage.append(
                         looker_usage.LookerDashboardForUsage.from_dashboard(
@@ -1295,22 +1207,16 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("explore_metadata")
         for event in self._make_explore_metadata_events():
             if isinstance(event, MetadataChangeEvent):
-                workunit = MetadataWorkUnit(
+                yield MetadataWorkUnit(
                     id=f"looker-{event.proposedSnapshot.urn}", mce=event
                 )
             elif isinstance(event, MetadataChangeProposalWrapper):
                 # We want to treat subtype aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                workunit = MetadataWorkUnit(
-                    id=f"looker-{event.entityUrn}-{event.aspectName}",
-                    mcp=event,
-                    treat_errors_as_warnings=True
-                    if event.aspectName in ["subTypes"]
-                    else False,
+                yield event.as_workunit(
+                    treat_errors_as_warnings=event.aspectName in ["subTypes"]
                 )
             else:
                 raise Exception(f"Unexpected type of event {event}")
-            self.reporter.report_workunit(workunit)
-            yield workunit
         self.reporter.report_stage_end("explore_metadata")
 
         if (
@@ -1319,12 +1225,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ):
             # Emit tag MCEs for measures and dimensions if we produced any explores:
             for tag_mce in LookerUtil.get_tag_mces():
-                workunit = MetadataWorkUnit(
+                yield MetadataWorkUnit(
                     id=f"tag-{tag_mce.proposedSnapshot.urn}",
                     mce=tag_mce,
                 )
-                self.reporter.report_workunit(workunit)
-                yield workunit
 
         # Extract usage history is enabled
         if self.source_config.extract_usage_history:
@@ -1333,16 +1237,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 looker_dashboards_for_usage
             )
             for usage_mcp in usage_mcps:
-                workunit = MetadataWorkUnit(
-                    id=f"looker-{usage_mcp.aspectName}-{usage_mcp.entityUrn}-{usage_mcp.aspect.timestampMillis}",  # type:ignore
-                    mcp=usage_mcp,
-                )
-                self.reporter.report_workunit(workunit)
-                yield workunit
+                yield usage_mcp.as_workunit()
             self.reporter.report_stage_end("usage_extraction")
 
     def get_report(self) -> SourceReport:
         return self.reporter
-
-    def close(self):
-        self.prepare_for_commit()

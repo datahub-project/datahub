@@ -36,7 +36,7 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   private Optional<String> extractEntityName(String indexName) {
-    String prefixString =_prefix.map(prefix -> prefix + "_").orElse("") ;
+    String prefixString = _prefix.map(prefix -> prefix + "_").orElse("");
     if (!indexName.startsWith(prefixString)) {
       return Optional.empty();
     }
@@ -97,7 +97,6 @@ public class IndexConventionImpl implements IndexConvention {
     return _getAllTimeseriesIndicesPattern;
   }
 
-  @Nullable
   @Override
   public Optional<String> getEntityName(String indexName) {
     return extractEntityName(indexName);

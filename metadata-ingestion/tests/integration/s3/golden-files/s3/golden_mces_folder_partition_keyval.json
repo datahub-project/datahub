@@ -574,7 +574,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "UAT",
+                "env": "UAT",
                 "bucket_name": "my-test-bucket"
             },
             "name": "my-test-bucket"
@@ -641,7 +641,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
             "name": "folder_a"
@@ -723,7 +723,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
             "name": "folder_aa"
@@ -805,7 +805,7 @@
         "json": {
             "customProperties": {
                 "platform": "s3",
-                "instance": "UAT",
+                "env": "UAT",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
             "name": "folder_aaa"

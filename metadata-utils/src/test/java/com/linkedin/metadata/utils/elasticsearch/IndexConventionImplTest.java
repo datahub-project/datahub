@@ -6,7 +6,7 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.*;
 
 
-public class IndexConventionImplTest{
+public class IndexConventionImplTest {
 
   @Test
   public void testIndexConventionNoPrefix() {

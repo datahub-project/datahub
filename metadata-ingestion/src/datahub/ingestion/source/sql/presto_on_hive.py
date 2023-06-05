@@ -333,7 +333,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
             sub_types=[self.database_container_subtype],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             extra_properties=extra_properties,
         )
 
@@ -389,7 +388,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 schema_container_key=schema_container_key,
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
-                report=self.report,
                 extra_properties=extra_properties,
             )
 
@@ -507,26 +505,19 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            wu = SqlWorkUnit(id=dataset_name, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield SqlWorkUnit(id=dataset_name, mce=mce)
 
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
 
-            subtypes_workunit = MetadataWorkUnit(
-                id=f"{dataset_name}-subtypes",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="subTypes",
-                    aspect=SubTypesClass(typeNames=[self.table_subtype]),
-                ),
-            )
-            self.report.report_workunit(subtypes_workunit)
-            yield subtypes_workunit
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=[self.table_subtype]),
+            ).as_workunit()
 
             if self.config.domain:
                 assert self.domain_registry
@@ -535,7 +526,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                     entity_urn=dataset_urn,
                     domain_config=self.config.domain,
                     domain_registry=self.domain_registry,
-                    report=self.report,
                 )
 
     def add_hive_dataset_to_container(
@@ -552,7 +542,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
 
     def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
@@ -721,27 +710,20 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            wu = SqlWorkUnit(id=dataset.dataset_name, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield SqlWorkUnit(id=dataset.dataset_name, mce=mce)
 
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
 
             # Add views subtype
-            subtypes_aspect = MetadataWorkUnit(
-                id=f"{dataset.dataset_name}-subtypes",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="subTypes",
-                    aspect=SubTypesClass(typeNames=[self.view_subtype]),
-                ),
-            )
-            self.report.report_workunit(subtypes_aspect)
-            yield subtypes_aspect
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=[self.view_subtype]),
+            ).as_workunit()
 
             # Add views definition
             view_properties_aspect = ViewPropertiesClass(
@@ -749,18 +731,13 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 viewLanguage="SQL",
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
             )
-            view_properties_wu = MetadataWorkUnit(
-                id=f"{dataset.dataset_name}-viewProperties",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="viewProperties",
-                    aspect=view_properties_aspect,
-                ),
-            )
-            self.report.report_workunit(view_properties_wu)
-            yield view_properties_wu
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="viewProperties",
+                aspect=view_properties_aspect,
+            ).as_workunit()
 
             if self.config.domain:
                 assert self.domain_registry
@@ -769,7 +746,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                     entity_urn=dataset_urn,
                     domain_registry=self.domain_registry,
                     domain_config=self.config.domain,
-                    report=self.report,
                 )
 
     def _get_db_filter_where_clause(self) -> str:
