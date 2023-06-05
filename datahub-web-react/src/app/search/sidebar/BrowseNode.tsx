@@ -38,7 +38,7 @@ const BrowseNode = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { isOpen, toggle } = useToggle(isBrowsePathPrefix && !isBrowsePathSelected);
+    const { isOpen, isClosing, toggle } = useToggle(isBrowsePathPrefix && !isBrowsePathSelected);
     const skip = !isOpen || !browseResultGroup.hasSubGroups;
     const color = ANTD_GRAY[9];
 
@@ -48,7 +48,7 @@ const BrowseNode = () => {
 
     return (
         <ExpandableNode
-            isOpen={isOpen && loaded}
+            isOpen={isOpen && !isClosing && loaded}
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}

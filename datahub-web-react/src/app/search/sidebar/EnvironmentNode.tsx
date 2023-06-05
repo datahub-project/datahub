@@ -25,7 +25,7 @@ const EnvironmentNode = () => {
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
-    const { isOpen, toggle } = useToggle(isSelected);
+    const { isOpen, isClosing, toggle } = useToggle(isSelected);
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
@@ -36,7 +36,7 @@ const EnvironmentNode = () => {
 
     return (
         <ExpandableNode
-            isOpen={isOpen && loaded}
+            isOpen={isOpen && !isClosing && loaded}
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
                     <ExpandableNode.HeaderLeft>

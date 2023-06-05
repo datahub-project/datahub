@@ -16,12 +16,7 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
     const entityType = useMaybeEntityType();
     const filters = useSidebarFilters();
 
-    const {
-        data: newData,
-        previousData,
-        loading,
-        error,
-    } = useAggregateAcrossEntitiesQuery({
+    const { data, loading, error } = useAggregateAcrossEntitiesQuery({
         skip,
         fetchPolicy: 'cache-first',
         variables: {
@@ -33,7 +28,8 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         },
     });
 
-    const data = error ? null : newData ?? previousData;
+    // todo - look into a smoother animation for collapse to avoid the `previousData` hack
+    // with filters, we don't want to hold onto stale filter data
     const loaded = !!data || !!error;
 
     const entityAggregations = data?.aggregateAcrossEntities?.facets

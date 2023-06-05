@@ -25,7 +25,7 @@ const EntityNode = () => {
     const entityAggregation = useEntityAggregation();
     const registry = useEntityRegistry();
 
-    const { isOpen, toggle } = useToggle(isSelected);
+    const { isOpen, isClosing, toggle } = useToggle(isSelected, { closeDelay: 250 });
 
     const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
@@ -37,7 +37,7 @@ const EntityNode = () => {
 
     return (
         <ExpandableNode
-            isOpen={isOpen && loaded}
+            isOpen={isOpen && !isClosing && loaded}
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle} style={{ paddingTop: '16px' }}>
                     <ExpandableNode.HeaderLeft>

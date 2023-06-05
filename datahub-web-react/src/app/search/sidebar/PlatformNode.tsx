@@ -52,7 +52,7 @@ const PlatformNode = () => {
         16,
     );
 
-    const { isOpen, toggle } = useToggle(isSelected);
+    const { isOpen, isClosing, toggle } = useToggle(isSelected);
     const skip = !isOpen;
     const color = ANTD_GRAY[9];
 
@@ -60,7 +60,7 @@ const PlatformNode = () => {
 
     return (
         <ExpandableNode
-            isOpen={isOpen && loaded}
+            isOpen={isOpen && !isClosing && loaded}
             header={
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
                     <ExpandableNode.HeaderLeft>
