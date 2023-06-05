@@ -7967,6 +7967,8 @@ type ActorFilter {
 
   resourceOwnersTypesUrns: [String]
 
+  resolvedOwnershipTypes: [OwnershipTypeEntity]
+
   """
   Whether the filter should apply to all users
   """

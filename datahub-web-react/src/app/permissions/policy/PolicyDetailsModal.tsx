@@ -107,12 +107,12 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
         if (!actors?.resourceOwners) {
             return <PoliciesTag>Not applied</PoliciesTag>;
         }
-        if ((actors?.resourceOwnersTypesUrns?.length ?? 0) > 0) {
+        if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
                 <div>
                     <Typography.Title level={5}>Only to owners of types: </Typography.Title>
-                    {actors?.resourceOwnersTypesUrns?.map((type) => (
-                        <PoliciesTag>{type}</PoliciesTag>
+                    {actors?.resolvedOwnershipTypes?.map((type) => (
+                        <PoliciesTag>{type.info.name}</PoliciesTag>
                     ))}
                 </div>
             );

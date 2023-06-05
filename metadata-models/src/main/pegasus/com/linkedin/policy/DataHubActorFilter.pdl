@@ -1,6 +1,7 @@
 namespace com.linkedin.policy
 
 import com.linkedin.common.Urn
+import com.linkedin.ownership.OwnershipTypeInfo
 
 /**
  * Information used to filter DataHub actors.
