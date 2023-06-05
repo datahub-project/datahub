@@ -91,7 +91,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
         # waiting for vertica to create default table and system table and ml models
         time.sleep(60)
 
-        assert ret.returncode == 1
+        assert ret.returncode == 2
 
         yield docker_services
 
