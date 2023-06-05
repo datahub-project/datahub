@@ -142,7 +142,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Configurable platform instance is still not supported. Platform instance is always added using project id value",
+    "Platform instance is pre-set to the BigQuery project id",
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")

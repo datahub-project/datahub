@@ -57,7 +57,11 @@ def test_bigquery_v2_ingest(
     )
     get_tables_for_dataset.return_value = iter([bigquery_table])
 
-    source_config_dict: Dict[str, Any] = {"project_ids": ["project-id-1"]}
+    source_config_dict: Dict[str, Any] = {
+        "project_ids": ["project-id-1"],
+        "include_usage_statistics": False,
+        "include_table_lineage": False,
+    }
 
     pipeline_config_dict: Dict[str, Any] = {
         "source": {
