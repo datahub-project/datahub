@@ -103,6 +103,11 @@ public class PoliciesConfig {
       "Manage Public Views",
       "Create, update, and delete any Public (shared) Views.");
 
+  public static final Privilege MANAGE_GLOBAL_OWNERSHIP_TYPES = Privilege.of(
+      "MANAGE_GLOBAL_OWNERSHIP_TYPES",
+      "Manage Ownership Types",
+      "Create, update and delete Ownership Types.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -119,7 +124,8 @@ public class PoliciesConfig {
       CREATE_TAGS_PRIVILEGE,
       CREATE_DOMAINS_PRIVILEGE,
       CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
-      MANAGE_GLOBAL_VIEWS
+      MANAGE_GLOBAL_VIEWS,
+      MANAGE_GLOBAL_OWNERSHIP_TYPES
   );
 
   // Resource Privileges //

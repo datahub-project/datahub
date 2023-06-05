@@ -9,7 +9,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
 class FakeSource(Source):
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return [
             MetadataWorkUnit(
                 id="test-workunit",
@@ -27,6 +27,7 @@ class FakeSource(Source):
         ]
 
     def __init__(self, ctx: PipelineContext):
+        super().__init__(ctx)
         self.source_report = SourceReport()
 
     @classmethod

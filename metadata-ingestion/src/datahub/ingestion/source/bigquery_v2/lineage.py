@@ -159,12 +159,6 @@ timestamp < "{end_time}"
             of upstream tables identifiers.
         """
         logger.info("Populating lineage info via Catalog Data Linage API")
-        #  Data Catalog API version 0.2.0 don't export views lineage, but future versions can cover it
-        #  NOTE: Users can enable to parse views DDL to build views lineage
-        if self.config.include_views:
-            logger.warning(
-                "It's not possible to extract views lineage from Catalog API. Views will be ignored."
-            )
 
         # Regions to search for BigQuery tables: projects/{project_id}/locations/{region}
         enabled_regions: List[str] = ["US", "EU"]
@@ -176,12 +170,12 @@ timestamp < "{end_time}"
             datasets = list(bigquery_client.list_datasets(project_id))
             project_tables = []
             for dataset in datasets:
-                # Enables only tables where type is TABLE (removes VIEWS)
+                # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
                 project_tables.extend(
                     [
                         table
                         for table in bigquery_client.list_tables(dataset.dataset_id)
-                        if table.table_type == "TABLE"
+                        if table.table_type in ["TABLE", "VIEW", "MATERIALIZED_VIEW"]
                     ]
                 )
 
@@ -199,7 +193,7 @@ timestamp < "{end_time}"
             curr_date = datetime.now()
             for table in project_tables:
                 logger.info("Creating lineage map for table %s", table)
-                upstreams = []
+                upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
                 # fully_qualified_name in format: "bigquery:<project_id>.<dataset_id>.<table_id>"
                 downstream_table.fully_qualified_name = f"bigquery:{table}"
@@ -210,7 +204,7 @@ timestamp < "{end_time}"
                         parent=f"projects/{project_id}/locations/{region.lower()}",
                     )
                     response = lineage_client.search_links(request=location_request)
-                    upstreams.extend(
+                    upstreams.update(
                         [
                             str(lineage.source.fully_qualified_name).replace(
                                 "bigquery:", ""
@@ -564,7 +558,7 @@ timestamp < "{end_time}"
     def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[LineageEdge]]:
         lineage_metadata: Dict[str, Set[LineageEdge]]
         try:
-            if self.config.extract_lineage_from_catalog and self.config.include_tables:
+            if self.config.extract_lineage_from_catalog:
                 lineage_metadata = self.lineage_via_catalog_lineage_api(project_id)
             else:
                 events = self._get_parsed_audit_log_events(project_id)

@@ -15,6 +15,7 @@ dependencies {
  implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
   }
+  
  implementation externalDependency.elasticSearchRest
  implementation externalDependency.httpClient
  implementation externalDependency.gson
@@ -31,6 +32,7 @@ implementation externalDependency.lombok
  implementation externalDependency.springCore
  implementation externalDependency.springKafka
  implementation externalDependency.springWeb
+
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
 
