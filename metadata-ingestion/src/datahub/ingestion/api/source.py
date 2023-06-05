@@ -27,6 +27,7 @@ from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
+    auto_browse_path_v2,
     auto_materialize_referenced_tags,
     auto_status_aspect,
     auto_workunit_reporter,
@@ -181,10 +182,31 @@ class Source(Closeable, metaclass=ABCMeta):
         """A list of functions that transforms the workunits produced by this source.
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
+        browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
+        if (
+            self.ctx.pipeline_config
+            and self.ctx.pipeline_config.flags.generate_browse_path_v2
+        ):
+            platform = getattr(self, "platform", None) or getattr(
+                self.get_config(), "platform", None
+            )
+            env = getattr(self.get_config(), "env", None)
+            browse_path_drop_dirs = [
+                platform,
+                platform and platform.lower(),
+                env,
+                env and env.lower(),
+            ]
+            browse_path_processor = partial(
+                auto_browse_path_v2,
+                [s for s in browse_path_drop_dirs if s is not None],
+            )
+
         return [
             auto_status_aspect,
             auto_materialize_referenced_tags,
             partial(auto_workunit_reporter, self.get_report()),
+            browse_path_processor,
         ]
 
     @staticmethod
@@ -206,6 +228,18 @@ class Source(Closeable, metaclass=ABCMeta):
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
+
+    def get_config(self) -> Optional[ConfigModel]:
+        """Overridable method to return the config object for this source.
+
+        Enables defining workunit processors in this class, rather than per source.
+        More broadly, this method contributes to the standardization of sources,
+        to promote more source-generic functionality.
+
+        Eventually, would like to replace this call with a Protocol that requires
+        a config object to be defined on each source.
+        """
+        return getattr(self, "config", None) or getattr(self, "source_config", None)
 
     @abstractmethod
     def get_report(self) -> SourceReport:
