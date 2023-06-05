@@ -131,7 +131,7 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
 
     extra_properties: List[str] = Field(
         default=[],
-        description="By default, the connector extracts a specific set of properties from the metastore tables. Use this list to provide additional properties that you would like to extract.",
+        description="By default, the connector extracts a specific set of properties from the metastore tables with a sql query. Use this list of keys to provide additional properties that you would like to extract. You have to make sure the column name returned by the sql query is the same as the key you provide here.",
     )
 
     enable_properties_merge: bool = Field(
@@ -492,7 +492,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             properties: Dict[str, str] = {}
             for prop in default_properties + self.config.extra_properties:
                 if prop in columns[-1]:
-                    properties[prop] = columns[-1][prop] or ""
+                    properties[prop] = str(columns[-1][prop]) or ""
 
             par_columns: str = ", ".join(
                 [c["col_name"] for c in columns if c["is_partition_col"]]
@@ -503,23 +503,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
             table_description = (
                 columns[-1]["description"] if "description" in columns[-1] else ""
             )
-            if not self.config.enable_properties_merge:
-                # we add to the MCE to keep compatibility with previous output
-                # if merging is disabled
-                dataset_properties = DatasetPropertiesClass(
-                    name=key.table,
-                    description=table_description,
-                    customProperties=properties,
-                )
-                dataset_snapshot.aspects.append(dataset_properties)
 
             yield from self.add_hive_dataset_to_container(
                 dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
             )
-
-            # construct mce
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            yield SqlWorkUnit(id=dataset_name, mce=mce)
 
             if self.config.enable_properties_merge:
                 from datahub.specific.dataset import DatasetPatchBuilder
@@ -539,6 +526,19 @@ class PrestoOnHiveSource(SQLAlchemySource):
                     )
                     for mcp_raw in patch_builder.build()
                 ]
+            else:
+                # we add to the MCE to keep compatibility with previous output
+                # if merging is disabled
+                dataset_properties = DatasetPropertiesClass(
+                    name=key.table,
+                    description=table_description,
+                    customProperties=properties,
+                )
+                dataset_snapshot.aspects.append(dataset_properties)
+
+            # construct mce
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            yield SqlWorkUnit(id=dataset_name, mce=mce)
 
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
             if dpi_aspect:
