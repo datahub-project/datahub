@@ -2,8 +2,13 @@ from typing import Any, Dict, Iterable, List, Union
 from unittest.mock import patch
 
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mce_builder import make_container_urn, make_dataset_urn
+from datahub.emitter.mce_builder import (
+    make_container_urn,
+    make_dataset_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
     auto_status_aspect,
@@ -290,7 +295,44 @@ def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mo
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_invalid_batch_telemetry(telemetry_ping_mock):
+def test_auto_browse_path_v2_with_platform_instsance(telemetry_ping_mock):
+    platform = "my_platform"
+    platform_instance = "my_instance"
+    platform_key = PlatformKey(platform=platform, instance=platform_instance)
+    platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)
+    platform_instance_entry = models.BrowsePathEntryClass(
+        platform_instance_urn, platform_instance_urn
+    )
+
+    structure = {"a": {"b": ["c"]}}
+    wus = list(auto_status_aspect(_create_container_aspects(structure)))
+
+    new_wus = list(
+        auto_browse_path_v2(
+            wus,
+            platform_key=platform_key,
+        )
+    )
+    assert telemetry_ping_mock.call_count == 0
+
+    assert (
+        sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
+        == 3
+    )
+    paths = _get_browse_paths_from_wu(new_wus)
+    assert paths["a"] == [platform_instance_entry]
+    assert paths["b"] == [
+        platform_instance_entry,
+        *_make_container_browse_path_entries(["a"]),
+    ]
+    assert paths["c"] == [
+        platform_instance_entry,
+        *_make_container_browse_path_entries(["a", "b"]),
+    ]
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_invalid_batch_telemetry(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     b_urn = make_container_urn("b")
     wus = [
@@ -311,7 +353,9 @@ def test_invalid_batch_telemetry(telemetry_ping_mock):
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_no_invalid_batch_telemetry_for_unrelated_aspects(telemetry_ping_mock):
+def test_auto_browse_path_v2_no_invalid_batch_telemetry_for_unrelated_aspects(
+    telemetry_ping_mock,
+):
     structure = {"a": {"b": ["c"]}}
     b_urn = make_container_urn("b")
     wus = [
@@ -329,7 +373,7 @@ def test_no_invalid_batch_telemetry_for_unrelated_aspects(telemetry_ping_mock):
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_invalid_order_telemetry(telemetry_ping_mock):
+def test_auto_browse_path_v2_invalid_order_telemetry(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     wus = list(reversed(list(_create_container_aspects(structure))))
     wus = list(auto_status_aspect(wus))
