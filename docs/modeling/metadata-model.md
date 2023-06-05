@@ -501,8 +501,9 @@ mcpw = MetadataChangeProposalWrapper(
     aspect=usageStats,
 )
 
-# Instantiate appropriate emitter (kafk_emitter/rest_emitter)
-my_emitter = DatahubKafkaEmitter("""<config>""")
+# Instantiate appropriate emitter (kafka_emitter/rest_emitter)
+# my_emitter = DatahubKafkaEmitter("""<config>""")
+my_emitter = DatahubRestEmitter("http://localhost:8080")
 my_emitter.emit(mcpw)
 ```
 
