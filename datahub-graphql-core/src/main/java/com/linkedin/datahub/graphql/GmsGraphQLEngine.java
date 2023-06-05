@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResultForEntity;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.BrowsePathEntry;
 import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -962,6 +963,10 @@ public class GmsGraphQLEngine {
             .type("BrowseResultGroupV2", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((BrowseResultGroupV2) env.getSource()).getEntity()))
+            )
+            .type("BrowsePathEntry", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
+                    (env) -> ((BrowsePathEntry) env.getSource()).getEntity()))
             )
             .type("LineageRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,

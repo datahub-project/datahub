@@ -971,6 +971,29 @@ type BrowsePath {
 }
 
 """
+A hierarchical entity path V2
+"""
+type BrowsePathV2 {
+  """
+  The components of the browse path
+  """
+  path: [BrowsePathEntry]!
+}
+
+type BrowsePathEntry {
+  """
+  The path name of a group of browse results
+  """
+  name: String!
+
+  """
+  An optional entity associated with this browse entry. This will usually be a container entity.
+  If this entity is not populated, the name must be used.
+  """
+  entity: Entity
+}
+
+"""
 A set of filter criteria
 """
 input FilterInput {
