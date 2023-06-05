@@ -8,20 +8,20 @@
             "json": {
                 "customProperties": {
                     "nodeTag": "A",
-                    "indexes": "[{'IsStale': False, 'Name': 'Products/Search', 'LockMode': 'Unlock', 'Priority': 'Normal', 'State': 'Normal', 'Type': 'Map', 'SourceType': 'Documents', 'LastIndexingTime': '2023-05-31T09:42:53.3636256Z'}]",
-                    "tempBuffersSizeOnDisk": "92274688",
-                    "sizeOnDisk": "40337408",
-                    "databaseChangeVector": "A:20-OinKmhVl60yx+i2xqdx2Lg",
+                    "indexes": "[{'IsStale': True, 'Name': 'Products/Search', 'LockMode': 'Unlock', 'Priority': 'Normal', 'State': 'Normal', 'Type': 'Map', 'SourceType': 'Documents', 'LastIndexingTime': '2023-06-02T08:18:53.6380175Z'}]",
+                    "tempBuffersSizeOnDisk": "42663936",
+                    "sizeOnDisk": "59572224",
+                    "databaseChangeVector": "A:10-nIuswJ2UGUCUrNuxiYpbIw",
                     "lastCollectionIndexingTime": "",
-                    "lastDocEtag": "20",
-                    "lastDatabaseEtag": "20"
+                    "lastDocEtag": "10",
+                    "lastDatabaseEtag": "10"
                 },
                 "externalUrl": "http://172.17.0.3:8080",
                 "name": "testdb"
             }
         },
         "systemMetadata": {
-            "lastObserved": 1685526173370,
+            "lastObserved": 1685694012679,
             "runId": "ravendb-test"
         }
     },
@@ -39,7 +39,7 @@
                     {
                         "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                             "customProperties": {
-                                "indexes": "[{'name': 'Products/Search', 'stale': False, 'lastIndexingTime': '2023-05-31T09:42:53.3636256Z'}]",
+                                "indexes": "[{'name': 'Products/Search', 'stale': True, 'lastIndexingTime': '2023-06-02T08:18:53.6380175Z'}]",
                                 "lastCollectionIndexingTime": ""
                             },
                             "qualifiedName": "testdb.Products",
@@ -144,8 +144,8 @@
             }
         },
         "systemMetadata": {
-            "lastObserved": 1685526173420,
+            "lastObserved": 1685694012733,
             "runId": "ravendb-test"
         }
     }
-]
+    ]

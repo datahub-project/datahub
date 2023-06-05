@@ -13,6 +13,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 from datahub.ingestion.run.pipeline import Pipeline
 from ravendb.documents.commands.crud import PutDocumentCommand, GetDocumentsCommand
+import ast
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -210,6 +211,7 @@ def prepare_database():
     assert assert_entries_set()
     command = GetIndexOperation(index.name).get_command(store.conventions)
     request_executor.execute_command(command)
+    logging.debug(command.result.__dict__)
     assert command.result != None
 
 
@@ -282,6 +284,7 @@ def check_golden_file(output_file_path, golden_file_path, pytestconfig):
     """
     Check mce output file against golden file ignoring the keys in IGNORE_KEYS array
     since they are run dependent.
+    Also verifying the database indexes are equal - ignoring the lastIndexTime.
     """
 
     def find_key_chains(d, target_key, current_chain=None, key_chains=None):
@@ -322,15 +325,57 @@ def check_golden_file(output_file_path, golden_file_path, pytestconfig):
                 regex_list.append(s)
         return list(set(regex_list))
 
+    def compare_strings(string1, string2):
+        '''
+        Function to compare strings of indexes array while ignoring "lastIndexingTime" attribute
+        '''
+        # Parse strings into lists of dictionaries
+        list1 = ast.literal_eval(string1)
+        list2 = ast.literal_eval(string2)
+
+        def remove_key_case_insensitive(dictionary, key):
+            # Perform a case-insensitive search for the key
+            lowercase_key = key.lower()
+            for k in list(dictionary.keys()):
+                if k.lower() == lowercase_key:
+                    del dictionary[k]
+
+        # Remove "lastIndexingTime" key from dictionaries
+        for item in list1:
+            remove_key_case_insensitive(item, "LastIndexingTime")
+        for item in list2:
+            remove_key_case_insensitive(item, "LastIndexingTime")
+
+        # Compare the modified lists
+        return list1 == list2
+
     with open(str(golden_file_path), "r") as f:
         golden = json.load(f)
+
     ignore_key_paths = []
     for key in IGNORE_KEYS:
         keys = find_key_chains(golden, key)
         ignore_key_paths.extend(construct_key_regex(keys))
 
+    # ignore timestamps and random changing values triggered by container start
+    # correct key structure extracted from golden file
+
+    # replace timestamps of string of indexes list
+    indexes_key_out = find_key_chains(golden, "indexes")
+    indexes_out = construct_key_regex(indexes_key_out, escape=False)
+
+    with open(str(output_file_path), "r") as f:
+        output = json.load(f)
+
+    # list of indexes
+    for i in indexes_out:
+        i_output = eval(i.replace("root", "output").replace("\'", "\""))
+        i_golden = eval(i.replace("root", "golden").replace("\'", "\""))
+        assert compare_strings(i_output, i_golden), f"Indexes ({indexes_out}) are different:\nOutput: {str(i_output)}\nGolden: {str(i_golden)}"
+    logging.debug("Indexes are equal: Removing indexes from golden file check.")
+    ignore_key_paths.extend(construct_key_regex(indexes_key_out))
     logging.debug("Ignoring attributes during check:")
-    [logging.debug(key) for key in ignore_key_paths]
+    [print(key) for key in ignore_key_paths]
 
     # Verify the output.
     mce_helpers.check_golden_file(
