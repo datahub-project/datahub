@@ -1305,7 +1305,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Experimental! The resolved health statuses of the Dataset
@@ -4489,7 +4489,7 @@ type Notebook implements Entity & BrowsableEntity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Whether or not this entity exists on DataHub
@@ -4761,7 +4761,7 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
@@ -5081,7 +5081,7 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Deprecated, use properties field instead
@@ -5448,7 +5448,7 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Deprecated, use properties field instead
@@ -5639,7 +5639,7 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Deprecated, use properties field instead
@@ -8532,7 +8532,7 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     The structured glossary terms associated with the entity
@@ -8638,7 +8638,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Tags applied to entity
@@ -8747,7 +8747,7 @@ type MLFeature implements EntityWithRelationships & Entity {
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -9058,7 +9058,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
-    browsePathV2: BrowsePathV2!
+    browsePathV2: BrowsePathV2
 
     """
     Tags applied to entity
