@@ -9,7 +9,7 @@ import EntityContext from '../EntityContext';
 import { GenericEntityProperties } from '../types';
 import EmbeddedHeader from './EmbeddedHeader';
 import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarTagsSection } from '../containers/profile/sidebar/SidebarTagsSection';
 import { SidebarDomainSection } from '../containers/profile/sidebar/Domain/SidebarDomainSection';
 import UpstreamHealth from './UpstreamHealth/UpstreamHealth';

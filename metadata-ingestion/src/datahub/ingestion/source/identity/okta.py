@@ -13,7 +13,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -24,15 +24,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -60,7 +53,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class OktaConfig(StatefulIngestionConfigBase):
+class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
@@ -295,14 +288,13 @@ class OktaSource(StatefulIngestionSourceBase):
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Step 0: get or create the event loop
@@ -415,14 +407,6 @@ class OktaSource(StatefulIngestionSourceBase):
 
         # Step 4: Close the event loop
         event_loop.close()
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
 
     def get_report(self):
         return self.report

@@ -1124,10 +1124,11 @@
         "type" : "enum",
         "name" : "OwnershipType",
         "doc" : "Asset owner types",
-        "symbols" : [ "TECHNICAL_OWNER", "BUSINESS_OWNER", "DATA_STEWARD", "NONE", "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+        "symbols" : [ "CUSTOM", "TECHNICAL_OWNER", "BUSINESS_OWNER", "DATA_STEWARD", "NONE", "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
         "symbolDocs" : {
           "BUSINESS_OWNER" : "A person or group who is responsible for logical, or business related, aspects of the asset.",
           "CONSUMER" : "A person, group, or service that consumes the data\nDeprecated! Use TECHNICAL_OWNER or BUSINESS_OWNER instead.",
+          "CUSTOM" : "Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no\nenum value for. This is used for backwards compatibility",
           "DATAOWNER" : "A person or group that is owning the data\nDeprecated! Use TECHNICAL_OWNER instead.",
           "DATA_STEWARD" : "A steward, expert, or delegate responsible for the asset.",
           "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
@@ -1146,7 +1147,17 @@
           "STAKEHOLDER" : true
         }
       },
-      "doc" : "The type of the ownership"
+      "doc" : "The type of the ownership",
+      "deprecated" : true
+    }, {
+      "name" : "typeUrn",
+      "type" : "Urn",
+      "doc" : "The type of the ownership\nUrn of type O",
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "ownershipType" ],
+        "name" : "ownershipType"
+      }
     }, {
       "name" : "source",
       "type" : {

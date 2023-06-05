@@ -6,6 +6,7 @@
     "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
+            "fineGrainedLineages": [],
             "upstreams": [
                 {
                     "auditStamp": {
@@ -38,6 +39,7 @@
     "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
+            "fineGrainedLineages": [],
             "upstreams": [
                 {
                     "auditStamp": {

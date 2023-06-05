@@ -1,16 +1,23 @@
 import logging
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Set, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    TypeVar,
+    Union,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import WorkUnit
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
+    BrowsePathsClass,
     BrowsePathsV2Class,
     ContainerClass,
     MetadataChangeEventClass,
@@ -21,6 +28,12 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.source import SourceReport
+    from datahub.ingestion.source.state.stale_entity_removal_handler import (
+        StaleEntityRemovalHandler,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +98,7 @@ def _default_entity_type_fn(wu: MetadataWorkUnit) -> Optional[str]:
 
 
 def auto_stale_entity_removal(
-    stale_entity_removal_handler: StaleEntityRemovalHandler,
+    stale_entity_removal_handler: "StaleEntityRemovalHandler",
     stream: Iterable[MetadataWorkUnit],
     entity_type_fn: Callable[
         [MetadataWorkUnit], Optional[str]
@@ -111,10 +124,10 @@ def auto_stale_entity_removal(
     yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
-T = TypeVar("T", bound=WorkUnit)
+T = TypeVar("T", bound=MetadataWorkUnit)
 
 
-def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterable[T]:
+def auto_workunit_reporter(report: "SourceReport", stream: Iterable[T]) -> Iterable[T]:
     """
     Calls report.report_workunit() on each workunit.
     """
@@ -126,13 +139,8 @@ def auto_workunit_reporter(report: SourceReport, stream: Iterable[T]) -> Iterabl
 
 def auto_materialize_referenced_tags(
     stream: Iterable[MetadataWorkUnit],
-    active: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
     """For all references to tags, emit a tag key aspect to ensure that the tag exists in our backend."""
-
-    if not active:
-        yield from stream
-        return
 
     referenced_tags = set()
     tags_with_aspects = set()
@@ -158,12 +166,13 @@ def auto_materialize_referenced_tags(
 
 
 def auto_browse_path_v2(
+    drop_dirs: Sequence[str],
     stream: Iterable[MetadataWorkUnit],
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate BrowsePathsV2 from Container aspects."""
-    # TODO: Generate BrowsePathsV2 from BrowsePaths as well
+    """Generate BrowsePathsV2 from Container and BrowsePaths aspects."""
 
     ignore_urns: Set[str] = set()
+    legacy_browse_paths: Dict[str, List[str]] = defaultdict(list)
     container_urns: Set[str] = set()
     parent_container_map: Dict[str, str] = {}
     children: Dict[str, List[str]] = defaultdict(list)
@@ -175,16 +184,25 @@ def auto_browse_path_v2(
             container_urns.add(urn)
 
         container_aspects = wu.get_aspects_of_type(ContainerClass)
-        for aspect in container_aspects:
-            parent = aspect.container
+        for c_aspect in container_aspects:
+            parent = c_aspect.container
             parent_container_map[urn] = parent
             children[parent].append(urn)
+
+        browse_path_aspects = wu.get_aspects_of_type(BrowsePathsClass)
+        for b_aspect in browse_path_aspects:
+            if b_aspect.paths:
+                path = b_aspect.paths[0]  # Only take first path
+                legacy_browse_paths[urn] = [
+                    p for p in path.strip("/").split("/") if p.strip() not in drop_dirs
+                ]
 
         if wu.get_aspects_of_type(BrowsePathsV2Class):
             ignore_urns.add(urn)
 
     paths: Dict[str, List[str]] = {}  # Maps urn -> list of urns in path
     # Yield browse paths v2 in topological order, starting with root containers
+    processed_urns = set()
     nodes = container_urns - parent_container_map.keys()
     while nodes:
         node = nodes.pop()
@@ -202,3 +220,14 @@ def auto_browse_path_v2(
                     path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
                 ),
             ).as_workunit()
+            processed_urns.add(node)
+
+    # Yield browse paths v2 based on browse paths v1 (legacy)
+    # Only done if the entity is not part of a container hierarchy
+    for urn in legacy_browse_paths.keys() - processed_urns - ignore_urns:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=p) for p in legacy_browse_paths[urn]]
+            ),
+        ).as_workunit()
