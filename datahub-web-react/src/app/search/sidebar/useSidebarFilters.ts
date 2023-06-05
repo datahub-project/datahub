@@ -3,6 +3,7 @@ import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import { BROWSE_PATH_V2_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
 import { SidebarFilters } from './types';
+import { applyOrFilterOverrides } from '../utils/applyFilterOverrides';
 
 export const useSidebarFilters = (): SidebarFilters => {
     const environment = useMaybeEnvironmentAggregation()?.value;
@@ -21,7 +22,12 @@ export const useSidebarFilters = (): SidebarFilters => {
         [filterOverrides],
     );
 
-    const { query, orFilters, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
+    const { query, orFilters: orFiltersWithoutOverrides, viewUrn } = useGetSearchQueryInputs(excludedFilterFields);
 
-    return { query, orFilters, viewUrn } as const;
+    const orFilters = useMemo(
+        () => applyOrFilterOverrides(orFiltersWithoutOverrides, filterOverrides),
+        [filterOverrides, orFiltersWithoutOverrides],
+    );
+
+    return useMemo(() => ({ query, orFilters, viewUrn } as const), [orFilters, query, viewUrn]);
 };

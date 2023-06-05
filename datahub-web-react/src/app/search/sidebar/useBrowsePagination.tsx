@@ -49,15 +49,13 @@ const useBrowsePagination = ({ skip }: Props) => {
         },
     });
 
-    // todo - infinite loop, sidebar filters may be changing too often
     useEffect(() => {
-        console.log('reset', sidebarFilters);
-        // setState(() => ({
-        //     current: 0,
-        //     list: [],
-        //     map: {},
-        //     filters: sidebarFilters,
-        // }));
+        setState(() => ({
+            current: 0,
+            list: [],
+            map: {},
+            filters: sidebarFilters,
+        }));
     }, [sidebarFilters]);
 
     useEffect(() => {

@@ -1,6 +1,6 @@
 import * as QueryString from 'query-string';
 import { useLocation, useParams } from 'react-router';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { FacetFilterInput, EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME, FILTER_DELIMITER, FILTER_URL_PREFIX, UnionType } from './utils/constants';
@@ -17,20 +17,12 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
-    useEffect(() => {
-        console.log(excludedFilterFields);
-    }, [excludedFilterFields]);
-
-    useEffect(() => {
-        console.log(location.search);
-    }, [location.search]);
-
     // Some filters, like browsePathV2 cause the sidebar to re-load, and we want to ignore that in downstream useEffect's
     const queryStringWithExclusions = useMemo(
         () =>
             QueryString.exclude(
                 location.search,
-                (name) => !!excludedFilterFields?.some((f) => name.startsWith(`${FILTER_URL_PREFIX}${f}`)),
+                (name) => !!excludedFilterFields?.some((field) => name.startsWith(`${FILTER_URL_PREFIX}${field}`)),
             ),
         [excludedFilterFields, location.search],
     );
@@ -48,16 +40,10 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
 
     const filters: Array<FacetFilterInput> = useFilters(params);
     const nonNestedFilters = useMemo(() => filters.filter((f) => !f.field.includes(FILTER_DELIMITER)), [filters]);
-    const nestedFilters = useMemo(
-        () => filters.filter((f) => f.field.includes(FILTER_DELIMITER) && !excludedFilterFields?.includes(f.field)),
-        [excludedFilterFields, filters],
-    );
+    const nestedFilters = useMemo(() => filters.filter((filter) => filter.field.includes(FILTER_DELIMITER)), [filters]);
     const filtersWithoutEntities = useMemo(
-        () =>
-            nonNestedFilters.filter(
-                (filter) => filter.field !== ENTITY_FILTER_NAME && !excludedFilterFields?.includes(filter.field),
-            ),
-        [excludedFilterFields, nonNestedFilters],
+        () => nonNestedFilters.filter((filter) => filter.field !== ENTITY_FILTER_NAME),
+        [nonNestedFilters],
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
