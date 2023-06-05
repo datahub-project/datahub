@@ -2,7 +2,15 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.generated.Policy;
+import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
+import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
+import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
+import com.linkedin.datahub.graphql.generated.PolicyMatchFilter;
+import com.linkedin.datahub.graphql.generated.PolicyState;
+import com.linkedin.datahub.graphql.generated.PolicyType;
+import com.linkedin.datahub.graphql.generated.ActorFilter;
+import com.linkedin.datahub.graphql.generated.ResourceFilter;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.policy.DataHubActorFilter;
