@@ -34,6 +34,9 @@ It is important to know that the **Edit Lineage** privilege is required for all 
 
 ## Managing Lineage via the DataHub UI
 
+### Viewing lineage on the Datahub UI
+The UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage. 
+
 ### Editing from Lineage Graph View
 
 The first place that you can edit lineage for entities is from the Lineage Visualization screen. Click on the "Lineage" button on the top right of an entity's profile to get to this view.
@@ -92,7 +95,8 @@ Using the modal from this view will work the same as described above for editing
 
 :::note
 
-   When you emit any lineage aspect, the existing aspect gets completely overwritten.
+   When you emit any lineage aspect, the existing aspect gets completely overwritten, unless specifically using patch semantics.
+This means that the latest version visible in the UI will be your version. 
 
 :::
 
@@ -106,8 +110,7 @@ Here are a few samples for the usage of this type of lineage:
 * [lineage_emitter_rest.py](../../metadata-ingestion/examples/library/lineage_emitter_rest.py) - emits simple dataset-to-dataset lineage via REST as MetadataChangeEvent.
 * [lineage_emitter_kafka.py](../../metadata-ingestion/examples/library/lineage_emitter_kafka.py) - emits simple dataset-to-dataset lineage via Kafka as MetadataChangeEvent.
 * [lineage_emitter_dataset_finegrained.py](../../metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py) - emits fine-grained dataset-dataset lineage via REST as MetadataChangeProposalWrapper.
-* [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/a1bf95307b040074c8d65ebb86b5eb177fdcd591/metadata-ingestion/src/datahub/ingestion/source/sql/bigquery.py#L229) - emits Datahub's Bigquery lineage as MetadataChangeProposalWrapper.
-* [Datahub Snowflake Lineage](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249) - emits Datahub's Snowflake lineage as MetadataChangeProposalWrapper.
+* [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/3022c2d12e68d221435c6134362c1a2cba2df6b3/metadata-ingestion/src/datahub/ingestion/source/bigquery_v2/bigquery.py#L1028) - emits Datahub's Bigquery lineage as MetadataChangeProposalWrapper. **Use the patch feature to add to rather than overwrite the current lineage.**
 
 ### Using dbt Lineage
 
