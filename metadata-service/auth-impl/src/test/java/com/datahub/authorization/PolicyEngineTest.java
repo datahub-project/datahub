@@ -47,6 +47,10 @@ public class PolicyEngineTest {
 
   private static final String DOMAIN_URN = "urn:li:domain:domain1";
 
+  private static final String OWNERSHIP_TYPE_URN = "urn:li:ownershipType:__system__technical_owner";
+
+  private static final String OTHER_OWNERSHIP_TYPE_URN = "urn:li:ownershipType:__system__data_steward";
+
   private EntityClient _entityClient;
   private PolicyEngine _policyEngine;
 
@@ -538,7 +542,7 @@ public class PolicyEngineTest {
     actorFilter.setResourceOwners(true);
     actorFilter.setAllUsers(false);
     actorFilter.setAllGroups(false);
-    actorFilter.setResourceOwnersType(new OwnershipTypeArray(Collections.singletonList(OwnershipType.DATAOWNER)));
+    actorFilter.setResourceOwnersTypesUrns(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
@@ -548,7 +552,7 @@ public class PolicyEngineTest {
 
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspectWithTypeUrn(OWNERSHIP_TYPE_URN).data())));
     entityResponse.setAspects(aspectMap);
     when(_entityClient.getV2(eq(resourceUrn.getEntityType()), eq(resourceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
             any())).thenReturn(entityResponse);
@@ -577,7 +581,7 @@ public class PolicyEngineTest {
     actorFilter.setResourceOwners(true);
     actorFilter.setAllUsers(false);
     actorFilter.setAllGroups(false);
-    actorFilter.setResourceOwnersType(new OwnershipTypeArray(Collections.singletonList(OwnershipType.TECHNICAL_OWNER)));
+    actorFilter.setResourceOwnersTypesUrns(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
@@ -587,7 +591,7 @@ public class PolicyEngineTest {
 
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspectWithTypeUrn(OTHER_OWNERSHIP_TYPE_URN).data())));
     entityResponse.setAspects(aspectMap);
     when(_entityClient.getV2(eq(resourceUrn.getEntityType()), eq(resourceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
             any())).thenReturn(entityResponse);
@@ -1122,6 +1126,20 @@ public class PolicyEngineTest {
       groupOwner.setType(OwnershipType.DATAOWNER);
       owners.add(groupOwner);
     }
+
+    ownershipAspect.setOwners(owners);
+    ownershipAspect.setLastModified(new AuditStamp().setTime(0).setActor(Urn.createFromString("urn:li:corpuser:foo")));
+    return ownershipAspect;
+  }
+
+  private Ownership createOwnershipAspectWithTypeUrn(final String typeUrn) throws Exception {
+    final Ownership ownershipAspect = new Ownership();
+    final OwnerArray owners = new OwnerArray();
+
+    final Owner userOwner = new Owner();
+    userOwner.setOwner(Urn.createFromString(AUTHORIZED_PRINCIPAL));
+    userOwner.setTypeUrn(Urn.createFromString(typeUrn));
+    owners.add(userOwner);
 
     ownershipAspect.setOwners(owners);
     ownershipAspect.setLastModified(new AuditStamp().setTime(0).setActor(Urn.createFromString("urn:li:corpuser:foo")));
