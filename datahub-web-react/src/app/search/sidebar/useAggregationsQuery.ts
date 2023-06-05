@@ -28,8 +28,6 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         },
     });
 
-    // todo - look into a smoother animation for collapse to avoid the `previousData` hack
-    // with filters, we don't want to hold onto stale filter data
     const loaded = !!data || !!error;
 
     const entityAggregations = data?.aggregateAcrossEntities?.facets
