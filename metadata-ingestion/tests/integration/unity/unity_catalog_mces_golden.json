@@ -343,6 +343,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "main.default.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -626,6 +627,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "main.information_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -909,6 +911,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "main.quickstart_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -1299,6 +1302,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.default.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -1582,6 +1586,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.information_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -1865,6 +1870,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -2255,6 +2261,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "system.default.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -2538,6 +2545,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "system.information_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -2821,6 +2829,7 @@
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
             "name": "quickstart_table",
+            "qualifiedName": "system.quickstart_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
