@@ -11,9 +11,9 @@ import {
     ENTITY_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
-    UNIT_SEPARATOR,
 } from '../../../../../search/utils/constants';
 import useHasMultipleEnvironmentsQuery from './useHasMultipleEnvironmentsQuery';
+import { createBrowseV2SearchFilter } from '../../../../../search/filters/utils';
 
 export default function ProfileNavBrowsePathV2() {
     const history = useHistory();
@@ -41,8 +41,8 @@ export default function ProfileNavBrowsePathV2() {
 
     function generateFiltersForBrowsePath(path: string[]) {
         const filters = generateFiltersForEnvironment();
-        const pathEntries = UNIT_SEPARATOR + path.join(UNIT_SEPARATOR);
-        filters.push({ field: BROWSE_PATH_V2_FILTER_NAME, values: [pathEntries] });
+        const pathValue = createBrowseV2SearchFilter(path);
+        filters.push({ field: BROWSE_PATH_V2_FILTER_NAME, values: [pathValue] });
         return filters;
     }
 
@@ -83,9 +83,9 @@ export default function ProfileNavBrowsePathV2() {
                         onClick={() =>
                             handlePathClick(
                                 generateFiltersForBrowsePath([
-                                    ...((entityData.browsePathV2 as BrowsePathV2).path
+                                    ...(entityData.browsePathV2 as BrowsePathV2).path
                                         .slice(0, index + 1)
-                                        .map((e) => e?.name) as string[]),
+                                        .map((e) => e?.name || ''),
                                 ]),
                             )
                         }
