@@ -57,27 +57,31 @@ public class EntityRegistryUtils {
           throws IOException, EntityRegistryException {
     Path entityRegistryRootLoc = Paths.get(entityRegistryRoot);
     if (Files.isDirectory(entityRegistryRootLoc)) {
-      // Look for entity-registry.yml or entity-registry.yaml in the root folder
-      List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
-              .filter(Files::isRegularFile)
-              .filter(f -> f.toString().endsWith("entity-registry.yml") || f.toString().endsWith("entity-registry.yaml"))
-              .collect(Collectors.toList());
-      if (yamlFiles.size() == 0) {
-        throw new EntityRegistryException(
-                String.format("Did not find an entity registry (entity-registry.yaml/yml) under %s", entityRegistryRootLoc));
-      }
+      List<Path> yamlFiles = getRegistryFiles(entityRegistryRootLoc);
       if (yamlFiles.size() > 1) {
         log.warn("Found more than one yaml file in the directory {}. Will pick the first {}",
                 entityRegistryRootLoc, yamlFiles.get(0));
       }
       Path entityRegistryFile = yamlFiles.get(0);
-      log.info("Loading custom config entity file: {}, dir: {}", entityRegistryFile, entityRegistryRootLoc);
+      log.info("Loading config entity file: {}, dir: {}", entityRegistryFile, entityRegistryRootLoc);
       return new Pair<>(entityRegistryFile, entityRegistryRootLoc);
     } else {
       // We assume that the file being passed in is a bare entity registry yaml file
       log.info("Loading bare config entity registry file at {}", entityRegistryRootLoc);
       return new Pair<>(entityRegistryRootLoc, null);
     }
+  }
+
+  public static List<Path> getRegistryFiles(Path entityRegistryRootLoc) throws IOException, EntityRegistryException {
+    List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
+            .filter(Files::isRegularFile)
+            .filter(f -> f.toString().endsWith("entity-registry.yml") || f.toString().endsWith("entity-registry.yaml"))
+            .collect(Collectors.toList());
+    if (yamlFiles.size() == 0) {
+      throw new EntityRegistryException(
+              String.format("Did not find an entity registry (entity-registry.yaml/yml) under %s", entityRegistryRootLoc));
+    }
+    return yamlFiles;
   }
 
 }

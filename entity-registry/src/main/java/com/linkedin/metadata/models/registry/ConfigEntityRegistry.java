@@ -20,6 +20,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -53,7 +54,9 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
-    this(DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()), configFileClassPathPair.getFirst());
+    //TODO Not sure in what case we would need the custom classpath for the config entity registry
+    // when Plugin mechanism exists removing but should be discussed before merging
+    this(DataSchemaFactory.getInstance(), configFileClassPathPair.getFirst());
   }
 
   public ConfigEntityRegistry(String entityRegistryRoot) throws EntityRegistryException, IOException {
@@ -82,7 +85,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
     EntitySpecBuilder entitySpecBuilder = new EntitySpecBuilder();
     for (Entity entity : entities.getEntities()) {
       log.info("Discovered entity {} with aspects {}", entity.getName(),
-              String.join("", entity.getAspects()));
+              String.join(",", entity.getAspects()));
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       aspectSpecs.add(buildAspectSpec(entity.getKeyAspect(), entitySpecBuilder));
       entity.getAspects().forEach(aspect -> aspectSpecs.add(buildAspectSpec(aspect, entitySpecBuilder)));
