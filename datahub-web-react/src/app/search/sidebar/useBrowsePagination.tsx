@@ -56,7 +56,7 @@ const useBrowsePagination = ({ skip }: Props) => {
 
     useEffect(() => {
         getBrowseResultsV2WithDeps(0);
-    }, [getBrowseResultsV2WithDeps]);
+    }, [getBrowseResultsV2WithDeps, path]);
 
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
