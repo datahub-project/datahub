@@ -45,7 +45,7 @@ public class UpgradeQualificationStep implements UpgradeStep {
         context.report().addLine("Failed to qualify upgrade candidate. Aborting the upgrade...");
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED, UpgradeStepResult.Action.ABORT);
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to check if metadata_aspect_v2 table exists: %s", e.toString()));
+        context.report().addLine("Failed to check if metadata_aspect_v2 table exists", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
     };

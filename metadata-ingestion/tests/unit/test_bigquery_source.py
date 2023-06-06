@@ -128,6 +128,26 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern():
     ]
 
 
+def test_get_dataplatform_instance_aspect_returns_project_id():
+    project_id = "project_id"
+    expected_instance = (
+        f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,{project_id})"
+    )
+
+    config = BigQueryV2Config.parse_obj({})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    data_platform_instance = source.get_dataplatform_instance_aspect(
+        "urn:li:test", project_id
+    )
+
+    metadata = data_platform_instance.get_metadata()["metadata"]
+
+    assert data_platform_instance is not None
+    assert metadata.aspectName == "dataPlatformInstance"
+    assert metadata.aspect.instance == expected_instance
+
+
 @patch("google.cloud.bigquery.client.Client")
 def test_get_projects_with_single_project_id(client_mock):
     config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
