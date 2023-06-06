@@ -4,20 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.*;
 import com.linkedin.metadata.models.registry.config.Entities;
+import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
 import com.linkedin.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -74,6 +73,21 @@ public class EntityRegistryUtils {
     }
   }
 
+  public static List<InputStream> getRegistryFiles(String entityRegistryRoot) throws EntityRegistryException, IOException {
+    return getRegistryFiles(Paths.get(entityRegistryRoot))
+            .stream()
+            .map(path -> {
+              try {
+                return new FileInputStream(path.toString());
+              } catch (FileNotFoundException e) {
+                log.error("Unable to read registry file at path {}", path);
+              }
+              return null;
+            })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+  }
+
   public static List<Path> getRegistryFiles(Path entityRegistryRootLoc) throws IOException, EntityRegistryException {
     List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
             .filter(Files::isRegularFile)
@@ -103,6 +117,77 @@ public class EntityRegistryUtils {
       }
     }
     return result;
+  }
+
+  public static Entities mergeEntities(List<Entities> entities) {
+    if (entities.size() <= 0) {
+      throw new RuntimeException("No entities present");
+    }
+    if (entities.size() == 1) {
+      return entities.get(0);
+    }
+    String id = entities.get(0).getId();
+    List<Entity> finalEntityMap = new ArrayList<>();
+    List<Event> finalEventMap = new ArrayList<>();
+
+    groupEntitiesByIdentifier(entities).values().forEach(entityList -> {
+      finalEntityMap.add(mergeEntity(entityList));
+    });
+    Map<String, List<Event>> eventByName = groupEventsByIdentifier(entities);
+
+    return new Entities(id, finalEntityMap, finalEventMap);
+  }
+
+  public static Map<String, List<Entity>> groupEntitiesByIdentifier(List<Entities> entitiesList) {
+    Map<String, List<Entity>> resultMap = new HashMap<>();
+    for (Entities entities : entitiesList) {
+      for (Entity entity : entities.getEntities()) {
+        String identifier = entity.getName();
+        List<Entity> entitiesWithSameIdentifier = resultMap.getOrDefault(identifier, new ArrayList<>());
+        entitiesWithSameIdentifier.add(entity);
+        resultMap.put(identifier, entitiesWithSameIdentifier);
+      }
+    }
+    return resultMap;
+  }
+
+  public static Map<String, List<Event>> groupEventsByIdentifier(List<Entities> entitiesList) {
+    Map<String, List<Event>> resultMap = new HashMap<>();
+    for (Entities entities : entitiesList) {
+      for (Event event : entities.getEvents()) {
+        String identifier = event.getName();
+        List<Event> entitiesWithSameIdentifier = resultMap.getOrDefault(identifier, new ArrayList<>());
+        entitiesWithSameIdentifier.add(event);
+        resultMap.put(identifier, entitiesWithSameIdentifier);
+      }
+    }
+    return resultMap;
+  }
+
+  public static Entity mergeEntity(List<Entity> entities) {
+    if (entities.size() <= 0) {
+      return null;
+    }
+    if (entities.size() == 1) {
+      return entities.get(0);
+    }
+    String finalName = null;
+    String finalDoc = null;
+    String finalKeyAspect = null;
+    Set<String> finalAspects = new LinkedHashSet<>();
+    for (Entity entity: entities) {
+      finalName = entity.getName();
+      finalDoc = entity.getDoc();
+      finalKeyAspect = entity.getKeyAspect();
+      for (String aspect: entity.getAspects()) {
+        if (finalAspects.contains(aspect)) {
+          throw new RuntimeException("Found duplicate aspect " + aspect + " for entity " + finalName);
+        } else {
+          finalAspects.add(aspect);
+        }
+      }
+    }
+    return new Entity(finalName, finalDoc, finalKeyAspect, new ArrayList<>(finalAspects));
   }
 
 }

@@ -13,17 +13,14 @@ import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
-import com.linkedin.util.Pair;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,27 +48,27 @@ public class ConfigEntityRegistry implements EntityRegistry {
     OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
-    //TODO Not sure in what case we would need the custom classpath for the config entity registry
-    // when Plugin mechanism exists removing but should be discussed before merging
-    this(DataSchemaFactory.getInstance(), configFileClassPathPair.getFirst());
-  }
-
   public ConfigEntityRegistry(String entityRegistryRoot) throws EntityRegistryException, IOException {
-    this(getFileAndClassPath(entityRegistryRoot));
+    this(
+            DataSchemaFactory.getInstance(),
+            EntityRegistryUtils.getRegistryFiles(entityRegistryRoot)
+    );
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
-    this(DataSchemaFactory.getInstance(), configFileInputStream);
-  }
-
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath) throws FileNotFoundException {
-    this(dataSchemaFactory, new FileInputStream(configFilePath.toString()));
+    this(DataSchemaFactory.getInstance(), List.of(configFileInputStream));
   }
 
   public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, InputStream configFileStream) {
+    this(dataSchemaFactory, List.of(configFileStream));
+  }
+
+  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, List<InputStream> configFileStreams) {
     this.dataSchemaFactory = dataSchemaFactory;
-    Entities entities = readEntities(OBJECT_MAPPER, configFileStream);
+    List<Entities> entitiesList = configFileStreams.stream()
+            .map(configFileStream -> readEntities(OBJECT_MAPPER, configFileStream))
+            .collect(Collectors.toList());
+    Entities entities = EntityRegistryUtils.mergeEntities(entitiesList);
     identifier = EntityRegistryUtils.getIdentifier(entities);
 
     // Build Entity Specs
