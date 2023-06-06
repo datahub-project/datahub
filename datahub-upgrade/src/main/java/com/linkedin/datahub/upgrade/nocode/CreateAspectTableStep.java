@@ -76,7 +76,7 @@ public class CreateAspectTableStep implements UpgradeStep {
       try {
         _server.execute(_server.createSqlUpdate(sqlUpdateStr));
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to create table metadata_aspect_v2: %s", e.toString()));
+        context.report().addLine("Failed to create table metadata_aspect_v2", e);
         return new DefaultUpgradeStepResult(
             id(),
             UpgradeStepResult.Result.FAILED);

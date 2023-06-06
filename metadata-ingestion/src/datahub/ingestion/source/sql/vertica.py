@@ -1056,7 +1056,6 @@ class VerticaSource(SQLAlchemySource):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
-            dataset_name = self.normalise_dataset_name(dataset_name)
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
             else:

@@ -2,7 +2,7 @@ import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
-import { Entity, EntityType, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
+import { Entity, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
@@ -82,8 +82,6 @@ interface Props {
     onChangeUnionType: (unionType: UnionType) => void;
     onChangePage: (page: number) => void;
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
-    entityFilters: EntityType[];
-    filtersWithoutEntities: FacetFilterInput[];
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
     isSelectMode: boolean;
@@ -108,8 +106,6 @@ export const SearchResults = ({
     onChangeFilters,
     onChangePage,
     downloadSearchResults,
-    entityFilters,
-    filtersWithoutEntities,
     numResultsPerPage,
     setNumResultsPerPage,
     isSelectMode,
@@ -157,8 +153,7 @@ export const SearchResults = ({
                                 <SearchMenuContainer>
                                     <SearchExtendedMenu
                                         downloadSearchResults={downloadSearchResults}
-                                        entityFilters={entityFilters}
-                                        filters={generateOrFilters(unionType, filtersWithoutEntities)}
+                                        filters={generateOrFilters(unionType, selectedFilters)}
                                         query={query}
                                         viewUrn={viewUrn}
                                         setShowSelectMode={setIsSelectMode}
