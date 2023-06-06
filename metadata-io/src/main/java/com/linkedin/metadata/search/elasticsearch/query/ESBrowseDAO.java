@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.net.URISyntaxException;
@@ -390,7 +391,7 @@ public class ESBrowseDAO {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
-    searchSourceBuilder.query(buildQueryStringV2(entityName, path, filter, input));
+    searchSourceBuilder.query(buildQueryStringV2(entityName, path, SearchUtil.transformFilterForEntities(filter, indexConvention), input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
