@@ -13,17 +13,20 @@ const useBrowsePagination = ({ skip }: Props) => {
     const type = useEntityType();
     const path = useBrowsePath();
     const sidebarFilters = useSidebarFilters();
-    const [map, setMap] = useState<Record<number, GetBrowseResultsV2Query | undefined>>({});
-    const list = useMemo(
+    const [startToBrowseMap, setStartToBrowseMap] = useState<Record<number, GetBrowseResultsV2Query | undefined>>({});
+    const startList = useMemo(
         () =>
-            Object.keys(map)
+            Object.keys(startToBrowseMap)
                 .map(Number)
                 .sort((a, b) => a - b),
-        [map],
+        [startToBrowseMap],
     );
-    const groups = useMemo(() => list.flatMap((start) => map[start]?.browseV2?.groups ?? []), [list, map]);
-    const latestStart = list.length ? list[list.length - 1] : -1;
-    const latestData = latestStart >= 0 ? map[latestStart] : null;
+    const groups = useMemo(
+        () => startList.flatMap((start) => startToBrowseMap[start]?.browseV2?.groups ?? []),
+        [startList, startToBrowseMap],
+    );
+    const latestStart = startList.length ? startList[startList.length - 1] : -1;
+    const latestData = latestStart >= 0 ? startToBrowseMap[latestStart] : null;
     const total = latestData?.browseV2?.total ?? -1;
     const done = !!latestData && groups.length >= total;
 
@@ -41,22 +44,14 @@ const useBrowsePagination = ({ skip }: Props) => {
                         path,
                         start,
                         count: BROWSE_PAGE_SIZE,
-                        orFilters: sidebarFilters?.orFilters,
-                        viewUrn: sidebarFilters?.viewUrn,
-                        query: sidebarFilters?.query,
+                        orFilters: sidebarFilters.orFilters,
+                        viewUrn: sidebarFilters.viewUrn,
+                        query: sidebarFilters.query,
                     },
                 },
             });
         },
-        [
-            getBrowseResultsV2,
-            path,
-            sidebarFilters?.orFilters,
-            sidebarFilters?.query,
-            sidebarFilters?.viewUrn,
-            skip,
-            type,
-        ],
+        [getBrowseResultsV2, path, sidebarFilters.orFilters, sidebarFilters.query, sidebarFilters.viewUrn, skip, type],
     );
 
     useEffect(() => {
@@ -67,7 +62,7 @@ const useBrowsePagination = ({ skip }: Props) => {
         const newStart = data?.browseV2?.start ?? -1;
         if (!data || newStart < 0) return;
 
-        setMap((previousMap) => {
+        setStartToBrowseMap((previousMap) => {
             const newMap: typeof previousMap = { [newStart]: data };
 
             Object.keys(previousMap)

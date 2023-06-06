@@ -26,9 +26,9 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
             input: {
                 types: sidebarFilters.entityFilters,
                 facets,
-                orFilters: sidebarFilters?.orFilters,
-                viewUrn: sidebarFilters?.viewUrn,
-                query: sidebarFilters?.query,
+                orFilters: sidebarFilters.orFilters,
+                viewUrn: sidebarFilters.viewUrn,
+                query: sidebarFilters.query,
             },
         },
     });

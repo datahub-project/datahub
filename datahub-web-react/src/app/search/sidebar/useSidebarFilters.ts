@@ -1,5 +1,4 @@
-import isEqual from 'lodash/isEqual';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import { BROWSE_PATH_V2_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import { useMaybeEntityType, useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
@@ -42,13 +41,5 @@ export const useSidebarFilters = (): SidebarFilters => {
         [entityType, filterOverrides, latestEntityFilters, latestOrFilters, latestQuery, latestViewUrn],
     );
 
-    const [sidebarFilters, setSidebarFilters] = useState(latestSidebarFilters);
-
-    // Ensures we only trigger filter updates in the sidebar if they truly changed (clicking browse could trigger this when we don't want)
-    useEffect(() => {
-        // todo(josh): harden this comparison check
-        if (!isEqual(sidebarFilters, latestSidebarFilters)) setSidebarFilters(latestSidebarFilters);
-    }, [latestSidebarFilters, sidebarFilters]);
-
-    return sidebarFilters;
+    return latestSidebarFilters;
 };
