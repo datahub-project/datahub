@@ -33,6 +33,7 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         },
     });
 
+    // This approach of falling back to previousData is needed to avoid a full re-mount of the sidebar entities
     const data = error ? null : newData ?? previousData;
     const loaded = !!data || !!error;
 

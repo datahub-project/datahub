@@ -19,8 +19,6 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-const facets = [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME];
-
 const EntityNode = () => {
     const isSelected = useIsEntitySelected();
     const entityType = useEntityType();
@@ -31,7 +29,7 @@ const EntityNode = () => {
 
     const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
-        facets,
+        facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
     });
 
     const hasMultipleEnvironments = environmentAggregations.length > 1;

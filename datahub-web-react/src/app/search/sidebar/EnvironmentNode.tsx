@@ -21,8 +21,6 @@ const Count = styled(Typography.Text)`
     color: ${(props) => props.color};
 `;
 
-const facets = [PLATFORM_FILTER_NAME];
-
 const EnvironmentNode = () => {
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
@@ -31,7 +29,7 @@ const EnvironmentNode = () => {
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
-        facets,
+        facets: [PLATFORM_FILTER_NAME],
     });
 
     const color = ANTD_GRAY[9];

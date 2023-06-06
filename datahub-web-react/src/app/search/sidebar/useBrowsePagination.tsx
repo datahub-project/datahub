@@ -51,8 +51,6 @@ const useBrowsePagination = ({ skip }: Props) => {
         },
     });
 
-    // What's happening here is that we have no entity filter before, but then we add one
-    // what we could do is move the entityFilters into the list
     useEffect(() => {
         setState(() => ({
             current: 0,
@@ -77,8 +75,6 @@ const useBrowsePagination = ({ skip }: Props) => {
     }, [data]);
 
     const advancePage = useCallback(() => {
-        // todo - remove
-        if (1) return;
         const newStart = latestStart + BROWSE_PAGE_SIZE;
         if (done || latestStart < 0 || total <= 0 || newStart >= total) return;
         setState((s) => ({ ...s, current: newStart }));

@@ -56,9 +56,7 @@ const PlatformNode = () => {
     const skip = !isOpen;
     const color = ANTD_GRAY[9];
 
-    const { error, groups: allGroups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
-    const groups = allGroups.slice(0, 1);
-    // const groups = allGroups.slice();
+    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
 
     return (
         <ExpandableNode

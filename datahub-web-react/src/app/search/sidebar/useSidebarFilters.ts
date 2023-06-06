@@ -46,7 +46,7 @@ export const useSidebarFilters = (): SidebarFilters => {
 
     // Ensures we only trigger filter updates in the sidebar if they truly changed (clicking browse could trigger this when we don't want)
     useEffect(() => {
-        // todo - consider hardening this equality check some more
+        // todo(josh): harden this comparison check
         if (!isEqual(sidebarFilters, latestSidebarFilters)) setSidebarFilters(latestSidebarFilters);
     }, [latestSidebarFilters, sidebarFilters]);
 
