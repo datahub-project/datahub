@@ -11,7 +11,6 @@ import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
-import com.linkedin.metadata.models.registry.config.Event;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileInputStream;
@@ -95,11 +94,7 @@ public class PatchEntityRegistry implements EntityRegistry {
     this.registryVersion = registryVersion;
     entityNameToSpec = new HashMap<>();
     Entities entities = EntityRegistryUtils.readEntities(OBJECT_MAPPER, configFileStream);
-    if (entities.getId() != null) {
-      identifier = entities.getId();
-    } else {
-      identifier = "Unknown";
-    }
+    identifier = EntityRegistryUtils.getIdentifier(entities);
 
     // Build Entity Specs
     EntitySpecBuilder entitySpecBuilder = new EntitySpecBuilder();
@@ -127,13 +122,7 @@ public class PatchEntityRegistry implements EntityRegistry {
     }
 
     // Build Event Specs
-    eventNameToSpec = new HashMap<>();
-    if (entities.getEvents() != null) {
-      for (Event event : entities.getEvents()) {
-        EventSpec eventSpec = EntityRegistryUtils.buildEventSpec(event.getName(), dataSchemaFactory);
-        eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
-      }
-    }
+    eventNameToSpec = EntityRegistryUtils.getEventNameToSpec(entities, dataSchemaFactory);
     _aspectNameToSpec = populateAspectMap(new ArrayList<>(entityNameToSpec.values()));
   }
 

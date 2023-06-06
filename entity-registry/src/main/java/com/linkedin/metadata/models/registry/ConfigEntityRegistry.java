@@ -12,7 +12,6 @@ import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
-import com.linkedin.metadata.models.registry.config.Event;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileInputStream;
@@ -20,7 +19,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -60,7 +58,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(String entityRegistryRoot) throws EntityRegistryException, IOException {
-    this(EntityRegistryUtils.getFileAndClassPath(entityRegistryRoot));
+    this(getFileAndClassPath(entityRegistryRoot));
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
@@ -73,12 +71,8 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
   public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, InputStream configFileStream) {
     this.dataSchemaFactory = dataSchemaFactory;
-    Entities entities = EntityRegistryUtils.readEntities(OBJECT_MAPPER, configFileStream);
-    if (entities.getId() != null) {
-      identifier = entities.getId();
-    } else {
-      identifier = "Unknown";
-    }
+    Entities entities = readEntities(OBJECT_MAPPER, configFileStream);
+    identifier = EntityRegistryUtils.getIdentifier(entities);
 
     // Build Entity Specs
     entityNameToSpec = new HashMap<>();
@@ -101,13 +95,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
     }
 
     // Build Event Specs
-    eventNameToSpec = new HashMap<>();
-    if (entities.getEvents() != null) {
-      for (Event event : entities.getEvents()) {
-        EventSpec eventSpec = EntityRegistryUtils.buildEventSpec(event.getName(), dataSchemaFactory);
-        eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
-      }
-    }
+    eventNameToSpec = getEventNameToSpec(entities, dataSchemaFactory);
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
   }

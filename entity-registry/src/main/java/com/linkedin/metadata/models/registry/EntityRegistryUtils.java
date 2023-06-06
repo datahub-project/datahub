@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.*;
 import com.linkedin.metadata.models.registry.config.Entities;
+import com.linkedin.metadata.models.registry.config.Event;
 import com.linkedin.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 
@@ -13,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,6 +84,25 @@ public class EntityRegistryUtils {
               String.format("Did not find an entity registry (entity-registry.yaml/yml) under %s", entityRegistryRootLoc));
     }
     return yamlFiles;
+  }
+
+  public static String getIdentifier(Entities entities) {
+    if (entities.getId() != null) {
+      return entities.getId();
+    } else {
+      return  "Unknown";
+    }
+  }
+
+  public static Map<String, EventSpec> getEventNameToSpec(Entities entities, DataSchemaFactory dataSchemaFactory) {
+    Map<String, EventSpec> result = new HashMap<>();
+    if (entities.getEvents() != null) {
+      for (Event event : entities.getEvents()) {
+        EventSpec eventSpec = EntityRegistryUtils.buildEventSpec(event.getName(), dataSchemaFactory);
+        result.put(event.getName().toLowerCase(), eventSpec);
+      }
+    }
+    return result;
   }
 
 }
