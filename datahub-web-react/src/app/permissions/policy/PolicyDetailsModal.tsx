@@ -110,7 +110,6 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
         if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
                 <div>
-                    <Typography.Title level={5}>Only to owners of types: </Typography.Title>
                     {actors?.resolvedOwnershipTypes?.map((type) => (
                         <PoliciesTag>{type.info.name}</PoliciesTag>
                     ))}
