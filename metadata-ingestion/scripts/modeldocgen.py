@@ -125,7 +125,6 @@ def add_name(self, name_attr, space_attr, new_schema):
 
 
 def load_schema_file(schema_file: str) -> None:
-
     with open(schema_file) as f:
         raw_schema_text = f.read()
 
@@ -462,7 +461,7 @@ def generate_stitched_record(
                 name=entity_display_name,
             )
 
-            yield from MetadataChangeProposalWrapper.construct_many(
+            return MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
                 aspects=[
                     SchemaMetadataClass(
@@ -599,7 +598,6 @@ def generate(
 
     if entity_extra_docs:
         for entity_name in entity_extra_docs:
-
             entity_registry[entity_name].doc_file_contents = entity_extra_docs[
                 entity_name
             ]
