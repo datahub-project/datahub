@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.AspectDao;
@@ -29,9 +30,10 @@ public class EntityServiceFactory {
       TopicConvention convention,
       KafkaHealthChecker kafkaHealthChecker,
       @Qualifier("entityAspectDao") AspectDao aspectDao,
-      EntityRegistry entityRegistry) {
+      EntityRegistry entityRegistry,
+      ConfigurationProvider configurationProvider) {
 
     final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention, kafkaHealthChecker);
-    return new EntityService(aspectDao, eventProducer, entityRegistry);
+    return new EntityService(aspectDao, eventProducer, entityRegistry, configurationProvider.getFeatureFlags().isAlwaysEmitChangeLog());
   }
 }

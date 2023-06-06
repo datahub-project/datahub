@@ -12,6 +12,8 @@ import RelatedTerm from './RelatedTerm';
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',
     isRelatedTerms = 'Inherits',
+    containedBy = 'Contained by',
+    isAChildren = 'Inherited by',
 }
 
 export type Props = {
@@ -42,9 +44,13 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
     });
     const contentLoading = false;
     const relationshipType =
-        glossaryRelatedTermType === RelatedTermTypes.hasRelatedTerms
+        glossaryRelatedTermType === RelatedTermTypes.hasRelatedTerms ||
+        glossaryRelatedTermType === RelatedTermTypes.containedBy
             ? TermRelationshipType.HasA
             : TermRelationshipType.IsA;
+    const canEditRelatedTerms =
+        glossaryRelatedTermType === RelatedTermTypes.isRelatedTerms ||
+        glossaryRelatedTermType === RelatedTermTypes.hasRelatedTerms;
 
     return (
         <>
@@ -56,12 +62,19 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                         <Typography.Title style={{ margin: '0' }} level={3}>
                             {glossaryRelatedTermType}
                         </Typography.Title>
-                        <Button type="text" onClick={() => setIsShowingAddModal(true)}>
-                            <PlusOutlined /> Add Terms
-                        </Button>
+                        {canEditRelatedTerms && (
+                            <Button type="text" onClick={() => setIsShowingAddModal(true)}>
+                                <PlusOutlined /> Add Terms
+                            </Button>
+                        )}
                     </TitleContainer>
                     {glossaryRelatedTermUrns.map((urn) => (
-                        <RelatedTerm key={urn} urn={urn} relationshipType={relationshipType} />
+                        <RelatedTerm
+                            key={urn}
+                            urn={urn}
+                            relationshipType={relationshipType}
+                            isEditable={canEditRelatedTerms}
+                        />
                     ))}
                     {glossaryRelatedTermUrns.length === 0 && (
                         <EmptyTab tab={glossaryRelatedTermType.toLocaleLowerCase()} />

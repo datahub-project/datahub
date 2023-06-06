@@ -12,6 +12,9 @@ import com.linkedin.metadata.models.registry.template.Template;
 import com.linkedin.metadata.models.registry.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.models.registry.template.common.GlossaryTermsTemplate;
 import com.linkedin.metadata.models.registry.template.common.OwnershipTemplate;
+import com.linkedin.metadata.models.registry.template.dataflow.DataFlowInfoTemplate;
+import com.linkedin.metadata.models.registry.template.datajob.DataJobInfoTemplate;
+import com.linkedin.metadata.models.registry.template.dataproduct.DataProductPropertiesTemplate;
 import com.linkedin.metadata.models.registry.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.models.registry.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.models.registry.template.dataset.UpstreamLineageTemplate;
@@ -68,6 +71,9 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsTemplate());
     aspectSpecTemplateMap.put(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
     aspectSpecTemplateMap.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsTemplate());
+    aspectSpecTemplateMap.put(DATA_FLOW_INFO_ASPECT_NAME, new DataFlowInfoTemplate());
+    aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());
+    aspectSpecTemplateMap.put(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, new DataProductPropertiesTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 

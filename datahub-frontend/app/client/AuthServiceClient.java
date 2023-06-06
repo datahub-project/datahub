@@ -81,7 +81,7 @@ public class AuthServiceClient {
       final ObjectNode objectNode = objectMapper.createObjectNode();
       objectNode.put(USER_ID_FIELD, userId);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -140,7 +140,7 @@ public class AuthServiceClient {
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(INVITE_TOKEN_FIELD, inviteToken);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -195,7 +195,7 @@ public class AuthServiceClient {
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(RESET_TOKEN_FIELD, resetToken);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -245,7 +245,7 @@ public class AuthServiceClient {
       objectNode.put(USER_URN_FIELD, userUrn);
       objectNode.put(PASSWORD_FIELD, password);
       final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
-      request.setEntity(new StringEntity(json));
+      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
@@ -288,7 +288,7 @@ public class AuthServiceClient {
               TRACK_ENDPOINT));
 
       // Build JSON request to track event.
-      request.setEntity(new StringEntity(event));
+      request.setEntity(new StringEntity(event, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());

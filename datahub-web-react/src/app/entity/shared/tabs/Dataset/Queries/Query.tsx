@@ -1,55 +1,75 @@
-import React, { useMemo, useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-
-import { Typography } from 'antd';
-import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
-import { SeeMore } from '../../../components/styled/SeeMore';
+import React, { useState } from 'react';
+import QueryModal from './QueryModal';
+import QueryBuilderModal from './QueryBuilderModal';
+import QueryCard from './QueryCard';
 
 export type Props = {
-    query?: string | null;
+    urn?: string;
+    query: string;
+    title?: string;
+    description?: string;
+    createdAtMs?: number;
+    showDelete?: boolean;
+    showEdit?: boolean;
+    showDetails?: boolean;
+    onDeleted?: () => void;
+    onEdited?: (query) => void;
+    index?: number;
 };
 
-const QueryText = styled(Typography.Paragraph)`
-    margin: 20px;
-    &&& pre {
-        background-color: ${ANTD_GRAY[2]};
-        border: none;
-    }
-`;
+export default function Query({
+    urn,
+    query,
+    title,
+    description,
+    createdAtMs,
+    showDelete,
+    showEdit,
+    showDetails = true,
+    onDeleted,
+    onEdited,
+    index,
+}: Props) {
+    const [showQueryModal, setShowQueryModal] = useState(false);
+    const [showEditQueryModal, setShowEditQueryModal] = useState(false);
 
-// NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
-// to the component, so there's no way around this
-const NestedSyntax = styled(SyntaxHighlighter)`
-    background-color: transparent !important;
-    border: none !important;
-`;
-
-const UNEXPANDED_SIZE = 5;
-
-export default function Query({ query }: Props) {
-    const rows = useMemo(() => query?.split('\n'), [query]);
-
-    const unexpandedRows = useMemo(() => rows?.slice(0, UNEXPANDED_SIZE), [rows]);
-
-    const [expanded, setExpanded] = useState((rows?.length || 0) <= UNEXPANDED_SIZE);
-
-    if (!query) {
-        return null;
-    }
+    const onEditSubmitted = (newQuery) => {
+        setShowEditQueryModal(false);
+        onEdited?.(newQuery);
+    };
 
     return (
-        <QueryText>
-            <pre>
-                {!expanded ? (
-                    <>
-                        <NestedSyntax language="sql">{unexpandedRows?.join('\n')}</NestedSyntax>
-                        <SeeMore onClick={() => setExpanded(true)}>···</SeeMore>
-                    </>
-                ) : (
-                    <NestedSyntax language="sql">{query}</NestedSyntax>
-                )}
-            </pre>
-        </QueryText>
+        <>
+            <QueryCard
+                urn={urn}
+                query={query}
+                title={title}
+                description={description}
+                createdAtMs={createdAtMs}
+                showEdit={showEdit}
+                showDelete={showDelete}
+                showDetails={showDetails}
+                onClickEdit={() => setShowEditQueryModal(true)}
+                onClickExpand={() => setShowQueryModal(true)}
+                onDeleted={onDeleted}
+                index={index}
+            />
+            {showQueryModal && (
+                <QueryModal
+                    query={query}
+                    title={title}
+                    description={description}
+                    onClose={() => setShowQueryModal(false)}
+                    showDetails={showDetails}
+                />
+            )}
+            {showEditQueryModal && (
+                <QueryBuilderModal
+                    initialState={{ urn: urn as string, title, description, query }}
+                    onSubmit={onEditSubmitted}
+                    onClose={() => setShowEditQueryModal(false)}
+                />
+            )}
+        </>
     );
 }

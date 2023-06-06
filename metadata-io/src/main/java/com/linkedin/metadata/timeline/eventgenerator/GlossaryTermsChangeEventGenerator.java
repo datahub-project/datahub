@@ -133,11 +133,16 @@ public class GlossaryTermsChangeEventGenerator extends EntityChangeEventGenerato
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
+    if (currentValue == null) {
+      throw new IllegalArgumentException("EntityAspect currentValue should not be null");
+    }
+
     if (!previousValue.getAspect().equals(GLOSSARY_TERMS_ASPECT_NAME) || !currentValue.getAspect()
         .equals(GLOSSARY_TERMS_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + GLOSSARY_TERMS_ASPECT_NAME);
     }
-    assert (currentValue != null);
+
     GlossaryTerms baseGlossaryTerms = getGlossaryTermsFromAspect(previousValue);
     GlossaryTerms targetGlossaryTerms = getGlossaryTermsFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();

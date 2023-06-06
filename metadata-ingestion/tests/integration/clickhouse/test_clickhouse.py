@@ -23,7 +23,8 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_t
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "clickhouse_to_file.yml").resolve()
         run_datahub_cmd(
-            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+            ["ingest", "-c", f"{config_file}"],
+            tmp_path=tmp_path,
         )
         # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
         ignore_paths: List[str] = [

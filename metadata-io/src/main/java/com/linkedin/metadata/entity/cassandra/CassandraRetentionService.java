@@ -20,6 +20,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
+import com.linkedin.metadata.Constants;
 import io.opentelemetry.extension.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +38,6 @@ import java.util.stream.Collectors;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.deleteFrom;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -131,7 +131,7 @@ public class CassandraRetentionService extends RetentionService {
     SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
         .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
-        .whereColumn(CassandraAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION))
+        .whereColumn(CassandraAspect.VERSION_COLUMN).isGreaterThan(literal(Constants.ASPECT_LATEST_VERSION))
         .whereColumn(CassandraAspect.VERSION_COLUMN).isLessThanOrEqualTo(literal(largestVersion - retention.getMaxVersions() + 1L))
         .build();
 
@@ -174,7 +174,7 @@ public class CassandraRetentionService extends RetentionService {
     if (aspectName != null) {
       select = select.whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName));
     }
-    select = select.whereColumn(CassandraAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION));
+    select = select.whereColumn(CassandraAspect.VERSION_COLUMN).isGreaterThan(literal(Constants.ASPECT_LATEST_VERSION));
     if (entityName != null) {
       select = select.whereColumn(CassandraAspect.ENTITY_COLUMN).isEqualTo(literal(entityName));
     }
@@ -187,8 +187,8 @@ public class CassandraRetentionService extends RetentionService {
   private Map<String, DataHubRetentionConfig> getAllRetentionPolicies() {
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .all()
-        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(DATAHUB_RETENTION_ASPECT))
-        .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(ASPECT_LATEST_VERSION))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(Constants.DATAHUB_RETENTION_ASPECT))
+        .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(Constants.ASPECT_LATEST_VERSION))
         .allowFiltering()
         .build();
     ResultSet rs = _cqlSession.execute(ss);

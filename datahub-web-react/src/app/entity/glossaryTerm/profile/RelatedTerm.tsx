@@ -35,10 +35,11 @@ const MenuItem = styled.div`
 interface Props {
     urn: string;
     relationshipType: TermRelationshipType;
+    isEditable: boolean;
 }
 
 function RelatedTerm(props: Props) {
-    const { urn, relationshipType } = props;
+    const { urn, relationshipType, isEditable } = props;
 
     const entityRegistry = useEntityRegistry();
     const { data, loading } = useGetGlossaryTermQuery({ variables: { urn } });
@@ -54,20 +55,22 @@ function RelatedTerm(props: Props) {
         <ListItem>
             <Profile>
                 {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
-                <Dropdown
-                    overlay={
-                        <Menu>
-                            <Menu.Item key="0">
-                                <MenuItem onClick={onRemove}>
-                                    <DeleteOutlined /> &nbsp; Remove Term
-                                </MenuItem>
-                            </Menu.Item>
-                        </Menu>
-                    }
-                    trigger={['click']}
-                >
-                    <MenuIcon />
-                </Dropdown>
+                {isEditable && (
+                    <Dropdown
+                        overlay={
+                            <Menu>
+                                <Menu.Item key="0">
+                                    <MenuItem onClick={onRemove}>
+                                        <DeleteOutlined /> &nbsp; Remove Term
+                                    </MenuItem>
+                                </Menu.Item>
+                            </Menu>
+                        }
+                        trigger={['click']}
+                    >
+                        <MenuIcon />
+                    </Dropdown>
+                )}
             </Profile>
             <Divider style={{ margin: '20px 0' }} />
         </ListItem>

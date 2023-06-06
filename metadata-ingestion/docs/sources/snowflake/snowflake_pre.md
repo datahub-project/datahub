@@ -35,6 +35,9 @@ create user datahub_user display_name = 'DataHub' password='' default_role = dat
 
 // Grant the datahub_role to the new DataHub user.
 grant role datahub_role to user datahub_user;
+
+// Optional - required if extracting lineage, usage or tags (without lineage)
+grant imported privileges on database snowflake to role datahub_role;
 ```
 
 The details of each granted privilege can be viewed in [snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summarization of each privilege, and why it is required for this connector:
@@ -59,5 +62,5 @@ grant imported privileges on database snowflake to role datahub_role;
 ### Caveats
 
 - Some of the features are only available in the Snowflake Enterprise Edition. This doc has notes mentioning where this applies.
-- The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc.
+- The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [incident going on for Snowflake](https://status.snowflake.com/) we will not be able to get the metadata until that incident is resolved.

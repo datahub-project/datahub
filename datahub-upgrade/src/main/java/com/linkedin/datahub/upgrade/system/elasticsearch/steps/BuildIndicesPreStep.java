@@ -5,13 +5,13 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -19,21 +19,18 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.NotImplementedException;
 import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.elasticsearch.client.GetAliasesResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.indices.ResizeRequest;
 
+import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.INDEX_BLOCKS_WRITE_SETTING;
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
 
 @RequiredArgsConstructor
 @Slf4j
 public class BuildIndicesPreStep implements UpgradeStep {
-
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents _esComponents;
   private final List<ElasticSearchIndexed> _services;
   private final ConfigurationProvider _configurationProvider;
@@ -58,44 +55,12 @@ public class BuildIndicesPreStep implements UpgradeStep {
                 .collect(Collectors.toList());
 
         for (ReindexConfig indexConfig : indexConfigs) {
-          String indexName = indexConfig.name();
+          String indexName = IndexUtils.resolveAlias(_esComponents.getSearchClient(), indexConfig.name());
 
-          GetAliasesResponse aliasResponse = getAlias(indexConfig.name());
-          if (!aliasResponse.getAliases().isEmpty()) {
-            Set<String> indices = aliasResponse.getAliases().keySet();
-            if (indices.size() != 1) {
-              throw new NotImplementedException(
-                      String.format("Clone not supported for %s indices in alias %s. Indices: %s",
-                              indices.size(),
-                              indexConfig.name(),
-                              String.join(",", indices)));
-            }
-            indexName = indices.stream().findFirst().get();
-            log.info("Alias {} resolved to index {}", indexConfig.name(), indexName);
-          }
-
-          UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
-          Map<String, Object> indexSettings = ImmutableMap.of("index.blocks.write", "true");
-
-          request.settings(indexSettings);
-          boolean ack;
-          try {
-            ack =
-                _esComponents.getSearchClient().indices().putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
-            log.info("Updated index {} with new settings. Settings: {}, Acknowledged: {}", indexName, indexSettings, ack);
-          } catch (ElasticsearchStatusException ese) {
-            // Cover first run case, indices won't exist so settings updates won't work nor will the rest of the preConfigure steps.
-            // Since no data are in there they are skippable.
-            // Have to hack around HighLevelClient not sending the actual Java type nor having an easy way to extract it :(
-            if (ese.getMessage().contains("index_not_found")) {
-              continue;
-            }
-            throw ese;
-          }
-
+          boolean ack = blockWrites(indexName);
           if (!ack) {
             log.error("Partial index settings update, some indices may still be blocking writes."
-                + " Please fix the error and re-run the BuildIndices upgrade job.");
+                    + " Please fix the error and re-run the BuildIndices upgrade job.");
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
@@ -120,8 +85,34 @@ public class BuildIndicesPreStep implements UpgradeStep {
     };
   }
 
-  private GetAliasesResponse getAlias(String name) throws IOException {
-    return _esComponents.getSearchClient().indices()
-            .getAlias(new GetAliasesRequest(name), RequestOptions.DEFAULT);
+
+
+  private boolean blockWrites(String indexName) throws InterruptedException, IOException {
+    UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
+    Map<String, Object> indexSettings = ImmutableMap.of(INDEX_BLOCKS_WRITE_SETTING, "true");
+
+    request.settings(indexSettings);
+    boolean ack;
+    try {
+      ack = _esComponents.getSearchClient().indices()
+              .putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
+      log.info("Updated index {} with new settings. Settings: {}, Acknowledged: {}", indexName, indexSettings, ack);
+    } catch (ElasticsearchStatusException | IOException ese) {
+      // Cover first run case, indices won't exist so settings updates won't work nor will the rest of the preConfigure steps.
+      // Since no data are in there they are skippable.
+      // Have to hack around HighLevelClient not sending the actual Java type nor having an easy way to extract it :(
+      if (ese.getMessage().contains("index_not_found")) {
+        return true;
+      } else {
+        throw ese;
+      }
+    }
+
+    if (ack) {
+      ack = IndexUtils.validateWriteBlock(_esComponents.getSearchClient(), indexName, true);
+      log.info("Validated index {} with new settings. Settings: {}, Acknowledged: {}", indexName, indexSettings, ack);
+    }
+
+    return ack;
   }
 }

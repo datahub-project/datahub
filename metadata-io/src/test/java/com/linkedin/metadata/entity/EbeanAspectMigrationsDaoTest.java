@@ -24,7 +24,7 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     _mockProducer = mock(EventProducer.class);
     EbeanAspectDao dao = new EbeanAspectDao(server);
     dao.setConnectionValidated(true);
-    _entityService = new EntityService(dao, _mockProducer, _testEntityRegistry);
+    _entityService = new EntityService(dao, _mockProducer, _testEntityRegistry, true);
     _retentionService = new EbeanRetentionService(_entityService, server, 1000);
     _entityService.setRetentionService(_retentionService);
 

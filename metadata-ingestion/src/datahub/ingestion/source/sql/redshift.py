@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
-import pydantic
 import sqlalchemy
 import sqlalchemy_redshift  # noqa: F401
 from pydantic.fields import Field
@@ -33,9 +32,9 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
-from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.sql.postgres import BasePostgresConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SQLSourceReport,
@@ -125,11 +124,19 @@ class DatasetS3LineageProviderConfigBase(ConfigModel):
 
 
 class RedshiftConfig(
-    PostgresConfig,
+    BasePostgresConfig,
     BaseTimeWindowConfig,
     DatasetLineageProviderConfigBase,
     DatasetS3LineageProviderConfigBase,
 ):
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database_alias:
+            return f"{self.database_alias}.{regular}"
+        if self.database:
+            return f"{self.database}.{regular}"
+        return regular
+
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
     # because it has better caching behavior. In particular, it queries
@@ -141,7 +148,7 @@ class RedshiftConfig(
     scheme = Field(
         default="redshift+psycopg2",
         description="",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
 
     default_schema: str = Field(
@@ -169,10 +176,6 @@ class RedshiftConfig(
         default=LineageMode.STL_SCAN_BASED,
         description="Which table lineage collector mode to use. Available modes are: [stl_scan_based, sql_based, mixed]",
     )
-
-    @pydantic.validator("platform")
-    def platform_is_always_redshift(cls, v):
-        return "redshift"
 
 
 # reflection.cache uses eval and other magic to partially rewrite the function.
@@ -574,14 +577,14 @@ class RedshiftSource(SQLAlchemySource):
         for db_row in db_engine.execute("select version()"):
             self.report.saas_version = db_row[0]
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         try:
             self.inspect_version()
         except Exception as e:
             self.report.report_failure("version", f"Error: {e}")
             return
 
-        for wu in super().get_workunits():
+        for wu in super().get_workunits_internal():
             yield wu
             if (
                 isinstance(wu, SqlWorkUnit)
@@ -600,13 +603,7 @@ class RedshiftSource(SQLAlchemySource):
                     )
 
                 if lineage_mcp is not None:
-                    lineage_wu = MetadataWorkUnit(
-                        id=f"redshift-{lineage_mcp.entityUrn}-{lineage_mcp.aspectName}",
-                        mcp=lineage_mcp,
-                    )
-                    self.report.report_workunit(lineage_wu)
-
-                    yield lineage_wu
+                    yield lineage_mcp.as_workunit()
 
                 if lineage_properties_aspect:
                     aspects = dataset_snapshot.aspects
@@ -696,10 +693,11 @@ class RedshiftSource(SQLAlchemySource):
         return sources
 
     def get_db_name(self, inspector: Optional[Inspector] = None) -> str:
-        db_name = getattr(self.config, "database")
-        db_alias = getattr(self.config, "database_alias")
+        db_name = self.config.database
+        db_alias = self.config.database_alias
         if db_alias:
             db_name = db_alias
+        assert db_name
         return db_name
 
     def _get_s3_path(self, path: str) -> str:
@@ -851,7 +849,7 @@ class RedshiftSource(SQLAlchemySource):
                 distinct cluster,
                 target_schema,
                 target_table,
-                username,
+                username as username,
                 source_schema,
                 source_table
             from
@@ -873,7 +871,7 @@ class RedshiftSource(SQLAlchemySource):
                     ) as target_tables
             join ( (
                 select
-                    pu.usename::varchar(40) as username,
+                    sui.usename as username,
                     ss.tbl as source_table_id,
                     sti.schema as source_schema,
                     sti.table as source_table,
@@ -891,12 +889,12 @@ class RedshiftSource(SQLAlchemySource):
                 ) ss
                 join SVV_TABLE_INFO sti on
                     sti.table_id = ss.tbl
-                left join pg_user pu on
-                    pu.usesysid = ss.userid
                 left join stl_query sq on
                     ss.query = sq.query
+                left join svl_user_info sui on
+                    sq.userid = sui.usesysid
                 where
-                    pu.usename <> 'rdsdb')
+                    sui.usename <> 'rdsdb')
             ) as source_tables
                     using (query)
             where
@@ -980,21 +978,21 @@ class RedshiftSource(SQLAlchemySource):
                 sti.schema as target_schema,
                 sti.table as target_table,
                 sti.database as cluster,
-                usename as username,
+                sui.usename as username,
                 querytxt,
                 si.starttime as starttime
             from
                 stl_insert as si
             join SVV_TABLE_INFO sti on
                 sti.table_id = tbl
-            left join pg_user pu on
-                pu.usesysid = si.userid
+            left join svl_user_info sui on
+                si.userid = sui.usesysid
             left join stl_query sq on
                 si.query = sq.query
             left join stl_load_commits slc on
                 slc.query = si.query
             where
-                pu.usename <> 'rdsdb'
+                sui.usename <> 'rdsdb'
                 and sq.aborted = 0
                 and slc.query IS NULL
                 and cluster = '{db_name}'

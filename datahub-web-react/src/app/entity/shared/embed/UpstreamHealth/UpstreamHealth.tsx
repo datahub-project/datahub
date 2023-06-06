@@ -1,5 +1,6 @@
 import { green } from '@ant-design/colors';
-import { CheckCircleFilled, LoadingOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { CheckCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
 import styled from 'styled-components';
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
@@ -8,6 +9,7 @@ import { ANTD_GRAY } from '../../constants';
 import { useEntityData } from '../../EntityContext';
 import { extractUpstreamSummary } from './utils';
 import FailingInputs from './FailingInputs';
+import { ReactComponent as SubtractIcon } from '../../../../../images/subtractIcon.svg';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -28,7 +30,7 @@ const UnknownText = styled.span`
     margin-left: 8px;
 `;
 
-const StyledQuestion = styled(QuestionCircleOutlined)`
+const StyledIcon = styled(Icon)`
     color: ${ANTD_GRAY[7]};
 `;
 
@@ -83,8 +85,8 @@ export default function UpstreamHealth() {
 
     return (
         <div>
-            <StyledQuestion />
-            <UnknownText>0 upstream assertions</UnknownText>
+            <StyledIcon component={SubtractIcon} />
+            <UnknownText>Unknown data input health</UnknownText>
         </div>
     );
 }

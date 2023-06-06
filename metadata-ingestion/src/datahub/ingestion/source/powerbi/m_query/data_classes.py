@@ -1,8 +1,11 @@
+import os
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from lark import Tree
+
+TRACE_POWERBI_MQUERY_PARSER = os.getenv("DATAHUB_TRACE_POWERBI_MQUERY_PARSER", False)
 
 
 class AbstractIdentifierAccessor(ABC):  # To pass lint

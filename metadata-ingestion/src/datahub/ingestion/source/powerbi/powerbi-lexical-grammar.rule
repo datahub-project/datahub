@@ -1,3 +1,12 @@
+// MODIFICATIONS:
+// - The let_expression definition has added the whitespace rule instead of the required newline.
+//   This allows the parser to be less strict about whitespace.
+// - Add inline whitespace to item_selection and optional_item_selection.
+// - Tweak unary_expression to allow arbitrary operators within it.
+//   This is necessary because unary_expression is the base for the
+//   whole relational_expression parse tree.
+
+
 lexical_unit:   lexical_elements?
 
 lexical_elements:   lexical_element 
@@ -296,6 +305,7 @@ unary_expression:   type_expression
                 |   "+" unary_expression
                 |   "_" unary_expression
                 |   "not" unary_expression
+                |   expression
 
 primary_expression: literal_expression
                 |   list_expression
@@ -361,9 +371,9 @@ field_name: generalized_identifier
 item_access_expression: item_selection
                     |   optional_item_selection
 
-item_selection: primary_expression "{" item_selector "}"
+item_selection: primary_expression whitespace? "{" item_selector "}"
 
-optional_item_selection:    primary_expression "{" item_selector "}" "?"
+optional_item_selection:    primary_expression whitespace? "{" item_selector "}" "?"
 
 item_selector:  expression
 
@@ -426,7 +436,7 @@ each_expression:    "each" WS_INLINE each_expression_body
 
 each_expression_body:   function_body
 
-let_expression: "let" NEWLINE WS_INLINE? variable_list WS_INLINE? NEWLINE? in_expression
+let_expression: "let" whitespace variable_list WS_INLINE? NEWLINE? in_expression
 
 in_expression: "in" NEWLINE? WS_INLINE? NEWLINE? expression
 

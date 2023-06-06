@@ -2,25 +2,48 @@ import React from 'react';
 import { LineageDirection } from '../../../../../types.generated';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
 import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
-import { useGetTimeParams } from '../../../../lineage/utils/useGetTimeParams';
+import generateUseDownloadScrollAcrossLineageSearchResultsHook from './generateUseDownloadScrollAcrossLineageSearchResultsHook';
 
 type Props = {
     urn: string;
     direction: LineageDirection;
     shouldRefetch?: boolean;
+    startTimeMillis?: number;
+    endTimeMillis?: number;
+    skipCache?: boolean;
+    setSkipCache?: (skipCache: boolean) => void;
     resetShouldRefetch?: () => void;
 };
 
-export const ImpactAnalysis = ({ urn, direction, shouldRefetch, resetShouldRefetch }: Props) => {
-    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
-
+export const ImpactAnalysis = ({
+    urn,
+    direction,
+    startTimeMillis,
+    endTimeMillis,
+    shouldRefetch,
+    skipCache,
+    setSkipCache,
+    resetShouldRefetch,
+}: Props) => {
+    const finalStartTimeMillis = startTimeMillis || undefined;
+    const finalEndTimeMillis = endTimeMillis || undefined;
     return (
         <EmbeddedListSearchSection
             useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
                 urn,
                 direction,
-                startTimeMillis: startTimeMillis || undefined,
-                endTimeMillis: endTimeMillis || undefined,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
+            })}
+            useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
+                urn,
+                direction,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
             })}
             defaultShowFilters
             defaultFilters={[{ field: 'degree', values: ['1'] }]}

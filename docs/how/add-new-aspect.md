@@ -9,7 +9,7 @@ We'll use the [CorpUserEditableInfo](https://github.com/datahub-project/datahub/
 
 3. Rebuild the rest.li [IDL & snapshot](https://linkedin.github.io/rest.li/modeling/compatibility_check) by running the following command from the project root
 ```
-./gradlew :gms:impl:build -Prest.model.compatibility=ignore
+./gradlew :metadata-service:restli-servlet-impl:build -Prest.model.compatibility=ignore
 ```
 
 4. To surface the new aspect at the top-level [resource endpoint](https://linkedin.github.io/rest.li/user_guide/restli_server#writing-resources), extend the resource data model (e.g. [`CorpUser`](https://github.com/datahub-project/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/identity/CorpUser.pdl)) with an optional field (e.g. [`editableInfo`](https://github.com/datahub-project/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/identity/CorpUser.pdl#L21)). You'll also need to extend the `toValue` & `toSnapshot` methods of the top-level resource (e.g. [`CorpUsers`](https://github.com/datahub-project/datahub/blob/master/gms/impl/src/main/java/com/linkedin/metadata/resources/identity/CorpUsers.java)) to convert between the snapshot & value models.

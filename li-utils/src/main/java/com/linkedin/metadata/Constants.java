@@ -16,7 +16,18 @@ public class Constants {
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
 
+  // !!!!!!! IMPORTANT !!!!!!!
+  // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages. Without this the limit is
+  // whatever Jackson is defaulting to (5 MB currently).
+  public static final String MAX_JACKSON_STRING_SIZE = "16000000";
+  public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH = "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
+
+  /**
+   * System Metadata
+   */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
+  // Forces indexing for no-ops, enabled for restore indices calls. Only considered in the no-op case
+  public static final String FORCE_INDEXING_KEY = "forceIndexing";
 
   /**
    * Entities
@@ -54,6 +65,9 @@ public class Constants {
   public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
+  public static final String QUERY_ENTITY_NAME = "query";
+  public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
+  public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
 
   /**
    * Aspects
@@ -69,6 +83,7 @@ public class Constants {
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
+  public static final String OPERATION_EVENT_TIME_FIELD_NAME = "lastUpdatedTimestamp"; // :(
   public static final String SIBLINGS_ASPECT_NAME = "siblings";
   public static final String ORIGIN_ASPECT_NAME = "origin";
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
@@ -141,6 +156,7 @@ public class Constants {
 
   // DataPlatformInstance
   public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
+  public static final String DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME = "dataPlatformInstanceProperties";
 
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
@@ -251,6 +267,18 @@ public class Constants {
   public static final String DATAHUB_VIEW_KEY_ASPECT_NAME = "dataHubViewKey";
   public static final String DATAHUB_VIEW_INFO_ASPECT_NAME = "dataHubViewInfo";
 
+  // Query
+  public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
+  public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
+
+  // DataProduct
+  public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
+  public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
+
+  // Ownership Types
+  public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
+  public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
+
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
@@ -262,6 +290,12 @@ public class Constants {
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
+  /**
+   * Retention
+   */
+  public static final String DATAHUB_RETENTION_ENTITY = "dataHubRetention";
+  public static final String DATAHUB_RETENTION_ASPECT = "dataHubRetentionConfig";
+  public static final String DATAHUB_RETENTION_KEY_ASPECT = "dataHubRetentionKey";
   /**
    * User Status
    */
@@ -286,6 +320,10 @@ public class Constants {
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME = "dataHubStepStateProperties";
 
+
+  // Authorization
+  public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
+
   // Metadata Change Event Parameter Names
 
   // Runs
@@ -297,6 +335,10 @@ public class Constants {
   public static final String PARENT_INSTANCE_URN_KEY = "parentInstanceUrn";
   public static final String DATA_FLOW_URN_KEY = "dataFlowUrn";
   public static final String DATA_JOB_URN_KEY = "dataJobUrn";
+
+  // Config
+  public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
+  public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
 
   private Constants() {
   }

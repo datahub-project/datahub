@@ -49,7 +49,7 @@ Quickest way to try out `Metadata Change Event Consumer Job` is running the [Doc
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
 ```
-./gradlew :metadata-jobs:mce-consumer-job:bootRun
+MCP_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mce-consumer-job:bootRun
 ```
 
 ## Debugging
@@ -58,7 +58,7 @@ To debug with an IDE (i.e. IntelliJ), run the `bootRun` task with the `--debug-j
 listen on port 5005 for a remote debugger.
 
 ```
-./gradlew :metadata-jobs:mce-consumer-job:bootRun --debug-jvm
+MCP_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mce-consumer-job:bootRun --debug-jvm
 ```
 
 ## Endpoints

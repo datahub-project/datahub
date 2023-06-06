@@ -1,11 +1,17 @@
 import itertools
 import shlex
-from typing import List
+from typing import List, Union
 
 import requests
 
 
-def _make_curl_command(
+def _format_header(name: str, value: Union[str, bytes]) -> str:
+    if name == "Authorization":
+        return f"{name!s}: <redacted>"
+    return f"{name!s}: {value!s}"
+
+
+def make_curl_command(
     session: requests.Session, method: str, url: str, payload: str
 ) -> str:
     fragments: List[str] = [
@@ -13,7 +19,7 @@ def _make_curl_command(
         *itertools.chain(
             *[
                 ("-X", method),
-                *[("-H", f"{k!s}: {v!s}") for (k, v) in session.headers.items()],
+                *[("-H", _format_header(k, v)) for (k, v) in session.headers.items()],
                 ("--data", payload),
             ]
         ),

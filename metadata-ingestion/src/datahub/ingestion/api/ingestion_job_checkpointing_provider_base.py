@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, NewType, Type, TypeVar
+from typing import Any, Dict, NewType, Optional, Type, TypeVar
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -43,6 +43,14 @@ class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStates
     def commit(self) -> None:
         pass
 
+    @abstractmethod
+    def get_latest_checkpoint(
+        self,
+        pipeline_name: str,
+        job_name: JobId,
+    ) -> Optional[DatahubIngestionCheckpointClass]:
+        pass
+
     @staticmethod
     def get_data_job_urn(
         orchestrator: str,
@@ -53,14 +61,3 @@ class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStates
         Standardizes datajob urn minting for all ingestion job state providers.
         """
         return builder.make_data_job_urn(orchestrator, pipeline_name, job_name)
-
-    @staticmethod
-    def get_data_job_legacy_urn(
-        orchestrator: str,
-        pipeline_name: str,
-        job_name: JobId,
-        platform_instance_id: str,
-    ) -> str:
-        return IngestionCheckpointingProviderBase.get_data_job_urn(
-            orchestrator, f"{pipeline_name}_{platform_instance_id}", job_name
-        )

@@ -9,10 +9,20 @@ record KafkaSchema {
    * The native kafka document schema. This is a human readable avro document schema.
    */
   documentSchema: string
+  
+  /**
+   * The native kafka document schema type. This can be AVRO/PROTOBUF/JSON.
+   */
+  documentSchemaType: optional string
 
   /**
    * The native kafka key schema as retrieved from Schema Registry
    */
   keySchema: optional string
+
+  /**
+   * The native kafka key schema type. This can be AVRO/PROTOBUF/JSON.
+   */
+  keySchemaType: optional string
 
 }

@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "glue",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "test-database"
             },
             "name": "test-database",
@@ -227,7 +227,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -412,7 +412,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },

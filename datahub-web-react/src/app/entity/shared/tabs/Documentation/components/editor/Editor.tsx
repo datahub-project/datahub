@@ -39,6 +39,7 @@ type EditorProps = {
     content?: string;
     onChange?: (md: string) => void;
     className?: string;
+    doNotFocus?: boolean;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
@@ -74,7 +75,9 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     useImperativeHandle(ref, () => getContext(), [getContext]);
 
     useMount(() => {
-        manager.view.focus();
+        if (!props.doNotFocus) {
+            manager.view.focus();
+        }
     });
     useEffect(() => {
         if (readOnly && content) {

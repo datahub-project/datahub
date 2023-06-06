@@ -80,6 +80,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
             )),
             start,
             count,
+            null,
             context.getAuthentication()
         ));
 

@@ -46,7 +46,7 @@ public class DeleteEntityServiceTest {
     _entityRegistry = new ConfigEntityRegistry(Snapshot.class.getClassLoader()
         .getResourceAsStream("entity-registry.yml"));
     _aspectDao = mock(EbeanAspectDao.class);
-    _entityService = new EntityService(_aspectDao, mock(EventProducer.class), _entityRegistry);
+    _entityService = new EntityService(_aspectDao, mock(EventProducer.class), _entityRegistry, true);
     _deleteEntityService = new DeleteEntityService(_entityService, _graphService);
   }
 

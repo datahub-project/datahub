@@ -7,11 +7,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
-import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
-import com.linkedin.mxe.TopicConvention;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.kafka.clients.producer.Producer;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,9 +21,7 @@ public class SystemUpdate implements Upgrade {
     private final List<UpgradeStep> _steps;
 
     public SystemUpdate(final BuildIndices buildIndicesJob, final CleanIndices cleanIndicesJob,
-                        final Producer<String, ? extends IndexedRecord> producer,
-                        final TopicConvention convention, final String version, final KafkaHealthChecker kafkaHealthChecker) {
-        final KafkaEventProducer kafkaEventProducer = new KafkaEventProducer(producer, convention, kafkaHealthChecker);
+                        final KafkaEventProducer kafkaEventProducer, final String version) {
 
         _preStartupUpgrades = List.of(buildIndicesJob);
         _steps = List.of(new DataHubStartupStep(kafkaEventProducer, version));

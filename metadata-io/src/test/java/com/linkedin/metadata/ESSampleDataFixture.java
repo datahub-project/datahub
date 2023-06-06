@@ -1,8 +1,16 @@
 package com.linkedin.metadata;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
-import com.linkedin.metadata.config.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.CustomConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
@@ -38,6 +46,11 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Map;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 
 @TestConfiguration
 @Import(ESTestConfiguration.class)
@@ -48,6 +61,9 @@ public class ESSampleDataFixture {
 
     @Autowired
     private RestHighLevelClient _searchClient;
+
+    @Autowired
+    private SearchConfiguration _searchConfiguration;
 
     @Bean(name = "sampleDataPrefix")
     protected String indexPrefix() {
@@ -82,8 +98,14 @@ public class ESSampleDataFixture {
             @Qualifier("entityRegistry") EntityRegistry entityRegistry,
             @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
             @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
-    ) {
-        ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention);
+    ) throws IOException {
+        CustomConfiguration customConfiguration = new CustomConfiguration();
+        customConfiguration.setEnabled(true);
+        customConfiguration.setFile("search_config_fixture_test.yml");
+        CustomSearchConfiguration customSearchConfiguration = customConfiguration.resolve(new YAMLMapper());
+
+        ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, customSearchConfiguration);
         ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
@@ -102,9 +124,11 @@ public class ESSampleDataFixture {
         int batchSize = 100;
         SearchRanker<Double> ranker = new SimpleRanker();
         CacheManager cacheManager = new ConcurrentMapCacheManager();
+        EntityDocCountCacheConfiguration entityDocCountCacheConfiguration = new EntityDocCountCacheConfiguration();
+        entityDocCountCacheConfiguration.setTtlSeconds(600L);
 
         SearchService service = new SearchService(
-                new EntityDocCountCache(entityRegistry, entitySearchService),
+                new EntityDocCountCache(entityRegistry, entitySearchService, entityDocCountCacheConfiguration),
                 new CachingEntitySearchService(
                         cacheManager,
                         entitySearchService,
@@ -122,7 +146,8 @@ public class ESSampleDataFixture {
                                         batchSize,
                                         false
                                 ),
-                                ranker
+                                ranker,
+                                entityDocCountCacheConfiguration
                         ),
                         batchSize,
                         false
@@ -156,8 +181,11 @@ public class ESSampleDataFixture {
                 1,
                 false);
 
+        AspectDao mockAspectDao = mock(AspectDao.class);
+        when(mockAspectDao.batchGet(anySet())).thenReturn(Map.of(mock(EntityAspectIdentifier.class), mock(EntityAspect.class)));
+
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry),
+                new EntityService(mockAspectDao, null, entityRegistry, true),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,

@@ -71,6 +71,11 @@ public class QueryUtils {
         ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(criterion))))));
   }
 
+  @Nonnull
+  public static Filter filterOrDefaultEmptyFilter(@Nullable Filter filter) {
+    return filter != null ? filter : EMPTY_FILTER;
+  }
+
   /**
    * Converts a set of aspect classes to a set of {@link AspectVersion} with the version all set to latest.
    */

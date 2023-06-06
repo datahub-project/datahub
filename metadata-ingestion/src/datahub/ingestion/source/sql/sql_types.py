@@ -233,8 +233,25 @@ def resolve_trino_modified_type(type_string: str) -> Any:
     if match:
         modified_type_base: str = match.group(1)
         return TRINO_SQL_TYPES_MAP[modified_type_base]
-    else:
-        return TRINO_SQL_TYPES_MAP[type_string]
+    return TRINO_SQL_TYPES_MAP[type_string]
+
+
+def resolve_athena_modified_type(type_string: str) -> Any:
+    # for cases like timestamp(3), decimal(10,0)
+    match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
+    if match:
+        modified_type_base: str = match.group(1)
+        return ATHENA_SQL_TYPES_MAP[modified_type_base]
+    return ATHENA_SQL_TYPES_MAP[type_string]
+
+
+def resolve_vertica_modified_type(type_string: str) -> Any:
+    # for cases like timestamp(3), decimal(10,0)
+    match = re.match(r"([a-zA-Z ]+)\(.+\)", type_string)
+    if match:
+        modified_type_base: str = match.group(1)
+        return VERTICA_SQL_TYPES_MAP[modified_type_base]
+    return VERTICA_SQL_TYPES_MAP[type_string]
 
 
 # see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
@@ -341,4 +358,66 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "row": RecordType,
     "map": MapType,
     "array": ArrayType,
+}
+
+# https://docs.aws.amazon.com/athena/latest/ug/data-types.html
+# https://github.com/dbt-athena/dbt-athena/tree/main
+ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {
+    "boolean": BooleanType,
+    "tinyint": NumberType,
+    "smallint": NumberType,
+    "int": NumberType,
+    "integer": NumberType,
+    "bigint": NumberType,
+    "float": NumberType,
+    "double": NumberType,
+    "decimal": NumberType,
+    "varchar": StringType,
+    "char": StringType,
+    "binary": BytesType,
+    "date": DateType,
+    "timestamp": TimeType,
+    "struct": RecordType,
+    "map": MapType,
+    "array": ArrayType,
+}
+
+# https://www.vertica.com/docs/11.1.x/HTML/Content/Authoring/SQLReferenceManual/DataTypes/SQLDataTypes.htm
+VERTICA_SQL_TYPES_MAP: Dict[str, Any] = {
+    "binary": BytesType,
+    "varbinary": BytesType,
+    "long varbinary": BytesType,
+    "bytea": BytesType,
+    "raw": BytesType,
+    "boolean": BooleanType,
+    "char": StringType,
+    "varchar": StringType,
+    "long varchar": StringType,
+    "date": DateType,
+    "time": TimeType,
+    "datetime": TimeType,
+    "smalldatetime": TimeType,
+    "time with timezone": TimeType,
+    "timestamp": TimeType,
+    "timestamptz": TimeType,
+    "timestamp with timezone": TimeType,
+    "interval": TimeType,
+    "interval hour to second": TimeType,
+    "double precision": NumberType,
+    "float": NumberType,
+    "float8": NumberType,
+    "real": NumberType,
+    "integer": NumberType,
+    "int": NumberType,
+    "bigint": NumberType,
+    "int8": NumberType,
+    "smallint": NumberType,
+    "tinyint": NumberType,
+    "decimal": NumberType,
+    "numeric": NumberType,
+    "number": NumberType,
+    "money": NumberType,
+    "geometry": None,
+    "geography": None,
+    "uuid": StringType,
 }

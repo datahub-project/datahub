@@ -138,10 +138,14 @@ public class GraphIndexUtils {
         systemMetadata = event.hasPreviousSystemMetadata() ? event.getPreviousSystemMetadata() : null;
       }
 
-      if (createdOn == null && systemMetadata != null) {
+      if ((createdOn == null || createdOn == 0) && systemMetadata != null) {
         createdOn = systemMetadata.getLastObserved();
+      }
+
+      if ((updatedOn == null || updatedOn == 0) && systemMetadata != null) {
         updatedOn = systemMetadata.getLastObserved();
       }
+
       if (createdActor == null && event.hasCreated()) {
         createdActor = event.getCreated().getActor();
         updatedActor = event.getCreated().getActor();

@@ -14,7 +14,12 @@ interface CopyUrnMenuItemProps {
 const StyledMenuItem = styled(MenuItem)`
     && {
         color: ${ANTD_GRAY[8]};
+        background-color: ${ANTD_GRAY[1]};
     }
+`;
+
+const TextSpan = styled.span`
+    padding-left: 12px;
 `;
 
 export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps) {
@@ -33,9 +38,9 @@ export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps
         >
             <Tooltip title={`Copy the URN for this ${type}. An URN uniquely identifies an entity on DataHub.`}>
                 {isClicked ? <CheckOutlined /> : <CopyOutlined />}
-                <span>
+                <TextSpan>
                     <b>Copy URN</b>
-                </span>
+                </TextSpan>
             </Tooltip>
         </StyledMenuItem>
     );

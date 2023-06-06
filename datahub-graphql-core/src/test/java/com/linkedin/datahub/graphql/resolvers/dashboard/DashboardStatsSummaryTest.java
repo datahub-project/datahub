@@ -81,7 +81,6 @@ public class DashboardStatsSummaryTest {
         Mockito.eq(null),
         Mockito.eq(null),
         Mockito.eq(1),
-        Mockito.eq(null),
         Mockito.eq(filterForLatestStats)
     )).thenReturn(ImmutableList.of(newResult));
 
@@ -159,7 +158,6 @@ public class DashboardStatsSummaryTest {
         Mockito.eq(null),
         Mockito.eq(null),
         Mockito.eq(1),
-        Mockito.eq(null),
         Mockito.eq(filterForLatestStats)
     )).thenReturn(
         ImmutableList.of(envelopedLatestStats)

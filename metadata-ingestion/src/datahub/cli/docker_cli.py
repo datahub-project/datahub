@@ -11,7 +11,7 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Dict, List, Optional
 
 import click
 import click_spinner
@@ -22,20 +22,19 @@ from requests_file import FileAdapter
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
+    DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
     DockerComposeVersionError,
+    QuickstartStatus,
     check_docker_quickstart,
     get_docker_client,
     run_quickstart_preflight_checks,
 )
+from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities.sample_data import (
-    BOOTSTRAP_MCES_FILE,
-    DOCKER_COMPOSE_BASE,
-    download_sample_data,
-)
+from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
 
 logger = logging.getLogger(__name__)
 
@@ -60,18 +59,10 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
 )
-NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-)
+
+
+_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
+_QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
 
 
 class Architectures(Enum):
@@ -102,24 +93,11 @@ def docker() -> None:
     pass
 
 
-def _print_issue_list_and_exit(
-    issues: List[str], header: str, footer: Optional[str] = None
-) -> NoReturn:
-    click.secho(header, fg="bright_red")
-    for issue in issues:
-        click.echo(f"- {issue}")
-    if footer:
-        click.echo()
-        click.echo(footer)
-    sys.exit(1)
-
-
 @docker.command()
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 def check() -> None:
     """Check that the Docker containers are healthy"""
-
     status = check_docker_quickstart()
     if status.is_ok():
         click.secho("✔ No issues detected", fg="green")
@@ -166,7 +144,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
             )
             return True
 
-        click.echo(
+        logger.debug(
             "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
             "To use neo4j as a graph backend, run \n"
             "`datahub docker quickstart --graph-service-impl neo4j`"
@@ -450,8 +428,8 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 @click.option(
     "--version",
     type=str,
-    default=None,
-    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
+    default="default",
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose. Use 'stable' to start the latest stable version.",
 )
 @click.option(
     "--build-locally",
@@ -658,6 +636,11 @@ def quickstart(
         return
 
     quickstart_arch = detect_quickstart_arch(arch)
+    quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
+    quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(
+        version
+    )
+    logger.info(f"Using quickstart plan: {quickstart_execution_plan}")
 
     # Run pre-flight checks.
     with get_docker_client() as client:
@@ -683,11 +666,12 @@ def quickstart(
             kafka_setup,
             quickstart_arch,
             standalone_consumers,
+            quickstart_execution_plan.composefile_git_ref,
         )
 
     # set version
     _set_environment_variables(
-        version=version,
+        version=quickstart_execution_plan.docker_tag,
         mysql_port=mysql_port,
         zk_port=zk_port,
         kafka_broker_port=kafka_broker_port,
@@ -709,12 +693,18 @@ def quickstart(
     # Pull and possibly build the latest containers.
     try:
         if pull_images:
-            click.echo(
-                "Pulling docker images...This may take a while depending on your network bandwidth."
+            click.echo("\nPulling docker images... ")
+            click.secho(
+                "This may take a while depending on your network bandwidth.", dim=True
             )
-            with click_spinner.spinner():
+
+            # docker compose v2 seems to spam the stderr when used in a non-interactive environment.
+            # As such, we'll only use the quiet flag if we're in an interactive environment.
+            # If we're in quiet mode, then we'll show a spinner instead.
+            quiet = not sys.stderr.isatty()
+            with click_spinner.spinner(disable=not quiet):
                 subprocess.run(
-                    [*base_command, "pull", "-q"],
+                    [*base_command, "pull", *(("-q",) if quiet else ())],
                     check=True,
                     env=_docker_subprocess_env(),
                 )
@@ -729,27 +719,23 @@ def quickstart(
     if build_locally:
         logger.info("Building docker images locally...")
         subprocess.run(
-            [
-                *base_command,
-                "build",
-                "--pull",
-                "-q",
-            ],
+            base_command + ["build", "--pull", "-q"],
             check=True,
             env=_docker_subprocess_env(),
         )
         logger.info("Finished building docker images!")
 
     # Start it up! (with retries)
-    max_wait_time = datetime.timedelta(minutes=8)
+    click.echo("\nStarting up DataHub...")
     start_time = datetime.datetime.now()
-    sleep_interval = datetime.timedelta(seconds=2)
-    up_interval = datetime.timedelta(seconds=30)
+    status: Optional[QuickstartStatus] = None
     up_attempts = 0
-    while (datetime.datetime.now() - start_time) < max_wait_time:
-        # Attempt to run docker compose up every `up_interval`.
-        if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
-            click.echo()
+    while (datetime.datetime.now() - start_time) < _QUICKSTART_MAX_WAIT_TIME:
+        # We must run docker-compose up at least once.
+        # Beyond that, we should run it again if something goes wrong.
+        if up_attempts == 0 or (status and status.needs_up()):
+            if up_attempts > 0:
+                click.echo()
             subprocess.run(
                 base_command + ["up", "-d", "--remove-orphans"],
                 env=_docker_subprocess_env(),
@@ -763,8 +749,10 @@ def quickstart(
 
         # Wait until next iteration.
         click.echo(".", nl=False)
-        time.sleep(sleep_interval.total_seconds())
+        time.sleep(_QUICKSTART_STATUS_CHECK_INTERVAL.total_seconds())
     else:
+        assert status
+
         # Falls through if the while loop doesn't exit via break.
         click.echo()
         with tempfile.NamedTemporaryFile(suffix=".log", delete=False) as log_file:
@@ -803,6 +791,30 @@ def quickstart(
     )
 
 
+def get_docker_compose_base_url(version_tag: str) -> str:
+    if os.environ.get("DOCKER_COMPOSE_BASE"):
+        return os.environ["DOCKER_COMPOSE_BASE"]
+
+    return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
+
+
+def get_github_file_url(neo4j: bool, is_m1: bool, release_version_tag: str) -> str:
+    base_url = get_docker_compose_base_url(release_version_tag)
+    if neo4j:
+        github_file = (
+            f"{base_url}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
+            if not is_m1
+            else f"{base_url}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+        )
+    else:
+        github_file = (
+            f"{base_url}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
+            if not is_m1
+            else f"{base_url}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+        )
+    return github_file
+
+
 def download_compose_files(
     quickstart_compose_file_name,
     quickstart_compose_file_list,
@@ -810,21 +822,12 @@ def download_compose_files(
     kafka_setup,
     quickstart_arch,
     standalone_consumers,
+    compose_git_ref,
 ):
     # download appropriate quickstart file
     should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-    if should_use_neo4j:
-        github_file = (
-            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
-        )
-    else:
-        github_file = (
-            ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else ELASTIC_M1_QUICKSTART_COMPOSE_URL
-        )
+    is_m1 = is_arch_m1(quickstart_arch)
+    github_file = get_github_file_url(should_use_neo4j, is_m1, compose_git_ref)
     # also allow local files
     request_session = requests.Session()
     request_session.mount("file://", FileAdapter())
@@ -835,17 +838,18 @@ def download_compose_files(
     ) as tmp_file:
         path = pathlib.Path(tmp_file.name)
         quickstart_compose_file_list.append(path)
-        click.echo(f"Fetching docker-compose file {github_file} from GitHub")
+        logger.info(f"Fetching docker-compose file {github_file} from GitHub")
         # Download the quickstart docker-compose file from GitHub.
         quickstart_download_response = request_session.get(github_file)
         quickstart_download_response.raise_for_status()
         tmp_file.write(quickstart_download_response.content)
         logger.debug(f"Copied to {path}")
     if standalone_consumers:
+        base_url = get_docker_compose_base_url(compose_git_ref)
         consumer_github_file = (
-            f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            f"{base_url}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
             if should_use_neo4j
-            else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            else f"{base_url}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
         )
 
         default_consumer_compose_file = (
@@ -863,6 +867,27 @@ def download_compose_files(
             )
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = request_session.get(consumer_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
+    if kafka_setup:
+        kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
+
+        default_kafka_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
+        )
+        with open(
+            default_kafka_compose_file, "wb"
+        ) if default_kafka_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(kafka_setup_github_file)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
@@ -926,7 +951,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         "source": {
             "type": "file",
             "config": {
-                "filename": path,
+                "path": path,
             },
         },
         "sink": {
@@ -967,8 +992,11 @@ def nuke(keep_data: bool) -> None:
             click.echo("Skipping deleting data volumes in the datahub project")
         else:
             click.echo("Removing volumes in the datahub project")
-            for volume in client.volumes.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
-                volume.remove(force=True)
+            for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [
+                DATAHUB_COMPOSE_PROJECT_FILTER
+            ]:
+                for volume in client.volumes.list(filters=filter):
+                    volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):

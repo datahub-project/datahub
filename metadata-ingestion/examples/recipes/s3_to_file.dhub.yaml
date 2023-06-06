@@ -16,4 +16,3 @@ sink:
   type: "file"
   config:
     filename: "./s3_data_lake_mces.json"
-

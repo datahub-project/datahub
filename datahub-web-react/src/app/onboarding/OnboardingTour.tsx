@@ -4,7 +4,7 @@ import Tour from 'reactour';
 import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
 import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import { useUserContext } from '../context/useUserContext';
 import { convertStepId, getStepsToRender } from './utils';
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
 
 export const OnboardingTour = ({ stepIds }: Props) => {
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
-    const userUrn = useGetAuthenticatedUser()?.corpUser.urn;
+    const userUrn = useUserContext()?.user?.urn;
     const [isOpen, setIsOpen] = useState(true);
     const [reshow, setReshow] = useState(false);
     const accentColor = '#5cb7b7';

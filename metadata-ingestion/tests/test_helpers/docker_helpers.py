@@ -1,9 +1,12 @@
 import contextlib
+import logging
 import subprocess
 from typing import Callable, Optional, Union
 
 import pytest
 import pytest_docker.plugin
+
+logger = logging.getLogger(__name__)
 
 
 def is_responsive(container_name: str, port: int, hostname: Optional[str]) -> bool:
@@ -37,6 +40,7 @@ def wait_for_port(
             if checker
             else lambda: is_responsive(container_name, container_port, hostname),
         )
+        logger.info(f"Container {container_name} is ready!")
     finally:
         # use check=True to raise an error if command gave bad exit code
         subprocess.run(f"docker logs {container_name}", shell=True, check=True)

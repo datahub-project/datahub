@@ -30,6 +30,8 @@ public final class RestliConstants {
   public static final String PARAM_START = "start";
   public static final String PARAM_COUNT = "count";
   public static final String PARAM_LIMIT = "limit";
+  public static final String PARAM_SCROLL_ID = "scrollId";
+  public static final String PARAM_KEEP_ALIVE = "keepAlive";
   public static final String PARAM_SNAPSHOT = "snapshot";
   public static final String PARAM_URN = "urn";
   public static final String PARAM_URN_LIKE = "urnLike";
@@ -37,5 +39,6 @@ public final class RestliConstants {
   public static final String PARAM_MODE = "mode";
   public static final String PARAM_DIRECTION = "direction";
   public static final String PARAM_ENTITY_TYPE = "entityType";
+  public static final String PARAM_SEARCH_FLAGS = "searchFlags";
   public static final String PARAM_VERSIONED_URN_PAIRS = "versionedUrns";
 }

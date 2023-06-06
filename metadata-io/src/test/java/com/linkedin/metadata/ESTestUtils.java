@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -67,13 +68,17 @@ public class ESTestUtils {
     }
 
     public static SearchResult search(SearchService searchService, String query) {
+        return search(searchService, query, null);
+    }
+
+    public static SearchResult search(SearchService searchService, String query, @Nullable List<String> facets) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
-                100, new SearchFlags().setFulltext(true));
+            100, new SearchFlags().setFulltext(true).setSkipCache(true), facets);
     }
 
     public static SearchResult searchStructured(SearchService searchService, String query) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
-                100, new SearchFlags().setFulltext(false));
+                100, new SearchFlags().setFulltext(false).setSkipCache(true));
     }
 
     public static LineageSearchResult lineage(LineageSearchService lineageSearchService, Urn root, int hops) {
@@ -87,7 +92,8 @@ public class ESTestUtils {
 
         return lineageSearchService.searchAcrossLineage(root, LineageDirection.DOWNSTREAM,
             SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList()),
-            "*", hops, ResolverUtils.buildFilter(filters, List.of()), null, 0, 100, null, null);
+            "*", hops, ResolverUtils.buildFilter(filters, List.of()), null, 0, 100, null,
+            null, new SearchFlags().setSkipCache(true));
     }
 
     public static AutoCompleteResults autocomplete(SearchableEntityType<?, String> searchableEntityType, String query) throws Exception {

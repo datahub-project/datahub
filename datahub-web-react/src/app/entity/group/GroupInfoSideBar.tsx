@@ -21,7 +21,7 @@ import {
     GroupsSection,
 } from '../shared/SidebarStyledComponents';
 import GroupMembersSideBarSection from './GroupMembersSideBarSection';
-import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { useUserContext } from '../../context/useUserContext';
 
 const { Paragraph } = Typography;
 
@@ -103,8 +103,8 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
 
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editGroupModal, showEditGroupModal] = useState(false);
-    const me = useGetAuthenticatedUser();
-    const canEditGroup = me?.platformPrivileges.manageIdentities;
+    const me = useUserContext();
+    const canEditGroup = me?.platformPrivileges?.manageIdentities;
     const [groupTitle, setGroupTitle] = useState(name);
     const [updateName] = useUpdateNameMutation();
 
@@ -145,16 +145,16 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                 },
             },
         })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
+            .then(() => {
                 message.success({
                     content: `Changes saved.`,
                     duration: 3,
                 });
                 refetch();
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
             });
     };
     return (
@@ -220,7 +220,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         <GroupMembersSideBarSection
                             total={groupMemberRelationships?.total || 0}
                             relationships={groupMemberRelationships?.relationships || []}
-                            onSeeMore={() => history.push(`${url}/members`)}
+                            onSeeMore={() => history.replace(`${url}/members`)}
                         />
                     </GroupsSection>
                 </SideBarSubSection>

@@ -1,6 +1,7 @@
 import { Empty } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetSchemaBlameQuery, useGetSchemaVersionListQuery } from '../../../../../../graphql/schemaBlame.generated';
@@ -10,7 +11,7 @@ import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaR
 import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity, useEntityData } from '../../../EntityContext';
+import { useBaseEntity } from '../../../EntityContext';
 import { SchemaFieldBlame, SemanticVersionStruct } from '../../../../../../types.generated';
 import SchemaTable from './SchemaTable';
 import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
@@ -19,6 +20,8 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { filterSchemaRows } from './utils/filterSchemaRows';
 import getSchemaFilterFromQueryString from './utils/getSchemaFilterFromQueryString';
 import useUpdateSchemaFilterQueryString from './utils/updateSchemaFilterQueryString';
+import { useGetEntityWithSchema } from './useGetEntitySchema';
+import SchemaContext from './SchemaContext';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};
@@ -29,13 +32,22 @@ const SchemaTableContainer = styled.div`
     overflow: auto;
     height: 100%;
 `;
+
+const LoadingWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 350px;
+    font-size: 30px;
+`;
+
 export const SchemaTab = ({ properties }: { properties?: any }) => {
-    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const maybeEntityData = entityData || {};
-    let schemaMetadata: any = maybeEntityData?.schemaMetadata || undefined;
-    let editableSchemaMetadata: any = maybeEntityData?.editableSchemaMetadata || undefined;
+    // Dynamically load the schema + editable schema information.
+    const { entityWithSchema, loading, refetch } = useGetEntityWithSchema();
+    let schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
+    let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
     const datasetUrn: string = baseEntity?.dataset?.urn || '';
     const usageStats = baseEntity?.dataset?.usageStats;
     const [showRaw, setShowRaw] = useState(false);
@@ -97,7 +109,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
     }
 
     const { data: getSchemaBlameData } = useGetSchemaBlameQuery({
-        skip: !datasetUrn,
+        skip: !datasetUrn || !selectedVersion,
         variables: {
             input: {
                 datasetUrn,
@@ -146,7 +158,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         (getSchemaBlameData?.getSchemaBlame?.schemaFieldBlameList as Array<SchemaFieldBlame>) || [];
 
     return (
-        <>
+        <SchemaContext.Provider value={{ refetch }}>
             <SchemaHeader
                 editMode={editMode}
                 showRaw={showRaw}
@@ -164,34 +176,40 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 setFilterText={setFilterText}
                 numRows={rows.length}
             />
-            <SchemaTableContainer>
-                {/* eslint-disable-next-line no-nested-ternary */}
-                {showRaw ? (
-                    <SchemaRawView
-                        schemaDiff={{ current: schemaMetadata }}
-                        editMode={editMode}
-                        showKeySchema={showKeySchema}
-                    />
-                ) : rows && rows.length > 0 ? (
-                    <>
-                        <SchemaEditableContext.Provider value={editMode}>
-                            <SchemaTable
-                                schemaMetadata={schemaMetadata}
-                                rows={rows}
-                                editMode={editMode}
-                                editableSchemaMetadata={editableSchemaMetadata}
-                                usageStats={usageStats}
-                                schemaFieldBlameList={schemaFieldBlameList}
-                                showSchemaAuditView={showSchemaAuditView}
-                                expandedRowsFromFilter={expandedRowsFromFilter as any}
-                                filterText={filterText as any}
-                            />
-                        </SchemaEditableContext.Provider>
-                    </>
-                ) : (
-                    <NoSchema />
-                )}
-            </SchemaTableContainer>
-        </>
+            {(loading && !schemaMetadata && (
+                <LoadingWrapper>
+                    <LoadingOutlined />
+                </LoadingWrapper>
+            )) || (
+                <SchemaTableContainer>
+                    {/* eslint-disable-next-line no-nested-ternary */}
+                    {showRaw ? (
+                        <SchemaRawView
+                            schemaDiff={{ current: schemaMetadata }}
+                            editMode={editMode}
+                            showKeySchema={showKeySchema}
+                        />
+                    ) : rows && rows.length > 0 ? (
+                        <>
+                            <SchemaEditableContext.Provider value={editMode}>
+                                <SchemaTable
+                                    schemaMetadata={schemaMetadata}
+                                    rows={rows}
+                                    editMode={editMode}
+                                    editableSchemaMetadata={editableSchemaMetadata}
+                                    usageStats={usageStats}
+                                    schemaFieldBlameList={schemaFieldBlameList}
+                                    showSchemaAuditView={showSchemaAuditView}
+                                    expandedRowsFromFilter={expandedRowsFromFilter as any}
+                                    filterText={filterText as any}
+                                />
+                            </SchemaEditableContext.Provider>
+                        </>
+                    ) : (
+                        <NoSchema />
+                    )}
+                </SchemaTableContainer>
+            )}
+        </SchemaContext.Provider>
     );
 };

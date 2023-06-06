@@ -23,17 +23,14 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
+from datahub.ingestion.source.usage.usage_common import TOTAL_BUDGET_FOR_QUERY_LIST
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetFieldUsageCounts,
     DatasetUsageStatistics,
     DatasetUserUsageCounts,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import TimeWindowSize
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 
@@ -46,6 +43,20 @@ OPERATION_STATEMENT_TYPES = {
     "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "MERGE": OperationTypeClass.CUSTOM,
+    "COPY": OperationTypeClass.CUSTOM,
+    "TRUNCATE_TABLE": OperationTypeClass.CUSTOM,
+    # TODO: Dataset for below query types are not detected by snowflake in snowflake.access_history.objects_modified.
+    # However it seems possible to support these using sql parsing in future.
+    # When this support is added, snowflake_query.operational_data_for_time_window needs to be updated.
+    # "CREATE_VIEW": OperationTypeClass.CREATE,
+    # "CREATE_EXTERNAL_TABLE": OperationTypeClass.CREATE,
+    # "ALTER_TABLE_MODIFY_COLUMN": OperationTypeClass.ALTER,
+    # "ALTER_TABLE_ADD_COLUMN": OperationTypeClass.ALTER,
+    # "RENAME_COLUMN": OperationTypeClass.ALTER,
+    # "ALTER_SET_TAG": OperationTypeClass.ALTER,
+    # "ALTER_TABLE_DROP_COLUMN": OperationTypeClass.ALTER,
+    # "ALTER": OperationTypeClass.ALTER,
 }
 
 
@@ -65,8 +76,9 @@ class SnowflakeColumnReference(PermissiveModel):
 class SnowflakeObjectAccessEntry(PermissiveModel):
     columns: Optional[List[SnowflakeColumnReference]]
     objectDomain: str
-    objectId: int
     objectName: str
+    # Seems like it should never be null, but in practice have seen null objectIds
+    objectId: Optional[int]
     stageKind: Optional[str]
 
 
@@ -175,7 +187,7 @@ class SnowflakeUsageExtractor(
             )
             if dataset_identifier not in discovered_datasets:
                 logger.debug(
-                    f"Skipping usage for table {dataset_identifier}, as table schema is not accessible"
+                    f"Skipping usage for table {dataset_identifier}, as table schema is not accessible or not allowed by recipe."
                 )
                 continue
 
@@ -218,9 +230,8 @@ class SnowflakeUsageExtractor(
             )
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
-        total_budget_for_query_list: int = 24000
         budget_per_query: int = int(
-            total_budget_for_query_list / self.config.top_n_queries
+            TOTAL_BUDGET_FOR_QUERY_LIST / self.config.top_n_queries
         )
         return sorted(
             [
@@ -331,12 +342,14 @@ class SnowflakeUsageExtractor(
     def _get_operation_aspect_work_unit(
         self, event: SnowflakeJoinedAccessEvent, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        if event.query_start_time and event.query_type in OPERATION_STATEMENT_TYPES:
+        if event.query_start_time and event.query_type:
             start_time = event.query_start_time
             query_type = event.query_type
             user_email = event.email
             user_name = event.user_name
-            operation_type = OPERATION_STATEMENT_TYPES[query_type]
+            operation_type = OPERATION_STATEMENT_TYPES.get(
+                query_type, OperationTypeClass.CUSTOM
+            )
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
             user_urn = make_user_urn(self.get_user_identifier(user_name, user_email))
@@ -366,11 +379,11 @@ class SnowflakeUsageExtractor(
                     lastUpdatedTimestamp=last_updated_timestamp,
                     actor=user_urn,
                     operationType=operation_type,
+                    customOperationType=query_type
+                    if operation_type is OperationTypeClass.CUSTOM
+                    else None,
                 )
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    aspectName="operation",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dataset_urn,
                     aspect=operation_aspect,
                 )
@@ -378,7 +391,6 @@ class SnowflakeUsageExtractor(
                     id=f"{start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
-                self.report.report_workunit(wu)
                 yield wu
 
     def _process_snowflake_history_row(

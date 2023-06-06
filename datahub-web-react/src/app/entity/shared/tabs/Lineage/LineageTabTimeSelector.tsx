@@ -1,27 +1,28 @@
 import React from 'react';
 import moment from 'moment';
 import { useHistory, useLocation } from 'react-router';
-
 import analytics, { EventType } from '../../../../analytics';
 import LineageTimeSelector from '../../../../lineage/LineageTimeSelector';
 import { getTimeFromNow } from '../../../../shared/time/timeUtils';
 import updateQueryParams from '../../../../shared/updateQueryParams';
-import { useGetTimeParams } from '../../../../lineage/utils/useGetTimeParams';
+import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 
 export default function LineageTabTimeSelector() {
     const history = useHistory();
     const location = useLocation();
-    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     const lineageTimeSelectorOnChange = (dates, _dateStrings) => {
         if (dates) {
             const [start, end] = dates;
-            const startTimeMillisValue = start?.valueOf() || undefined;
-            const endTimeMillisValue = end?.valueOf() || undefined;
+            const startTimeMillisValue = start?.valueOf();
+            const endTimeMillisValue = end?.valueOf();
+            const relativeStartDate = getTimeFromNow(startTimeMillisValue);
+            const relativeEndDate = getTimeFromNow(endTimeMillisValue);
             analytics.event({
                 type: EventType.LineageGraphTimeRangeSelectionEvent,
-                relativeStartDate: getTimeFromNow(startTimeMillisValue),
-                relativeEndDate: getTimeFromNow(endTimeMillisValue),
+                relativeStartDate,
+                relativeEndDate,
             });
 
             updateQueryParams(
@@ -32,13 +33,10 @@ export default function LineageTabTimeSelector() {
         }
     };
 
-    return (
-        <LineageTimeSelector
-            onChange={lineageTimeSelectorOnChange}
-            initialDates={[
-                startTimeMillis ? moment(startTimeMillis) : null,
-                endTimeMillis ? moment(endTimeMillis) : null,
-            ]}
-        />
-    );
+    const initialDates: [moment.Moment | null, moment.Moment | null] = [
+        startTimeMillis ? moment(startTimeMillis) : null,
+        endTimeMillis ? moment(endTimeMillis) : null,
+    ];
+
+    return <LineageTimeSelector onChange={lineageTimeSelectorOnChange} initialDates={initialDates} />;
 }

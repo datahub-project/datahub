@@ -5,7 +5,3 @@ reporting_provider_registry = PluginRegistry[PipelineRunListener]()
 reporting_provider_registry.register_from_entrypoint(
     "datahub.ingestion.reporting_provider.plugins"
 )
-
-# These providers are always enabled
-assert reporting_provider_registry.get("datahub")
-assert reporting_provider_registry.get("file")

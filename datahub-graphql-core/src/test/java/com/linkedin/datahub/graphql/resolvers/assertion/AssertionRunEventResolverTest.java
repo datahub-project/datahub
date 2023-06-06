@@ -50,7 +50,6 @@ public class AssertionRunEventResolverTest {
         Mockito.eq(0L),
         Mockito.eq(10L),
         Mockito.eq(5),
-        Mockito.eq(false),
         Mockito.eq(AssertionRunEventResolver.buildFilter(null, AssertionRunStatus.COMPLETE.toString())),
         Mockito.any(Authentication.class)
     )).thenReturn(
@@ -86,7 +85,6 @@ public class AssertionRunEventResolverTest {
         Mockito.eq(0L),
         Mockito.eq(10L),
         Mockito.eq(5),
-        Mockito.eq(false),
         Mockito.any(Filter.class),
         Mockito.any(Authentication.class)
     );

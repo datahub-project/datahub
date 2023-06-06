@@ -198,6 +198,30 @@ type Query {
     List Global DataHub Views
     """
     listGlobalViews(input: ListGlobalViewsInput!): ListViewsResult
+
+    """
+    List Dataset Queries
+    """
+    listQueries(
+      "Input required for listing queries"
+      input: ListQueriesInput!): ListQueriesResult
+
+    """
+    Get quick filters to display in auto-complete
+    """
+    getQuickFilters(input: GetQuickFiltersInput!): GetQuickFiltersResult
+
+    """
+    Fetch a DataProduct by primary key (urn)
+    """
+    dataProduct(urn: String!): DataProduct
+
+    """
+    List Custom Ownership Types
+    """
+    listOwnershipTypes(
+        "Input required for listing custom ownership types"
+        input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
 }
 
 """
@@ -581,6 +605,82 @@ type Mutation {
     Update the Embed information for a Dataset, Dashboard, or Chart.
     """
     updateEmbed(input: UpdateEmbedInput!): Boolean
+
+    """
+    Create a new Query
+    """
+    createQuery(
+      "Inputs required to create a new Query."
+      input: CreateQueryInput!): QueryEntity
+
+    """
+    Update an existing Query
+    """
+    updateQuery(
+      "The urn identifier for the query to update."
+      urn: String!,
+      "Inputs required to update a Query."
+      input: UpdateQueryInput!): QueryEntity
+
+    """
+    Delete a Query by urn. This requires the 'Edit Queries' Metadata Privilege.
+    """
+    deleteQuery(
+      "Urn of the query to remove."
+      urn: String!): Boolean
+
+    """
+    Create a new Data Product
+    """
+    createDataProduct(
+      "Inputs required to create a new DataProduct."
+      input: CreateDataProductInput!): DataProduct
+
+    """
+    Update a Data Product
+    """
+    updateDataProduct(
+      "The urn identifier for the Data Product to update."
+      urn: String!,
+      "Inputs required to create a new DataProduct."
+      input: UpdateDataProductInput!): DataProduct
+
+    """
+    Delete a DataProduct by urn.
+    """
+    deleteDataProduct(
+        "Urn of the data product to remove."
+        urn: String!): Boolean
+
+    """
+    Batch set or unset a DataProduct to a list of entities
+    """
+    batchSetDataProduct(
+        "Input for batch setting data product"
+        input: BatchSetDataProductInput!): Boolean
+
+    """
+    Create a Custom Ownership Type. This requires the 'Manage Ownership Types' Metadata Privilege.
+    """
+    createOwnershipType(
+        "Inputs required to create a new Query."
+        input: CreateOwnershipTypeInput!): OwnershipTypeEntity
+
+    """
+    Update an existing Query. This requires the 'Manage Ownership Types' Metadata Privilege.
+    """
+    updateOwnershipType(
+        "The urn identifier for the custom ownership type to update."
+        urn: String!,
+        "Inputs required to update an existing Custom Ownership Type."
+        input: UpdateOwnershipTypeInput!): OwnershipTypeEntity
+
+    """
+    Delete a Custom Ownership Type by urn. This requires the 'Manage Ownership Types' Metadata Privilege.
+    """
+    deleteOwnershipType(
+        "Urn of the Custom Ownership Type to remove."
+        urn: String!, deleteReferences: Boolean): Boolean
 }
 
 """
@@ -771,6 +871,21 @@ enum EntityType {
     A DataHub View
     """
     DATAHUB_VIEW
+
+    """
+    A dataset query
+    """
+    QUERY
+
+    """
+    A Data Product
+    """
+    DATA_PRODUCT
+
+    """
+    A Custom Ownership Type
+    """
+    CUSTOM_OWNERSHIP_TYPE
 }
 
 """
@@ -907,6 +1022,11 @@ type EntityLineageResult {
     Total number of results in the result set
     """
     total: Int
+
+    """
+    The number of results that were filtered out of the page (soft-deleted or non-existent)
+    """
+    filtered: Int
 
     """
     Relationships in the result set
@@ -1292,7 +1412,7 @@ type SiblingProperties {
 }
 
 """
-All of the parent containers for a given entity
+All of the parent containers for a given entity. Returns parents with direct parent first followed by the parent's parent etc.
 """
 type ParentContainersResult {
     """
@@ -1536,8 +1656,54 @@ type DatasetProperties {
     External URL associated with the Dataset
     """
     externalUrl: String
+
+    """
+    Created timestamp millis associated with the Dataset
+    """
+    created: Long
+
+    """
+    Actor associated with the Dataset's created timestamp
+    """
+    createdActor: String
+
+    """
+    Last Modified timestamp millis associated with the Dataset
+    """
+    lastModified: Long
+
+    """
+    Actor associated with the Dataset's lastModified timestamp
+    """
+    lastModifiedActor: String
 }
 
+
+"""
+Additional read only properties about a DataPlatformInstance
+"""
+type DataPlatformInstanceProperties {
+
+    """
+    The name of the data platform instance used in display
+    """
+    name: String
+
+    """
+    Read only technical description for the data platform instance
+    """
+    description: String
+
+    """
+    Custom properties of the data platform instance
+    """
+    customProperties: [CustomPropertiesEntry!]
+
+    """
+    External URL associated with the data platform instance
+    """
+    externalUrl: String
+}
 
 """
 A Glossary Term, or a node in a Business Glossary representing a standardized domain
@@ -1863,6 +2029,36 @@ type DataPlatformInstance implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Additional read only properties associated with a data platform instance
+    """
+    properties: DataPlatformInstanceProperties
+
+    """
+    Ownership metadata of the data platform instance
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the data platform instance
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Tags used for searching the data platform instance
+    """
+    tags: GlobalTags
+
+    """
+    The deprecation status of the data platform instance
+    """
+    deprecation: Deprecation
+
+    """
+    Status metadata of the container
+    """
+    status: Status
 }
 
 """
@@ -2985,6 +3181,11 @@ enum OwnershipType {
     NONE
 
     """
+    Associated ownership type is a custom ownership type. Please check OwnershipTypeEntity urn for custom value.
+    """
+    CUSTOM
+
+    """
     A person or group that owns the data.
     Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
@@ -3579,9 +3780,14 @@ type Owner {
     owner: OwnerType!
 
     """
-    The type of the ownership
+    The type of the ownership. Deprecated - Use ownershipType field instead.
     """
-    type: OwnershipType!
+    type: OwnershipType @deprecated
+
+    """
+    Ownership type information
+    """
+    ownershipType: OwnershipTypeEntity
 
     """
     Source information for the ownership
@@ -4115,9 +4321,14 @@ input OwnerUpdate {
     owner: String!
 
     """
-    The owner type
+    The owner type. Deprecated - Use ownershipTypeUrn field instead.
     """
-    type: OwnershipType!
+    type: OwnershipType @deprecated
+
+    """
+    The urn of the ownership type entity.
+    """
+    ownershipTypeUrn: String
 }
 
 """
@@ -7184,8 +7395,14 @@ input AddOwnerInput {
 
     """
     The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    Deprecated - Use ownershipTypeUrn field instead.
     """
-    type: OwnershipType
+    type: OwnershipType @deprecated
+
+    """
+    The urn of the ownership type entity.
+    """
+    ownershipTypeUrn: String
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
@@ -7209,8 +7426,14 @@ input OwnerInput {
 
     """
     The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    Deprecated - Use ownershipTypeUrn field instead.
     """
-    type: OwnershipType
+    type: OwnershipType @deprecated
+
+    """
+    The urn of the ownership type entity.
+    """
+    ownershipTypeUrn: String
 }
 
 """
@@ -7238,6 +7461,11 @@ input BatchAddOwnersInput {
     owners: [OwnerInput!]!
 
     """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
+
+    """
     The target assets to attach the owners to
     """
     resources: [ResourceRefInput]!
@@ -7253,6 +7481,11 @@ input BatchRemoveOwnersInput {
     ownerUrns: [String!]!
 
     """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
+
+    """
     The target assets to remove the owners from
     """
     resources: [ResourceRefInput]!
@@ -7266,6 +7499,11 @@ input RemoveOwnerInput {
     The primary key of the Owner to add or remove
     """
     ownerUrn: String!
+
+    """
+    The ownership type to remove, optional. By default will remove regardless of ownership type.
+    """
+    ownershipTypeUrn: String
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
@@ -10171,4 +10409,573 @@ input UpdateEmbedInput {
   Set or clear a URL used to render an embedded asset.
   """
   renderUrl: String
+}
+
+"""
+A query language / dialect.
+"""
+enum QueryLanguage {
+  """
+  Standard ANSI SQL
+  """
+  SQL
+}
+
+"""
+The source of the query
+"""
+enum QuerySource {
+  """
+  The query was provided manually, e.g. from the UI.
+  """
+  MANUAL
+}
+
+"""
+An individual Query Statement
+"""
+type QueryStatement {
+  """
+  The query statement value
+  """
+  value: String!
+
+  """
+  The language for the Query Statement
+  """
+  language: QueryLanguage!
+}
+
+"""
+Properties about an individual Query
+"""
+type QueryProperties {
+  """
+  The Query statement itself
+  """
+  statement: QueryStatement!
+
+  """
+  The source of the Query
+  """
+  source: QuerySource!
+
+  """
+  The name of the Query
+  """
+  name: String
+
+  """
+  The description of the Query
+  """
+  description: String
+
+  """
+  An Audit Stamp corresponding to the creation of this resource
+  """
+  created: AuditStamp!
+
+  """
+  An Audit Stamp corresponding to the update of this resource
+  """
+  lastModified: AuditStamp!
+}
+
+"""
+The subject for a Query
+"""
+type QuerySubject {
+  """
+  The dataset which is the subject of the Query
+  """
+  dataset: Dataset!
+}
+
+"""
+An individual Query
+"""
+type QueryEntity implements Entity {
+  """
+  A primary key associated with the Query
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Properties about the Query
+  """
+  properties: QueryProperties
+
+  """
+  Subjects for the query
+  """
+  subjects: [QuerySubject!]
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Input required for creating a Query Statement
+"""
+input QueryStatementInput {
+  """
+  The query text
+  """
+  value: String!
+
+  """
+  The query language
+  """
+  language: QueryLanguage!
+}
+
+"""
+Input properties required for creating a Query
+"""
+input CreateQueryPropertiesInput {
+  """
+  An optional display name for the Query
+  """
+  name: String
+
+  """
+  An optional description for the Query
+  """
+  description: String
+
+  """
+  The Query contents
+  """
+  statement: QueryStatementInput!
+}
+
+"""
+Input required for creating a Query. For now, only datasets are supported.
+"""
+input CreateQuerySubjectInput {
+  """
+  The urn of the dataset that is the subject of the query
+  """
+  datasetUrn: String!
+}
+
+"""
+Input required for creating a Query. Requires the 'Edit Queries' privilege for all query subjects.
+"""
+input CreateQueryInput {
+  """
+  Properties about the Query
+  """
+  properties: CreateQueryPropertiesInput!
+
+  """
+  Subjects for the query
+  """
+  subjects: [CreateQuerySubjectInput!]!
+}
+
+"""
+Input properties required for creating a Query. Any non-null fields will be updated if provided.
+"""
+input UpdateQueryPropertiesInput {
+  """
+  An optional display name for the Query
+  """
+  name: String
+
+  """
+  An optional description for the Query
+  """
+  description: String
+
+  """
+  The Query contents
+  """
+  statement: QueryStatementInput
+}
+
+"""
+Input required for creating a Query. For now, only datasets are supported.
+"""
+input UpdateQuerySubjectInput {
+  """
+  The urn of the dataset that is the subject of the query
+  """
+  datasetUrn: String!
+}
+
+"""
+Input required for updating an existing Query. Requires the 'Edit Queries' privilege for all query subjects.
+"""
+input UpdateQueryInput {
+  """
+  Properties about the Query
+  """
+  properties: UpdateQueryPropertiesInput
+
+  """
+  Subjects for the query
+  """
+  subjects: [UpdateQuerySubjectInput!]
+}
+
+"""
+Input required for listing query entities
+"""
+input ListQueriesInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Queries to be returned in the result set
+  """
+  count: Int
+
+  """
+  A raw search query
+  """
+  query: String
+
+  """
+  An optional source for the query
+  """
+  source: QuerySource
+
+  """
+  An optional Urn for the parent dataset that the query is associated with.
+  """
+  datasetUrn: String
+}
+
+"""
+Results when listing entity queries
+"""
+type ListQueriesResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results to be returned
+  """
+  count: Int!
+
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The Queries themselves
+  """
+  queries: [QueryEntity!]!
+}
+
+"""
+A Data Product, or a logical grouping of Metadata Entities
+"""
+type DataProduct implements Entity {
+    """
+    The primary key of the Data Product
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Properties about a Data Product
+    """
+    properties: DataProductProperties
+
+    """
+    Ownership metadata of the Data Product
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the Data Product
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The structured glossary terms associated with the Data Product
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Data Product
+    """
+    domain: DomainAssociation
+
+    """
+    Tags used for searching Data Product
+    """
+    tags: GlobalTags
+}
+
+"""
+Properties about a domain
+"""
+type DataProductProperties {
+    """
+    Display name of the Data Product
+    """
+    name: String!
+
+    """
+    Description of the Data Product
+    """
+    description: String
+
+    """
+    External URL for the DataProduct (most likely GitHub repo where Data Products are managed as code)
+    """
+    externalUrl: String
+
+    """
+    Number of children entities inside of the Data Product
+    """
+    numAssets: Int
+
+    """
+    Custom properties of the Data Product
+    """
+    customProperties: [CustomPropertiesEntry!]
+}
+
+"""
+Input required to fetch the entities inside of a Data Product.
+"""
+input DataProductEntitiesInput {
+    """
+    Optional query filter for particular entities inside the Data Product
+    """
+    query: String
+
+    """
+    The offset of the result set
+    """
+    start: Int
+
+    """
+    The number of entities to include in result set
+    """
+    count: Int
+
+    """
+    Optional Facet filters to apply to the result set
+    """
+    filters: [FacetFilterInput!]
+}
+
+"""
+Input required for creating a DataProduct.
+"""
+input CreateDataProductInput {
+    """
+    Properties about the Query
+    """
+    properties: CreateDataProductPropertiesInput!
+
+    """
+    The primary key of the Domain
+    """
+    domainUrn: String!
+}
+
+"""
+Input properties required for creating a DataProduct
+"""
+input CreateDataProductPropertiesInput {
+    """
+    A display name for the DataProduct
+    """
+    name: String!
+
+    """
+    An optional description for the DataProduct
+    """
+    description: String
+}
+
+"""
+Input properties required for update a DataProduct
+"""
+input UpdateDataProductInput {
+    """
+    A display name for the DataProduct
+    """
+    name: String
+
+    """
+    An optional description for the DataProduct
+    """
+    description: String
+}
+
+"""
+Input properties required for batch setting a DataProduct on other entities
+"""
+input BatchSetDataProductInput {
+    """
+    The urn of the data product you are setting on a group of resources.
+    If this is null, the Data Product will be unset for the given resources.
+    """
+    dataProductUrn: String
+
+    """
+    The urns of the entities the given data product should be set on
+    """
+    resourceUrns: [String!]!
+}
+
+
+
+"""
+Properties about an individual Custom Ownership Type.
+"""
+type OwnershipTypeInfo {
+
+    """
+    The name of the Custom Ownership Type
+    """
+    name: String!
+
+    """
+    The description of the Custom Ownership Type
+    """
+    description: String
+
+    """
+    An Audit Stamp corresponding to the creation of this resource
+    """
+    created: AuditStamp
+
+    """
+    An Audit Stamp corresponding to the update of this resource
+    """
+    lastModified: AuditStamp
+}
+
+"""
+A single Custom Ownership Type
+"""
+type OwnershipTypeEntity implements Entity {
+    """
+    A primary key associated with the custom ownership type.
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Information about the Custom Ownership Type
+    """
+    info: OwnershipTypeInfo
+
+    """
+    Status of the Custom Ownership Type
+    """
+    status: Status
+
+    """
+    Granular API for querying edges extending from the Custom Ownership Type
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Input required for listing custom ownership types entities
+"""
+input ListOwnershipTypesInput {
+    """
+    The starting offset of the result set returned, default is 0
+    """
+    start: Int
+
+    """
+    The maximum number of Custom Ownership Types to be returned in the result set, default is 20
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+
+    """
+    Optional Facet filters to apply to the result set
+    """
+    filters: [FacetFilterInput!]
+}
+
+"""
+Results when listing custom ownership types.
+"""
+type ListOwnershipTypesResult {
+    """
+    The starting offset of the result set
+    """
+    start: Int!
+
+    """
+    The number of results to be returned
+    """
+    count: Int!
+
+    """
+    The total number of results in the result set
+    """
+    total: Int!
+
+    """
+    The Custom Ownership Types themselves
+    """
+    ownershipTypes: [OwnershipTypeEntity!]!
+}
+
+input CreateOwnershipTypeInput {
+    """
+    The name of the Custom Ownership Type
+    """
+    name: String!
+
+    """
+    The description of the Custom Ownership Type
+    """
+    description: String!
+}
+
+
+input UpdateOwnershipTypeInput {
+    """
+    The name of the Custom Ownership Type
+    """
+    name: String
+
+    """
+    The description of the Custom Ownership Type
+    """
+    description: String
 }

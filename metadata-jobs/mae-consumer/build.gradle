@@ -25,7 +25,6 @@ dependencies {
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
 
-
     compile externalDependency.elasticSearchRest
     compile externalDependency.kafkaAvroSerde
     implementation externalDependency.protobuf
@@ -43,6 +42,9 @@ dependencies {
 
     testCompile externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
+
+    testImplementation externalDependency.springBootTest
+    testRuntime externalDependency.logbackClassic
 }
 
 task avroSchemaSources(type: Copy) {

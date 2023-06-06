@@ -1,0 +1,25 @@
+namespace com.linkedin.common
+
+/**
+ * Shared aspect containing a Browse Path to be indexed for an entity.
+ */
+@Aspect = {
+    "name": "browsePathsV2"
+}
+record BrowsePathsV2 {
+  /**
+   * A valid browse path for the entity. This field is provided by DataHub by default.
+   * This aspect is a newer version of browsePaths where we can encode more information in the path.
+   * This path is also based on containers for a given entity if it has containers.
+   *
+   * This is stored in elasticsearch as unit-separator delimited strings and only includes platform specific folders or containers.
+   * These paths should not include high level info captured elsewhere ie. Platform and Environment.
+   */
+  @Searchable = {
+    "/*/id": {
+      "fieldName": "browsePathV2",
+      "fieldType": "BROWSE_PATH_V2"
+    }
+  }
+  path: array[BrowsePathEntry]
+}

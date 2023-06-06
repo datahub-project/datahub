@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "glue",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "flights-database"
             },
             "name": "flights-database",
@@ -260,7 +260,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     }
@@ -285,7 +285,7 @@
         "json": {
             "customProperties": {
                 "platform": "glue",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "test-database"
             },
             "name": "test-database",
@@ -496,7 +496,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     }
@@ -681,7 +681,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     }
@@ -1251,6 +1251,28 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:baz:bob",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "baz:bob"
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:foo:bar",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "foo:bar"
         }
     }
 }

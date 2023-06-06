@@ -19,11 +19,12 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.lite.duckdb_lite import DuckDBLiteConfig, SearchFlavor
+from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
 from datahub.lite.lite_local import (
     AutoComplete,
     DataHubLiteLocal,
     PathNotFoundException,
+    SearchFlavor,
 )
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
 from datahub.telemetry import telemetry
@@ -320,7 +321,6 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 @click.pass_context
 @telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
-
     lite_config = get_lite_config()
     new_lite_config_dict = lite_config.dict()
     # Update the type and config sections only

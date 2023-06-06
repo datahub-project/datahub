@@ -3,6 +3,7 @@ import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../
 import TagTermGroup from '../../../../../../shared/tags/TagTermGroup';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 import { useMutationUrn, useRefetch } from '../../../../EntityContext';
+import { useSchemaRefetch } from '../SchemaContext';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -13,8 +14,14 @@ export default function useTagsAndTermsRenderer(
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
+    const schemaRefetch = useSchemaRefetch();
 
-    const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
+    const refresh: any = () => {
+        refetch?.();
+        schemaRefetch?.();
+    };
+
+    const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
@@ -28,14 +35,14 @@ export default function useTagsAndTermsRenderer(
                     editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
                     canRemove
                     buttonProps={{ size: 'small' }}
-                    canAddTag={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTags}
-                    canAddTerm={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTerms}
+                    canAddTag={tagHoveredIndex === record.fieldPath && options.showTags}
+                    canAddTerm={tagHoveredIndex === record.fieldPath && options.showTerms}
                     onOpenModal={() => setTagHoveredIndex(undefined)}
                     entityUrn={urn}
                     entityType={EntityType.Dataset}
                     entitySubresource={record.fieldPath}
                     highlightText={filterText}
-                    refetch={refetch}
+                    refetch={refresh}
                 />
             </div>
         );

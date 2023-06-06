@@ -4,6 +4,7 @@ from typing import Callable, Type, TypeVar
 import pydantic
 
 from datahub.configuration.common import ConfigurationWarning
+from datahub.utilities.global_warning_util import add_global_warning
 
 _T = TypeVar("_T")
 
@@ -26,8 +27,10 @@ def pydantic_renamed_field(
                 )
             else:
                 if print_warning:
+                    msg = f"{old_name} is deprecated, please use {new_name} instead."
+                    add_global_warning(msg)
                     warnings.warn(
-                        f"{old_name} is deprecated, please use {new_name} instead.",
+                        msg,
                         ConfigurationWarning,
                         stacklevel=2,
                     )

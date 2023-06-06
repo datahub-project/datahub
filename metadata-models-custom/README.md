@@ -39,9 +39,19 @@ The entity registry has a few important fields to pay attention to:
 
 ## Build your new model 
 
+Change your directory to the metadata-models-custom folder and then run this command
+
 ```
 ../gradlew build
 ```
+
+This will create a zip file in the build/dist folder. Then change your directory back to the main datahub folder and run 
+
+```
+./gradlew :metadata-models-custom:install
+```
+
+This will install the zip file as a datahub plugin. It is installed at `~/.datahub/plugins/models/` and if you list the directory you should see the following path if you are following the customDataQualityRules implementation example: `~/.datahub/plugins/models/mycompany-dq-model/0.0.0-dev/`
 
 ### Build a versioned artifact
 ```
@@ -115,6 +125,8 @@ curl -s http://localhost:8080/config | jq .
 }
 ```
 
+Alternatively, you could type in http://localhost:8080/config in your browser.
+
 ### Add some metadata with your new model 
 
 We have included some sample scripts that you can modify to upload data corresponding to your new data model. 
@@ -147,7 +159,7 @@ A few things that you will likely do as you start creating new models and creati
 
 The `datahub` cli supports deleting metadata associated with a model as a customization of the `delete` command. 
 
-e.g. `datahub delete --registry-id=mycompany-dq-model:0.0.1` will delete all data written using this registry name and version pair. 
+e.g. `datahub delete by-registry --registry-id=mycompany-dq-model:0.0.1 --hard` will delete all data written using this registry name and version pair. 
 
 ### Evolve the metadata model
 
@@ -158,8 +170,4 @@ As you evolve the metadata model, you can publish new versions of the repository
 Hopefully this repository shows you how easily you can extend and customize DataHub's metadata model!
 
 We will be continuing to make the experience less reliant on core changes to DataHub and reducing the need to fork the main repository.
-
-
-
-
 

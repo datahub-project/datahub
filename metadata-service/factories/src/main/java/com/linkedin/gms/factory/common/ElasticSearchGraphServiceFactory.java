@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
@@ -29,13 +30,17 @@ public class ElasticSearchGraphServiceFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
+  @Autowired
+  private ConfigurationProvider configurationProvider;
+
   @Bean(name = "elasticSearchGraphService")
   @Nonnull
   protected ElasticSearchGraphService getInstance() {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new ElasticSearchGraphService(lineageRegistry, components.getBulkProcessor(), components.getIndexConvention(),
         new ESGraphWriteDAO(components.getIndexConvention(), components.getBulkProcessor(), components.getNumRetries()),
-        new ESGraphQueryDAO(components.getSearchClient(), lineageRegistry, components.getIndexConvention()),
+        new ESGraphQueryDAO(components.getSearchClient(), lineageRegistry, components.getIndexConvention(),
+                configurationProvider.getElasticSearch().getSearch().getGraph()),
         components.getIndexBuilder());
   }
 }

@@ -44,8 +44,8 @@ public class NativeUserService {
     Objects.requireNonNull(password, "password must not be null!");
     Objects.requireNonNull(authentication, "authentication must not be null!");
 
-    Urn userUrn = Urn.createFromString(userUrnString);
-    if (_entityService.exists(userUrn)) {
+    final Urn userUrn = Urn.createFromString(userUrnString);
+    if (_entityService.exists(userUrn) || userUrn.toString().equals(SYSTEM_ACTOR)) {
       throw new RuntimeException("This user already exists! Cannot create a new user.");
     }
     updateCorpUserInfo(userUrn, fullName, email, title, authentication);

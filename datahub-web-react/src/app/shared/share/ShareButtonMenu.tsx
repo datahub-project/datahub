@@ -19,6 +19,10 @@ const StyledMenu = styled(Menu)`
     border: 1px solid ${ANTD_GRAY[3]};
     border-radius: 4px;
     min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
 `;
 
 export default function ShareButtonMenu({ urn, entityType, subType, name }: ShareButtonMenuProps) {

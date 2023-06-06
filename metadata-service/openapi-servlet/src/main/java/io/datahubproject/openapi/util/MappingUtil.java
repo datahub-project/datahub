@@ -2,6 +2,10 @@ package io.datahubproject.openapi.util;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ResourceSpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,6 +23,7 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
@@ -38,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -233,60 +239,25 @@ public class MappingUtil {
     }
   }
 
-  public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
-      ObjectMapper objectMapper) {
+  public static boolean authorizeProposals(List<com.linkedin.mxe.MetadataChangeProposal> proposals, EntityService entityService,
+      Authorizer authorizer, String actorUrnStr, DisjunctivePrivilegeGroup orGroup) {
+    List<Optional<ResourceSpec>> resourceSpecs = proposals.stream()
+        .map(proposal -> {
+            EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(proposal.getEntityType());
+            Urn entityUrn = EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec());
+            return Optional.of(new ResourceSpec(proposal.getEntityType(), entityUrn.toString()));
+        })
+        .collect(Collectors.toList());
+    return AuthUtil.isAuthorizedForResources(authorizer, actorUrnStr, resourceSpecs, orGroup);
+  }
+
+  public static Pair<String, Boolean> ingestProposal(com.linkedin.mxe.MetadataChangeProposal serviceProposal, String actorUrn,
+      EntityService entityService) {
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp().setTime(System.currentTimeMillis())
             .setActor(UrnUtils.getUrn(actorUrn));
-    io.datahubproject.openapi.generated.KafkaAuditHeader auditHeader = metadataChangeProposal.getAuditHeader();
-
-    com.linkedin.mxe.MetadataChangeProposal serviceProposal =
-        new com.linkedin.mxe.MetadataChangeProposal()
-            .setEntityType(metadataChangeProposal.getEntityType())
-            .setChangeType(ChangeType.valueOf(metadataChangeProposal.getChangeType().name()));
-    if (metadataChangeProposal.getEntityUrn() != null) {
-      serviceProposal.setEntityUrn(UrnUtils.getUrn(metadataChangeProposal.getEntityUrn()));
-    }
-    if (metadataChangeProposal.getSystemMetadata() != null) {
-      serviceProposal.setSystemMetadata(
-          objectMapper.convertValue(metadataChangeProposal.getSystemMetadata(), SystemMetadata.class));
-    }
-    if (metadataChangeProposal.getAspectName() != null) {
-      serviceProposal.setAspectName(metadataChangeProposal.getAspectName());
-    }
-
-    if (auditHeader != null) {
-      KafkaAuditHeader kafkaAuditHeader = new KafkaAuditHeader();
-      kafkaAuditHeader.setAuditVersion(auditHeader.getAuditVersion())
-          .setTime(auditHeader.getTime())
-          .setAppName(auditHeader.getAppName())
-          .setMessageId(new UUID(ByteString.copyString(auditHeader.getMessageId(), UTF_8)))
-          .setServer(auditHeader.getServer());
-      if (auditHeader.getInstance() != null) {
-        kafkaAuditHeader.setInstance(auditHeader.getInstance());
-      }
-      if (auditHeader.getAuditVersion() != null) {
-        kafkaAuditHeader.setAuditVersion(auditHeader.getAuditVersion());
-      }
-      if (auditHeader.getFabricUrn() != null) {
-        kafkaAuditHeader.setFabricUrn(auditHeader.getFabricUrn());
-      }
-      if (auditHeader.getClusterConnectionString() != null) {
-        kafkaAuditHeader.setClusterConnectionString(auditHeader.getClusterConnectionString());
-      }
-      serviceProposal.setAuditHeader(kafkaAuditHeader);
-    }
-
-    serviceProposal = metadataChangeProposal.getEntityKeyAspect() != null
-        ? serviceProposal.setEntityKeyAspect(
-        MappingUtil.convertGenericAspect(metadataChangeProposal.getEntityKeyAspect(), objectMapper))
-        : serviceProposal;
-    serviceProposal = metadataChangeProposal.getAspect() != null
-        ? serviceProposal.setAspect(
-        MappingUtil.convertGenericAspect(metadataChangeProposal.getAspect(), objectMapper))
-        : serviceProposal;
 
     final List<com.linkedin.mxe.MetadataChangeProposal> additionalChanges =
         AspectUtils.getAdditionalChanges(serviceProposal, entityService);
@@ -334,6 +305,58 @@ public class MappingUtil {
         .entityType(aspectRequest.getEntityType());
 
     return metadataChangeProposal;
+  }
+
+  public static com.linkedin.mxe.MetadataChangeProposal mapToServiceProposal(MetadataChangeProposal metadataChangeProposal,
+      ObjectMapper objectMapper) {
+    io.datahubproject.openapi.generated.KafkaAuditHeader auditHeader = metadataChangeProposal.getAuditHeader();
+
+    com.linkedin.mxe.MetadataChangeProposal serviceProposal =
+        new com.linkedin.mxe.MetadataChangeProposal()
+            .setEntityType(metadataChangeProposal.getEntityType())
+            .setChangeType(ChangeType.valueOf(metadataChangeProposal.getChangeType().name()));
+    if (metadataChangeProposal.getEntityUrn() != null) {
+      serviceProposal.setEntityUrn(UrnUtils.getUrn(metadataChangeProposal.getEntityUrn()));
+    }
+    if (metadataChangeProposal.getSystemMetadata() != null) {
+      serviceProposal.setSystemMetadata(
+          objectMapper.convertValue(metadataChangeProposal.getSystemMetadata(), SystemMetadata.class));
+    }
+    if (metadataChangeProposal.getAspectName() != null) {
+      serviceProposal.setAspectName(metadataChangeProposal.getAspectName());
+    }
+
+    if (auditHeader != null) {
+      KafkaAuditHeader kafkaAuditHeader = new KafkaAuditHeader();
+      kafkaAuditHeader.setAuditVersion(auditHeader.getAuditVersion())
+          .setTime(auditHeader.getTime())
+          .setAppName(auditHeader.getAppName())
+          .setMessageId(new UUID(ByteString.copyString(auditHeader.getMessageId(), UTF_8)))
+          .setServer(auditHeader.getServer());
+      if (auditHeader.getInstance() != null) {
+        kafkaAuditHeader.setInstance(auditHeader.getInstance());
+      }
+      if (auditHeader.getAuditVersion() != null) {
+        kafkaAuditHeader.setAuditVersion(auditHeader.getAuditVersion());
+      }
+      if (auditHeader.getFabricUrn() != null) {
+        kafkaAuditHeader.setFabricUrn(auditHeader.getFabricUrn());
+      }
+      if (auditHeader.getClusterConnectionString() != null) {
+        kafkaAuditHeader.setClusterConnectionString(auditHeader.getClusterConnectionString());
+      }
+      serviceProposal.setAuditHeader(kafkaAuditHeader);
+    }
+
+    serviceProposal = metadataChangeProposal.getEntityKeyAspect() != null
+        ? serviceProposal.setEntityKeyAspect(
+        MappingUtil.convertGenericAspect(metadataChangeProposal.getEntityKeyAspect(), objectMapper))
+        : serviceProposal;
+    serviceProposal = metadataChangeProposal.getAspect() != null
+        ? serviceProposal.setAspect(
+        MappingUtil.convertGenericAspect(metadataChangeProposal.getAspect(), objectMapper))
+        : serviceProposal;
+    return serviceProposal;
   }
 
   public static RollbackRunResultDto mapRollbackRunResult(RollbackRunResult rollbackRunResult, ObjectMapper objectMapper) {

@@ -22,9 +22,9 @@ source venv/bin/activate
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
-export CYPRESS_ADMIN_USERNAME=${ADMIN_USERNAME:-datahub}
-export CYPRESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:-datahub}
+source ./set-cypress-creds.sh
 
+# no_cypress, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
 else

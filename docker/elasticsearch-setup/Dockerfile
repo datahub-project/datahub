@@ -3,19 +3,20 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM golang:1.17-alpine3.15 AS binary
+FROM golang:1-alpine3.17 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
 
-RUN apk --no-cache --update add openssl git tar curl 
+# PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
+RUN apk --no-cache --update add openssl git tar curl sqlite
 
 WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 FROM alpine:3 AS base
-RUN apk add --no-cache curl jq tar bash coreutils
+RUN apk add --no-cache curl jq bash coreutils
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base AS prod-install

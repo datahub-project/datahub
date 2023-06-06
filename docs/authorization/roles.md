@@ -91,6 +91,7 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Manage Users and Groups         | :heavy_check_mark: | :x:                | :x:    |
 | Manage Access Tokens            | :heavy_check_mark: | :x:                | :x:    |
 | Manage User Credentials         | :heavy_check_mark: | :x:                | :x:    |
+| Manage Public Views             | :heavy_check_mark: | :x:                | :x:    |
 | View Analytics                  | :heavy_check_mark: | :x:                | :x:    |
 
 ##### Metadata Privileges

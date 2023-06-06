@@ -1,6 +1,7 @@
 package com.linkedin.metadata.timeline;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChang
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorFactory;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
@@ -49,6 +51,10 @@ public class TimelineServiceImpl implements TimelineService {
 
   private static final long DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS = 7 * 24 * 60 * 60 * 1000L; // 1 week lookback
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
   private static final long FIRST_TRANSACTION_ID = 0;
   private static final String BUILD_VALUE_COMPUTED = "computed";
 
@@ -126,7 +132,32 @@ public class TimelineServiceImpl implements TimelineService {
       }
       datasetElementAspectRegistry.put(elementName, aspects);
     }
+
+    // GlossaryTerm registry
+    HashMap<ChangeCategory, Set<String>> glossaryTermElementAspectRegistry = new HashMap<>();
+    String entityTypeGlossaryTerm = GLOSSARY_TERM_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case OWNER: {
+          aspects.add(OWNERSHIP_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(entityTypeGlossaryTerm, elementName, OWNERSHIP_ASPECT_NAME,
+              new OwnershipChangeEventGenerator());
+        }
+        break;
+        case DOCUMENTATION: {
+          aspects.add(GLOSSARY_TERM_INFO_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(entityTypeGlossaryTerm, elementName, GLOSSARY_TERM_INFO_ASPECT_NAME,
+              new GlossaryTermInfoChangeEventGenerator());
+        }
+        break;
+        default:
+          break;
+      }
+      glossaryTermElementAspectRegistry.put(elementName, aspects);
+    }
     entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
   }
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {
@@ -334,8 +365,8 @@ public class TimelineServiceImpl implements TimelineService {
     List<ChangeTransaction> semanticChangeTransactions = new ArrayList<>();
     JsonPatch rawDiff = getRawDiff(previousValue, currentValue);
     for (ChangeCategory element : elementNames) {
-      EntityChangeEventGenerator entityChangeEventGenerator =
-          _entityChangeEventGeneratorFactory.getGenerator(entityType, element, aspectName);
+      EntityChangeEventGenerator entityChangeEventGenerator;
+      entityChangeEventGenerator = _entityChangeEventGeneratorFactory.getGenerator(entityType, element, aspectName);
       if (entityChangeEventGenerator != null) {
         try {
           ChangeTransaction changeTransaction =
@@ -387,7 +418,10 @@ public class TimelineServiceImpl implements TimelineService {
     SemanticVersion curGroupVersion = null;
     long transactionId = FIRST_TRANSACTION_ID - 1;
     for (Map.Entry<Long, List<ChangeTransaction>> entry : changeTransactionsMap.entrySet()) {
-      assert (transactionId < entry.getKey());
+      if (transactionId >= entry.getKey()) {
+        throw new IllegalArgumentException(String.format("transactionId should be < previous. %s >= %s",
+                transactionId, entry.getKey()));
+      }
       transactionId = entry.getKey();
       SemanticChangeType highestChangeInGroup = SemanticChangeType.NONE;
       ChangeTransaction highestChangeTransaction = entry.getValue().stream()

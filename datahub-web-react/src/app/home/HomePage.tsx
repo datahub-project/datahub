@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HomePageHeader } from './HomePageHeader';
 import { HomePageBody } from './HomePageBody';
 import analytics, { EventType } from '../analytics';
@@ -13,7 +13,9 @@ import {
 } from '../onboarding/config/HomePageOnboardingConfig';
 
 export const HomePage = () => {
-    analytics.event({ type: EventType.HomePageViewEvent });
+    useEffect(() => {
+        analytics.event({ type: EventType.HomePageViewEvent });
+    }, []);
     return (
         <>
             <OnboardingTour

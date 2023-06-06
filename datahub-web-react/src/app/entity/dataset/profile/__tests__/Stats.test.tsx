@@ -1,15 +1,19 @@
 import React from 'react';
 import { render } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
 import SnapshotStatsView from '../stats/snapshot/SnapshotStatsView';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import { completeSampleProfile, missingFieldStatsProfile, missingTableStatsProfile } from '../stories/stats';
+import { mocks } from '../../../../../Mocks';
 
 describe('SnapshotStatsView', () => {
     it('renders complete profile', () => {
         const { getByText } = render(
-            <TestPageContainer>
-                <SnapshotStatsView profile={completeSampleProfile} />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks}>
+                <TestPageContainer>
+                    <SnapshotStatsView profile={completeSampleProfile} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         // Row Count
@@ -53,9 +57,11 @@ describe('SnapshotStatsView', () => {
 
     it('renders profile without field stats', () => {
         const { getByText, queryByText } = render(
-            <TestPageContainer>
-                <SnapshotStatsView profile={missingFieldStatsProfile} />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks}>
+                <TestPageContainer>
+                    <SnapshotStatsView profile={missingFieldStatsProfile} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         // Row Count
@@ -99,9 +105,11 @@ describe('SnapshotStatsView', () => {
 
     it('renders profile without table stats', () => {
         const { getByText, queryByText } = render(
-            <TestPageContainer>
-                <SnapshotStatsView profile={missingTableStatsProfile} />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks}>
+                <TestPageContainer>
+                    <SnapshotStatsView profile={missingTableStatsProfile} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         // Row Count

@@ -197,6 +197,31 @@ def test_dbt_entity_emission_configuration():
     DBTCoreConfig.parse_obj(config_dict)
 
 
+def test_default_convert_column_urns_to_lowercase():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "entities_enabled": {"models": "Yes", "seeds": "Only"},
+    }
+
+    config = DBTCoreConfig.parse_obj({**config_dict})
+    assert config.convert_column_urns_to_lowercase is False
+
+    config = DBTCoreConfig.parse_obj({**config_dict, "target_platform": "snowflake"})
+    assert config.convert_column_urns_to_lowercase is True
+
+    # Check that we respect the user's setting if provided.
+    config = DBTCoreConfig.parse_obj(
+        {
+            **config_dict,
+            "convert_column_urns_to_lowercase": False,
+            "target_platform": "snowflake",
+        }
+    )
+    assert config.convert_column_urns_to_lowercase is False
+
+
 def test_dbt_entity_emission_configuration_helpers():
     config_dict = {
         "manifest_path": "dummy_path",

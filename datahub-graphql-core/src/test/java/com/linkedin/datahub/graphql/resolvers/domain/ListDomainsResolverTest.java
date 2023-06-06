@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListDomainsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -20,7 +21,8 @@ import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 
 public class ListDomainsResolverTest {
@@ -44,7 +46,7 @@ public class ListDomainsResolverTest {
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE)
+        Mockito.eq(new SearchFlags().setFulltext(true))
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -90,7 +92,7 @@ public class ListDomainsResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE));
+        Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
@@ -104,7 +106,7 @@ public class ListDomainsResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE));
+        Mockito.eq(new SearchFlags().setFulltext(true)));
     ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
 
     // Execute resolver

@@ -42,7 +42,7 @@ public class AspectUtilsTest {
     EbeanAspectDao aspectDao = new EbeanAspectDao(server);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
-    EntityService entityService = new EntityService(aspectDao, mockProducer, _testEntityRegistry);
+    EntityService entityService = new EntityService(aspectDao, mockProducer, _testEntityRegistry, true);
 
     MetadataChangeProposal proposal1 = new MetadataChangeProposal();
     proposal1.setEntityUrn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD));

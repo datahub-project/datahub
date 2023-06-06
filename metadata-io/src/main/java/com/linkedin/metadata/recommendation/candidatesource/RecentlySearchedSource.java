@@ -46,7 +46,7 @@ public class RecentlySearchedSource implements RecommendationSource {
 
   @Override
   public String getTitle() {
-    return "Recent Searches";
+    return "Recent searches";
   }
 
   @Override

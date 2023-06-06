@@ -77,7 +77,7 @@ public class UpgradeCli implements CommandLineRunner {
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
-    UpgradeResult result = _upgradeManager.execute(args.upgradeId, args.args);
+    UpgradeResult result = _upgradeManager.execute(args.upgradeId.trim(), args.args);
 
     if (UpgradeResult.Result.FAILED.equals(result.result())) {
       System.exit(1);
