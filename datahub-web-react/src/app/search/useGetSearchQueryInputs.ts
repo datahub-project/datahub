@@ -25,16 +25,11 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     const filters: Array<FacetFilterInput> = useFilters(params);
-    const nonNestedFilters = filters.filter((f) => !f.field.includes(FILTER_DELIMITER));
+    const nonNestedFilters = filters.filter(
+        (f) => !f.field.includes(FILTER_DELIMITER) && !excludedFilterFields?.includes(f.field),
+    );
     const nestedFilters = filters.filter(
         (f) => f.field.includes(FILTER_DELIMITER) && !excludedFilterFields?.includes(f.field),
-    );
-    const filtersWithoutEntities = useMemo(
-        () =>
-            nonNestedFilters.filter(
-                (filter) => filter.field !== ENTITY_FILTER_NAME && !excludedFilterFields?.includes(filter.field),
-            ),
-        [excludedFilterFields, nonNestedFilters],
     );
     const entityFilters: Array<EntityType> = useMemo(
         () =>
@@ -46,9 +41,9 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
     );
 
     const orFilters = useMemo(
-        () => generateOrFilters(unionType, filtersWithoutEntities, nestedFilters),
-        [filtersWithoutEntities, nestedFilters, unionType],
+        () => generateOrFilters(unionType, nonNestedFilters, nestedFilters),
+        [nonNestedFilters, nestedFilters, unionType],
     );
 
-    return { entityFilters, query, unionType, filters, orFilters, filtersWithoutEntities, viewUrn, page, activeType };
+    return { entityFilters, query, unionType, filters, orFilters, viewUrn, page, activeType };
 }

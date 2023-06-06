@@ -10,7 +10,7 @@ import { EventType } from '../analytics/event';
 import analytics from '../analytics';
 import { useAppConfig } from '../useAppConfig';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { ENTITY_FILTER_NAME } from './utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from './utils/constants';
 
 const BrowseEntityCardWrapper = styled.div``;
 
@@ -33,7 +33,7 @@ export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType
         if (showBrowseV2 && !isGlossaryEntityCard) {
             navigateToSearchUrl({
                 query: '*',
-                filters: [{ field: ENTITY_FILTER_NAME, values: [entityType] }],
+                filters: [{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] }],
                 history,
             });
         } else {

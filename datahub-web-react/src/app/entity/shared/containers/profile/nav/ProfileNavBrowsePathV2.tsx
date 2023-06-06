@@ -8,7 +8,7 @@ import { navigateToSearchUrl } from '../../../../../search/utils/navigateToSearc
 import { BrowsePathV2, EntityType, FabricType, FacetFilterInput } from '../../../../../../types.generated';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
-    ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
 } from '../../../../../search/utils/constants';
@@ -29,7 +29,7 @@ export default function ProfileNavBrowsePathV2() {
     }
 
     function generateFiltersForEnvironment() {
-        const filters: FacetFilterInput[] = [{ field: ENTITY_FILTER_NAME, values: [entityType] }];
+        const filters: FacetFilterInput[] = [{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] }];
         if (hasMultipleEnvironments && hasEnvironment) {
             filters.push({ field: ORIGIN_FILTER_NAME, values: [entityData?.origin as FabricType] });
         }
@@ -51,7 +51,7 @@ export default function ProfileNavBrowsePathV2() {
             <Breadcrumb style={{ fontSize: '16px' }} separator=">">
                 <BreadcrumbItem
                     disabled={!isBrowsable}
-                    onClick={() => handlePathClick([{ field: ENTITY_FILTER_NAME, values: [entityType] }])}
+                    onClick={() => handlePathClick([{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] }])}
                 >
                     {entityRegistry.getCollectionName(entityType)}
                 </BreadcrumbItem>
@@ -60,7 +60,7 @@ export default function ProfileNavBrowsePathV2() {
                         disabled={!isBrowsable}
                         onClick={() =>
                             handlePathClick([
-                                { field: ENTITY_FILTER_NAME, values: [entityType] },
+                                { field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] },
                                 { field: ORIGIN_FILTER_NAME, values: [entityData?.origin as FabricType] },
                             ])
                         }

@@ -9,7 +9,7 @@ import {
 import { createBrowseV2SearchFilter } from '../filters/utils';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
-    ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
 } from '../utils/constants';
@@ -121,7 +121,7 @@ export const useBrowseSearchFilter = () => {
 };
 
 export const useIsEntitySelected = () => {
-    return useIsMatchingFilter(ENTITY_FILTER_NAME, useEntityAggregation().value);
+    return useIsMatchingFilter(ENTITY_SUB_TYPE_FILTER_NAME, useEntityAggregation().value, { prefix: true });
 };
 
 export const useIsEnvironmentSelected = () => {
@@ -165,13 +165,17 @@ export const useOnSelectBrowsePath = () => {
     const onChangeFilters = useOnChangeFilters();
 
     return () => {
+        const newFilters: Array<FacetFilterInput> = [];
         const overrides: Array<FacetFilterInput> = [];
 
-        overrides.push({
-            field: ENTITY_FILTER_NAME,
-            condition: FilterOperator.Equal,
-            values: [entityAggregation.value],
-        });
+        // do not want to overwrite nested subtype filter, but add as a filter if nothing for this field exists
+        if (!selectedFilters.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME)) {
+            newFilters.push({
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: [entityAggregation.value],
+            });
+        }
 
         if (environmentAggregation)
             overrides.push({
@@ -192,7 +196,7 @@ export const useOnSelectBrowsePath = () => {
             values: [browseSearchFilter],
         });
 
-        const filtersWithOverrides = applyFacetFilterOverrides(selectedFilters, overrides);
+        const filtersWithOverrides = applyFacetFilterOverrides([...selectedFilters, ...newFilters], overrides);
 
         onChangeFilters(filtersWithOverrides);
     };
