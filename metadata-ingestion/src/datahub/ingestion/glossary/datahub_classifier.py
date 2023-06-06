@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from datahub_classify.helper_classes import ColumnInfo
 from datahub_classify.infotype_predictor import predict_infotypes
 from datahub_classify.reference_input import input1 as default_config
-from pydantic.class_validators import root_validator
+from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -97,30 +97,34 @@ class DataHubClassifierConfig(ConfigModel):
         description="Configuration details for infotypes. See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration.",
     )
 
-    @root_validator(pre=False)
-    def input_config_selectively_overrides_default_config(cls, values):
-        input_config: Dict[str, InfoTypeConfig] = values.get("info_types_config")
+    @validator("info_types_config")
+    def input_config_selectively_overrides_default_config(cls, info_types_config):
         for infotype, infotype_config in DEFAULT_CLASSIFIER_CONFIG.items():
-            if infotype not in input_config:
+            if infotype not in info_types_config:
                 # if config for some info type is not provided by user, use default config for that info type.
-                values["info_types_config"][infotype] = infotype_config
+                info_types_config[infotype] = infotype_config
             else:
                 # if config for info type is provided by user but config for its prediction factor is missing,
                 # use default config for that prediction factor.
                 for factor, weight in (
-                    input_config[infotype].Prediction_Factors_and_Weights.dict().items()
+                    info_types_config[infotype]
+                    .Prediction_Factors_and_Weights.dict()
+                    .items()
                 ):
-                    if weight > 0 and getattr(input_config[infotype], factor) is None:
+                    if (
+                        weight > 0
+                        and getattr(info_types_config[infotype], factor) is None
+                    ):
                         setattr(
-                            values["info_types_config"][infotype],
+                            info_types_config[infotype],
                             factor,
                             getattr(infotype_config, factor),
                         )
         # Custom info type
-        custom_infotypes = input_config.keys() - DEFAULT_CLASSIFIER_CONFIG.keys()
+        custom_infotypes = info_types_config.keys() - DEFAULT_CLASSIFIER_CONFIG.keys()
 
         for custom_infotype in custom_infotypes:
-            custom_infotype_config = input_config[custom_infotype]
+            custom_infotype_config = info_types_config[custom_infotype]
             # for custom infotype, config for every prediction factor must be specified.
             for (
                 factor,
@@ -139,7 +143,7 @@ class DataHubClassifierConfig(ConfigModel):
                     == ValuePredictionType.REGEX
                 ), f"Invalid Prediction Type for Values for Custom Info Type {custom_infotype}. Only `regex` is supported."
 
-        return values
+        return info_types_config
 
 
 class DataHubClassifier(Classifier):
