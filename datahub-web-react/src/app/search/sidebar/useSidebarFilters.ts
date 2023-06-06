@@ -1,7 +1,12 @@
 import isEqual from 'lodash/isEqual';
 import { useEffect, useMemo, useState } from 'react';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import { BROWSE_PATH_V2_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
+import {
+    BROWSE_PATH_V2_FILTER_NAME,
+    ENTITY_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+} from '../utils/constants';
 import { useMaybeEntityType, useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
 import { applyOrFilterOverrides } from '../utils/applyFilterOverrides';
 import { SidebarFilters } from './types';
@@ -13,10 +18,11 @@ export const useSidebarFilters = (): SidebarFilters => {
 
     const filterOverrides = useMemo(
         () => [
+            ...(entityType ? [{ field: ENTITY_FILTER_NAME, value: entityType }] : []),
             ...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : []),
             ...(platform ? [{ field: PLATFORM_FILTER_NAME, value: platform }] : []),
         ],
-        [environment, platform],
+        [entityType, environment, platform],
     );
 
     const excludedFilterFields = useMemo(
