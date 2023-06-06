@@ -318,6 +318,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -576,6 +587,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -834,6 +856,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1092,6 +1125,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1350,6 +1394,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1608,6 +1663,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1866,6 +1932,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2124,6 +2201,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2382,6 +2470,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2640,6 +2739,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
