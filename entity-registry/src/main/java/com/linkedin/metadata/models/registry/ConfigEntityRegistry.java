@@ -61,33 +61,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(String entityRegistryRoot) throws EntityRegistryException, IOException {
-    this(getFileAndClassPath(entityRegistryRoot));
-  }
-
-  private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot) throws IOException, EntityRegistryException {
-    Path entityRegistryRootLoc = Paths.get(entityRegistryRoot);
-    if (Files.isDirectory(entityRegistryRootLoc)) {
-      // Look for entity_registry.yml or entity_registry.yaml in the root folder
-      List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
-          .filter(Files::isRegularFile)
-          .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
-          .collect(Collectors.toList());
-      if (yamlFiles.size() == 0) {
-        throw new EntityRegistryException(
-            String.format("Did not find an entity registry (entity_registry.yaml/yml) under %s", entityRegistryRootLoc));
-      }
-      if (yamlFiles.size() > 1) {
-        log.warn("Found more than one yaml file in the directory {}. Will pick the first {}",
-            entityRegistryRootLoc, yamlFiles.get(0));
-      }
-      Path entityRegistryFile = yamlFiles.get(0);
-      log.info("Loading custom config entity file: {}, dir: {}", entityRegistryFile, entityRegistryRootLoc);
-      return new Pair<>(entityRegistryFile, entityRegistryRootLoc);
-    } else {
-      // We assume that the file being passed in is a bare entity registry yaml file
-      log.info("Loading bare config entity registry file at {}", entityRegistryRootLoc);
-      return new Pair<>(entityRegistryRootLoc, null);
-    }
+    this(EntityRegistryUtils.getFileAndClassPath(entityRegistryRoot));
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {

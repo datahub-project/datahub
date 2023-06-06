@@ -19,9 +19,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -85,35 +83,7 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   public PatchEntityRegistry(String entityRegistryRoot, String registryName, ComparableVersion registryVersion)
       throws EntityRegistryException, IOException {
-    this(getFileAndClassPath(entityRegistryRoot), registryName, registryVersion);
-  }
-
-  private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot)
-      throws IOException, EntityRegistryException {
-    Path entityRegistryRootLoc = Paths.get(entityRegistryRoot);
-    if (Files.isDirectory(entityRegistryRootLoc)) {
-      // Look for entity-registry.yml or entity-registry.yaml in the root folder
-      List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
-          .filter(Files::isRegularFile)
-          .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
-          .collect(Collectors.toList());
-      if (yamlFiles.size() == 0) {
-        throw new EntityRegistryException(
-            String.format("Did not find an entity registry (entity-registry.yaml/yml) under %s",
-                entityRegistryRootLoc));
-      }
-      if (yamlFiles.size() > 1) {
-        log.warn("Found more than one yaml file in the directory {}. Will pick the first {}", entityRegistryRootLoc,
-            yamlFiles.get(0));
-      }
-      Path entityRegistryFile = yamlFiles.get(0);
-      log.info("Loading custom config entity file: {}, dir: {}", entityRegistryFile, entityRegistryRootLoc);
-      return new Pair<>(entityRegistryFile, entityRegistryRootLoc);
-    } else {
-      // We assume that the file being passed in is a bare entity registry yaml file
-      log.info("Loading bare entity registry file at {}", entityRegistryRootLoc);
-      return new Pair<>(entityRegistryRootLoc, null);
-    }
+    this(EntityRegistryUtils.getFileAndClassPath(entityRegistryRoot), registryName, registryVersion);
   }
 
   public PatchEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath, String registryName,
