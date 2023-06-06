@@ -1,6 +1,6 @@
 import subprocess
 import time
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, cast
 from unittest import mock
 
 import pytest
@@ -8,12 +8,12 @@ import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
@@ -489,14 +489,3 @@ def test_kafka_connect_ingest_stateful(
         "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
     ]
     assert sorted(deleted_job_urns) == sorted(difference_job_urns)
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    from datahub.ingestion.source.kafka_connect import KafkaConnectSource
-
-    kafka_connect_source = cast(KafkaConnectSource, pipeline.source)
-    return kafka_connect_source.get_current_checkpoint(
-        kafka_connect_source.stale_entity_removal_handler.job_id
-    )

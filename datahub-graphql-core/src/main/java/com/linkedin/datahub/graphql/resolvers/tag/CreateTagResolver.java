@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.tag;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -25,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+
 
 /**
  * Resolver used for creating a new Tag on DataHub. Requires the CREATE_TAG or MANAGE_TAGS privilege.
@@ -69,7 +72,13 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
         proposal.setChangeType(ChangeType.UPSERT);
 
         String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-        OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+        OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType)))) {
+          log.warn("Technical owner does not exist, defaulting to None ownership.");
+          ownershipType = OwnershipType.NONE;
+        }
+
+        OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
         return tagUrn;
       } catch (Exception e) {
         log.error("Failed to create Tag with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());

@@ -11,6 +11,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ def _to_obj_for_file(
         MetadataChangeEvent,
         MetadataChangeProposal,
         MetadataChangeProposalWrapper,
+        UsageAggregation,
     ],
     simplified_structure: bool = True,
 ) -> dict:
@@ -79,6 +81,7 @@ def write_metadata_file(
             MetadataChangeEvent,
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
+            UsageAggregation,
         ]
     ],
 ) -> None:

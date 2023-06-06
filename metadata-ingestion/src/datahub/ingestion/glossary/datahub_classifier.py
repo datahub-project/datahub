@@ -71,7 +71,7 @@ class InfoTypeConfig(ConfigModel):
 # TODO: Generate Classification doc (classification.md) from python source.
 class DataHubClassifierConfig(ConfigModel):
     confidence_level_threshold: float = Field(
-        default=0.6,
+        default=0.68,
         init=False,
         description="The confidence threshold above which the prediction is considered as a proposal",
     )

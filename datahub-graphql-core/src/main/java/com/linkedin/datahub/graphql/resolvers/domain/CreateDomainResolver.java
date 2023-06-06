@@ -27,6 +27,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+
 
 /**
  * Resolver used for creating a new Domain on DataHub. Requires the CREATE_DOMAINS or MANAGE_DOMAINS privilege.
@@ -71,7 +73,12 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         proposal.setChangeType(ChangeType.UPSERT);
 
         String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-        OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+        OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType)))) {
+          log.warn("Technical owner does not exist, defaulting to None ownership.");
+          ownershipType = OwnershipType.NONE;
+        }
+        OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
         return domainUrn;
       } catch (Exception e) {
         log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());

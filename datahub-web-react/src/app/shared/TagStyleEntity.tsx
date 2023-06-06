@@ -23,7 +23,7 @@ import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
 import { ErrorSection } from './error/ErrorSection';
 import { generateOrFilters } from '../search/utils/generateOrFilters';
-import { UnionType } from '../search/utils/constants';
+import { ENTITY_FILTER_NAME, UnionType } from '../search/utils/constants';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -195,15 +195,6 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
             },
         ]) ||
         [];
-    const entityAndSchemaFilters =
-        (entityUrn && [
-            ...entityFilters,
-            {
-                field: 'fieldTags',
-                values: [entityUrn],
-            },
-        ]) ||
-        [];
 
     const description = data?.tag?.properties?.description || '';
     const [updatedDescription, setUpdatedDescription] = useState('');
@@ -228,7 +219,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 query: '*',
                 start: 0,
                 count: 1,
-                orFilters: generateOrFilters(UnionType.OR, entityAndSchemaFilters),
+                orFilters: generateOrFilters(UnionType.OR, entityFilters),
             },
         },
     });
@@ -395,12 +386,14 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                                     <StatsButton
                                         onClick={() =>
                                             navigateToSearchUrl({
-                                                type: aggregation?.value as EntityType,
-                                                filters:
-                                                    aggregation?.value === EntityType.Dataset
-                                                        ? entityAndSchemaFilters
-                                                        : entityFilters,
-                                                unionType: UnionType.OR,
+                                                filters: [
+                                                    ...entityFilters,
+                                                    {
+                                                        field: ENTITY_FILTER_NAME,
+                                                        values: [aggregation.value],
+                                                    },
+                                                ],
+                                                unionType: UnionType.AND,
                                                 history,
                                             })
                                         }

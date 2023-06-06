@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.dgraph;
 
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
@@ -39,6 +40,8 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
@@ -516,6 +519,9 @@ public class DgraphGraphService implements GraphService {
 
     protected static Map<String, Object> getDataFromResponseJson(String json) {
         ObjectMapper mapper = new ObjectMapper();
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() { };
         try {
             return mapper.readValue(json, typeRef);

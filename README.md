@@ -128,6 +128,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [N26](https://n26brasil.com/)
 - [Optum](https://www.optum.com/)
 - [Peloton](https://www.onepeloton.com)
+- [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
 - [Razer](https://www.razer.com)
 - [Saxo Bank](https://www.home.saxo)
 - [Showroomprive](https://www.showroomprive.com/)

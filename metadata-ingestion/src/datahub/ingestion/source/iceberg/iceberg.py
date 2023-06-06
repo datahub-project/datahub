@@ -27,11 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.iceberg.iceberg_common import (
@@ -39,7 +35,6 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -119,24 +114,18 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.config: IcebergSourceConfig = config
         self.iceberg_client: FilesystemTables = config.filesystem_tables
 
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
         config = IcebergSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for dataset_path, dataset_name in self.config.get_paths():  # Tuple[str, str]
@@ -204,9 +193,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         dataset_snapshot.aspects.append(schema_metadata)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
@@ -247,7 +234,7 @@ class IcebergSource(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
-            mcp = MetadataChangeProposalWrapper(
+            return MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
@@ -255,10 +242,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                         self.platform, self.config.platform_instance
                     ),
                 ),
-            )
-            wu = MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
-            self.report.report_workunit(wu)
-            return wu
+            ).as_workunit()
 
         return None
 
