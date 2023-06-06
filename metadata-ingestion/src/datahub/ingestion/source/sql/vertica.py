@@ -289,12 +289,9 @@ class VerticaSource(SQLAlchemySource):
                     if owner[0].lower() == table.lower():
                         owner_name = owner[1].lower()
 
-            
                 dataset_name = self.get_identifier(
                     schema=schema, entity=table, inspector=inspector
                 )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 if dataset_name not in tables_seen:
                     tables_seen.add(dataset_name)
@@ -322,15 +319,8 @@ class VerticaSource(SQLAlchemySource):
                     aspects=[StatusClass(removed=False)],
                 )
 
-                normalised_table = table
-                splits = dataset_name.split(".")
-
-                if splits:
-                    normalised_table = splits[-1]
-                    if table_properties and normalised_table != table:
-                        table_properties["original_table_name"] = table
                 dataset_properties = DatasetPropertiesClass(
-                    name=normalised_table,
+                    name=table,
                     description=description,
                     customProperties=table_properties,
                 )
@@ -482,13 +472,9 @@ class VerticaSource(SQLAlchemySource):
                 view_properties["view_definition"] = view_definition
                 view_properties["is_view"] = "True"
 
-       
-
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 if dataset_name not in views_seen:
                     views_seen.add(dataset_name)
@@ -520,17 +506,8 @@ class VerticaSource(SQLAlchemySource):
                     aspects=[StatusClass(removed=False)],
                 )
 
-                normalised_table = view
-
-                splits = dataset_name.split(".")
-
-                if splits:
-                    normalised_table = splits[-1]
-                    if view_properties and normalised_table != view:
-                        view_properties["original_table_name"] = view
-
                 dataset_properties = DatasetPropertiesClass(
-                    name=normalised_table,
+                    name=view,
                     description=description,
                     customProperties=view_properties,
                 )
@@ -811,12 +788,9 @@ class VerticaSource(SQLAlchemySource):
                     if owner[0].lower() == projection.lower():
                         owner_name = owner[1].lower()
 
-
                 dataset_name = self.get_identifier(
                     schema=schema, entity=projection, inspector=inspector
                 )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 if dataset_name not in projection_seen:
                     projection_seen.add(dataset_name)
@@ -845,15 +819,8 @@ class VerticaSource(SQLAlchemySource):
                     aspects=[StatusClass(removed=False)],
                 )
 
-                normalised_table = projection
-                splits = dataset_name.split(".")
-
-                if splits:
-                    normalised_table = splits[-1]
-                    if projection_properties and normalised_table != projection:
-                        projection_properties["original_table_name"] = projection
                 dataset_properties = DatasetPropertiesClass(
-                    name=normalised_table,
+                    name=projection,
                     description=description,
                     customProperties=projection_properties,
                 )
@@ -1045,7 +1012,6 @@ class VerticaSource(SQLAlchemySource):
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
         for projection in inspector.get_projection_names(schema):  # type: ignore
-   
             dataset_name = self.get_identifier(
                 schema=schema, entity=projection, inspector=inspector
             )
@@ -1129,7 +1095,6 @@ class VerticaSource(SQLAlchemySource):
                     schema="Entities", entity=models, inspector=inspector
                 )
 
-                dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in models_seen:
                     models_seen.add(dataset_name)
                 else:
@@ -1154,18 +1119,9 @@ class VerticaSource(SQLAlchemySource):
                     description, properties, location = self.get_model_properties(
                         inspector, schema, models
                     )
-                    # Tablename might be different from the real table if we ran some normalisation ont it.
-                    # Getting normalized table name from the dataset_name
-                    # Table is the last item in the dataset name
 
-                    normalised_table = models
-                    splits = dataset_name.split(".")
-                    if splits:
-                        normalised_table = splits[-1]
-                        if properties and normalised_table != models:
-                            properties["original_table_name"] = models
                     dataset_properties = DatasetPropertiesClass(
-                        name=normalised_table,
+                        name=models,
                         description=description,
                         customProperties=properties,
                     )
