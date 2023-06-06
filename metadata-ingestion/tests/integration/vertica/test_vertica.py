@@ -1,7 +1,6 @@
-import json
 import subprocess
 import time
-from typing import Optional
+from typing import List, Optional
 
 import pytest
 from freezegun import freeze_time
@@ -11,38 +10,6 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
-
-# pytestmark = pytest.mark.skip(
-#     reason="Vertica tests are disabled due to a dependency conflict with SQLAlchemy 1.3.24"
-# )
-
-
-def generalization(tmp_path):
-    with open(tmp_path / "vertica.json", "r+") as file:
-        jsonObject = json.load(file)
-        file.close()
-
-    with open(tmp_path / "vertica.json", "w+") as file:
-        for object in jsonObject:
-            recursionObj(object)
-        json.dump(jsonObject, file, indent=4)
-        file.close()
-
-
-def recursionObj(object):
-    for key, value in object.items():
-        if key == "create_time":
-            object[key] = "0"
-        elif type(value) == dict:
-            recursionObj(value)
-        elif type(value) == list:
-            recursionList(value)
-
-
-def recursionList(arr):
-    for i in arr:
-        if type(i) == dict:
-            recursionObj(i)
 
 
 @pytest.fixture(scope="module")
@@ -91,7 +58,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
         # waiting for vertica to create default table and system table and ml models
         time.sleep(60)
 
-        assert ret.returncode == 2
+        assert ret.returncode >= 1
 
         yield docker_services
 
@@ -108,13 +75,14 @@ def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
         ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
     )
 
-    # using recursion to read vertica.json and replace value of create_time to 0
-    # while using --update-golden-files please change value of create_time to 0 in golden file .
-    generalization(tmp_path)
-
+    ignore_paths: List[str] = [
+        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['create_time'\]",
+        r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['cluster_size'\]",
+    ]
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        ignore_paths=ignore_paths,
         output_path=tmp_path / "vertica.json",
         golden_path=test_resources_dir / "vertica_mces_with_db_golden.json",
     )

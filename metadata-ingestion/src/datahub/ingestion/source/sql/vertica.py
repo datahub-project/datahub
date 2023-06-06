@@ -289,10 +289,7 @@ class VerticaSource(SQLAlchemySource):
                     if owner[0].lower() == table.lower():
                         owner_name = owner[1].lower()
 
-                schema, table = self.standardize_schema_table_names(
-                    schema=schema, entity=table
-                )
-
+            
                 dataset_name = self.get_identifier(
                     schema=schema, entity=table, inspector=inspector
                 )
@@ -485,9 +482,7 @@ class VerticaSource(SQLAlchemySource):
                 view_properties["view_definition"] = view_definition
                 view_properties["is_view"] = "True"
 
-                schema, view = self.standardize_schema_table_names(
-                    schema=schema, entity=view
-                )
+       
 
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
@@ -816,9 +811,6 @@ class VerticaSource(SQLAlchemySource):
                     if owner[0].lower() == projection.lower():
                         owner_name = owner[1].lower()
 
-                schema, projection = self.standardize_schema_table_names(
-                    schema=schema, entity=projection
-                )
 
                 dataset_name = self.get_identifier(
                     schema=schema, entity=projection, inspector=inspector
@@ -1053,9 +1045,7 @@ class VerticaSource(SQLAlchemySource):
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
         for projection in inspector.get_projection_names(schema):  # type: ignore
-            schema, projection = self.standardize_schema_table_names(
-                schema=schema, entity=projection
-            )
+   
             dataset_name = self.get_identifier(
                 schema=schema, entity=projection, inspector=inspector
             )
@@ -1136,9 +1126,6 @@ class VerticaSource(SQLAlchemySource):
         models_seen: Set[str] = set()
         try:
             for models in inspector.get_models_names(schema):  # type: ignore
-                schema, models = self.standardize_schema_table_names(
-                    schema=schema, entity=models
-                )
                 dataset_name = self.get_identifier(
                     schema="Entities", entity=models, inspector=inspector
                 )
