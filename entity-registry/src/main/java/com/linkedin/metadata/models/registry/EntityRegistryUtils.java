@@ -134,6 +134,7 @@ public class EntityRegistryUtils {
       finalEntityMap.add(mergeEntity(entityList));
     });
     Map<String, List<Event>> eventByName = groupEventsByIdentifier(entities);
+    //TODO Do the actual merge for events
 
     return new Entities(id, finalEntityMap, finalEventMap);
   }
