@@ -40,9 +40,12 @@ class ValuePredictionType(str, Enum):
 class ValuesFactorConfig(ConfigModel):
     prediction_type: ValuePredictionType
     regex: Optional[List[str]] = Field(
+        default=None,
         description="List of regex patterns the column value follows for the info type",
     )
-    library: Optional[List[str]] = Field(description="Library used for prediction")
+    library: Optional[List[str]] = Field(
+        default=None, description="Library used for prediction"
+    )
 
 
 class PredictionFactorsAndWeights(ConfigModel):
