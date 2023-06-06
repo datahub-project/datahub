@@ -1,7 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.metadata.models.*;
 import com.linkedin.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 
@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -27,6 +28,14 @@ public class EntityRegistryUtils {
         .map(EntitySpec::getAspectSpecs)
         .flatMap(Collection::stream)
         .collect(Collectors.toMap(AspectSpec::getName, Function.identity(), (aspectSpec1, aspectSpec2) -> aspectSpec1));
+  }
+  
+  public static EventSpec buildEventSpec(String eventName, final DataSchemaFactory dataSchemaFactory) {
+    Optional<DataSchema> eventSchema = dataSchemaFactory.getEventSchema(eventName);
+    if (eventSchema.isEmpty()) {
+      throw new IllegalArgumentException(String.format("Event %s does not exist", eventName));
+    }
+    return new EventSpecBuilder().buildEventSpec(eventName, eventSchema.get());
   }
 
   public static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot)

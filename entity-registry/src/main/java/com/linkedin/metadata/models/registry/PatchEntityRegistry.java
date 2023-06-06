@@ -140,7 +140,7 @@ public class PatchEntityRegistry implements EntityRegistry {
     eventNameToSpec = new HashMap<>();
     if (entities.getEvents() != null) {
       for (Event event : entities.getEvents()) {
-        EventSpec eventSpec = buildEventSpec(event.getName());
+        EventSpec eventSpec = EntityRegistryUtils.buildEventSpec(event.getName(), dataSchemaFactory);
         eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
       }
     }
@@ -210,14 +210,6 @@ public class PatchEntityRegistry implements EntityRegistry {
     aspectSpec.setRegistryName(this.registryName);
     aspectSpec.setRegistryVersion(this.registryVersion);
     return aspectSpec;
-  }
-
-  private EventSpec buildEventSpec(String eventName) {
-    Optional<DataSchema> eventSchema = dataSchemaFactory.getEventSchema(eventName);
-    if (!eventSchema.isPresent()) {
-      throw new IllegalArgumentException(String.format("Event %s does not exist", eventName));
-    }
-    return new EventSpecBuilder().buildEventSpec(eventName, eventSchema.get());
   }
 
 }

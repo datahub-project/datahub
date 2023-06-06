@@ -107,7 +107,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
     eventNameToSpec = new HashMap<>();
     if (entities.getEvents() != null) {
       for (Event event : entities.getEvents()) {
-        EventSpec eventSpec = buildEventSpec(event.getName());
+        EventSpec eventSpec = EntityRegistryUtils.buildEventSpec(event.getName(), dataSchemaFactory);
         eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
       }
     }
@@ -127,14 +127,6 @@ public class ConfigEntityRegistry implements EntityRegistry {
       throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
     }
     return entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
-  }
-
-  private EventSpec buildEventSpec(String eventName) {
-    Optional<DataSchema> eventSchema = dataSchemaFactory.getEventSchema(eventName);
-    if (!eventSchema.isPresent()) {
-      throw new IllegalArgumentException(String.format("Event %s does not exist", eventName));
-    }
-    return new EventSpecBuilder().buildEventSpec(eventName, eventSchema.get());
   }
 
   @Nonnull
