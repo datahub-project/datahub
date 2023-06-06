@@ -142,7 +142,7 @@ class RedundantRunSkipHandler(
             and cur_start_time_millis <= last_successful_pipeline_run_start_time_millis
         ):
             warn_msg = (
-                f"Skippig this run, since the last run's bucket duration start: "
+                f"Skipping this run, since the last run's bucket duration start: "
                 f"{get_datetime_from_ts_millis_in_utc(last_successful_pipeline_run_start_time_millis)}"
                 f" is later than or equal to the current start_time: {get_datetime_from_ts_millis_in_utc(cur_start_time_millis)}"
             )
