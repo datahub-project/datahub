@@ -94,14 +94,7 @@ public class PatchEntityRegistry implements EntityRegistry {
     this.registryName = registryName;
     this.registryVersion = registryVersion;
     entityNameToSpec = new HashMap<>();
-    Entities entities;
-    try {
-      entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
-    } catch (IOException e) {
-      e.printStackTrace();
-      throw new IllegalArgumentException(
-          String.format("Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
-    }
+    Entities entities = EntityRegistryUtils.readEntities(OBJECT_MAPPER, configFileStream);
     if (entities.getId() != null) {
       identifier = entities.getId();
     } else {
@@ -112,7 +105,7 @@ public class PatchEntityRegistry implements EntityRegistry {
     EntitySpecBuilder entitySpecBuilder = new EntitySpecBuilder();
     for (Entity entity : entities.getEntities()) {
       log.info("Discovered entity {} with aspects {}", entity.getName(),
-          entity.getAspects().stream().collect(Collectors.joining()));
+              String.join("", entity.getAspects()));
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       if (entity.getKeyAspect() != null) {
         AspectSpec keyAspectSpec = buildAspectSpec(entity.getKeyAspect(), entitySpecBuilder);

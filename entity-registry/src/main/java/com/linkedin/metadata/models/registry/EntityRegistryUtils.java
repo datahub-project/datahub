@@ -1,11 +1,14 @@
 package com.linkedin.metadata.models.registry;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.*;
+import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -21,6 +24,18 @@ import java.util.stream.Collectors;
 public class EntityRegistryUtils {
   private EntityRegistryUtils() {
 
+  }
+
+  public static Entities readEntities(final ObjectMapper obj_mapper, InputStream configFileStream) {
+    Entities entities;
+    try {
+      entities = obj_mapper.readValue(configFileStream, Entities.class);
+    } catch (IOException e) {
+      log.error("Error during reading entity registry", e);
+      throw new IllegalArgumentException(
+              String.format("Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
+    }
+    return entities;
   }
 
   public static Map<String, AspectSpec> populateAspectMap(List<EntitySpec> entitySpecs) {

@@ -13,6 +13,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -64,13 +65,15 @@ public class DataSchemaFactory {
     }
     // first we load up classes from the classpath
     File pluginDir = pluginLocation.toFile();
+    log.info("plugin location is {}", pluginDir);
     if (!pluginDir.exists()) {
       throw new RuntimeException(
           "Failed to find plugin directory " + pluginDir.getAbsolutePath() + ". Current directory is " + new File(
               ".").getAbsolutePath());
     }
-    List<URL> urls = new ArrayList<URL>();
+    List<URL> urls = new ArrayList<>();
     if (pluginDir.isDirectory()) {
+      log.info("plugin location is a dir");
       List<Path> jarFiles = Files.walk(pluginLocation)
           .filter(Files::isRegularFile)
           .filter(p -> p.toString().endsWith(".jar"))
@@ -82,11 +85,13 @@ public class DataSchemaFactory {
         }
       }
     } else {
+      log.info("plugin location is not a dir");
       URL url = (pluginLocation.toUri().toURL());
       urls.add(url);
     }
     URL[] urlsArray = new URL[urls.size()];
     urls.toArray(urlsArray);
+    log.info("URLs are {}", Arrays.toString(urlsArray));
     URLClassLoader classLoader = new URLClassLoader(urlsArray, Thread.currentThread().getContextClassLoader());
     return new DataSchemaFactory(DEFAULT_TOP_LEVEL_NAMESPACES, classLoader);
   }
