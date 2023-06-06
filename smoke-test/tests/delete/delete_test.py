@@ -4,7 +4,6 @@ import pytest
 from time import sleep
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.cli.ingest_cli import get_session_and_host
-from datahub.cli.delete_cli import delete_references
 from tests.utils import (
     ingest_file_via_rest,
     wait_for_healthcheck_util,
@@ -12,7 +11,6 @@ from tests.utils import (
     wait_for_writes_to_sync,
     get_datahub_graph,
 )
-from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"

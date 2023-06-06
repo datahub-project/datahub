@@ -1,5 +1,5 @@
 import requests
-from tests.utils import wait_for_writes_to_sync
+from tests.consistency_utils import wait_for_writes_to_sync
 
 
 class CustomSession(requests.Session):
