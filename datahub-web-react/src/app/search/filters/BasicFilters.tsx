@@ -9,6 +9,7 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UnionType,
     LEGACY_ENTITY_FILTER_NAME,
+    BROWSE_PATH_V2_FILTER_NAME,
 } from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
 import { SORTED_FILTERS } from './constants';
@@ -44,8 +45,13 @@ export const FilterButtonsWrapper = styled.div`
     flex-wrap: nowrap;
 `;
 
-// remove legacy filter options as well as new _index filter from dropdowns
-const FILTERS_TO_REMOVE = [TYPE_NAMES_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME];
+// remove legacy filter options as well as new _index and browsePathV2 filter from dropdowns
+const FILTERS_TO_REMOVE = [
+    TYPE_NAMES_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
+    ENTITY_INDEX_FILTER_NAME,
+    BROWSE_PATH_V2_FILTER_NAME,
+];
 
 interface Props {
     availableFilters: FacetMetadata[] | null;
