@@ -9,21 +9,18 @@ type Props = {
     skip: boolean;
 };
 
-type State = {
-    list: Array<number>;
-    map: Record<number, GetBrowseResultsV2Query>;
-};
-
-const getInitialState = (): State => ({
-    list: [],
-    map: {},
-});
-
 const useBrowsePagination = ({ skip }: Props) => {
     const type = useEntityType();
     const path = useBrowsePath();
     const sidebarFilters = useSidebarFilters();
-    const [{ list, map }, setState] = useState(getInitialState);
+    const [map, setMap] = useState<Record<number, GetBrowseResultsV2Query | undefined>>({});
+    const list = useMemo(
+        () =>
+            Object.keys(map)
+                .map(Number)
+                .sort((a, b) => a - b),
+        [map],
+    );
     const groups = useMemo(() => list.flatMap((start) => map[start]?.browseV2?.groups ?? []), [list, map]);
     const latestStart = list.length ? list[list.length - 1] : -1;
     const latestData = latestStart >= 0 ? map[latestStart] : null;
@@ -69,19 +66,17 @@ const useBrowsePagination = ({ skip }: Props) => {
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
         if (!data || newStart < 0) return;
-        setState((state) => {
-            const newList: typeof state.list = state.list.filter((start) => start < newStart);
-            const newMap: typeof state.map = {};
 
-            for (let i = 0; i < newList.length; i++) newMap[newList[i]] = state.map[newList[i]];
+        setMap((previousMap) => {
+            const newMap: typeof previousMap = { [newStart]: data };
 
-            newList.push(newStart);
-            newMap[newStart] = data;
+            Object.keys(previousMap)
+                .map(Number)
+                .forEach((previousStart) => {
+                    if (previousStart < newStart) newMap[previousStart] = previousMap[previousStart];
+                });
 
-            return {
-                list: newList,
-                map: newMap,
-            };
+            return newMap;
         });
     }, [data]);
 
