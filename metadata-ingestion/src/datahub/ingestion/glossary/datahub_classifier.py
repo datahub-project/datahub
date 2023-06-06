@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from datahub_classify.helper_classes import ColumnInfo
@@ -31,8 +32,13 @@ class DataTypeFactorConfig(ConfigModel):
     )
 
 
+class ValuePredictionType(str, Enum):
+    REGEX = "regex"
+    LIBRARY = "library"
+
+
 class ValuesFactorConfig(ConfigModel):
-    prediction_type: str
+    prediction_type: ValuePredictionType
     regex: Optional[List[str]] = Field(
         description="List of regex patterns the column value follows for the info type",
     )
@@ -68,6 +74,11 @@ class InfoTypeConfig(ConfigModel):
     Values: Optional[ValuesFactorConfig] = Field(default=None, alias="values")
 
 
+DEFAULT_CLASSIFIER_CONFIG = {
+    k: InfoTypeConfig.parse_obj(v) for k, v in default_config.items()
+}
+
+
 # TODO: Generate Classification doc (classification.md) from python source.
 class DataHubClassifierConfig(ConfigModel):
     confidence_level_threshold: float = Field(
@@ -81,28 +92,53 @@ class DataHubClassifierConfig(ConfigModel):
         description=f"List of infotypes to be predicted. By default, all supported infotypes are considered. If specified. this should be subset of {list(default_config.keys())}.",
     )
     info_types_config: Dict[str, InfoTypeConfig] = Field(
-        default={k: InfoTypeConfig.parse_obj(v) for k, v in default_config.items()},
+        default=DEFAULT_CLASSIFIER_CONFIG,
         init=False,
         description="Configuration details for infotypes. See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration.",
     )
 
-    @root_validator
-    def provided_config_selectively_overrides_default_config(cls, values):
-        override: Dict[str, InfoTypeConfig] = values.get("info_types_config")
-        base = {k: InfoTypeConfig.parse_obj(v) for k, v in default_config.items()}
-        for k, v in base.items():
-            if k not in override.keys():
-                # use default InfoTypeConfig for info type key if not specified in recipe
-                values["info_types_config"][k] = v
+    @root_validator(pre=False)
+    def input_config_selectively_overrides_default_config(cls, values):
+        input_config: Dict[str, InfoTypeConfig] = values.get("info_types_config")
+        for infotype, infotype_config in DEFAULT_CLASSIFIER_CONFIG.items():
+            if infotype not in input_config:
+                # if config for some info type is not provided by user, use default config for that info type.
+                values["info_types_config"][infotype] = infotype_config
             else:
-                for factor, _ in (
-                    override[k].Prediction_Factors_and_Weights.dict().items()
+                # if config for info type is provided by user but config for its prediction factor is missing,
+                # use default config for that prediction factor.
+                for factor, weight in (
+                    input_config[infotype].Prediction_Factors_and_Weights.dict().items()
                 ):
-                    # use default FactorConfig for factor if not specified in recipe
-                    if getattr(override[k], factor) is None:
+                    if weight > 0 and getattr(input_config[infotype], factor) is None:
                         setattr(
-                            values["info_types_config"][k], factor, getattr(v, factor)
+                            values["info_types_config"][infotype],
+                            factor,
+                            getattr(infotype_config, factor),
                         )
+        # Custom info type
+        custom_infotypes = input_config.keys() - DEFAULT_CLASSIFIER_CONFIG.keys()
+
+        for custom_infotype in custom_infotypes:
+            custom_infotype_config = input_config[custom_infotype]
+            # for custom infotype, config for every prediction factor must be specified.
+            for (
+                factor,
+                weight,
+            ) in custom_infotype_config.Prediction_Factors_and_Weights.dict().items():
+                if weight > 0:
+                    assert (
+                        getattr(custom_infotype_config, factor) is not None
+                    ), f"Missing Configuration for Prediction Factor {factor} for Custom Info Type {custom_infotype}"
+
+            # Custom infotype supports only regex based prediction for column values
+            if custom_infotype_config.Prediction_Factors_and_Weights.Values > 0:
+                assert custom_infotype_config.Values
+                assert (
+                    custom_infotype_config.Values.prediction_type
+                    == ValuePredictionType.REGEX
+                ), f"Invalid Prediction Type for Values for Custom Info Type {custom_infotype}. Only `regex` is supported."
+
         return values
 
 
