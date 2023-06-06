@@ -416,8 +416,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         topic_configurations: dict,
     ) -> None:
         try:
-            assert config_result_future.done()
-            assert config_result_future.exception() is None
             topic_configurations[config_resource.name] = config_result_future.result()
         except Exception as e:
             logger.warning(
