@@ -110,6 +110,7 @@ Here are a few samples for the usage of this type of lineage:
 * [lineage_emitter_rest.py](../../metadata-ingestion/examples/library/lineage_emitter_rest.py) - emits simple dataset-to-dataset lineage via REST as MetadataChangeEvent.
 * [lineage_emitter_kafka.py](../../metadata-ingestion/examples/library/lineage_emitter_kafka.py) - emits simple dataset-to-dataset lineage via Kafka as MetadataChangeEvent.
 * [lineage_emitter_dataset_finegrained.py](../../metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py) - emits fine-grained dataset-dataset lineage via REST as MetadataChangeProposalWrapper.
+* [Datahub Snowflake Lineage](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/snowflake/snowflake_lineage_v2.py) - emits Datahub's Snowflake lineage as MetadataChangeProposalWrapper.
 * [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/3022c2d12e68d221435c6134362c1a2cba2df6b3/metadata-ingestion/src/datahub/ingestion/source/bigquery_v2/bigquery.py#L1028) - emits Datahub's Bigquery lineage as MetadataChangeProposalWrapper. **Use the patch feature to add to rather than overwrite the current lineage.**
 
 ### Using dbt Lineage
