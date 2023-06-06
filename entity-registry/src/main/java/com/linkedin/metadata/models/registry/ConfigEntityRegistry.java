@@ -10,7 +10,6 @@ import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
-import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;

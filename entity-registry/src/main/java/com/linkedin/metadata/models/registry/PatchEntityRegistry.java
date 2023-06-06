@@ -9,7 +9,6 @@ import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
-import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
@@ -60,15 +59,13 @@ public class PatchEntityRegistry implements EntityRegistry {
   public String toString() {
     StringBuilder sb = new StringBuilder("PatchEntityRegistry[" + "identifier=" + identifier + ';');
     entityNameToSpec.entrySet()
-        .stream()
         .forEach(entry -> sb.append("[entityName=")
             .append(entry.getKey())
             .append(";aspects=[")
             .append(
-                entry.getValue().getAspectSpecs().stream().map(spec -> spec.getName()).collect(Collectors.joining(",")))
+                entry.getValue().getAspectSpecs().stream().map(AspectSpec::getName).collect(Collectors.joining(",")))
             .append("]]"));
     eventNameToSpec.entrySet()
-        .stream()
         .forEach(entry -> sb.append("[eventName=")
             .append(entry.getKey())
             .append("]"));
