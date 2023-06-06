@@ -1,4 +1,4 @@
-import React, { ReactNode, createContext, useContext } from 'react';
+import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import {
     AggregationMetadata,
     BrowseResultGroupV2,
@@ -44,8 +44,10 @@ export const BrowseProvider = ({
     browseResultGroup,
     parentPath,
 }: Props) => {
-    const basePath = parentPath ? [...parentPath] : [];
-    const path = browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
+    const path = useMemo(() => {
+        const basePath = parentPath ? [...parentPath] : [];
+        return browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
+    }, [browseResultGroup, parentPath]);
 
     return (
         <BrowseContext.Provider
