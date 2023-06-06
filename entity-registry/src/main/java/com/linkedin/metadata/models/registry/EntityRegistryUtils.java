@@ -36,7 +36,7 @@ public class EntityRegistryUtils {
       // Look for entity-registry.yml or entity-registry.yaml in the root folder
       List<Path> yamlFiles = Files.walk(entityRegistryRootLoc, 1)
               .filter(Files::isRegularFile)
-              .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
+              .filter(f -> f.toString().endsWith("entity-registry.yml") || f.toString().endsWith("entity-registry.yaml"))
               .collect(Collectors.toList());
       if (yamlFiles.size() == 0) {
         throw new EntityRegistryException(
