@@ -39,10 +39,12 @@ type Props = {
     width: number;
 };
 
+const facets = [ENTITY_FILTER_NAME];
+
 const BrowseSidebar = ({ visible, width }: Props) => {
     const { error, entityAggregations } = useAggregationsQuery({
         skip: !visible,
-        facets: [ENTITY_FILTER_NAME],
+        facets,
     });
 
     return (

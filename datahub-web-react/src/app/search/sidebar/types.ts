@@ -1,3 +1,6 @@
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 
-export type SidebarFilters = Pick<ReturnType<typeof useGetSearchQueryInputs>, 'query' | 'orFilters' | 'viewUrn'>;
+export type SidebarFilters = Pick<
+    ReturnType<typeof useGetSearchQueryInputs>,
+    'entityFilters' | 'query' | 'orFilters' | 'viewUrn'
+>;

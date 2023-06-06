@@ -36,9 +36,14 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
             ),
         [excludedFilterFields, nonNestedFilters],
     );
-    const entityFilters: Array<EntityType> = filters
-        .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => (filter.values || []).map((value) => value?.toUpperCase() as EntityType));
+    const entityFilters: Array<EntityType> = useMemo(
+        () =>
+            filters
+                .filter((filter) => filter.field === ENTITY_FILTER_NAME)
+                .flatMap((filter) => (filter.values || []).map((value) => value?.toUpperCase() as EntityType))
+                .sort((a, b) => a.localeCompare(b)),
+        [filters],
+    );
 
     const orFilters = useMemo(
         () => generateOrFilters(unionType, filtersWithoutEntities, nestedFilters),

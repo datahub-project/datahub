@@ -3,7 +3,6 @@ import { EntityType } from '../../../types.generated';
 import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { useMaybeEntityType } from './BrowseContext';
 import { useSidebarFilters } from './useSidebarFilters';
 
 type Props = {
@@ -13,21 +12,28 @@ type Props = {
 
 const useAggregationsQuery = ({ facets, skip }: Props) => {
     const registry = useEntityRegistry();
-    const entityType = useMaybeEntityType();
-    const filters = useSidebarFilters();
+    const sidebarFilters = useSidebarFilters();
 
-    const { data, loading, error } = useAggregateAcrossEntitiesQuery({
+    const {
+        data: newData,
+        previousData,
+        loading,
+        error,
+    } = useAggregateAcrossEntitiesQuery({
         skip,
         fetchPolicy: 'cache-first',
         variables: {
             input: {
-                types: entityType ? [entityType] : null,
+                types: sidebarFilters.entityFilters,
                 facets,
-                ...filters,
+                orFilters: sidebarFilters?.orFilters,
+                viewUrn: sidebarFilters?.viewUrn,
+                query: sidebarFilters?.query,
             },
         },
     });
 
+    const data = error ? null : newData ?? previousData;
     const loaded = !!data || !!error;
 
     const entityAggregations = data?.aggregateAcrossEntities?.facets

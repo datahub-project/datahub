@@ -1,11 +1,13 @@
 import isEqual from 'lodash/isEqual';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import { BROWSE_PATH_V2_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
+import { useMaybeEntityType, useMaybeEnvironmentAggregation, useMaybePlatformAggregation } from './BrowseContext';
 import { applyOrFilterOverrides } from '../utils/applyFilterOverrides';
+import { SidebarFilters } from './types';
 
-export const useSidebarFilters = () => {
+export const useSidebarFilters = (): SidebarFilters => {
+    const entityType = useMaybeEntityType();
     const environment = useMaybeEnvironmentAggregation()?.value;
     const platform = useMaybePlatformAggregation()?.value;
 
@@ -23,29 +25,30 @@ export const useSidebarFilters = () => {
     );
 
     const {
+        entityFilters: latestEntityFilters,
         query: latestQuery,
         orFilters: latestOrFilters,
         viewUrn: latestViewUrn,
     } = useGetSearchQueryInputs(excludedFilterFields);
 
-    const createSidebarFilters = useCallback(
+    const latestSidebarFilters = useMemo(
         () => ({
+            // todo(josh): remove this and move it to a normal filterOverride when _entityType is fully wired up on the backend
+            entityFilters: entityType ? [entityType] : latestEntityFilters,
             query: latestQuery,
             orFilters: applyOrFilterOverrides(latestOrFilters, filterOverrides),
             viewUrn: latestViewUrn,
         }),
-        [filterOverrides, latestOrFilters, latestQuery, latestViewUrn],
+        [entityType, filterOverrides, latestEntityFilters, latestOrFilters, latestQuery, latestViewUrn],
     );
 
-    const [sidebarFilters, setSidebarFilters] = useState(createSidebarFilters);
+    const [sidebarFilters, setSidebarFilters] = useState(latestSidebarFilters);
 
     // Ensures we only trigger filter updates in the sidebar if they truly changed (clicking browse could trigger this when we don't want)
     useEffect(() => {
-        setSidebarFilters((sf) => {
-            const latestSidebarFilters = createSidebarFilters();
-            return isEqual(sf, latestSidebarFilters) ? sf : latestSidebarFilters;
-        });
-    }, [createSidebarFilters]);
+        // todo - consider hardening this equality check some more
+        if (!isEqual(sidebarFilters, latestSidebarFilters)) setSidebarFilters(latestSidebarFilters);
+    }, [latestSidebarFilters, sidebarFilters]);
 
     return sidebarFilters;
 };
