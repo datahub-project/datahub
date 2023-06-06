@@ -894,6 +894,14 @@ query getEntityMentionNode($urn: String!) {
     }
 }
 
+query getEntityDisplayName($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
 query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
     aggregateAcrossEntities(input: $input) {
         facets {

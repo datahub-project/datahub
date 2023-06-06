@@ -3,6 +3,7 @@ import {
     BookOutlined,
     DatabaseOutlined,
     FileOutlined,
+    FolderFilled,
     FolderOutlined,
     TagOutlined,
     UserOutlined,
@@ -20,6 +21,7 @@ import {
 } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
 import {
+    BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     ENTITY_FILTER_NAME,
@@ -95,12 +97,18 @@ function getDataPlatformInstanceIconAndLabel(
     return { icon, label };
 }
 
+export function getLastBrowseEntryFromFilterValue(filterValue: string) {
+    const browseEntries = filterValue.split(UNIT_SEPARATOR);
+    return browseEntries[browseEntries.length - 1] || '';
+}
+
 export function getFilterIconAndLabel(
     filterField: string,
     filterValue: string,
     entityRegistry: EntityRegistry,
     filterEntity: Entity | null,
     size?: number,
+    filterLabelOverride?: string | null,
 ) {
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
@@ -125,6 +133,9 @@ export function getFilterIconAndLabel(
             entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
         );
         label = entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity);
+    } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
+        icon = <FolderFilled size={size} color="black" />;
+        label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
         if (entityRegistry.hasEntity(filterEntity.type)) {
             icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
@@ -142,6 +153,10 @@ export function getFilterIconAndLabel(
         }
     } else {
         label = filterValue;
+    }
+
+    if (filterLabelOverride) {
+        label = filterLabelOverride;
     }
 
     return { icon, label };

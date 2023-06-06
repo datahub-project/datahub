@@ -6,6 +6,7 @@ import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterEntity, getFilterIconAndLabel, getNewFilters } from './utils';
+import useGetBrowseV2LabelOverride from './useGetBrowseV2LabelOverride';
 
 const ActiveFilterWrapper = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};
@@ -52,7 +53,15 @@ function ActiveFilter({
 }: ActiveFilterProps) {
     const entityRegistry = useEntityRegistry();
     const filterEntity = getFilterEntity(filterFacet.field, filterValue, availableFilters);
-    const { icon, label } = getFilterIconAndLabel(filterFacet.field, filterValue, entityRegistry, filterEntity);
+    const filterLabelOverride = useGetBrowseV2LabelOverride(filterFacet.field, filterValue, entityRegistry);
+    const { icon, label } = getFilterIconAndLabel(
+        filterFacet.field,
+        filterValue,
+        entityRegistry,
+        filterEntity,
+        12,
+        filterLabelOverride,
+    );
 
     function removeFilter() {
         const newFilterValues = filterFacet.values?.filter((value) => value !== filterValue) || [];

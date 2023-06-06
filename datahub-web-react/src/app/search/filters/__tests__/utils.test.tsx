@@ -17,6 +17,7 @@ import {
     getFilterOptions,
     filterOptionsWithSearch,
 } from '../utils';
+import { FolderFilled } from '@ant-design/icons';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -136,6 +137,32 @@ describe('filter utils - getFilterIconAndLabel', () => {
 
         expect(icon).toBe(null);
         expect(label).toBe('PROD');
+    });
+
+    it('should get the correct icon and label for browse v2 filters', () => {
+        const { icon, label } = getFilterIconAndLabel(
+            'browsePathV2',
+            '␟long-tail-companions␟view',
+            mockEntityRegistry,
+            null,
+        );
+
+        expect(icon).toMatchObject(<FolderFilled color="black" />);
+        expect(label).toBe('view');
+    });
+
+    it('should override the filter label if we provide an override', () => {
+        const { icon, label } = getFilterIconAndLabel(
+            'browsePathV2',
+            '␟long-tail-companions␟view',
+            mockEntityRegistry,
+            null,
+            12,
+            'TESTING',
+        );
+
+        expect(icon).toMatchObject(<FolderFilled size={12} color="black" />);
+        expect(label).toBe('TESTING');
     });
 });
 
