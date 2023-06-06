@@ -15,6 +15,7 @@ import {
 } from '../utils/constants';
 import { useIsMatchingFilter, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
 import { applyFacetFilterOverrides } from '../utils/applyFilterOverrides';
+import { getEntitySubtypeFiltersForEntity } from './browseContextUtils';
 
 type BrowseContextValue = {
     entityAggregation?: AggregationMetadata;
@@ -165,17 +166,15 @@ export const useOnSelectBrowsePath = () => {
     const onChangeFilters = useOnChangeFilters();
 
     return () => {
-        const newFilters: Array<FacetFilterInput> = [];
         const overrides: Array<FacetFilterInput> = [];
 
-        // do not want to overwrite nested subtype filter, but add as a filter if nothing for this field exists
-        if (!selectedFilters.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME)) {
-            newFilters.push({
-                field: ENTITY_SUB_TYPE_FILTER_NAME,
-                condition: FilterOperator.Equal,
-                values: [entityAggregation.value],
-            });
-        }
+        // keep entity and subType filters for this given entity only if they exist, otherwise apply this entity filter
+        const entitySubtypeFilters = getEntitySubtypeFiltersForEntity(entityAggregation.value, selectedFilters);
+        overrides.push({
+            field: ENTITY_SUB_TYPE_FILTER_NAME,
+            condition: FilterOperator.Equal,
+            values: entitySubtypeFilters || [entityAggregation.value],
+        });
 
         if (environmentAggregation)
             overrides.push({
@@ -196,7 +195,7 @@ export const useOnSelectBrowsePath = () => {
             values: [browseSearchFilter],
         });
 
-        const filtersWithOverrides = applyFacetFilterOverrides([...selectedFilters, ...newFilters], overrides);
+        const filtersWithOverrides = applyFacetFilterOverrides(selectedFilters, overrides);
 
         onChangeFilters(filtersWithOverrides);
     };
