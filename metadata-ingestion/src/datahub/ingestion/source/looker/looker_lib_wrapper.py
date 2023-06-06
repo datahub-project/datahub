@@ -202,7 +202,9 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def all_looks(self, fields: Union[str, List[str]]) -> List[Look]:
+    def all_looks(
+        self, fields: Union[str, List[str]], soft_deleted: bool
+    ) -> List[Look]:
         self.client_stats.all_looks_calls += 1
         looks: List[Look] = list(
             self.client.all_looks(
@@ -210,8 +212,10 @@ class LookerAPI:
                 transport_options=self.transport_options,
             )
         )
-        # Add soft deleted looks
-        looks.extend(self.search_looks(fields=fields, deleted=True))
+
+        if soft_deleted:
+            # Add soft deleted looks
+            looks.extend(self.search_looks(fields=fields, deleted=True))
 
         return looks
 

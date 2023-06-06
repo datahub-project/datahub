@@ -135,7 +135,8 @@ class LookerDashboardSourceConfig(
         description="Patterns for selecting chart ids that are to be included",
     )
     include_deleted: bool = Field(
-        False, description="Whether to include deleted dashboards."
+        False,
+        description="Whether to include deleted dashboards and deleted independent looks.",
     )
     extract_owners: bool = Field(
         True,
@@ -197,7 +198,7 @@ class LookerDashboardSourceConfig(
     ) -> Optional[str]:
         return v or values.get("base_url")
 
-    @validator("extract_independent_looks", pre=True, always=True)
+    @validator("extract_independent_looks", always=True)
     def stateful_ingestion_should_be_enabled(
         cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[bool]:

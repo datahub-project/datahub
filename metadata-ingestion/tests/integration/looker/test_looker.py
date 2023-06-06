@@ -23,6 +23,10 @@ from looker_sdk.sdk.api40.models import (
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.source.looker import looker_usage
+from datahub.ingestion.source.looker.looker_lib_wrapper import (
+    LookerAPI,
+    LookerAPIConfig,
+)
 from datahub.ingestion.source.looker.looker_query_model import (
     HistoryViewField,
     LookViewField,
@@ -316,6 +320,17 @@ def setup_mock_look(mocked_client):
         dynamic_fields=None,
         filters=None,
     )
+
+
+def setup_mock_soft_deleted_look(mocked_client):
+    mocked_client.search_looks.return_value = [
+        Look(
+            id="2",
+            title="Soft Deleted",
+            description="I am not part of any Dashboard",
+            query_id="1",
+        )
+    ]
 
 
 def setup_mock_dashboard_multiple_charts(mocked_client):
@@ -886,3 +901,33 @@ def test_independent_looks_ingest(
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_soft_deleted_looks(
+    pytestconfig,
+    tmp_path,
+    mock_time,
+):
+    mocked_client = mock.MagicMock()
+
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+
+        mock_sdk.return_value = mocked_client
+        setup_mock_look(mocked_client)
+        setup_mock_soft_deleted_look(mocked_client)
+        looker_api = LookerAPI(
+            config=LookerAPIConfig(
+                base_url="https://fake.com",
+                client_id="foo",
+                client_secret="bar",
+            )
+        )
+        looks: List[Look] = looker_api.all_looks(
+            fields=["id"],
+            soft_deleted=True,
+        )
+
+        assert len(looks) == 2
+        assert looks[0].title == "Outer Look"
+        assert looks[1].title == "Soft Deleted"
