@@ -26,6 +26,15 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "access_token": "test_token",
             },
         },
+        "mock://api.app.preset.io/v1/auth/": {
+            "method": "POST",
+            "status_code": 200,
+            "json": {
+                "payload": {
+                    "access_token": "test_token",
+                },
+            },
+        },
         "mock://mock-domain.superset.com/api/v1/dashboard/": {
             "method": "GET",
             "status_code": 200,
@@ -151,7 +160,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -193,7 +201,6 @@ def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
 def test_superset_stateful_ingest(
     pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -306,3 +313,41 @@ def test_superset_stateful_ingest(
             output_path=deleted_mces_path,
             golden_path=test_resources_dir / "golden_test_stateful_ingest.json",
         )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "preset-test",
+            "source": {
+                "type": "preset",
+                "config": {
+                    "connect_uri": "mock://mock-domain.superset.com/",
+                    "api_key": "KEY",
+                    "api_secret": "SECRET",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/preset_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "preset_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
