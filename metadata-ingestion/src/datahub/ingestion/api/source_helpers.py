@@ -224,11 +224,11 @@ def auto_browse_path_v2(
                     num_out_of_order += 1
 
             browse_path_aspect = wu.get_aspect_of_type(BrowsePathsClass)
-            if browse_path_aspect:
+            if browse_path_aspect and browse_path_aspect.paths:
                 legacy_path = [
-                    BrowsePathEntryClass(id=p)
+                    BrowsePathEntryClass(id=p.strip())
                     for p in browse_path_aspect.paths[0].strip("/").split("/")
-                    if p.strip() not in drop_dirs
+                    if p.strip() and p.strip() not in drop_dirs
                 ]
 
             if wu.get_aspect_of_type(BrowsePathsV2Class):
