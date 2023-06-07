@@ -322,6 +322,9 @@ def loaded_kafka_connect(kafka_connect_runner):
 def test_kafka_connect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
+    import pdb
+
+    pdb.set_trace()
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
