@@ -348,8 +348,8 @@ def test_auto_browse_path_v2_invalid_batch_telemetry(telemetry_ping_mock):
     _ = list(auto_browse_path_v2(wus))
     assert telemetry_ping_mock.call_count == 1
     assert telemetry_ping_mock.call_args_list[0][0][0] == "incorrect_browse_path_v2"
-    assert b_urn in telemetry_ping_mock.call_args_list[0][0][1]["reason"]
-    assert "batch" in telemetry_ping_mock.call_args_list[0][0][1]["reason"]
+    assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_order"] == 0
+    assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_batch"] == 1
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
@@ -382,7 +382,5 @@ def test_auto_browse_path_v2_invalid_order_telemetry(telemetry_ping_mock):
     _ = list(auto_browse_path_v2(wus))
     assert telemetry_ping_mock.call_count == 1
     assert telemetry_ping_mock.call_args_list[0][0][0] == "incorrect_browse_path_v2"
-    assert (
-        make_container_urn("b") in telemetry_ping_mock.call_args_list[0][0][1]["reason"]
-    )
-    assert "order" in telemetry_ping_mock.call_args_list[0][0][1]["reason"]
+    assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_order"] == 1
+    assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_batch"] == 0

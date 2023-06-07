@@ -17,7 +17,6 @@ from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
@@ -174,7 +173,6 @@ def auto_browse_path_v2(
     *,
     drop_dirs: Sequence[str] = (),
     platform_key: Optional[PlatformKey] = None,
-    pipeline_config: Optional[PipelineConfig] = None,
 ) -> Iterable[MetadataWorkUnit]:
     """Generate BrowsePathsV2 from Container and BrowsePaths aspects.
 
@@ -189,14 +187,9 @@ def auto_browse_path_v2(
     and emits "corrections", i.e. a final BrowsePathsV2 for any urns that have changed.
     """
 
-    telemetry_metadata = {
-        "platform": platform_key.platform if platform_key else None,
-        "run_id": pipeline_config.run_id if pipeline_config else None,
-        "pipeline_name": pipeline_config.pipeline_name if pipeline_config else None,
-        "server": pipeline_config.datahub_api.server
-        if pipeline_config and pipeline_config.datahub_api
-        else None,
-    }
+    # For telemetry, to see if our sources violate assumptions
+    num_out_of_order = 0
+    num_out_of_batch = 0
 
     # Set for all containers and urns with a Container aspect
     # Used to construct container paths while iterating through stream
@@ -227,13 +220,8 @@ def auto_browse_path_v2(
 
                 if urn in containers_used_as_parent:
                     # Topological order invariant violated; we've used the previous value of paths[urn]
-                    telemetry.telemetry_instance.ping(
-                        "incorrect_browse_path_v2",
-                        {
-                            **telemetry_metadata,
-                            "reason": f"Container aspect for {urn} emitted out of order",
-                        },
-                    )
+                    # TODO: Add sentry alert
+                    num_out_of_order += 1
 
             browse_path_aspect = wu.get_aspect_of_type(BrowsePathsClass)
             if browse_path_aspect:
@@ -249,10 +237,8 @@ def auto_browse_path_v2(
         path = container_path or legacy_path
         if (path is not None or has_browse_path_v2) and urn in emitted_urns:
             # Batch invariant violated
-            telemetry.telemetry_instance.ping(
-                "incorrect_browse_path_v2",
-                {**telemetry_metadata, "reason": f"Data for {urn} not in batch"},
-            )
+            # TODO: Add sentry alert
+            num_out_of_batch += 1
         elif has_browse_path_v2:
             emitted_urns.add(urn)
         elif path is not None:
@@ -272,6 +258,17 @@ def auto_browse_path_v2(
                 ),
             ).as_workunit()
             emitted_urns.add(urn)
+
+    if num_out_of_batch or num_out_of_order:
+        properties = {
+            "platform": platform_key.platform if platform_key else None,
+            "has_platform_instance": bool(platform_key.instance)
+            if platform_key
+            else False,
+            "num_out_of_batch": num_out_of_batch,
+            "num_out_of_order": num_out_of_order,
+        }
+        telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
 
 
 def _batch_workunits_by_urn(

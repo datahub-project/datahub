@@ -261,7 +261,6 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_browse_path_v2,
             platform_key=platform_key,
             drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
-            pipeline_config=self.ctx.pipeline_config,
         )
 
 
