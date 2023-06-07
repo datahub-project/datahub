@@ -379,8 +379,28 @@ def test_auto_browse_path_v2_invalid_order_telemetry(telemetry_ping_mock):
     wus = list(auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
-    _ = list(auto_browse_path_v2(wus))
+    new_wus = list(auto_browse_path_v2(wus))
+    assert (
+        sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
+        > 0
+    )
     assert telemetry_ping_mock.call_count == 1
     assert telemetry_ping_mock.call_args_list[0][0][0] == "incorrect_browse_path_v2"
     assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_order"] == 1
     assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_batch"] == 0
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_dry_run(telemetry_ping_mock):
+    structure = {"a": {"b": ["c"]}}
+    wus = list(reversed(list(_create_container_aspects(structure))))
+    wus = list(auto_status_aspect(wus))
+
+    assert telemetry_ping_mock.call_count == 0
+    new_wus = list(auto_browse_path_v2(wus, dry_run=True))
+    assert wus == new_wus
+    assert (
+        sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
+        == 0
+    )
+    assert telemetry_ping_mock.call_count == 1

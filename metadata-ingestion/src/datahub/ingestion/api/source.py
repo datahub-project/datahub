@@ -261,6 +261,7 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_browse_path_v2,
             platform_key=platform_key,
             drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
+            dry_run=self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run,
         )
 
 

@@ -171,6 +171,7 @@ def auto_materialize_referenced_tags(
 def auto_browse_path_v2(
     stream: Iterable[MetadataWorkUnit],
     *,
+    dry_run: bool = False,
     drop_dirs: Sequence[str] = (),
     platform_key: Optional[PlatformKey] = None,
 ) -> Iterable[MetadataWorkUnit]:
@@ -242,22 +243,24 @@ def auto_browse_path_v2(
         elif has_browse_path_v2:
             emitted_urns.add(urn)
         elif path is not None:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=BrowsePathsV2Class(
-                    path=_prepend_platform_instance(path, platform_key)
-                ),
-            ).as_workunit()
             emitted_urns.add(urn)
+            if not dry_run:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=BrowsePathsV2Class(
+                        path=_prepend_platform_instance(path, platform_key)
+                    ),
+                ).as_workunit()
         elif urn not in emitted_urns and guess_entity_type(urn) == "container":
             # Root containers have no Container aspect, so they are not handled above
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=BrowsePathsV2Class(
-                    path=_prepend_platform_instance([], platform_key)
-                ),
-            ).as_workunit()
             emitted_urns.add(urn)
+            if not dry_run:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=BrowsePathsV2Class(
+                        path=_prepend_platform_instance([], platform_key)
+                    ),
+                ).as_workunit()
 
     if num_out_of_batch or num_out_of_order:
         properties = {
