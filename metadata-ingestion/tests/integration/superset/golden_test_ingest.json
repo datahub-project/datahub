@@ -1,0 +1,268 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(superset,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "test_dashboard_title_1",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(superset,10)",
+                            "urn:li:chart:(superset,11)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_1"
+                            },
+                            "lastModified": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_1"
+                            }
+                        },
+                        "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(superset,2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "test_dashboard_title_2",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(superset,12)",
+                            "urn:li:chart:(superset,13)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_2"
+                            },
+                            "lastModified": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_2"
+                            }
+                        },
+                        "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_2"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(superset,10)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "",
+                            "Filters": "",
+                            "Dimensions": ""
+                        },
+                        "title": "test_chart_title_1",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_1"
+                            },
+                            "lastModified": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_1"
+                            }
+                        },
+                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                            }
+                        ],
+                        "type": "BAR"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(superset,11)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "",
+                            "Filters": "",
+                            "Dimensions": ""
+                        },
+                        "title": "test_chart_title_2",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_1"
+                            },
+                            "lastModified": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_1"
+                            }
+                        },
+                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                            }
+                        ],
+                        "type": "PIE"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(superset,12)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "",
+                            "Filters": "",
+                            "Dimensions": ""
+                        },
+                        "title": "test_chart_title_3",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_2"
+                            },
+                            "lastModified": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_2"
+                            }
+                        },
+                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                            }
+                        ],
+                        "type": "AREA"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(superset,13)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "",
+                            "Filters": "",
+                            "Dimensions": ""
+                        },
+                        "title": "test_chart_title_4",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_2"
+                            },
+                            "lastModified": {
+                                "time": 1586847600000,
+                                "actor": "urn:li:corpuser:test_username_2"
+                            }
+                        },
+                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_13",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                            }
+                        ],
+                        "type": "HISTOGRAM"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test"
+    }
+}
+]

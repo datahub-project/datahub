@@ -31,12 +31,18 @@ import org.springframework.context.annotation.PropertySource;
 public class DataHubKafkaProducerFactory {
 
   @Autowired
-  private SchemaRegistryConfig schemaRegistryConfig;
+  @Qualifier("schemaRegistryConfig")
+  private SchemaRegistryConfig _schemaRegistryConfig;
 
   @Bean(name = "kafkaProducer")
   protected Producer<String, IndexedRecord> createInstance(@Qualifier("configurationProvider") ConfigurationProvider
       provider, KafkaProperties properties) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    return new KafkaProducer<>(buildProducerProperties(_schemaRegistryConfig, kafkaConfiguration, properties));
+  }
+
+  public static Map<String, Object> buildProducerProperties(SchemaRegistryConfig schemaRegistryConfig,
+                                                            KafkaConfiguration kafkaConfiguration, KafkaProperties properties) {
     KafkaProperties.Producer producerProps = properties.getProducer();
 
     producerProps.setKeySerializer(StringSerializer.class);
@@ -56,10 +62,10 @@ public class DataHubKafkaProducerFactory {
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()
-        .stream()
-        .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
-        .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
+            .stream()
+            .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
+            .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
 
-    return new KafkaProducer<>(props);
+    return props;
   }
 }

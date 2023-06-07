@@ -121,7 +121,15 @@ public class MappingsBuilder {
               ANALYZER, SLASH_PATTERN_ANALYZER)));
       mappingForField.put(ANALYZER, BROWSE_PATH_HIERARCHY_ANALYZER);
       mappingForField.put(FIELDDATA, true);
-    } else if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+    } else if (fieldType == FieldType.BROWSE_PATH_V2) {
+      mappingForField.put(TYPE, TEXT);
+      mappingForField.put(FIELDS,
+          ImmutableMap.of(LENGTH, ImmutableMap.of(
+              TYPE, TOKEN_COUNT,
+              ANALYZER, UNIT_SEPARATOR_PATTERN_ANALYZER)));
+      mappingForField.put(ANALYZER, BROWSE_PATH_V2_HIERARCHY_ANALYZER);
+      mappingForField.put(FIELDDATA, true);
+    }  else if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
       mappingForField.put(TYPE, TEXT);
       mappingForField.put(ANALYZER, URN_ANALYZER);
       mappingForField.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);

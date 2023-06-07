@@ -13,10 +13,15 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
+    get_s3_prefix,
     is_s3_uri,
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-from datahub.ingestion.source.gcs.gcs_utils import get_gcs_bucket_name, is_gcs_uri
+from datahub.ingestion.source.gcs.gcs_utils import (
+    get_gcs_bucket_name,
+    get_gcs_prefix,
+    is_gcs_uri,
+)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -60,7 +65,8 @@ class ContainerWUCreator:
         return FolderKey(
             platform=self.platform,
             instance=self.instance,
-            backcompat_instance_for_guid=self.env,
+            env=self.env,
+            backcompat_env_as_instance=True,
             folder_abs_path=abs_path,
         )
 
@@ -68,15 +74,33 @@ class ContainerWUCreator:
         return BucketKey(
             platform=self.platform,
             instance=self.instance,
-            backcompat_instance_for_guid=self.env,
+            env=self.env,
+            backcompat_env_as_instance=True,
             bucket_name=name,
         )
 
-    def get_bucket_name(self, path):
+    @staticmethod
+    def get_protocol(path: str) -> str:
+        protocol: Optional[str] = None
+        if is_s3_uri(path):
+            protocol = get_s3_prefix(path)
+        elif is_gcs_uri(path):
+            protocol = get_gcs_prefix(path)
+
+        if protocol:
+            return protocol
+        else:
+            raise ValueError(
+                f"Unable to get protocol or invalid protocol from path: {path}"
+            )
+
+    @staticmethod
+    def get_bucket_name(path: str) -> str:
         if is_s3_uri(path):
             return get_bucket_name(path)
         elif is_gcs_uri(path):
             return get_gcs_bucket_name(path)
+        raise ValueError(f"Unable to get get bucket name form path: {path}")
 
     def create_container_hierarchy(
         self, path: str, dataset_urn: str

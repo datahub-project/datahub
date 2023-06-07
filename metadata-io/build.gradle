@@ -20,6 +20,7 @@ dependencies {
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   implementation externalDependency.slf4jApi
+  testImplementation project(path: ':metadata-integration:java:datahub-client')
   runtime externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
@@ -39,7 +40,9 @@ dependencies {
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
-  compile externalDependency.mixpanel
+  compile (externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
 
   annotationProcessor externalDependency.lombok
 

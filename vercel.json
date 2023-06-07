@@ -4,6 +4,6 @@
     "silent": true,
     "autoJobCancelation": true
   },
-  "installCommand": "amazon-linux-extras install python3.8 && py3=\"$(which python3)\" && rm \"$py3\" && ln \"$(which python3.8)\" \"$py3\" && ./metadata-ingestion/scripts/install_deps.sh && yum install -y gcc python38-devel",
+  "installCommand": "./docs-website/vercel-setup.sh",
   "outputDirectory": "docs-website/build"
 }

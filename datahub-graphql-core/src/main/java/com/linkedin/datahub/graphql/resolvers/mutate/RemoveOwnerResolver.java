@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,8 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
 
     Urn ownerUrn = Urn.createFromString(input.getOwnerUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
+    Optional<Urn> maybeOwnershipTypeUrn = input.getOwnershipTypeUrn() == null ? Optional.empty()
+        : Optional.of(Urn.createFromString(input.getOwnershipTypeUrn()));
 
     if (!OwnerUtils.isAuthorizedToUpdateOwners(environment.getContext(), targetUrn)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
@@ -44,13 +47,14 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         OwnerUtils.removeOwnersFromResources(
             ImmutableList.of(ownerUrn),
+            maybeOwnershipTypeUrn,
             ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
             actor,
             _entityService
         );
         return true;
       } catch (Exception e) {
-        log.error("Failed to remove owner from resource with input {}, {}", input.toString(), e.getMessage());
+        log.error("Failed to remove owner from resource with input {}", input);
         throw new RuntimeException(String.format("Failed to remove owner from resource with input  %s", input.toString()), e);
       }
     });

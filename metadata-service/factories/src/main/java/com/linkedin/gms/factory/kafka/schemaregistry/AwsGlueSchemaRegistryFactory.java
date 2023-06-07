@@ -31,7 +31,7 @@ public class AwsGlueSchemaRegistryFactory {
   @Value("${kafka.schemaRegistry.awsGlue.registryName}")
   private Optional<String> registryName;
 
-  @Bean
+  @Bean("schemaRegistryConfig")
   @Nonnull
   protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();

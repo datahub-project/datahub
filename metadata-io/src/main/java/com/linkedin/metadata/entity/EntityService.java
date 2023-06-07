@@ -4,6 +4,7 @@ import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -136,6 +137,10 @@ public class EntityService {
    */
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
 
   @Value
   public static class UpdateAspectResult {

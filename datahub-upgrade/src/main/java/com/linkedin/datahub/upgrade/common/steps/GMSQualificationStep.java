@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.common.steps;
 
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -16,6 +17,8 @@ import java.net.URLConnection;
 import java.util.Map;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @RequiredArgsConstructor
@@ -78,6 +81,10 @@ public class GMSQualificationStep implements UpgradeStep {
         String responseString = convertStreamToString(response);
 
         ObjectMapper mapper = new ObjectMapper();
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH,
+            MAX_JACKSON_STRING_SIZE));
+        mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         JsonNode configJson = mapper.readTree(responseString);
         if (isEligible((ObjectNode) configJson)) {
           return new DefaultUpgradeStepResult(

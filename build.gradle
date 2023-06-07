@@ -18,6 +18,7 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.2.12'
   ext.hadoop3Version = '3.3.5'
+  ext.kafkaVersion = '2.3.0'
 
   ext.docker_registry = 'linkedin'
 
@@ -101,7 +102,7 @@ project.ext.externalDependency = [
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
     "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
-    'hazelcast':'com.hazelcast:hazelcast:5.2.1',
+    'hazelcast':'com.hazelcast:hazelcast:5.2.3',
     'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
     'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
@@ -128,14 +129,14 @@ project.ext.externalDependency = [
     'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
-    'json': 'org.json:json:20090211',
+    'json': 'org.json:json:20230227',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
-    'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
+    'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",

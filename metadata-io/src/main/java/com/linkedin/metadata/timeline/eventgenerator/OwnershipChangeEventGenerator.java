@@ -147,11 +147,15 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
+    if (currentValue == null) {
+      throw new IllegalArgumentException("EntityAspect currentValue should not be null");
+    }
+
     if (!previousValue.getAspect().equals(OWNERSHIP_ASPECT_NAME) || !currentValue.getAspect()
         .equals(OWNERSHIP_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + OWNERSHIP_ASPECT_NAME);
     }
-    assert (currentValue != null);
 
     Ownership baseOwnership = getOwnershipFromAspect(previousValue);
     Ownership targetOwnership = getOwnershipFromAspect(currentValue);

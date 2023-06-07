@@ -33,7 +33,7 @@ public class DeleteAspectTableStep implements UpgradeStep {
       try {
         _server.execute(_server.createSqlUpdate("DROP TABLE IF EXISTS metadata_aspect;"));
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to delete data from legacy table metadata_aspect: %s", e.toString()));
+        context.report().addLine("Failed to delete data from legacy table metadata_aspect", e);
         return new DefaultUpgradeStepResult(
             id(),
             UpgradeStepResult.Result.FAILED);

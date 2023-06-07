@@ -25,6 +25,7 @@ interface Props {
     highlightText?: string;
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
+    fontSize?: number;
 }
 
 export default function Tag({
@@ -36,6 +37,7 @@ export default function Tag({
     highlightText,
     onOpenModal,
     refetch,
+    fontSize,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTagMutation] = useRemoveTagMutation();
@@ -107,8 +109,13 @@ export default function Tag({
                             e.preventDefault();
                             removeTag(tag);
                         }}
+                        fontSize={fontSize}
                     >
-                        <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
+                        <Highlight
+                            style={{ marginLeft: 0, fontSize }}
+                            matchStyle={highlightMatchStyle}
+                            search={highlightText}
+                        >
                             {displayName}
                         </Highlight>
                     </StyledTag>

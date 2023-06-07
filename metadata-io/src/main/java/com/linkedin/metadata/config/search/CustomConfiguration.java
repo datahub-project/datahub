@@ -2,7 +2,6 @@ package com.linkedin.metadata.config.search;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -14,12 +13,10 @@ import java.io.InputStream;
 
 
 @Data
-@AllArgsConstructor
 @Slf4j
 public class CustomConfiguration {
-
-  private boolean configEnabled;
-  private String configFile;
+  private boolean enabled;
+  private String file;
 
   /**
    * Materialize the search configuration from a location external to main application.yml
@@ -27,15 +24,15 @@ public class CustomConfiguration {
    * @return search configuration class
    * @throws IOException
    */
-  public CustomSearchConfiguration customSearchConfiguration(ObjectMapper mapper) throws IOException {
-    if (configEnabled) {
+  public CustomSearchConfiguration resolve(ObjectMapper mapper) throws IOException {
+    if (enabled) {
       log.info("Custom search configuration enabled.");
-      try (InputStream stream = new ClassPathResource(configFile).getInputStream()) {
-        log.info("Custom search configuration found in classpath: {}", configFile);
+      try (InputStream stream = new ClassPathResource(file).getInputStream()) {
+        log.info("Custom search configuration found in classpath: {}", file);
         return mapper.readValue(stream, CustomSearchConfiguration.class);
       } catch (FileNotFoundException e) {
-        try (InputStream stream = new FileSystemResource(configFile).getInputStream()) {
-          log.info("Custom search configuration found in filesystem: {}", configFile);
+        try (InputStream stream = new FileSystemResource(file).getInputStream()) {
+          log.info("Custom search configuration found in filesystem: {}", file);
           return mapper.readValue(stream, CustomSearchConfiguration.class);
         }
       }

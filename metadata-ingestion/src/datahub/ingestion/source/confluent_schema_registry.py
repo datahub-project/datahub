@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from hashlib import md5
 from typing import Any, List, Optional, Set, Tuple
 
-import confluent_kafka
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
     SchemaReference,
+    SchemaRegistryClient,
 )
 
 from datahub.ingestion.extractor import protobuf_util, schema_util
@@ -45,14 +45,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     ) -> None:
         self.source_config: KafkaSourceConfig = source_config
         self.report: KafkaSourceReport = report
-        # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
-        self.schema_registry_client = (
-            confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient(
-                {
-                    "url": source_config.connection.schema_registry_url,
-                    **source_config.connection.schema_registry_config,
-                }
-            )
+        self.schema_registry_client = SchemaRegistryClient(
+            {
+                "url": source_config.connection.schema_registry_url,
+                **source_config.connection.schema_registry_config,
+            }
         )
         self.known_schema_registry_subjects: List[str] = []
         try:
@@ -348,8 +345,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
+                    documentSchema=schema.schema_str if schema else "",
+                    documentSchemaType=schema.schema_type if schema else None,
                     keySchema=key_schema.schema_str if key_schema else None,
+                    keySchemaType=key_schema.schema_type if key_schema else None,
                 ),
                 fields=key_fields + fields,
             )
@@ -383,8 +382,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 hash=md5_hash,
                 platform=platform_urn,
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
+                    documentSchema=schema.schema_str if schema else "",
+                    documentSchemaType=schema.schema_type if schema else None,
                     keySchema=key_schema.schema_str if key_schema else None,
+                    keySchemaType=key_schema.schema_type if key_schema else None,
                 ),
                 fields=key_fields + fields,
             )

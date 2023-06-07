@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
+import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
@@ -349,5 +350,18 @@ public class DescriptionUtils {
       editableProperties.setDescription(newDescription);
     }
     persistAspect(resourceUrn, Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
+  }
+
+  public static void updateDataProductDescription(
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService) {
+    DataProductProperties properties = (DataProductProperties) getAspectFromEntity(
+        resourceUrn.toString(), Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, entityService, new DataProductProperties());
+    if (properties != null) {
+      properties.setDescription(newDescription);
+    }
+    persistAspect(resourceUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, properties, actor, entityService);
   }
 }

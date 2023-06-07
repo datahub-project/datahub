@@ -107,6 +107,9 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard
    */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
   dashboardUrl: optional Url
 
   /**
