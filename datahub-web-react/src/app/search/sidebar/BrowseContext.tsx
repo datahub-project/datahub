@@ -93,6 +93,12 @@ export const useMaybeEnvironmentAggregation = () => {
     return useBrowseContext().environmentAggregation;
 };
 
+export const useEnvironmentAggregation = () => {
+    const environmentAggregation = useMaybeEnvironmentAggregation();
+    if (!environmentAggregation) throw new Error('environmentAggregation is missing in context');
+    return environmentAggregation;
+};
+
 export const useMaybePlatformAggregation = () => {
     return useBrowseContext().platformAggregation;
 };

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import useAggregationsQuery from './useAggregationsQuery';
@@ -12,8 +11,8 @@ import useToggle from '../../shared/useToggle';
 import {
     BrowseProvider,
     useEntityAggregation,
+    useEnvironmentAggregation,
     useIsEnvironmentSelected,
-    useMaybeEnvironmentAggregation,
 } from './BrowseContext';
 
 const Count = styled(Typography.Text)`
@@ -24,32 +23,34 @@ const Count = styled(Typography.Text)`
 const EnvironmentNode = () => {
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
-    const environmentAggregation = useMaybeEnvironmentAggregation();
+    const environmentAggregation = useEnvironmentAggregation();
+    const { count } = environmentAggregation;
     const { isOpen, isClosing, toggle } = useToggle(isSelected);
+
+    const onClickHeader = () => {
+        if (!count) return;
+        toggle();
+    };
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
         facets: [PLATFORM_FILTER_NAME],
     });
 
-    const color = ANTD_GRAY[9];
+    const color = '#000';
 
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
             header={
-                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
+                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader}>
                     <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.TriangleButton
-                            isOpen={isOpen}
-                            isVisible={!!environmentAggregation?.count}
-                            onClick={toggle}
-                        />
+                        <ExpandableNode.TriangleButton isOpen={isOpen} isVisible={!!count} onClick={onClickHeader} />
                         <ExpandableNode.Title color={color} size={14}>
                             {environmentAggregation?.value}
                         </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(environmentAggregation?.count)}</Count>
+                    <Count color={color}>{formatNumber(count)}</Count>
                 </ExpandableNode.Header>
             }
             body={

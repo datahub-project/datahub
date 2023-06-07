@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import useBrowsePagination from './useBrowsePagination';
@@ -39,16 +38,25 @@ const BrowseNode = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { isOpen, isClosing, toggle } = useToggle(isBrowsePathPrefix && !isBrowsePathSelected);
-    const skip = !isOpen || !browseResultGroup.hasSubGroups;
-    const color = ANTD_GRAY[9];
+    const { count } = browseResultGroup;
 
-    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
+    const { isOpen, isClosing, toggle } = useToggle(isBrowsePathPrefix && !isBrowsePathSelected);
+
+    const onClickTriangle = () => {
+        if (!count) return;
+        toggle();
+    };
+
+    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({
+        skip: !isOpen || !browseResultGroup.hasSubGroups,
+    });
 
     const browsePathLength = useBrowsePathLength();
 
     const { entity } = browseResultGroup;
     const displayedName = entity ? entityRegistry.getDisplayName(entity.type, entity) : browseResultGroup.name;
+
+    const color = '#000';
 
     return (
         <ExpandableNode
@@ -63,14 +71,14 @@ const BrowseNode = () => {
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen}
                             isVisible={browseResultGroup.hasSubGroups}
-                            onClick={toggle}
+                            onClick={onClickTriangle}
                         />
                         <FolderStyled />
                         <ExpandableNode.Title color={color} size={14} depth={browsePathLength}>
                             {displayedName}
                         </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(browseResultGroup.count)}</Count>
+                    <Count color={color}>{formatNumber(count)}</Count>
                 </ExpandableNode.SelectableHeader>
             }
             body={

@@ -23,9 +23,15 @@ const EntityNode = () => {
     const isSelected = useIsEntitySelected();
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
+    const { count } = entityAggregation;
     const registry = useEntityRegistry();
 
     const { isOpen, isClosing, toggle } = useToggle(isSelected, { closeDelay: 250 });
+
+    const onClickHeader = () => {
+        if (!count) return;
+        toggle();
+    };
 
     const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
         skip: !isOpen,
@@ -33,13 +39,18 @@ const EntityNode = () => {
     });
 
     const hasMultipleEnvironments = environmentAggregations.length > 1;
-    const color = isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7];
+    const color = count > 0 ? '#000' : ANTD_GRAY[8];
 
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
             header={
-                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle} style={{ paddingTop: '16px' }}>
+                <ExpandableNode.Header
+                    isOpen={isOpen}
+                    showBorder
+                    onClick={onClickHeader}
+                    style={{ paddingTop: '16px' }}
+                >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.StaticButton
                             icon={registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
@@ -49,7 +60,7 @@ const EntityNode = () => {
                         </ExpandableNode.Title>
                         <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
                     </ExpandableNode.HeaderLeft>
-                    <ExpandableNode.CircleButton isOpen={isOpen} />
+                    <ExpandableNode.CircleButton isOpen={isOpen} color={color} />
                 </ExpandableNode.Header>
             }
             body={

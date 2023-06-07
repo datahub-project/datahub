@@ -107,20 +107,20 @@ ExpandableNode.TriangleButton = ({
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<VscTriangleRight style={{ color: ANTD_GRAY[9], visibility: isVisible ? 'visible' : 'hidden' }} />}
+            icon={<VscTriangleRight style={{ color: '#000', visibility: isVisible ? 'visible' : 'hidden' }} />}
             onClick={onClickButton}
         />
     );
 };
 
-ExpandableNode.CircleButton = ({ isOpen }: { isOpen: boolean }) => {
+ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: string }) => {
     return (
         <RotatingButton
             ghost
             size="small"
             type="ghost"
             deg={isOpen ? 0 : 180}
-            icon={<UpCircleOutlined style={{ color: isOpen ? ANTD_GRAY[9] : ANTD_GRAY[7] }} />}
+            icon={<UpCircleOutlined style={{ color }} />}
         />
     );
 };

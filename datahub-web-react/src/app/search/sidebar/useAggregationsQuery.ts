@@ -39,9 +39,9 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
 
     const entityAggregations = data?.aggregateAcrossEntities?.facets
         ?.find((facet) => facet.field === ENTITY_FILTER_NAME)
-        ?.aggregations.filter(({ count, value }) => {
-            const type = value as EntityType;
-            return count && registry.getEntity(type).isBrowseEnabled() && !GLOSSARY_ENTITY_TYPES.includes(type);
+        ?.aggregations.filter((aggregation) => {
+            const type = aggregation.value as EntityType;
+            return registry.getEntity(type).isBrowseEnabled() && !GLOSSARY_ENTITY_TYPES.includes(type);
         })
         .sort((a, b) => a.value.localeCompare(b.value));
 

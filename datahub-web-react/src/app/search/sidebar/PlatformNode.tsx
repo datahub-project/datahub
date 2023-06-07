@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -42,6 +41,7 @@ const PlatformNode = () => {
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
+    const { count } = platformAggregation;
     const registry = useEntityRegistry();
 
     const { icon, label } = getFilterIconAndLabel(
@@ -53,21 +53,26 @@ const PlatformNode = () => {
     );
 
     const { isOpen, isClosing, toggle } = useToggle(isSelected);
-    const skip = !isOpen;
-    const color = ANTD_GRAY[9];
 
-    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip });
+    const onClickHeader = () => {
+        if (!count) return;
+        toggle();
+    };
+
+    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip: !isOpen });
+
+    const color = '#000';
 
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
             header={
-                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={toggle}>
+                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader}>
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen}
                             isVisible={!!platformAggregation.count}
-                            onClick={toggle}
+                            onClick={onClickHeader}
                         />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
                         <ExpandableNode.Title color={color} size={14}>
