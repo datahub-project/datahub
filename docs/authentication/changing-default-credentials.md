@@ -14,11 +14,23 @@ datahub:datahub
 Obviously, this is not ideal from a security perspective. It is highly recommended that this file
 is changed _prior_ to deploying DataHub to production at your organization.
 
-:::note
-Please note that deleting the `Data Hub` user in the UI **WILL NOT** disable the default user. You will still be able to log in using the default 'datahub:datahub' credentials. To safely delete the default credentials, please follow the guide provided below.
+:::warning
+Please note that deleting the `Data Hub` user in the UI **WILL NOT** disable the default user.
+You will still be able to log in using the default 'datahub:datahub' credentials.
+To safely delete the default credentials, please follow the guide provided below.
+
 :::
 
 ## Changing the default user `datahub`
+
+The method for changing the default user depends on how DataHub is deployed.
+
+- [Helm chart](#helm-chart)
+  - [Deployment Guide](../../docs/deploy/kubernetes)
+- [Docker-compose](#docker-compose)
+  - [Deployment Guide](../../docs/docker)
+- [Quickstart](#quickstart)
+  - [Deployment Guide](../../docs/quickstart.md)
 
 ### Helm chart
 
@@ -95,7 +107,7 @@ datahub:newpassword
 
 Change the [docker-compose.yaml](https://github.com/datahub-project/datahub/blob/master/docker/docker-compose.yml) to mount an updated user.props file to the following location inside the `datahub-frontend-react` container using a volume:`/datahub-frontend/conf/user.props`
 
-```json
+```yaml
   datahub-frontend-react:
   ...
     volumes:
@@ -126,7 +138,7 @@ datahub:newpassword
 In [docker-compose file used in quickstart](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml).
 Modify the [datahub-frontend-react block](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml#L116) to contain the extra volume mount.
 
-```json
+```yaml
   datahub-frontend-react:
   ...
     volumes:
