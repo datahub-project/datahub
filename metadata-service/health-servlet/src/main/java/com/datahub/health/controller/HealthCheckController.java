@@ -3,10 +3,13 @@ package com.datahub.health.controller;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,27 @@ public class HealthCheckController {
   }
 
   /**
+   * Combined health check endpoint for checking GMS clients.
+   * For now, just checks the health of the ElasticSearch client
+   * @return A ResponseEntity with a Map of String (component name) to ResponseEntity (the health check status of
+   * that component). The status code will be 200 if all components are okay, and 500 if one or more components are not
+   * healthy.
+   */
+  @GetMapping(path = "/combined", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Map<String, ResponseEntity<String>>> getCombinedHealthCheck() {
+    Map<String, ResponseEntity<String>> componentHealth = new HashMap<>();
+
+    componentHealth.put("elastic", getElasticHealthWithCache());
+    // Add new components here
+
+    boolean isHealthy = componentHealth.values().stream().allMatch(resp -> resp.getStatusCode() == HttpStatus.OK);
+    if (isHealthy) {
+      return ResponseEntity.ok(componentHealth);
+    }
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(componentHealth);
+  }
+
+  /**
    * Checks the memoized cache for the latest elastic health check result
    * @return The ResponseEntity containing the health check result
    */
@@ -43,8 +67,8 @@ public class HealthCheckController {
   }
 
   /**
-   *
-   * @return
+   * Query ElasticSearch health endpoint
+   * @return A response including the result from ElasticSearch
    */
   private ResponseEntity<String> getElasticHealth() {
     String responseString = null;
