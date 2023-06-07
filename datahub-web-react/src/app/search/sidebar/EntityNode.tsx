@@ -60,7 +60,7 @@ const EntityNode = () => {
                         </ExpandableNode.Title>
                         <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
                     </ExpandableNode.HeaderLeft>
-                    <ExpandableNode.CircleButton isOpen={isOpen} color={color} />
+                    <ExpandableNode.CircleButton isOpen={isOpen && !isClosing} color={color} />
                 </ExpandableNode.Header>
             }
             body={

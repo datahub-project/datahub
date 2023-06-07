@@ -69,7 +69,7 @@ const BrowseNode = () => {
                 >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
-                            isOpen={isOpen}
+                            isOpen={isOpen && !isClosing}
                             isVisible={browseResultGroup.hasSubGroups}
                             onClick={onClickTriangle}
                         />

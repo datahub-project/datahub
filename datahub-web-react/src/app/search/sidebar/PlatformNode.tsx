@@ -70,7 +70,7 @@ const PlatformNode = () => {
                 <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader}>
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
-                            isOpen={isOpen}
+                            isOpen={isOpen && !isClosing}
                             isVisible={!!platformAggregation.count}
                             onClick={onClickHeader}
                         />
