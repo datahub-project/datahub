@@ -189,6 +189,7 @@ module.exports = {
             "docs/how/kafka-config",
             "docs/deploy/confluent-cloud",
             "docs/advanced/no-code-upgrade",
+            "docs/how/jattach-guide",
           ],
         },
         "docs/how/updating-datahub",
@@ -551,6 +552,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_8",
             "docs/managed-datahub/release-notes/v_0_2_7",
             "docs/managed-datahub/release-notes/v_0_2_6",
             "docs/managed-datahub/release-notes/v_0_2_5",

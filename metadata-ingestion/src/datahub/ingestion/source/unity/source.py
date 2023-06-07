@@ -510,6 +510,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         return DatasetPropertiesClass(
             name=table.name,
+            qualifiedName=table.ref.qualified_table_name,
             description=table.comment,
             customProperties=custom_properties,
             created=created,
