@@ -33,6 +33,8 @@ dmypy.json
 MANIFEST
 *.pyc
 
+# Generated files
+**/bin
 # Added by mp-maker
 **/build
 /config

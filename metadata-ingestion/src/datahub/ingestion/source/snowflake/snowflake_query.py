@@ -325,14 +325,19 @@ class SnowflakeQuery:
         FROM
             snowflake.account_usage.access_history access_history
         LEFT JOIN
-            snowflake.account_usage.query_history query_history
+            (
+                SELECT * FROM snowflake.account_usage.query_history
+                WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                    AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+            ) query_history
             ON access_history.query_id = query_history.query_id
         LEFT JOIN
             snowflake.account_usage.users users
             ON access_history.user_name = users.name
         WHERE query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
             AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-            AND query_history.query_type in ('INSERT', 'UPDATE', 'DELETE', 'CREATE', 'CREATE_TABLE', 'CREATE_TABLE_AS_SELECT')
+            AND access_history.objects_modified is not null
+            AND ARRAY_SIZE(access_history.objects_modified) > 0
         ORDER BY query_start_time DESC
         ;"""
 
@@ -651,9 +656,13 @@ class SnowflakeQuery:
                 count(distinct(access_history.query_id)) AS total_queries
             FROM
                 object_access_history access_history
-                LEFT JOIN
-                    snowflake.account_usage.query_history query_history
-                    ON access_history.query_id = query_history.query_id
+            LEFT JOIN
+                (
+                    SELECT * FROM snowflake.account_usage.query_history
+                    WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+                ) query_history
+                ON access_history.query_id = query_history.query_id
             GROUP BY
                 bucket_start_time,
                 object_name,

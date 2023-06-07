@@ -77,7 +77,6 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=self.get_database_container_key(db_name, schema),
-            report=self.report,
         )
 
     def get_allowed_schemas(

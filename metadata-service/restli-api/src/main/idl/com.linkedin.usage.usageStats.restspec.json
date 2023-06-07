@@ -1,4 +1,7 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "usageStats",
   "namespace" : "com.linkedin.usage",
   "path" : "/usageStats",

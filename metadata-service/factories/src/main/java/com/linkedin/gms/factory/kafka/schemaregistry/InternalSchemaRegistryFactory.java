@@ -30,7 +30,7 @@ public class InternalSchemaRegistryFactory {
   /**
    * Configure Kafka Producer/Consumer processes with a custom schema registry.
    */
-  @Bean
+  @Bean("schemaRegistryConfig")
   @Nonnull
   protected SchemaRegistryConfig getInstance(@Qualifier("configurationProvider") ConfigurationProvider provider) {
     Map<String, Object> props = new HashMap<>();

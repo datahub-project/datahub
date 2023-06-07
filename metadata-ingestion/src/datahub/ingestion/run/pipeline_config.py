@@ -37,6 +37,19 @@ class FailureLoggingConfig(ConfigModel):
     log_config: Optional[FileSinkConfig] = None
 
 
+class FlagsConfig(ConfigModel):
+    """Experimental flags for the ingestion pipeline.
+
+    As ingestion flags an experimental feature, we do not guarantee backwards compatibility.
+    Use at your own risk!
+    """
+
+    generate_browse_path_v2: bool = Field(
+        default=False,
+        description="Generate BrowsePathsV2 aspects from container hierarchy and existing BrowsePaths aspects.",
+    )
+
+
 class PipelineConfig(ConfigModel):
     # Once support for discriminated unions gets merged into Pydantic, we can
     # simplify this configuration and validation.
@@ -45,6 +58,7 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
+    flags: FlagsConfig = Field(default=FlagsConfig())
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None

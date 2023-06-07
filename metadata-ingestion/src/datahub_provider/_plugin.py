@@ -190,6 +190,8 @@ def datahub_task_status_callback(context, status):
         )
         task.log.info(f"Emitted Completed Data Process Instance: {dpi}")
 
+    emitter.flush()
+
 
 def datahub_pre_execution(context):
     ti = context["ti"]
@@ -239,6 +241,8 @@ def datahub_pre_execution(context):
         )
 
         task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
+
+    emitter.flush()
 
 
 def _wrap_pre_execution(pre_execution):

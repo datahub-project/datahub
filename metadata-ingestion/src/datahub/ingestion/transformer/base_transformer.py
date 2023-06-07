@@ -64,7 +64,10 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _should_process(
         self,
         record: Union[
-            MetadataChangeEventClass, MetadataChangeProposalWrapper, ControlRecord
+            MetadataChangeEventClass,
+            MetadataChangeProposalWrapper,
+            MetadataChangeProposalClass,
+            ControlRecord,
         ],
     ) -> bool:
         if isinstance(record, ControlRecord):
@@ -92,7 +95,9 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             record_entry["seen"]["mce"] = mce.systemMetadata
             self.entity_map[mce.proposedSnapshot.urn] = record_entry
 
-    def _record_mcp(self, mcp: MetadataChangeProposalWrapper) -> None:
+    def _record_mcp(
+        self, mcp: Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+    ) -> None:
         assert mcp.entityUrn
         record_entry = self.entity_map.get(mcp.entityUrn, {"seen": {}})
         if "seen" in record_entry and "mcp" not in record_entry["seen"]:
@@ -150,7 +155,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
 
         return envelope
 
-    def _transform_or_record_mcp(
+    def _transform_or_record_mcpw(
         self,
         envelope: RecordEnvelope[MetadataChangeProposalWrapper],
     ) -> Optional[RecordEnvelope[MetadataChangeProposalWrapper]]:
@@ -187,7 +192,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             elif isinstance(
                 envelope.record, MetadataChangeProposalWrapper
             ) and isinstance(self, SingleAspectTransformer):
-                return_envelope = self._transform_or_record_mcp(envelope)
+                return_envelope = self._transform_or_record_mcpw(envelope)
                 if return_envelope is None:
                     continue
                 else:

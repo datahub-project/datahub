@@ -1,17 +1,14 @@
 import time
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
 from confluent_kafka.admin import AdminClient, NewTopic
 from freezegun import freeze_time
 
-from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.kafka import KafkaSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
@@ -79,15 +76,6 @@ class KafkaTopicsCxtManager:
 
     def __exit__(self, exc_type, exc, traceback):
         self.delete_kafka_topics(self.topics)
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    kafka_source = cast(KafkaSource, pipeline.source)
-    return kafka_source.get_current_checkpoint(
-        kafka_source.stale_entity_removal_handler.job_id
-    )
 
 
 @freeze_time(FROZEN_TIME)

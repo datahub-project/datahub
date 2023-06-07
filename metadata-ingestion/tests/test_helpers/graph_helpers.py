@@ -14,8 +14,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
-from datahub.metadata.schema_classes import ASPECT_NAME_MAP, DomainPropertiesClass
+from datahub.metadata.schema_classes import (
+    ASPECT_NAME_MAP,
+    DomainPropertiesClass,
+    UsageAggregationClass,
+)
 
 
 class MockDataHubGraph(DataHubGraph):
@@ -25,7 +28,6 @@ class MockDataHubGraph(DataHubGraph):
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregation,
             ]
         ] = []
         self.entity_graph = entity_graph
@@ -105,11 +107,11 @@ class MockDataHubGraph(DataHubGraph):
             MetadataChangeEvent,
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
-            UsageAggregation,
+            UsageAggregationClass,
         ],
         callback: Union[Callable[[Exception, str], None], None] = None,
     ) -> Tuple[datetime, datetime]:
-        self.emitted.append(item)
+        self.emitted.append(item)  # type: ignore
         return (datetime.now(), datetime.now())
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
@@ -120,17 +122,11 @@ class MockDataHubGraph(DataHubGraph):
     ) -> None:
         self.emitted.append(mcp)
 
-    def emit_usage(self, usageStats: UsageAggregation) -> None:
-        self.emitted.append(usageStats)
-
     def get_emitted(
         self,
     ) -> List[
         Union[
-            MetadataChangeEvent,
-            MetadataChangeProposal,
-            MetadataChangeProposalWrapper,
-            UsageAggregation,
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
         ]
     ]:
         return self.emitted

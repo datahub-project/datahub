@@ -144,7 +144,8 @@ class DataHubRestEmitter(Closeable):
         )
 
     def test_connection(self) -> dict:
-        response = self._session.get(f"{self._gms_server}/config")
+        url = f"{self._gms_server}/config"
+        response = self._session.get(url)
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
@@ -159,13 +160,24 @@ class DataHubRestEmitter(Closeable):
                     or config.get("config", {}).get("shouldShowDatasetLineage")
                     is not None
                 ):
-                    message = "You seem to have connected to the frontend instead of the GMS endpoint. The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)"
+                    raise ConfigurationError(
+                        "You seem to have connected to the frontend instead of the GMS endpoint. "
+                        "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)"
+                    )
                 else:
-                    message = "You have either connected to a pre-v0.8.0 DataHub GMS instance, or to a different server altogether! Please check your configuration and make sure you are talking to the DataHub GMS endpoint."
-                raise ConfigurationError(message)
+                    raise ConfigurationError(
+                        "You have either connected to a pre-v0.8.0 DataHub GMS instance, or to a different server altogether! "
+                        "Please check your configuration and make sure you are talking to the DataHub GMS endpoint."
+                    )
         else:
-            auth_message = "Maybe you need to set up authentication? "
-            message = f"Unable to connect to {self._gms_server}/config with status_code: {response.status_code}. {auth_message if response.status_code == 401 else ''}Please check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
+            logger.debug(
+                f"Unable to connect to {url} with status_code: {response.status_code}. Response: {response.text}"
+            )
+            if response.status_code == 401:
+                message = f"Unable to connect to {url} - got an authentication error: {response.text}."
+            else:
+                message = f"Unable to connect to {url} with status_code: {response.status_code}."
+            message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
             raise ConfigurationError(message)
 
     def emit(
@@ -254,9 +266,14 @@ class DataHubRestEmitter(Closeable):
             response.raise_for_status()
         except HTTPError as e:
             try:
-                info = response.json()
+                info: Dict = response.json()
+                logger.debug(
+                    "Full stack trace from DataHub:\n%s", info.get("stackTrace")
+                )
+                info.pop("stackTrace", None)
                 raise OperationalError(
-                    "Unable to emit metadata to DataHub GMS", info
+                    f"Unable to emit metadata to DataHub GMS: {info.get('message')}",
+                    info,
                 ) from e
             except JSONDecodeError:
                 # If we can't parse the JSON, just raise the original error.
@@ -274,9 +291,11 @@ class DataHubRestEmitter(Closeable):
             if self._token
             else ""
         )
-        return (
-            f"DataHubRestEmitter: configured to talk to {self._gms_server}{token_str}"
-        )
+        return f"{self.__class__.__name__}: configured to talk to {self._gms_server}{token_str}"
+
+    def flush(self) -> None:
+        # No-op, but present to keep the interface consistent with the Kafka emitter.
+        pass
 
     def close(self) -> None:
         self._session.close()
