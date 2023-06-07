@@ -46,7 +46,7 @@ public class NoCodeUpgradeQualificationStep implements UpgradeStep {
               UpgradeStepResult.Result.SUCCEEDED);
         }
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to check if metadata_aspect_v2 table exists: %s", e.toString()));
+        context.report().addLine("Failed to check if metadata_aspect_v2 table exists: %s", e);
         return new DefaultUpgradeStepResult(
             id(),
             UpgradeStepResult.Result.FAILED);

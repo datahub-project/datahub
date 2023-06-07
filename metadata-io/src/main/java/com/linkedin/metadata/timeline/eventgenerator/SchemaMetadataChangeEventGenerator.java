@@ -183,11 +183,13 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     if (baseSchema != null) {
       sortFieldsByPath(baseSchema);
     }
-    sortFieldsByPath(targetSchema);
+    if (targetSchema != null) {
+      sortFieldsByPath(targetSchema);
+    }
 
     // Performs ordinal based diff, primarily based on fixed field ordinals and their types.
     SchemaFieldArray baseFields = (baseSchema != null ? baseSchema.getFields() : new SchemaFieldArray());
-    SchemaFieldArray targetFields = targetSchema.getFields();
+    SchemaFieldArray targetFields = targetSchema != null ?  targetSchema.getFields() : new SchemaFieldArray();
     int baseFieldIdx = 0;
     int targetFieldIdx = 0;
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -296,7 +298,9 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static void sortFieldsByPath(SchemaMetadata schemaMetadata) {
-    assert (schemaMetadata != null);
+    if (schemaMetadata == null) {
+      throw new IllegalArgumentException("SchemaMetadata should not be null");
+    }
     List<SchemaField> schemaFields = new ArrayList<>(schemaMetadata.getFields());
     schemaFields.sort(Comparator.comparing(SchemaField::getFieldPath));
     schemaMetadata.setFields(new SchemaFieldArray(schemaFields));
@@ -410,7 +414,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         (baseSchema != null && baseSchema.getPrimaryKeys() != null) ? new HashSet<>(baseSchema.getPrimaryKeys())
             : new HashSet<>();
     Set<String> targetPrimaryKeys =
-        (targetSchema.getPrimaryKeys() != null) ? new HashSet<>(targetSchema.getPrimaryKeys()) : new HashSet<>();
+        (targetSchema != null && targetSchema.getPrimaryKeys() != null) ? new HashSet<>(targetSchema.getPrimaryKeys()) : new HashSet<>();
     Set<String> removedBaseKeys =
         basePrimaryKeys.stream().filter(key -> !targetPrimaryKeys.contains(key)).collect(Collectors.toSet());
     for (String removedBaseKeyField : removedBaseKeys) {
@@ -451,7 +455,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
 
     SchemaMetadata baseSchema = getSchemaMetadataFromAspect(previousValue);
     SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
-    assert (targetSchema != null);
+
+    if (targetSchema == null) {
+      throw new IllegalStateException("SchemaMetadata targetSchema should not be null");
+    }
+
     List<ChangeEvent> changeEvents;
     try {
       changeEvents = new ArrayList<>(

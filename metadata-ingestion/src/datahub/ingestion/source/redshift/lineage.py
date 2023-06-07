@@ -107,7 +107,17 @@ class RedshiftLineageExtractor:
         parser = LineageRunner(query)
 
         for table in parser.source_tables:
-            source_schema, source_table = str(table).split(".")
+            split = str(table).split(".")
+            if len(split) == 3:
+                db_name, source_schema, source_table = split
+            elif len(split) == 2:
+                source_schema, source_table = split
+            else:
+                raise ValueError(
+                    f"Invalid table name {table} in query {query}. "
+                    f"Expected format: [db_name].[schema].[table] or [schema].[table] or [table]."
+                )
+
             if source_schema == "<default>":
                 source_schema = str(self.config.default_schema)
 
@@ -149,22 +159,19 @@ class RedshiftLineageExtractor:
             try:
                 sources = self._get_sources_from_query(db_name=db_name, query=ddl)
             except Exception as e:
-                self.warn(
-                    logger,
-                    "parsing-query",
-                    f"Error parsing query {ddl} for getting lineage ."
-                    f"\nError was {e}.",
+                logger.warning(
+                    f"Error parsing query {ddl} for getting lineage. Error was {e}."
                 )
+                self.report.num_lineage_dropped_query_parser += 1
         else:
             if lineage_type == lineage_type.COPY and filename is not None:
                 platform = LineageDatasetPlatform.S3
                 path = filename.strip()
                 if urlparse(path).scheme != "s3":
-                    self.warn(
-                        logger,
-                        "non-s3-lineage",
-                        f"Only s3 source supported with copy. The source was: {path}.",
+                    logger.warning(
+                        "Only s3 source supported with copy. The source was: {path}."
                     )
+                    self.report.num_lineage_dropped_not_support_copy_path += 1
                     return sources
                 path = strip_s3_prefix(self._get_s3_path(path))
             elif source_schema is not None and source_table is not None:
@@ -316,11 +323,10 @@ class RedshiftLineageExtractor:
                     or schema not in all_tables[db]
                     or not any(table == t.name for t in all_tables[db][schema])
                 ):
-                    self.warn(
-                        logger,
-                        "missing-table",
-                        f"{source.path} missing table",
+                    logger.debug(
+                        f"{source.path} missing table, dropping from lineage.",
                     )
+                    self.report.num_lineage_tables_dropped += 1
                     continue
 
             targe_source.append(source)

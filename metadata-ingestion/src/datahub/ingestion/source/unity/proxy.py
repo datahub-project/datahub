@@ -1,13 +1,26 @@
 """
 Manage the communication with DataBricks Server and provide equivalent dataclasses for dependent modules
 """
+import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import GetMetastoreSummaryResponse, MetastoreInfo
+from databricks.sdk.service.sql import (
+    QueryFilter,
+    QueryInfo,
+    QueryStatementType,
+    QueryStatus,
+)
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.unity.proxy_profiling import (
+    UnityCatalogProxyProfilingMixin,
+)
 from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     DATA_TYPE_REGISTRY,
@@ -15,10 +28,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     Column,
     Metastore,
     Query,
-    QueryStatus,
     Schema,
     ServicePrincipal,
-    StatementType,
     Table,
     TableReference,
 )
@@ -28,41 +39,61 @@ from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class UnityCatalogApiProxy:
+@dataclasses.dataclass
+class QueryFilterWithStatementTypes(QueryFilter):
+    statement_types: List[QueryStatementType] = dataclasses.field(default_factory=list)
+
+    def as_dict(self) -> dict:
+        return {**super().as_dict(), "statement_types": self.statement_types}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":
+        v = super().from_dict(d)
+        v.statement_types = d["statement_types"]
+        return v
+
+
+class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
+    _workspace_client: WorkspaceClient
     _unity_catalog_api: UnityCatalogApi
     _workspace_url: str
     report: UnityCatalogReport
+    warehouse_id: str
 
     def __init__(
-        self, workspace_url: str, personal_access_token: str, report: UnityCatalogReport
+        self,
+        workspace_url: str,
+        personal_access_token: str,
+        warehouse_id: Optional[str],
+        report: UnityCatalogReport,
     ):
-        self._unity_catalog_api = UnityCatalogApi(
-            ApiClient(
-                host=workspace_url,
-                token=personal_access_token,
-            )
+        self._workspace_client = WorkspaceClient(
+            host=workspace_url, token=personal_access_token
         )
-        self._workspace_url = workspace_url
+        self._unity_catalog_api = UnityCatalogApi(
+            ApiClient(host=workspace_url, token=personal_access_token)
+        )
+        self.warehouse_id = warehouse_id or ""
         self.report = report
 
-    def check_connectivity(self) -> bool:
-        self._unity_catalog_api.list_metastores()
+    def check_account_admin(self) -> bool:
+        self._workspace_client.metastores.list()
         return True
 
-    def assigned_metastore(self) -> Optional[Metastore]:
-        response: dict = self._unity_catalog_api.get_metastore_summary()
-        if response.get("metastore_id") is None:
-            logger.info("Not found assigned metastore")
-            return None
+    def check_basic_connectivity(self) -> bool:
+        self._workspace_client.metastores.summary()
+        return True
+
+    def assigned_metastore(self) -> Metastore:
+        response = self._workspace_client.metastores.summary()
         return self._create_metastore(response)
 
     def metastores(self) -> Iterable[Metastore]:
-        response: dict = self._unity_catalog_api.list_metastores()
-        if response.get("metastores") is None:
+        response = self._workspace_client.metastores.list()
+        if not response:
             logger.info("Metastores not found")
             return []
-        # yield here to support paginated response later
-        for metastore in response["metastores"]:
+        for metastore in response:
             yield self._create_metastore(metastore)
 
     def catalogs(self, metastore: Metastore) -> Iterable[Catalog]:
@@ -110,6 +141,7 @@ class UnityCatalogApiProxy:
             yield self._create_table(schema=schema, obj=table)
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
+        # TODO: Replace with self._workspace_client.service_principals.list() when it supports pagination
         start_index = 1  # Unfortunately 1-indexed
         items_per_page = 0
         total_results = float("inf")
@@ -128,31 +160,58 @@ class UnityCatalogApiProxy:
         start_time: datetime,
         end_time: datetime,
     ) -> Iterable[Query]:
-        # This is a _complete_ hack. The source code of perform_query
-        # bundles data into query params if method == "GET", but we need it passed as the body.
-        # To get around this, we set method to lowercase "get".
-        # I still prefer this over duplicating the code in perform_query.
-        method = "get"
-        path = "/sql/history/queries"
-        data: Dict[str, Any] = {
-            "include_metrics": False,
-            "max_results": 1000,  # Max batch size
-        }
-        filter_by = {
-            "query_start_time_range": {
-                "start_time_ms": start_time.timestamp() * 1000,
-                "end_time_ms": end_time.timestamp() * 1000,
-            },
-            "statuses": [QueryStatus.FINISHED.value],
-            "statement_types": list(ALLOWED_STATEMENT_TYPES),
-        }
-        response: dict = self._unity_catalog_api.client.client.perform_query(
-            method, path, {**data, "filter_by": filter_by}
+        """Returns all queries that were run between start_time and end_time with relevant statement_type.
+
+        Raises:
+            DatabricksError: If the query history API returns an error.
+        """
+        filter_by = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": start_time.timestamp() * 1000,
+                    "end_time_ms": end_time.timestamp() * 1000,
+                },
+                "statuses": [QueryStatus.FINISHED.value],
+                "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
+            }
         )
-        yield from self._create_queries(response["res"])
-        while response["has_next_page"]:
-            response = self._unity_catalog_api.client.client.perform_query(
-                method, path, {**data, "next_page_token": response["next_page_token"]}
+        for query_info in self._query_history(filter_by=filter_by):
+            try:
+                yield self._create_query(query_info)
+            except Exception as e:
+                logger.warning(f"Error parsing query: {e}")
+                self.report.report_warning("query-parse", str(e))
+
+    def _query_history(
+        self,
+        filter_by: QueryFilterWithStatementTypes,
+        max_results: int = 1000,
+        include_metrics: bool = False,
+    ) -> Iterable[QueryInfo]:
+        """Manual implementation of the query_history.list() endpoint.
+
+        Needed because:
+        - WorkspaceClient incorrectly passes params as query params, not body
+        - It does not paginate correctly -- needs to remove filter_by argument
+        Remove if these issues are fixed.
+        """
+        method = "GET"
+        path = "/api/2.0/sql/history/queries"
+        body: Dict[str, Any] = {
+            "include_metrics": include_metrics,
+            "max_results": max_results,  # Max batch size
+        }
+
+        response: dict = self._workspace_client.api_client.do(
+            method, path, body={**body, "filter_by": filter_by.as_dict()}
+        )
+        while True:
+            if "res" not in response or not response["res"]:
+                return
+            for v in response["res"]:
+                yield QueryInfo.from_dict(v)
+            response = self._workspace_client.api_client.do(
+                method, path, body={**body, "page_token": response["next_page_token"]}
             )
 
     def list_lineages_by_table(self, table_name=None, headers=None):
@@ -238,14 +297,18 @@ class UnityCatalogApiProxy:
         return value.replace(" ", "_")
 
     @staticmethod
-    def _create_metastore(obj: Any) -> Metastore:
+    def _create_metastore(
+        obj: Union[GetMetastoreSummaryResponse, MetastoreInfo]
+    ) -> Metastore:
         return Metastore(
-            name=obj["name"],
-            id=UnityCatalogApiProxy._escape_sequence(obj["name"]),
-            metastore_id=obj["metastore_id"],
-            type="Metastore",
-            comment=obj.get("comment"),
-            owner=obj.get("owner"),
+            name=obj.name,
+            id=UnityCatalogApiProxy._escape_sequence(obj.name),
+            metastore_id=obj.metastore_id,
+            type=DatasetContainerSubTypes.DATABRICKS_METASTORE,
+            owner=obj.owner,
+            region=obj.region,
+            cloud=obj.cloud,
+            comment=None,
         )
 
     def _create_catalog(self, metastore: Metastore, obj: Any) -> Catalog:
@@ -326,24 +389,16 @@ class UnityCatalogApiProxy:
             active=obj.get("active"),
         )
 
-    def _create_queries(self, lst: List[dict]) -> Iterable[Query]:
-        for obj in lst:
-            try:
-                yield self._create_query(obj)
-            except Exception as e:
-                logger.warning(f"Error parsing query: {e}")
-                self.report.report_warning("query-parse", str(e))
-
     @staticmethod
-    def _create_query(obj: dict) -> Query:
+    def _create_query(info: QueryInfo) -> Query:
         return Query(
-            query_id=obj["query_id"],
-            query_text=obj["query_text"],
-            statement_type=StatementType(obj["statement_type"]),
-            start_time=datetime.utcfromtimestamp(obj["query_start_time_ms"] / 1000),
-            end_time=datetime.utcfromtimestamp(obj["query_end_time_ms"] / 1000),
-            user_id=obj["user_id"],
-            user_name=obj["user_name"],
-            executed_as_user_id=obj["executed_as_user_id"],
-            executed_as_user_name=obj["executed_as_user_name"],
+            query_id=info.query_id,
+            query_text=info.query_text,
+            statement_type=info.statement_type,
+            start_time=datetime.utcfromtimestamp(info.query_start_time_ms / 1000),
+            end_time=datetime.utcfromtimestamp(info.query_end_time_ms / 1000),
+            user_id=info.user_id,
+            user_name=info.user_name,
+            executed_as_user_id=info.executed_as_user_id,
+            executed_as_user_name=info.executed_as_user_name,
         )

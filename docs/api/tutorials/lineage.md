@@ -12,7 +12,8 @@ For more information about lineage, refer to [About DataHub Lineage](/docs/linea
 
 This guide will show you how to
 
-- Add lineage between two hive datasets.
+- Add lineage between datasets.
+- Add column-level lineage between datasets.
 
 ## Prerequisites
 
@@ -112,3 +113,21 @@ Expected Response:
 You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
 ![lineage-added](../../imgs/apis/tutorials/lineage-added.png)
+
+## Add Column-level Lineage
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained_sample.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+### Expected Outcome of Adding Column Level Lineage
+
+You can now see the column-level lineage between datasets. Note that you have to enable `Show Columns` to be able to see the column-level lineage.
+
+![column-level-lineage-added](../../imgs/apis/tutorials/column-level-lineage-added.png)

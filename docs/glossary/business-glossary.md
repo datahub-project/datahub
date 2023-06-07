@@ -85,6 +85,13 @@ In the modal that pops up you can select the Term you care about in one of two w
 
 ![](../imgs/glossary/add-term-modal.png)
 
+## Privileges
+
+Glossary Terms and Term Groups abide by metadata policies like other entities. However, there are two special privileges provided for configuring privileges within your Business Glossary.
+
+- **Manage Direct Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete Terms and Term Groups directly underneath the Term Group they have this privilege on.
+- **Manage All Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete any Term or Term Group anywhere underneath the Term Group they have this privilege on. This applies to the children of a child Term Group as well (and so on).
+
 ## Managing Glossary with Git 
 
 In many cases, it may be preferable to manage the Business Glossary in a version-control system like git. This can make

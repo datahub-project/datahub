@@ -52,7 +52,7 @@ omitted_services = [
 # Note that these are upper bounds on memory usage. Once exceeded, the container is killed.
 # Each service will be configured to use much less Java heap space than allocated here.
 mem_limits = {
-    "elasticsearch": "1g",
+    "elasticsearch": "1G",
 }
 
 
@@ -108,7 +108,7 @@ def modify_docker_config(base_path, docker_yaml_config):
 
         # 8. Set memory limits
         if name in mem_limits:
-            service["mem_limit"] = mem_limits[name]
+            service["deploy"] = {"resources":{"limits":{"memory":mem_limits[name]}}}
 
         # 9. Correct relative paths for volume mounts
         if "volumes" in service:
@@ -120,10 +120,10 @@ def modify_docker_config(base_path, docker_yaml_config):
                 elif volumes[i].startswith("./"):
                     volumes[i] = "." + volumes[i]
 
-    # 10. Set docker compose version to 2.
+    # 10. Set docker compose version to 3.
     # We need at least this version, since we use features like start_period for
-    # healthchecks and shell-like variable interpolation.
-    docker_yaml_config["version"] = "2.3"
+    # healthchecks (with services dependencies based on them) and shell-like variable interpolation.
+    docker_yaml_config["version"] = "3.9"
 
 
 def dedup_env_vars(merged_docker_config):

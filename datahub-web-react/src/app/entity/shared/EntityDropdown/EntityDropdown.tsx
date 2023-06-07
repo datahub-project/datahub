@@ -20,6 +20,7 @@ import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
+import { isDeleteDisabled } from './utils';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -133,12 +134,11 @@ function EntityDropdown(props: Props) {
     const entityHasChildren = !!entityData?.children?.total;
     const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
-    const canDeleteGlossaryEntity = !entityHasChildren && canManageGlossaryEntity;
 
     /**
      * A default path to redirect to if the entity is deleted.
      */
-    const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType);
+    const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
 
     return (
         <>
@@ -206,7 +206,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
                                 key="5"
-                                disabled={isGlossaryEntity && !canDeleteGlossaryEntity}
+                                disabled={isDeleteDisabled(entityType, entityData)}
                                 onClick={onDeleteEntity}
                             >
                                 <Tooltip
@@ -214,7 +214,9 @@ function EntityDropdown(props: Props) {
                                         entityType,
                                     )} with child entities.`}
                                     overlayStyle={
-                                        canManageGlossaryEntity && entityHasChildren ? {} : { display: 'none' }
+                                        isGlossaryEntity && canManageGlossaryEntity && entityHasChildren
+                                            ? {}
+                                            : { display: 'none' }
                                     }
                                 >
                                     <MenuItem>

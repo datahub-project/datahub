@@ -1,8 +1,9 @@
 ### Prerequisites
 
-In order to ingest metadata from Salesforce, you will need:
+In order to ingest metadata from Salesforce, you will need one of:
 
-- Salesforce username, password, [security token](https://developer.Salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_concepts_security.htm) OR 
+- Salesforce username, password, [security token](https://developer.Salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_concepts_security.htm)
+- Salesforce username, consumer key and private key for [JSON web token access](https://help.salesforce.com/s/articleView?id=sf.remoteaccess_oauth_jwt_flow.htm&type=5)
 - Salesforce instance url and access token/session id (suitable for one-shot ingestion only, as access token typically expires after 2 hours of inactivity)
 
 The account used to access Salesforce requires the following permissions for this integration to work:

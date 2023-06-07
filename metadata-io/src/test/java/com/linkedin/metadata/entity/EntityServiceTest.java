@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -1150,6 +1151,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected <T extends RecordTemplate> T simulatePullFromDB(T aspect, Class<T> clazz) throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     }
     
@@ -1271,6 +1275,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
         return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
     }

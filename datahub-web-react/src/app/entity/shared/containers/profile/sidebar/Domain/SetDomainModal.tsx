@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Tag } from 'antd';
-import styled from 'styled-components';
+import { Button, Form, message, Modal, Select } from 'antd';
 
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Entity, EntityType } from '../../../../../../../types.generated';
@@ -10,6 +9,7 @@ import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListene
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
 import { handleBatchError } from '../../../../utils';
+import { tagRender } from '../tagRenderer';
 
 type Props = {
     urns: string[];
@@ -25,14 +25,6 @@ type SelectedDomain = {
     type: EntityType;
     urn: string;
 };
-
-const StyleTag = styled(Tag)`
-    padding: 0px 7px;
-    margin-right: 3px;
-    display: flex;
-    justify-content: start;
-    align-items: center;
-`;
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
@@ -108,7 +100,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setSelectedDomain(undefined);
     };
 
-    const onOk = async () => {
+    const onOk = () => {
         if (!selectedDomain) {
             return;
         }
@@ -151,20 +143,6 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     useEnterKeyListener({
         querySelectorToExecuteClick: '#setDomainButton',
     });
-
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        return (
-            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
-                {label}
-            </StyleTag>
-        );
-    };
 
     function handleBlur() {
         setInputValue('');

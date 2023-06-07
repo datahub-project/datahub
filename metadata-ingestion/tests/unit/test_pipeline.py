@@ -6,7 +6,7 @@ from freezegun import freeze_time
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
-from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
+from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -332,7 +332,8 @@ class AddStatusRemovedTransformer(Transformer):
 
 
 class FakeSource(Source):
-    def __init__(self):
+    def __init__(self, ctx: PipelineContext):
+        super().__init__(ctx)
         self.source_report = SourceReport()
         self.work_units: List[MetadataWorkUnit] = [
             MetadataWorkUnit(id="workunit-1", mce=get_initial_mce())
@@ -341,9 +342,9 @@ class FakeSource(Source):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
         assert not config_dict
-        return cls()
+        return cls(ctx)
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return self.work_units
 
     def get_report(self) -> SourceReport:
@@ -354,8 +355,8 @@ class FakeSource(Source):
 
 
 class FakeSourceWithWarnings(FakeSource):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, ctx: PipelineContext):
+        super().__init__(ctx)
         self.source_report.report_warning("test_warning", "warning_text")
 
     def get_report(self) -> SourceReport:
@@ -363,8 +364,8 @@ class FakeSourceWithWarnings(FakeSource):
 
 
 class FakeSourceWithFailures(FakeSource):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, ctx: PipelineContext):
+        super().__init__(ctx)
         self.source_report.report_failure("test_failure", "failure_text")
 
     def get_report(self) -> SourceReport:

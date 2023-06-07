@@ -31,6 +31,11 @@ class ClassificationConfig(ConfigModel):
         default=False,
         description="Whether classification should be used to auto-detect glossary terms",
     )
+
+    sample_size: int = Field(
+        default=100, description="Number of sample values used for classification."
+    )
+
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter tables for classification. This is used in combination with other patterns in parent config. Specify regex to match the entire table name in `database.schema.table` format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",

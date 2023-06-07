@@ -208,7 +208,6 @@ class AthenaSource(SQLAlchemySource):
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             extra_properties=extra_properties,
         )
 
@@ -238,7 +237,6 @@ class AthenaSource(SQLAlchemySource):
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=self.get_database_container_key(db_name, schema),
-            report=self.report,
         )
 
     # It seems like database/schema filter in the connection string does not work and this to work around that

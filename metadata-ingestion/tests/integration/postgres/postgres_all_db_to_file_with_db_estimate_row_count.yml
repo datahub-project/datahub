@@ -4,6 +4,7 @@ source:
   type: postgres
   config:
     host_port: 'localhost:5432'
+    initial_database: 'postgrestest'
     username: 'postgres'
     password: 'example'
     include_view_lineage: True

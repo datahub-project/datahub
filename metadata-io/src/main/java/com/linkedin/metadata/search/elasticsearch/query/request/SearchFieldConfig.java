@@ -11,6 +11,7 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.BROWSE_PATH_HIERARCHY_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.BROWSE_PATH_V2_HIERARCHY_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
@@ -21,7 +22,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 public class SearchFieldConfig {
     public static final float DEFAULT_BOOST = 1.0f;
 
-    public static final Set<String> KEYWORD_FIELDS = Set.of("urn", "runId");
+    public static final Set<String> KEYWORD_FIELDS = Set.of("urn", "runId", "_index");
 
     // These should not be used directly since there is a specific
     // order in which these rules need to be evaluated for exceptions to
@@ -42,6 +43,10 @@ public class SearchFieldConfig {
     private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_BROWSE_PATH =
             Set.of(
                     SearchableAnnotation.FieldType.BROWSE_PATH
+            );
+    private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_BROWSE_PATH_V2 =
+            Set.of(
+                    SearchableAnnotation.FieldType.BROWSE_PATH_V2
             );
     private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_BASE_KEYWORD =
             Set.of(
@@ -125,6 +130,8 @@ public class SearchFieldConfig {
         // order is important
         if (TYPES_WITH_BROWSE_PATH.contains(fieldType)) {
             return BROWSE_PATH_HIERARCHY_ANALYZER;
+        } else if (TYPES_WITH_BROWSE_PATH_V2.contains(fieldType)) {
+            return BROWSE_PATH_V2_HIERARCHY_ANALYZER;
         // sub fields
         } else if (isKeyword(fieldName)) {
             return KEYWORD_ANALYZER;

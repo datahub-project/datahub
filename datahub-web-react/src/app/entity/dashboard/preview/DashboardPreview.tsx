@@ -11,6 +11,7 @@ import {
     ParentContainersResult,
     Deprecation,
     DashboardStatsSummary,
+    DataProduct,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -30,6 +31,7 @@ export const DashboardPreview = ({
     tags,
     glossaryTerms,
     domain,
+    dataProduct,
     container,
     insights,
     logoUrl,
@@ -53,6 +55,7 @@ export const DashboardPreview = ({
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     container?: Container | null;
     deprecation?: Deprecation | null;
     insights?: Array<SearchInsight> | null;
@@ -84,6 +87,7 @@ export const DashboardPreview = ({
             container={container || undefined}
             glossaryTerms={glossaryTerms || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             deprecation={deprecation}
             insights={insights}
             parentContainers={parentContainers}

@@ -54,8 +54,8 @@ export const TagSearchList = ({ content, onClick }: Props) => {
     return (
         <TagSearchListContainer>
             {tags.map((tag, index) => (
-                <TagContainer>
-                    <TagButton type="link" key={tag.urn} onClick={() => onClickTag(tag, index)}>
+                <TagContainer key={tag.urn}>
+                    <TagButton type="link" onClick={() => onClickTag(tag, index)}>
                         <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex} closable={false}>
                             {entityRegistry.getDisplayName(EntityType.Tag, tag)}
                         </StyledTag>

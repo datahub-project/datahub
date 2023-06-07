@@ -1,5 +1,11 @@
+import pytest
+from pydantic import ValidationError
+
 from datahub.ingestion.glossary.classifier import ClassificationConfig
-from datahub.ingestion.glossary.datahub_classifier import DataHubClassifier
+from datahub.ingestion.glossary.datahub_classifier import (
+    DataHubClassifier,
+    DataHubClassifierConfig,
+)
 
 
 def test_default_classification_config():
@@ -52,3 +58,102 @@ def test_selective_datahub_classifier_config_override():
     assert complex_config_override.info_types_config["Age"].Values is not None
 
     assert complex_config_override.info_types_config["Email_Address"] is not None
+
+
+def test_custom_info_type_config():
+    custom_info_type_config = DataHubClassifier.create(
+        config_dict={
+            "confidence_level_threshold": 0.7,
+            "info_types_config": {
+                "CloudRegion": {
+                    "Prediction_Factors_and_Weights": {
+                        "Name": 0.5,
+                        "Description": 0,
+                        "Datatype": 0,
+                        "Values": 0.5,
+                    },
+                    "Name": {
+                        "regex": [
+                            ".*region.*id",
+                            ".*cloud.*region.*",
+                        ]
+                    },
+                    "Values": {
+                        "prediction_type": "regex",
+                        "regex": [
+                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
+                        ],
+                    },
+                },
+            },
+        }
+    ).config
+
+    assert custom_info_type_config.info_types_config
+    assert (
+        custom_info_type_config.info_types_config[
+            "CloudRegion"
+        ].Prediction_Factors_and_Weights.Name
+        == 0.5
+    )
+    assert (
+        custom_info_type_config.info_types_config[
+            "CloudRegion"
+        ].Prediction_Factors_and_Weights.Values
+        == 0.5
+    )
+
+    # Default Info Type Configurations should exist
+    assert custom_info_type_config.info_types_config["Age"]
+    assert custom_info_type_config.info_types_config["Email_Address"]
+
+
+def test_incorrect_custom_info_type_config():
+    with pytest.raises(
+        ValidationError, match="Missing Configuration for Prediction Factor"
+    ):
+        DataHubClassifierConfig.parse_obj(
+            {
+                "confidence_level_threshold": 0.7,
+                "info_types_config": {
+                    "CloudRegion": {
+                        "Prediction_Factors_and_Weights": {
+                            "Name": 0.5,
+                            "Description": 0,
+                            "Datatype": 0,
+                            "Values": 0.5,
+                        },
+                        "Name": {
+                            "regex": [
+                                ".*region.*id",
+                                ".*cloud.*region.*",
+                            ]
+                        },
+                    },
+                },
+            }
+        )
+
+    with pytest.raises(ValidationError, match="Invalid Prediction Type"):
+        DataHubClassifierConfig.parse_obj(
+            {
+                "confidence_level_threshold": 0.7,
+                "info_types_config": {
+                    "CloudRegion": {
+                        "Prediction_Factors_and_Weights": {
+                            "Name": 0.5,
+                            "Description": 0,
+                            "Datatype": 0,
+                            "Values": 0.5,
+                        },
+                        "Name": {
+                            "regex": [
+                                ".*region.*id",
+                                ".*cloud.*region.*",
+                            ]
+                        },
+                        "Values": {"prediction_type": "library", "library": ["spacy"]},
+                    },
+                },
+            }
+        )

@@ -197,6 +197,25 @@ public interface EntityClient {
    * @param entities entity types to search (if empty, searches all entities)
    * @param input search query
    * @param filter search filters
+   * @param start start offset for search results
+   * @param count max number of search results requested
+   * @param searchFlags configuration flags for the search request
+   * @param facets list of facets we want aggregations for
+   * @return Snapshot key
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
+      @Nonnull Authentication authentication, List<String> facets)
+      throws RemoteInvocationException;
+
+  /**
+   * Searches for entities matching to a given query and filters across multiple entity types
+   *
+   * @param entities entity types to search (if empty, searches all entities)
+   * @param input search query
+   * @param filter search filters
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
    * @param count max number of search results requested

@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
 from datahub.ingestion.source.usage.usage_common import (
@@ -218,6 +219,9 @@ class RedshiftUsageSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets Redshift usage stats as work units"""
         engine: Engine = self._make_sql_engine()
         if self.config.include_operational_stats:
@@ -241,10 +245,8 @@ class RedshiftUsageSource(Source):
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_events.values():
             for aggregate in time_bucket.values():
-                wu: MetadataWorkUnit = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
+                yield self._make_usage_stat(aggregate)
                 self.report.num_usage_workunits_emitted += 1
-                yield wu
 
     def _gen_operation_aspect_workunits(
         self, engine: Engine
@@ -341,7 +343,7 @@ class RedshiftUsageSource(Source):
                     else OperationTypeClass.DELETE
                 ),
             )
-            mcp = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=builder.make_dataset_urn_with_platform_instance(
                     "redshift",
                     resource.lower(),
@@ -349,14 +351,8 @@ class RedshiftUsageSource(Source):
                     self.config.env,
                 ),
                 aspect=operation_aspect,
-            )
-            wu = MetadataWorkUnit(
-                id=f"operation-aspect-{event.table}-{event.endtime.isoformat()}",
-                mcp=mcp,
-            )
-            self.report.report_workunit(wu)
+            ).as_workunit()
             self.report.num_operational_stats_workunits_emitted += 1
-            yield wu
 
     def _aggregate_access_events(
         self, events_iterable: Iterable[RedshiftAccessEvent]

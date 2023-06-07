@@ -62,7 +62,6 @@ def populate_minio(pytestconfig, s3_bkt):
 
 
 @pytest.mark.slow_integration
-@pytest.mark.integration
 def test_delta_lake_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/delta_lake/"
 
