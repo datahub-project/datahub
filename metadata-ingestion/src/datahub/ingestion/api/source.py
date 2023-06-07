@@ -188,7 +188,9 @@ class Source(Closeable, metaclass=ABCMeta):
             self.ctx.pipeline_config
             and self.ctx.pipeline_config.flags.generate_browse_path_v2
         ):
-            browse_path_processor = self._get_browse_path_processor()
+            browse_path_processor = self._get_browse_path_processor(
+                self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
+            )
 
         return [
             auto_status_aspect,
@@ -236,7 +238,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def close(self) -> None:
         pass
 
-    def _get_browse_path_processor(self) -> MetadataWorkUnitProcessor:
+    def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
         platform = getattr(self, "platform", None) or getattr(config, "platform", None)
         env = getattr(config, "env", None)
@@ -261,7 +263,7 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_browse_path_v2,
             platform_key=platform_key,
             drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
-            dry_run=self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run,
+            dry_run=dry_run,
         )
 
 
