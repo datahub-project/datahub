@@ -147,7 +147,14 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         logger.debug(f"Preparing profiling request for {dataset_name}")
         profile_request = SnowflakeProfilerRequest(
             pretty_name=dataset_name,
-            batch_kwargs=dict(schema=schema_name, table=table.name),
+            batch_kwargs=dict(
+                schema=schema_name,
+                table=table.name,
+                # Lowercase/Mixedcase table names in Snowflake do not work by default.
+                # We need to pass `use_quoted_name=True` for such tables as mentioned here -
+                # https://github.com/great-expectations/great_expectations/pull/2023
+                use_quoted_name=(table.name != table.name.upper()),
+            ),
             table=table,
             profile_table_level_only=profile_table_level_only,
         )
