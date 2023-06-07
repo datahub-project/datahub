@@ -11,7 +11,7 @@
                 "env": "PROD",
                 "database": "vmart",
                 "cluster_type": "Enterprise",
-                "cluster_size": "98 GB",
+                "cluster_size": "143 GB",
                 "subcluster": " ",
                 "communal_storage_path": ""
             },
@@ -208,7 +208,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.799657+00:00",
+                            "create_time": "2023-06-07 14:48:59.711323+00:00",
                             "table_size": "2119 KB"
                         },
                         "name": "customer_dimension",
@@ -589,7 +589,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.808783+00:00",
+                            "create_time": "2023-06-07 14:48:59.728228+00:00",
                             "table_size": "138 KB"
                         },
                         "name": "date_dimension",
@@ -970,7 +970,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.814560+00:00",
+                            "create_time": "2023-06-07 14:48:59.735130+00:00",
                             "table_size": "327 KB"
                         },
                         "name": "employee_dimension",
@@ -1312,7 +1312,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.822842+00:00",
+                            "create_time": "2023-06-07 14:48:59.756725+00:00",
                             "table_size": "2566 KB"
                         },
                         "name": "inventory_fact",
@@ -1498,7 +1498,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.802884+00:00",
+                            "create_time": "2023-06-07 14:48:59.721263+00:00",
                             "table_size": "19 KB"
                         },
                         "name": "product_dimension",
@@ -1879,7 +1879,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.805869+00:00",
+                            "create_time": "2023-06-07 14:48:59.724734+00:00",
                             "table_size": "3 KB"
                         },
                         "name": "promotion_dimension",
@@ -2143,7 +2143,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.817386+00:00",
+                            "create_time": "2023-06-07 14:48:59.738552+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "shipping_dimension",
@@ -2303,7 +2303,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.811661+00:00",
+                            "create_time": "2023-06-07 14:48:59.731692+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "vendor_dimension",
@@ -2515,7 +2515,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:35.026557+00:00",
+                            "create_time": "2023-06-07 14:49:28.047489+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "vmart_load_success",
@@ -2636,7 +2636,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.820062+00:00",
+                            "create_time": "2023-06-07 14:48:59.741869+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "warehouse_dimension",
@@ -5479,7 +5479,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.828929+00:00",
+                            "create_time": "2023-06-07 14:48:59.763996+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "store_dimension",
@@ -5821,7 +5821,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.838406+00:00",
+                            "create_time": "2023-06-07 14:48:59.775289+00:00",
                             "table_size": "8648 KB"
                         },
                         "name": "store_orders_fact",
@@ -6176,7 +6176,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.831830+00:00",
+                            "create_time": "2023-06-07 14:48:59.767502+00:00",
                             "table_size": "225089 KB"
                         },
                         "name": "store_sales_fact",
@@ -7659,7 +7659,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.847562+00:00",
+                            "create_time": "2023-06-07 14:48:59.787042+00:00",
                             "table_size": "6 KB"
                         },
                         "name": "call_center_dimension",
@@ -7923,7 +7923,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.844815+00:00",
+                            "create_time": "2023-06-07 14:48:59.783662+00:00",
                             "table_size": "9 KB"
                         },
                         "name": "online_page_dimension",
@@ -8109,7 +8109,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-06 14:54:07.850442+00:00",
+                            "create_time": "2023-06-07 14:48:59.790428+00:00",
                             "table_size": "182385 KB"
                         },
                         "name": "online_sales_fact",
