@@ -605,7 +605,7 @@ def generate(
             ]
 
     relationship_graph = RelationshipGraph()
-    mcps = generate_stitched_record(relationship_graph)
+    mcps = list(generate_stitched_record(relationship_graph))
 
     shutil.rmtree(f"{generated_docs_dir}/entities", ignore_errors=True)
     entity_names = [(x, entity_registry[x]) for x in generated_documentation]
