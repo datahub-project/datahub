@@ -26,11 +26,11 @@ To safely delete the default credentials, please follow the guide provided below
 The method for changing the default user depends on how DataHub is deployed.
 
 - [Helm chart](#helm-chart)
-  - [Deployment Guide](../../docs/deploy/kubernetes)
+  - [Deployment Guide](/docs/deploy/kubernetes.md)
 - [Docker-compose](#docker-compose)
-  - [Deployment Guide](../../docs/docker)
+  - [Deployment Guide](../../docker/README.md)
 - [Quickstart](#quickstart)
-  - [Deployment Guide](../../docs/quickstart.md)
+  - [Deployment Guide](/docs/quickstart.md)
 
 ### Helm chart
 
