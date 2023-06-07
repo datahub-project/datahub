@@ -13,7 +13,7 @@ import {
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
 } from '../utils/constants';
-import { useIsMatchingFilter, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
+import { useHasFilterValue, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
 import { applyFacetFilterOverrides } from '../utils/applyFilterOverrides';
 import { getEntitySubtypeFiltersForEntity } from './browseContextUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -142,20 +142,20 @@ export const useBrowseSearchFilter = () => {
 };
 
 export const useIsEntitySelected = () => {
-    return useIsMatchingFilter(ENTITY_SUB_TYPE_FILTER_NAME, useEntityAggregation().value, { prefix: true });
+    return useHasFilterValue(ENTITY_SUB_TYPE_FILTER_NAME, useEntityAggregation().value, { prefix: true });
 };
 
 export const useIsEnvironmentSelected = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const isEntitySelected = useIsEntitySelected();
-    const isEnvironmentSelected = useIsMatchingFilter(ORIGIN_FILTER_NAME, environmentAggregation?.value);
+    const isEnvironmentSelected = useHasFilterValue(ORIGIN_FILTER_NAME, environmentAggregation?.value);
     return isEntitySelected && (!environmentAggregation || isEnvironmentSelected);
 };
 
 export const useIsPlatformSelected = () => {
     const isEntitySelected = useIsEntitySelected();
     const isEnvironmentSelected = useIsEnvironmentSelected();
-    const isPlatformSelected = useIsMatchingFilter(PLATFORM_FILTER_NAME, usePlatformAggregation().value);
+    const isPlatformSelected = useHasFilterValue(PLATFORM_FILTER_NAME, usePlatformAggregation().value);
     return isEntitySelected && isEnvironmentSelected && isPlatformSelected;
 };
 
@@ -163,7 +163,7 @@ export const useIsBrowsePathPrefix = () => {
     const isEntitySelected = useIsEntitySelected();
     const isEnvironmentSelected = useIsEnvironmentSelected();
     const isPlatformSelected = useIsPlatformSelected();
-    const isBrowsePathPrefix = useIsMatchingFilter(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter(), {
+    const isBrowsePathPrefix = useHasFilterValue(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter(), {
         prefix: true,
     });
     return isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathPrefix;
@@ -173,7 +173,7 @@ export const useIsBrowsePathSelected = () => {
     const isEntitySelected = useIsEntitySelected();
     const isEnvironmentSelected = useIsEnvironmentSelected();
     const isPlatformSelected = useIsPlatformSelected();
-    const isBrowsePathSelected = useIsMatchingFilter(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter());
+    const isBrowsePathSelected = useHasFilterValue(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter());
     return isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathSelected;
 };
 

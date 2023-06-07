@@ -24,6 +24,7 @@ const EntityNode = () => {
     const isSelected = useIsEntitySelected();
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
+    const hasEnvironmentFilter = useHasFilterField(ORIGIN_FILTER_NAME);
     const { count } = entityAggregation;
     const registry = useEntityRegistry();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
@@ -43,7 +44,7 @@ const EntityNode = () => {
         facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
     });
 
-    const hasMultipleEnvironments = environmentAggregations.length > 1;
+    const showEnvironments = environmentAggregations.length > 1 || hasEnvironmentFilter;
     const color = count > 0 ? '#000' : ANTD_GRAY[8];
 
     return (
@@ -70,7 +71,7 @@ const EntityNode = () => {
             }
             body={
                 <ExpandableNode.Body>
-                    {hasMultipleEnvironments
+                    {showEnvironments
                         ? environmentAggregations.map((environmentAggregation) => (
                               <BrowseProvider
                                   key={environmentAggregation.value}

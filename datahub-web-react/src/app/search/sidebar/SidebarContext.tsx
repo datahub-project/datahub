@@ -37,7 +37,14 @@ export const useSelectedFilters = () => {
     return useSidebarContext().selectedFilters;
 };
 
-export const useIsMatchingFilter = (field: string, value: string | undefined, { prefix = false } = {}) => {
+export const useHasFilterField = (field: string) => {
+    const selectedFilters = useSelectedFilters();
+    return selectedFilters.some(
+        (filter) => filter.field === field && filter.condition === FilterOperator.Equal && !filter.negated,
+    );
+};
+
+export const useHasFilterValue = (field: string, value: string | undefined, { prefix = false } = {}) => {
     const selectedFilters = useSelectedFilters();
     return (
         !!value &&
