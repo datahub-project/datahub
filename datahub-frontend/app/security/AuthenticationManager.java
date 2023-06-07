@@ -33,7 +33,7 @@ public class AuthenticationManager {
       LoginContext lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
       lc.login();
     } catch (LoginException le) {
-      throw new AuthenticationException(le.toString());
+      throw new AuthenticationException(le.toString(), le);
     }
   }
 
