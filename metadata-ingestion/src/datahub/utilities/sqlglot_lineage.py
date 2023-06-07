@@ -94,7 +94,6 @@ def _table_level_lineage(
         )
         # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
         # the `this` on the INSERT part isn't a table.
-        # TODO: Maybe we should only consider top-level parts of the statement?
         if isinstance(expr.this, sqlglot.exp.Table)
     }
 
@@ -264,7 +263,13 @@ def sqlglot_tester(
     # Make sure the tables are resolved with the default db / schema.
     # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
     statement = sqlglot.optimizer.qualify.qualify(
-        statement, dialect=dialect, catalog=default_db, db=default_schema
+        statement,
+        dialect=dialect,
+        catalog=default_db,
+        db=default_schema,
+        # At this stage we only want to qualify the table names. The columns will be dealt with later.
+        qualify_columns=False,
+        validate_qualify_columns=False,
     )
 
     # Generate table-level lineage.
@@ -316,10 +321,10 @@ def sqlglot_tester(
         print(
             f'  Cannot generate column-level lineage for statement type "{type(statement)}": {e}'
         )
-        column_lineage = None
     except SqlOptimizerError as e:
         # Cannot generate column-level lineage for this statement type.
         print(f" Failed to generate column-level lineage: {e}")
+        # TODO: Add a message to the result.
 
     # TODO fallback to sqllineage / other tools if sqlglot fails.
 
