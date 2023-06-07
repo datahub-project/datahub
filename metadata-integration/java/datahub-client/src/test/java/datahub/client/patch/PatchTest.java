@@ -5,6 +5,7 @@ import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.GlossaryTermUrn;
@@ -18,6 +19,7 @@ import datahub.client.file.FileEmitterConfig;
 import datahub.client.patch.common.OwnershipPatchBuilder;
 import datahub.client.patch.dataflow.DataFlowInfoPatchBuilder;
 import datahub.client.patch.datajob.DataJobInfoPatchBuilder;
+import datahub.client.patch.datajob.DataJobInputOutputPatchBuilder;
 import datahub.client.patch.dataset.DatasetPropertiesPatchBuilder;
 import datahub.client.patch.dataset.EditableSchemaMetadataPatchBuilder;
 import datahub.client.patch.dataset.UpstreamLineagePatchBuilder;
@@ -360,6 +362,50 @@ public class PatchTest {
       System.out.println(response.get().getResponseContent());
 
     } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDataJobInputAdd() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal dataJobIOPatch = new DataJobInputOutputPatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId)"))
+          .addInputDatasetEdge(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
+          .addOutputDatasetEdge(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
+          .addInputDatajobEdge(DataJobUrn.createFromString("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId2)"))
+          .addInputDatasetField(UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"))
+          .addOutputDatasetField(UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(dataJobIOPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDataJobInputRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal dataJobIOPatch = new DataJobInputOutputPatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId)"))
+          .removeInputDatasetEdge(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
+          .removeOutputDatasetEdge(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
+          .removeInputDatajobEdge(DataJobUrn.createFromString("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId2)"))
+          .removeInputDatasetField(UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"))
+          .removeOutputDatasetField(UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(dataJobIOPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
       System.out.println(Arrays.asList(e.getStackTrace()));
     }
   }
