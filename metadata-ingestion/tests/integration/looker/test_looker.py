@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
@@ -854,12 +855,13 @@ def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
     """
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/output")
     new_recipe["source"]["config"]["extract_independent_looks"] = True
-    try:
+
+    with pytest.raises(
+        expected_exception=PipelineInitError,
+        match="stateful_ingestion.enabled should be set to true",
+    ):
         # Config error should get raise
         Pipeline.create(new_recipe)
-        assert 1 != 1
-    except PipelineInitError as pe:
-        assert "stateful_ingestion.enabled should be set to true" in str(pe)
 
 
 @freeze_time(FROZEN_TIME)

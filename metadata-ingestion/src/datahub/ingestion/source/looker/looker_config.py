@@ -136,7 +136,7 @@ class LookerDashboardSourceConfig(
     )
     include_deleted: bool = Field(
         False,
-        description="Whether to include deleted dashboards and deleted independent looks.",
+        description="Whether to include deleted dashboards and looks.",
     )
     extract_owners: bool = Field(
         True,

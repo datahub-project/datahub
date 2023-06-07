@@ -1203,7 +1203,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     dashboard_element=dashboard_element
                 )
 
-            self.reporter.report_stage_end("extract_independent_looks")
+        self.reporter.report_stage_end("extract_independent_looks")
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.reporter.report_stage_start("list_dashboards")
@@ -1305,10 +1305,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
             )
 
-        self.reporter.report_stage_start("explore_metadata")
-        # Extract independent look here, so that explore of this look would get consider in
-        # _make_explore_metadata_events
+        # Extract independent look here, so that explore of this look would get consider in _make_explore_metadata_events
         yield from self.extract_independent_looks()
+
+        self.reporter.report_stage_start("explore_metadata")
 
         for event in self._make_explore_metadata_events():
             if isinstance(event, MetadataChangeEvent):
