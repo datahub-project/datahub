@@ -71,9 +71,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onSelectOwnershipTypeActor = (newType: string) => {
-        console.log(`Called onSelect with ${newType}`);
         const newResourceOwnersTypesUrns: Maybe<string[]> = [...(actors.resourceOwnersTypesUrns || []), newType];
-        console.log({ newResourceOwnersTypesUrns });
         setActors({
             ...actors,
             resourceOwnersTypesUrns: newResourceOwnersTypesUrns,
@@ -264,7 +262,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                 onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
                                 onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
                                 tagRender={(tagProps) => {
-                                    console.log({ tagProps });
                                     return (
                                         <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                                             {ownershipTypesMap[tagProps.value.toString()]}
@@ -273,7 +270,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                 }}
                             >
                                 {ownershipTypes.map((resOwnershipType) => {
-                                    console.log({ resOwnershipType });
                                     return (
                                         <Select.Option value={resOwnershipType.urn}>
                                             {resOwnershipType?.info?.name}
