@@ -534,7 +534,7 @@ public class EntityService {
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata) {
     validateUrn(urn);
-    validateAspect(urn, updateLambda.apply(null));
+    validateAspect(urn, updateLambda.apply(Optional.empty()));
     return ingestAspectToLocalDB(urn, aspectName, updateLambda, auditStamp, systemMetadata);
   }
 
@@ -840,10 +840,10 @@ public class EntityService {
    */
   private boolean isValidChangeType(ChangeType changeType, AspectSpec aspectSpec) {
     if (aspectSpec.isTimeseries()) {
-      // Timeseries aspects only support UPSERT
-      return ChangeType.UPSERT.equals(changeType);
+      // PATCH not supported for timeseries aspects
+      return ChangeType.UPSERT.equals(changeType) || ChangeType.CREATE.equals(changeType);
     } else {
-      return (ChangeType.UPSERT.equals(changeType) || ChangeType.PATCH.equals(changeType));
+      return ChangeType.UPSERT.equals(changeType) || ChangeType.CREATE.equals(changeType) || ChangeType.PATCH.equals(changeType);
     }
   }
 
@@ -898,6 +898,9 @@ public class EntityService {
           case PATCH:
             result = performPatch(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
             break;
+          case CREATE:
+            result = performCreate(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
+            break;
           default:
             // Should never reach since we throw error above
             throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
@@ -946,6 +949,14 @@ public class EntityService {
     log.debug("aspect = {}", aspect);
 
     return upsertAspect(aspect, systemMetadata, mcp, entityUrn, auditStamp, aspectSpec);
+  }
+
+  private UpdateAspectResult performCreate(MetadataChangeProposal mcp, AspectSpec aspectSpec, SystemMetadata
+      systemMetadata, Urn entityUrn, AuditStamp auditStamp) {
+    RecordTemplate aspect = convertToRecordTemplate(mcp, aspectSpec);
+    log.debug("create aspect = {}", aspect);
+
+    return createAspect(aspect, systemMetadata, mcp, entityUrn, auditStamp);
   }
 
   private UpdateAspectResult performPatch(MetadataChangeProposal mcp, AspectSpec aspectSpec, SystemMetadata
@@ -1007,6 +1018,15 @@ public class EntityService {
           Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
     return result;
+  }
+
+  private UpdateAspectResult createAspect(final RecordTemplate aspect, final SystemMetadata systemMetadata,
+      MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp) {
+    // Do not need to apply retention policies
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "createAspect").time()) {
+      return wrappedIngestAspectToLocalDB(entityUrn, mcp.getAspectName(), oldValue -> oldValue.orElse(aspect),
+          auditStamp, systemMetadata);
+    }
   }
 
   private UpdateAspectResult patchAspect(final Patch patch, final SystemMetadata systemMetadata,

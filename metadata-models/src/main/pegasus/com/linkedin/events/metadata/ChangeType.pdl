@@ -10,7 +10,6 @@ enum ChangeType {
   UPSERT
 
   /**
-   * NOT SUPPORTED YET
    * insert if not exists. otherwise fail
    */
   CREATE
@@ -28,7 +27,6 @@ enum ChangeType {
   DELETE
 
   /**
-   * NOT SUPPORTED YET
    * patch the changes instead of full replace
    */
   PATCH
