@@ -38,7 +38,7 @@ export function getConditionalStepIdsToAdd(providedStepIds: string[], stepIdsToA
 
 function hasStepBeenSeen(stepId: string, userUrn: string, educationSteps: StepStateResult[]) {
     const convertedStepId = convertStepId(stepId, userUrn);
-    return educationSteps.find((step) => step.id === convertedStepId);
+    return educationSteps.some((step) => step.id === convertedStepId);
 }
 
 // add conditional steps if they have seen the pre-requisite step only
