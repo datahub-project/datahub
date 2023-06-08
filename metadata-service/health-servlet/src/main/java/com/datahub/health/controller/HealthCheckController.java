@@ -62,7 +62,7 @@ public class HealthCheckController {
     for (String check : componentsToCheck) {
       componentHealth.put(check,
           healthChecks.getOrDefault(check,
-              () -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unrecognized component " + check))
+              () -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Unrecognized component " + check))
               .get());
     }
 
@@ -71,7 +71,7 @@ public class HealthCheckController {
     if (isHealthy) {
       return ResponseEntity.ok(componentHealth);
     }
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(componentHealth);
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(componentHealth);
   }
 
   /**
@@ -104,6 +104,6 @@ public class HealthCheckController {
         responseString = e.getMessage();
       }
     }
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseString);
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(responseString);
   }
 }
