@@ -17,6 +17,7 @@ import {
     useMaybeEnvironmentAggregation,
     usePlatformAggregation,
 } from './BrowseContext';
+import useSidebarAnalytics from './useSidebarAnalytics';
 
 const PlatformIconContainer = styled.div`
     width: 16px;
@@ -43,6 +44,7 @@ const PlatformNode = () => {
     const platformAggregation = usePlatformAggregation();
     const { count } = platformAggregation;
     const registry = useEntityRegistry();
+    const { trackToggleNodeEvent } = useSidebarAnalytics();
 
     const { icon, label } = getFilterIconAndLabel(
         PLATFORM_FILTER_NAME,
@@ -52,11 +54,14 @@ const PlatformNode = () => {
         16,
     );
 
-    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isSelected });
+    const { isOpen, isClosing, toggle } = useToggle({
+        initialValue: isSelected,
+        closeDelay: 250,
+        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen),
+    });
 
     const onClickHeader = () => {
-        if (!count) return;
-        toggle();
+        if (count) toggle();
     };
 
     const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip: !isOpen });

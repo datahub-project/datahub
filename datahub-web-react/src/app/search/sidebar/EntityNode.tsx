@@ -13,6 +13,7 @@ import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
 import { BrowseProvider, useEntityAggregation, useEntityType, useIsEntitySelected } from './BrowseContext';
+import useSidebarAnalytics from './useSidebarAnalytics';
 
 const Count = styled(Typography.Text)`
     font-size: 12px;
@@ -25,12 +26,17 @@ const EntityNode = () => {
     const entityAggregation = useEntityAggregation();
     const { count } = entityAggregation;
     const registry = useEntityRegistry();
+    const { trackToggleNodeEvent } = useSidebarAnalytics();
 
-    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isSelected, closeDelay: 250 });
+    const { isOpen, isClosing, toggle } = useToggle({
+        initialValue: isSelected,
+        // todo - do we need all the closeDelays applied on every node?
+        closeDelay: 250,
+        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen),
+    });
 
     const onClickHeader = () => {
-        if (!count) return;
-        toggle();
+        if (count) toggle();
     };
 
     const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({

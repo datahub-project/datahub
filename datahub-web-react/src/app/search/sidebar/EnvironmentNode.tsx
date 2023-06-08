@@ -14,6 +14,7 @@ import {
     useEnvironmentAggregation,
     useIsEnvironmentSelected,
 } from './BrowseContext';
+import useSidebarAnalytics from './useSidebarAnalytics';
 
 const Count = styled(Typography.Text)`
     font-size: 12px;
@@ -25,11 +26,15 @@ const EnvironmentNode = () => {
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
     const { count } = environmentAggregation;
-    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isSelected });
+    const { trackToggleNodeEvent } = useSidebarAnalytics();
+    const { isOpen, isClosing, toggle } = useToggle({
+        initialValue: isSelected,
+        closeDelay: 250,
+        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen),
+    });
 
     const onClickHeader = () => {
-        if (!count) return;
-        toggle();
+        if (count) toggle();
     };
 
     const { loaded, error, platformAggregations } = useAggregationsQuery({

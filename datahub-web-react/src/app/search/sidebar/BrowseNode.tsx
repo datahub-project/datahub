@@ -19,6 +19,7 @@ import {
     useBrowsePathLength,
 } from './BrowseContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import useSidebarAnalytics from './useSidebarAnalytics';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -38,13 +39,17 @@ const BrowseNode = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
+    const { trackToggleNodeEvent } = useSidebarAnalytics();
     const { count } = browseResultGroup;
 
-    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isBrowsePathPrefix && !isBrowsePathSelected });
+    const { isOpen, isClosing, toggle } = useToggle({
+        initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
+        closeDelay: 250,
+        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(!isNowOpen),
+    });
 
     const onClickTriangle = () => {
-        if (!count) return;
-        toggle();
+        if (count) toggle();
     };
 
     const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({

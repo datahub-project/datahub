@@ -176,10 +176,10 @@ export const SearchResults = ({
 
     const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useToggle({
         initialValue: true,
-        onChange: (isOpen: boolean) =>
+        onToggle: (isNowOpen: boolean) =>
             analytics.event({
-                type: EventType.BrowseV2ToggleSidebarClickEvent,
-                action: isOpen ? 'open' : 'close',
+                type: EventType.BrowseV2ToggleSidebarEvent,
+                action: isNowOpen ? 'open' : 'close',
             }),
     });
 

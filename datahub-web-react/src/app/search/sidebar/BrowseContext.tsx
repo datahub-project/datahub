@@ -109,10 +109,14 @@ export const usePlatformAggregation = () => {
     return platformAggregation;
 };
 
+export const useMaybeBrowseResultGroup = () => {
+    return useBrowseContext().browseResultGroup;
+};
+
 export const useBrowseResultGroup = () => {
-    const context = useBrowseContext();
-    if (!context.browseResultGroup) throw new Error('browseResultGroup is missing in context');
-    return context.browseResultGroup;
+    const browseResultGroup = useMaybeBrowseResultGroup();
+    if (!browseResultGroup) throw new Error('browseResultGroup is missing in context');
+    return browseResultGroup;
 };
 
 export const useBrowsePath = () => {
