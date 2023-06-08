@@ -52,7 +52,7 @@ const PlatformNode = () => {
         16,
     );
 
-    const { isOpen, isClosing, toggle } = useToggle(isSelected);
+    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isSelected });
 
     const onClickHeader = () => {
         if (!count) return;

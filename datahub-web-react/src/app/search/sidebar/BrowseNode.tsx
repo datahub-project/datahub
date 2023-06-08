@@ -40,7 +40,7 @@ const BrowseNode = () => {
     const browseResultGroup = useBrowseResultGroup();
     const { count } = browseResultGroup;
 
-    const { isOpen, isClosing, toggle } = useToggle(isBrowsePathPrefix && !isBrowsePathSelected);
+    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isBrowsePathPrefix && !isBrowsePathSelected });
 
     const onClickTriangle = () => {
         if (!count) return;

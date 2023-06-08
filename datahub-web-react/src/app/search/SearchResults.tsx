@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
@@ -25,6 +25,9 @@ import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
+import analytics from '../analytics/analytics';
+import useToggle from '../shared/useToggle';
+import { EventType } from '../analytics';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     display: flex;
@@ -171,8 +174,14 @@ export const SearchResults = ({
 
     const { showSearchFiltersV2, showBrowseV2 } = appConfig.config.featureFlags;
 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const toggleSidebar = useCallback(() => setIsSidebarOpen((open) => !open), []);
+    const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useToggle({
+        initialValue: true,
+        onChange: (isOpen: boolean) =>
+            analytics.event({
+                type: EventType.BrowseV2ToggleSidebarClickEvent,
+                action: isOpen ? 'open' : 'close',
+            }),
+    });
 
     return (
         <>

@@ -17,6 +17,7 @@ export enum EventType {
     EntitySearchResultClickEvent,
     BrowseResultClickEvent,
     HomePageBrowseResultClickEvent,
+    BrowseV2ToggleSidebarClickEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
@@ -194,6 +195,11 @@ export interface BrowseResultClickEvent extends BaseEvent {
 export interface HomePageBrowseResultClickEvent extends BaseEvent {
     type: EventType.HomePageBrowseResultClickEvent;
     entityType: EntityType;
+}
+
+export interface BrowseV2ToggleSidebarClickEvent extends BaseEvent {
+    type: EventType.BrowseV2ToggleSidebarClickEvent;
+    action: 'open' | 'close';
 }
 
 /**
@@ -546,6 +552,7 @@ export type Event =
     | SearchResultClickEvent
     | BrowseResultClickEvent
     | HomePageBrowseResultClickEvent
+    | BrowseV2ToggleSidebarClickEvent
     | EntityViewEvent
     | EntitySectionViewEvent
     | EntityActionEvent

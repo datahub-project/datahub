@@ -26,7 +26,7 @@ const EntityNode = () => {
     const { count } = entityAggregation;
     const registry = useEntityRegistry();
 
-    const { isOpen, isClosing, toggle } = useToggle(isSelected, { closeDelay: 250 });
+    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isSelected, closeDelay: 250 });
 
     const onClickHeader = () => {
         if (!count) return;

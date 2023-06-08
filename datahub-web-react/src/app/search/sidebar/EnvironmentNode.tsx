@@ -25,7 +25,7 @@ const EnvironmentNode = () => {
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
     const { count } = environmentAggregation;
-    const { isOpen, isClosing, toggle } = useToggle(isSelected);
+    const { isOpen, isClosing, toggle } = useToggle({ initialValue: isSelected });
 
     const onClickHeader = () => {
         if (!count) return;
