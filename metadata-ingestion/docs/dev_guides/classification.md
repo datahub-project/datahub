@@ -426,18 +426,10 @@ source:
             info_types_config:
               CloudRegion:
                 prediction_factors_and_weights:
-                  name: 0.4
+                  name: 0
                   description: 0
                   datatype: 0
-                  values: 0.6
-                name:
-                  regex:
-                    - "^.*mail.*id.*$"
-                    - "^.*id.*mail.*$"
-                    - "^.*mail.*add.*$"
-                    - "^.*add.*mail.*$"
-                    - email
-                    - mail
+                  values: 1
                 values:
                   prediction_type: regex
                   regex:
