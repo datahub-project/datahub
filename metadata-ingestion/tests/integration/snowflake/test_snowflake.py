@@ -76,14 +76,15 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         mock_sample_values.return_value = pd.DataFrame(
             data={
-                "col_1": [random.randint(0, 100) for i in range(1, 100)],
-                "col_2": [random_email() for i in range(1, 100)],
-                "col_3": [random_cloud_region() for i in range(1, 100)],
+                "col_1": [random.randint(0, 100) for i in range(20)],
+                "col_2": [random_email() for i in range(20)],
+                "col_3": [random_cloud_region() for i in range(20)],
             }
         )
 
         datahub_classifier_config = DataHubClassifierConfig()
         datahub_classifier_config.confidence_level_threshold = 0.58
+        datahub_classifier_config.minimum_values_threshold = 10
         datahub_classifier_config.info_types_config = {
             "Age": InfoTypeConfig(
                 Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
