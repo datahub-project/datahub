@@ -486,8 +486,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return
 
         for project_id in projects:
-            logger.info(f"Processing project: {project_id.id}")
             self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
+            logger.info(f"Processing project: {project_id.id}")
             yield from self._process_project(conn, project_id)
 
         if self._should_ingest_usage():
