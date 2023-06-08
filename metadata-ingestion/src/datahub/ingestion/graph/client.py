@@ -84,6 +84,12 @@ class RemovedStatusFilter(enum.Enum):
     """Search only soft-deleted entities."""
 
 
+@dataclass
+class RelatedEntity:
+    urn: str
+    relationship_type: str
+
+
 def _graphql_entity_type(entity_type: str) -> str:
     """Convert the entity types into GraphQL "EntityType" enum values."""
 
@@ -760,11 +766,6 @@ class DataHubGraph(DatahubRestEmitter):
         INCOMING = "INCOMING"
         OUTGOING = "OUTGOING"
 
-    @dataclass
-    class RelatedEntity:
-        urn: str
-        relationship_type: str
-
     def get_related_entities(
         self,
         entity_urn: str,
@@ -785,7 +786,7 @@ class DataHubGraph(DatahubRestEmitter):
                 },
             )
             for related_entity in response.get("entities", []):
-                yield DataHubGraph.RelatedEntity(
+                yield RelatedEntity(
                     urn=related_entity["urn"],
                     relationship_type=related_entity["relationshipType"],
                 )

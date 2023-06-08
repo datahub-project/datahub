@@ -81,6 +81,9 @@ class PlatformKey(DatahubKey):
     def property_dict(self) -> Dict[str, str]:
         return self.dict(by_alias=True, exclude_none=True)
 
+    def as_urn(self) -> str:
+        return make_container_urn(guid=self.guid())
+
 
 class DatabaseKey(PlatformKey):
     database: str
@@ -199,9 +202,7 @@ def gen_containers(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    container_urn = make_container_urn(
-        guid=container_key.guid(),
-    )
+    container_urn = container_key.as_urn()
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
         # entityKeyAspect=ContainerKeyClass(guid=parent_container_key.guid()),
