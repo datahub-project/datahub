@@ -25,18 +25,34 @@ if TYPE_CHECKING:
 
 @dataclass
 class DataFlow:
+    """The DataHub representation of data-flow.
+
+    Args:
+        urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://datahubproject.io/docs/what/urn/.
+        id (str): Identifier of DataFlow in orchestrator.
+        orchestrator (str): orchestrator. for example airflow.
+        cluster (Optional[str]): [depricated] Please use env.
+        name (str): Name of the DataFlow.
+        description (str): Description about DataFlow 
+        properties (Optional[str]): Additional properties if any.
+        url (Optional[str]): URL pointing to DataFlow.
+        tags (Set[str]): tags that need to be apply on DataFlow.
+        owners (Set[str]): owners that need to be apply on DataFlow.
+        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to. For more detail refer https://datahubproject.io/docs/platform-instances/.
+        env (Optional[str]): The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer https://datahubproject.io/docs/graphql/enums/#fabrictype.
+    """
     urn: DataFlowUrn = field(init=False)
     id: str
     orchestrator: str
     cluster: Optional[str] = None
-    env: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    platform_instance: Optional[str] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
     owners: Set[str] = field(default_factory=set)
+    platform_instance: Optional[str] = None
+    env: Optional[str] = None
 
     def __post_init__(self):
         if self.env is not None:            
