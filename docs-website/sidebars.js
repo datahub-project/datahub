@@ -149,6 +149,7 @@ module.exports = {
           Authentication: [
             "docs/authentication/README",
             "docs/authentication/concepts",
+            "docs/authentication/changing-default-credentials",
             "docs/authentication/guides/add-users",
             {
               "Frontend Authentication": [
@@ -188,6 +189,7 @@ module.exports = {
             "docs/how/kafka-config",
             "docs/deploy/confluent-cloud",
             "docs/advanced/no-code-upgrade",
+            "docs/how/jattach-guide",
           ],
         },
         "docs/how/updating-datahub",
