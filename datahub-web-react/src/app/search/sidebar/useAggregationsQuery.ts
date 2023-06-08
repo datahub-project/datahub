@@ -3,7 +3,7 @@ import { EntityType } from '../../../types.generated';
 import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { AGGREGATION_PAGE_SIZE } from './constants';
+import { MAX_AGGREGATION_VALUES } from './constants';
 import { useSidebarFilters } from './useSidebarFilters';
 
 type Props = {
@@ -31,7 +31,7 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
                 viewUrn: sidebarFilters.viewUrn,
                 query: sidebarFilters.query,
                 searchFlags: {
-                    maxAggValues: AGGREGATION_PAGE_SIZE,
+                    maxAggValues: MAX_AGGREGATION_VALUES,
                 },
             },
         },
