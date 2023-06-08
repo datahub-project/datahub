@@ -7,7 +7,13 @@ import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.qualify
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.utilities.file_backed_collections import FileBackedDict, ConnectionWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -117,28 +123,93 @@ SchemaInfo = Any
 
 
 class SchemaResolver:
-    def __init__(self, platform: str, platform_instance: Optional[str] = None):
+    def __init__(
+        self,
+        *,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = DEFAULT_ENV,
+        graph: Optional[DataHubGraph] = None,
+    ):
+        # TODO handle platforms when prefixed with urn:li:dataPlatform:
         self.platform = platform
         self.platform_instance = platform_instance
-        # TODO env
+        self.env = env
 
-        # TODO add a file-backed dict here
-        # TODO add DataHubGraph
+        self.graph = graph
 
-    def resolve_table(self, table: TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        # This must always generate an urn, and try to get the schema if possible.
-        # ASSUMPTION: The TableName is fully qualified.
+        # TODO: update this to not set an explicit filename
+        self.conn = ConnectionWrapper(filename="schema_cache.db")
+        self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
+            shared_connection=self.conn,
+            # TODO: maintain a fairly large cache
+        )
+
+    def get_urn_for_table(self, table: TableName, lower: bool = False) -> str:
+        # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
         table_name = ".".join(filter(None, [table.database, table.schema, table.table]))
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             platform_instance=self.platform_instance,
+            env=self.env,
             name=table_name,
         )
+        return urn
 
-        # TODO implement this
+    def resolve_table(self, table: TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        urn = self.get_urn_for_table(table)
 
-        return urn, None
+        schema_info = self._resolve_schema_info(urn)
+        if schema_info:
+            return urn, schema_info
+
+        urn_lower = self.get_urn_for_table(table, lower=True)
+        if urn_lower != urn:
+            schema_info = self._resolve_schema_info(urn_lower)
+            if schema_info:
+                return urn_lower, schema_info
+
+        return urn_lower, None
+
+    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
+        if urn in self._schema_cache:
+            return self._schema_cache[urn]
+
+        if self.graph:
+            schema_info = self._fetch_schema_info(self.graph, urn)
+            if schema_info:
+                self._save_to_cache(urn, schema_info)
+                return schema_info
+
+        self._save_to_cache(urn, None)
+        return None
+
+    def add_schema_metadata(
+        self, urn: str, schema_metadata: SchemaMetadataClass
+    ) -> None:
+        schema_info = self._convert_schema_aspect_to_info(schema_metadata)
+        self._save_to_cache(urn, schema_info)
+
+    def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
+        self._schema_cache[urn] = schema_info
+
+    def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
+        aspect = graph.get_aspect(urn, SchemaMetadataClass)
+        if not aspect:
+            return None
+
+        return self._convert_schema_aspect_to_info(aspect)
+
+    @classmethod
+    def _convert_schema_aspect_to_info(
+        cls, schema_metadata: SchemaMetadataClass
+    ) -> SchemaInfo:
+        return {
+            col.fieldPath: col.nativeDataType or "str" for col in schema_metadata.fields
+        }
+
+    # TODO add a method to load all from graphql
 
 
 class UnsupportedStatementTypeError(Exception):
