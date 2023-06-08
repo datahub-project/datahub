@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -13,7 +14,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaMetadataClass
-from datahub.utilities.file_backed_collections import FileBackedDict, ConnectionWrapper
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,9 @@ class SqlParsingResult:
 
     column_lineage: Optional[List[ColumnLineageInfo]]
 
+    # TODO add a statement type enum
+    # TODO add a confidence score (per column?)
+
 
 def _parse_statement(sql: str, dialect: str) -> sqlglot.Expression:
     statement = sqlglot.parse_one(
@@ -130,6 +134,7 @@ class SchemaResolver:
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
         graph: Optional[DataHubGraph] = None,
+        _cache_filename: Optional[pathlib.Path] = None,
     ):
         # TODO handle platforms when prefixed with urn:li:dataPlatform:
         self.platform = platform
@@ -138,11 +143,13 @@ class SchemaResolver:
 
         self.graph = graph
 
-        # TODO: update this to not set an explicit filename
-        self.conn = ConnectionWrapper(filename="schema_cache.db")
+        # Init cache, potentially restoring from a previous run.
+        shared_conn = None
+        if _cache_filename:
+            shared_conn = ConnectionWrapper(filename=_cache_filename)
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
-            shared_connection=self.conn,
-            # TODO: maintain a fairly large cache
+            shared_connection=shared_conn,
+            # TODO: tweak settings to maintain a fairly large in-memory cache
         )
 
     def get_urn_for_table(self, table: TableName, lower: bool = False) -> str:
