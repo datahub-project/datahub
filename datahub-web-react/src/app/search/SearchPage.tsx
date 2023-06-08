@@ -11,10 +11,10 @@ import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
-    FILTERS_V2_CONDITIONAL_STEP,
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
     SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
     SEARCH_RESULTS_FILTERS_ID,
+    SEARCH_RESULTS_FILTERS_V2_INTRO,
 } from '../onboarding/config/SearchOnboardingConfig';
 import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
@@ -149,8 +149,8 @@ export const SearchPage = () => {
                         SEARCH_RESULTS_FILTERS_ID,
                         SEARCH_RESULTS_ADVANCED_SEARCH_ID,
                         SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
+                        SEARCH_RESULTS_FILTERS_V2_INTRO,
                     ]}
-                    conditionalSteps={[FILTERS_V2_CONDITIONAL_STEP]}
                 />
             )}
             {showSearchFiltersV2 && (

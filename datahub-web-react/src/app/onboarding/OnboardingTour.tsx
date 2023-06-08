@@ -5,15 +5,13 @@ import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
 import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
-import { convertStepId, getStepsToRender } from './utils';
-import { ConditionalStep } from './OnboardingStep';
+import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
 
 type Props = {
     stepIds: string[];
-    conditionalSteps?: ConditionalStep[];
 };
 
-export const OnboardingTour = ({ stepIds, conditionalSteps = [] }: Props) => {
+export const OnboardingTour = ({ stepIds }: Props) => {
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
     const [isOpen, setIsOpen] = useState(true);
@@ -35,7 +33,7 @@ export const OnboardingTour = ({ stepIds, conditionalSteps = [] }: Props) => {
         document.addEventListener('keydown', handleKeyDown);
     }, []);
 
-    const steps = getStepsToRender(educationSteps, stepIds, conditionalSteps, userUrn || '', reshow);
+    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', reshow);
     const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
     const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];
 
@@ -44,13 +42,9 @@ export const OnboardingTour = ({ stepIds, conditionalSteps = [] }: Props) => {
     function closeTour() {
         setIsOpen(false);
         setReshow(false);
-        const finalStepIds = [...filteredStepIds];
-        // mark conditional step as seen if we're seeing its preRequisite step right now
-        conditionalSteps.forEach((conditionalStep) => {
-            if (filteredStepIds.includes(conditionalStep.preRequisiteStepId)) {
-                finalStepIds.push(conditionalStep.stepId);
-            }
-        });
+        // add conditional steps where its pre-requisite step ID is in our list of IDs we mark as completed
+        const conditionalStepIds = getConditionalStepIdsToAdd(stepIds, filteredStepIds);
+        const finalStepIds = [...filteredStepIds, ...conditionalStepIds];
         const convertedIds = finalStepIds.map((id) => convertStepId(id, userUrn || ''));
         const stepStates = convertedIds.map((id) => ({ id, properties: [] }));
         batchUpdateStepStates({ variables: { input: { states: stepStates } } }).then(() => {

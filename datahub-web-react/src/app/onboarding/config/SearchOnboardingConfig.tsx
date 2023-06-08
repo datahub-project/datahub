@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography } from 'antd';
-import { ConditionalStep, OnboardingStep } from '../OnboardingStep';
+import { OnboardingStep } from '../OnboardingStep';
 
 export const SEARCH_RESULTS_FILTERS_ID = 'search-results-filters';
 export const SEARCH_RESULTS_ADVANCED_SEARCH_ID = 'search-results-advanced-search';
@@ -44,6 +44,7 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: SEARCH_RESULTS_FILTERS_V2_INTRO,
+        preRequisiteStepId: SEARCH_RESULTS_FILTERS_ID,
         selector: `#${SEARCH_RESULTS_FILTERS_V2_INTRO}`,
         title: 'Filters Have Moved',
         content: (
@@ -54,8 +55,3 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
         ),
     },
 ];
-
-export const FILTERS_V2_CONDITIONAL_STEP: ConditionalStep = {
-    stepId: SEARCH_RESULTS_FILTERS_V2_INTRO,
-    preRequisiteStepId: SEARCH_RESULTS_FILTERS_ID,
-};
