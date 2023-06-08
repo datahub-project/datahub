@@ -1055,6 +1055,7 @@ fragment entityDisplayNameFields on Entity {
         }
     }
     ... on DataJob {
+        jobId
         properties {
             name
         }
@@ -1107,8 +1108,8 @@ fragment entityDisplayNameFields on Entity {
         ...nonConflictingPlatformFields
     }
     ... on DataProduct {
-            properties {
-                name
-            }
+        properties {
+            name
+        }
     }
 }
