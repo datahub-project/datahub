@@ -28,7 +28,8 @@ class DataFlow:
     urn: DataFlowUrn = field(init=False)
     id: str
     orchestrator: str
-    env: str
+    cluster: Optional[str] = None
+    env: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
     platform_instance: Optional[str] = None
@@ -38,12 +39,20 @@ class DataFlow:
     owners: Set[str] = field(default_factory=set)
 
     def __post_init__(self):
-        self.urn = DataFlowUrn.create_from_ids(
-            orchestrator=self.orchestrator,
-            env=self.env,
-            flow_id=self.id,
-            platform_instance=self.platform_instance,
-        )
+        if self.env is not None:            
+            self.urn = DataFlowUrn.create_from_ids(
+                orchestrator=self.orchestrator,
+                env=self.env,
+                flow_id=self.id,
+                platform_instance=self.platform_instance,
+            )
+        else:
+            self.urn = DataFlowUrn.create_from_ids(
+                orchestrator=self.orchestrator,
+                env=self.cluster,
+                flow_id=self.id,
+                platform_instance=self.platform_instance,
+            )
 
     def generate_ownership_aspect(self):
         ownership = OwnershipClass(

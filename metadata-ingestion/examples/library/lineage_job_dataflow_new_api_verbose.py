@@ -13,7 +13,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 emitter = DatahubRestEmitter("http://localhost:8080")
 
-jobFlow = DataFlow(env="prod", orchestrator="airflow", id="flow2")
+jobFlow = DataFlow(cluster="prod", orchestrator="airflow", id="flow2")
 jobFlow.emit(emitter)
 
 # Flowurn as constructor

@@ -128,7 +128,7 @@ class DataProcessInstance:
                 if isinstance(self.template_urn, DataFlowUrn):
                     job_flow_urn = self.template_urn
                     template_object = DataFlow(
-                        env=self.template_urn.get_env(),
+                        cluster=self.template_urn.get_env(),
                         orchestrator=self.template_urn.get_orchestrator_name(),
                         id=self.template_urn.get_flow_id(),
                     )
@@ -326,7 +326,7 @@ class DataProcessInstance:
         dpi = DataProcessInstance(
             id=id,
             orchestrator=dataflow.orchestrator,
-            cluster=dataflow.env,
+            cluster=dataflow.cluster,
             template_urn=dataflow.urn,
         )
         dpi._template_object = dataflow

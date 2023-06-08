@@ -146,7 +146,7 @@ class AirflowGenerator:
         orchestrator = "airflow"
         description = f"{dag.description}\n\n{dag.doc_md or ''}"
         data_flow = DataFlow(
-            env=cluster, id=id, orchestrator=orchestrator, description=description
+            cluster=cluster, id=id, orchestrator=orchestrator, description=description
         )
 
         flow_property_bag: Dict[str, str] = {}
