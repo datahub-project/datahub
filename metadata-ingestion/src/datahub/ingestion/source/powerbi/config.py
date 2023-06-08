@@ -191,7 +191,7 @@ class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
-        "with platform instance name used in ingestion"
+        "with platform instance name used in ingestion "
         "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
