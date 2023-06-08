@@ -31,7 +31,7 @@ class DataFlow:
         urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://datahubproject.io/docs/what/urn/.
         id (str): Identifier of DataFlow in orchestrator.
         orchestrator (str): orchestrator. for example airflow.
-        cluster (Optional[str]): [depricated] Please use env.
+        cluster (str): [depricated] Please use env.
         name (str): Name of the DataFlow.
         description (str): Description about DataFlow
         properties (Optional[str]): Additional properties if any.
