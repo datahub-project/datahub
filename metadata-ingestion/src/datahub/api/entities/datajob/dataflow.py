@@ -33,7 +33,7 @@ class DataFlow:
         orchestrator (str): orchestrator. for example airflow.
         cluster (Optional[str]): [depricated] Please use env.
         name (str): Name of the DataFlow.
-        description (str): Description about DataFlow 
+        description (str): Description about DataFlow
         properties (Optional[str]): Additional properties if any.
         url (Optional[str]): URL pointing to DataFlow.
         tags (Set[str]): tags that need to be apply on DataFlow.
@@ -41,10 +41,11 @@ class DataFlow:
         platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to. For more detail refer https://datahubproject.io/docs/platform-instances/.
         env (Optional[str]): The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer https://datahubproject.io/docs/graphql/enums/#fabrictype.
     """
+
     urn: DataFlowUrn = field(init=False)
     id: str
     orchestrator: str
-    cluster: Optional[str] = None
+    cluster: str
     name: Optional[str] = None
     description: Optional[str] = None
     properties: Dict[str, str] = field(default_factory=dict)
@@ -55,7 +56,7 @@ class DataFlow:
     env: Optional[str] = None
 
     def __post_init__(self):
-        if self.env is not None:            
+        if self.env is not None:
             self.urn = DataFlowUrn.create_from_ids(
                 orchestrator=self.orchestrator,
                 env=self.env,
