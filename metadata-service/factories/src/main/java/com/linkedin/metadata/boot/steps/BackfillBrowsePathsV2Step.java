@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot.steps;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathsV2;
@@ -8,7 +9,9 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -35,8 +38,11 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   private static final String UPGRADE_ID = "backfill-default-browse-paths-v2-step";
   private static final Integer BATCH_SIZE = 5000;
 
-  public BackfillBrowsePathsV2Step(EntityService entityService) {
+  private final SearchService _searchService;
+
+  public BackfillBrowsePathsV2Step(EntityService entityService, SearchService searchService) {
     super(entityService, VERSION, UPGRADE_ID);
+    _searchService = searchService;
   }
 
   @Nonnull
@@ -50,33 +56,40 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     final AuditStamp auditStamp =
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-    int total = 0;
+    String scrollId = null;
     for (String entityType : ENTITY_TYPES_TO_MIGRATE) {
       int migratedCount = 0;
       do {
-        log.info(String.format("Upgrading batch %s-%s out of %s of browse paths for entity type %s",
-            migratedCount, migratedCount + BATCH_SIZE, total, entityType));
-        total = backfillBrowsePathsV2(entityType, migratedCount, auditStamp);
+        log.info(String.format("Upgrading batch %s-%s of browse paths for entity type %s",
+            migratedCount, migratedCount + BATCH_SIZE, entityType));
+        scrollId = backfillBrowsePathsV2(entityType, auditStamp, scrollId);
         migratedCount += BATCH_SIZE;
-      } while (migratedCount < total);
+      } while (scrollId != null);
     }
   }
 
-  private int backfillBrowsePathsV2(String entityType, int start, AuditStamp auditStamp)
+  private String backfillBrowsePathsV2(String entityType, AuditStamp auditStamp, String scrollId)
       throws Exception {
 
-    final ListUrnsResult entityUrnsResult = _entityService.listUrns(entityType, start, BATCH_SIZE);
-
-    if (entityUrnsResult.getTotal() == 0 || entityUrnsResult.getEntities().size() == 0) {
-      log.debug(String.format("Found 0 entity of type %s. Skipping backfill for this entity", entityType));
-      return 0;
+    final ScrollResult scrollResult = _searchService.scrollAcrossEntities(
+        ImmutableList.of(entityType),
+        "*",
+        null,
+        null,
+        scrollId,
+        "5m",
+        BATCH_SIZE,
+        null
+    );
+    if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
+      return null;
     }
 
-    for (Urn urn : entityUrnsResult.getEntities()) {
-      ingestBrowsePathsV2(urn, auditStamp);
+    for (SearchEntity searchEntity : scrollResult.getEntities()) {
+      ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
     }
 
-    return entityUrnsResult.getTotal();
+    return scrollResult.getScrollId();
   }
 
   private void ingestBrowsePathsV2(Urn urn, AuditStamp auditStamp) throws Exception {

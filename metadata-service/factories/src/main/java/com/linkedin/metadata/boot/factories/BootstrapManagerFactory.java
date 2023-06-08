@@ -29,6 +29,7 @@ import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +59,10 @@ public class BootstrapManagerFactory {
   @Autowired
   @Qualifier("entitySearchService")
   private EntitySearchService _entitySearchService;
+
+  @Autowired
+  @Qualifier("searchService")
+  private SearchService _searchService;
 
   @Autowired
   @Qualifier("searchDocumentTransformer")
@@ -129,7 +134,7 @@ public class BootstrapManagerFactory {
     }
 
     if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService));
+      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
     }
 
     return new BootstrapManager(finalSteps);
