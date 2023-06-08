@@ -8,14 +8,13 @@ import {
     useMaybePlatformAggregation,
 } from './BrowseContext';
 
-// todo - add an event on the main sidebar mount that shows how many entities are there? :/
-
 const useSidebarAnalytics = () => {
     const entityType = useEntityType();
     const environment = useMaybeEnvironmentAggregation()?.value;
     const platform = useMaybePlatformAggregation()?.value;
     const isBrowsePathNode = !!useMaybeBrowseResultGroup();
-    const browsePathDepth = useBrowsePathLength();
+    const browsepathLength = useBrowsePathLength();
+    const depth = 1 + (environment ? 1 : 0) + (platform ? 1 : 0) + browsepathLength;
 
     const trackToggleNodeEvent = (isOpen: boolean) => {
         analytics.event({
@@ -25,7 +24,7 @@ const useSidebarAnalytics = () => {
             ...(environment ? { environment } : {}),
             ...(platform ? { platform } : {}),
             isBrowsePathNode,
-            browsePathDepth,
+            depth,
         });
     };
 

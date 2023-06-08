@@ -30,7 +30,6 @@ const EntityNode = () => {
 
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isSelected,
-        // todo - do we need all the closeDelays applied on every node?
         closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen),
     });

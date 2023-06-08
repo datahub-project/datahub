@@ -210,7 +210,7 @@ export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     environment?: string;
     platform?: string;
     isBrowsePathNode: boolean;
-    browsePathDepth: number;
+    depth: number;
 }
 
 /**
