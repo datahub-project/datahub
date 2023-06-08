@@ -6,6 +6,7 @@ import { UnionType } from '../utils/constants';
 import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
 import AdvancedFilters from './AdvancedFilters';
 import BasicFilters from './BasicFilters';
+import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
 
 const SearchFiltersWrapper = styled.div<{ removePadding: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -31,7 +32,10 @@ export default function SearchFilters({
     const [isShowingBasicFilters, setIsShowingBasicFilters] = useState(!onlyShowAdvancedFilters);
 
     return (
-        <SearchFiltersWrapper removePadding={!isShowingBasicFilters && !!activeFilters.length}>
+        <SearchFiltersWrapper
+            id={SEARCH_RESULTS_FILTERS_V2_INTRO}
+            removePadding={!isShowingBasicFilters && !!activeFilters.length}
+        >
             {isShowingBasicFilters && (
                 <BasicFilters
                     availableFilters={availableFilters}

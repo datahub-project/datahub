@@ -7,6 +7,7 @@ import { BrowseProvider } from './BrowseContext';
 import useAggregationsQuery from './useAggregationsQuery';
 import { ENTITY_FILTER_NAME } from '../utils/constants';
 import SidebarLoadingError from './SidebarLoadingError';
+import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -46,7 +47,7 @@ const BrowseSidebar = ({ visible, width }: Props) => {
     });
 
     return (
-        <Sidebar visible={visible} width={width}>
+        <Sidebar visible={visible} width={width} id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
             <SidebarHeader>
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>

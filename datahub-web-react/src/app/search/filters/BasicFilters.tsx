@@ -17,6 +17,10 @@ import SaveViewButton from './SaveViewButton';
 import SearchFilter from './SearchFilter';
 import { TextButton } from './styledComponents';
 import { sortFacets } from './utils';
+import {
+    SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+    SEARCH_RESULTS_FILTERS_ID,
+} from '../../onboarding/config/SearchOnboardingConfig';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 
@@ -69,7 +73,7 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
     }
 
     return (
-        <>
+        <span id={SEARCH_RESULTS_FILTERS_ID}>
             <FlexSpacer>
                 <FlexWrapper>
                     {visibleFilters?.map((filter) => (
@@ -90,7 +94,12 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
                 </FlexWrapper>
                 <FilterButtonsWrapper>
                     {showSaveViewButton && <SaveViewButton activeFilters={activeFilters} unionType={UnionType.AND} />}
-                    <TextButton type="text" onClick={showAdvancedFilters} marginTop={0}>
+                    <TextButton
+                        id={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
+                        type="text"
+                        onClick={showAdvancedFilters}
+                        marginTop={0}
+                    >
                         Advanced Filters
                     </TextButton>
                 </FilterButtonsWrapper>
@@ -116,6 +125,6 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
                     </FlexSpacer>
                 </>
             )}
-        </>
+        </span>
     );
 }

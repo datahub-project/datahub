@@ -11,7 +11,9 @@ import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
+    FILTERS_V2_CONDITIONAL_STEP,
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+    SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
 import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
@@ -141,7 +143,16 @@ export const SearchPage = () => {
 
     return (
         <>
-            {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
+            {!loading && (
+                <OnboardingTour
+                    stepIds={[
+                        SEARCH_RESULTS_FILTERS_ID,
+                        SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+                        SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
+                    ]}
+                    conditionalSteps={[FILTERS_V2_CONDITIONAL_STEP]}
+                />
+            )}
             {showSearchFiltersV2 && (
                 <SearchFilters
                     availableFilters={data?.searchAcrossEntities?.facets || []}
