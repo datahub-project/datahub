@@ -145,5 +145,5 @@ dmypy.json
 .pyre/
 
 # Generated classes
-src/datahub/metadata/
+# src/datahub/metadata/
 .preflight_sentinel
