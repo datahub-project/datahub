@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -34,7 +36,8 @@ public class EntityExistsResolverTest {
   @Test
   public void testPasses() throws Exception {
     when(_dataFetchingEnvironment.getArgument("urn")).thenReturn(ENTITY_URN_STRING);
-    when(_entityService.exists(any())).thenReturn(true);
+    when(_entityService.exists(any(Urn.class))).thenReturn(true);
+    when(_entityService.exists(anyList())).thenReturn(Set.of(Urn.createFromString(ENTITY_URN_STRING)));
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }

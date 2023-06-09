@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.sibling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -67,6 +68,8 @@ public class SiblingGraphServiceTest {
   public void setup() {
     _mockEntityService = Mockito.mock(EntityService.class);
     when(_mockEntityService.exists(any(Urn.class))).thenReturn(true);
+    when(_mockEntityService.exists(anyList())).thenReturn(
+        Set.of(datasetOneUrn, datasetTwoUrn, datasetThreeUrn, datasetFourUrn, datasetFiveUrn));
     _graphService = Mockito.mock(GraphService.class);
     _client = new SiblingGraphService(_mockEntityService, _graphService);
   }
@@ -739,6 +742,10 @@ public class SiblingGraphServiceTest {
     Urn upstreamUrn1 = Urn.createFromString("urn:li:" + datasetType + ":(urn:li:dataPlatform:snowflake,Upstream1,PROD)");
     Urn upstreamUrn2 = Urn.createFromString("urn:li:" + datasetType + ":(urn:li:dataPlatform:snowflake,Upstream2,PROD)");
 
+    Set<Urn> existingUrns = Sets.newHashSet(datasetOneUrn, datasetTwoUrn, datasetThreeUrn,
+        datasetFourUrn, datasetFiveUrn, primarySiblingUrn, alternateSiblingUrn, upstreamUrn1,
+        upstreamUrn2);
+
     LineageRelationshipArray alternateDownstreamRelationships = new LineageRelationshipArray();
     // Populate sibling service
     Siblings primarySiblings = new Siblings();
@@ -761,6 +768,7 @@ public class SiblingGraphServiceTest {
     final int numDownstreams = 42;
     for (int i = 0; i < numDownstreams; i++) {
       Urn downstreamUrn = Urn.createFromString("urn:li:" + datasetType + ":(urn:li:dataPlatform:snowflake,Downstream" + i + ",PROD)");
+      existingUrns.add(downstreamUrn);
       LineageRelationship relationship = new LineageRelationship();
       relationship.setDegree(0);
       relationship.setType(upstreamOf);
@@ -768,6 +776,9 @@ public class SiblingGraphServiceTest {
       alternateDownstreamRelationships.add(relationship);
       siblingsMap.put(downstreamUrn, ImmutableList.of());
     }
+
+
+    when(_mockEntityService.exists(anyList())).thenReturn(existingUrns);
 
     LineageRelationshipArray alternateUpstreamRelationships = new LineageRelationshipArray();
     for (Urn upstreamUrn : List.of(upstreamUrn1, upstreamUrn2, primarySiblingUrn)) {
