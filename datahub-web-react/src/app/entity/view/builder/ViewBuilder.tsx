@@ -8,7 +8,7 @@ import { updateViewSelectCache, updateListMyViewsCache } from '../cacheUtils';
 import { convertStateToUpdateInput, DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
 import { useUserContext } from '../../../context/useUserContext';
 import { ViewBuilderMode } from './types';
-import analytics, { Event, EventType } from '../../../analytics';
+import analytics, { EventType } from '../../../analytics';
 import { DataHubView } from '../../../../types.generated';
 
 type Props = {
@@ -30,11 +30,16 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
     const [createViewMutation] = useCreateViewMutation();
 
     const emitTrackingEvent = (viewUrn: string, state: ViewBuilderState, isCreate: boolean) => {
+        const filterFields = state.definition?.filter?.filters.map((filter) => filter.field) ?? [];
+        const entityTypes = state.definition?.entityTypes ?? [];
+
         analytics.event({
             type: isCreate ? EventType.CreateViewEvent : EventType.UpdateViewEvent,
             urn: viewUrn,
             viewType: state.viewType,
-        } as Event);
+            filterFields,
+            entityTypes,
+        });
     };
 
     /**

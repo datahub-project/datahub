@@ -485,7 +485,9 @@ export interface ManuallyDeleteLineageEvent extends BaseEvent {
  */
 export interface CreateViewEvent extends BaseEvent {
     type: EventType.CreateViewEvent;
-    viewType: DataHubViewType;
+    viewType?: DataHubViewType;
+    filterFields: string[];
+    entityTypes: string[];
 }
 
 /**
@@ -493,8 +495,10 @@ export interface CreateViewEvent extends BaseEvent {
  */
 export interface UpdateViewEvent extends BaseEvent {
     type: EventType.UpdateViewEvent;
-    viewType: DataHubViewType;
+    viewType?: DataHubViewType;
     urn: string;
+    filterFields: string[];
+    entityTypes: string[];
 }
 
 /**
