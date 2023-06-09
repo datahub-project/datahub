@@ -66,7 +66,7 @@ public class SiblingGraphServiceTest {
   @BeforeClass
   public void setup() {
     _mockEntityService = Mockito.mock(EntityService.class);
-    when(_mockEntityService.exists(any())).thenReturn(true);
+    when(_mockEntityService.exists(any(Urn.class))).thenReturn(true);
     _graphService = Mockito.mock(GraphService.class);
     _client = new SiblingGraphService(_mockEntityService, _graphService);
   }
