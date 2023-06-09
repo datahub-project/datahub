@@ -16,6 +16,7 @@ import {
 import { useIsMatchingFilter, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
 import { applyFacetFilterOverrides } from '../utils/applyFilterOverrides';
 import { getEntitySubtypeFiltersForEntity } from './browseContextUtils';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 type BrowseContextValue = {
     entityAggregation?: AggregationMetadata;
@@ -117,6 +118,13 @@ export const useBrowseResultGroup = () => {
     const browseResultGroup = useMaybeBrowseResultGroup();
     if (!browseResultGroup) throw new Error('browseResultGroup is missing in context');
     return browseResultGroup;
+};
+
+export const useBrowseDisplayName = () => {
+    const entityRegistry = useEntityRegistry();
+    const browseResultGroup = useBrowseResultGroup();
+    const { entity } = browseResultGroup;
+    return entity ? entityRegistry.getDisplayName(entity.type, entity) : browseResultGroup.name;
 };
 
 export const useBrowsePath = () => {

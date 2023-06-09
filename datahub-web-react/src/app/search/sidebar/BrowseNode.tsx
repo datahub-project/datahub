@@ -17,8 +17,8 @@ import {
     useIsBrowsePathSelected,
     useIsBrowsePathPrefix,
     useBrowsePathLength,
+    useBrowseDisplayName,
 } from './BrowseContext';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import useSidebarAnalytics from './useSidebarAnalytics';
 
 const FolderStyled = styled(FolderOutlined)`
@@ -41,11 +41,12 @@ const BrowseNode = () => {
     const browseResultGroup = useBrowseResultGroup();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
     const { count } = browseResultGroup;
+    const displayName = useBrowseDisplayName();
 
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
         closeDelay: 250,
-        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(!isNowOpen),
+        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'browse'),
     });
 
     const onClickTriangle = () => {
@@ -57,9 +58,6 @@ const BrowseNode = () => {
     });
 
     const browsePathLength = useBrowsePathLength();
-
-    const { entity } = browseResultGroup;
-    const displayedName = entity ? entityRegistry.getDisplayName(entity.type, entity) : browseResultGroup.name;
 
     const color = '#000';
 
@@ -80,7 +78,7 @@ const BrowseNode = () => {
                         />
                         <FolderStyled />
                         <ExpandableNode.Title color={color} size={14} depth={browsePathLength}>
-                            {displayedName}
+                            {displayName}
                         </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(count)}</Count>

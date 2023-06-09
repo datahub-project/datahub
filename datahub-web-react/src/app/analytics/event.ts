@@ -205,11 +205,11 @@ export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
 
 export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleNodeEvent;
+    target: 'entity' | 'environment' | 'platform' | 'browse';
     action: 'open' | 'close';
-    entityType: EntityType;
+    entity: string;
     environment?: string;
     platform?: string;
-    isBrowsePathNode: boolean;
     depth: number;
 }
 

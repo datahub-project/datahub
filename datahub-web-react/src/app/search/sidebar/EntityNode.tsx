@@ -31,7 +31,7 @@ const EntityNode = () => {
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isSelected,
         closeDelay: 250,
-        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen),
+        onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'entity'),
     });
 
     const onClickHeader = () => {
