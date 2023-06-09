@@ -190,7 +190,6 @@ embedded_datasource_graphql_query = """
     upstreamTables {
         id
         name
-        isEmbedded
         database {
             name
         }
@@ -198,9 +197,8 @@ embedded_datasource_graphql_query = """
         fullName
         connectionType
         description
-        columns {
-            name
-            remoteType
+        columnsConnection {
+            totalCount
         }
     }
     fields {
@@ -276,7 +274,6 @@ custom_sql_graphql_query = """
             upstreamTables {
               id
               name
-              isEmbedded
               database {
                 name
               }
@@ -302,7 +299,6 @@ custom_sql_graphql_query = """
       tables {
         id
         name
-        isEmbedded
         database {
           name
         }
@@ -310,9 +306,8 @@ custom_sql_graphql_query = """
         fullName
         connectionType
         description
-        columns {
-            name
-            remoteType
+        columnsConnection {
+            totalCount
         }
       }
       database{
@@ -335,7 +330,6 @@ published_datasource_graphql_query = """
     upstreamTables {
       id
       name
-      isEmbedded
       database {
         name
       }
@@ -343,10 +337,9 @@ published_datasource_graphql_query = """
       fullName
       connectionType
       description
-      columns {
-        name
-        remoteType
-      }
+      columnsConnection {
+            totalCount
+        }
     }
     fields {
         __typename
@@ -395,6 +388,17 @@ published_datasource_graphql_query = """
     projectName
 }
         """
+
+database_tables_graphql_query = """
+{
+    id
+    isEmbedded
+    columns {
+      remoteType
+      name
+    }
+}
+"""
 
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
 FIELD_TYPE_MAPPING = {

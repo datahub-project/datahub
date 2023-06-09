@@ -69,6 +69,7 @@ from datahub.ingestion.source.tableau_common import (
     clean_query,
     custom_sql_graphql_query,
     dashboard_graphql_query,
+    database_tables_graphql_query,
     embedded_datasource_graphql_query,
     get_unique_custom_sql,
     make_table_urn,
@@ -392,7 +393,7 @@ class TableauSource(StatefulIngestionSourceBase):
     report: StaleEntityRemovalSourceReport
     platform = "tableau"
     server: Optional[Server]
-    upstream_tables: Dict[str, Tuple[Any, Optional[str], bool]] = {}
+    upstream_tables: Dict[str, Tuple[str, Optional[str]]] = {}
     tableau_stat_registry: Dict[str, UsageStat] = {}
     tableau_project_registry: Dict[str, TableauProject] = {}
     workbook_project_map: Dict[str, str] = {}
@@ -914,7 +915,10 @@ class TableauSource(StatefulIngestionSourceBase):
         for table in tables:
             # skip upstream tables when there is no column info when retrieving datasource
             # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
-            if not is_custom_sql and not table.get(tableau_constant.COLUMNS):
+            if not is_custom_sql and not (
+                table.get(tableau_constant.COLUMNS_CONNECTION)
+                and table[tableau_constant.COLUMNS_CONNECTION].get("totalCount")
+            ):
                 logger.debug(
                     f"Skipping upstream table with id {table[tableau_constant.ID]}, no columns: {table}"
                 )
@@ -970,15 +974,11 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             upstream_tables.append(upstream_table)
 
-            table_path = None
+            table_path: Optional[str] = None
             if browse_path and datasource_name:
                 table_path = f"{browse_path}/{datasource_name}"
 
-            self.upstream_tables[table_urn] = (
-                table.get(tableau_constant.COLUMNS, []),
-                table_path,
-                table.get(tableau_constant.IS_EMBEDDED) or False,
-            )
+            self.upstream_tables[table[tableau_constant.ID]] = (table_urn, table_path)
         return upstream_tables, table_id_to_urn
 
     def get_upstream_columns_of_fields_in_datasource(
@@ -1611,63 +1611,74 @@ class TableauSource(StatefulIngestionSourceBase):
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        for (
-            table_urn,
-            (columns, browse_path, is_embedded),
-        ) in self.upstream_tables.items():
-            if not is_embedded and not self.config.ingest_tables_external:
-                logger.debug(
-                    f"Skipping external table {table_urn} as ingest_tables_external is set to False"
-                )
-                continue
+        tables_filter = (
+            f"{tableau_constant.ID_WITH_IN}: {json.dumps(self.upstream_tables.keys())}"
+        )
 
-            dataset_snapshot = DatasetSnapshot(
-                urn=table_urn,
-                aspects=[],
+        for table in self.get_connection_objects(
+            database_tables_graphql_query,
+            tableau_constant.DATABASE_TABLES_CONNECTION,
+            tables_filter,
+        ):
+            yield from self.emit_table(table)
+
+    def emit_table(self, table: dict) -> Iterable[MetadataWorkUnit]:
+        table_urn, browse_path = self.upstream_tables[table[tableau_constant.ID]]
+        columns = table.get(tableau_constant.COLUMNS, [])
+        is_embedded = table.get(tableau_constant.IS_EMBEDDED) or False
+        if not is_embedded and not self.config.ingest_tables_external:
+            logger.debug(
+                f"Skipping external table {table_urn} as ingest_tables_external is set to False"
             )
-            if browse_path:
-                # Browse path
-                browse_paths = BrowsePathsClass(
-                    paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
-                )
-                dataset_snapshot.aspects.append(browse_paths)
-            else:
-                logger.debug(f"Browse path not set for table {table_urn}")
-            schema_metadata = None
-            if columns:
-                fields = []
-                for field in columns:
-                    if field.get(tableau_constant.NAME) is None:
-                        logger.warning(
-                            f"Skipping field {field[tableau_constant.ID]} from schema since its name is none"
-                        )
-                        continue
-                    nativeDataType = field.get(
-                        tableau_constant.REMOTE_TYPE, tableau_constant.UNKNOWN
+            return
+
+        dataset_snapshot = DatasetSnapshot(
+            urn=table_urn,
+            aspects=[],
+        )
+        if browse_path:
+            # Browse path
+            browse_paths = BrowsePathsClass(
+                paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
+            )
+            dataset_snapshot.aspects.append(browse_paths)
+        else:
+            logger.debug(f"Browse path not set for table {table_urn}")
+        schema_metadata = None
+        if columns:
+            fields = []
+            for field in columns:
+                if field.get(tableau_constant.NAME) is None:
+                    logger.warning(
+                        f"Skipping field {field[tableau_constant.ID]} from schema since its name is none"
                     )
-                    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
-
-                    schema_field = SchemaField(
-                        fieldPath=field[tableau_constant.NAME],
-                        type=SchemaFieldDataType(type=TypeClass()),
-                        description="",
-                        nativeDataType=nativeDataType,
-                    )
-
-                    fields.append(schema_field)
-
-                schema_metadata = SchemaMetadata(
-                    schemaName="test",
-                    platform=f"urn:li:dataPlatform:{self.platform}",
-                    version=0,
-                    fields=fields,
-                    hash="",
-                    platformSchema=OtherSchema(rawSchema=""),
+                    continue
+                nativeDataType = field.get(
+                    tableau_constant.REMOTE_TYPE, tableau_constant.UNKNOWN
                 )
-            if schema_metadata is not None:
-                dataset_snapshot.aspects.append(schema_metadata)
+                TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
-            yield self.get_metadata_change_event(dataset_snapshot)
+                schema_field = SchemaField(
+                    fieldPath=field[tableau_constant.NAME],
+                    type=SchemaFieldDataType(type=TypeClass()),
+                    description="",
+                    nativeDataType=nativeDataType,
+                )
+
+                fields.append(schema_field)
+
+            schema_metadata = SchemaMetadata(
+                schemaName="test",
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                fields=fields,
+                hash="",
+                platformSchema=OtherSchema(rawSchema=""),
+            )
+        if schema_metadata is not None:
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        yield self.get_metadata_change_event(dataset_snapshot)
 
     def get_sheetwise_upstream_datasources(self, sheet: dict) -> set:
         sheet_upstream_datasources = set()
