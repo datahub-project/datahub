@@ -76,6 +76,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 isActive={!!numActiveFilters}
                 isOpen={isMenuOpen}
+                data-testid={`more-filter-${capitalizeFirstLetterOnly(filter.displayName)}`}
             >
                 <IconNameWrapper>
                     {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}

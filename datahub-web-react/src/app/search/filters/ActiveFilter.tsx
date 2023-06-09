@@ -69,13 +69,17 @@ function ActiveFilter({
     }
 
     return (
-        <ActiveFilterWrapper>
+        <ActiveFilterWrapper data-testid={`active-filter-${label}`}>
             {icon}
             {icon && <IconSpacer />}
             <Label ellipsis={{ tooltip: label }} style={{ maxWidth: 150 }}>
                 {label}
             </Label>
-            <StyledButton icon={<CloseCircleOutlined />} onClick={removeFilter} />
+            <StyledButton
+                icon={<CloseCircleOutlined />}
+                onClick={removeFilter}
+                data-testid={`remove-filter-${label}`}
+            />
         </ActiveFilterWrapper>
     );
 }

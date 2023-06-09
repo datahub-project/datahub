@@ -189,7 +189,7 @@ export const SearchResults = ({
             <SearchResultsWrapper showUpdatedStyles={showSearchFiltersV2}>
                 <SearchBody>
                     {!showSearchFiltersV2 && (
-                        <div id={SEARCH_RESULTS_FILTERS_ID}>
+                        <div id={SEARCH_RESULTS_FILTERS_ID} data-testid="search-filters-v1">
                             <SearchFiltersSection
                                 filters={facets}
                                 selectedFilters={selectedFilters}

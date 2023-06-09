@@ -31,7 +31,12 @@ export default function SaveViewButton({ activeFilters, unionType }: Props) {
                     </>
                 }
             >
-                <TextButton type="text" onClick={() => setIsViewModalVisible(true)} marginTop={0}>
+                <TextButton
+                    type="text"
+                    onClick={() => setIsViewModalVisible(true)}
+                    marginTop={0}
+                    data-testid="save-as-view"
+                >
                     Save as a View
                 </TextButton>
             </Tooltip>

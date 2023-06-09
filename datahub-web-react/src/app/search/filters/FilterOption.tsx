@@ -134,6 +134,7 @@ export default function FilterOption({
                 <StyledCheckbox
                     checked={isFilterOptionSelected(selectedFilterOptions, value)}
                     onClick={updateFilterValues}
+                    data-testid={`filter-option-${label}`}
                 >
                     {isGlossaryTerm && <ParentNodes glossaryTerm={entity as GlossaryTerm} />}
                     <CheckboxContent>

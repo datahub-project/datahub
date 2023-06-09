@@ -34,6 +34,7 @@ export default function SearchFilters({
     return (
         <SearchFiltersWrapper
             id={SEARCH_RESULTS_FILTERS_V2_INTRO}
+            data-testid="search-filters-v2"
             removePadding={!isShowingBasicFilters && !!activeFilters.length}
         >
             {isShowingBasicFilters && (

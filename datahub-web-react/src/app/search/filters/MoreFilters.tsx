@@ -58,7 +58,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
             open={isMenuOpen}
             onOpenChange={(open) => setIsMenuOpen(open)}
         >
-            <DropdownLabel isActive={!!numActiveFilters}>
+            <DropdownLabel data-testid="more-filters-dropdown" isActive={!!numActiveFilters}>
                 <StyledPlus />
                 More Filters {numActiveFilters ? `(${numActiveFilters}) ` : ''}
             </DropdownLabel>

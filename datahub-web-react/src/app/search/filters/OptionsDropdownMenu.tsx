@@ -74,7 +74,7 @@ export default function OptionsDropdownMenu({
     const entityRegistry = useEntityRegistry();
 
     return (
-        <DropdownMenu alignRight={alignRight}>
+        <DropdownMenu alignRight={alignRight} data-testid="filter-dropdown">
             <ScrollableContent>
                 <SearchBar
                     initialQuery={searchQuery}
@@ -101,7 +101,7 @@ export default function OptionsDropdownMenu({
                     </LoadingWrapper>
                 )}
             </ScrollableContent>
-            <StyledButton type="text" onClick={updateFilters}>
+            <StyledButton type="text" onClick={updateFilters} data-testid="update-filters">
                 Update
             </StyledButton>
         </DropdownMenu>

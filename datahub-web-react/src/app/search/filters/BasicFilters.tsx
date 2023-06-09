@@ -125,7 +125,7 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
                                 />
                             ))}
                         </FlexWrapper>
-                        <TextButton type="text" onClick={clearAllFilters} height={14}>
+                        <TextButton type="text" onClick={clearAllFilters} height={14} data-testid="clear-all-filters">
                             clear all
                         </TextButton>
                     </FlexSpacer>

@@ -76,7 +76,11 @@ export default function SearchFilterView({
                 />
             )}
         >
-            <DropdownLabel onClick={() => updateIsMenuOpen(!isMenuOpen)} isActive={!!numActiveFilters}>
+            <DropdownLabel
+                onClick={() => updateIsMenuOpen(!isMenuOpen)}
+                isActive={!!numActiveFilters}
+                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+            >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
                 {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
