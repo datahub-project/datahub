@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,7 @@ class TableName:
     table: str
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
-        return sqlglot.exp.Table(
-            catalog=self.database, schema=self.schema, name=self.table
-        )
+        return sqlglot.exp.Table(catalog=self.database, db=self.schema, this=self.table)
 
     @classmethod
     def from_sqlglot_table(
@@ -213,7 +212,11 @@ class SchemaResolver:
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            col.fieldPath: col.nativeDataType or "str" for col in schema_metadata.fields
+            DatasetUrn._get_simple_field_path_from_v2_field_path(
+                col.fieldPath
+            ): col.nativeDataType
+            or "str"  # TODO: the types don't matter as much, although we probably need to handle structs/arrays well.
+            for col in schema_metadata.fields
         }
 
     # TODO add a method to load all from graphql
@@ -263,6 +266,10 @@ def _column_level_lineage(
         logger.debug("output columns: %s", output_columns)
         for output_col in output_columns:
             # print(f"output column: {output_col}")
+            if output_col == "*":
+                # If schema information is available, the * will be expanded to the actual columns.
+                # Otherwise, we can't process it.
+                continue
 
             lineage_node = sqlglot.lineage.lineage(
                 output_col, statement, schema=sqlglot_db_schema
@@ -297,19 +304,19 @@ def _column_level_lineage(
 
             # TODO: Generate non-SELECT lineage.
             column_logic = lineage_node.source
+            # assert sqlglot_db_schema
+            # assert input_tables
+            # breakpoint()
 
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
-            if INCLUDE_COLUMN_LOGIC or direct_col_upstreams:
-                column_lineage.append(
-                    ColumnLineageInfo(
-                        downstream=DownstreamColumnRef(output_table, output_col),
-                        upstreams=sorted(direct_col_upstreams),
-                        logic=column_logic.sql(pretty=True, dialect=dialect)
-                        if INCLUDE_COLUMN_LOGIC
-                        else None,
-                    )
+            column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(output_table, output_col),
+                    upstreams=sorted(direct_col_upstreams),
+                    # logic=column_logic.sql(pretty=True, dialect=dialect),
                 )
+            )
 
     except sqlglot.errors.OptimizeError as e:
         raise SqlOptimizerError(
