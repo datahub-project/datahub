@@ -330,6 +330,8 @@ def _column_level_lineage(
 
             if output_col.startswith("_col_"):
                 # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
+                # TODO: This is a bit jank since we're relying on sqlglot internals, and now we can't have
+                # a column named _col_0.
                 output_col = original_col_expression.this.sql(dialect=dialect)
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
@@ -397,6 +399,7 @@ def sqlglot_tester(
         if schema_info:
             table_name_schema_mapping[table] = schema_info
         # TODO decrease confidence if schema info is missing
+        # TODO also include info about how many schemas resolved successfully in the result
 
     # Simplify the input statement for column-level lineage generation.
     # TODO [refactor] move this logic into the column-level lineage generation function.
