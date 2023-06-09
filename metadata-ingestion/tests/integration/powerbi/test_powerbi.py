@@ -1209,6 +1209,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         report_endorsements={},
         dashboard_endorsements={},
         scan_result={},
+        independent_datasets=[],
     )
     # Fetch actual reports
     reports: List[Report] = cast(

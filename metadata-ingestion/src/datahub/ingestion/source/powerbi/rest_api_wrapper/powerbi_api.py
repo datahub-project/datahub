@@ -206,6 +206,7 @@ class PowerBiAPI:
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
+                independent_datasets=[],
             )
             for workspace in groups
         ]
@@ -227,6 +228,7 @@ class PowerBiAPI:
                     report_endorsements={},
                     dashboard_endorsements={},
                     scan_result={},
+                    independent_datasets=[],
                 )
                 for workspace_id in modified_workspace_ids
             ]
@@ -382,11 +384,14 @@ class PowerBiAPI:
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
+                independent_datasets=[],
             )
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(
                 cur_workspace.scan_result
             )
+            for value in cur_workspace.datasets.values():
+                logger.info(f"Mohd = {value.name}")
 
             # Fetch endorsements tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:
@@ -405,6 +410,29 @@ class PowerBiAPI:
             workspaces.append(cur_workspace)
 
         return workspaces
+
+    def _fill_independent_datasets(self, workspace: Workspace) -> None:
+        if self.__config.extract_independent_datasets is False:
+            logger.info(
+                "Skipping independent datasets retrieval as extract_independent_datasets is set to false"
+            )
+            return
+
+        reachable_datasets: List[str] = []
+        # Find out reachable datasets
+        for dashboard in workspace.dashboards:
+            for tile in dashboard.tiles:
+                if tile.dataset is not None:
+                    reachable_datasets.append(tile.dataset.id)
+
+        for report in workspace.reports:
+            if report.dataset is not None:
+                reachable_datasets.append(report.dataset.id)
+
+        # Set datasets not present in reachable_datasets
+        for dataset in workspace.datasets.values():
+            if dataset.id not in reachable_datasets:
+                workspace.independent_datasets.append(dataset)
 
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
@@ -437,6 +465,7 @@ class PowerBiAPI:
 
         fill_reports()
         fill_dashboard_tags()
+        self._fill_independent_datasets(workspace=workspace)
 
     # flake8: noqa: C901
     def fill_workspaces(
