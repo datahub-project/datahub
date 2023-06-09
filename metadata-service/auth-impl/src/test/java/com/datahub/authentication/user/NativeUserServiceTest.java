@@ -69,14 +69,14 @@ public class NativeUserServiceTest {
   @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserAlreadyExists() throws Exception {
     // The user already exists
-    when(_entityService.exists(any())).thenReturn(true);
+    when(_entityService.exists(any(Urn.class))).thenReturn(true);
 
     _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test
   public void testCreateNativeUserPasses() throws Exception {
-    when(_entityService.exists(any())).thenReturn(false);
+    when(_entityService.exists(any(Urn.class))).thenReturn(false);
     when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
     when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
