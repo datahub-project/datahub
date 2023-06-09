@@ -1,5 +1,5 @@
 import { EntityType } from '../../../types.generated';
-import { BrowseV2ToggleNodeEvent, EventType } from '../../analytics';
+import { BrowseV2SelectNodeEvent, BrowseV2ToggleNodeEvent, EventType } from '../../analytics';
 import analytics from '../../analytics/analytics';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
@@ -18,7 +18,7 @@ const useSidebarAnalytics = () => {
     const platform = platformAggregation?.entity
         ? registry.getDisplayName(EntityType.DataPlatform, platformAggregation.entity)
         : platformAggregation?.value;
-    const depth = 1 + (environment ? 1 : 0) + (platform ? 1 : 0) + useBrowsePathLength();
+    const depth = (environment ? 1 : 0) + (platform ? 1 : 0) + useBrowsePathLength();
 
     const trackToggleNodeEvent = (isOpen: boolean, target: BrowseV2ToggleNodeEvent['target']) => {
         analytics.event({
@@ -32,7 +32,22 @@ const useSidebarAnalytics = () => {
         });
     };
 
-    return { trackToggleNodeEvent } as const;
+    const trackBrowseNodeSelected = (
+        action: BrowseV2SelectNodeEvent['action'],
+        target: BrowseV2SelectNodeEvent['target'],
+    ) => {
+        analytics.event({
+            type: EventType.BrowseV2SelectNodeEvent,
+            target,
+            action,
+            entity: entityCollectionName,
+            ...(environment ? { environment } : {}),
+            ...(platform ? { platform } : {}),
+            depth,
+        });
+    };
+
+    return { trackToggleNodeEvent, trackBrowseNodeSelected } as const;
 };
 
 export default useSidebarAnalytics;

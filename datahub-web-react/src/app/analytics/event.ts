@@ -19,6 +19,7 @@ export enum EventType {
     HomePageBrowseResultClickEvent,
     BrowseV2ToggleSidebarEvent,
     BrowseV2ToggleNodeEvent,
+    BrowseV2SelectNodeEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
@@ -198,15 +199,34 @@ export interface HomePageBrowseResultClickEvent extends BaseEvent {
     entityType: EntityType;
 }
 
+/**
+ * Logged when a user opens or closes the browse v2 sidebar
+ */
 export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleSidebarEvent;
     action: 'open' | 'close';
 }
 
+/**
+ * Logged when a user opens or closes a sidebar node
+ */
 export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleNodeEvent;
     target: 'entity' | 'environment' | 'platform' | 'browse';
     action: 'open' | 'close';
+    entity: string;
+    environment?: string;
+    platform?: string;
+    depth: number;
+}
+
+/**
+ * Logged when a user selects a browse node in the sidebar
+ */
+export interface BrowseV2SelectNodeEvent extends BaseEvent {
+    type: EventType.BrowseV2SelectNodeEvent;
+    target: 'browse';
+    action: 'select' | 'deselect';
     entity: string;
     environment?: string;
     platform?: string;
@@ -565,6 +585,7 @@ export type Event =
     | HomePageBrowseResultClickEvent
     | BrowseV2ToggleSidebarEvent
     | BrowseV2ToggleNodeEvent
+    | BrowseV2SelectNodeEvent
     | EntityViewEvent
     | EntitySectionViewEvent
     | EntityActionEvent

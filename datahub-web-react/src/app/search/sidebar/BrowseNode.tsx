@@ -42,6 +42,7 @@ const BrowseNode = () => {
     const { trackToggleNodeEvent } = useSidebarAnalytics();
     const { count } = browseResultGroup;
     const displayName = useBrowseDisplayName();
+    const { trackBrowseNodeSelected } = useSidebarAnalytics();
 
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
@@ -51,6 +52,12 @@ const BrowseNode = () => {
 
     const onClickTriangle = () => {
         if (count) toggle();
+    };
+
+    const onClickBrowseHeader = () => {
+        if (isBrowsePathSelected) return;
+        onSelectBrowsePath();
+        trackBrowseNodeSelected('select', 'browse');
     };
 
     const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({
@@ -68,7 +75,7 @@ const BrowseNode = () => {
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
                     isSelected={isBrowsePathSelected}
-                    onClick={onSelectBrowsePath}
+                    onClick={onClickBrowseHeader}
                 >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
