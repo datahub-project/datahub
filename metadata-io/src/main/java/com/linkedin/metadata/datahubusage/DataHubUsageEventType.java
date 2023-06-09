@@ -14,6 +14,8 @@ public enum DataHubUsageEventType {
   SEARCH_RESULTS_VIEW_EVENT("SearchResultsViewEvent"),
   SEARCH_RESULT_CLICK_EVENT("SearchResultClickEvent"),
   ENTITY_SEARCH_RESULT_CLICK_EVENT("EntitySearchResultClickEvent"),
+  SEARCH_FILTERS_CLEAR_ALL_EVENT("SearchFiltersClearAllEvent"),
+  SEARCH_FILTERS_SHOW_MORE_EVENT("SearchFiltersShowMoreEvent"),
   BROWSE_RESULT_CLICK_EVENT("BrowseResultClickEvent"),
   HOME_PAGE_BROWSE_RESULT_CLICK_EVENT("HomePageBrowseResultClickEvent"),
   BROWSE_V2_TOGGLE_SIDEBAR_EVENT("BrowseV2ToggleSidebarEvent"),
