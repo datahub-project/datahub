@@ -13,7 +13,8 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.metadata.schema_classes import OtherSchemaClass, SchemaMetadataClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -155,6 +156,14 @@ class SchemaResolver:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
         table_name = ".".join(filter(None, [table.database, table.schema, table.table]))
+
+        if self.platform == "bigquery":
+            # TODO check that this is the right way to do it
+            # Normalize shard numbers and other bigquery weirdness.
+            table_name = BigqueryTableIdentifier.from_string_name(
+                table_name
+            ).get_table_name()
+
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             platform_instance=self.platform_instance,
@@ -244,6 +253,15 @@ def _column_level_lineage(
             column_mapping=table_schema,
         )
 
+    # Optimize the statement + qualify column references.
+    statement = sqlglot.optimizer.qualify.qualify(
+        statement,
+        dialect=dialect,
+        schema=sqlglot_db_schema,
+        validate_qualify_columns=False,
+        identify=False,
+    )
+
     if not isinstance(
         statement,
         (
@@ -262,9 +280,11 @@ def _column_level_lineage(
 
     try:
         # List output columns.
-        output_columns = [select_col.alias_or_name for select_col in statement.selects]
-        logger.debug("output columns: %s", output_columns)
-        for output_col in output_columns:
+        output_columns = [
+            (select_col.alias_or_name, select_col) for select_col in statement.selects
+        ]
+        logger.debug("output columns: %s", [col[0] for col in output_columns])
+        for output_col, original_col_expression in output_columns:
             # print(f"output column: {output_col}")
             if output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
@@ -308,6 +328,9 @@ def _column_level_lineage(
             # assert input_tables
             # breakpoint()
 
+            if output_col.startswith("_col_"):
+                # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
+                output_col = original_col_expression.this.sql(dialect=dialect)
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
             column_lineage.append(
@@ -353,6 +376,8 @@ def sqlglot_tester(
         # At this stage we only want to qualify the table names. The columns will be dealt with later.
         qualify_columns=False,
         validate_qualify_columns=False,
+        # Only insert quotes where necessary.
+        identify=False,
     )
 
     # Generate table-level lineage.
