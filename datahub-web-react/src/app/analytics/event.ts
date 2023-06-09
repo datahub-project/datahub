@@ -191,6 +191,8 @@ export interface SearchFiltersClearAllEvent extends BaseEvent {
 
 export interface SearchFiltersShowMoreEvent extends BaseEvent {
     type: EventType.SearchFiltersShowMoreEvent;
+    activeFilterCount: number;
+    hiddenFilterCount: number;
 }
 
 /**

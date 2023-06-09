@@ -43,7 +43,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
     }
 
     function onOpenChange(isOpen: boolean) {
-        if (isOpen) trackShowMoreEvent();
+        if (isOpen) trackShowMoreEvent(activeFilters.length, filters.length);
         setIsMenuOpen(isOpen);
     }
 

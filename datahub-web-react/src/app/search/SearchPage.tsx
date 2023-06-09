@@ -139,7 +139,6 @@ export const SearchPage = () => {
         );
 
         const filterFields = Array.from(new Set(filters.map((filter) => filter.field)));
-        console.log(entityTypes, filterFields);
 
         analytics.event({
             type: EventType.SearchResultsViewEvent,

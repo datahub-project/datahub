@@ -9,9 +9,11 @@ const useSearchFilterAnalytics = () => {
         });
     };
 
-    const trackShowMoreEvent = () => {
+    const trackShowMoreEvent = (activeFilterCount: number, hiddenFilterCount: number) => {
         analytics.event({
             type: EventType.SearchFiltersShowMoreEvent,
+            activeFilterCount,
+            hiddenFilterCount,
         });
     };
 
