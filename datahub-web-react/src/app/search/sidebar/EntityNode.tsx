@@ -44,7 +44,8 @@ const EntityNode = () => {
         facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
     });
 
-    const showEnvironments = environmentAggregations.length > 1 || hasEnvironmentFilter;
+    const showEnvironments =
+        environmentAggregations.length > 1 || (hasEnvironmentFilter && !!environmentAggregations.length);
     const color = count > 0 ? '#000' : ANTD_GRAY[8];
 
     return (
