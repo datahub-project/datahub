@@ -1,6 +1,7 @@
 package com.linkedin.metadata;
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.google.common.collect.Maps;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.search.CustomConfiguration;
@@ -33,6 +34,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahub.test.fixtures.elasticsearch.FixtureReader;
 import java.util.Optional;
+import java.util.Set;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -182,7 +184,16 @@ public class ESSampleDataFixture {
                 false);
 
         AspectDao mockAspectDao = mock(AspectDao.class);
-        when(mockAspectDao.batchGet(anySet())).thenReturn(Map.of(mock(EntityAspectIdentifier.class), mock(EntityAspect.class)));
+        when(mockAspectDao.batchGet(anySet())).thenAnswer(i -> {
+            final Set<EntityAspectIdentifier> keys = i.getArgument(0);
+            final Map<EntityAspectIdentifier, EntityAspect> result = Maps.newHashMap();
+            for (final EntityAspectIdentifier key: keys) {
+                EntityAspect mockEntityAspect = mock(EntityAspect.class);
+                when(mockEntityAspect.getUrn()).thenReturn(key.getUrn());
+                result.put(key, mockEntityAspect);
+            }
+            return result;
+        });
 
         return new JavaEntityClient(
                 new EntityService(mockAspectDao, null, entityRegistry, true),
