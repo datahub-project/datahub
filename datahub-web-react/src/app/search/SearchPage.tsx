@@ -21,11 +21,13 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types
 import SearchFilters from './filters/SearchFilters';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 import { useAppConfig } from '../useAppConfig';
+import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
 
 /**
  * A search results page.
  */
 export const SearchPage = () => {
+    const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
     const appConfig = useAppConfig();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
@@ -52,6 +54,8 @@ export const SearchPage = () => {
             },
         },
     });
+
+    const total = data?.searchAcrossEntities?.total || 0;
 
     const searchResultEntities =
         data?.searchAcrossEntities?.searchResults?.map((result) => ({
@@ -85,6 +89,13 @@ export const SearchPage = () => {
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, unionType });
+    };
+
+    console.log(data);
+
+    const onClearFilters = () => {
+        trackClearAllFiltersEvent(total);
+        onChangeFilters([]);
     };
 
     const onChangeUnionType = (newUnionType: UnionType) => {
@@ -123,10 +134,10 @@ export const SearchPage = () => {
             analytics.event({
                 type: EventType.SearchResultsViewEvent,
                 query,
-                total: data?.searchAcrossEntities?.count || 0,
+                total,
             });
         }
-    }, [query, data, loading]);
+    }, [loading, query, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state
@@ -159,6 +170,7 @@ export const SearchPage = () => {
                     activeFilters={filters}
                     unionType={unionType}
                     onChangeFilters={onChangeFilters}
+                    onClearFilters={onClearFilters}
                     onChangeUnionType={onChangeUnionType}
                 />
             )}

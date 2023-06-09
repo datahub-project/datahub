@@ -18,6 +18,7 @@ interface Props {
     activeFilters: FacetFilterInput[];
     unionType: UnionType;
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
+    onClearFilters: () => void;
     onChangeUnionType: (unionType: UnionType) => void;
 }
 
@@ -26,6 +27,7 @@ export default function SearchFilters({
     activeFilters,
     unionType,
     onChangeFilters,
+    onClearFilters,
     onChangeUnionType,
 }: Props) {
     const onlyShowAdvancedFilters = hasAdvancedFilters(activeFilters, unionType);
@@ -42,6 +44,7 @@ export default function SearchFilters({
                     availableFilters={availableFilters}
                     activeFilters={activeFilters}
                     onChangeFilters={onChangeFilters}
+                    onClearFilters={onClearFilters}
                     showAdvancedFilters={() => setIsShowingBasicFilters(false)}
                 />
             )}

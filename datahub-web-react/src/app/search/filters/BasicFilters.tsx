@@ -57,10 +57,17 @@ interface Props {
     availableFilters: FacetMetadata[] | null;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
+    onClearFilters: () => void;
     showAdvancedFilters: () => void;
 }
 
-export default function BasicFilters({ availableFilters, activeFilters, onChangeFilters, showAdvancedFilters }: Props) {
+export default function BasicFilters({
+    availableFilters,
+    activeFilters,
+    onChangeFilters,
+    onClearFilters,
+    showAdvancedFilters,
+}: Props) {
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
@@ -73,10 +80,6 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
     const shouldShowMoreDropdown = filters && filters.length > NUM_VISIBLE_FILTER_DROPDOWNS + 1;
     const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;
     const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
-
-    function clearAllFilters() {
-        onChangeFilters([]);
-    }
 
     return (
         <span id={SEARCH_RESULTS_FILTERS_ID}>
@@ -125,7 +128,7 @@ export default function BasicFilters({ availableFilters, activeFilters, onChange
                                 />
                             ))}
                         </FlexWrapper>
-                        <TextButton type="text" onClick={clearAllFilters} height={14} data-testid="clear-all-filters">
+                        <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
                             clear all
                         </TextButton>
                     </FlexSpacer>

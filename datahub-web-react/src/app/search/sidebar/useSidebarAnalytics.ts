@@ -33,7 +33,7 @@ const useSidebarAnalytics = () => {
         });
     };
 
-    const trackBrowseNodeSelected = (
+    const trackSelectNodeEvent = (
         action: BrowseV2SelectNodeEvent['action'],
         targetNode: BrowseV2SelectNodeEvent['targetNode'],
     ) => {
@@ -48,7 +48,7 @@ const useSidebarAnalytics = () => {
         });
     };
 
-    return { trackToggleNodeEvent, trackBrowseNodeSelected } as const;
+    return { trackToggleNodeEvent, trackSelectNodeEvent } as const;
 };
 
 export default useSidebarAnalytics;
