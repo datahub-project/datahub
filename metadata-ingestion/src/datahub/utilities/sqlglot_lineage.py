@@ -123,7 +123,7 @@ def _table_level_lineage(
 
 
 # TODO generate a lightweight schema type to use instead of Any
-SchemaInfo = Any
+SchemaInfo = Dict[str, str]
 
 
 class SchemaResolver:
@@ -238,9 +238,7 @@ def _column_level_lineage(
     for table, table_schema in input_tables.items():
         sqlglot_db_schema.add_table(
             table.as_sqlglot_table(),
-            column_mapping={
-                # TODO fill this out
-            },
+            column_mapping=table_schema,
         )
 
     if not isinstance(
@@ -266,19 +264,16 @@ def _column_level_lineage(
         for output_col in output_columns:
             # print(f"output column: {output_col}")
 
-            # Using a set here to deduplicate upstreams.
-            output_col_upstreams = set()
-
             lineage_node = sqlglot.lineage.lineage(
                 output_col, statement, schema=sqlglot_db_schema
             )
-            # except ValueError as e:
-            #     if e.args[0].startswith("Could not find "):
-            #         print(f" failed to find col {output_col} -> {e}")
-            #         continue
-            #     else:
-            #         raise
+            # pathlib.Path("sqlglot.html").write_text(
+            #     str(lineage_node.to_html(dialect=dialect))
+            # )
 
+            # Generate SELECT lineage.
+            # Using a set here to deduplicate upstreams.
+            direct_col_upstreams = set()
             for node in lineage_node.walk():
                 if node.downstream:
                     # We only want the leaf nodes.
@@ -294,25 +289,28 @@ def _column_level_lineage(
                         col = col.split(".", maxsplit=1)[1]
                     # print(f"-> depends on {table_ref} . {col}")
 
-                    output_col_upstreams.add(ColumnRef(table_ref, col))
+                    direct_col_upstreams.add(ColumnRef(table_ref, col))
                 else:
                     # This branch doesn't matter. For example, a count(*) column would go here, and
                     # we don't get any column-level lineage for that.
                     pass
 
-            if output_col_upstreams:
+            # TODO: Generate non-SELECT lineage.
+            column_logic = lineage_node.source
+
+            if not direct_col_upstreams:
+                logger.debug(f'  "{output_col}" has no upstreams')
+            if INCLUDE_COLUMN_LOGIC or direct_col_upstreams:
                 column_lineage.append(
                     ColumnLineageInfo(
                         downstream=DownstreamColumnRef(output_table, output_col),
-                        upstreams=sorted(output_col_upstreams),
-                        # TODO: Enable the column-level SQL logic in the future.
-                        # logic=lineage_node.source.sql(pretty=True, dialect=dialect),
+                        upstreams=sorted(direct_col_upstreams),
+                        logic=column_logic.sql(pretty=True, dialect=dialect)
+                        if INCLUDE_COLUMN_LOGIC
+                        else None,
                     )
                 )
 
-        # x = str(lineage.to_html(dialect=dialect))
-        # pathlib.Path("sqlglot.html").write_text(x)
-        # breakpoint()
     except sqlglot.errors.OptimizeError as e:
         raise SqlOptimizerError(
             f"sqlglot failed to optimize; likely missing table schema info: {e}"
@@ -366,6 +364,7 @@ def sqlglot_tester(
         table_name_urn_mapping[table] = urn
         if schema_info:
             table_name_schema_mapping[table] = schema_info
+        # TODO decrease confidence if schema info is missing
 
     # Simplify the input statement for column-level lineage generation.
     # TODO [refactor] move this logic into the column-level lineage generation function.
