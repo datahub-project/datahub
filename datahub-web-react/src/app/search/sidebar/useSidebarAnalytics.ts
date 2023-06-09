@@ -18,32 +18,32 @@ const useSidebarAnalytics = () => {
     const platform = platformAggregation?.entity
         ? registry.getDisplayName(EntityType.DataPlatform, platformAggregation.entity)
         : platformAggregation?.value;
-    const depth = (environment ? 1 : 0) + (platform ? 1 : 0) + useBrowsePathLength();
+    const targetDepth = (environment ? 1 : 0) + (platform ? 1 : 0) + useBrowsePathLength();
 
-    const trackToggleNodeEvent = (isOpen: boolean, target: BrowseV2ToggleNodeEvent['target']) => {
+    const trackToggleNodeEvent = (isOpen: boolean, targetNode: BrowseV2ToggleNodeEvent['targetNode']) => {
         analytics.event({
             type: EventType.BrowseV2ToggleNodeEvent,
-            target,
+            targetNode,
             action: isOpen ? 'open' : 'close',
             entity: entityCollectionName,
             ...(environment ? { environment } : {}),
             ...(platform ? { platform } : {}),
-            depth,
+            targetDepth,
         });
     };
 
     const trackBrowseNodeSelected = (
         action: BrowseV2SelectNodeEvent['action'],
-        target: BrowseV2SelectNodeEvent['target'],
+        targetNode: BrowseV2SelectNodeEvent['targetNode'],
     ) => {
         analytics.event({
             type: EventType.BrowseV2SelectNodeEvent,
-            target,
+            targetNode,
             action,
             entity: entityCollectionName,
             ...(environment ? { environment } : {}),
             ...(platform ? { platform } : {}),
-            depth,
+            targetDepth,
         });
     };
 

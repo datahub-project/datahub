@@ -212,12 +212,12 @@ export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
  */
 export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleNodeEvent;
-    target: 'entity' | 'environment' | 'platform' | 'browse';
+    targetNode: 'entity' | 'environment' | 'platform' | 'browse';
     action: 'open' | 'close';
     entity: string;
     environment?: string;
     platform?: string;
-    depth: number;
+    targetDepth: number;
 }
 
 /**
@@ -225,12 +225,12 @@ export interface BrowseV2ToggleNodeEvent extends BaseEvent {
  */
 export interface BrowseV2SelectNodeEvent extends BaseEvent {
     type: EventType.BrowseV2SelectNodeEvent;
-    target: 'browse';
+    targetNode: 'browse';
     action: 'select' | 'deselect';
     entity: string;
     environment?: string;
     platform?: string;
-    depth: number;
+    targetDepth: number;
 }
 
 /**
