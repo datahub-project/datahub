@@ -1,6 +1,8 @@
 # This import verifies that the dependencies are available.
 import pydruid  # noqa: F401
 from pydantic.fields import Field
+from pydruid.db.sqlalchemy import DruidDialect
+from sqlalchemy import text
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.decorators import (
@@ -15,11 +17,25 @@ from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
 
+def get_table_names(self, connection, schema=None, **kwargs):
+    query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES"
+    if schema:
+        query = "{query} WHERE TABLE_SCHEMA = '{schema}'".format(
+            query=query, schema=schema
+        )
+
+    result = connection.execute(text(query))
+    return [row.TABLE_NAME for row in result] if result.rowcount > 0 else []
+
+
+DruidDialect.get_table_names = get_table_names
+
+
 class DruidConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "druid"
     schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern(deny=["^(lookup|sys).*"]),
+        default=AllowDenyPattern(deny=["^(lookup|sys|view).*"]),
         description="regex patterns for schemas to filter in ingestion.",
     )
 
