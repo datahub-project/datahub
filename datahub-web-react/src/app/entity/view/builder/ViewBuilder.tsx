@@ -30,8 +30,8 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
     const [createViewMutation] = useCreateViewMutation();
 
     const emitTrackingEvent = (viewUrn: string, state: ViewBuilderState, isCreate: boolean) => {
-        const filterFields = state.definition?.filter?.filters.map((filter) => filter.field) ?? [];
-        const entityTypes = state.definition?.entityTypes ?? [];
+        const filterFields = Array.from(new Set(state.definition?.filter?.filters.map((filter) => filter.field) ?? []));
+        const entityTypes = Array.from(new Set(state.definition?.entityTypes ?? []));
 
         analytics.event({
             type: isCreate ? EventType.CreateViewEvent : EventType.UpdateViewEvent,

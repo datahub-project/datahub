@@ -6,7 +6,7 @@ import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
-import { UnionType } from './utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from './utils/constants';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
@@ -128,15 +128,28 @@ export const SearchPage = () => {
     };
 
     useEffect(() => {
-        if (!loading) {
-            analytics.event({
-                type: EventType.SearchResultsViewEvent,
-                query,
-                total,
-                filterCount: filters.length,
-            });
-        }
-    }, [filters.length, loading, query, total]);
+        if (loading) return;
+
+        const entityTypes = Array.from(
+            new Set(
+                filters
+                    .filter((filter) => ENTITY_SUB_TYPE_FILTER_FIELDS.includes(filter.field))
+                    .flatMap((filter) => filter.values ?? []),
+            ),
+        );
+
+        const filterFields = Array.from(new Set(filters.map((filter) => filter.field)));
+        console.log(entityTypes, filterFields);
+
+        analytics.event({
+            type: EventType.SearchResultsViewEvent,
+            query,
+            total,
+            entityTypes,
+            filterFields,
+            filterCount: filters.length,
+        });
+    }, [filters, loading, query, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state
