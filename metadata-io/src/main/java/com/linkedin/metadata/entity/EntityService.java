@@ -1675,6 +1675,32 @@ public class EntityService {
   }
 
   /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  public Set<Urn> exists(List<Urn> urns) {
+    final List<EntityAspectIdentifier> dbKeys = urns.stream()
+        .map(urn -> getEntityAspectNames(urn).stream()
+            .map(aspectName -> new EntityAspectIdentifier(urn.toString(), aspectName,
+                ASPECT_LATEST_VERSION))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+
+    final Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(
+        new HashSet(dbKeys));
+    final Set<String> existingUrnStrings = aspects.values().stream()
+        .filter(aspect -> aspect != null).map(aspect -> aspect.getUrn())
+        .collect(
+            Collectors.toSet());
+
+    return urns.stream().filter(urn -> existingUrnStrings.contains(urn.toString())).collect(
+        Collectors.toSet());
+  }
+
+  /**
    * Returns true if an entity is soft-deleted.
    *
    * @param urn the urn to check
