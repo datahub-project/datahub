@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pydantic
 from pydantic.fields import Field
@@ -62,3 +62,38 @@ class BaseTimeWindowConfig(ConfigModel):
                 'timezone is not UTC; try adding a "Z" to the value e.g. "2021-07-20T00:00:00Z"'
             )
         return v
+
+    def buckets(self) -> List[int]:
+        """Returns list of timestamps for each DatasetUsageStatistics bucket.
+
+        Includes all buckets in the time window, including partially contained buckets.
+        The timestamps are in milliseconds since the epoch.
+        """
+        bucket_timedelta = get_bucket_duration_delta(self.bucket_duration)
+
+        curr_bucket = get_time_bucket(self.start_time, self.bucket_duration)
+        buckets = []
+        while curr_bucket < self.end_time:
+            buckets.append(int(curr_bucket.timestamp() * 1000))
+            curr_bucket += bucket_timedelta
+
+        return buckets
+
+    def majority_buckets(self) -> List[int]:
+        """Returns list of timestamps for each DatasetUsageStatistics bucket.
+
+        Includes only buckets in the time window for which a majority of the bucket is ingested.
+        The timestamps are in milliseconds since the epoch.
+        """
+        bucket_timedelta = get_bucket_duration_delta(self.bucket_duration)
+
+        curr_bucket = get_time_bucket(self.start_time, self.bucket_duration)
+        buckets = []
+        while curr_bucket < self.end_time:
+            start = max(self.start_time, curr_bucket)
+            end = min(self.end_time, curr_bucket + bucket_timedelta)
+            if end - start >= bucket_timedelta / 2:
+                buckets.append(int(curr_bucket.timestamp() * 1000))
+            curr_bucket += bucket_timedelta
+
+        return buckets

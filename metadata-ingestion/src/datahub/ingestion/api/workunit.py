@@ -12,6 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
 
 T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
+A = TypeVar("A", bound=_Aspect)
 
 
 @dataclass

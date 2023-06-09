@@ -23,7 +23,6 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
     num_queries_parsed_by_spark_plan: int = 0
 
     num_operational_stats_workunits_emitted: int = 0
-    num_usage_workunits_emitted: int = 0
 
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
     profile_table_empty: LossyList[str] = field(default_factory=LossyList)

@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
 from google.cloud import bigquery
@@ -19,7 +20,7 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BigqueryTableType:
+class BigqueryTableType(str, Enum):
     # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
     BASE_TABLE = "BASE TABLE"
     EXTERNAL = "EXTERNAL"
@@ -100,6 +101,16 @@ class BigqueryTable(BaseTable):
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     columns_ignore_from_profiling: List[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, order=True)
+class TableReferenceV2:
+    """Represents a BigQuery table reference after BigQueryTableRef.get_sanitized_ref() is called."""
+
+    project_id: str
+    dataset_id: str
+    table_id: str  # Sanitized table name
+    is_view: bool
 
 
 @dataclass
@@ -530,7 +541,7 @@ class BigQueryDataDictionary:
             else view.created,
             comment=view.comment,
             view_definition=view.view_definition,
-            materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
+            materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW.value,
         )
 
     @staticmethod

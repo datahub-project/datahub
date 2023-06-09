@@ -13,18 +13,23 @@ from typing import (
     Union,
 )
 
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
     BrowsePathsV2Class,
+    ChangeTypeClass,
     ContainerClass,
+    DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
     TagKeyClass,
+    TimeWindowSizeClass,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
@@ -147,11 +152,11 @@ def auto_materialize_referenced_tags(
 
     for wu in stream:
         for urn in list_urns(wu.metadata):
-            if guess_entity_type(urn) == "tag":
+            if guess_entity_type(urn) == TagUrn.ENTITY_TYPE:
                 referenced_tags.add(urn)
 
         urn = wu.get_urn()
-        if guess_entity_type(urn) == "tag":
+        if guess_entity_type(urn) == TagUrn.ENTITY_TYPE:
             tags_with_aspects.add(urn)
 
         yield wu
@@ -231,3 +236,52 @@ def auto_browse_path_v2(
                 path=[BrowsePathEntryClass(id=p) for p in legacy_browse_paths[urn]]
             ),
         ).as_workunit()
+
+
+def auto_empty_dataset_usage_statistics(
+    stream: Iterable[MetadataWorkUnit],
+    *,
+    dataset_urns: Set[str],
+    config: BaseTimeWindowConfig,
+    all_buckets: bool = False,  # TODO: Enable when CREATE changeType is supported for timeseries aspects
+) -> Iterable[MetadataWorkUnit]:
+    """Emit empty usage statistics aspect for all dataset_urns ingested with no usage."""
+    buckets = config.buckets() if all_buckets else config.majority_buckets()
+
+    # Maps time bucket -> urns with usage statistics for that bucket
+    usage_statistics_urns: Dict[int, Set[str]] = {bucket: set() for bucket in buckets}
+
+    for wu in stream:
+        yield wu
+        if not wu.is_primary_source:
+            continue
+
+        urn = wu.get_urn()
+        if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE:
+            dataset_urns.add(urn)
+            for aspect in wu.get_aspects_of_type(DatasetUsageStatisticsClass):
+                if aspect.timestampMillis in buckets:
+                    usage_statistics_urns[aspect.timestampMillis].add(urn)
+                elif all_buckets:
+                    logger.warning(
+                        f"Usage statistic with unexpected timestamp: {aspect.timestampMillis}, "
+                        "bucket_duration={config.bucket_duration}"
+                    )
+
+    for bucket in buckets:
+        for urn in dataset_urns - usage_statistics_urns[bucket]:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DatasetUsageStatisticsClass(
+                    timestampMillis=bucket,
+                    eventGranularity=TimeWindowSizeClass(unit=config.bucket_duration),
+                    uniqueUserCount=0,
+                    totalSqlQueries=0,
+                    topSqlQueries=[],
+                    userCounts=[],
+                    fieldCounts=[],
+                ),
+                changeType=ChangeTypeClass.CREATE
+                if all_buckets
+                else ChangeTypeClass.UPSERT,
+            ).as_workunit()
