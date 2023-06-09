@@ -618,6 +618,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             name=datahub_dataset_name,
             platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
         if view.ddl:
             view_properties_aspect = ViewProperties(
@@ -697,6 +698,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             name=datahub_dataset_name,
             platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
         yield from self.gen_schema_metadata(
@@ -919,6 +921,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                     name=datahub_dataset_name,
                     platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 )
 
                 lineage_info = self.lineage_extractor.get_lineage(
@@ -935,9 +938,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             for view in self.db_views[database][schema]:
                 datahub_dataset_name = f"{database}.{schema}.{view.name}"
                 dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    datahub_dataset_name,
-                    self.config.platform_instance,
+                    platform=self.platform,
+                    name=datahub_dataset_name,
+                    platform_instance=self.config.platform_instance,
                     env=self.config.env,
                 )
                 lineage_info = self.lineage_extractor.get_lineage(
