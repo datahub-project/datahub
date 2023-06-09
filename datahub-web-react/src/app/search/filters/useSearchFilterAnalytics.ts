@@ -9,7 +9,13 @@ const useSearchFilterAnalytics = () => {
         });
     };
 
-    return { trackClearAllFiltersEvent } as const;
+    const trackShowMoreEvent = () => {
+        analytics.event({
+            type: EventType.SearchFiltersShowMoreEvent,
+        });
+    };
+
+    return { trackClearAllFiltersEvent, trackShowMoreEvent } as const;
 };
 
 export default useSearchFilterAnalytics;

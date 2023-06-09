@@ -6,6 +6,7 @@ import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import MoreFilterOption from './MoreFilterOption';
 import { getNumActiveFiltersForGroupOfFilters } from './utils';
 import { DropdownLabel } from './SearchFilterView';
+import useSearchFilterAnalytics from './useSearchFilterAnalytics';
 
 const StyledPlus = styled(PlusOutlined)`
     svg {
@@ -32,12 +33,18 @@ interface Props {
 }
 
 export default function MoreFilters({ filters, activeFilters, onChangeFilters }: Props) {
+    const { trackShowMoreEvent } = useSearchFilterAnalytics();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
 
     function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
         onChangeFilters(newFilters);
         setIsMenuOpen(false);
+    }
+
+    function onOpenChange(isOpen: boolean) {
+        if (isOpen) trackShowMoreEvent();
+        setIsMenuOpen(isOpen);
     }
 
     return (
@@ -56,7 +63,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
                 </DropdownMenu>
             )}
             open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
+            onOpenChange={onOpenChange}
         >
             <DropdownLabel data-testid="more-filters-dropdown" isActive={!!numActiveFilters}>
                 <StyledPlus />

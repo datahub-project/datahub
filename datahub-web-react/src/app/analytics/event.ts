@@ -16,6 +16,7 @@ export enum EventType {
     SearchResultClickEvent,
     EntitySearchResultClickEvent,
     SearchFiltersClearAllEvent,
+    SearchFiltersShowMoreEvent,
     BrowseResultClickEvent,
     HomePageBrowseResultClickEvent,
     BrowseV2ToggleSidebarEvent,
@@ -183,6 +184,10 @@ export interface SearchResultClickEvent extends BaseEvent {
 export interface SearchFiltersClearAllEvent extends BaseEvent {
     type: EventType.SearchFiltersClearAllEvent;
     total: number;
+}
+
+export interface SearchFiltersShowMoreEvent extends BaseEvent {
+    type: EventType.SearchFiltersShowMoreEvent;
 }
 
 /**
@@ -588,6 +593,7 @@ export type Event =
     | SearchResultsViewEvent
     | SearchResultClickEvent
     | SearchFiltersClearAllEvent
+    | SearchFiltersShowMoreEvent
     | BrowseResultClickEvent
     | HomePageBrowseResultClickEvent
     | BrowseV2ToggleSidebarEvent
