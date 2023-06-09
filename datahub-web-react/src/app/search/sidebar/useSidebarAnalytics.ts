@@ -12,22 +12,23 @@ import {
 const useSidebarAnalytics = () => {
     const registry = useEntityRegistry();
     const entityType = useEntityType();
-    const entityCollectionName = registry.getCollectionName(entityType);
-    const environment = useMaybeEnvironmentAggregation()?.value;
+    const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = useMaybePlatformAggregation();
-    const platform = platformAggregation?.entity
+    const entityDisplayName = registry.getCollectionName(entityType);
+    const environmentDisplayName = environmentAggregation?.value;
+    const platformDisplayName = platformAggregation?.entity
         ? registry.getDisplayName(EntityType.DataPlatform, platformAggregation.entity)
         : platformAggregation?.value;
-    const targetDepth = (environment ? 1 : 0) + (platform ? 1 : 0) + useBrowsePathLength();
+    const targetDepth = (environmentAggregation ? 1 : 0) + (platformAggregation ? 1 : 0) + useBrowsePathLength();
 
     const trackToggleNodeEvent = (isOpen: boolean, targetNode: BrowseV2ToggleNodeEvent['targetNode']) => {
         analytics.event({
             type: EventType.BrowseV2ToggleNodeEvent,
             targetNode,
             action: isOpen ? 'open' : 'close',
-            entity: entityCollectionName,
-            ...(environment ? { environment } : {}),
-            ...(platform ? { platform } : {}),
+            entity: entityDisplayName,
+            environment: environmentDisplayName,
+            platform: platformDisplayName,
             targetDepth,
         });
     };
@@ -40,9 +41,9 @@ const useSidebarAnalytics = () => {
             type: EventType.BrowseV2SelectNodeEvent,
             targetNode,
             action,
-            entity: entityCollectionName,
-            ...(environment ? { environment } : {}),
-            ...(platform ? { platform } : {}),
+            entity: entityDisplayName,
+            environment: environmentDisplayName,
+            platform: platformDisplayName,
             targetDepth,
         });
     };
