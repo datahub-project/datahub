@@ -91,8 +91,6 @@ export const SearchPage = () => {
         navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, unionType });
     };
 
-    console.log(data);
-
     const onClearFilters = () => {
         trackClearAllFiltersEvent(total);
         onChangeFilters([]);
@@ -135,9 +133,10 @@ export const SearchPage = () => {
                 type: EventType.SearchResultsViewEvent,
                 query,
                 total,
+                filterCount: filters.length,
             });
         }
-    }, [loading, query, total]);
+    }, [filters.length, loading, query, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state

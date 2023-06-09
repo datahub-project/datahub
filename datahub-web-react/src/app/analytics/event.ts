@@ -166,6 +166,7 @@ export interface SearchResultsViewEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     page?: number;
     total: number;
+    filterCount: number;
 }
 
 /**
