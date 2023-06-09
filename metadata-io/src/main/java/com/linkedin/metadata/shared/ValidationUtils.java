@@ -224,6 +224,4 @@ public class ValidationUtils {
 
   private ValidationUtils() {
   }
-
-
 }
