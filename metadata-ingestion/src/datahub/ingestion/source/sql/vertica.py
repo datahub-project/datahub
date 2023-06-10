@@ -77,7 +77,7 @@ class VerticaSourceReport(SQLSourceReport):
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
-        Entity could be a projection or a models  .
+        Entity could be a projection or a model.
         """
 
         if ent_type == "projection":
