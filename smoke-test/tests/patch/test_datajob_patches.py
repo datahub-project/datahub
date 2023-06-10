@@ -17,15 +17,17 @@ from datahub.metadata.schema_classes import (AuditStampClass,
                                              OwnershipClass,
                                              OwnershipTypeClass,
                                              TagAssociationClass,
-                                             UpstreamClass,
-                                             UpstreamLineageClass)
+                                             EdgeClass,
+                                             DataJobInputOutputClass)
 from datahub.specific.datajob import DataJobPatchBuilder
 
+def _make_test_datajob_urn(seedFlow: str = "SampleAirflowDag", seedTask: str = "SampleAirflowTask"):
+    return make_data_job_urn(
+        orchestrator="airflow", flow_id=f"{seedFlow}{uuid.uuid4()}", job_id=f"{seedTask}{uuid.uuid4()}"
+    )
 
 def test_datajob_ownership_patch(wait_for_healthchecks):
-    datajob_urn = make_data_job_urn(
-        orchestrator="airflow", flow_id=f"SampleAirflowDag{uuid.uuid4()}", job_id=f"SampleAirflowTask{uuid.uuid4()}"
-    )
+    datajob_urn = _make_test_datajob_urn()
     owner_to_set = OwnerClass(
         owner=make_user_urn("jdoe"), type=OwnershipTypeClass.DATAOWNER
     )
@@ -37,8 +39,8 @@ def test_datajob_ownership_patch(wait_for_healthchecks):
     mcpw = MetadataChangeProposalWrapper(entityUrn=datajob_urn, aspect=ownership_to_set)
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit_mcp(mcpw)
-        owner = graph.get_aspect_v2(
-            entity_urn=datajob_urn, aspect_type=OwnershipClass, aspect="ownership"
+        owner = graph.get_aspect(
+            entity_urn=datajob_urn, aspect_type=OwnershipClass
         )
         assert owner.owners[0].owner == owner_to_set.owner
 
@@ -47,8 +49,8 @@ def test_datajob_ownership_patch(wait_for_healthchecks):
         ):
             graph.emit_mcp(patch_mcp)
 
-        owner = graph.get_aspect_v2(
-            entity_urn=datajob_urn, aspect_type=OwnershipClass, aspect="ownership"
+        owner = graph.get_aspect(
+            entity_urn=datajob_urn, aspect_type=OwnershipClass
         )
         assert len(owner.owners) == 2
 
@@ -57,77 +59,70 @@ def test_datajob_ownership_patch(wait_for_healthchecks):
         ):
             graph.emit_mcp(patch_mcp)
 
-        owner = graph.get_aspect_v2(
-            entity_urn=datajob_urn, aspect_type=OwnershipClass, aspect="ownership"
+        owner = graph.get_aspect(
+            entity_urn=datajob_urn, aspect_type=OwnershipClass
         )
         assert len(owner.owners) == 1
         assert owner.owners[0].owner == owner_to_set.owner
 
 
-# def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
-#     dataset_urn = make_dataset_urn(
-#         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
-#     )
+def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
+    datajob_urn = _make_test_datajob_urn()
 
-#     other_dataset_urn = make_dataset_urn(
-#         platform="hive", name=f"SampleHiveDataset2-{uuid.uuid4()}", env="PROD"
-#     )
+    other_dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset2-{uuid.uuid4()}", env="PROD"
+    )
 
-#     patch_dataset_urn = make_dataset_urn(
-#         platform="hive", name=f"SampleHiveDataset3-{uuid.uuid4()}", env="PROD"
-#     )
+    patch_dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset3-{uuid.uuid4()}", env="PROD"
+    )
 
-#     upstream_lineage = UpstreamLineageClass(
-#         upstreams=[
-#             UpstreamClass(dataset=other_dataset_urn, type=DatasetLineageTypeClass.VIEW)
-#         ]
-#     )
-#     upstream_lineage_to_add = UpstreamClass(
-#         dataset=patch_dataset_urn, type=DatasetLineageTypeClass.VIEW
-#     )
-#     mcpw = MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=upstream_lineage)
+    inputoutput_lineage = DataJobInputOutputClass(
+        inputDatasets=[],
+        outputDatasets=[],
+        inputDatasetEdges=[EdgeClass(destinationUrn=other_dataset_urn)],
+    )
+    upstream_lineage_to_add = EdgeClass(destinationUrn=patch_dataset_urn)
+    mcpw = MetadataChangeProposalWrapper(entityUrn=datajob_urn, aspect=inputoutput_lineage)
 
-#     with DataHubGraph(DataHubGraphConfig()) as graph:
-#         graph.emit_mcp(mcpw)
-#         upstream_lineage_read = graph.get_aspect_v2(
-#             entity_urn=dataset_urn,
-#             aspect_type=UpstreamLineageClass,
-#             aspect="upstreamLineage",
-#         )
-#         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        graph.emit_mcp(mcpw)
+        upstream_lineage_read: DataJobInputOutputClass = graph.get_aspect(
+            entity_urn=datajob_urn,
+            aspect_type=DataJobInputOutputClass,
+        )
+        assert upstream_lineage_read.inputDatasetEdges[0].destinationUrn == other_dataset_urn
 
-#         for patch_mcp in (
-#             DatasetPatchBuilder(dataset_urn)
-#             .add_upstream_lineage(upstream_lineage_to_add)
-#             .build()
-#         ):
-#             graph.emit_mcp(patch_mcp)
-#             pass
+        for patch_mcp in (
+            DataJobPatchBuilder(datajob_urn)
+            .add_input_dataset(upstream_lineage_to_add)
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+            pass
 
-#         upstream_lineage_read = graph.get_aspect_v2(
-#             entity_urn=dataset_urn,
-#             aspect_type=UpstreamLineageClass,
-#             aspect="upstreamLineage",
-#         )
-#         assert len(upstream_lineage_read.upstreams) == 2
-#         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
-#         assert upstream_lineage_read.upstreams[1].dataset == patch_dataset_urn
+        upstream_lineage_read = graph.get_aspect(
+            entity_urn=datajob_urn,
+            aspect_type=DataJobInputOutputClass,
+        )
+        assert len(upstream_lineage_read.inputDatasetEdges) == 2
+        assert upstream_lineage_read.inputDatasetEdges[0].destinationUrn == other_dataset_urn
+        assert upstream_lineage_read.inputDatasetEdges[1].destinationUrn == patch_dataset_urn
 
-#         for patch_mcp in (
-#             DatasetPatchBuilder(dataset_urn)
-#             .remove_upstream_lineage(upstream_lineage_to_add.dataset)
-#             .build()
-#         ):
-#             graph.emit_mcp(patch_mcp)
-#             pass
+        for patch_mcp in (
+            DataJobPatchBuilder(datajob_urn)
+            .remove_input_dataset(patch_dataset_urn)
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+            pass
 
-#         upstream_lineage_read = graph.get_aspect_v2(
-#             entity_urn=dataset_urn,
-#             aspect_type=UpstreamLineageClass,
-#             aspect="upstreamLineage",
-#         )
-#         assert len(upstream_lineage_read.upstreams) == 1
-#         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
+        upstream_lineage_read = graph.get_aspect(
+            entity_urn=datajob_urn,
+            aspect_type=DataJobInputOutputClass,
+        )
+        assert len(upstream_lineage_read.inputDatasetEdges) == 1
+        assert upstream_lineage_read.inputDatasetEdges[0].destinationUrn == other_dataset_urn
 
 
 # def test_dataset_tags_patch(wait_for_healthchecks):

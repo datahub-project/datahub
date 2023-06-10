@@ -52,7 +52,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
     ) -> None:
         for e in edges:
             urn = Urn.create_from_string(e.destinationUrn)
-            if not urn.get_type == entity_type:
+            if not urn.get_type() == entity_type:
                 raise ValueError(
                     f"{context}: {e.destinationUrn} is not of type {entity_type}"
                 )
