@@ -5,11 +5,9 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.UrnUtils;
 import datahub.client.MetadataWriteResponse;
 import datahub.client.patch.datajob.DataJobInputOutputPatchBuilder;
-import datahub.client.patch.dataset.DatasetPropertiesPatchBuilder;
 import datahub.client.rest.RestEmitter;
 import java.io.IOException;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.net.URISyntaxException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +29,7 @@ class DataJobLineageAdd {
    */
   public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
     String token = "";
-    try(RestEmitter emitter = RestEmitter.create(
+    try (RestEmitter emitter = RestEmitter.create(
         b -> b.server("http://localhost:8080")
             .token(token)
     )) {
