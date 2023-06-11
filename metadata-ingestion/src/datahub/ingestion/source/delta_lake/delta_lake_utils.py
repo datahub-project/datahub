@@ -1,7 +1,8 @@
 import pathlib
 from typing import Dict, Optional
 
-from deltalake import DeltaTable, PyDeltaTableError
+from deltalake import DeltaTable
+from deltalake.exception import PyDeltaTableError
 
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 
