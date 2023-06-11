@@ -1,23 +1,11 @@
 import logging
 import traceback
 from dataclasses import dataclass
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    DefaultDict,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
 from pydantic.class_validators import validator
-from sqlalchemy.engine.reflection import Inspector  # type: ignore
-from sqlalchemy.exc import ProgrammingError  # type: ignore
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -143,9 +131,6 @@ class VerticaSource(SQLAlchemySource):
         self.projection_lineage_map: Optional[
             Dict[str, List[Tuple[str, str, str]]]
         ] = None
-        self.tables: DefaultDict[str, List[str]] = DefaultDict(list)
-        self.views: DefaultDict[str, List[str]] = DefaultDict(list)
-        self.projection: DefaultDict[str, List[str]] = DefaultDict(list)
         self.config: VerticaConfig = config
 
     @classmethod
@@ -160,7 +145,7 @@ class VerticaSource(SQLAlchemySource):
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options.setdefault("echo", True)
+            sql_config.options.setdefault("echo", False)
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -247,50 +232,62 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         try:
-            self.tables[schema] = inspector.get_table_names(schema)
+            table = inspector.get_table_names(schema)
+            # created new function get_all_columns in vertica Dialect as the existing get_columns of SQLAlchemy Inspector class is being used for profiling
+            # And query in get_all_columns is modified to run at schema level.
+            columns = inspector.get_all_columns(table, schema)  # type: ignore
 
-            # called get_columns function from dialect, it returns a list of all columns in all the table in the schema
-            columns = inspector.get_all_columns(schema)  # type: ignore
-
-            # called get_pk_constraint function from dialect , it returns a list of all columns which is primary key in all the table in the schema
-            primary_key = inspector.get_pk_constraint(schema)
+            # added as the existing get_pk_constraint function returns str , but since we return datahub at schema level
+            # it returns list which throws error in mypy
+            primary_key = inspector.get_pk_constraint(table, schema)  # type: ignore
 
             description, properties, location_urn = self.get_table_properties(
-                inspector, schema
-            )  # called get_table_properties function from dialect , it returns a list description and properties of all table in the schema
+                inspector, schema, table  # type: ignore
+            )
 
-            # called get_table_owner function from dialect , it returns a list of all owner of all table in the schema
+            # called get_table_owner function from vertica dialect , it returns a list of all owner of all table in the schema
             table_owner = inspector.get_table_owner(schema)  # type: ignore
 
             # loops on each table in the schema
-            for table in self.tables[schema]:
+            for table_name in table:
                 finalcolumns = []
                 # loops through columns in the schema and creates all columns on current table
                 for column in columns:
-                    if column["tablename"] == table.lower():
+                    if column["tablename"] == table_name.lower():
                         finalcolumns.append(column)
 
                 final_primary_key: dict = {}
                 # loops through primary_key in the schema and saves the pk of current table
                 for primary_key_column in primary_key:
-                    if primary_key_column["tablename"] == table.lower():  # type: ignore
-                        final_primary_key = primary_key_column  # type: ignore
+
+                    if (
+                        isinstance(primary_key_column, dict)
+                        and primary_key_column.get("tablename", "").lower()
+                        == table_name.lower()
+                    ):
+                        final_primary_key = primary_key_column
 
                 table_properties: Dict[str, str] = {}
                 # loops through properties  in the schema and saves the properties of current table
                 for data in properties:
-                    if data["table_name"] == table.lower():  # type: ignore
-                        table_properties["create_time"] = data["create_time"]  # type: ignore
-                        table_properties["table_size"] = data["table_size"]  # type: ignore
-
+                    if (
+                        isinstance(data, dict)
+                        and "table_name" in data
+                        and data["table_name"] == table_name.lower()
+                    ):
+                        if "create_time" in data:
+                            table_properties["create_time"] = data["create_time"]
+                        if "table_size" in data:
+                            table_properties["table_size"] = data["table_size"]
+                            
                 owner_name = None
                 # loops through all owners in the schema and saved the value of current table owner
                 for owner in table_owner:
-                    if owner[0].lower() == table.lower():
-                        owner_name = owner[1].lower()
+                    if owner[0].lower() == table_name.lower():
+                        owner_name = owner[1]
 
                 dataset_name = self.get_identifier(
-                    schema=schema, entity=table, inspector=inspector
+                    schema=schema, entity=table_name, inspector=inspector
                 )
 
                 if dataset_name not in tables_seen:
@@ -320,7 +317,7 @@ class VerticaSource(SQLAlchemySource):
                 )
 
                 dataset_properties = DatasetPropertiesClass(
-                    name=table,
+                    name=table_name,
                     description=description,
                     customProperties=table_properties,
                 )
@@ -381,40 +378,8 @@ class VerticaSource(SQLAlchemySource):
                     )
 
         except Exception as e:
+            print(traceback.format_exc())
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
-
-    def get_table_properties(
-        self, inspector: Inspector, schema: str, table: Optional[str] = None
-    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
-        description: Optional[str] = None
-        properties: Dict[str, str] = {}
-
-        # The location cannot be fetched generically, but subclasses may override
-        # this method and provide a location.
-        location: Optional[str] = None
-
-        try:
-            # SQLAlchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
-        except NotImplementedError:
-            return description, properties, location
-        except ProgrammingError as pe:
-            # Snowflake needs schema names quoted when fetching table comments.
-            logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {table}",
-                pe,
-            )
-            table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
-
-        description = table_info.get("text")
-        if type(description) is tuple:
-            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = table_info["text"][0]
-
-        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-        properties = table_info.get("properties", {})
-        return description, properties, location
 
     def loop_views(  # noqa: C901
         self,
@@ -425,41 +390,45 @@ class VerticaSource(SQLAlchemySource):
         views_seen: Set[str] = set()
 
         try:
-            self.views[schema] = inspector.get_view_names(schema)
+            view = inspector.get_view_names(schema)
 
-            # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
-            columns = inspector.get_all_view_columns(schema)  # type: ignore
+            # created new function get_all_view_columns in vertica Dialect as the existing get_columns of SQLAlchemy Inspector class is being used for profiling
+            # And query in get_all_view_columns is modified to run at schema level.
+            columns = inspector.get_all_view_columns(view, schema)  # type: ignore
 
             # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_view_properties(
-                inspector, schema
-            )  # type: ignore
+                inspector, schema, view  # type: ignore
+            )
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             view_owner = inspector.get_view_owner(schema)  # type: ignore
 
             # started a loop on each view in the schema
-            for view in self.views[schema]:
+            for view_name in view:
                 finalcolumns = []
                 # loops through columns in the schema and creates all columns on current view
                 for column in columns:
-                    if column["tablename"] == view.lower():
+                    if column["tablename"].lower() == view_name.lower():
                         finalcolumns.append(column)
 
                 view_properties = {}
                 # loops through properties  in the schema and saves the properties of current views
                 for data in properties:
-                    if data["table_name"] == view.lower():  # type: ignore
-                        view_properties["create_time"] = data["create_time"]  # type: ignore
+                    if (
+                        isinstance(data, dict)
+                        and data.get("table_name", "").lower() == view_name.lower()
+                    ):
+                        view_properties["create_time"] = data.get("create_time", "")
 
                 owner_name = None
                 # loops through all views in the schema and returns the owner name of current view
                 for owner in view_owner:
-                    if owner[0].lower() == view.lower():
-                        owner_name = owner[1].lower()
+                    if owner[0].lower() == view_name.lower():
+                        owner_name = owner[1]
 
                 try:
-                    view_definition = inspector.get_view_definition(view, schema)
+                    view_definition = inspector.get_view_definition(view_name, schema)
                     if view_definition is None:
                         view_definition = ""
                     else:
@@ -473,7 +442,7 @@ class VerticaSource(SQLAlchemySource):
                 view_properties["is_view"] = "True"
 
                 dataset_name = self.get_identifier(
-                    schema=schema, entity=view, inspector=inspector
+                    schema=schema, entity=view_name, inspector=inspector
                 )
 
                 if dataset_name not in views_seen:
@@ -507,7 +476,7 @@ class VerticaSource(SQLAlchemySource):
                 )
 
                 dataset_properties = DatasetPropertiesClass(
-                    name=view,
+                    name=view_name,
                     description=description,
                     customProperties=view_properties,
                 )
@@ -603,16 +572,18 @@ class VerticaSource(SQLAlchemySource):
 
                     except Exception as e:
                         logger.warning(
-                            f"Unable to get lineage of view {schema} due to an exception.\n {traceback.format_exc()}"
+                            f"Unable to get lineage of view {view_name} due to an exception.\n {traceback.format_exc()}"
                         )
-                        self.report.report_warning(f"{schema}", f"Ingestion error: {e}")
+                        self.report.report_warning(
+                            f"{view_name}", f"Ingestion error: {e}"
+                        )
 
         except Exception as e:
             print(traceback.format_exc())
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def get_view_properties(
-        self, inspector: Inspector, schema: str
+        self, inspector: Inspector, schema: str, view: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -624,21 +595,11 @@ class VerticaSource(SQLAlchemySource):
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_view_comment(schema)  # type: ignore
+            table_info: dict = inspector.get_view_comment(view, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
-        except ProgrammingError as pe:
-            # Snowflake needs schema names quoted when fetching table comments.
-            logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} ",
-                pe,
-            )
-            table_info: dict = inspector.get_view_comment(f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if type(description) is tuple:
-            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = table_info["text"][0]
 
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
@@ -654,7 +615,14 @@ class VerticaSource(SQLAlchemySource):
             return None
 
         self.view_lineage_map = inspector._populate_view_lineage(schema)  # type: ignore
-        dataset_name = dataset_key.name
+        if dataset_key.name is not None:
+            dataset_name = dataset_key.name
+
+        else:
+            # Handle the case when dataset_key.name is None
+            # You can raise an exception, log a warning, or take any other appropriate action
+            logger.warning("Invalid dataset name")
+
         lineage = self.view_lineage_map[dataset_name]  # type: ignore
 
         if not (lineage):
@@ -694,102 +662,70 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         projection_seen: Set[str] = set()
         try:
-            self.projection[schema] = inspector.get_projection_names(schema)  # type: ignore
+            projection = inspector.get_projection_names(schema)  # type: ignore
 
             # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
-            columns = inspector.get_all_projection_columns(schema)  # type: ignore
+            columns = inspector.get_all_projection_columns(projection, schema)  # type: ignore
 
             # called get_projection_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_projection_properties(
-                inspector, schema
-            )  # type: ignore
+                inspector, schema, projection
+            )
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             projection_owner = inspector.get_projection_owner(schema)  # type: ignore
 
             # started a loop on each view in the schema
-            for projection in self.projection[schema]:
+            for projection_name in projection:
                 finalcolumns = []
                 # loops through all the columns in the schema and find all the columns of current projection
                 for column in columns:
-                    if column["tablename"] == projection.lower():
+                    if column["tablename"] == projection_name.lower():
                         finalcolumns.append(column)
 
                 projection_properties = {}
                 # loops through all the properties in current schema and find all the properties of current projection
-                for projection_Comment in properties:
-                    if projection_Comment["projection_name"] == projection.lower():  # type: ignore
-                        if "ROS_Count" in projection_Comment:
-                            projection_properties["Ros count"] = str(
-                                projection_Comment["ROS_Count"]  # type: ignore
-                            )
-                        else:
-                            # Handle the case when the key is not present
-                            projection_properties["Ros count"] = "Not Available"
+                for projection_comment in properties:
 
-                        if "Projection_Type" in projection_Comment:
-                            projection_properties["Projection Type"] = str(
-                                projection_Comment["Projection_Type"]  # type: ignore
-                            )
-                        else:
-                            # Handle the case when the key is not present
-                            projection_properties["Projection Type"] = "Not Available"
+                    if (
+                        isinstance(projection_comment, dict)
+                        and projection_comment.get("projection_name")
+                        == projection_name.lower()
+                    ):
 
-                        if "is_segmented" in projection_Comment:
-                            projection_properties["is_segmented"] = str(
-                                projection_Comment["is_segmented"]  # type: ignore
-                            )
-                        else:
-                            # Handle the case when the key is not present
-                            projection_properties["is_segmented"] = "Not Available"
-
-                        if "Segmentation_key" in projection_Comment:
-                            projection_properties["Segmentation_key"] = str(
-                                projection_Comment["Segmentation_key"]  # type: ignore
-                            )
-                        else:
-                            # Handle the case when the key is not present
-                            projection_properties["Segmentation_key"] = "Not Available"
-
-                        if "Partition_Key" in projection_Comment:
-                            projection_properties["Partition_Key"] = str(
-                                projection_Comment["Partition_Key"]  # type: ignore
-                            )
-                        else:
-                            # Handle the case when the key is not present
-                            projection_properties["Partition_Key"] = "Not Available"
-
-                        if "Partition_Size" in projection_Comment:
-                            projection_properties["Partition Size"] = str(
-                                projection_Comment["Partition_Size"]  # type: ignore
-                            )
-                        else:
-                            # Handle the case when the key is not present
-                            projection_properties["Partition Size"] = "0"
-
-                        if "projection_size" in projection_Comment:
-                            projection_properties["Projection Size"] = str(
-                                projection_Comment["projection_size"]  # type: ignore
-                            )
-                        else:
-                            # Handle the case when the key is not present
-                            projection_properties["Projection Size"] = "0 KB"
-
-                        if "Projection_Cached" in projection_Comment:
-                            projection_properties["Projection Cached"] = str(
-                                projection_Comment["Projection_Cached"]  # type: ignore
-                            )
-                        else:
-                            projection_properties["Projection Cached"] = "False"
+                        projection_properties["Ros count"] = str(
+                            projection_comment.get("ROS_Count", "Not Available")
+                        )
+                        projection_properties["Projection Type"] = str(
+                            projection_comment.get("Projection_Type", "Not Available")
+                        )
+                        projection_properties["is_segmented"] = str(
+                            projection_comment.get("is_segmented", "Not Available")
+                        )
+                        projection_properties["Segmentation_key"] = str(
+                            projection_comment.get("Segmentation_key", "Not Available")
+                        )
+                        projection_properties["Partition_Key"] = str(
+                            projection_comment.get("Partition_Key", "Not Available")
+                        )
+                        projection_properties["Partition Size"] = str(
+                            projection_comment.get("Partition_Size", "0")
+                        )
+                        projection_properties["Projection Size"] = str(
+                            projection_comment.get("projection_size", "0 KB")
+                        )
+                        projection_properties["Projection Cached"] = str(
+                            projection_comment.get("Projection_Cached", "False")
+                        )
 
                 owner_name = None
                 # loops through all owners in the schema and saved the value of current projection owner
                 for owner in projection_owner:
-                    if owner[0].lower() == projection.lower():
-                        owner_name = owner[1].lower()
+                    if owner[0].lower() == projection_name.lower():
+                        owner_name = owner[1]
 
                 dataset_name = self.get_identifier(
-                    schema=schema, entity=projection, inspector=inspector
+                    schema=schema, entity=projection_name, inspector=inspector
                 )
 
                 if dataset_name not in projection_seen:
@@ -820,7 +756,7 @@ class VerticaSource(SQLAlchemySource):
                 )
 
                 dataset_properties = DatasetPropertiesClass(
-                    name=projection,
+                    name=projection_name,
                     description=description,
                     customProperties=projection_properties,
                 )
@@ -911,7 +847,7 @@ class VerticaSource(SQLAlchemySource):
 
                     except Exception as e:
                         logger.warning(
-                            f"Unable to get lineage of projection {schema} due to an exception.\n {traceback.format_exc()}"
+                            f"Unable to get lineage of projection {projection_name} due to an exception.\n {traceback.format_exc()}"
                         )
                         self.report.report_warning(f"{schema}", f"Ingestion error: {e}")
 
@@ -920,7 +856,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Projections error: {e}")
 
     def get_projection_properties(
-        self, inspector: Inspector, schema: str
+        self, inspector: Inspector, schema: str, projection: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -932,21 +868,11 @@ class VerticaSource(SQLAlchemySource):
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_projection_comment(schema)  # type: ignore
+            table_info: dict = inspector.get_projection_comment(projection, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
-        except ProgrammingError as pe:
-            # Snowflake needs schema names quoted when fetching table comments.
-            logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} ",
-                pe,
-            )
-            table_info: dict = inspector.get_projection_comment(f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if type(description) is tuple:
-            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = table_info["text"][0]
 
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
@@ -1127,7 +1053,8 @@ class VerticaSource(SQLAlchemySource):
                     )
 
                     dataset_snapshot.aspects.append(dataset_properties)
-
+                    pk_constraints: dict = {}
+                    foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None
                     schema_fields = self.get_schema_fields(dataset_name, columns)
 
                     schema_metadata = get_schema_metadata(
@@ -1135,7 +1062,9 @@ class VerticaSource(SQLAlchemySource):
                         dataset_name,
                         self.platform,
                         columns,
-                        schema_fields,  # type: ignore
+                        pk_constraints,
+                        foreign_keys,
+                        schema_fields,
                     )
 
                     dataset_snapshot.aspects.append(schema_metadata)
@@ -1199,16 +1128,8 @@ class VerticaSource(SQLAlchemySource):
             table_info: dict = inspector.get_model_comment(model, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
-        except ProgrammingError as error:
-            logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema}  %s",
-                error,
-            )
-            table_info: dict = inspector.get_model_comment(model, f'"{schema}"')  # type: ignore
         description = table_info.get("text")
-        if type(description) is tuple:
-            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = table_info["text"][0]
+
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
         return description, properties, location
