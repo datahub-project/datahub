@@ -1,7 +1,10 @@
+import functools
 import logging
 import pathlib
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+from pydantic import BaseModel
+import pydantic
+import pydantic.dataclasses
 
 import sqlglot
 import sqlglot.errors
@@ -21,14 +24,27 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, order=True)
-class TableName:
+@functools.total_ordering
+class FrozenModel(BaseModel, frozen=True):
+    def __lt__(self, other: "FrozenModel") -> bool:
+        for field in self.__fields__:
+            self_v = getattr(self, field)
+            other_v = getattr(other, field)
+            if self_v != other_v:
+                return self_v < other_v
+
+        return False
+
+
+class TableName(FrozenModel):
     database: Optional[str]
-    schema: Optional[str]
+    db_schema: Optional[str] = pydantic.Field(alias="schema")
     table: str
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
-        return sqlglot.exp.Table(catalog=self.database, db=self.schema, this=self.table)
+        return sqlglot.exp.Table(
+            catalog=self.database, db=self.db_schema, this=self.table
+        )
 
     @classmethod
     def from_sqlglot_table(
@@ -46,20 +62,17 @@ class TableName:
         )
 
 
-@dataclass(frozen=True, order=True)
-class ColumnRef:
+class ColumnRef(FrozenModel):
     table: TableName
     column: str
 
 
-@dataclass(frozen=True, order=True)
-class DownstreamColumnRef:
+class DownstreamColumnRef(FrozenModel):
     table: Optional[TableName]
     column: str
 
 
-@dataclass(frozen=True, order=True)
-class ColumnLineageInfo:
+class ColumnLineageInfo(FrozenModel):
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
@@ -67,8 +80,7 @@ class ColumnLineageInfo:
     logic: Optional[str] = None
 
 
-@dataclass
-class SqlParsingResult:
+class SqlParsingResult(BaseModel):
     in_tables: List[TableName]
     out_tables: List[TableName]
 
@@ -155,7 +167,9 @@ class SchemaResolver:
     def get_urn_for_table(self, table: TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
-        table_name = ".".join(filter(None, [table.database, table.schema, table.table]))
+        table_name = ".".join(
+            filter(None, [table.database, table.db_schema, table.table])
+        )
         if lower:
             table_name = table_name.lower()
 
@@ -326,7 +340,7 @@ def _column_level_lineage(
                         col = col.split(".", maxsplit=1)[1]
                     # print(f"-> depends on {table_ref} . {col}")
 
-                    direct_col_upstreams.add(ColumnRef(table_ref, col))
+                    direct_col_upstreams.add(ColumnRef(table=table_ref, column=col))
                 else:
                     # This branch doesn't matter. For example, a count(*) column would go here, and
                     # we don't get any column-level lineage for that.
@@ -347,7 +361,9 @@ def _column_level_lineage(
                 logger.debug(f'  "{output_col}" has no upstreams')
             column_lineage.append(
                 ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(output_table, output_col),
+                    downstream=DownstreamColumnRef(
+                        table=output_table, column=output_col
+                    ),
                     upstreams=sorted(direct_col_upstreams),
                     # logic=column_logic.sql(pretty=True, dialect=dialect),
                 )
