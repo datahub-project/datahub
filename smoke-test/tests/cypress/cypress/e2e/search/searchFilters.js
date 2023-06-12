@@ -23,7 +23,6 @@ describe("search", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
-    cy.wait(2000);
 
     cy.get("[data-testid=search-filters-v1").should("exist");
     cy.get("[data-testid=search-filters-v2").should("not.exist");
@@ -34,7 +33,6 @@ describe("search", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
-    cy.wait(2000);
 
     cy.get("[data-testid=search-filters-v1").should("not.exist");
     cy.get("[data-testid=search-filters-v2").should("exist");
@@ -45,7 +43,6 @@ describe("search", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
-    cy.wait(2000);
 
     // click tag filter dropfdown inside of "More Filters"
     cy.get("[data-testid=more-filters-dropdown").click({ force: true });
@@ -59,7 +56,6 @@ describe("search", () => {
       "include",
       "filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3ACypress"
     );
-    cy.wait(1000);
 
     // select datasets filter
     cy.get("[data-testid=filter-dropdown-Type").click({ force: true });
