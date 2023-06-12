@@ -11,7 +11,6 @@ import com.linkedin.metadata.key.TestKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import graphql.schema.DataFetchingEnvironment;
