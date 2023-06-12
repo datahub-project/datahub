@@ -612,27 +612,13 @@ public class EntityService {
     return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
       final String aspectName = aspectSpec.getName();
-      EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
-      if (latest == null) {
-        //TODO: best effort mint
-        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
-
-        if (defaultTemplate != null) {
-          latest = new EntityAspect();
-          latest.setAspect(aspectName);
-          latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
-          latest.setUrn(urnStr);
-          latest.setVersion(ASPECT_LATEST_VERSION);
-          latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
-          latest.setCreatedBy(auditStamp.getActor().toString());
-        } else {
-          throw new UnsupportedOperationException("Patch not supported for empty aspect for aspect name: " + aspectName);
-        }
-      }
-
+      final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
       long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
       try {
-        RecordTemplate currentValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry);
+        RecordTemplate defaultValue = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
+        RecordTemplate currentValue = latest != null
+            ? EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry)
+            : defaultValue;
         RecordTemplate updatedValue =  _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
 
         validateAspect(urn, updatedValue);
