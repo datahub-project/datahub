@@ -22,7 +22,8 @@ from typing import (
 from pydantic import BaseModel
 
 from datahub.configuration.common import ConfigModel
-from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.configuration.source_common import PlatformInstanceConfigMixin
+from datahub.emitter.mcp_builder import PlatformKey, mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -187,26 +188,15 @@ class Source(Closeable, metaclass=ABCMeta):
             self.ctx.pipeline_config
             and self.ctx.pipeline_config.flags.generate_browse_path_v2
         ):
-            platform = getattr(self, "platform", None) or getattr(
-                self.get_config(), "platform", None
-            )
-            env = getattr(self.get_config(), "env", None)
-            browse_path_drop_dirs = [
-                platform,
-                platform and platform.lower(),
-                env,
-                env and env.lower(),
-            ]
-            browse_path_processor = partial(
-                auto_browse_path_v2,
-                [s for s in browse_path_drop_dirs if s is not None],
+            browse_path_processor = self._get_browse_path_processor(
+                self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
             )
 
         return [
             auto_status_aspect,
             auto_materialize_referenced_tags,
-            partial(auto_workunit_reporter, self.get_report()),
             browse_path_processor,
+            partial(auto_workunit_reporter, self.get_report()),
         ]
 
     @staticmethod
@@ -247,6 +237,34 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def close(self) -> None:
         pass
+
+    def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
+        config = self.get_config()
+        platform = getattr(self, "platform", None) or getattr(config, "platform", None)
+        env = getattr(config, "env", None)
+        browse_path_drop_dirs = [
+            platform,
+            platform and platform.lower(),
+            env,
+            env and env.lower(),
+        ]
+
+        platform_key: Optional[PlatformKey] = None
+        if (
+            platform
+            and isinstance(config, PlatformInstanceConfigMixin)
+            and config.platform_instance
+        ):
+            platform_key = PlatformKey(
+                platform=platform, instance=config.platform_instance
+            )
+
+        return partial(
+            auto_browse_path_v2,
+            platform_key=platform_key,
+            drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
+            dry_run=dry_run,
+        )
 
 
 class TestableSource(Source):
