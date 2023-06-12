@@ -140,10 +140,9 @@ def cleanup(config: BigQueryV2Config) -> None:
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
-@capability(
+@capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
-    "Platform instance is pre-set to the BigQuery project id, "
-    "but not added to urns as project ids are included in the container path.",
+    "Platform instance is pre-set to the BigQuery project id",
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
