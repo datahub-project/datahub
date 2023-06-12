@@ -91,7 +91,8 @@ public class CreateTestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        false);
     CreateTestResolver resolver = new CreateTestResolver(mockClient);
 
     // Execute resolver
