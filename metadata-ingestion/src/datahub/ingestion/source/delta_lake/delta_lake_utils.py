@@ -1,7 +1,17 @@
 import pathlib
 from typing import Dict, Optional
 
-from deltalake import DeltaTable, PyDeltaTableError
+from deltalake import DeltaTable
+
+try:
+    # For deltalake >= 0.10.0
+    from deltalake.exceptions import DeltaError, TableNotFoundError
+except ImportError:
+    # For deltalake < 0.10.0
+    from deltalake import PyDeltaTableError as DeltaError
+
+    TableNotFoundError = None
+
 
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 
@@ -20,8 +30,12 @@ def read_delta_table(
             storage_options=opts,
             without_files=not delta_lake_config.require_files,
         )
-    except PyDeltaTableError as e:
-        if "Not a Delta table" not in str(e):
+    except DeltaError as e:
+        if "Not a Delta table" in str(e) or (
+            TableNotFoundError and isinstance(e, TableNotFoundError)
+        ):
+            pass
+        else:
             raise e
     return None
 
