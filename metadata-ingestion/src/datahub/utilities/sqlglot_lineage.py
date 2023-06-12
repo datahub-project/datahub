@@ -14,7 +14,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.metadata.schema_classes import OtherSchemaClass, SchemaMetadataClass
+from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -156,6 +156,8 @@ class SchemaResolver:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
         table_name = ".".join(filter(None, [table.database, table.schema, table.table]))
+        if lower:
+            table_name = table_name.lower()
 
         if self.platform == "bigquery":
             # TODO check that this is the right way to do it
@@ -178,6 +180,8 @@ class SchemaResolver:
         schema_info = self._resolve_schema_info(urn)
         if schema_info:
             return urn, schema_info
+
+        # TODO: Add a special case for snowflake, which uppercases default identifiers.
 
         urn_lower = self.get_urn_for_table(table, lower=True)
         if urn_lower != urn:
@@ -204,6 +208,9 @@ class SchemaResolver:
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
         schema_info = self._convert_schema_aspect_to_info(schema_metadata)
+        self._save_to_cache(urn, schema_info)
+
+    def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
 
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
@@ -254,12 +261,15 @@ def _column_level_lineage(
         )
 
     # Optimize the statement + qualify column references.
+    # TODO: We'll also need to monkey-patch the column qualifier to use a
+    # case-insensitive fallback.
     statement = sqlglot.optimizer.qualify.qualify(
         statement,
         dialect=dialect,
         schema=sqlglot_db_schema,
         validate_qualify_columns=False,
-        identify=False,
+        # This is critical to avoid casing discrepancies with Snowflake.
+        identify=True,
     )
 
     if not isinstance(
@@ -400,6 +410,9 @@ def sqlglot_tester(
             table_name_schema_mapping[table] = schema_info
         # TODO decrease confidence if schema info is missing
         # TODO also include info about how many schemas resolved successfully in the result
+    logger.debug(
+        f"Resolved {len(table_name_schema_mapping)} of {len(tables)} table schemas"
+    )
 
     # Simplify the input statement for column-level lineage generation.
     # TODO [refactor] move this logic into the column-level lineage generation function.
