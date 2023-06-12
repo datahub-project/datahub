@@ -273,3 +273,16 @@ export function filterOptionsWithSearch(searchQuery: string, name: string, neste
 }
 
 export const createBrowseV2SearchFilter = (path: Array<string>) => `${UNIT_SEPARATOR}${path.join(UNIT_SEPARATOR)}`;
+
+export function canCreateViewFromFilters(activeFilters: FacetFilterInput[]) {
+    const nestedSubTypeFilter = activeFilters.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME);
+    if (nestedSubTypeFilter) {
+        const entityTypes = nestedSubTypeFilter.values?.filter((value) => !value.includes(FILTER_DELIMITER));
+        const subTypes = nestedSubTypeFilter.values?.filter((value) => value.includes(FILTER_DELIMITER));
+
+        if (entityTypes?.length && subTypes?.length) {
+            return false;
+        }
+    }
+    return true;
+}

@@ -16,8 +16,10 @@ import {
     filterEmptyAggregations,
     getFilterOptions,
     filterOptionsWithSearch,
+    canCreateViewFromFilters,
 } from '../utils';
 import { FolderFilled } from '@ant-design/icons';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -386,5 +388,23 @@ describe('filter utils - filterOptionsWithSearch', () => {
 
     it('should return true if there is no search query', () => {
         expect(filterOptionsWithSearch('', 'hello')).toBe(true);
+    });
+});
+
+describe('filter utils - canCreateViewFromFilters', () => {
+    it('should return false if there is mixing of entity type and subtypes in the nested subtypes filter', () => {
+        const activeFilters = [
+            { field: 'platform', values: ['one', 'two'] },
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, values: ['DATASETS', 'CONTAINERS␞schema'] },
+        ];
+        expect(canCreateViewFromFilters(activeFilters)).toBe(false);
+    });
+
+    it('should return true if there is no mixing of entity type and subtypes in the nested subtypes filter', () => {
+        const activeFilters = [
+            { field: 'platform', values: ['one', 'two'] },
+            { field: ENTITY_SUB_TYPE_FILTER_NAME, values: ['DATASETS', 'CONTAINERS'] },
+        ];
+        expect(canCreateViewFromFilters(activeFilters)).toBe(true);
     });
 });
