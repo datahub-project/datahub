@@ -92,7 +92,7 @@ public class CreateTestResolverTest {
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
         Mockito.any(Authentication.class),
-        false);
+        Mockito.eq(false));
     CreateTestResolver resolver = new CreateTestResolver(mockClient);
 
     // Execute resolver
