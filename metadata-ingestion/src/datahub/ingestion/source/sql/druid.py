@@ -22,7 +22,7 @@ get_table_names_source = DruidDialect.get_table_names
 def get_table_names(self, connection, schema=None, **kwargs):
     try:
         return get_table_names_source(self, connection, schema=schema, **kwargs)
-    # Druid throw ResourceClosedError when there is no table in the schema
+    # Druid throws ResourceClosedError when there is no table in the schema
     except ResourceClosedError:
         return []
 
