@@ -43,6 +43,8 @@ import static com.linkedin.metadata.search.utils.FilterUtils.rankFilterGroups;
 @Slf4j
 public class AllEntitiesSearchAggregator {
 
+  private static final int DEFAULT_MAX_AGGREGATION_VALUES = 20;
+
   private final EntitySearchService _entitySearchService;
   private final SearchRanker _searchRanker;
   private final EntityDocCountCache _entityDocCountCache;
@@ -118,8 +120,10 @@ public class AllEntitiesSearchAggregator {
       });
     }
 
+    int maxAggValues = searchFlags != null ? searchFlags.getMaxAggValues() : DEFAULT_MAX_AGGREGATION_VALUES;
+
     // Trim the aggregations / filters after merging.
-    Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations, searchFlags.getMaxAggValues());
+    Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations, maxAggValues);
 
     // Finally, Add a custom Entity aggregation (appears as the first filter) -- this should never be truncated
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
