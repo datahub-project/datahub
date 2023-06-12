@@ -1611,9 +1611,7 @@ class TableauSource(StatefulIngestionSourceBase):
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        tables_filter = (
-            f"{tableau_constant.ID_WITH_IN}: {json.dumps(self.upstream_tables.keys())}"
-        )
+        tables_filter = f"{tableau_constant.ID_WITH_IN}: {json.dumps(list(self.upstream_tables.keys()))}"
 
         for table in self.get_connection_objects(
             database_tables_graphql_query,
@@ -2305,7 +2303,8 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield from self.emit_published_datasources()
             if self.custom_sql_ids_being_used:
                 yield from self.emit_custom_sql_datasources()
-            yield from self.emit_upstream_tables()
+            if self.upstream_tables:
+                yield from self.emit_upstream_tables()
         except MetadataQueryException as md_exception:
             self.report.report_failure(
                 key="tableau-metadata",
