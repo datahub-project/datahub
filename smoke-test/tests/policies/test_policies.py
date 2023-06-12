@@ -28,6 +28,10 @@ def test_healthchecks(wait_for_healthchecks):
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
     yield get_frontend_session()
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+@pytest.fixture(scope="class", autouse=True)
 def test_frontend_list_policies(frontend_session):
     """Fixture to execute setup before and tear down after all tests are run"""
     res_data = listPolicies(frontend_session)
