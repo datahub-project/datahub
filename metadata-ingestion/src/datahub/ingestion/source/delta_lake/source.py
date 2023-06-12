@@ -159,11 +159,7 @@ class DeltaLakeSource(Source):
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = hist["timestamp"]
             statement_type = OPERATION_STATEMENT_TYPES.get(
-<<<<<<< HEAD
-                hist.get("operation") or "UNKNOWN", OperationTypeClass.CUSTOM
-=======
                 hist.get("operation", "UNKNOWN"), OperationTypeClass.CUSTOM
->>>>>>> upstream/master
             )
             custom_type = (
                 hist.get("operation")
