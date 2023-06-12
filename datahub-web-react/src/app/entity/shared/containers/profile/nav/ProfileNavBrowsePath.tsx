@@ -51,6 +51,7 @@ export const ProfileNavBrowsePath = ({ urn, type, path, breadcrumbLinksEnabled }
                             ? '#'
                             : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
                     }
+                    data-testid={`legacy-browse-path-${part}`}
                 >
                     {part}
                 </Link>

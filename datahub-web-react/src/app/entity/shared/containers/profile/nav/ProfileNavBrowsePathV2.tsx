@@ -89,6 +89,7 @@ export default function ProfileNavBrowsePathV2() {
                                 ]),
                             )
                         }
+                        data-testid={`browse-path-${pathEntry?.name}`}
                     >
                         {pathEntry?.entity
                             ? entityRegistry.getDisplayName(pathEntry.entity.type, pathEntry.entity)
