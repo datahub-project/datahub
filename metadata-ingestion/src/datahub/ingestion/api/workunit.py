@@ -1,5 +1,6 @@
+import logging
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Type, TypeVar, Union, overload
+from typing import Iterable, Optional, Type, TypeVar, Union, overload
 
 from deprecated import deprecated
 
@@ -10,6 +11,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
+
+logger = logging.getLogger(__name__)
 
 T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 
@@ -90,7 +93,7 @@ class MetadataWorkUnit(WorkUnit):
             assert self.metadata.entityUrn
             return self.metadata.entityUrn
 
-    def get_aspects_of_type(self, aspect_cls: Type[T_Aspect]) -> List[T_Aspect]:
+    def get_aspect_of_type(self, aspect_cls: Type[T_Aspect]) -> Optional[T_Aspect]:
         aspects: list
         if isinstance(self.metadata, MetadataChangeEvent):
             aspects = self.metadata.proposedSnapshot.aspects
@@ -109,7 +112,10 @@ class MetadataWorkUnit(WorkUnit):
         else:
             raise ValueError(f"Unexpected type {type(self.metadata)}")
 
-        return [a for a in aspects if isinstance(a, aspect_cls)]
+        aspects = [a for a in aspects if isinstance(a, aspect_cls)]
+        if len(aspects) > 1:
+            logger.warning(f"Found multiple aspects of type {aspect_cls} in MCE {self}")
+        return aspects[-1] if aspects else None
 
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
         from datahub.emitter.mcp_builder import mcps_from_mce
