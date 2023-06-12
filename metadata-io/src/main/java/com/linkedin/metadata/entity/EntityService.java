@@ -615,16 +615,16 @@ public class EntityService {
       final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
       final long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
       try {
-        final RecordTemplate defaultValue = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
-
-        if (latest == null && defaultValue == null) {
-          // Attempting to patch a value to an aspect which has no default value and no existing value.
-          throw new UnsupportedOperationException("Patch not supported for empty aspect for aspect name: " + aspectName);
-        }
 
         final RecordTemplate currentValue = latest != null
             ? EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry)
-            : defaultValue;
+            : _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
+
+        if (latest == null && currentValue == null) {
+          // Attempting to patch a value to an aspect which has no default value and no existing value.
+          throw new UnsupportedOperationException(String.format("Patch not supported for aspect with name %s. "
+              + "Default aspect is required because no aspect currently exists for urn %s.", aspectName, urn));
+        }
 
         final RecordTemplate updatedValue = _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
 
