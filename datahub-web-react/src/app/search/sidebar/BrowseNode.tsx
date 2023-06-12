@@ -76,12 +76,14 @@ const BrowseNode = () => {
                     isOpen={isOpen}
                     isSelected={isBrowsePathSelected}
                     onClick={onClickBrowseHeader}
+                    data-testid={`browse-node-${displayName}`}
                 >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen && !isClosing}
                             isVisible={browseResultGroup.hasSubGroups}
                             onClick={onClickTriangle}
+                            dataTestId={`browse-node-expand-${displayName}`}
                         />
                         <FolderStyled />
                         <ExpandableNode.Title color={color} size={14} depth={browsePathLength}>

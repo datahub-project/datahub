@@ -92,10 +92,12 @@ ExpandableNode.TriangleButton = ({
     isOpen,
     isVisible,
     onClick,
+    dataTestId,
 }: {
     isOpen: boolean;
     isVisible: boolean;
     onClick?: () => void;
+    dataTestId?: string;
 }) => {
     const onClickButton: MouseEventHandler = (e) => {
         e.stopPropagation();
@@ -109,6 +111,7 @@ ExpandableNode.TriangleButton = ({
             deg={isOpen ? 90 : 0}
             icon={<VscTriangleRight style={{ color: '#000', visibility: isVisible ? 'visible' : 'hidden' }} />}
             onClick={onClickButton}
+            data-testid={dataTestId}
         />
     );
 };

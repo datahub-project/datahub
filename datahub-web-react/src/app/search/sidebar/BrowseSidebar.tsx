@@ -47,7 +47,7 @@ const BrowseSidebar = ({ visible, width }: Props) => {
     });
 
     return (
-        <Sidebar visible={visible} width={width} id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
+        <Sidebar visible={visible} width={width} id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID} data-testid="browse-v2">
             <SidebarHeader>
                 <Typography.Text strong>Navigate</Typography.Text>
             </SidebarHeader>

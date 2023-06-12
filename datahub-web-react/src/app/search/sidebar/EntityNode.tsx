@@ -57,6 +57,7 @@ const EntityNode = () => {
                     showBorder
                     onClick={onClickHeader}
                     style={{ paddingTop: '16px' }}
+                    data-testid={`browse-entity-${registry.getCollectionName(entityType)}`}
                 >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.StaticButton

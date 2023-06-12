@@ -78,6 +78,7 @@ const PlatformNode = () => {
                             isOpen={isOpen && !isClosing}
                             isVisible={!!platformAggregation.count}
                             onClick={onClickHeader}
+                            dataTestId={`browse-platform-${label}`}
                         />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
                         <ExpandableNode.Title color={color} size={14}>
