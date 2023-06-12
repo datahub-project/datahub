@@ -86,22 +86,18 @@ DEFAULT_CLASSIFIER_CONFIG = {
 class DataHubClassifierConfig(ConfigModel):
     confidence_level_threshold: float = Field(
         default=0.68,
-        init=False,
         description="The confidence threshold above which the prediction is considered as a proposal",
     )
     info_types: Optional[List[str]] = Field(
         default=None,
-        init=False,
         description="List of infotypes to be predicted. By default, all supported infotypes are considered, along with any custom infotypes configured in `info_types_config`.",
     )
     info_types_config: Dict[str, InfoTypeConfig] = Field(
         default=DEFAULT_CLASSIFIER_CONFIG,
-        init=False,
         description="Configuration details for infotypes. See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration.",
     )
     minimum_values_threshold: int = Field(
         default=50,
-        init=False,
         description="Minimum number of non-null column values required to process `values` prediction factor.",
     )
 
