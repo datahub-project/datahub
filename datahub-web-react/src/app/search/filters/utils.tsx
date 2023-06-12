@@ -59,7 +59,12 @@ export function getNewFilters(filterField: string, activeFilters: FacetFilterInp
 }
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
-    return !!selectedFilterOptions.find((option) => option.value === filterValue);
+    const parentFilterValue = filterValue.includes(FILTER_DELIMITER) ? filterValue.split(FILTER_DELIMITER)[0] : null;
+    return !!selectedFilterOptions.find((option) => option.value === filterValue || option.value === parentFilterValue);
+}
+
+export function isAnyOptionSelected(selectedFilterOptions: FilterOptionType[], filterValues?: string[]) {
+    return selectedFilterOptions.some((option) => filterValues?.some((filterValue) => filterValue === option.value));
 }
 
 export function getFilterEntity(filterField: string, filterValue: string, availableFilters: FacetMetadata[] | null) {

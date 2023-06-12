@@ -17,6 +17,7 @@ import {
     getFilterOptions,
     filterOptionsWithSearch,
     canCreateViewFromFilters,
+    isAnyOptionSelected,
 } from '../utils';
 import { FolderFilled } from '@ant-design/icons';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
@@ -80,6 +81,7 @@ describe('filter utils - isFilterOptionSelected', () => {
     const selectedFilterOptions = [
         { value: 'one', field: 'test' },
         { value: 'two', field: 'test' },
+        { value: 'DATASETS', field: 'test' },
     ];
     it('should return true if the given filter value exists in the list', () => {
         expect(isFilterOptionSelected(selectedFilterOptions, 'two')).toBe(true);
@@ -91,6 +93,25 @@ describe('filter utils - isFilterOptionSelected', () => {
 
     it('should return false if the given filter value does not exist in the list, even if values are similar', () => {
         expect(isFilterOptionSelected(selectedFilterOptions, 'tw')).toBe(false);
+    });
+
+    it('should return true if a parent filter is selected', () => {
+        expect(isFilterOptionSelected(selectedFilterOptions, 'DATASETS␞view')).toBe(true);
+    });
+});
+
+describe('filter utils - isAnyOptionSelected', () => {
+    const selectedFilterOptions = [
+        { value: 'one', field: 'test' },
+        { value: 'two', field: 'test' },
+        { value: 'DATASETS', field: 'test' },
+    ];
+    it('should return true if any of the given filter values exists in the selected values list', () => {
+        expect(isAnyOptionSelected(selectedFilterOptions, ['two', 'four'])).toBe(true);
+    });
+
+    it('should return false if none of the given filter values exists in the selected values list', () => {
+        expect(isAnyOptionSelected(selectedFilterOptions, ['three', 'four'])).toBe(false);
     });
 });
 

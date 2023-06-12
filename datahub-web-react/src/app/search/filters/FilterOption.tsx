@@ -9,7 +9,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { PLATFORM_FILTER_NAME, TAGS_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../utils/constants';
 import { IconSpacer, Label } from './ActiveFilter';
-import { isFilterOptionSelected, getFilterIconAndLabel } from './utils';
+import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected } from './utils';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ParentNodes from './ParentNodes';
 
@@ -124,7 +124,11 @@ export default function FilterOption({
         if (isFilterOptionSelected(selectedFilterOptions, value)) {
             setSelectedFilterOptions(selectedFilterOptions.filter((option) => option.value !== value));
         } else {
-            setSelectedFilterOptions([...selectedFilterOptions, filterOption]);
+            // if selecting parent filter, remove nested filter values
+            const filteredSelectedOptions = selectedFilterOptions.filter(
+                (o) => !nestedOptions?.some((nestedOption) => nestedOption.value === o.value),
+            );
+            setSelectedFilterOptions([...filteredSelectedOptions, filterOption]);
         }
     }
 
@@ -133,6 +137,11 @@ export default function FilterOption({
             <FilterOptionWrapper centerAlign={parentNodes.length > 0} addPadding={addPadding}>
                 <StyledCheckbox
                     checked={isFilterOptionSelected(selectedFilterOptions, value)}
+                    // show indeterminate if a nested option is selected
+                    indeterminate={isAnyOptionSelected(
+                        selectedFilterOptions,
+                        nestedOptions?.map((o) => o.value),
+                    )}
                     onClick={updateFilterValues}
                     data-testid={`filter-option-${label}`}
                 >
