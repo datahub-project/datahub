@@ -704,7 +704,7 @@ def quickstart(
             # As such, we'll only use the quiet flag if we're in an interactive environment.
             # If we're in quiet mode, then we'll show a spinner instead.
             quiet = not sys.stderr.isatty()
-            with (PerfTimer() as timer, click_spinner.spinner(disable=not quiet)):
+            with PerfTimer() as timer, click_spinner.spinner(disable=not quiet):
                 subprocess.run(
                     [*base_command, "pull", *(("-q",) if quiet else ())],
                     check=True,
