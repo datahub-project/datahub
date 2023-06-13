@@ -17,6 +17,7 @@ from datahub.ingestion.glossary.datahub_classifier import (
     DataHubClassifierConfig,
     InfoTypeConfig,
     PredictionFactorsAndWeights,
+    ValuesFactorConfig,
 )
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
@@ -42,6 +43,18 @@ def random_email():
     )
 
 
+def random_cloud_region():
+    return "".join(
+        [
+            random.choice(["af", "ap", "ca", "eu", "me", "sa", "us"]),
+            "-",
+            random.choice(["central", "north", "south", "east", "west"]),
+            "-",
+            str(random.randint(1, 2)),
+        ]
+    )
+
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
@@ -63,20 +76,38 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         mock_sample_values.return_value = pd.DataFrame(
             data={
-                "col_1": [random.randint(0, 100) for i in range(1, 200)],
-                "col_2": [random_email() for i in range(1, 200)],
+                "col_1": [random.randint(1, 80) for i in range(20)],
+                "col_2": [random_email() for i in range(20)],
+                "col_3": [random_cloud_region() for i in range(20)],
             }
         )
 
-        datahub_classifier_config = DataHubClassifierConfig()
-        datahub_classifier_config.confidence_level_threshold = 0.58
-        datahub_classifier_config.info_types_config = {
-            "Age": InfoTypeConfig(
-                Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                    Name=0, Values=1, Description=0, Datatype=0
-                )
-            ),
-        }
+        datahub_classifier_config = DataHubClassifierConfig(
+            minimum_values_threshold=10,
+            confidence_level_threshold=0.58,
+            info_types_config={
+                "Age": InfoTypeConfig(
+                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
+                        Name=0, Values=1, Description=0, Datatype=0
+                    )
+                ),
+                "CloudRegion": InfoTypeConfig(
+                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
+                        Name=0,
+                        Description=0,
+                        Datatype=0,
+                        Values=1,
+                    ),
+                    Values=ValuesFactorConfig(
+                        prediction_type="regex",
+                        regex=[
+                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
+                        ],
+                    ),
+                ),
+            },
+        )
+
         pipeline = Pipeline(
             config=PipelineConfig(
                 source=SourceConfig(
@@ -103,7 +134,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         classification=ClassificationConfig(
                             enabled=True,
                             column_pattern=AllowDenyPattern(
-                                allow=[".*col_1$", ".*col_2$"]
+                                allow=[".*col_1$", ".*col_2$", ".*col_3$"]
                             ),
                             classifiers=[
                                 DynamicTypedClassifierConfig(
