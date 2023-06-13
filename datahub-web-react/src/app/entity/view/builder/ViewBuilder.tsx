@@ -10,6 +10,7 @@ import { useUserContext } from '../../../context/useUserContext';
 import { ViewBuilderMode } from './types';
 import analytics, { EventType } from '../../../analytics';
 import { DataHubView } from '../../../../types.generated';
+import { useSearchVersion } from '../../../search/useSearchAndBrowseVersion';
 
 type Props = {
     mode: ViewBuilderMode;
@@ -23,6 +24,7 @@ type Props = {
  * This component handles creating and editing DataHub Views.
  */
 export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const searchVersion = useSearchVersion();
     const userContext = useUserContext();
 
     const client = useApolloClient();
@@ -39,6 +41,7 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
             viewType: state.viewType,
             filterFields,
             entityTypes,
+            searchVersion,
         });
     };
 

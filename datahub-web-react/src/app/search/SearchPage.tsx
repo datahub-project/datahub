@@ -20,15 +20,16 @@ import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloa
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 import SearchFilters from './filters/SearchFilters';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
-import { useAppConfig } from '../useAppConfig';
 import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
+import { useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
 
 /**
  * A search results page.
  */
 export const SearchPage = () => {
     const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
-    const appConfig = useAppConfig();
+    const showSearchFiltersV2 = useIsSearchV2();
+    const searchVersion = useSearchVersion();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
 
@@ -147,8 +148,9 @@ export const SearchPage = () => {
             entityTypes,
             filterFields,
             filterCount: filters.length,
+            searchVersion,
         });
-    }, [filters, loading, query, total]);
+    }, [filters, loading, query, searchVersion, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state
@@ -160,8 +162,6 @@ export const SearchPage = () => {
             setSelectedEntities([]);
         }
     }, [isSelectMode]);
-
-    const { showSearchFiltersV2 } = appConfig.config.featureFlags;
 
     return (
         <>

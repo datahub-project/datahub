@@ -11,7 +11,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { SearchResult } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { EntityAndType } from '../entity/shared/types';
-import { useAppConfig } from '../useAppConfig';
+import { useIsSearchV2 } from './useSearchAndBrowseVersion';
 
 const ResultList = styled(List)`
     &&& {
@@ -78,11 +78,10 @@ export const SearchResultList = ({
     selectedEntities,
     setSelectedEntities,
 }: Props) => {
-    const appConfig = useAppConfig();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
-    const { showSearchFiltersV2 } = appConfig.config.featureFlags;
+    const showSearchFiltersV2 = useIsSearchV2();
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });

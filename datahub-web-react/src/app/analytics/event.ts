@@ -169,6 +169,7 @@ export interface SearchResultsViewEvent extends BaseEvent {
     entityTypes: string[];
     filterFields: string[];
     filterCount: number;
+    searchVersion: string;
 }
 
 /**
@@ -493,6 +494,7 @@ export interface CreateViewEvent extends BaseEvent {
     viewType?: DataHubViewType;
     filterFields: string[];
     entityTypes: string[];
+    searchVersion: string;
 }
 
 /**
@@ -504,6 +506,7 @@ export interface UpdateViewEvent extends BaseEvent {
     urn: string;
     filterFields: string[];
     entityTypes: string[];
+    searchVersion: string;
 }
 
 /**

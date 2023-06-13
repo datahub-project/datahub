@@ -20,7 +20,6 @@ import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboarding
 import { useUserContext } from '../context/useUserContext';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { useAppConfig } from '../useAppConfig';
 import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 import { SidebarProvider } from './sidebar/SidebarContext';
@@ -28,6 +27,7 @@ import { BrowseProvider } from './sidebar/BrowseContext';
 import analytics from '../analytics/analytics';
 import useToggle from '../shared/useToggle';
 import { EventType } from '../analytics';
+import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     display: flex;
@@ -161,7 +161,8 @@ export const SearchResults = ({
     onChangeSelectAll,
     refetch,
 }: Props) => {
-    const appConfig = useAppConfig();
+    const showSearchFiltersV2 = useIsSearchV2();
+    const showBrowseV2 = useIsBrowseV2();
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
@@ -171,8 +172,6 @@ export const SearchResults = ({
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
-
-    const { showSearchFiltersV2, showBrowseV2 } = appConfig.config.featureFlags;
 
     const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useToggle({
         initialValue: true,
