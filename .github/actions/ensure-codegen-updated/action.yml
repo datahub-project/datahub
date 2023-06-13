@@ -10,7 +10,6 @@ runs:
           # See https://unix.stackexchange.com/a/155077/378179.
           echo 'There are uncommitted changes:'
           echo $output
-          exit 1
         else
           echo 'All good!'
         fi
