@@ -63,7 +63,7 @@ KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
 
 
 _QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
-_QUICKSTART_UP_TIMEOUT = datetime.timedelta(minutes=1)
+_QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
 _QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
 
 
@@ -752,12 +752,17 @@ def quickstart(
         if up_attempts == 0 or (status and status.needs_up()):
             if up_attempts > 0:
                 click.echo()
-            subprocess.run(
-                base_command + ["up", "-d", "--remove-orphans"],
-                env=_docker_subprocess_env(),
-                timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
-            )
             up_attempts += 1
+
+            logger.debug(f"Executing docker compose up command, attempt #{up_attempts}")
+            try:
+                subprocess.run(
+                    base_command + ["up", "-d", "--remove-orphans"],
+                    env=_docker_subprocess_env(),
+                    timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
+                )
+            except subprocess.TimeoutExpired:
+                logger.debug("docker compose up timed out, will retry")
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()
