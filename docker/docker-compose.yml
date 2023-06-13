@@ -144,7 +144,7 @@ services:
   schema-registry:
     container_name: schema-registry
     hostname: schema-registry
-    image: confluentinc/cp-schema-registry:7.2.2
+    image: confluentinc/cp-schema-registry:7.4.0
     ports:
     - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
     env_file: schema-registry/env/docker.env
@@ -160,7 +160,7 @@ services:
   broker:
     container_name: broker
     hostname: broker
-    image: confluentinc/cp-kafka:7.2.2
+    image: confluentinc/cp-kafka:7.4.0
     ports:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     env_file: broker/env/docker.env
@@ -178,7 +178,7 @@ services:
   zookeeper:
     container_name: zookeeper
     hostname: zookeeper
-    image: confluentinc/cp-zookeeper:7.2.2
+    image: confluentinc/cp-zookeeper:7.4.0
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     env_file: zookeeper/env/docker.env

@@ -202,7 +202,15 @@ class KafkaSource(StatefulIngestionSourceBase):
         for t, t_detail in topics.items():
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
-                yield from self._extract_record(t, t_detail, extra_topic_details.get(t))
+                try:
+                    yield from self._extract_record(
+                        t, t_detail, extra_topic_details.get(t)
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to extract topic {t}", exc_info=True)
+                    self.report.report_warning(
+                        "topic", f"Exception while extracting topic {t}: {e}"
+                    )
             else:
                 self.report.report_dropped(t)
 
@@ -259,9 +267,9 @@ class KafkaSource(StatefulIngestionSourceBase):
             # Point to note:
             # In Kafka documentSchema and keySchema both contains "doc" field.
             # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
-            description = json.loads(schema_metadata.platformSchema.documentSchema).get(
-                DOC_KEY
-            )
+            schema = json.loads(schema_metadata.platformSchema.documentSchema)
+            if isinstance(schema, dict):
+                description = schema.get(DOC_KEY)
 
         dataset_properties = DatasetPropertiesClass(
             name=topic, customProperties=custom_props, description=description
@@ -416,8 +424,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         topic_configurations: dict,
     ) -> None:
         try:
-            assert config_result_future.done()
-            assert config_result_future.exception() is None
             topic_configurations[config_resource.name] = config_result_future.result()
         except Exception as e:
             logger.warning(
