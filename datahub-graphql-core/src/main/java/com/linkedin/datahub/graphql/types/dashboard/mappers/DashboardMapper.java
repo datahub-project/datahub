@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Embed;
@@ -24,6 +25,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.chart.mappers.InputFieldsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.EmbedMapper;
@@ -92,6 +94,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
         mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setEmbed(EmbedMapper.map(new Embed(dataMap))));
+        mappingHelper.mapToResult(BROWSE_PATHS_V2_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
         return mappingHelper.getResult();
     }
 

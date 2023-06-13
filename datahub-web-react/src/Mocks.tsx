@@ -38,7 +38,7 @@ import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
 
-const user1 = {
+export const user1 = {
     username: 'sdas',
     urn: 'urn:li:corpuser:1',
     type: EntityType.CorpUser,
@@ -119,7 +119,7 @@ const user2 = {
     settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
-const dataPlatform = {
+export const dataPlatform = {
     urn: 'urn:li:dataPlatform:hdfs',
     name: 'HDFS',
     type: EntityType.DataPlatform,
@@ -127,7 +127,22 @@ const dataPlatform = {
         displayName: 'HDFS',
         type: PlatformType.FileSystem,
         datasetNameDelimiter: '.',
-        logoUrl: '',
+        logoUrl:
+            'https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/lookerlogo.png',
+    },
+};
+
+export const dataPlatformInstance = {
+    urn: 'urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)',
+    type: EntityType.DataPlatformInstance,
+    instanceId: 'clickhousetestserver',
+    platform: {
+        type: 'DATA_PLATFORM',
+        urn: 'urn:li:dataPlatform:clickhouse',
+        properties: {
+            displayName: 'ClickHouse',
+            logoUrl: '/assets/platforms/clickhouselogo.png',
+        },
     },
 };
 

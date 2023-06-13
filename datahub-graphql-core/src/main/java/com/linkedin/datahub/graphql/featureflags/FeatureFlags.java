@@ -10,4 +10,6 @@ public class FeatureFlags {
   private boolean pointInTimeCreationEnabled = false;
   private boolean alwaysEmitChangeLog = false;
   private boolean readOnlyModeEnabled = false;
+  private boolean showSearchFiltersV2 = false;
+  private boolean showBrowseV2 = false;
 }

@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
@@ -337,7 +338,7 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
+  public QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
     return _searchQueryBuilder.buildQuery(_entitySpecs, query, fulltext);
   }
 
