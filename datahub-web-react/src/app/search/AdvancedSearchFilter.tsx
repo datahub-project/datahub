@@ -1,4 +1,3 @@
-import { CloseOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -6,8 +5,11 @@ import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilterConditionSelect } from './AdvancedSearchFilterConditionSelect';
 import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
-import { FIELD_TO_LABEL } from './utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_NAME, FIELD_TO_LABEL } from './utils/constants';
 import { AdvancedSearchFilterValuesSection } from './AdvancedSearchFilterValuesSection';
+import AdvancedFilterCloseButton from './advanced/AdvancedFilterCloseButton';
+import { FilterContainer } from './advanced/styles';
+import EntitySubTypeAdvancedFilterLabel from './advanced/EntitySubTypeAdvancedFilterLabel';
 
 type Props = {
     facet: FacetMetadata;
@@ -18,18 +20,6 @@ type Props = {
     isCompact?: boolean;
     disabled?: boolean;
 };
-
-const FilterContainer = styled.div<{ isCompact: boolean }>`
-    box-shadow: 0px 0px 4px 0px #00000010;
-    border-radius: 10px;
-    border: 1px solid ${ANTD_GRAY[4]};
-    padding: ${(props) => (props.isCompact ? '0 4px' : '4px')};
-    margin: ${(props) => (props.isCompact ? '2px 4px 2px 4px' : '4px')};
-    :hover {
-        cursor: pointer;
-        background: ${ANTD_GRAY[2]};
-    }
-`;
 
 const FieldFilterSection = styled.span<{ isCompact: boolean }>`
     color: ${ANTD_GRAY[9]};
@@ -49,15 +39,9 @@ const FieldFilterSelect = styled.span<{ isCompact: boolean }>`
     padding-right: ${(props) => (props.isCompact ? '0' : '8px;')};
 `;
 
-const CloseSpan = styled.span`
-    :hover {
-        color: black;
-    }
-`;
-
 const FilterFieldLabel = styled.span`
     font-weight: 600;
-    margin-right: 2px;
+    margin-right: 4px;
 `;
 
 export const AdvancedSearchFilter = ({
@@ -70,6 +54,18 @@ export const AdvancedSearchFilter = ({
     disabled = false,
 }: Props) => {
     const [isEditing, setIsEditing] = useState(false);
+
+    if (filter.field === ENTITY_SUB_TYPE_FILTER_NAME) {
+        return (
+            <EntitySubTypeAdvancedFilterLabel
+                filter={filter}
+                disabled={disabled}
+                isCompact={isCompact}
+                onClose={onClose}
+            />
+        );
+    }
+
     return (
         <>
             <FilterContainer
@@ -86,20 +82,7 @@ export const AdvancedSearchFilter = ({
                     {!loading && isCompact && (
                         <AdvancedSearchFilterValuesSection filter={filter} facet={facet} isCompact />
                     )}
-                    {!disabled && (
-                        <CloseSpan
-                            role="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onClose();
-                            }}
-                            tabIndex={0}
-                            onKeyPress={onClose}
-                        >
-                            <CloseOutlined />
-                        </CloseSpan>
-                    )}
+                    {!disabled && <AdvancedFilterCloseButton onClose={onClose} />}
                 </FieldFilterSection>
                 {!loading && !isCompact && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} />}
             </FilterContainer>
