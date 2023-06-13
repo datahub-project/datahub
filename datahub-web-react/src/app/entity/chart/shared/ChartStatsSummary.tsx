@@ -7,6 +7,7 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { countFormatter } from '../../../../utils/formatter';
+import ExpandingStat from '../../dataset/shared/ExpandingStat';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
@@ -34,9 +35,14 @@ export const ChartStatsSummary = ({
 }: Props) => {
     const statsViews = [
         (!!chartCount && (
-            <StatText>
-                <b>{countFormatter(chartCount)}</b> charts
-            </StatText>
+            <ExpandingStat
+                color={ANTD_GRAY[8]}
+                render={(isExpanded) => (
+                    <>
+                        <b>{isExpanded ? chartCount : countFormatter(chartCount)}</b> charts
+                    </>
+                )}
+            />
         )) ||
             undefined,
         (!!viewCount && (

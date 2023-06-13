@@ -8,6 +8,7 @@ import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/tim
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { FormattedBytesStat } from './FormattedBytesStat';
 import { countFormatter } from '../../../../utils/formatter';
+import ExpandingStat from './ExpandingStat';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
@@ -26,6 +27,7 @@ type Props = {
     uniqueUserCountLast30Days?: number | null;
     lastUpdatedMs?: number | null;
     color?: string;
+    mode?: 'normal' | 'tooltip-content';
 };
 
 export const DatasetStatsSummary = ({
@@ -37,20 +39,28 @@ export const DatasetStatsSummary = ({
     uniqueUserCountLast30Days,
     lastUpdatedMs,
     color,
+    mode = 'normal',
 }: Props) => {
-    const displayedColor = color !== undefined ? color : ANTD_GRAY[7];
+    const isTooltipMode = mode === 'tooltip-content';
+    const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
 
     const statsViews = [
         !!rowCount && (
-            <StatText color={displayedColor}>
-                <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{countFormatter(rowCount)}</b> rows
-                {!!columnCount && (
+            <ExpandingStat
+                color={displayedColor}
+                disabled={isTooltipMode}
+                render={(isExpanded) => (
                     <>
-                        , <b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
+                        <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
+                        <b>{isExpanded ? rowCount : countFormatter(rowCount)}</b> rows
+                        {!!columnCount && (
+                            <>
+                                , <b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
+                            </>
+                        )}
                     </>
                 )}
-            </StatText>
+            />
         ),
         !!sizeInBytes && (
             <StatText color={displayedColor}>
