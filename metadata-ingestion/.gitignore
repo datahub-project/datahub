@@ -64,9 +64,6 @@ coverage.xml
 .pytest_cache/
 junit.*xml
 
-# Integration tests artifacts
-tests/integrations/
-
 # Translations
 *.mo
 *.pot
@@ -145,5 +142,5 @@ dmypy.json
 .pyre/
 
 # Generated classes
-src/datahub/metadata/
+# src/datahub/metadata/
 .preflight_sentinel
