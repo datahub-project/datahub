@@ -329,7 +329,11 @@ def _column_level_lineage(
                 continue
 
             lineage_node = sqlglot.lineage.lineage(
-                output_col, statement, schema=sqlglot_db_schema
+                output_col,
+                statement,
+                schema=sqlglot_db_schema,
+                # TODO: Determine if this is actually necessary?
+                identify=True,
             )
             # pathlib.Path("sqlglot.html").write_text(
             #     str(lineage_node.to_html(dialect=dialect))
