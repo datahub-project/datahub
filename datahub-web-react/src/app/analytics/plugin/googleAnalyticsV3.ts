@@ -1,4 +1,4 @@
-import googleAnalyticsV3 from '@analytics/google-analytics-v3'
+import googleAnalyticsV3 from '@analytics/google-analytics-v3';
 import { Event, EventType } from '../event';
 import analyticsConfig from '../../../conf/analytics';
 
