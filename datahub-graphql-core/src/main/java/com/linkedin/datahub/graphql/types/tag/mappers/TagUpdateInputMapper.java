@@ -8,6 +8,7 @@ import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.TagUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -47,6 +49,7 @@ public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Co
     final Owner owner = new Owner();
     owner.setOwner(actor);
     owner.setType(OwnershipType.NONE);
+    owner.setTypeUrn(UrnUtils.getUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.name())));
     owner.setSource(new OwnershipSource().setType(OwnershipSourceType.SERVICE));
     ownership.setOwners(new OwnerArray(owner));
     ownership.setLastModified(auditStamp);
