@@ -59,8 +59,12 @@ export function getNewFilters(filterField: string, activeFilters: FacetFilterInp
 }
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
-    const parentFilterValue = filterValue.includes(FILTER_DELIMITER) ? filterValue.split(FILTER_DELIMITER)[0] : null;
-    return !!selectedFilterOptions.find((option) => option.value === filterValue || option.value === parentFilterValue);
+    const parentFilterValues = filterValue.includes(FILTER_DELIMITER)
+        ? filterValue.split(FILTER_DELIMITER).slice(0, -1)
+        : [];
+    return !!selectedFilterOptions.find(
+        (option) => option.value === filterValue || parentFilterValues.includes(option.value),
+    );
 }
 
 export function isAnyOptionSelected(selectedFilterOptions: FilterOptionType[], filterValues?: string[]) {

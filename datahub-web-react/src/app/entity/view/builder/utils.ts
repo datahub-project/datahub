@@ -40,7 +40,8 @@ export function convertNestedSubTypeFilter(filters: Array<FacetFilterInput>) {
             if (!value.includes(FILTER_DELIMITER)) {
                 entityTypeFilterValues.push(value);
             } else {
-                subTypeFilterValues.push(value.split(FILTER_DELIMITER)[1]);
+                const nestedValues = value.split(FILTER_DELIMITER);
+                subTypeFilterValues.push(nestedValues[nestedValues.length - 1]);
             }
         });
         if (entityTypeFilterValues.length) {
