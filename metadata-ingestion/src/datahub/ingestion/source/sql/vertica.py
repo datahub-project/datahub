@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 
 import pydantic
 from pydantic.class_validators import validator
-from sqlalchemy.engine.reflection import Inspector
+from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -125,12 +125,8 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "vertica")
+        super(VerticaSource, self).__init__(config, ctx, "vertica_lint_fix")
         self.report: SQLSourceReport = VerticaSourceReport()
-        self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
-        self.projection_lineage_map: Optional[
-            Dict[str, List[Tuple[str, str, str]]]
-        ] = None
         self.config: VerticaConfig = config
 
     @classmethod
@@ -200,10 +196,10 @@ class VerticaSource(SQLAlchemySource):
                 )
 
     def get_database_properties(
-        self, inspector: Inspector, database: str
+        self, inspector: VerticaInspector, database: str
     ) -> Optional[Dict[str, str]]:
         try:
-            custom_properties = inspector._get_database_properties(database)  # type: ignore
+            custom_properties = inspector._get_database_properties(database)
             return custom_properties
 
         except Exception as ex:
@@ -213,10 +209,10 @@ class VerticaSource(SQLAlchemySource):
         return None
 
     def get_schema_properties(
-        self, inspector: Inspector, database: str, schema: str
+        self, inspector: VerticaInspector, database: str, schema: str
     ) -> Optional[Dict[str, str]]:
         try:
-            custom_properties = inspector._get_schema_properties(schema)  # type: ignore
+            custom_properties = inspector._get_schema_properties(schema)
             return custom_properties
         except Exception as ex:
             self.report.report_failure(
@@ -226,27 +222,27 @@ class VerticaSource(SQLAlchemySource):
 
     def loop_tables(  # noqa: C901
         self,
-        inspector: Inspector,
+        inspector: VerticaInspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         try:
             table = inspector.get_table_names(schema)
-            # created new function get_all_columns in vertica Dialect as the existing get_columns of SQLAlchemy Inspector class is being used for profiling
+            # created new function get_all_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
             # And query in get_all_columns is modified to run at schema level.
-            columns = inspector.get_all_columns(table, schema)  # type: ignore
+            columns = inspector.get_all_columns(table, schema)
 
             # added as the existing get_pk_constraint function returns str , but since we return datahub at schema level
             # it returns list which throws error in mypy
-            primary_key = inspector.get_pk_constraint(table, schema)  # type: ignore
+            primary_key = inspector.get_pk_constraint(table, schema)
 
             description, properties, location_urn = self.get_table_properties(
-                inspector, schema, table  # type: ignore
+                inspector, schema, table
             )
 
             # called get_table_owner function from vertica dialect , it returns a list of all owner of all table in the schema
-            table_owner = inspector.get_table_owner(schema)  # type: ignore
+            table_owner = inspector.get_table_owner(schema)
 
             # loops on each table in the schema
             for table_name in table:
@@ -279,7 +275,7 @@ class VerticaSource(SQLAlchemySource):
                             table_properties["create_time"] = data["create_time"]
                         if "table_size" in data:
                             table_properties["table_size"] = data["table_size"]
-                            
+
                 owner_name = None
                 # loops through all owners in the schema and saved the value of current table owner
                 for owner in table_owner:
@@ -382,27 +378,24 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
 
     def loop_views(  # noqa: C901
-        self,
-        inspector: Inspector,
-        schema: str,
-        sql_config: SQLAlchemyConfig,
+        self, inspector: VerticaInspector, schema: str, sql_config: SQLAlchemyConfig
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         views_seen: Set[str] = set()
 
         try:
             view = inspector.get_view_names(schema)
 
-            # created new function get_all_view_columns in vertica Dialect as the existing get_columns of SQLAlchemy Inspector class is being used for profiling
+            # created new function get_all_view_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
             # And query in get_all_view_columns is modified to run at schema level.
-            columns = inspector.get_all_view_columns(view, schema)  # type: ignore
+            columns = inspector.get_all_view_columns(schema)
 
             # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_view_properties(
-                inspector, schema, view  # type: ignore
+                inspector, schema, view
             )
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
-            view_owner = inspector.get_view_owner(schema)  # type: ignore
+            view_owner = inspector.get_view_owner(schema)
 
             # started a loop on each view in the schema
             for view_name in view:
@@ -534,7 +527,7 @@ class VerticaSource(SQLAlchemySource):
                         domain_registry=self.domain_registry,
                     )
 
-                if sql_config.include_view_lineage:  # type: ignore
+                if self.config.include_view_lineage:
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
                             self.platform,
@@ -583,7 +576,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def get_view_properties(
-        self, inspector: Inspector, schema: str, view: str
+        self, inspector: VerticaInspector, schema: str, view: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -595,7 +588,7 @@ class VerticaSource(SQLAlchemySource):
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_view_comment(view, schema)  # type: ignore
+            table_info: dict = inspector.get_view_comment(view, schema)
         except NotImplementedError:
             return description, properties, location
 
@@ -607,14 +600,14 @@ class VerticaSource(SQLAlchemySource):
         return description, properties, location
 
     def _get_upstream_lineage_info(
-        self, dataset_urn: str, schema: str, inspector: Inspector
+        self, dataset_urn: str, schema: str, inspector: VerticaInspector
     ) -> Optional[_Aspect]:
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
             return None
 
-        self.view_lineage_map = inspector._populate_view_lineage(schema)  # type: ignore
+        view_lineage_map = inspector._populate_view_lineage(schema)
         if dataset_key.name is not None:
             dataset_name = dataset_key.name
 
@@ -623,9 +616,9 @@ class VerticaSource(SQLAlchemySource):
             # You can raise an exception, log a warning, or take any other appropriate action
             logger.warning("Invalid dataset name")
 
-        lineage = self.view_lineage_map[dataset_name]  # type: ignore
+        lineage = view_lineage_map[dataset_name]
 
-        if not (lineage):
+        if lineage is None:
             logger.debug(f"No lineage found for {dataset_name}")
             return None
         upstream_tables: List[UpstreamClass] = []
@@ -656,16 +649,16 @@ class VerticaSource(SQLAlchemySource):
 
     def loop_projections(  # noqa: C901
         self,
-        inspector: Inspector,
+        inspector: VerticaInspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         projection_seen: Set[str] = set()
         try:
-            projection = inspector.get_projection_names(schema)  # type: ignore
+            projection = inspector.get_projection_names(schema)
 
             # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
-            columns = inspector.get_all_projection_columns(projection, schema)  # type: ignore
+            columns = inspector.get_all_projection_columns(projection, schema)
 
             # called get_projection_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_projection_properties(
@@ -673,7 +666,7 @@ class VerticaSource(SQLAlchemySource):
             )
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
-            projection_owner = inspector.get_projection_owner(schema)  # type: ignore
+            projection_owner = inspector.get_projection_owner(schema)
 
             # started a loop on each view in the schema
             for projection_name in projection:
@@ -809,7 +802,7 @@ class VerticaSource(SQLAlchemySource):
                         domain_registry=self.domain_registry,
                     )
 
-                if sql_config.include_projection_lineage:  # type: ignore
+                if self.config.include_projection_lineage:
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
                             self.platform,
@@ -856,7 +849,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Projections error: {e}")
 
     def get_projection_properties(
-        self, inspector: Inspector, schema: str, projection: str
+        self, inspector: VerticaInspector, schema: str, projection: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -868,7 +861,7 @@ class VerticaSource(SQLAlchemySource):
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_projection_comment(projection, schema)  # type: ignore
+            table_info: dict = inspector.get_projection_comment(projection, schema)
         except NotImplementedError:
             return description, properties, location
 
@@ -880,16 +873,16 @@ class VerticaSource(SQLAlchemySource):
         return description, properties, location
 
     def _get_upstream_lineage_info_projection(
-        self, dataset_urn: str, schema: str, inspector: Inspector
+        self, dataset_urn: str, schema: str, inspector: VerticaInspector
     ) -> Optional[_Aspect]:
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
             return None
 
-        self.projection_lineage_map = inspector._populate_projection_lineage(schema)  # type: ignore
+        projection_lineage = inspector._populate_projection_lineage(schema)
         dataset_name = dataset_key.name
-        lineage = self.projection_lineage_map[dataset_name]  # type: ignore
+        lineage = projection_lineage[dataset_name]
 
         if not (lineage):
             logger.debug(f"No lineage found for {dataset_name}")
@@ -922,7 +915,7 @@ class VerticaSource(SQLAlchemySource):
 
     def loop_profiler_requests(
         self,
-        inspector: Inspector,
+        inspector: VerticaInspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable["GEProfilerRequest"]:
@@ -937,7 +930,7 @@ class VerticaSource(SQLAlchemySource):
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
-        for projection in inspector.get_projection_names(schema):  # type: ignore
+        for projection in inspector.get_projection_names(schema):
             dataset_name = self.get_identifier(
                 schema=schema, entity=projection, inspector=inspector
             )
@@ -996,7 +989,7 @@ class VerticaSource(SQLAlchemySource):
 
     def loop_models(
         self,
-        inspector: Inspector,
+        inspector: VerticaInspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
@@ -1016,7 +1009,7 @@ class VerticaSource(SQLAlchemySource):
         """
         models_seen: Set[str] = set()
         try:
-            for models in inspector.get_models_names(schema):  # type: ignore
+            for models in inspector.get_models_names(schema):
                 dataset_name = self.get_identifier(
                     schema="Entities", entity=models, inspector=inspector
                 )
@@ -1106,14 +1099,14 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Model error: {error}")
 
     def get_model_properties(
-        self, inspector: Inspector, schema: str, model: str
+        self, inspector: VerticaInspector, schema: str, model: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         """
         Returns ml models related metadata information to show in properties tab
             eg. ml model attribute and ml model specification information.
 
         Args:
-            inspector (Inspector): inspector obj from reflection engine
+            inspector (VerticaInspector): inspector obj from reflection engine
             schema (str): schema name
             model (str): ml model name
         Returns:
@@ -1125,7 +1118,7 @@ class VerticaSource(SQLAlchemySource):
         # this method and provide a location.
         location: Optional[str] = None
         try:
-            table_info: dict = inspector.get_model_comment(model, schema)  # type: ignore
+            table_info: dict = inspector.get_model_comment(model, schema)
         except NotImplementedError:
             return description, properties, location
         description = table_info.get("text")
