@@ -80,7 +80,7 @@ class SnowflakeCommonMixin:
         privatelink: bool = False,
     ) -> Optional[str]:
         if privatelink:
-            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
+            url = f"https://app.{cloud_region_id}.privatelink.snowflakecomputing.com/{cloud_region_id}/{account_locator}"
         elif cloud == SNOWFLAKE_DEFAULT_CLOUD:
             url = f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
         else:
