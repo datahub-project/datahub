@@ -205,7 +205,7 @@ public class JavaEntityClient implements EntityClient {
      */
     @Nonnull
     public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
-                                   @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
+                                   @Nonnull String input, int start, int count, @Nonnull Authentication authentication) {
         // TODO: cache browseV2 results
         return _entitySearchService.browseV2(entityName, path, filter, input, start, count);
     }

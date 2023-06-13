@@ -265,4 +265,7 @@ public class BrowseV2ResolverTest {
     );
     return info;
   }
+
+  private BrowseV2ResolverTest() { }
+
 }

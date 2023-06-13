@@ -309,8 +309,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
-                                 @Nonnull String input, int start, int count, @Nonnull Authentication authentication){
-    // TODO: implement here
+                                 @Nonnull String input, int start, int count, @Nonnull Authentication authentication) {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
 
