@@ -7,7 +7,7 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { FormattedBytesStat } from './FormattedBytesStat';
-import { countFormatter } from '../../../../utils/formatter';
+import { countFormatter, needsFormatting } from '../../../../utils/formatter';
 import ExpandingStat from './ExpandingStat';
 
 const StatText = styled.span<{ color: string }>`
@@ -48,7 +48,7 @@ export const DatasetStatsSummary = ({
         !!rowCount && (
             <ExpandingStat
                 color={displayedColor}
-                disabled={isTooltipMode}
+                disabled={isTooltipMode || !needsFormatting(rowCount)}
                 render={(isExpanded) => (
                     <>
                         <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
