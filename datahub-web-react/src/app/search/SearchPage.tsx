@@ -22,6 +22,7 @@ import SearchFilters from './filters/SearchFilters';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
 import { useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
+import useFilterMode from './filters/useFilterMode';
 
 /**
  * A search results page.
@@ -36,6 +37,8 @@ export const SearchPage = () => {
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
+
+    const { filterMode, setFilterMode } = useFilterMode(filters, unionType);
 
     const {
         data,
@@ -148,9 +151,10 @@ export const SearchPage = () => {
             entityTypes,
             filterFields,
             filterCount: filters.length,
+            filterMode,
             searchVersion,
         });
-    }, [filters, loading, query, searchVersion, total]);
+    }, [filterMode, filters, loading, query, searchVersion, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state
@@ -180,9 +184,11 @@ export const SearchPage = () => {
                     availableFilters={data?.searchAcrossEntities?.facets || []}
                     activeFilters={filters}
                     unionType={unionType}
+                    mode={filterMode}
                     onChangeFilters={onChangeFilters}
                     onClearFilters={onClearFilters}
                     onChangeUnionType={onChangeUnionType}
+                    onChangeMode={setFilterMode}
                 />
             )}
             <SearchResults

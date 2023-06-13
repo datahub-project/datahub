@@ -1,6 +1,7 @@
 import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
+import { FilterMode } from '../search/utils/types';
 
 /**
  * Valid event types.
@@ -169,6 +170,7 @@ export interface SearchResultsViewEvent extends BaseEvent {
     entityTypes: string[];
     filterFields: string[];
     filterCount: number;
+    filterMode: FilterMode;
     searchVersion: string;
 }
 

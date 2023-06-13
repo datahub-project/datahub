@@ -33,3 +33,5 @@ export type DownloadSearchResults = {
     searchResults: Array<SearchResultInterface>;
     facets?: Array<FacetMetadata>;
 };
+
+export type FilterMode = 'basic' | 'advanced';

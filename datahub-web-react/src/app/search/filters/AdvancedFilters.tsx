@@ -12,6 +12,7 @@ import { UnionType } from '../utils/constants';
 import { FilterButtonsWrapper, FlexSpacer, FlexWrapper } from './BasicFilters';
 import SaveViewButton from './SaveViewButton';
 import { TextButton } from './styledComponents';
+import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
 
 const AnyAllToggle = styled.div`
     font-weight: 700;
@@ -28,7 +29,6 @@ interface Props {
     availableFilters: FacetMetadata[];
     activeFilters: FacetFilterInput[];
     unionType: UnionType;
-    onlyShowAdvancedFilters: boolean;
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     showBasicFilters: () => void;
@@ -38,7 +38,6 @@ export default function AdvancedFilters({
     availableFilters,
     activeFilters,
     unionType,
-    onlyShowAdvancedFilters,
     onChangeFilters,
     showBasicFilters,
     onChangeUnionType,
@@ -49,6 +48,7 @@ export default function AdvancedFilters({
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
+    const onlyShowAdvancedFilters = hasAdvancedFilters(activeFilters, unionType);
 
     return (
         <>

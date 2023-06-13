@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { UnionType } from '../utils/constants';
-import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
 import AdvancedFilters from './AdvancedFilters';
 import BasicFilters from './BasicFilters';
 import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
+import { FilterMode } from '../utils/types';
 
 const SearchFiltersWrapper = styled.div<{ removePadding: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -14,25 +14,27 @@ const SearchFiltersWrapper = styled.div<{ removePadding: boolean }>`
 `;
 
 interface Props {
+    mode: FilterMode;
     availableFilters: FacetMetadata[];
     activeFilters: FacetFilterInput[];
     unionType: UnionType;
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     onClearFilters: () => void;
     onChangeUnionType: (unionType: UnionType) => void;
+    onChangeMode: (mode: FilterMode) => void;
 }
 
 export default function SearchFilters({
+    mode,
     availableFilters,
     activeFilters,
     unionType,
     onChangeFilters,
     onClearFilters,
     onChangeUnionType,
+    onChangeMode,
 }: Props) {
-    const onlyShowAdvancedFilters = hasAdvancedFilters(activeFilters, unionType);
-    const [isShowingBasicFilters, setIsShowingBasicFilters] = useState(!onlyShowAdvancedFilters);
-
+    const isShowingBasicFilters = mode === 'basic';
     return (
         <SearchFiltersWrapper
             id={SEARCH_RESULTS_FILTERS_V2_INTRO}
@@ -45,7 +47,7 @@ export default function SearchFilters({
                     activeFilters={activeFilters}
                     onChangeFilters={onChangeFilters}
                     onClearFilters={onClearFilters}
-                    showAdvancedFilters={() => setIsShowingBasicFilters(false)}
+                    showAdvancedFilters={() => onChangeMode('advanced')}
                 />
             )}
             {!isShowingBasicFilters && (
@@ -55,8 +57,7 @@ export default function SearchFilters({
                     unionType={unionType}
                     onChangeFilters={onChangeFilters}
                     onChangeUnionType={onChangeUnionType}
-                    showBasicFilters={() => setIsShowingBasicFilters(true)}
-                    onlyShowAdvancedFilters={onlyShowAdvancedFilters}
+                    showBasicFilters={() => onChangeMode('basic')}
                 />
             )}
         </SearchFiltersWrapper>
