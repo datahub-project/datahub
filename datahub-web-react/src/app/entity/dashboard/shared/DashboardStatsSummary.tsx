@@ -6,6 +6,7 @@ import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
+import { countFormatter } from '../../../../utils/formatter';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
@@ -34,7 +35,7 @@ export const DashboardStatsSummary = ({
     const statsViews = [
         (!!chartCount && (
             <StatText>
-                <b>{chartCount}</b> charts
+                <b>{countFormatter(chartCount)}</b> charts
             </StatText>
         )) ||
             undefined,

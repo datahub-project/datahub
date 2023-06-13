@@ -7,6 +7,7 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { FormattedBytesStat } from './FormattedBytesStat';
+import { countFormatter } from '../../../../utils/formatter';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
@@ -43,7 +44,7 @@ export const DatasetStatsSummary = ({
         !!rowCount && (
             <StatText color={displayedColor}>
                 <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
+                <b>{countFormatter(rowCount)}</b> rows
                 {!!columnCount && (
                     <>
                         , <b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
