@@ -28,7 +28,7 @@ export const EntityProfileNavBar = ({ urn, entityType }: Props) => {
 
     return (
         <AffixWithHeight offsetTop={60}>
-            {showBrowseV2 && <ProfileNavBrowsePathV2 />}
+            {showBrowseV2 && <ProfileNavBrowsePathV2 urn={urn} type={entityType} />}
             {!showBrowseV2 && (
                 <ProfileNavBrowsePath
                     urn={urn}

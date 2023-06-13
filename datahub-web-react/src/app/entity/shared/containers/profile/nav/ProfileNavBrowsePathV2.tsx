@@ -14,22 +14,28 @@ import {
 } from '../../../../../search/utils/constants';
 import useHasMultipleEnvironmentsQuery from './useHasMultipleEnvironmentsQuery';
 import { createBrowseV2SearchFilter } from '../../../../../search/filters/utils';
+import { LineageSelector } from './LineageSelector';
 
-export default function ProfileNavBrowsePathV2() {
+interface Props {
+    urn: string;
+    type: EntityType;
+}
+
+export default function ProfileNavBrowsePathV2({ urn, type }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { entityData, entityType } = useEntityData();
-    const isBrowsable = entityRegistry.getBrowseEntityTypes().includes(entityType);
+    const { entityData } = useEntityData();
+    const isBrowsable = entityRegistry.getBrowseEntityTypes().includes(type);
     const hasEnvironment = !!entityData?.origin;
 
-    const hasMultipleEnvironments = useHasMultipleEnvironmentsQuery(entityType);
+    const hasMultipleEnvironments = useHasMultipleEnvironmentsQuery(type);
 
     function handlePathClick(filters: FacetFilterInput[]) {
         navigateToSearchUrl({ query: '*', filters, history });
     }
 
     function generateFiltersForEnvironment() {
-        const filters: FacetFilterInput[] = [{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] }];
+        const filters: FacetFilterInput[] = [{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [type] }];
         if (hasMultipleEnvironments && hasEnvironment) {
             filters.push({ field: ORIGIN_FILTER_NAME, values: [entityData?.origin as FabricType] });
         }
@@ -51,16 +57,16 @@ export default function ProfileNavBrowsePathV2() {
             <Breadcrumb style={{ fontSize: '16px' }} separator=">">
                 <BreadcrumbItem
                     disabled={!isBrowsable}
-                    onClick={() => handlePathClick([{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] }])}
+                    onClick={() => handlePathClick([{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [type] }])}
                 >
-                    {entityRegistry.getCollectionName(entityType)}
+                    {entityRegistry.getCollectionName(type)}
                 </BreadcrumbItem>
                 {hasMultipleEnvironments && hasEnvironment && (
                     <BreadcrumbItem
                         disabled={!isBrowsable}
                         onClick={() =>
                             handlePathClick([
-                                { field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] },
+                                { field: ENTITY_SUB_TYPE_FILTER_NAME, values: [type] },
                                 { field: ORIGIN_FILTER_NAME, values: [entityData?.origin as FabricType] },
                             ])
                         }
@@ -97,6 +103,7 @@ export default function ProfileNavBrowsePathV2() {
                     </BreadcrumbItem>
                 ))}
             </Breadcrumb>
+            <LineageSelector urn={urn} type={type} />
         </BrowseRow>
     );
 }
