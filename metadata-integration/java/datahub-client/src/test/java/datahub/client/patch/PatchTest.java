@@ -1,5 +1,7 @@
 package datahub.client.patch;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Edge;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.OwnershipType;
@@ -12,6 +14,7 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataset.DatasetLineageType;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.MetadataWriteResponse;
 import datahub.client.file.FileEmitter;
@@ -34,6 +37,8 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @RunWith(MockitoJUnitRunner.class)
@@ -400,6 +405,38 @@ public class PatchTest {
           .removeInputDatajobEdge(DataJobUrn.createFromString("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId2)"))
           .removeInputDatasetField(UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"))
           .removeOutputDatasetField(UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
+          .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(dataJobIOPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (URISyntaxException | IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalDataJobInputAddEdge() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      Edge inputDataset = new Edge()
+          .setDestinationUrn(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
+          .setCreated(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(UNKNOWN_ACTOR)))
+          .setLastModified(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(UNKNOWN_ACTOR)));
+      Edge outputDataset = new Edge()
+          .setDestinationUrn(DatasetUrn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
+          .setCreated(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(UNKNOWN_ACTOR)))
+          .setLastModified(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(UNKNOWN_ACTOR)));
+      Edge inputDataJob = new Edge()
+          .setDestinationUrn(DataJobUrn.createFromString("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId2)"))
+          .setCreated(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(UNKNOWN_ACTOR)))
+          .setLastModified(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(UNKNOWN_ACTOR)));
+      MetadataChangeProposal dataJobIOPatch = new DataJobInputOutputPatchBuilder()
+          .urn(UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(orchestrator,flowId,cluster),jobId)"))
+          .addEdge(inputDataset, LineageDirection.UPSTREAM)
+          .addEdge(outputDataset, LineageDirection.DOWNSTREAM)
+          .addEdge(inputDataJob, LineageDirection.UPSTREAM)
           .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(dataJobIOPatch);
 
