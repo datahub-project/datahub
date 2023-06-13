@@ -6,6 +6,7 @@ import { EntityType, FacetFilterInput } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import AdvancedFilterCloseButton from './AdvancedFilterCloseButton';
 import { FilterContainer } from './styles';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 const FilterFieldLabel = styled.span`
     font-weight: 600;
@@ -92,7 +93,7 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
                                 <FilterValuesWrapper>
                                     {entityTypeToSubType[entityType].map((v, index) => (
                                         <>
-                                            {v}
+                                            {capitalizeFirstLetterOnly(v)}
                                             {index !== entityTypeToSubType[entityType].length - 1 && ', '}
                                         </>
                                     ))}
