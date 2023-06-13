@@ -1,11 +1,10 @@
-import googleAnalytics from '@analytics/google-analytics';
-import {Event, EventType} from '../event';
+import googleAnalyticsV3 from '@analytics/google-analytics-v3'
+import { Event, EventType } from '../event';
 import analyticsConfig from '../../../conf/analytics';
 
-const ga4Configs = analyticsConfig.googleAnalyticsV4;
-const isEnabled: boolean = ga4Configs || false;
-const isGA4: boolean = ga4Configs || false;
-const measurementIds = isEnabled ? ga4Configs.measurementIds : undefined;
+const ga3Configs = analyticsConfig.googleAnalytics;
+const isEnabled: boolean = ga3Configs || false;
+const trackingId = isEnabled ? ga3Configs.trackingId : undefined;
 
 const getLabelFromEvent = (event: Event) => {
     switch (event.type) {
@@ -20,17 +19,21 @@ const getLabelFromEvent = (event: Event) => {
     }
 };
 
-let wrappedGoogleAnalyticsPlugin;
+let wrappedGoogleAnalyticsV3Plugin;
 if (isEnabled) {
-    const googleAnalyticsPlugin = googleAnalytics({ measurementIds })
+    /**
+     * Init default GA3 plugin
+     */
+    const googleAnalyticsPlugin = googleAnalyticsV3({ trackingId });
+
     /**
      * Lightweight wrapper on top of the default google analytics plugin
      * to transform DataHub Analytics Events into the Google Analytics event
      * format.
      */
-    wrappedGoogleAnalyticsPlugin = {
+    wrappedGoogleAnalyticsV3Plugin = {
         ...googleAnalyticsPlugin,
-        track: ({payload, config, instance}) => {
+        track: ({ payload, config, instance }) => {
             const modifiedProperties = {
                 label: getLabelFromEvent(payload.properties as Event),
                 category: 'UserActions',
@@ -49,5 +52,5 @@ if (isEnabled) {
 }
 export default {
     isEnabled,
-    plugin: isEnabled && wrappedGoogleAnalyticsPlugin,
+    plugin: isEnabled && wrappedGoogleAnalyticsV3Plugin,
 };
