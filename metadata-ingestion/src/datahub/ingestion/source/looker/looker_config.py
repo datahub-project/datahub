@@ -1,7 +1,7 @@
 import dataclasses
 import os
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import pydantic
 from pydantic import Field, validator
@@ -135,7 +135,8 @@ class LookerDashboardSourceConfig(
         description="Patterns for selecting chart ids that are to be included",
     )
     include_deleted: bool = Field(
-        False, description="Whether to include deleted dashboards."
+        False,
+        description="Whether to include deleted dashboards and looks.",
     )
     extract_owners: bool = Field(
         True,
@@ -186,9 +187,28 @@ class LookerDashboardSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
+    extract_independent_looks: bool = Field(
+        False,
+        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
+    )
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
         cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[str]:
         return v or values.get("base_url")
+
+    @validator("extract_independent_looks", always=True)
+    def stateful_ingestion_should_be_enabled(
+        cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
+    ) -> Optional[bool]:
+
+        stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
+            StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
+        )
+        if v is True and (
+            stateful_ingestion is None or stateful_ingestion.enabled is False
+        ):
+            raise ValueError("stateful_ingestion.enabled should be set to true")
+
+        return v

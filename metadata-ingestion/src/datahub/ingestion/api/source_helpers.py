@@ -1,5 +1,4 @@
 import logging
-from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -9,11 +8,14 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     TypeVar,
     Union,
 )
 
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -25,6 +27,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     TagKeyClass,
 )
+from datahub.telemetry import telemetry
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
@@ -166,68 +169,136 @@ def auto_materialize_referenced_tags(
 
 
 def auto_browse_path_v2(
-    drop_dirs: Sequence[str],
     stream: Iterable[MetadataWorkUnit],
+    *,
+    dry_run: bool = False,
+    drop_dirs: Sequence[str] = (),
+    platform_key: Optional[PlatformKey] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate BrowsePathsV2 from Container and BrowsePaths aspects."""
+    """Generate BrowsePathsV2 from Container and BrowsePaths aspects.
 
-    ignore_urns: Set[str] = set()
-    legacy_browse_paths: Dict[str, List[str]] = defaultdict(list)
-    container_urns: Set[str] = set()
-    parent_container_map: Dict[str, str] = {}
-    children: Dict[str, List[str]] = defaultdict(list)
-    for wu in stream:
-        yield wu
+    Generates browse paths v2 on demand, rather than waiting for end of ingestion,
+    for better UI experience while ingestion is running.
 
-        urn = wu.get_urn()
-        if guess_entity_type(urn) == "container":
-            container_urns.add(urn)
+    To do this, assumes entities in container structure arrive in topological order
+    and that all relevant aspects (Container, BrowsePaths, BrowsePathsV2) for an urn
+    arrive together in a batch.
 
-        container_aspects = wu.get_aspects_of_type(ContainerClass)
-        for c_aspect in container_aspects:
-            parent = c_aspect.container
-            parent_container_map[urn] = parent
-            children[parent].append(urn)
+    Calculates the correct BrowsePathsV2 at end of workunit stream,
+    and emits "corrections", i.e. a final BrowsePathsV2 for any urns that have changed.
+    """
 
-        browse_path_aspects = wu.get_aspects_of_type(BrowsePathsClass)
-        for b_aspect in browse_path_aspects:
-            if b_aspect.paths:
-                path = b_aspect.paths[0]  # Only take first path
-                legacy_browse_paths[urn] = [
-                    p for p in path.strip("/").split("/") if p.strip() not in drop_dirs
+    # For telemetry, to see if our sources violate assumptions
+    num_out_of_order = 0
+    num_out_of_batch = 0
+
+    # Set for all containers and urns with a Container aspect
+    # Used to construct container paths while iterating through stream
+    # Assumes topological order of entities in stream
+    paths: Dict[str, List[BrowsePathEntryClass]] = {}
+
+    emitted_urns: Set[str] = set()
+    containers_used_as_parent: Set[str] = set()
+    for urn, batch in _batch_workunits_by_urn(stream):
+        container_path: Optional[List[BrowsePathEntryClass]] = None
+        legacy_path: Optional[List[BrowsePathEntryClass]] = None
+        has_browse_path_v2 = False
+
+        for wu in batch:
+            yield wu
+            if not wu.is_primary_source:
+                continue
+
+            container_aspect = wu.get_aspect_of_type(ContainerClass)
+            if container_aspect:
+                parent_urn = container_aspect.container
+                containers_used_as_parent.add(parent_urn)
+                paths[urn] = [
+                    *paths.setdefault(parent_urn, []),  # Guess parent has no parents
+                    BrowsePathEntryClass(id=parent_urn, urn=parent_urn),
+                ]
+                container_path = paths[urn]
+
+                if urn in containers_used_as_parent:
+                    # Topological order invariant violated; we've used the previous value of paths[urn]
+                    # TODO: Add sentry alert
+                    num_out_of_order += 1
+
+            browse_path_aspect = wu.get_aspect_of_type(BrowsePathsClass)
+            if browse_path_aspect and browse_path_aspect.paths:
+                legacy_path = [
+                    BrowsePathEntryClass(id=p.strip())
+                    for p in browse_path_aspect.paths[0].strip("/").split("/")
+                    if p.strip() and p.strip() not in drop_dirs
                 ]
 
-        if wu.get_aspects_of_type(BrowsePathsV2Class):
-            ignore_urns.add(urn)
+            if wu.get_aspect_of_type(BrowsePathsV2Class):
+                has_browse_path_v2 = True
 
-    paths: Dict[str, List[str]] = {}  # Maps urn -> list of urns in path
-    # Yield browse paths v2 in topological order, starting with root containers
-    processed_urns = set()
-    nodes = container_urns - parent_container_map.keys()
-    while nodes:
-        node = nodes.pop()
-        nodes.update(children[node])
+        path = container_path or legacy_path
+        if (path is not None or has_browse_path_v2) and urn in emitted_urns:
+            # Batch invariant violated
+            # TODO: Add sentry alert
+            num_out_of_batch += 1
+        elif has_browse_path_v2:
+            emitted_urns.add(urn)
+        elif path is not None:
+            emitted_urns.add(urn)
+            if not dry_run:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=BrowsePathsV2Class(
+                        path=_prepend_platform_instance(path, platform_key)
+                    ),
+                ).as_workunit()
+        elif urn not in emitted_urns and guess_entity_type(urn) == "container":
+            # Root containers have no Container aspect, so they are not handled above
+            emitted_urns.add(urn)
+            if not dry_run:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=BrowsePathsV2Class(
+                        path=_prepend_platform_instance([], platform_key)
+                    ),
+                ).as_workunit()
 
-        if node not in parent_container_map:  # root
-            paths[node] = []
-        else:
-            parent = parent_container_map[node]
-            paths[node] = [*paths[parent], parent]
-        if node not in ignore_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=node,
-                aspect=BrowsePathsV2Class(
-                    path=[BrowsePathEntryClass(id=urn, urn=urn) for urn in paths[node]]
-                ),
-            ).as_workunit()
-            processed_urns.add(node)
+    if num_out_of_batch or num_out_of_order:
+        properties = {
+            "platform": platform_key.platform if platform_key else None,
+            "has_platform_instance": bool(platform_key.instance)
+            if platform_key
+            else False,
+            "num_out_of_batch": num_out_of_batch,
+            "num_out_of_order": num_out_of_order,
+        }
+        telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
 
-    # Yield browse paths v2 based on browse paths v1 (legacy)
-    # Only done if the entity is not part of a container hierarchy
-    for urn in legacy_browse_paths.keys() - processed_urns - ignore_urns:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=BrowsePathsV2Class(
-                path=[BrowsePathEntryClass(id=p) for p in legacy_browse_paths[urn]]
-            ),
-        ).as_workunit()
+
+def _batch_workunits_by_urn(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[Tuple[str, List[MetadataWorkUnit]]]:
+    batch: List[MetadataWorkUnit] = []
+    batch_urn: Optional[str] = None
+    for wu in stream:
+        if wu.get_urn() != batch_urn:
+            if batch_urn is not None:
+                yield batch_urn, batch
+            batch = []
+
+        batch.append(wu)
+        batch_urn = wu.get_urn()
+
+    if batch_urn is not None:
+        yield batch_urn, batch
+
+
+def _prepend_platform_instance(
+    entries: List[BrowsePathEntryClass], platform_key: Optional[PlatformKey]
+) -> List[BrowsePathEntryClass]:
+    if platform_key and platform_key.instance:
+        urn = make_dataplatform_instance_urn(
+            platform_key.platform, platform_key.instance
+        )
+        return [BrowsePathEntryClass(id=urn, urn=urn)] + entries
+
+    return entries

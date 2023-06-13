@@ -67,7 +67,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
             TAG_PROPERTIES_ASPECT_NAME, mapTagProperties(input));
         String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType)))) {
+        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
           log.warn("Technical owner does not exist, defaulting to None ownership.");
           ownershipType = OwnershipType.NONE;
         }

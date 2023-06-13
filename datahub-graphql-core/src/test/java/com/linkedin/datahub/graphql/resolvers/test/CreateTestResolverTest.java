@@ -11,7 +11,6 @@ import com.linkedin.metadata.key.TestKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import graphql.schema.DataFetchingEnvironment;
@@ -92,7 +91,8 @@ public class CreateTestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.eq(false));
     CreateTestResolver resolver = new CreateTestResolver(mockClient);
 
     // Execute resolver
