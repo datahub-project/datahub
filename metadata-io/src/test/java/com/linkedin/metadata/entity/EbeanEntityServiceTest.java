@@ -51,7 +51,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
-    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, false,
+    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true,
         _mockUpdateIndicesService, preProcessHooks);
     _retentionService = new EbeanRetentionService(_entityService, server, 1000);
     _entityService.setRetentionService(_retentionService);
