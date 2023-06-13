@@ -1425,6 +1425,56 @@ def test_independent_datasets_extraction(
 
     register_mock_api(
         request_mock=requests_mock,
+        override_data={
+            "https://api.powerbi.com/v1.0/myorg/groups": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "@odata.count": 3,
+                    "value": [
+                        {
+                            "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                            "isReadOnly": True,
+                            "name": "demo-workspace",
+                            "type": "Workspace",
+                        },
+                    ],
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "workspaces": [
+                        {
+                            "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                            "name": "demo-workspace",
+                            "state": "Active",
+                            "datasets": [
+                                {
+                                    "id": "91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
+                                    "tables": [
+                                        {
+                                            "name": "employee_ctc",
+                                            "source": [
+                                                {
+                                                    "expression": "dummy",
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                },
+                            ],
+                        },
+                    ]
+                },
+            },
+            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {"value": []},
+            },
+        },
     )
 
     pipeline = Pipeline.create(
