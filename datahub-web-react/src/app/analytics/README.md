@@ -48,15 +48,15 @@ const config: any = {
 
 ### Google Analytics
 
-**Disclaimers**
-
--   This plugin requires use of Universal Analytics and does not yet support GA4. To create a Universal Analytics Property, follow [this guide](https://www.analyticsmania.com/other-posts/how-to-create-a-universal-analytics-property/).
--   Google Analytics lacks robust support for custom event properties. For that reason many of the DataHub events discussed above will not be fully populated. Instead, we map certain fields of the DataHub event to the standard `category`, `action`, `label` fields required by GA.
 
 1. Open `datahub-web-react/src/conf/analytics.ts`
-2. Uncomment the `googleAnalytics` field within the `config` object.
-3. Replace the sample `trackingId` with the one provided by Google Analytics.
+2. Uncomment the `googleAnalytics` field within the `config` object for GA3 and `googleAnalyticsV4` if you want to use GA4.
+3. Replace the sample `trackingId` or `measurementIds` with the one provided by Google Analytics.
 4. Rebuild & redeploy `datahub-frontend-react` to start tracking.
+
+> NOTE: It is possible to use both versions of GA.
+
+Example for GA3:
 
 ```typescript
 const config: any = {
