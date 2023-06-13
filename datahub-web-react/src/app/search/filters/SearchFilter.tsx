@@ -6,16 +6,6 @@ import SearchFilterView from './SearchFilterView';
 import { ENTITY_FILTER_NAME } from '../utils/constants';
 import EntityTypeFilter from './EntityTypeFilter/EntityTypeFilter';
 
-export const IconWrapper = styled.div`
-    margin-right: 8px;
-    display: flex;
-
-    svg {
-        height: 14px;
-        width: 14px;
-    }
-`;
-
 interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];

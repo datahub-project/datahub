@@ -40,17 +40,6 @@ const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     `}
 `;
 
-const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
-    display: flex;
-    flex: 1;
-
-    ${(props) =>
-        props.showUpdatedStyles &&
-        `
-        overflow: hidden;
-    `}
-`;
-
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;

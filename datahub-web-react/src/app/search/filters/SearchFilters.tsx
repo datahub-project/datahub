@@ -6,7 +6,6 @@ import { FilterMode, FilterModes, UnionType } from '../utils/constants';
 import AdvancedFilters from './AdvancedFilters';
 import BasicFilters from './BasicFilters';
 import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
-import { FilterMode } from '../utils/types';
 
 const SearchFiltersWrapper = styled.div<{ removePadding: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};

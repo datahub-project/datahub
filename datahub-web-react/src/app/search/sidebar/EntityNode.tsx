@@ -14,6 +14,7 @@ import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
 import { BrowseProvider, useEntityAggregation, useEntityType, useIsEntitySelected } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
+import { useHasFilterField } from './SidebarContext';
 
 const Count = styled(Typography.Text)`
     font-size: 12px;
