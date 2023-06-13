@@ -27,7 +27,7 @@ def read_delta_table(
             without_files=not delta_lake_config.require_files,
         )
     except TableNotFoundError as e:
-        if "Not a Delta table" not in str(e):
+        if "Not a Delta table" in str(e):
             pass
         else:
             raise e
