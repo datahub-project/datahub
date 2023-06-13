@@ -390,8 +390,6 @@ class PowerBiAPI:
             cur_workspace.datasets = self._get_workspace_datasets(
                 cur_workspace.scan_result
             )
-            for value in cur_workspace.datasets.values():
-                logger.info(f"Mohd = {value.name}")
 
             # Fetch endorsements tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:

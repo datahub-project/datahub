@@ -1151,9 +1151,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         )
 
     def extract_datasets_as_containers(self):
-        if self.source_config.extract_datasets_to_containers is False:
-            return
-
         for dataset in self.mapper.processed_datasets:
             yield from self.mapper.generate_container_for_dataset(dataset)
 
@@ -1203,7 +1200,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             ):
                 yield work_unit
 
-        yield from self.extract_datasets_as_containers()
+        if self.source_config.extract_datasets_to_containers:
+            yield from self.extract_datasets_as_containers()
+
         yield from self.extract_independent_datasets(workspace)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
