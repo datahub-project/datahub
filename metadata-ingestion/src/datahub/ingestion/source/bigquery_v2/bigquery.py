@@ -13,7 +13,6 @@ from google.cloud.bigquery.table import TableListItem
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
-    make_dataplatform_instance_urn,
     make_dataset_urn,
     make_tag_urn,
     set_dataset_urn_to_lower,
@@ -106,7 +105,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import (
-    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
@@ -142,7 +140,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Platform instance is pre-set to the BigQuery project id",
+    "Not supported since BigQuery project ids are globally unique",
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
@@ -400,24 +398,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             return test_report
 
-    def get_dataplatform_instance_aspect(
-        self, dataset_urn: str, project_id: str
-    ) -> MetadataWorkUnit:
-        # If we are a platform instance based source, emit the instance aspect
-        aspect = DataPlatformInstanceClass(
-            platform=make_data_platform_urn(self.platform),
-            instance=make_dataplatform_instance_urn(self.platform, project_id),
-        )
-        return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=aspect
-        ).as_workunit()
-
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.platform_instance,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -426,7 +411,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.platform_instance,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -1003,11 +987,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
-        dpi_aspect = self.get_dataplatform_instance_aspect(
-            dataset_urn=dataset_urn, project_id=project_id
-        )
-        if dpi_aspect:
-            yield dpi_aspect
 
         subTypes = SubTypes(typeNames=sub_types)
         yield MetadataChangeProposalWrapper(
