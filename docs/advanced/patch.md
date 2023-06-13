@@ -25,7 +25,6 @@ With patch based semantics for proposals, targeted changes to single fields or v
 ```
 
 </TabItem>
-</TabItem>
 <TabItem value="customPropertiesJavaRemove" label="Java SDK: Add and remove custom properties">
 
 ```java
