@@ -4,7 +4,8 @@
     "private": true,
     "dependencies": {
         "@analytics/amplitude": "0.0.3",
-        "@analytics/google-analytics": "^0.5.2",
+        "@analytics/google-analytics": "^1.0.7",
+        "@analytics/google-analytics-v3": "^0.6.1",
         "@analytics/mixpanel": "^0.3.1",
         "@ant-design/colors": "^5.0.0",
         "@ant-design/icons": "^4.3.0",
