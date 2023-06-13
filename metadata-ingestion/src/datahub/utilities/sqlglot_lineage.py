@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import logging
 import pathlib
@@ -38,7 +39,7 @@ class FrozenModel(BaseModel, frozen=True):
 
 class TableName(FrozenModel):
     database: Optional[str]
-    db_schema: Optional[str] = pydantic.Field(alias="schema")
+    db_schema: Optional[str]
     table: str
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
@@ -57,7 +58,7 @@ class TableName(FrozenModel):
         # TODO: Do we need dialect-specific quoting rules?
         return cls(
             database=table.catalog or default_db,
-            schema=table.db or default_schema,
+            db_schema=table.db or default_schema,
             table=table.this.name,
         )
 
@@ -77,7 +78,7 @@ class ColumnLineageInfo(FrozenModel):
     upstreams: List[ColumnRef]
 
     # Logic for this column, as a SQL expression.
-    logic: Optional[str] = None
+    logic: Optional[str] = pydantic.Field(exclude=True)
 
 
 class SqlParsingResult(BaseModel):
@@ -176,9 +177,10 @@ class SchemaResolver:
         if self.platform == "bigquery":
             # TODO check that this is the right way to do it
             # Normalize shard numbers and other bigquery weirdness.
-            table_name = BigqueryTableIdentifier.from_string_name(
-                table_name
-            ).get_table_name()
+            with contextlib.suppress(IndexError):
+                table_name = BigqueryTableIdentifier.from_string_name(
+                    table_name
+                ).get_table_name()
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
@@ -208,6 +210,9 @@ class SchemaResolver:
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
             return self._schema_cache[urn]
+
+        # TODO: For bigquery partitioned tables, add the pseudo-column _PARTITIONTIME
+        # or _PARTITIONDATE where appropriate.
 
         if self.graph:
             schema_info = self._fetch_schema_info(self.graph, urn)
@@ -308,11 +313,19 @@ def _column_level_lineage(
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
+        output_col: str
         for output_col, original_col_expression in output_columns:
             # print(f"output column: {output_col}")
             if output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
+                continue
+
+            if dialect == "bigquery" and output_col.upper() in {
+                "_PARTITIONTIME",
+                "_PARTITIONDATE",
+            }:
+                # These are not real columns, just a way to filter by partition.
                 continue
 
             lineage_node = sqlglot.lineage.lineage(
