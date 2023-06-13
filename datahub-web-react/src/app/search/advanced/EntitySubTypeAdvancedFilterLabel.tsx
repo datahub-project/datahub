@@ -34,13 +34,13 @@ const ConditionWrapper = styled.div`
     background: ${ANTD_GRAY[2]};
 `;
 
-function getEntityTypeToSubType(nestedSubTypes?: string[]) {
-    const entityTypeToSubType = {};
+function getEntityTypeToSubType(nestedSubTypes?: string[]): { [key: string]: string[] } {
+    const entityTypeToSubTypes = {};
     nestedSubTypes?.forEach((nestedSubType) => {
         const [entityType, subType] = nestedSubType.split(FILTER_DELIMITER);
-        entityTypeToSubType[entityType] = [...(entityTypeToSubType[entityType] || []), subType];
+        entityTypeToSubTypes[entityType] = [...(entityTypeToSubTypes[entityType] || []), subType];
     });
-    return entityTypeToSubType;
+    return entityTypeToSubTypes;
 }
 
 interface Props {
@@ -60,7 +60,7 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
         () => filter.values?.filter((value) => value.includes(FILTER_DELIMITER)),
         [filter.values],
     );
-    const entityTypeToSubType = useMemo(() => getEntityTypeToSubType(nestedSubTypes), [nestedSubTypes]);
+    const entityTypeToSubTypes = useMemo(() => getEntityTypeToSubType(nestedSubTypes), [nestedSubTypes]);
 
     return (
         <FilterContainer isCompact={isCompact} isDisabled>
@@ -79,29 +79,25 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
                         </FilterValuesWrapper>
                     </>
                 )}
-                {Object.keys(entityTypeToSubType).length > 0 && (
+                {Object.entries(entityTypeToSubTypes).map(([entityType, subTypes]) => (
                     <>
-                        {Object.keys(entityTypeToSubType).map((entityType) => (
-                            <>
-                                <FilterFieldLabel>Type</FilterFieldLabel>
-                                <ConditionWrapper>is</ConditionWrapper>
-                                <FilterValuesWrapper>
-                                    {entityRegistry.getCollectionName(entityType as EntityType)}
-                                </FilterValuesWrapper>
-                                <FilterFieldLabel>SubType</FilterFieldLabel>
-                                <ConditionWrapper>is any of</ConditionWrapper>
-                                <FilterValuesWrapper>
-                                    {entityTypeToSubType[entityType].map((v, index) => (
-                                        <>
-                                            {capitalizeFirstLetterOnly(v)}
-                                            {index !== entityTypeToSubType[entityType].length - 1 && ', '}
-                                        </>
-                                    ))}
-                                </FilterValuesWrapper>
-                            </>
-                        ))}
+                        <FilterFieldLabel>Type</FilterFieldLabel>
+                        <ConditionWrapper>is</ConditionWrapper>
+                        <FilterValuesWrapper>
+                            {entityRegistry.getCollectionName(entityType as EntityType)}
+                        </FilterValuesWrapper>
+                        <FilterFieldLabel>SubType</FilterFieldLabel>
+                        <ConditionWrapper>is any of</ConditionWrapper>
+                        <FilterValuesWrapper>
+                            {subTypes.map((v, index) => (
+                                <>
+                                    {capitalizeFirstLetterOnly(v)}
+                                    {index !== subTypes.length - 1 && ', '}
+                                </>
+                            ))}
+                        </FilterValuesWrapper>
                     </>
-                )}
+                ))}
                 {!disabled && <AdvancedFilterCloseButton onClose={onClose} />}
             </FilterWrapper>
         </FilterContainer>
