@@ -33,12 +33,11 @@ export const SearchPage = () => {
     const searchVersion = useSearchVersion();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
+    const { filterMode, filterModeRef, setFilterMode } = useFilterMode(filters, unionType);
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
-
-    const { filterMode, setFilterMode } = useFilterMode(filters, unionType);
 
     const {
         data,
@@ -151,10 +150,11 @@ export const SearchPage = () => {
             entityTypes,
             filterFields,
             filterCount: filters.length,
-            filterMode,
+            // Only track changes to the filters, ignore toggling the mode by itself
+            filterMode: filterModeRef.current,
             searchVersion,
         });
-    }, [filterMode, filters, loading, query, searchVersion, total]);
+    }, [filters, filterModeRef, loading, query, searchVersion, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state

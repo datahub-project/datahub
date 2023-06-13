@@ -1,7 +1,7 @@
 import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
-import { FilterMode } from '../search/utils/types';
+import { FilterMode } from '../search/utils/constants';
 
 /**
  * Valid event types.

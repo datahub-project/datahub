@@ -120,3 +120,10 @@ export enum UnionType {
 }
 
 export const UNIT_SEPARATOR = '␟';
+
+export const FilterModes = {
+    BASIC: 'basic',
+    ADVANCED: 'advanced',
+} as const;
+
+export type FilterMode = typeof FilterModes[keyof typeof FilterModes];
