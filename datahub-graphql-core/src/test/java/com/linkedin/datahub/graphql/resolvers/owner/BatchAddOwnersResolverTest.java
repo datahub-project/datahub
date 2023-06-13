@@ -56,7 +56,7 @@ public class BatchAddOwnersResolverTest {
     Mockito.when(mockService.exists(Urn.createFromString(TEST_OWNER_URN_2))).thenReturn(true);
 
     Mockito.when(mockService.exists(Urn.createFromString(
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))))
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))))
         .thenReturn(true);
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
@@ -68,12 +68,12 @@ public class BatchAddOwnersResolverTest {
             TEST_OWNER_URN_1,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER)),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())),
         new OwnerInput(
             TEST_OWNER_URN_2,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))),
         null,
         ImmutableList.of(
             new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
@@ -119,11 +119,11 @@ public class BatchAddOwnersResolverTest {
     Mockito.when(mockService.exists(Urn.createFromString(TEST_OWNER_URN_2))).thenReturn(true);
 
     Mockito.when(mockService.exists(Urn.createFromString(
-        OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER))))
+        OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name()))))
         .thenReturn(true);
 
     Mockito.when(mockService.exists(Urn.createFromString(
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))))
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))))
         .thenReturn(true);
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
@@ -136,12 +136,12 @@ public class BatchAddOwnersResolverTest {
             TEST_OWNER_URN_1,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER)),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())),
         new OwnerInput(
             TEST_OWNER_URN_2,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))),
         null,
         ImmutableList.of(
           new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
@@ -183,12 +183,12 @@ public class BatchAddOwnersResolverTest {
             TEST_OWNER_URN_1,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER)),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())),
         new OwnerInput(
             TEST_OWNER_URN_2,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))),
         null,
         ImmutableList.of(
             new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
@@ -228,12 +228,12 @@ public class BatchAddOwnersResolverTest {
             TEST_OWNER_URN_1,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER)),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())),
         new OwnerInput(
             TEST_OWNER_URN_2,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))),
         null,
         ImmutableList.of(
             new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
@@ -257,12 +257,12 @@ public class BatchAddOwnersResolverTest {
             TEST_OWNER_URN_1,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER)),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())),
         new OwnerInput(
             TEST_OWNER_URN_2,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))),
         null,
         ImmutableList.of(
             new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
@@ -292,12 +292,12 @@ public class BatchAddOwnersResolverTest {
             TEST_OWNER_URN_1,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER)),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())),
         new OwnerInput(
             TEST_OWNER_URN_2,
             OwnerEntityType.CORP_USER,
             com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER,
-            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER))),
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name()))),
         null,
         ImmutableList.of(
             new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
