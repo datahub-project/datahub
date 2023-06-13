@@ -5,16 +5,9 @@ from deltalake import DeltaTable
 
 try:
     from deltalake.exceptions import TableNotFoundError
-
-    DELTALAKE_VERSION_GTE_0_10_0 = True
-
-
 except ImportError:
-    # For deltalake < 0.10.0
-    from deltalake import PyDeltaTableError  # type: ignore[attr-defined]
-
-    DELTALAKE_VERSION_GTE_0_10_0 = False
-
+    # For deltalake < 0.10.0.
+    from deltalake import PyDeltaTableError as TableNotFoundError  # type: ignore
 
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 
@@ -33,12 +26,8 @@ def read_delta_table(
             storage_options=opts,
             without_files=not delta_lake_config.require_files,
         )
-    except Exception as e:
-        if (DELTALAKE_VERSION_GTE_0_10_0 and isinstance(e, TableNotFoundError)) or (
-            not DELTALAKE_VERSION_GTE_0_10_0
-            and isinstance(e, PyDeltaTableError)
-            and "Not a Delta table" in str(e)
-        ):
+    except TableNotFoundError as e:
+        if "Not a Delta table" not in str(e):
             pass
         else:
             raise e
