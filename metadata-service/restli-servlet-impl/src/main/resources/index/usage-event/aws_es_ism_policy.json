@@ -10,7 +10,7 @@
         "actions": [
           {
             "rollover": {
-              "max_size": "5gb",
+              "min_size": "5gb",
               "min_index_age": "1d"
             }
           }
