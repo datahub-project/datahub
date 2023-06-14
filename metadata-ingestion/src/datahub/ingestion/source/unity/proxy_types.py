@@ -143,6 +143,10 @@ class TableReference:
     def qualified_table_name(self) -> str:
         return f"{self.catalog}.{self.schema}.{self.table}"
 
+    @property
+    def external_path(self) -> str:
+        return f"{self.catalog}/{self.schema}/{self.table}"
+
 
 @dataclass
 class Table(CommonProperty):

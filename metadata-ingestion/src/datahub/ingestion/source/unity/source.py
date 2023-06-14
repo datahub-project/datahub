@@ -3,6 +3,7 @@ import re
 import time
 from datetime import timedelta
 from typing import Dict, Iterable, List, Optional, Set
+from urllib.parse import urljoin
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -135,6 +136,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             config.profiling.warehouse_id,
             report=self.report,
         )
+        self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
 
         # Determine the platform_instance_name
         self.platform_instance_name = (
@@ -393,6 +395,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             domain_urn=domain_urn,
             description=schema.comment,
             owner_urn=self.get_owner_urn(schema.owner),
+            external_url=f"{self.external_url_base}/{schema.catalog.name}/{schema.name}",
         )
 
     def gen_metastore_containers(
@@ -408,6 +411,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             domain_urn=domain_urn,
             description=metastore.comment,
             owner_urn=self.get_owner_urn(metastore.owner),
+            external_url=self.external_url_base,
         )
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
@@ -423,6 +427,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             parent_container_key=metastore_container_key,
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
+            external_url=f"{self.external_url_base}/{catalog.name}",
         )
 
     def gen_schema_key(self, schema: Schema) -> PlatformKey:
@@ -506,6 +511,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             customProperties=custom_properties,
             created=created,
             lastModified=last_modified,
+            externalUrl=f"{self.external_url_base}/{table.ref.external_path}",
         )
 
     def _create_table_operation_aspect(self, table: Table) -> OperationClass:
