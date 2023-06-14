@@ -1,3 +1,4 @@
+from collections import defaultdict
 import contextlib
 import functools
 import logging
@@ -11,6 +12,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.qualify
+from sqlglot.dialects.dialect import RESOLVES_IDENTIFIERS_AS_UPPERCASE
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -272,24 +274,102 @@ def _column_level_lineage(
     input_tables: Dict[TableName, SchemaInfo],
     output_table: Optional[TableName],
 ) -> List[ColumnLineageInfo]:
-    sqlglot_db_schema = sqlglot.MappingSchema()
+    use_case_insensitive_cols = dialect in {
+        # Column identifiers are case-insensitive in BigQuery, so we need to
+        # do a normalization step beforehand to make sure it's resolved correctly.
+        "bigquery",
+        # Our snowflake source lowercases column identifiers, so we are forced
+        # to do fuzzy (case-insensitive) resolution instead of exact resolution.
+        "snowflake",
+    }
+
+    sqlglot_db_schema = sqlglot.MappingSchema(
+        dialect=dialect,
+        # We do our own normalization, so don't let sqlglot do it.
+        normalize=False,
+    )
+    table_schema_normalized_mapping: Dict[TableName, Dict[str, str]] = defaultdict(dict)
     for table, table_schema in input_tables.items():
+        normalized_table_schema: SchemaInfo = {}
+        for col, col_type in table_schema.items():
+            if use_case_insensitive_cols:
+                col_normalized = (
+                    # This is required to match Sqlglot's behavior.
+                    col.upper()
+                    if dialect in RESOLVES_IDENTIFIERS_AS_UPPERCASE
+                    else col.lower()
+                )
+            else:
+                col_normalized = col
+
+            table_schema_normalized_mapping[table][col_normalized] = col
+            normalized_table_schema[col_normalized] = col_type
+
         sqlglot_db_schema.add_table(
             table.as_sqlglot_table(),
-            column_mapping=table_schema,
+            column_mapping=normalized_table_schema,
+        )
+        # TODO undo this translation when we're done
+
+    # TODO: Longer term solution: We'll also need to monkey-patch the column qualifier to use a
+    # case-insensitive fallback, but not do it if there's a real match available.
+
+    if use_case_insensitive_cols:
+
+        def _sqlglot_force_column_normalizer(
+            node: sqlglot.exp.Expression, dialect: "sqlglot.DialectType" = None
+        ) -> sqlglot.exp.Expression:
+            if isinstance(node, sqlglot.exp.Column):
+                node.this.set("quoted", False)
+
+            return node
+
+        logger.debug(
+            "Prior to case normalization sql %s",
+            statement.sql(pretty=True, dialect=dialect),
+        )
+        statement = statement.transform(
+            _sqlglot_force_column_normalizer, dialect, copy=False
         )
 
+    # TODO: Fix this logic.
+    # if dialect == "bigquery":
+    #     # BigQuery has specific implicit alias rules for SELECTs.
+    #     # https://cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax#implicit_aliases
+    #     # We want to emulate this behavior.
+
+    #     def _sqlglot_tweak_bigquery_column_aliases(
+    #         node: sqlglot.exp.Expression, dialect: "sqlglot.DialectType" = None
+    #     ) -> sqlglot.exp.Expression:
+    #         if isinstance(node, sqlglot.exp.Column):
+    #             if "uri" in str(node):
+    #                 breakpoint()
+    #             pass
+
+    #         return node
+
+    #     logger.debug(
+    #         "Before column alias normalization sql %s",
+    #         statement.sql(pretty=True, dialect=dialect),
+    #     )
+    #     statement = statement.transform(
+    #         _sqlglot_tweak_bigquery_column_aliases, dialect, copy=False
+    #     )
+
     # Optimize the statement + qualify column references.
-    # TODO: We'll also need to monkey-patch the column qualifier to use a
-    # case-insensitive fallback.
+    # identify = dialect == "snowflake"  # Avoid a bug in Sqlglot's snowflake handling.
+    logger.debug(
+        "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
+    )
     statement = sqlglot.optimizer.qualify.qualify(
         statement,
         dialect=dialect,
         schema=sqlglot_db_schema,
         validate_qualify_columns=False,
-        # This is critical to avoid casing discrepancies with Snowflake.
         identify=True,
     )
+    logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
+    # breakpoint()
 
     if not isinstance(
         statement,
@@ -331,9 +411,8 @@ def _column_level_lineage(
             lineage_node = sqlglot.lineage.lineage(
                 output_col,
                 statement,
+                dialect=dialect,
                 schema=sqlglot_db_schema,
-                # TODO: Determine if this is actually necessary?
-                identify=True,
             )
             # pathlib.Path("sqlglot.html").write_text(
             #     str(lineage_node.to_html(dialect=dialect))
@@ -351,10 +430,10 @@ def _column_level_lineage(
                     table_ref = TableName.from_sqlglot_table(
                         node.expression, dialect=dialect
                     )
-                    col = node.name
-                    if "." in col:
-                        # TODO: Not sure if this is enough, in case of a fully-qualified column name.
-                        col = col.split(".", maxsplit=1)[1]
+
+                    # Parse the column name out of the node name.
+                    # Sqlglot calls .sql(), so we do the inverse.
+                    col = sqlglot.parse_one(node.name).this.name
                     # print(f"-> depends on {table_ref} . {col}")
 
                     direct_col_upstreams.add(ColumnRef(table=table_ref, column=col))
@@ -388,10 +467,20 @@ def _column_level_lineage(
 
     except sqlglot.errors.OptimizeError as e:
         raise SqlOptimizerError(
-            f"sqlglot failed to optimize; likely missing table schema info: {e}"
+            f"sqlglot failed to resolve some columns; likely missing table schema info: {e}"
         ) from e
 
     return column_lineage
+
+
+def _extract_select_from_statement(statement: sqlglot.exp.Create) -> sqlglot.exp.Select:
+    # TODO: Validate that this properly includes any WITH clauses.
+    inner = statement.expression
+
+    if inner:
+        return inner
+    else:
+        return statement
 
 
 def sqlglot_tester(
@@ -459,12 +548,10 @@ def sqlglot_tester(
     elif isinstance(statement, sqlglot.exp.Insert):
         # TODO Need to map column renames in the expressions part of the statement.
         statement = statement.expression
-    elif isinstance(statement, sqlglot.exp.Create) and isinstance(
-        statement.expression, sqlglot.exp.Select
-    ):
+    elif isinstance(statement, sqlglot.exp.Create):
         # TODO May need to map column renames.
-        # TODO: Retain the original view name as the output table name.
-        statement = statement.expression
+        # Assumption: the output table is already captured in the modified tables list.
+        statement = _extract_select_from_statement(statement)
 
     # Generate column-level lineage.
     column_lineage: Optional[List[ColumnLineageInfo]] = None
@@ -476,12 +563,12 @@ def sqlglot_tester(
             output_table=downstream_table,
         )
     except UnsupportedStatementTypeError as e:
-        print(
+        logger.debug(
             f'  Cannot generate column-level lineage for statement type "{type(statement)}": {e}'
         )
     except SqlOptimizerError as e:
         # Cannot generate column-level lineage for this statement type.
-        print(f" Failed to generate column-level lineage: {e}")
+        logger.debug(f" Failed to generate column-level lineage: {e}")
         # TODO: Add a message to the result.
 
     # TODO fallback to sqllineage / other tools if sqlglot fails.
