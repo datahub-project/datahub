@@ -69,7 +69,7 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
           String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
 
           OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-          if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType)))) {
+          if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
             log.warn("Technical owner does not exist, defaulting to None ownership.");
             ownershipType = OwnershipType.NONE;
           }
