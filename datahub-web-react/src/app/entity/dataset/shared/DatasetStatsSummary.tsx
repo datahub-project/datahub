@@ -47,10 +47,9 @@ export const DatasetStatsSummary = ({
     const statsViews = [
         !!rowCount && (
             <ExpandingStat
-                color={displayedColor}
                 disabled={isTooltipMode || !needsFormatting(rowCount)}
                 render={(isExpanded) => (
-                    <>
+                    <StatText color={displayedColor}>
                         <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
                         <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> rows
                         {!!columnCount && (
@@ -64,7 +63,7 @@ export const DatasetStatsSummary = ({
                                 columns
                             </>
                         )}
-                    </>
+                    </StatText>
                 )}
             />
         ),

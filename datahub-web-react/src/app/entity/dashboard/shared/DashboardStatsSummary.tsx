@@ -36,13 +36,12 @@ export const DashboardStatsSummary = ({
     const statsViews = [
         (!!chartCount && (
             <ExpandingStat
-                color={ANTD_GRAY[8]}
                 disabled={!needsFormatting(chartCount)}
                 render={(isExpanded) => (
-                    <>
+                    <StatText color={ANTD_GRAY[8]}>
                         <b>{isExpanded ? formatNumberWithoutAbbreviation(chartCount) : countFormatter(chartCount)}</b>{' '}
                         charts
-                    </>
+                    </StatText>
                 )}
             />
         )) ||

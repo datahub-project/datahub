@@ -1,20 +1,28 @@
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolean; color: string }>`
-    color: ${(props) => props.color};
+const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolean; width: string }>`
+    overflow: hidden;
+    white-space: nowrap;
+    width: ${(props) => props.width};
+    transition: width 250ms ease;
 `;
 
 const ExpandingStat = ({
-    color,
     disabled = false,
     render,
 }: {
-    color: string;
     disabled?: boolean;
     render: (isExpanded: boolean) => ReactNode;
 }) => {
+    const contentRef = useRef<HTMLSpanElement>(null);
+    const [width, setWidth] = useState<string>('inherit');
     const [isExpanded, setIsExpanded] = useState(false);
+
+    useEffect(() => {
+        if (!contentRef.current) return;
+        setWidth(`${contentRef.current.offsetWidth}px`);
+    }, [isExpanded]);
 
     const onMouseEnter = () => {
         if (!disabled) setIsExpanded(true);
@@ -28,11 +36,11 @@ const ExpandingStat = ({
         <ExpandingStatContainer
             disabled={disabled}
             expanded={isExpanded}
-            color={color}
+            width={width}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
-            {render(isExpanded)}
+            <span ref={contentRef}>{render(isExpanded)}</span>
         </ExpandingStatContainer>
     );
 };
