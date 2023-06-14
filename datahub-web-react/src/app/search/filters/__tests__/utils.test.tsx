@@ -1,3 +1,4 @@
+import { FolderFilled } from '@ant-design/icons';
 import React from 'react';
 import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
 import { EntityType } from '../../../../types.generated';
@@ -19,7 +20,6 @@ import {
     canCreateViewFromFilters,
     isAnyOptionSelected,
 } from '../utils';
-import { FolderFilled } from '@ant-design/icons';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
 
 describe('filter utils - getNewFilters', () => {

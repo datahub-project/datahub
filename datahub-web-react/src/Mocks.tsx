@@ -37,6 +37,9 @@ import { GetEntityCountsDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
+import { AppConfigDocument } from './graphql/app.generated';
+import { DEFAULT_APP_CONFIG } from './appConfigContext';
+import { AppConfig } from './types.generated';
 
 export const user1 = {
     username: 'sdas',
@@ -253,6 +256,7 @@ export const dataset1 = {
     testResults: null,
     statsSummary: null,
     embed: null,
+    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
 };
 
 export const dataset2 = {
@@ -346,6 +350,7 @@ export const dataset2 = {
     testResults: null,
     statsSummary: null,
     embed: null,
+    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
 };
 
 export const dataset3 = {
@@ -523,6 +528,7 @@ export const dataset3 = {
     siblings: null,
     statsSummary: null,
     embed: null,
+    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -3559,6 +3565,26 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+];
+
+export const mocksWithSearchFlagsOff = [
+    ...mocks,
+    {
+        request: {
+            query: AppConfigDocument,
+        },
+        result: {
+            data: {
+                appConfig: {
+                    ...DEFAULT_APP_CONFIG,
+                    featureFlags: {
+                        ...DEFAULT_APP_CONFIG.featureFlags,
+                        showSearchFiltersV2: false,
+                    },
+                } as AppConfig,
+            },
         },
     },
 ];

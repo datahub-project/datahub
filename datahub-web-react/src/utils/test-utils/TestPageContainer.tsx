@@ -24,6 +24,7 @@ import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerC
 import UserContextProvider from '../../app/context/UserContextProvider';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
+import AppConfigProvider from '../../AppConfigProvider';
 
 type Props = {
     children: React.ReactNode;
@@ -63,26 +64,28 @@ export default ({ children, initialEntries }: Props) => {
                 <MemoryRouter initialEntries={initialEntries}>
                     <EntityRegistryContext.Provider value={entityRegistry}>
                         <UserContextProvider>
-                            <LineageExplorerContext.Provider
-                                value={{
-                                    expandTitles: false,
-                                    showColumns: false,
-                                    collapsedColumnsNodes: {},
-                                    setCollapsedColumnsNodes: null,
-                                    fineGrainedMap: {},
-                                    selectedField: null,
-                                    setSelectedField: () => {},
-                                    highlightedEdges: [],
-                                    setHighlightedEdges: () => {},
-                                    visibleColumnsByUrn: {},
-                                    setVisibleColumnsByUrn: () => {},
-                                    columnsByUrn: {},
-                                    setColumnsByUrn: () => {},
-                                    refetchCenterNode: () => {},
-                                }}
-                            >
-                                {children}
-                            </LineageExplorerContext.Provider>
+                            <AppConfigProvider>
+                                <LineageExplorerContext.Provider
+                                    value={{
+                                        expandTitles: false,
+                                        showColumns: false,
+                                        collapsedColumnsNodes: {},
+                                        setCollapsedColumnsNodes: null,
+                                        fineGrainedMap: {},
+                                        selectedField: null,
+                                        setSelectedField: () => {},
+                                        highlightedEdges: [],
+                                        setHighlightedEdges: () => {},
+                                        visibleColumnsByUrn: {},
+                                        setVisibleColumnsByUrn: () => {},
+                                        columnsByUrn: {},
+                                        setColumnsByUrn: () => {},
+                                        refetchCenterNode: () => {},
+                                    }}
+                                >
+                                    {children}
+                                </LineageExplorerContext.Provider>
+                            </AppConfigProvider>
                         </UserContextProvider>
                     </EntityRegistryContext.Provider>
                 </MemoryRouter>

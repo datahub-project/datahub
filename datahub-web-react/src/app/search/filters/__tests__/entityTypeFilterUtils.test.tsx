@@ -1,9 +1,9 @@
 import React from 'react';
 import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
 import {
-    ENTITY_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
-    ENTITY_TYPE_FILTER_NAME,
+    ENTITY_FILTER_NAME,
     TAGS_FILTER_NAME,
 } from '../../utils/constants';
 import {
@@ -27,7 +27,7 @@ const mockData = {
                 ],
             },
             {
-                field: ENTITY_TYPE_FILTER_NAME,
+                field: ENTITY_FILTER_NAME,
                 aggregations: [
                     { value: 'DASHBOARD', count: 5 },
                     { value: 'CHART', count: 100 },
@@ -176,8 +176,8 @@ describe('getNumActiveFilters', () => {
     it('should get the number of active filters in a backwards compatible way', () => {
         const activeFilters = [
             { field: ENTITY_SUB_TYPE_FILTER_NAME, values: ['DATASET␞view', 'DATASET␞table'] },
-            { field: ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
-            { field: ENTITY_TYPE_FILTER_NAME, values: ['CONTAINER'] },
+            { field: LEGACY_ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
+            { field: ENTITY_FILTER_NAME, values: ['CONTAINER'] },
             { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'] },
         ];
         const numActiveFilters = getNumActiveFilters(activeFilters);
@@ -199,9 +199,9 @@ describe('getInitialSelectedOptions', () => {
         ]);
     });
 
-    it('should get a list of options that are initially selected when opening the dropdown with ENTITY_TYPE_FILTER_NAME filter', () => {
+    it('should get a list of options that are initially selected when opening the dropdown with ENTITY_FILTER_NAME filter', () => {
         const activeFilters = [
-            { field: ENTITY_TYPE_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
+            { field: ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
             { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'] },
         ];
         const initialSelectedOptions = getInitialSelectedOptions(activeFilters, mockData);
@@ -211,9 +211,9 @@ describe('getInitialSelectedOptions', () => {
         ]);
     });
 
-    it('should get a list of options that are initially selected when opening the dropdown with ENTITY_FILTER_NAME filter', () => {
+    it('should get a list of options that are initially selected when opening the dropdown with LEGACY_ENTITY_FILTER_NAME filter', () => {
         const activeFilters = [
-            { field: ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
+            { field: LEGACY_ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },
             { field: TAGS_FILTER_NAME, values: ['urn:li:tag:tag1'] },
         ];
         const initialSelectedOptions = getInitialSelectedOptions(activeFilters, mockData);

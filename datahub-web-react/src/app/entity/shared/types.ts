@@ -107,8 +107,8 @@ export type GenericEntityProperties = {
     privileges?: Maybe<EntityPrivileges>;
     embed?: Maybe<Embed>;
     exists?: boolean;
-    origin?:  Maybe<FabricType>;
-    browsePathV2?:  Maybe<BrowsePathV2>;
+    origin?: Maybe<FabricType>;
+    browsePathV2?: Maybe<BrowsePathV2>;
 };
 
 export type GenericEntityUpdate = {
