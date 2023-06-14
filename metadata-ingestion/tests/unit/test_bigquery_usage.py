@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from freezegun import freeze_time
-from test_helpers.mce_helpers import assert_mces_equal
+from tests.test_helpers.mce_helpers import assert_mces_equal
 
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mce_builder import make_dataset_urn
