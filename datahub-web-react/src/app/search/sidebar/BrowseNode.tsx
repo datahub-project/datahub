@@ -55,9 +55,9 @@ const BrowseNode = () => {
     };
 
     const onClickBrowseHeader = () => {
-        const newValue = !isBrowsePathSelected;
-        onSelectBrowsePath(newValue);
-        trackSelectNodeEvent(newValue ? 'select' : 'deselect', 'browse');
+        const isNowSelected = !isBrowsePathSelected;
+        onSelectBrowsePath(isNowSelected);
+        trackSelectNodeEvent(isNowSelected ? 'select' : 'deselect', 'browse');
     };
 
     const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({

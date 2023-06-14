@@ -116,6 +116,7 @@ describe("search", () => {
     cy.get("[data-testid=browse-node-jaffle_shop]").click({ force: true });
 
     // ensure expected dataset is there with expected filters applied
+    // todo - what's the deal with this?
     cy.contains("customers");
     cy.url().should(
       "include",
@@ -143,5 +144,54 @@ describe("search", () => {
 
     cy.get("[data-testid=browse-entity-Datasets]").click({ force: true });
     cy.get("[data-testid=browse-platform-BigQuery]").should("not.be.visible");
+  });
+
+  it("should be able to select and then deselect a browse path", () => {
+    setBrowseFeatureFlag(true);
+    cy.login();
+    cy.visit("/");
+    cy.get("input[data-testid=search-input]").type("*{enter}");
+
+    // walk through a full browse path and select it
+    cy.get("[data-testid=browse-entity-Datasets]").click({ force: true });
+    cy.get("[data-testid=browse-platform-BigQuery]").click({ force: true });
+    cy.get("[data-testid=browse-node-expand-cypress_project]").click({
+      force: true,
+    });
+    cy.get("[data-testid=browse-node-jaffle_shop]").click({ force: true });
+
+    // ensure expected dataset is there with expected filters applied
+    // todo - what's the deal with this?
+    cy.contains("customers");
+    cy.url().should(
+      "include",
+      "filter__entityType%E2%90%9EtypeNames___false___EQUAL___0=DATASET"
+    );
+    cy.url().should(
+      "include",
+      "filter_platform___false___EQUAL___1=urn%3Ali%3AdataPlatform%3Abigquery"
+    );
+    cy.url().should(
+      "include",
+      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Furn%3Ali%3Acontainer%3Ab5e95fce839e7d78151ed7e0a7420d84%E2%90%9Furn%3Ali%3Acontainer%3A348c96555971d3f5c1ffd7dd2e7446cb"
+    );
+
+    cy.get("[data-testid=browse-node-jaffle_shop]").click({ force: true });
+
+    // ensure browse path filters are unset
+    // todo - what's the deal with this?
+    cy.contains("customers");
+    cy.url().should(
+      "include",
+      "filter__entityType%E2%90%9EtypeNames___false___EQUAL___0=DATASET"
+    );
+    cy.url().should(
+      "include",
+      "filter_platform___false___EQUAL___1=urn%3Ali%3AdataPlatform%3Abigquery"
+    );
+    cy.url().should(
+      "not.include",
+      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Furn%3Ali%3Acontainer%3Ab5e95fce839e7d78151ed7e0a7420d84%E2%90%9Furn%3Ali%3Acontainer%3A348c96555971d3f5c1ffd7dd2e7446cb"
+    );
   });
 });
