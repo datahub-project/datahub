@@ -8,8 +8,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
-import com.linkedin.datahub.graphql.generated.BrowseInputV2;
 import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
+import com.linkedin.datahub.graphql.generated.BrowseV2Input;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -68,7 +68,7 @@ public class BrowseV2ResolverTest {
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
-    BrowseInputV2 input = new BrowseInputV2();
+    BrowseV2Input input = new BrowseV2Input();
     input.setPath(ImmutableList.of("test", "path"));
     input.setType(EntityType.DATASET);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -114,7 +114,7 @@ public class BrowseV2ResolverTest {
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
-    BrowseInputV2 input = new BrowseInputV2();
+    BrowseV2Input input = new BrowseV2Input();
     input.setPath(ImmutableList.of("test", "path"));
     input.setType(EntityType.DATASET);
     input.setQuery("test");
@@ -154,7 +154,7 @@ public class BrowseV2ResolverTest {
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
-    BrowseInputV2 input = new BrowseInputV2();
+    BrowseV2Input input = new BrowseV2Input();
     input.setPath(ImmutableList.of("test", "path"));
     input.setType(EntityType.DATASET);
     input.setViewUrn(TEST_VIEW_URN.toString());

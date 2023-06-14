@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.chart;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.BrowseInputV2;
 import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
 import com.linkedin.datahub.graphql.generated.BrowseResultMetadata;
 import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
+import com.linkedin.datahub.graphql.generated.BrowseV2Input;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
@@ -43,7 +43,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
   @Override
   public CompletableFuture<BrowseResultsV2> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    final BrowseInputV2 input = bindArgument(environment.getArgument("input"), BrowseInputV2.class);
+    final BrowseV2Input input = bindArgument(environment.getArgument("input"), BrowseV2Input.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;

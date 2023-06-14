@@ -1,4 +1,4 @@
-query getBrowseResultsV2($input: BrowseInputV2!) {
+query getBrowseResultsV2($input: BrowseV2Input!) {
     browseV2(input: $input) {
         groups {
             name

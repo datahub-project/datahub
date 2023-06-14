@@ -1,6 +1,7 @@
 import React from 'react';
 import { useHistory } from 'react-router';
 import { Breadcrumb } from 'antd';
+import styled from 'styled-components';
 import { BreadcrumbItem, BrowseRow } from './ProfileNavBrowsePath';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -15,6 +16,10 @@ import {
 import useHasMultipleEnvironmentsQuery from './useHasMultipleEnvironmentsQuery';
 import { createBrowseV2SearchFilter } from '../../../../../search/filters/utils';
 import { LineageSelector } from './LineageSelector';
+
+const StyledBreadcrumb = styled(Breadcrumb)`
+    font-size: 16px;
+`;
 
 interface Props {
     urn: string;
@@ -34,7 +39,7 @@ export default function ProfileNavBrowsePathV2({ urn, type }: Props) {
         navigateToSearchUrl({ query: '*', filters, history });
     }
 
-    function generateFiltersForEnvironment() {
+    function generateFiltersForPlatform() {
         const filters: FacetFilterInput[] = [{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [type] }];
         if (hasMultipleEnvironments && hasEnvironment) {
             filters.push({ field: ORIGIN_FILTER_NAME, values: [entityData?.origin as FabricType] });
@@ -46,7 +51,7 @@ export default function ProfileNavBrowsePathV2({ urn, type }: Props) {
     }
 
     function generateFiltersForBrowsePath(path: string[]) {
-        const filters = generateFiltersForEnvironment();
+        const filters = generateFiltersForPlatform();
         const pathValue = createBrowseV2SearchFilter(path);
         filters.push({ field: BROWSE_PATH_V2_FILTER_NAME, values: [pathValue] });
         return filters;
@@ -54,7 +59,7 @@ export default function ProfileNavBrowsePathV2({ urn, type }: Props) {
 
     return (
         <BrowseRow>
-            <Breadcrumb style={{ fontSize: '16px' }} separator=">">
+            <StyledBreadcrumb separator=">">
                 <BreadcrumbItem
                     disabled={!isBrowsable}
                     onClick={() => handlePathClick([{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [type] }])}
@@ -77,14 +82,14 @@ export default function ProfileNavBrowsePathV2({ urn, type }: Props) {
                 {entityData?.platform && (
                     <BreadcrumbItem
                         disabled={!isBrowsable}
-                        onClick={() => handlePathClick(generateFiltersForEnvironment())}
+                        onClick={() => handlePathClick(generateFiltersForPlatform())}
                     >
                         {entityRegistry.getDisplayName(EntityType.DataPlatform, entityData.platform)}
                     </BreadcrumbItem>
                 )}
                 {entityData?.browsePathV2?.path.map((pathEntry, index) => (
                     <BreadcrumbItem
-                        key={pathEntry?.name}
+                        key={pathEntry.name}
                         disabled={!isBrowsable}
                         onClick={() =>
                             handlePathClick(
@@ -97,12 +102,12 @@ export default function ProfileNavBrowsePathV2({ urn, type }: Props) {
                         }
                         data-testid={`browse-path-${pathEntry?.name}`}
                     >
-                        {pathEntry?.entity
+                        {pathEntry.entity
                             ? entityRegistry.getDisplayName(pathEntry.entity.type, pathEntry.entity)
-                            : pathEntry?.name}
+                            : pathEntry.name}
                     </BreadcrumbItem>
                 ))}
-            </Breadcrumb>
+            </StyledBreadcrumb>
             <LineageSelector urn={urn} type={type} />
         </BrowseRow>
     );
