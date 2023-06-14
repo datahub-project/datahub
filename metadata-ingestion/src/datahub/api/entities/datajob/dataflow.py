@@ -1,5 +1,16 @@
+import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Union,
+    cast,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -22,6 +33,8 @@ if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DataFlow:
@@ -31,7 +44,7 @@ class DataFlow:
         urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://datahubproject.io/docs/what/urn/.
         id (str): Identifier of DataFlow in orchestrator.
         orchestrator (str): orchestrator. for example airflow.
-        cluster (str): [depricated] Please use env.
+        cluster (Optional[str]): [depricated] Please use env.
         name (str): Name of the DataFlow.
         description (str): Description about DataFlow
         properties (Optional[str]): Additional properties if any.
@@ -45,7 +58,7 @@ class DataFlow:
     urn: DataFlowUrn = field(init=False)
     id: str
     orchestrator: str
-    cluster: str
+    cluster: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
     properties: Dict[str, str] = field(default_factory=dict)
@@ -56,20 +69,23 @@ class DataFlow:
     env: Optional[str] = None
 
     def __post_init__(self):
-        if self.env is not None:
-            self.urn = DataFlowUrn.create_from_ids(
-                orchestrator=self.orchestrator,
-                env=self.env,
-                flow_id=self.id,
-                platform_instance=self.platform_instance,
+        if self.env is not None and self.cluster is not None:
+            raise ValueError(
+                "Cannot provide env and cluster parameter both at the same time. cluster is deprecated use env."
             )
-        else:
-            self.urn = DataFlowUrn.create_from_ids(
-                orchestrator=self.orchestrator,
-                env=self.cluster,
-                flow_id=self.id,
-                platform_instance=self.platform_instance,
-            )
+
+        if self.env is None and self.cluster is None:
+            raise ValueError("env is required parameter.")
+
+        if self.env is None and self.cluster is not None:
+            logger.warning("Use env argument. The cluster argument is deprecated")
+
+        self.urn = DataFlowUrn.create_from_ids(
+            orchestrator=self.orchestrator,
+            env=self.env if self.env is not None else cast(str, self.cluster),
+            flow_id=self.id,
+            platform_instance=self.platform_instance,
+        )
 
     def generate_ownership_aspect(self):
         ownership = OwnershipClass(

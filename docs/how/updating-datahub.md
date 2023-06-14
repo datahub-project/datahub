@@ -6,6 +6,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #8201: In Dataflow, cluster argument is deprecated. Please use env.
+
 ### Potential Downtime
 
 ### Deprecations
