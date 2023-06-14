@@ -103,11 +103,9 @@ class SnowflakeLineageExtractor(
         yield from self.get_table_upstream_workunits(discovered_tables)
 
         if self._external_lineage_map:  # Some external lineage is yet to be emitted
-            yield from self.get_table_external_upstream_workunits(discovered_tables)
+            yield from self.get_table_external_upstream_workunits()
 
-    def get_table_external_upstream_workunits(
-        self, discovered_tables: List[str]
-    ) -> Iterable[MetadataWorkUnit]:
+    def get_table_external_upstream_workunits(self) -> Iterable[MetadataWorkUnit]:
         for (
             dataset_name,
             external_lineage,
@@ -150,7 +148,10 @@ class SnowflakeLineageExtractor(
             dataset_name = self.get_dataset_identifier_from_qualified_name(
                 db_row["DOWNSTREAM_TABLE_NAME"]
             )
-            if dataset_name not in discovered_assets:
+            if (
+                self.config.validate_upstreams_against_ingested_tables
+                and dataset_name not in discovered_assets
+            ):
                 continue
             (
                 upstreams,
@@ -274,7 +275,10 @@ class SnowflakeLineageExtractor(
                     db_row["name"], db_row["schema_name"], db_row["database_name"]
                 )
 
-                if key not in discovered_tables:
+                if (
+                    self.config.validate_upstreams_against_ingested_tables
+                    and key not in discovered_tables
+                ):
                     continue
                 self._external_lineage_map[key].add(db_row["location"])
                 logger.debug(
@@ -319,7 +323,10 @@ class SnowflakeLineageExtractor(
         key: str = self.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
-        if key not in discovered_tables:
+        if (
+            self.config.validate_upstreams_against_ingested_tables
+            and key not in discovered_tables
+        ):
             return
 
         if db_row["UPSTREAM_LOCATIONS"] is not None:

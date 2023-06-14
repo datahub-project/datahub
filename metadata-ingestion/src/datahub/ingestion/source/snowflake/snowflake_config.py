@@ -100,6 +100,11 @@ class SnowflakeV2Config(
         description="Whether to validate upstream snowflake tables against allow-deny patterns",
     )
 
+    validate_upstreams_against_ingested_tables: bool = Field(
+        default=True,
+        description="Whether to only include upstream snowflake tables if they were ingested in the same run",
+    )
+
     tag_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
