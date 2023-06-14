@@ -165,18 +165,7 @@ public class SearchRequestHandler {
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
 
-    boolean removedInOrFilter = false;
-    if (filter != null) {
-      removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED) || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
-      );
-    }
-    // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
-    if (!removedInOrFilter) {
-      filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
-    }
-
-    return filterQuery;
+    return filterSoftDeletedByDefault(filter, filterQuery);
   }
 
   /**

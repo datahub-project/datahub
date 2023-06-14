@@ -111,6 +111,49 @@ export function getLastBrowseEntryFromFilterValue(filterValue: string) {
     return browseEntries[browseEntries.length - 1] || '';
 }
 
+function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry: EntityRegistry, size?: number) {
+    let icon: React.ReactNode = null;
+    let label: React.ReactNode = null;
+
+    // If this includes a delimiter, it is a subType
+    if (filterValue.includes(FILTER_DELIMITER)) {
+        const subType = filterValue.split(FILTER_DELIMITER)[1];
+        label = capitalizeFirstLetterOnly(subType);
+    } else {
+        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
+    }
+
+    return { icon, label };
+}
+
+function getFilterWithEntityIconAndLabel(
+    filterValue: string,
+    entityRegistry: EntityRegistry,
+    filterEntity: Entity,
+    size?: number,
+) {
+    let icon: React.ReactNode = null;
+    let label: React.ReactNode = null;
+
+    if (entityRegistry.hasEntity(filterEntity.type)) {
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
+    } else if (filterEntity.type === EntityType.DataPlatformInstance) {
+        const { icon: newIcon, label: newLabel } = getDataPlatformInstanceIconAndLabel(
+            filterEntity,
+            entityRegistry,
+            size,
+        );
+        icon = newIcon;
+        label = newLabel;
+    } else {
+        label = filterValue;
+    }
+
+    return { icon, label };
+}
+
 export function getFilterIconAndLabel(
     filterField: string,
     filterValue: string,
@@ -126,14 +169,13 @@ export function getFilterIconAndLabel(
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     } else if (filterField === ENTITY_SUB_TYPE_FILTER_NAME) {
-        // If this includes a delimiter, it is a subType
-        if (filterValue.includes(FILTER_DELIMITER)) {
-            const subType = filterValue.split(FILTER_DELIMITER)[1];
-            label = capitalizeFirstLetterOnly(subType);
-        } else {
-            icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
-            label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
-        }
+        const { icon: newIcon, label: newLabel } = getEntitySubtypeFilterIconAndLabel(
+            filterValue,
+            entityRegistry,
+            size,
+        );
+        icon = newIcon;
+        label = newLabel;
     } else if (filterField === PLATFORM_FILTER_NAME) {
         const logoUrl = (filterEntity as DataPlatform)?.properties?.logoUrl;
         icon = logoUrl ? (
@@ -146,20 +188,14 @@ export function getFilterIconAndLabel(
         icon = <FolderFilled size={size} color="black" />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
-        if (entityRegistry.hasEntity(filterEntity.type)) {
-            icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
-            label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
-        } else if (filterEntity.type === EntityType.DataPlatformInstance) {
-            const { icon: newIcon, label: newLabel } = getDataPlatformInstanceIconAndLabel(
-                filterEntity,
-                entityRegistry,
-                size,
-            );
-            icon = newIcon;
-            label = newLabel;
-        } else {
-            label = filterValue;
-        }
+        const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
+            filterValue,
+            entityRegistry,
+            filterEntity,
+            size,
+        );
+        icon = newIcon;
+        label = newLabel;
     } else {
         label = filterValue;
     }

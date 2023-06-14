@@ -4,6 +4,10 @@ import { getLastBrowseEntryFromFilterValue } from './utils';
 import { BROWSE_PATH_V2_FILTER_NAME } from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
 
+function isEntityUrn(string: string) {
+    return string.includes('urn:li:');
+}
+
 export default function useGetBrowseV2LabelOverride(
     filterField: string,
     filterValue: string,
@@ -14,7 +18,7 @@ export default function useGetBrowseV2LabelOverride(
     useEffect(() => {
         if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
             const lastBrowseEntry = getLastBrowseEntryFromFilterValue(filterValue);
-            if (lastBrowseEntry.includes('urn:li:')) {
+            if (isEntityUrn(lastBrowseEntry)) {
                 getEntityDisplayName({ variables: { urn: lastBrowseEntry } });
             }
         }

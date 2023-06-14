@@ -15,7 +15,7 @@ export function getStepIds(userUrn: string) {
     return OnboardingConfig.map((step) => `${userUrn}-${step.id}`);
 }
 
-// if the user just saw the preRequisiteStepId (in stepIdsToAdd) of a conditional step, we need to add this conditional step
+// if the user just saw the prerequisiteStepId (in stepIdsToAdd) of a conditional step, we need to add this conditional step
 export function getConditionalStepIdsToAdd(providedStepIds: string[], stepIdsToAdd: string[]) {
     const conditionalStepIds: string[] = [];
 
@@ -25,8 +25,8 @@ export function getConditionalStepIdsToAdd(providedStepIds: string[], stepIdsToA
 
     providedSteps.forEach((step) => {
         if (
-            step?.preRequisiteStepId &&
-            stepIdsToAdd.includes(step?.preRequisiteStepId) &&
+            step?.prerequisiteStepId &&
+            stepIdsToAdd.includes(step?.prerequisiteStepId) &&
             !stepIdsToAdd.includes(step.id || '')
         ) {
             conditionalStepIds.push(step.id || '');
@@ -41,10 +41,13 @@ function hasStepBeenSeen(stepId: string, userUrn: string, educationSteps: StepSt
     return educationSteps.some((step) => step.id === convertedStepId);
 }
 
-// add conditional steps if they have seen the pre-requisite step only
-export function filterConditionalStep(step: OnboardingStep, userUrn: string, educationSteps: StepStateResult[]) {
-    if (step?.preRequisiteStepId) {
-        if (hasStepBeenSeen(step.preRequisiteStepId, userUrn, educationSteps)) {
+export function hasSeenPrerequisiteStepIfExists(
+    step: OnboardingStep,
+    userUrn: string,
+    educationSteps: StepStateResult[],
+) {
+    if (step?.prerequisiteStepId) {
+        if (hasStepBeenSeen(step.prerequisiteStepId, userUrn, educationSteps)) {
             return true;
         }
         return false;
@@ -72,7 +75,7 @@ export function getStepsToRender(
     return finalStepIds
         .map((stepId) => OnboardingConfig.find((step: OnboardingStep) => step.id === stepId))
         .filter((step) => !!step)
-        .filter((step) => filterConditionalStep(step as OnboardingStep, userUrn, educationSteps))
+        .filter((step) => hasSeenPrerequisiteStepIfExists(step as OnboardingStep, userUrn, educationSteps)) // if this is a conditional step, only keep it if the prerequisite step has been seen
         .map((step) => ({
             ...step,
             content: (

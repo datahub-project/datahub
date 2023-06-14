@@ -29,6 +29,8 @@ export const extractEntityTypesFilterValues = (filters: Array<FacetFilterInput>)
  * Converts the nested subtype filter to be split into entity type filters and subType filters.
  * Right now we don't allow mixing of entity type and subType filters when creating a view since
  * this filter requires an OR between entity type and subType but AND between other filter types (like tags).
+ * Example: { field: "_entityType␞typeNames" values: ["DATASETS␞table"] } -> { field: "typeNames", values: ["table"]}
+ * Example: { field: "_entityType␞typeNames" values: ["DATASETS", "CONTAINERS"] } -> { field: "_entityType", values: ["DATASETS", "CONTAINERS"]}
  */
 export function convertNestedSubTypeFilter(filters: Array<FacetFilterInput>) {
     const convertedFilters = filters.filter((f) => f.field !== ENTITY_SUB_TYPE_FILTER_NAME) || [];

@@ -44,13 +44,13 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: SEARCH_RESULTS_FILTERS_V2_INTRO,
-        preRequisiteStepId: SEARCH_RESULTS_FILTERS_ID,
+        prerequisiteStepId: SEARCH_RESULTS_FILTERS_ID,
         selector: `#${SEARCH_RESULTS_FILTERS_V2_INTRO}`,
         title: 'Filters Have Moved',
         content: (
             <Typography.Paragraph>
                 Quickly find relevant assets with our new and improved filter interface! Our latest update has relocated
-                filters to the top of the screen for seamless accessibility.
+                filters to the top of the screen for ease of access.
             </Typography.Paragraph>
         ),
     },

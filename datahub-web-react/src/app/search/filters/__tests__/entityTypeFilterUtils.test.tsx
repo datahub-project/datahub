@@ -9,6 +9,7 @@ import {
 import {
     getDisplayedFilterOptions,
     getInitialSelectedOptions,
+    getInitialSelectedOptionsFromAggregations,
     getNumActiveFilters,
 } from '../EntityTypeFilter/entityTypeFilterUtils';
 import FilterOption from '../FilterOption';
@@ -220,6 +221,53 @@ describe('getInitialSelectedOptions', () => {
         expect(initialSelectedOptions).toMatchObject([
             { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET', count: 12, entity: undefined },
             { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'CONTAINER', count: 6, entity: undefined },
+        ]);
+    });
+});
+
+describe('getInitialSelectedOptionsFromAggregations', () => {
+    const activeFilterValues = ['DATASET␞table', 'CONTAINER'];
+    const aggregations = [
+        { value: 'DATASET', count: 12, entity: null },
+        { value: 'DATASET␞table', count: 6, entity: null },
+        { value: 'DATASET␞view', count: 6, entity: null },
+        { value: 'CONTAINER', count: 6, entity: null },
+        { value: 'CONTAINER␞test', count: 3, entity: null },
+    ];
+    it('should get initially selected options from aggregations based on what is in activeFilters', () => {
+        const initialOptions = getInitialSelectedOptionsFromAggregations(aggregations, activeFilterValues, []);
+        expect(initialOptions).toMatchObject([
+            {
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                value: 'DATASET␞table',
+                entity: null,
+                count: 6,
+            },
+            {
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                value: 'CONTAINER',
+                entity: null,
+                count: 6,
+            },
+        ]);
+    });
+
+    it('should get initially selected options from aggregations without duplicates', () => {
+        const initialOptions = getInitialSelectedOptionsFromAggregations(aggregations, activeFilterValues, [
+            {
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                value: 'DATASET␞table',
+                entity: null,
+                count: 6,
+            },
+        ]);
+        expect(initialOptions).toMatchObject([
+            {
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                value: 'CONTAINER',
+                entity: null,
+                count: 6,
+            },
         ]);
     });
 });

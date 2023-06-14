@@ -54,6 +54,8 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
+import static com.linkedin.metadata.utils.SearchUtil.filterSoftDeletedByDefault;
+
 
 @Slf4j
 @RequiredArgsConstructor
@@ -427,7 +429,7 @@ public class ESBrowseDAO {
         .getQuery(input, false);
     queryBuilder.must(query);
 
-    queryBuilder.mustNot(QueryBuilders.termQuery(REMOVED, "true"));
+    filterSoftDeletedByDefault(filter, queryBuilder);
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));

@@ -8,6 +8,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.FilterValue;
+
 import java.net.URISyntaxException;
 import java.util.Comparator;
 import java.util.List;
@@ -17,15 +18,20 @@ import java.util.stream.Collectors;
 
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 @Slf4j
 public class SearchUtil {
-  private static final String URN_PREFIX = "urn:";
   public static final String AGGREGATION_SEPARATOR_CHAR = "␞";
   public static final String INDEX_VIRTUAL_FIELD = "_entityType";
+  public static final String KEYWORD_SUFFIX = ".keyword";
+  private static final String URN_PREFIX = "urn:";
+  private static final String REMOVED = "removed";
 
   private SearchUtil() {
   }
@@ -84,7 +90,8 @@ public class SearchUtil {
   /**
    * Allows filtering on entities which are stored as different indices under the hood by transforming the tag
    * _entityType to _index and updating the type to the index name.
-   * @param filter The filter to parse and transform if needed
+   *
+   * @param filter          The filter to parse and transform if needed
    * @param indexConvention The index convention used to generate the index name for an entity
    * @return A filter, with the changes if necessary
    */
@@ -93,5 +100,21 @@ public class SearchUtil {
       return new Filter().setOr(transformConjunctiveCriterionArray(filter.getOr(), indexConvention));
     }
     return filter;
+  }
+
+  /**
+   * Applies a default filter to remove entities that are soft deleted only if there isn't a filter for the REMOVED field already
+   */
+  public static BoolQueryBuilder filterSoftDeletedByDefault(@Nullable Filter filter, @Nullable BoolQueryBuilder filterQuery) {
+    boolean removedInOrFilter = false;
+    if (filter != null) {
+      removedInOrFilter = filter.getOr().stream().anyMatch(
+          or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED) || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
+      );
+    }
+    if (!removedInOrFilter) {
+      filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
+    }
+    return filterQuery;
   }
 }

@@ -13,7 +13,7 @@ import { filterOptionsWithSearch, getFilterIconAndLabel, getFilterOptions } from
 
 const BACKWARDS_COMPATIBLE_FILTER_FIELDS = [ENTITY_SUB_TYPE_FILTER_NAME, ...LEGACY_ENTITY_FILTER_FIELDS];
 
-function getInitialSelectedOptionsFromAggregations(
+export function getInitialSelectedOptionsFromAggregations(
     aggregations: AggregationMetadata[],
     activeFilterValues: string[],
     initialSelectedOptions: FilterOptionType[],

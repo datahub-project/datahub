@@ -7,15 +7,14 @@ import { ReactComponent as CollapseIcon } from '../../images/collapse.svg';
 
 const ToggleIcon = styled(Icon)`
     color: ${(props) => props.theme.styles['primary-color']};
+    &&& {
+        font-size: 16px;
+    }
 `;
 
 const ToggleSidebarButton = ({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) => {
     return (
-        <Button
-            size="small"
-            onClick={onClick}
-            icon={<ToggleIcon component={isOpen ? CollapseIcon : ExpandIcon} style={{ fontSize: '16px' }} />}
-        />
+        <Button size="small" onClick={onClick} icon={<ToggleIcon component={isOpen ? CollapseIcon : ExpandIcon} />} />
     );
 };
 
