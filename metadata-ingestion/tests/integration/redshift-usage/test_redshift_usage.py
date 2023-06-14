@@ -139,7 +139,6 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
     ] = []
 
     for mwu in mwus:
-        print(mwu.metadata)
         metadata.append(mwu.metadata)
 
     # There should be 2 calls (usage aspects -1, operation aspects -1).
