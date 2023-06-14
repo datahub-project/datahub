@@ -50,6 +50,7 @@ from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectio
 from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
+    DATA_TYPE_REGISTRY,
     Catalog,
     Column,
     Metastore,
@@ -70,12 +71,14 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DomainsClass,
     MySqlDDLClass,
+    NullTypeClass,
     OperationClass,
     OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     SubTypesClass,
     TimeStampClass,
@@ -215,24 +218,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
-        metastores: Dict[str, Metastore] = {}
-        assigned_metastore = self.unity_catalog_api_proxy.assigned_metastore()
-        metastores[assigned_metastore.metastore_id] = assigned_metastore
+        metastore = self.unity_catalog_api_proxy.assigned_metastore()
+        yield from self.gen_metastore_containers(metastore)
+        yield from self.process_catalogs(metastore)
 
-        if not self.config.only_ingest_assigned_metastore:
-            for metastore in self.unity_catalog_api_proxy.metastores():
-                metastores[metastore.metastore_id] = metastore
-
-        for metastore in metastores.values():
-            if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
-                self.report.metastores.dropped(metastore.metastore_id)
-                continue
-
-            logger.info(f"Started to process metastore: {metastore.metastore_id}")
-            yield from self.gen_metastore_containers(metastore)
-            yield from self.process_catalogs(metastore)
-
-            self.report.metastores.processed(metastore.metastore_id)
+        self.report.metastores.processed(metastore.id)
 
     def process_catalogs(self, metastore: Metastore) -> Iterable[MetadataWorkUnit]:
         for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
@@ -259,15 +249,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_tables(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for table in self.unity_catalog_api_proxy.tables(schema=schema):
             if not self.config.table_pattern.allowed(table.ref.qualified_table_name):
-                self.report.tables.dropped(table.id, type=table.type)
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
-            if table.type.lower() == "view":
+            if table.is_view:
                 self.view_refs.add(table.ref)
             else:
                 self.table_refs.add(table.ref)
             yield from self.process_table(table, schema)
-            self.report.tables.processed(table.id, type=table.type)
+            self.report.tables.processed(table.id, f"table ({table.table_type})")
 
     def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
@@ -428,7 +418,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
-            sub_types=[DatasetContainerSubTypes.PRESTO_CATALOG],
+            sub_types=[DatasetContainerSubTypes.CATALOG],
             domain_urn=domain_urn,
             parent_container_key=metastore_container_key,
             description=catalog.comment,
@@ -484,10 +474,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.storage_location is not None:
             custom_properties["storage_location"] = table.storage_location
         if table.data_source_format is not None:
-            custom_properties["data_source_format"] = table.data_source_format
+            custom_properties["data_source_format"] = table.data_source_format.value
+        if table.generation is not None:
+            custom_properties["generation"] = str(table.generation)
 
-        custom_properties["generation"] = str(table.generation)
-        custom_properties["table_type"] = table.table_type
+        custom_properties["table_type"] = table.table_type.value
 
         custom_properties["created_by"] = table.created_by
         custom_properties["created_at"] = str(table.created_at)
@@ -561,11 +552,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
         return SubTypesClass(
-            typeNames=[
-                DatasetSubTypes.VIEW
-                if table.table_type.lower() == "view"
-                else DatasetSubTypes.TABLE
-            ]
+            typeNames=[DatasetSubTypes.VIEW if table.is_view else DatasetSubTypes.TABLE]
         )
 
     def _create_view_property_aspect(self, table: Table) -> ViewProperties:
@@ -601,7 +588,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             return [
                 SchemaFieldClass(
                     fieldPath=column.name,
-                    type=column.type_name,
+                    type=SchemaFieldDataTypeClass(
+                        type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
+                    ),
                     nativeDataType=column.type_text,
                     nullable=column.nullable,
                     description=column.comment,
