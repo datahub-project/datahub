@@ -1,17 +1,8 @@
-import React, { ReactNode, useRef, useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import styled from 'styled-components';
 
 const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolean; color: string }>`
     color: ${(props) => props.color};
-    ${(props) =>
-        !props.disabled &&
-        !props.expanded &&
-        `
-    :hover {
-        color: ${props.theme.styles['primary-color']};
-        cursor: pointer;
-    }
-`}
 `;
 
 const ExpandingStat = ({
@@ -23,11 +14,14 @@ const ExpandingStat = ({
     disabled?: boolean;
     render: (isExpanded: boolean) => ReactNode;
 }) => {
-    const ref = useRef<HTMLSpanElement>(null);
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const onClickContainer = () => {
+    const onMouseEnter = () => {
         if (!disabled) setIsExpanded(true);
+    };
+
+    const onMouseLeave = () => {
+        if (!disabled) setIsExpanded(false);
     };
 
     return (
@@ -35,8 +29,8 @@ const ExpandingStat = ({
             disabled={disabled}
             expanded={isExpanded}
             color={color}
-            ref={ref}
-            onClick={onClickContainer}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
         >
             {render(isExpanded)}
         </ExpandingStatContainer>

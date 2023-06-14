@@ -1,4 +1,6 @@
-const NumMap = {
+type NumMapType = Record<'billion' | 'million' | 'thousand', { value: number; symbol: string }>;
+
+const NumMap: NumMapType = {
     billion: {
         value: 1000000000,
         symbol: 'B',

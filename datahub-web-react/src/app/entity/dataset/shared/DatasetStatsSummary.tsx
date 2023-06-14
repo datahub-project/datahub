@@ -52,10 +52,16 @@ export const DatasetStatsSummary = ({
                 render={(isExpanded) => (
                     <>
                         <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                        <b>{isExpanded ? rowCount : countFormatter(rowCount)}</b> rows
+                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> rows
                         {!!columnCount && (
                             <>
-                                , <b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
+                                ,{' '}
+                                <b>
+                                    {isExpanded
+                                        ? formatNumberWithoutAbbreviation(columnCount)
+                                        : countFormatter(columnCount)}
+                                </b>{' '}
+                                columns
                             </>
                         )}
                     </>

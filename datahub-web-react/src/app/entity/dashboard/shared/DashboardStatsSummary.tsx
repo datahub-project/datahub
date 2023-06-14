@@ -40,7 +40,8 @@ export const DashboardStatsSummary = ({
                 disabled={!needsFormatting(chartCount)}
                 render={(isExpanded) => (
                     <>
-                        <b>{isExpanded ? chartCount : countFormatter(chartCount)}</b> charts
+                        <b>{isExpanded ? formatNumberWithoutAbbreviation(chartCount) : countFormatter(chartCount)}</b>{' '}
+                        charts
                     </>
                 )}
             />
