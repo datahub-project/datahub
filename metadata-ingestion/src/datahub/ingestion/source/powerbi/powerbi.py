@@ -173,7 +173,10 @@ class Mapper:
 
         upstreams: List[UpstreamClass] = []
         upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-            table, self.__reporter, parameters=parameters
+            table=table,
+            reporter=self.__reporter,
+            config=self.__config,
+            parameters=parameters,
         )
         logger.debug(
             f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}"

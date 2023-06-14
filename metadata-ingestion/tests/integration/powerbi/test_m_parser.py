@@ -6,7 +6,10 @@ import pytest
 from lark import Tree
 
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
 from datahub.ingestion.source.powerbi.m_query import parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.resolver import (
     DataPlatformTable,
@@ -39,6 +42,20 @@ M_QUERIES = [
     'let\n Source = Value.NativeQuery(AmazonRedshift.Database("redshift-url","dev"), "select * from dev.public.category", null, [EnableFolding=true]) \n in Source',
     'let\n    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", [Catalog=null, Database=null]),\n    hive_metastore_Database = Source{[Name="hive_metastore",Kind="Database"]}[Data],\n    sandbox_revenue_Schema = hive_metastore_Database{[Name="sandbox_revenue",Kind="Schema"]}[Data],\n    public_consumer_price_index_Table = sandbox_revenue_Schema{[Name="public_consumer_price_index",Kind="Table"]}[Data],\n    #"Renamed Columns" = Table.RenameColumns(public_consumer_price_index_Table,{{"Country", "country"}, {"Metric", "metric"}}),\n #"Inserted Year" = Table.AddColumn(#"Renamed Columns", "ID", each Date.Year([date_id]) + Date.Month([date_id]), Text.Type),\n #"Added Custom" = Table.AddColumn(#"Inserted Year", "Custom", each Text.Combine({Number.ToText(Date.Year([date_id])), Number.ToText(Date.Month([date_id])), [country]})),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Custom",{"ID"}),\n    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns",{{"Custom", "ID"}}),\n #"Filtered Rows" = Table.SelectRows(#"Renamed Columns1", each ([metric] = "Consumer Price Index") and (not Number.IsNaN([value])))\nin\n    #"Filtered Rows"',
 ]
+
+
+def get_config_object(override_config: dict = {}) -> PowerBiDashboardSourceConfig:
+    default_dict = {
+        "tenant_id": "abc",
+        "client_id": "foo",
+        "client_secret": "bar",
+        "native_query_parsing": False,
+        "enable_advance_lineage_sql_construct": False,
+    }
+
+    default_dict.update(override_config)
+
+    return PowerBiDashboardSourceConfig.parse_obj(default_dict)
 
 
 @pytest.mark.integration
@@ -146,7 +163,9 @@ def test_snowflake_regular_case():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 1
@@ -175,7 +194,9 @@ def test_postgres_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 1
@@ -201,7 +222,9 @@ def test_databricks_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 1
@@ -229,7 +252,9 @@ def test_oracle_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 1
@@ -256,7 +281,9 @@ def test_mssql_regular_case():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 1
@@ -299,7 +326,13 @@ def test_mssql_with_query():
         reporter = PowerBiDashboardSourceReport()
 
         data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-            table, reporter, native_query_enabled=False
+            table=table,
+            reporter=reporter,
+            config=get_config_object(
+                override_config={
+                    "native_query_parsing": False,
+                }
+            ),
         )
 
         assert len(data_platform_tables) == 1
@@ -339,7 +372,13 @@ def test_snowflake_native_query():
         reporter = PowerBiDashboardSourceReport()
 
         data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-            table, reporter
+            table=table,
+            reporter=reporter,
+            config=get_config_object(
+                override_config={
+                    "native_query_parsing": True,
+                }
+            ),
         )
 
         assert len(data_platform_tables) == 1
@@ -364,7 +403,9 @@ def test_google_bigquery_1():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].name == table.full_name.split(".")[2]
@@ -388,9 +429,9 @@ def test_google_bigquery_2():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        native_query_enabled=False,
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
         parameters={
             "Parameter - Source": "my-test-project",
             "My bq project": "gcp_billing",
@@ -417,9 +458,9 @@ def test_for_each_expression_1():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        native_query_enabled=False,
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
         parameters={
             "Parameter - Source": "my-test-project",
             "My bq project": "gcp_billing",
@@ -446,9 +487,9 @@ def test_for_each_expression_2():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        native_query_enabled=False,
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
         parameters={
             "dwh-prod": "originally-not-a-variable-ref-and-not-resolved",
         },
@@ -477,7 +518,9 @@ def test_native_query_disabled():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
     assert len(data_platform_tables) == 0
 
@@ -487,14 +530,16 @@ def test_multi_source_table():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
-        expression=M_QUERIES[12],  # 1st index has the native query
+        expression=M_QUERIES[12],
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
     )
 
     reporter = PowerBiDashboardSourceReport()
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 2
@@ -529,7 +574,9 @@ def test_table_combine():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 2
@@ -575,7 +622,9 @@ def test_expression_is_none():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
 
     assert len(data_platform_tables) == 0
@@ -590,7 +639,9 @@ def test_redshift_regular_case():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table=table,
+        reporter=reporter,
+        config=get_config_object(),
     )
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].name == table.full_name.split(".")[2]
@@ -610,7 +661,13 @@ def test_redshift_native_query():
     reporter = PowerBiDashboardSourceReport()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=True
+        table=table,
+        reporter=reporter,
+        config=get_config_object(
+            override_config={
+                "native_query_parsing": True,
+            }
+        ),
     )
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].name == table.full_name.split(".")[2]

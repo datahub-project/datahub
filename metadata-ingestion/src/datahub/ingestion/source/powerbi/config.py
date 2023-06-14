@@ -290,7 +290,7 @@ class PowerBiDashboardSourceConfig(
     workspace_id_as_urn_part: bool = pydantic.Field(
         default=False,
         description="Highly recommend changing this to True, as you can have the same workspace name"
-        "To maintain backward compatability, this is set to False which uses workspace name",
+        "To maintain backward compatibility, this is set to False which uses workspace name",
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
@@ -371,10 +371,15 @@ class PowerBiDashboardSourceConfig(
         description="Retrieve metadata using PowerBI Admin API only. If this is enabled, then Report Pages will not "
         "be extracted. Admin API access is required if this setting is enabled",
     )
-
+    # platform instance
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
+    )
+    # Enable advance sql construct
+    enable_advance_lineage_sql_construct: bool = pydantic.Field(
+        default=False,
+        description="Whether to enable advance sql construct parsing like join, sub-queries. All lineage datasets URN are generated in lower-case and hence it may break lineage if convert_lineage_urns_to_lowercase is disabled.",
     )
 
     @validator("dataset_type_mapping")

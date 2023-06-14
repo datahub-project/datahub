@@ -8,6 +8,7 @@ from lark import Tree
 
 from datahub.ingestion.source.powerbi.config import (
     DataPlatformPair,
+    PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     SupportedDataPlatform,
 )
@@ -32,6 +33,12 @@ class DataPlatformTable:
 
 
 class AbstractDataPlatformTableCreator(ABC):
+    config: PowerBiDashboardSourceConfig
+
+    def __init__(self, config: PowerBiDashboardSourceConfig):
+        super().__init__()
+        self.config = config
+
     @abstractmethod
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -64,6 +71,7 @@ class AbstractDataAccessMQueryResolver(ABC):
     parse_tree: Tree
     parameters: Dict[str, str]
     reporter: PowerBiDashboardSourceReport
+    config: PowerBiDashboardSourceConfig
     data_access_functions: List[str]
 
     def __init__(
@@ -71,11 +79,13 @@ class AbstractDataAccessMQueryResolver(ABC):
         table: Table,
         parse_tree: Tree,
         reporter: PowerBiDashboardSourceReport,
+        config: PowerBiDashboardSourceConfig,
         parameters: Dict[str, str],
     ):
         self.table = table
         self.parse_tree = parse_tree
         self.reporter = reporter
+        self.config = config
         self.parameters = parameters
         self.data_access_functions = SupportedResolver.get_function_names()
 
@@ -352,7 +362,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 continue
 
             table_full_name_creator: AbstractDataPlatformTableCreator = (
-                supported_resolver.get_table_full_name_creator()()
+                supported_resolver.get_table_full_name_creator()(config=self.config)
             )
 
             data_platform_tables.extend(
@@ -443,15 +453,18 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
             return dataplatform_tables
 
         db_name: str = arguments[1]
+        # import pdb
+        # pdb.set_trace()
+        # Default schema name in MS-SQL is dbo
+        # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
+        tables: List[str] = native_sql_parser.get_tables(
+            arguments[3],
+            default_schema="dbo",
+            advance_sql_construct=self.config.enable_advance_lineage_sql_construct,
+        )
 
-        tables: List[str] = native_sql_parser.get_tables(arguments[3])
         for table in tables:
             schema_and_table: List[str] = table.split(".")
-            if len(schema_and_table) == 1:
-                # schema name is not present. Default schema name in MS-SQL is dbo
-                # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
-                schema_and_table.insert(0, "dbo")
-
             dataplatform_tables.append(
                 DataPlatformTable(
                     name=schema_and_table[1],
@@ -727,7 +740,10 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             0
         ]  # Remove any whitespaces and double quotes character
 
-        for table in native_sql_parser.get_tables(sql_query):
+        for table in native_sql_parser.get_tables(
+            native_query=sql_query,
+            advance_sql_construct=self.config.enable_advance_lineage_sql_construct,
+        ):
             if len(table.split(".")) != 3:
                 logger.debug(
                     f"Skipping table {table} as it is not as per full_table_name format"
