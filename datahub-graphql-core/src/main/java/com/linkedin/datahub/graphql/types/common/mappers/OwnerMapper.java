@@ -33,7 +33,7 @@ public class OwnerMapper {
 
         if (owner.getTypeUrn() == null) {
             OwnershipType ownershipType = OwnershipType.valueOf(owner.getType().toString());
-            owner.setTypeUrn(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType)));
+            owner.setTypeUrn(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())));
         }
 
         if (owner.getTypeUrn() != null) {
