@@ -5,9 +5,13 @@ from deltalake import DeltaTable
 
 try:
     from deltalake.exceptions import TableNotFoundError
+
+    _MUST_CHECK_TABLE_NOT_FOUND_MESSAGE = False
 except ImportError:
     # For deltalake < 0.10.0.
     from deltalake import PyDeltaTableError as TableNotFoundError  # type: ignore
+
+    _MUST_CHECK_TABLE_NOT_FOUND_MESSAGE = True
 
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 
@@ -27,10 +31,14 @@ def read_delta_table(
             without_files=not delta_lake_config.require_files,
         )
     except TableNotFoundError as e:
-        if "Not a Delta table" in str(e):
-            pass
-        else:
+        # For deltalake < 0.10.0, we need to check the error message to make sure
+        # that this is a table not found error. Newer versions have a dedicated
+        # exception class for this.
+        if _MUST_CHECK_TABLE_NOT_FOUND_MESSAGE and "Not a Delta table" not in str(e):
             raise e
+        else:
+            # Otherwise, the table was genuinely not found and we return None.
+            pass
     return None
 
 
