@@ -36,7 +36,7 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
     Urn ownerUrn = Urn.createFromString(input.getOwnerUrn());
     OwnerEntityType ownerEntityType = input.getOwnerEntityType();
     OwnershipType type = input.getType() == null ? OwnershipType.NONE : input.getType();
-    String ownershipUrn = input.getOwnershipTypeUrn() == null ? mapOwnershipTypeToEntity(type) : input.getOwnershipTypeUrn();
+    String ownershipUrn = input.getOwnershipTypeUrn() == null ? mapOwnershipTypeToEntity(type.name()) : input.getOwnershipTypeUrn();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!OwnerUtils.isAuthorizedToUpdateOwners(environment.getContext(), targetUrn)) {
