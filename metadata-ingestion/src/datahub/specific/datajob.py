@@ -197,10 +197,10 @@ class DataJobPatchBuilder(MetadataPatchProposal):
 
         Returns:
             The DataJobPatchBuilder instance.
-        
+
         Raises:
             ValueError: If any of the input edges are not of type 'dataJob'.
-        
+
         Notes:
             This method replaces all existing input data jobs with the given inputs.
         """
@@ -557,7 +557,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         )
         return self
 
-
     def add_tag(self, tag: Tag) -> "DataJobPatchBuilder":
         """
         Adds a tag to the DataJobPatchBuilder.
@@ -572,7 +571,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
         )
         return self
-
 
     def remove_tag(self, tag: Union[str, Urn]) -> "DataJobPatchBuilder":
         """
@@ -589,7 +587,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
         return self
 
-
     def add_term(self, term: Term) -> "DataJobPatchBuilder":
         """
         Adds a glossary term to the DataJobPatchBuilder.
@@ -604,7 +601,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
         )
         return self
-
 
     def remove_term(self, term: Union[str, Urn]) -> "DataJobPatchBuilder":
         """
@@ -622,7 +618,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
         )
         return self
-
 
     def set_custom_properties(
         self, custom_properties: Dict[str, str]
@@ -647,7 +642,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         )
         return self
 
-
     def add_custom_property(self, key: str, value: str) -> "DataJobPatchBuilder":
         """
         Adds a custom property to the DataJobPatchBuilder.
@@ -661,7 +655,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         """
         self.custom_properties_patch_helper.add_property(key, value)
         return self
-
 
     def remove_custom_property(self, key: str) -> "DataJobPatchBuilder":
         """
