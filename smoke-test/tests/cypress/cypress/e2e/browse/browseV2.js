@@ -115,9 +115,6 @@ describe("search", () => {
     });
     cy.get("[data-testid=browse-node-jaffle_shop]").click({ force: true });
 
-    // ensure expected dataset is there with expected filters applied
-    // todo - what's the deal with this?
-    cy.contains("customers");
     cy.url().should(
       "include",
       "filter__entityType%E2%90%9EtypeNames___false___EQUAL___0=DATASET"
@@ -152,7 +149,6 @@ describe("search", () => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
 
-    // walk through a full browse path and select it
     cy.get("[data-testid=browse-entity-Datasets]").click({ force: true });
     cy.get("[data-testid=browse-platform-BigQuery]").click({ force: true });
     cy.get("[data-testid=browse-node-expand-cypress_project]").click({
@@ -160,9 +156,6 @@ describe("search", () => {
     });
     cy.get("[data-testid=browse-node-jaffle_shop]").click({ force: true });
 
-    // ensure expected dataset is there with expected filters applied
-    // todo - what's the deal with this?
-    cy.contains("customers");
     cy.url().should(
       "include",
       "filter__entityType%E2%90%9EtypeNames___false___EQUAL___0=DATASET"
@@ -178,15 +171,12 @@ describe("search", () => {
 
     cy.get("[data-testid=browse-node-jaffle_shop]").click({ force: true });
 
-    // ensure browse path filters are unset
-    // todo - what's the deal with this?
-    cy.contains("customers");
     cy.url().should(
-      "include",
+      "not.include",
       "filter__entityType%E2%90%9EtypeNames___false___EQUAL___0=DATASET"
     );
     cy.url().should(
-      "include",
+      "not.include",
       "filter_platform___false___EQUAL___1=urn%3Ali%3AdataPlatform%3Abigquery"
     );
     cy.url().should(

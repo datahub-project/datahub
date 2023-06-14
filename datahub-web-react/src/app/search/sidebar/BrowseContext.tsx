@@ -215,10 +215,8 @@ export const useOnSelectBrowsePath = () => {
             values: [browseSearchFilter],
         });
 
-        // todo - a cypress test for this flow would be great
-
         const filtersWithOverrides = applyFacetFilterOverrides(selectedFilters, overrides).filter(
-            (filter) => isSelected || filter.field !== BROWSE_PATH_V2_FILTER_NAME,
+            (filter) => isSelected || !overrides.some((override) => override.field === filter.field),
         );
 
         onChangeFilters(filtersWithOverrides);
