@@ -55,7 +55,7 @@ export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props)
     return (
         <>
             {recommendationModules && !!recommendationModules.length && (
-                <RecommendationsContainer>
+                <RecommendationsContainer data-testid="recommendation-container-id">
                     <RecommendationTitle level={3}>More you may be interested in</RecommendationTitle>
                     {recommendationModules &&
                         recommendationModules.map((module) => (
