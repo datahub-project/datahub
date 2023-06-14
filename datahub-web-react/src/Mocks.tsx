@@ -28,18 +28,17 @@ import {
     Container,
     PlatformPrivileges,
     FilterOperator,
+    AppConfig,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
-import { GetEntityCountsDocument } from './graphql/app.generated';
+import { GetEntityCountsDocument, AppConfigDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
-import { AppConfigDocument } from './graphql/app.generated';
 import { DEFAULT_APP_CONFIG } from './appConfigContext';
-import { AppConfig } from './types.generated';
 
 export const user1 = {
     username: 'sdas',

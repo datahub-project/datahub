@@ -6,7 +6,7 @@ import { Route } from 'react-router';
 
 import { SearchPage } from '../SearchPage';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
-import { mocks, mocksWithSearchFlagsOff } from '../../../Mocks';
+import { mocksWithSearchFlagsOff } from '../../../Mocks';
 import { PageRoutes } from '../../../conf/Global';
 
 describe('SearchPage', () => {

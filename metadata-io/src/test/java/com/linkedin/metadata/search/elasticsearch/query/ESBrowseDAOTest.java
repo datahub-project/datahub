@@ -18,6 +18,7 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -28,7 +29,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 @Import(ESTestConfiguration.class)
-public class ESBrowseDAOTest {
+public class ESBrowseDAOTest extends AbstractTestNGSpringContextTests {
   private RestHighLevelClient _mockClient;
   private ESBrowseDAO _browseDAO;
 
