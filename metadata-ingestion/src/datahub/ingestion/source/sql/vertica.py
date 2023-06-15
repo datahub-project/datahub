@@ -125,7 +125,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "vertica_lint_fix")
+        super(VerticaSource, self).__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.config: VerticaConfig = config
 
@@ -231,17 +231,15 @@ class VerticaSource(SQLAlchemySource):
             table = inspector.get_table_names(schema)
             # created new function get_all_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
             # And query in get_all_columns is modified to run at schema level.
-            columns = inspector.get_all_columns(table, schema)
+            columns = inspector.get_all_columns(schema)
 
-            # added as the existing get_pk_constraint function returns str , but since we return datahub at schema level
-            # it returns list which throws error in mypy
-            primary_key = inspector.get_pk_constraint(table, schema)
+            primary_key = inspector.get_pk_constraint(schema)
 
             description, properties, location_urn = self.get_table_properties(
                 inspector, schema, table
             )
 
-            # called get_table_owner function from vertica dialect , it returns a list of all owner of all table in the schema
+            # called get_table_owner function from vertica dialect , it returns a list of all owners of all table in the current schema
             table_owner = inspector.get_table_owner(schema)
 
             # loops on each table in the schema
@@ -576,7 +574,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def get_view_properties(
-        self, inspector: VerticaInspector, schema: str, view: str
+        self, inspector: VerticaInspector, schema: str, view: Optional[str]
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -588,7 +586,7 @@ class VerticaSource(SQLAlchemySource):
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_view_comment(view, schema)
+            table_info: dict = inspector.get_view_comment(schema)
         except NotImplementedError:
             return description, properties, location
 
@@ -657,8 +655,9 @@ class VerticaSource(SQLAlchemySource):
         try:
             projection = inspector.get_projection_names(schema)
 
-            # called get_view_columns function from dialect , it returns a list of all columns in all the view in the schema
-            columns = inspector.get_all_projection_columns(projection, schema)
+            # created new function get_all_projection_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
+            # And query in get_all_projection_columns is modified to run at schema level.
+            columns = inspector.get_all_projection_columns(schema)
 
             # called get_projection_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_projection_properties(
@@ -849,7 +848,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(f"{schema}", f"Projections error: {e}")
 
     def get_projection_properties(
-        self, inspector: VerticaInspector, schema: str, projection: str
+        self, inspector: VerticaInspector, schema: str, projection: Optional[str]
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -861,11 +860,14 @@ class VerticaSource(SQLAlchemySource):
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_projection_comment(projection, schema)
+            table_info: dict = inspector.get_projection_comment(schema)
         except NotImplementedError:
             return description, properties, location
 
         description = table_info.get("text")
+        if type(description) is tuple:
+            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
+            description = table_info["text"][0]
 
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})

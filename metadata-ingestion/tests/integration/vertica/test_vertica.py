@@ -44,14 +44,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
 
         commands = """
                     docker cp tests/integration/vertica/ddl.sql vertica-ce:/home/dbadmin/ &&
-                    docker exec vertica-ce sh -c "/opt/vertica/bin/vsql -w abc123 -f /home/dbadmin/ddl.sql &&
-                    sudo yum install git -y &&
-                    cd /opt && sudo git clone https://github.com/vertica/Machine-Learning-Examples &&
-                    sudo chmod -R a+rwx /opt/Machine-Learning-Examples &&
-                    cd /opt/Machine-Learning-Examples/data && /opt/vertica/bin/vsql -w abc123 -f load_ml_data.sql &&
-                    cd .. &&
-                    /opt/vertica/bin/vsql -w abc123 -f naive_bayes/naive_bayes_data_preparation.sql &&
-                    /opt/vertica/bin/vsql -w abc123 -f naive_bayes/naivebayes_examples.sql &&
+                    docker exec vertica-ce sh -c "/opt/vertica/bin/vsql -w abc123 -f /home/dbadmin/ddl.sql
                 """
 
         ret = subprocess.run(commands, shell=True, stdout=subprocess.DEVNULL)
