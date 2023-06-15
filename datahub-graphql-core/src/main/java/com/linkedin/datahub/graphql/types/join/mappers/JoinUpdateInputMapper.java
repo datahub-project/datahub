@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.types.join.mappers;
 
-import com.linkedin.common.AuditStamp;
-import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.TimeStamp;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -40,10 +40,10 @@ public class JoinUpdateInputMapper
   public Collection<MetadataChangeProposal> apply(JoinUpdateInput input, Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(8);
     final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(JOIN_ENTITY_NAME);
-    final AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setActor(actor, SetMode.IGNORE_NULL);
-    auditStamp.setTime(System.currentTimeMillis());
-
+    final long currentTime = System.currentTimeMillis();
+    final TimeStamp timestamp = new TimeStamp();
+    timestamp.setActor(actor, SetMode.IGNORE_NULL);
+    timestamp.setTime(currentTime);
     if (input.getProperties() != null) {
       com.linkedin.join.JoinProperties joinProperties = new com.linkedin.join.JoinProperties();
       if (input.getProperties().getName() != null) {
@@ -84,9 +84,10 @@ public class JoinUpdateInputMapper
           }
           joinProperties.setJoinFieldMappings(joinFieldMapping1);
         }
+        joinProperties.setLastModified(timestamp);
         proposals.add(updateMappingHelper.aspectToProposal(joinProperties, JOIN_PROPERTIES_ASPECT_NAME));
       }
-
+    }
       if (input.getOwnership() != null) {
         proposals.add(updateMappingHelper.aspectToProposal(OwnershipUpdateMapper.map(input.getOwnership(), actor),
             OWNERSHIP_ASPECT_NAME));
@@ -105,14 +106,16 @@ public class JoinUpdateInputMapper
         }
         proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
       }
-
       if (input.getEditableProperties() != null) {
         final EditableJoinProperties editableJoinProperties = new EditableJoinProperties();
-        editableJoinProperties.setName(input.getEditableProperties().getName());
-        editableJoinProperties.setDescription(input.getEditableProperties().getDescription());
+        if (input.getEditableProperties().getName().trim().length() > 0) {
+          editableJoinProperties.setName(input.getEditableProperties().getName());
+        }
+        if (input.getEditableProperties().getDescription().trim().length() > 0) {
+          editableJoinProperties.setDescription(input.getEditableProperties().getDescription());
+        }
         proposals.add(updateMappingHelper.aspectToProposal(editableJoinProperties, EDITABLE_JOIN_PROPERTIES_ASPECT_NAME));
       }
-    }
     return proposals;
   }
 }

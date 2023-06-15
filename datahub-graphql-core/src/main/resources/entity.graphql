@@ -385,12 +385,12 @@ type JoinProperties {
     """
     The urn of datasetA
     """
-    datasetA: String!
+    datasetA: Dataset!
 
     """
     The urn of datasetB
     """
-    datasetB: String!
+    datasetB: Dataset!
 
     """
     The joinFieldMappings

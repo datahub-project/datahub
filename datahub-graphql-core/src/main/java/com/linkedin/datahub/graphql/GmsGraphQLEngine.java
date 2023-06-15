@@ -60,6 +60,7 @@ import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.Join;
+import com.linkedin.datahub.graphql.generated.JoinProperties;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
@@ -1410,6 +1411,7 @@ public class GmsGraphQLEngine {
     private void configureJoinResolvers(final RuntimeWiring.Builder builder) {
         builder
             .type("Join", typeWiring -> typeWiring
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.joinType))
                 .dataFetcher("container",
@@ -1419,6 +1421,20 @@ public class GmsGraphQLEngine {
                             return join.getContainer() != null ? join.getContainer().getUrn() : null;
                         })
                 ))
+            .type("JoinProperties", typeWiring -> typeWiring
+                    .dataFetcher("datasetA",
+                            new LoadableTypeResolver<>(datasetType,
+                                    (env) -> {
+                                        final JoinProperties joinProperties = env.getSource();
+                                        return joinProperties.getDatasetA() != null ? joinProperties.getDatasetA().getUrn() : null;
+                                    }))
+                    .dataFetcher("datasetB",
+                            new LoadableTypeResolver<>(datasetType,
+                                    (env) -> {
+                                        final JoinProperties joinProperties = env.getSource();
+                                        return joinProperties.getDatasetB() != null ? joinProperties.getDatasetB().getUrn() : null;
+                                    }))
+                    )
             .type("Owner", typeWiring -> typeWiring
                 .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
                     (env) -> ((Owner) env.getSource()).getOwner()))
