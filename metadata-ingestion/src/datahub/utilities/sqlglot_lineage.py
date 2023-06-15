@@ -4,7 +4,7 @@ import enum
 import functools
 import logging
 import pathlib
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 from pydantic import BaseModel
 import pydantic
 import pydantic.dataclasses
@@ -80,6 +80,21 @@ class TableName(FrozenModel):
             catalog=self.database, db=self.db_schema, this=self.table
         )
 
+    def qualified(
+        self,
+        dialect: str,
+        default_db: Optional[str] = None,
+        default_schema: Optional[str] = None,
+    ) -> str:
+        database = self.database or default_db
+        db_schema = self.db_schema or default_schema
+
+        return TableName(
+            database=database,
+            db_schema=db_schema,
+            table=self.table,
+        )
+
     @classmethod
     def from_sqlglot_table(
         cls,
@@ -119,6 +134,7 @@ class SqlParsingDebugInfo(BaseModel):
     tables_discovered: int
     table_schemas_resolved: int
 
+    column_error: Optional[Exception]
     # TODO add debug info w/ error messages, info about how many tables were resolved, etc.
 
 
@@ -392,20 +408,18 @@ def _column_level_lineage(
             f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
         ) from e
     logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
-    # breakpoint()
 
     if not isinstance(
         statement,
         (
-            sqlglot.exp.Subqueryable,
             # Note that Select and Union inherit from Subqueryable.
-            # For actual subqueries.
+            sqlglot.exp.Subqueryable,
+            # For actual subqueries, the statement type might also be DerivedTable.
             sqlglot.exp.DerivedTable,
         ),
     ):
-        # TODO: Loosen this requirement to support other types of statements.
         raise UnsupportedStatementTypeError(
-            "Can only generate column-level lineage for select-like statements"
+            f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
         )
 
     column_lineage = []
@@ -503,14 +517,37 @@ def _column_level_lineage(
     return column_lineage
 
 
-def _extract_select_from_statement(statement: sqlglot.exp.Create) -> sqlglot.exp.Select:
-    # TODO: Validate that this properly includes any WITH clauses.
+def _extract_select_from_create(statement: sqlglot.exp.Create) -> sqlglot.exp.Select:
+    # TODO: Validate that this properly includes WITH clauses in all dialects.
     inner = statement.expression
 
     if inner:
         return inner
     else:
         return statement
+
+
+def _try_extract_select(
+    statement: sqlglot.exp.Expression,
+) -> Optional[sqlglot.exp.Select]:
+    # Try to extract the core select logic from a more complex statement.
+
+    if isinstance(statement, sqlglot.exp.Merge):
+        # TODO Need to map column renames in the expressions part of the statement.
+        # Likely need to use the named_selects attr.
+        statement = statement.args["using"]
+        if isinstance(statement, sqlglot.exp.Table):
+            # If we're querying a table directly, wrap it in a SELECT.
+            statement = sqlglot.exp.Select().select("*").from_(statement)
+    elif isinstance(statement, sqlglot.exp.Insert):
+        # TODO Need to map column renames in the expressions part of the statement.
+        statement = statement.expression
+    elif isinstance(statement, sqlglot.exp.Create):
+        # TODO May need to map column renames.
+        # Assumption: the output table is already captured in the modified tables list.
+        statement = _extract_select_from_create(statement)
+
+    return statement
 
 
 def sqlglot_tester(
@@ -531,10 +568,13 @@ def sqlglot_tester(
     )
 
     # Make sure the tables are resolved with the default db / schema.
-    # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
+    # This only works for Unionable statements. For other types of statements,
+    # we have to do it manually afterwards, but that's slightly lower accuracy
+    # because of CTEs.
     statement = sqlglot.optimizer.qualify.qualify(
         statement,
         dialect=dialect,
+        # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
         catalog=default_db,
         db=default_schema,
         # At this stage we only want to qualify the table names. The columns will be dealt with later.
@@ -555,7 +595,12 @@ def sqlglot_tester(
     table_name_urn_mapping: Dict[TableName, str] = {}
     table_name_schema_mapping: Dict[TableName, SchemaInfo] = {}
     for table in tables:
-        urn, schema_info = schema_resolver.resolve_table(table)
+        # For select statements, this will be a no-op. For other statements, this
+        # is where the qualification actually happens.
+        qualified_table = table.qualified(
+            dialect=dialect, default_db=default_db, default_schema=default_schema
+        )
+        urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
         table_name_urn_mapping[table] = urn
         if schema_info:
@@ -574,39 +619,25 @@ def sqlglot_tester(
     )
 
     # Simplify the input statement for column-level lineage generation.
-    # TODO [refactor] move this logic into the column-level lineage generation function.
-    if isinstance(statement, sqlglot.exp.Merge):
-        # TODO Need to map column renames in the expressions part of the statement.
-        # Likely need to use the named_selects attr.
-        statement = statement.args["using"]
-        if isinstance(statement, sqlglot.exp.Table):
-            # If we're querying a table directly, wrap it in a SELECT.
-            statement = sqlglot.exp.Select().select("*").from_(statement)
-    elif isinstance(statement, sqlglot.exp.Insert):
-        # TODO Need to map column renames in the expressions part of the statement.
-        statement = statement.expression
-    elif isinstance(statement, sqlglot.exp.Create):
-        # TODO May need to map column renames.
-        # Assumption: the output table is already captured in the modified tables list.
-        statement = _extract_select_from_statement(statement)
+    select_statement = _try_extract_select(statement)
 
     # Generate column-level lineage.
     column_lineage: Optional[List[ColumnLineageInfo]] = None
     try:
         column_lineage = _column_level_lineage(
-            statement,
+            select_statement,
             dialect=dialect,
             input_tables=table_name_schema_mapping,
             output_table=downstream_table,
         )
     except UnsupportedStatementTypeError as e:
-        logger.debug(
-            f'  Cannot generate column-level lineage for statement type "{type(statement)}": {e}'
-        )
+        # Wrap with details about the outer statement type too.
+        e.args[0] += f" (outer statement type: {type(statement)})"
+        debug_info.column_error = e
+        logger.debug(debug_info.column_error)
     except SqlOptimizerError as e:
-        # Cannot generate column-level lineage for this statement type.
-        logger.debug(f" Failed to generate column-level lineage: {e}")
-        # TODO: Add a message to the result.
+        logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
+        debug_info.column_error = e
 
     # TODO: Can we generate a common JOIN tables / keys section?
     # TODO: Can we generate a common WHERE clauses section?
