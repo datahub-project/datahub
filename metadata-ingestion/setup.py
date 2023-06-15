@@ -193,7 +193,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.7",
+    "acryl-datahub-classify==0.0.8",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
