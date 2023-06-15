@@ -71,7 +71,7 @@ class DataFlow:
     def __post_init__(self):
         if self.env is not None and self.cluster is not None:
             raise ValueError(
-                "Cannot provide env and cluster parameter both at the same time. cluster is deprecated use env."
+                "Cannot provide both env and cluster parameter. Cluster is deprecated in favor of env."
             )
 
         if self.env is None and self.cluster is None:
