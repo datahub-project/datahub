@@ -4,6 +4,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.search.CustomConfiguration;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -184,8 +185,11 @@ public class ESSampleDataFixture {
         AspectDao mockAspectDao = mock(AspectDao.class);
         when(mockAspectDao.batchGet(anySet())).thenReturn(Map.of(mock(EntityAspectIdentifier.class), mock(EntityAspect.class)));
 
+        PreProcessHooks preProcessHooks = new PreProcessHooks();
+        preProcessHooks.setUiEnabled(true);
         return new JavaEntityClient(
-                new EntityService(mockAspectDao, null, entityRegistry, true),
+                new EntityService(mockAspectDao, null, entityRegistry, true, null,
+                    preProcessHooks),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,
