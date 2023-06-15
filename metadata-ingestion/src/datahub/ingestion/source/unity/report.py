@@ -22,6 +22,7 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
     num_queries_dropped_duplicate_table: int = 0
     num_queries_parsed_by_spark_plan: int = 0
 
+    # Distinguish from Operations emitted for created / updated timestamps
     num_operational_stats_workunits_emitted: int = 0
 
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
@@ -31,4 +32,3 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
     )
     num_profile_failed_unsupported_column_type: int = 0
     num_profile_failed_int_casts: int = 0
-    num_profile_workunits_emitted: int = 0
