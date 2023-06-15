@@ -1,5 +1,6 @@
 from collections import defaultdict
 import contextlib
+import enum
 import functools
 import logging
 import pathlib
@@ -25,6 +26,36 @@ from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBac
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
+
+# A lightweight table schema: column -> type mapping.
+SchemaInfo = Dict[str, str]
+
+
+class QueryType(enum.Enum):
+    CREATE = "CREATE"
+    SELECT = "SELECT"
+    INSERT = "INSERT"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+    MERGE = "MERGE"
+
+    UNKNOWN = "UNKNOWN"
+
+
+def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
+    mapping = {
+        sqlglot.exp.Create: QueryType.CREATE,
+        sqlglot.exp.Select: QueryType.SELECT,
+        sqlglot.exp.Insert: QueryType.INSERT,
+        sqlglot.exp.Update: QueryType.UPDATE,
+        sqlglot.exp.Delete: QueryType.DELETE,
+        sqlglot.exp.Merge: QueryType.MERGE,
+    }
+
+    for cls, query_type in mapping.items():
+        if isinstance(expression, cls):
+            return query_type
+    return QueryType.UNKNOWN
 
 
 @functools.total_ordering
@@ -57,7 +88,6 @@ class TableName(FrozenModel):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "TableName":
-        # TODO: Do we need dialect-specific quoting rules?
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
@@ -83,14 +113,26 @@ class ColumnLineageInfo(FrozenModel):
     logic: Optional[str] = pydantic.Field(exclude=True)
 
 
+class SqlParsingDebugInfo(BaseModel):
+    confidence: float
+
+    tables_discovered: int
+    table_schemas_resolved: int
+
+    # TODO add debug info w/ error messages, info about how many tables were resolved, etc.
+
+
 class SqlParsingResult(BaseModel):
+    query_type: QueryType = QueryType.UNKNOWN
+
     in_tables: List[TableName]
     out_tables: List[TableName]
 
     column_lineage: Optional[List[ColumnLineageInfo]]
 
-    # TODO add a statement type enum
-    # TODO add a confidence score (per column?)
+    # TODO formatted original sql logic
+
+    debug_info: SqlParsingDebugInfo = pydantic.Field(default=None, exclude=True)
 
 
 def _parse_statement(sql: str, dialect: str) -> sqlglot.Expression:
@@ -137,10 +179,6 @@ def _table_level_lineage(
     return tables, modified
 
 
-# TODO generate a lightweight schema type to use instead of Any
-SchemaInfo = Dict[str, str]
-
-
 class SchemaResolver:
     def __init__(
         self,
@@ -164,7 +202,6 @@ class SchemaResolver:
             shared_conn = ConnectionWrapper(filename=_cache_filename)
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
             shared_connection=shared_conn,
-            # TODO: tweak settings to maintain a fairly large in-memory cache
         )
 
     def get_urn_for_table(self, table: TableName, lower: bool = False) -> str:
@@ -177,8 +214,8 @@ class SchemaResolver:
             table_name = table_name.lower()
 
         if self.platform == "bigquery":
+            # Normalize shard numbers and other BigQuery weirdness.
             # TODO check that this is the right way to do it
-            # Normalize shard numbers and other bigquery weirdness.
             with contextlib.suppress(IndexError):
                 table_name = BigqueryTableIdentifier.from_string_name(
                     table_name
@@ -249,11 +286,15 @@ class SchemaResolver:
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn._get_simple_field_path_from_v2_field_path(
-                col.fieldPath
-            ): col.nativeDataType
-            or "str"  # TODO: the types don't matter as much, although we probably need to handle structs/arrays well.
+            DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath): (
+                # The actual types are more of a "nice to have".
+                col.nativeDataType
+                or "str"
+            )
             for col in schema_metadata.fields
+            # TODO: We can't generate lineage to columns nested within structs yet.
+            if "."
+            not in DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
     # TODO add a method to load all from graphql
@@ -332,42 +373,24 @@ def _column_level_lineage(
             _sqlglot_force_column_normalizer, dialect, copy=False
         )
 
-    # TODO: Fix this logic.
-    # if dialect == "bigquery":
-    #     # BigQuery has specific implicit alias rules for SELECTs.
-    #     # https://cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax#implicit_aliases
-    #     # We want to emulate this behavior.
-
-    #     def _sqlglot_tweak_bigquery_column_aliases(
-    #         node: sqlglot.exp.Expression, dialect: "sqlglot.DialectType" = None
-    #     ) -> sqlglot.exp.Expression:
-    #         if isinstance(node, sqlglot.exp.Column):
-    #             if "uri" in str(node):
-    #                 breakpoint()
-    #             pass
-
-    #         return node
-
-    #     logger.debug(
-    #         "Before column alias normalization sql %s",
-    #         statement.sql(pretty=True, dialect=dialect),
-    #     )
-    #     statement = statement.transform(
-    #         _sqlglot_tweak_bigquery_column_aliases, dialect, copy=False
-    #     )
-
     # Optimize the statement + qualify column references.
-    # identify = dialect == "snowflake"  # Avoid a bug in Sqlglot's snowflake handling.
     logger.debug(
         "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
     )
-    statement = sqlglot.optimizer.qualify.qualify(
-        statement,
-        dialect=dialect,
-        schema=sqlglot_db_schema,
-        validate_qualify_columns=False,
-        identify=True,
-    )
+    try:
+        statement = sqlglot.optimizer.qualify.qualify(
+            statement,
+            dialect=dialect,
+            schema=sqlglot_db_schema,
+            validate_qualify_columns=False,
+            identify=True,
+        )
+    except sqlglot.errors.OptimizeError as e:
+        # TODO replace the `raise OptimizeError(f"Unknown column: {column_name}")`
+        # line in sqlglot with a pass
+        raise SqlOptimizerError(
+            f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
+        ) from e
     logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
     # breakpoint()
 
@@ -401,11 +424,14 @@ def _column_level_lineage(
                 # Otherwise, we can't process it.
                 continue
 
-            if dialect == "bigquery" and output_col.upper() in {
-                "_PARTITIONTIME",
-                "_PARTITIONDATE",
+            if dialect == "bigquery" and output_col.lower() in {
+                "_partitiontime",
+                "_partitiondate",
             }:
                 # These are not real columns, just a way to filter by partition.
+                # TODO: We should add these columns to the schema info instead.
+                # Once that's done, we should actually generate lineage for these
+                # if they appear in the output.
                 continue
 
             lineage_node = sqlglot.lineage.lineage(
@@ -433,7 +459,13 @@ def _column_level_lineage(
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we do the inverse.
-                    col = sqlglot.parse_one(node.name).this.name
+                    normalized_col = sqlglot.parse_one(node.name).this.name
+                    if node.subfield:
+                        normalized_col = f"{normalized_col}.{node.subfield}"
+                    col = table_schema_normalized_mapping[table_ref].get(
+                        normalized_col, normalized_col
+                    )
+                    # breakpoint()
                     # print(f"-> depends on {table_ref} . {col}")
 
                     direct_col_upstreams.add(ColumnRef(table=table_ref, column=col))
@@ -466,9 +498,7 @@ def _column_level_lineage(
             )
 
     except sqlglot.errors.OptimizeError as e:
-        raise SqlOptimizerError(
-            f"sqlglot failed to resolve some columns; likely missing table schema info: {e}"
-        ) from e
+        raise SqlOptimizerError(f"sqlglot failed to compute some lineage: {e}") from e
 
     return column_lineage
 
@@ -530,8 +560,15 @@ def sqlglot_tester(
         table_name_urn_mapping[table] = urn
         if schema_info:
             table_name_schema_mapping[table] = schema_info
-        # TODO decrease confidence if schema info is missing
-        # TODO also include info about how many schemas resolved successfully in the result
+
+    debug_info = SqlParsingDebugInfo(
+        confidence=0.9 if len(tables) == len(table_name_schema_mapping)
+        # If we're missing any schema info, our confidence will be in the 0.2-0.5 range depending
+        # on how many tables we were able to resolve.
+        else 0.2 + 0.3 * len(table_name_schema_mapping) / len(tables),
+        tables_discovered=len(tables),
+        table_schemas_resolved=len(table_name_schema_mapping),
+    )
     logger.debug(
         f"Resolved {len(table_name_schema_mapping)} of {len(tables)} table schemas"
     )
@@ -571,15 +608,15 @@ def sqlglot_tester(
         logger.debug(f" Failed to generate column-level lineage: {e}")
         # TODO: Add a message to the result.
 
-    # TODO fallback to sqllineage / other tools if sqlglot fails.
-
     # TODO: Can we generate a common JOIN tables / keys section?
     # TODO: Can we generate a common WHERE clauses section?
 
     # TODO convert TableNames to urns
 
     return SqlParsingResult(
+        query_type=get_query_type_of_sql(original_statement),
         in_tables=sorted(tables),
         out_tables=sorted(modified),
         column_lineage=column_lineage,
+        debug_info=debug_info,
     )
