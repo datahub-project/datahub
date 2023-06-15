@@ -326,9 +326,7 @@ class DataProcessInstance:
         dpi = DataProcessInstance(
             id=id,
             orchestrator=dataflow.orchestrator,
-            cluster=dataflow.env
-            if dataflow.env is not None
-            else cast(str, dataflow.cluster),
+            cluster=cast(str, dataflow.env),
             template_urn=dataflow.urn,
         )
         dpi._template_object = dataflow

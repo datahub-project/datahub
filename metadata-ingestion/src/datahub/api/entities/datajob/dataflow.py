@@ -77,12 +77,16 @@ class DataFlow:
         if self.env is None and self.cluster is None:
             raise ValueError("env is required")
 
-        if self.env is None and self.cluster is not None:
-            logger.warning("The cluster argument is deprecated. Use env and possibly platform_instance instead.")
+        if self.cluster is not None:
+            logger.warning(
+                "The cluster argument is deprecated. Use env and possibly platform_instance instead."
+            )
+            self.env = self.cluster
 
+        # self.env is optional, cast is required to pass lint
         self.urn = DataFlowUrn.create_from_ids(
             orchestrator=self.orchestrator,
-            env=self.env if self.env is not None else cast(str, self.cluster),
+            env=cast(str, self.env),
             flow_id=self.id,
             platform_instance=self.platform_instance,
         )
