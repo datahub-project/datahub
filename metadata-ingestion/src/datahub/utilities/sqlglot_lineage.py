@@ -27,6 +27,8 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
+Urn = str
+
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
 
@@ -141,8 +143,8 @@ class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
 class SqlParsingResult(BaseModel):
     query_type: QueryType = QueryType.UNKNOWN
 
-    in_tables: List[TableName]
-    out_tables: List[TableName]
+    in_tables: List[Urn]
+    out_tables: List[Urn]
 
     column_lineage: Optional[List[ColumnLineageInfo]]
 
@@ -590,7 +592,7 @@ def sqlglot_tester(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[TableName, str] = {}
     table_name_schema_mapping: Dict[TableName, SchemaInfo] = {}
-    for table in tables:
+    for table in [*tables, *modified]:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
@@ -643,8 +645,8 @@ def sqlglot_tester(
 
     return SqlParsingResult(
         query_type=get_query_type_of_sql(original_statement),
-        in_tables=sorted(tables),
-        out_tables=sorted(modified),
+        in_tables=[table_name_urn_mapping[table] for table in sorted(tables)],
+        out_tables=[table_name_urn_mapping[table] for table in sorted(modified)],
         column_lineage=column_lineage,
         debug_info=debug_info,
     )
