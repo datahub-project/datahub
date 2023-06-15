@@ -316,6 +316,7 @@ module.exports = {
         "metadata-integration/java/as-a-library",
         {
           "API and SDK Guides": [
+            "docs/advanced/patch",
             "docs/api/tutorials/datasets",
             "docs/api/tutorials/lineage",
             "docs/api/tutorials/tags",
