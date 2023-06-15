@@ -8,12 +8,9 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubSecretKey;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
@@ -21,6 +18,9 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * Creates an encrypted DataHub secret. Uses AES symmetric encryption / decryption. Requires the MANAGE_SECRETS privilege.
@@ -48,15 +48,11 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
       if (IngestionAuthUtils.canManageSecrets(context)) {
 
         try {
-
-          final MetadataChangeProposal proposal = new MetadataChangeProposal();
-
           // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
           final DataHubSecretKey key = new DataHubSecretKey();
           key.setId(input.getName());
-          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
-          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.SECRETS_ENTITY_NAME), context.getAuthentication())) {
+          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME), context.getAuthentication())) {
             throw new IllegalArgumentException("This Secret already exists!");
           }
 
@@ -67,12 +63,9 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
           value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
           value.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
 
-          proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
-          proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
-          proposal.setAspect(GenericRecordUtils.serializeAspect(value));
-          proposal.setChangeType(ChangeType.UPSERT);
-
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, SECRETS_ENTITY_NAME,
+              SECRET_VALUE_ASPECT_NAME, value);
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to create new secret with name %s", input.getName()), e);
         }

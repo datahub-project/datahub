@@ -22,7 +22,7 @@ class DatasetContainerSubTypes(str, Enum):
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
-    PRESTO_CATALOG = "Catalog"
+    CATALOG = "Catalog"  # Presto or Unity Catalog
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
     DATABRICKS_METASTORE = "Metastore"
