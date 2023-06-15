@@ -317,9 +317,9 @@ class DataHubValidationAction(ValidationAction):
                     type=AssertionResultType.SUCCESS
                     if success
                     else AssertionResultType.FAILURE,
-                    rowCount=result.get("element_count"),
-                    missingCount=result.get("missing_count"),
-                    unexpectedCount=result.get("unexpected_count"),
+                    rowCount=None if result.get("element_count") is None else round(result.get("element_count")),
+                    missingCount=None if result.get("missing_count") is None else round(result.get("missing_count")),
+                    unexpectedCount=None if result.get("unexpected_count") is None else round(result.get("unexpected_count")),
                     actualAggValue=actualAggValue,
                     externalUrl=docs_link,
                     nativeResults=nativeResults,
