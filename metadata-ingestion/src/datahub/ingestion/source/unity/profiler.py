@@ -39,7 +39,6 @@ class UnityCatalogProfiler:
                 for future in as_completed(futures):
                     wu: Optional[MetadataWorkUnit] = future.result()
                     if wu:
-                        self.report.num_profile_workunits_emitted += 1
                         yield wu
         except Exception as e:
             self.report.report_warning("profiling", str(e))
