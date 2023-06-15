@@ -12,6 +12,18 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+## 0.10.4
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+- #8045: With the introduction of custom ownership types, the `Owner` aspect has been updated where the `type` field is deprecated in favor of a new field `typeUrn`. This latter field is an urn reference to the new OwnershipType entity. GraphQL endpoints have been updated to use the new field. For pre-existing ownership aspect records, DataHub now has logic to map the old field to the new field.
+
+### Other notable Changes
+- #8191: Updates GMS's health check endpoint to account for its dependency on external components. Notably, at this time, elasticsearch. This means that DataHub operators can now use GMS health status more reliably.
+
 ## 0.10.3
 
 ### Breaking Changes
