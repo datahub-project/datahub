@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.Constants.*;
@@ -755,8 +756,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                                      @ActionParam(PARAM_URN) @Optional @Nullable String urn
                                      ) {
     Authentication auth = AuthenticationContext.getAuthentication();
+    ResourceSpec resourceSpec = null;
+    if (StringUtils.isNotBlank(urn)) {
+      Urn resource = UrnUtils.getUrn(urn);
+      resourceSpec = new ResourceSpec(resource.getEntityType(), resource.toString());
+    }
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.APPLY_RETENTION_PRIVILEGE), (ResourceSpec) null)) {
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.APPLY_RETENTION_PRIVILEGE), resourceSpec)) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
           "User is unauthorized to apply retention.");
     }

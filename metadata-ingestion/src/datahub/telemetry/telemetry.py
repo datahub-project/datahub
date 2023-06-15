@@ -15,6 +15,7 @@ import datahub as datahub_package
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +332,12 @@ def with_telemetry(
                 {**call_props, "status": "start"},
             )
             try:
-                res = func(*args, **kwargs)
+                try:
+                    with PerfTimer() as timer:
+                        res = func(*args, **kwargs)
+                finally:
+                    call_props["duration"] = timer.elapsed_seconds()
+
                 telemetry_instance.ping(
                     "function-call",
                     {**call_props, "status": "completed"},

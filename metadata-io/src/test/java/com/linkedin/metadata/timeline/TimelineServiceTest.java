@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
@@ -34,6 +35,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -60,6 +63,7 @@ abstract public class TimelineServiceTest<T_AD extends AspectDao> {
   protected TimelineServiceImpl _entityTimelineService;
   protected EntityService _entityService;
   protected EventProducer _mockProducer;
+  protected UpdateIndicesService _mockUpdateIndicesService = mock(UpdateIndicesService.class);
 
   protected TimelineServiceTest() throws EntityRegistryException {
   }
