@@ -379,7 +379,10 @@ class PowerBiDashboardSourceConfig(
     # Enable advance sql construct
     enable_advance_lineage_sql_construct: bool = pydantic.Field(
         default=False,
-        description="Whether to enable advance sql construct parsing like join, sub-queries. All lineage datasets URN are generated in lower-case and hence it may break lineage if convert_lineage_urns_to_lowercase is disabled.",
+        description="Whether to enable advance native sql construct parsing like join, sub-queries."
+          "native_query_parsing is should be enabled."
+          "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage" 
+          "as this option generates the upstream datasets URN in lowercase.",
     )
 
     @validator("dataset_type_mapping")
