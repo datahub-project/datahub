@@ -1,6 +1,7 @@
 package com.linkedin.metadata.timeline;
 
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
@@ -31,7 +32,10 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
-    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true);
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(true);
+    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true,
+        _mockUpdateIndicesService, preProcessHooks);
   }
 
   /**
