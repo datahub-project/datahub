@@ -110,7 +110,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, can be disabled via configuration `include_usage_stats`",
+    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
