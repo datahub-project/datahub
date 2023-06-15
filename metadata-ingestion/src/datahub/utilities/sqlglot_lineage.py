@@ -128,7 +128,7 @@ class ColumnLineageInfo(FrozenModel):
     logic: Optional[str] = pydantic.Field(exclude=True)
 
 
-class SqlParsingDebugInfo(BaseModel):
+class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
     confidence: float
 
     tables_discovered: int
@@ -460,27 +460,25 @@ def _column_level_lineage(
 
             # Generate SELECT lineage.
             # Using a set here to deduplicate upstreams.
-            direct_col_upstreams = set()
+            direct_col_upstreams: Set[ColumnRef] = set()
             for node in lineage_node.walk():
                 if node.downstream:
                     # We only want the leaf nodes.
-                    continue
+                    pass
 
-                if isinstance(node.expression, sqlglot.exp.Table):
+                elif isinstance(node.expression, sqlglot.exp.Table):
                     table_ref = TableName.from_sqlglot_table(
                         node.expression, dialect=dialect
                     )
 
                     # Parse the column name out of the node name.
-                    # Sqlglot calls .sql(), so we do the inverse.
+                    # Sqlglot calls .sql(), so we have to do the inverse.
                     normalized_col = sqlglot.parse_one(node.name).this.name
                     if node.subfield:
                         normalized_col = f"{normalized_col}.{node.subfield}"
                     col = table_schema_normalized_mapping[table_ref].get(
                         normalized_col, normalized_col
                     )
-                    # breakpoint()
-                    # print(f"-> depends on {table_ref} . {col}")
 
                     direct_col_upstreams.add(ColumnRef(table=table_ref, column=col))
                 else:
@@ -490,14 +488,11 @@ def _column_level_lineage(
 
             # TODO: Generate non-SELECT lineage.
             column_logic = lineage_node.source
-            # assert sqlglot_db_schema
-            # assert input_tables
-            # breakpoint()
 
             if output_col.startswith("_col_"):
                 # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
-                # TODO: This is a bit jank since we're relying on sqlglot internals, and now we can't have
-                # a column named _col_0.
+                # This is a bit jank since we're relying on sqlglot internals, but it seems to be
+                # the best way to do it.
                 output_col = original_col_expression.this.sql(dialect=dialect)
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
@@ -592,14 +587,16 @@ def sqlglot_tester(
     if len(modified) == 1:
         downstream_table = next(iter(modified))
 
+    # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[TableName, str] = {}
     table_name_schema_mapping: Dict[TableName, SchemaInfo] = {}
     for table in tables:
-        # For select statements, this will be a no-op. For other statements, this
+        # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
             dialect=dialect, default_db=default_db, default_schema=default_schema
         )
+
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
         table_name_urn_mapping[table] = urn
