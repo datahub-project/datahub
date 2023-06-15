@@ -58,7 +58,7 @@ class DataFlow:
     urn: DataFlowUrn = field(init=False)
     id: str
     orchestrator: str
-    cluster: Optional[str] = None
+    cluster: Optional[str] = None  # Deprecated in favor of env
     name: Optional[str] = None
     description: Optional[str] = None
     properties: Dict[str, str] = field(default_factory=dict)
