@@ -9,7 +9,7 @@ const { TabPane } = Tabs;
 interface Props extends TabsProps {
     defaultPath: string;
     tabs: Array<{
-        name: string;
+        name: React.ReactNode;
         path: string;
         content: React.ReactNode;
         display?: {
