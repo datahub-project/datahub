@@ -1,0 +1,58 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "[{\"op\": \"replace\", \"path\": \"/description\", \"value\": \"test description\"}, {\"op\": \"add\", \"path\": \"/customProperties/test_key_1\", \"value\": \"test_value_1\"}, {\"op\": \"add\", \"path\": \"/customProperties/test_key_2\", \"value\": \"test_value_2\"}]",
+        "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1626980046000,
+        "runId": "serde_test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "globalTags",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/tags/urn:li:tag:test_tag\", \"value\": {\"tag\": \"urn:li:tag:test_tag\"}}]",
+        "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1626980046000,
+        "runId": "serde_test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cfct_users_created_upstream%2CPROD%29\", \"value\": {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1626980046000,
+        "runId": "serde_test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1\", \"value\": {\"tag\": \"urn:li:tag:tag1\"}}]",
+        "contentType": "application/json-patch+json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1626980046000,
+        "runId": "serde_test"
+    }
+}
+]
