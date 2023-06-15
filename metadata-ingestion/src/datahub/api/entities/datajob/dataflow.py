@@ -75,7 +75,7 @@ class DataFlow:
             )
 
         if self.env is None and self.cluster is None:
-            raise ValueError("env is required parameter.")
+            raise ValueError("env is required")
 
         if self.env is None and self.cluster is not None:
             logger.warning("Use env argument. The cluster argument is deprecated")
