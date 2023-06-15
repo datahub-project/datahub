@@ -56,9 +56,7 @@ describe("search", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)"
     );
-    cy.get(
-      '[data-testid="browse-path-urn:li:container:b5e95fce839e7d78151ed7e0a7420d84"]'
-    ).click({
+    cy.get('[data-testid="browse-path-cypress_project"]').click({
       force: true,
     });
     cy.url().should("not.include", "/browse/dataset");
@@ -72,7 +70,7 @@ describe("search", () => {
     );
     cy.url().should(
       "include",
-      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Furn%3Ali%3Acontainer%3Ab5e95fce839e7d78151ed7e0a7420d84"
+      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Fcypress_project"
     );
   });
 
@@ -129,7 +127,7 @@ describe("search", () => {
     );
     cy.url().should(
       "include",
-      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Furn%3Ali%3Acontainer%3Ab5e95fce839e7d78151ed7e0a7420d84%E2%90%9Furn%3Ali%3Acontainer%3A348c96555971d3f5c1ffd7dd2e7446cb"
+      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Fcypress_project%E2%90%9Fjaffle_shop"
     );
 
     // close each of the levels, ensuring its children aren't visible anymore

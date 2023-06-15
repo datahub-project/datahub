@@ -378,25 +378,6 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "value": "{\"path\":[{\"urn\":\"urn:li:container:b5e95fce839e7d78151ed7e0a7420d84\",\"id\":\"urn:li:container:b5e95fce839e7d78151ed7e0a7420d84\"},{\"urn\":\"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\",\"id\":\"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1655162353980,
-        "runId": "bigquery-2022_06_13-16_18_59",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",

@@ -68,7 +68,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_SUFFIX;
 import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 import static com.linkedin.metadata.utils.SearchUtil.*;
