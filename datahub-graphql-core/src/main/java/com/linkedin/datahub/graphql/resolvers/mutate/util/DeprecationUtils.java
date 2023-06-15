@@ -83,7 +83,7 @@ public class DeprecationUtils {
       // Note is required field in GMS. Set to empty string if not provided.
       deprecation.setNote("");
     }
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DEPRECATION_ASPECT_NAME, deprecation, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DEPRECATION_ASPECT_NAME, deprecation);
   }
 
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {

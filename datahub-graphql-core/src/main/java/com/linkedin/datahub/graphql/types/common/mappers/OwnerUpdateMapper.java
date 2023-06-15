@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.common.urn.UrnUtils;
 import javax.annotation.Nonnull;
 
 import com.linkedin.common.Owner;
@@ -34,7 +35,14 @@ public class OwnerUpdateMapper implements ModelMapper<OwnerUpdate, Owner> {
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
-        owner.setType(OwnershipType.valueOf(input.getType().toString()));
+        if (input.getOwnershipTypeUrn() != null) {
+            owner.setTypeUrn(UrnUtils.getUrn(input.getOwnershipTypeUrn()));
+        } else if (input.getType() != null) {
+            owner.setType(OwnershipType.valueOf(input.getType().toString()));
+        } else {
+            throw new RuntimeException("Ownership type not specified. Please define the ownership type urn.");
+        }
+
         owner.setSource(new OwnershipSource().setType(OwnershipSourceType.SERVICE));
         return owner;
     }

@@ -100,12 +100,10 @@ class UnityCatalogUsageExtractor:
             )
             return
 
-        for wu in self.usage_aggregator.generate_workunits(
+        yield from self.usage_aggregator.generate_workunits(
             resource_urn_builder=self.table_urn_builder,
             user_urn_builder=self.user_urn_builder,
-        ):
-            self.report.num_usage_workunits_emitted += 1
-            yield wu
+        )
 
     def _generate_operation_workunit(
         self, query: Query, table_info: QueryTableInfo

@@ -8,10 +8,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchUpdateSoftDeletedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
-import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
@@ -19,6 +18,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
 
@@ -59,21 +59,13 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     final Status newStatus = new Status().setRemoved(true);
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal1.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        STATUS_ASPECT_NAME, newStatus);
 
     verifyIngestProposal(mockService, 1, proposal1);
 
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal2.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        STATUS_ASPECT_NAME, newStatus);
 
     verifyIngestProposal(mockService, 1, proposal2);
   }
@@ -111,21 +103,13 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     final Status newStatus = new Status().setRemoved(false);
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal1.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        STATUS_ASPECT_NAME, newStatus);
 
     verifyIngestProposal(mockService, 1, proposal1);
 
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal2.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        STATUS_ASPECT_NAME, newStatus);
 
     verifyIngestProposal(mockService, 1, proposal2);
   }
