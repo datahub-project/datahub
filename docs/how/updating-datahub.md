@@ -6,7 +6,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- #8201: In Dataflow, cluster argument is deprecated. Please use env.
+- #8201: Python SDK: In the DataFlow class, the `cluster` argument is deprecated in favor of `env`.
 
 ### Potential Downtime
 
