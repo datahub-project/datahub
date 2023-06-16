@@ -61,8 +61,8 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
 
 
 @functools.total_ordering
-class FrozenModel(BaseModel, frozen=True):
-    def __lt__(self, other: "FrozenModel") -> bool:
+class _FrozenModel(BaseModel, frozen=True):
+    def __lt__(self, other: "_FrozenModel") -> bool:
         for field in self.__fields__:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
@@ -72,7 +72,7 @@ class FrozenModel(BaseModel, frozen=True):
         return False
 
 
-class TableName(FrozenModel):
+class _TableName(_FrozenModel):
     database: Optional[str]
     db_schema: Optional[str]
     table: str
@@ -91,7 +91,7 @@ class TableName(FrozenModel):
         database = self.database or default_db
         db_schema = self.db_schema or default_schema
 
-        return TableName(
+        return _TableName(
             database=database,
             db_schema=db_schema,
             table=self.table,
@@ -104,7 +104,7 @@ class TableName(FrozenModel):
         dialect: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
-    ) -> "TableName":
+    ) -> "_TableName":
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
@@ -112,8 +112,8 @@ class TableName(FrozenModel):
         )
 
 
-class _ColumnRef(FrozenModel):
-    table: TableName
+class _ColumnRef(_FrozenModel):
+    table: _TableName
     column: str
 
 
@@ -123,7 +123,7 @@ class ColumnRef(BaseModel):
 
 
 class _DownstreamColumnRef(BaseModel):
-    table: Optional[TableName]
+    table: Optional[_TableName]
     column: str
 
 
@@ -136,7 +136,6 @@ class _ColumnLineageInfo(BaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
-    # Logic for this column, as a SQL expression.
     logic: Optional[str]
 
 
@@ -155,7 +154,6 @@ class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
     table_schemas_resolved: int
 
     column_error: Optional[Exception]
-    # TODO add debug info w/ error messages, info about how many tables were resolved, etc.
 
 
 class SqlParsingResult(BaseModel):
@@ -181,9 +179,9 @@ def _parse_statement(sql: str, dialect: str) -> sqlglot.Expression:
 def _table_level_lineage(
     statement: sqlglot.Expression,
     dialect: str,
-) -> Tuple[Set[TableName], Set[TableName]]:
-    def _raw_table_name(table: sqlglot.exp.Table) -> TableName:
-        return TableName.from_sqlglot_table(table, dialect=dialect)
+) -> Tuple[Set[_TableName], Set[_TableName]]:
+    def _raw_table_name(table: sqlglot.exp.Table) -> _TableName:
+        return _TableName.from_sqlglot_table(table, dialect=dialect)
 
     # Generate table-level lineage.
     modified = {
@@ -206,7 +204,7 @@ def _table_level_lineage(
         - modified
         # ignore CTEs created in this statement
         - {
-            TableName(database=None, schema=None, table=cte.alias_or_name)
+            _TableName(database=None, schema=None, table=cte.alias_or_name)
             for cte in statement.find_all(sqlglot.exp.CTE)
         }
     )
@@ -240,7 +238,7 @@ class SchemaResolver:
             shared_connection=shared_conn,
         )
 
-    def get_urn_for_table(self, table: TableName, lower: bool = False) -> str:
+    def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
         table_name = ".".join(
@@ -265,7 +263,7 @@ class SchemaResolver:
         )
         return urn
 
-    def resolve_table(self, table: TableName) -> Tuple[str, Optional[SchemaInfo]]:
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
 
         schema_info = self._resolve_schema_info(urn)
@@ -346,8 +344,8 @@ class SqlOptimizerError(Exception):
 def _column_level_lineage(
     statement: sqlglot.exp.Expression,
     dialect: str,
-    input_tables: Dict[TableName, SchemaInfo],
-    output_table: Optional[TableName],
+    input_tables: Dict[_TableName, SchemaInfo],
+    output_table: Optional[_TableName],
 ) -> List[_ColumnLineageInfo]:
     use_case_insensitive_cols = dialect in {
         # Column identifiers are case-insensitive in BigQuery, so we need to
@@ -363,7 +361,9 @@ def _column_level_lineage(
         # We do our own normalization, so don't let sqlglot do it.
         normalize=False,
     )
-    table_schema_normalized_mapping: Dict[TableName, Dict[str, str]] = defaultdict(dict)
+    table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]] = defaultdict(
+        dict
+    )
     for table, table_schema in input_tables.items():
         normalized_table_schema: SchemaInfo = {}
         for col, col_type in table_schema.items():
@@ -485,7 +485,7 @@ def _column_level_lineage(
                     pass
 
                 elif isinstance(node.expression, sqlglot.exp.Table):
-                    table_ref = TableName.from_sqlglot_table(
+                    table_ref = _TableName.from_sqlglot_table(
                         node.expression, dialect=dialect
                     )
 
@@ -564,7 +564,7 @@ def _try_extract_select(
 
 
 def _translate_internal_column_lineage(
-    table_name_urn_mapping: Dict[TableName, str],
+    table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
 ) -> ColumnLineageInfo:
     return ColumnLineageInfo(
@@ -620,13 +620,13 @@ def sqlglot_tester(
     tables, modified = _table_level_lineage(statement, dialect=dialect)
 
     # Prep for generating column-level lineage.
-    downstream_table: Optional[TableName] = None
+    downstream_table: Optional[_TableName] = None
     if len(modified) == 1:
         downstream_table = next(iter(modified))
 
     # Fetch schema info for the relevant tables.
-    table_name_urn_mapping: Dict[TableName, str] = {}
-    table_name_schema_mapping: Dict[TableName, SchemaInfo] = {}
+    table_name_urn_mapping: Dict[_TableName, str] = {}
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
     for table in [*tables, *modified]:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
@@ -675,8 +675,6 @@ def sqlglot_tester(
 
     # TODO: Can we generate a common JOIN tables / keys section?
     # TODO: Can we generate a common WHERE clauses section?
-
-    # TODO convert TableNames to urns
 
     # Convert TableName to urns.
     in_urns = [table_name_urn_mapping[table] for table in sorted(tables)]
