@@ -2,6 +2,7 @@ package com.linkedin.metadata;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
@@ -218,8 +219,11 @@ public class ESSearchLineageFixture {
                 1,
                 false);
 
+        PreProcessHooks preProcessHooks = new PreProcessHooks();
+        preProcessHooks.setUiEnabled(true);
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry, true),
+                new EntityService(null, null, entityRegistry, true, null,
+                    preProcessHooks),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,

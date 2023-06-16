@@ -13,15 +13,12 @@ import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -34,6 +31,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -67,20 +66,17 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
             bindArgument(environment.getArgument("input"), CreateIngestionExecutionRequestInput.class);
 
         try {
-
-          final MetadataChangeProposal proposal = new MetadataChangeProposal();
           final ExecutionRequestKey key = new ExecutionRequestKey();
           final UUID uuid = UUID.randomUUID();
           final String uuidStr = uuid.toString();
           key.setId(uuidStr);
-          final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.EXECUTION_REQUEST_ENTITY_NAME);
-          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
+          final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(key, EXECUTION_REQUEST_ENTITY_NAME);
 
           // Fetch the original ingestion source
           final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
           final Map<Urn, EntityResponse> response =
-              _entityClient.batchGetV2(Constants.INGESTION_SOURCE_ENTITY_NAME, ImmutableSet.of(ingestionSourceUrn),
-                  ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME), context.getAuthentication());
+              _entityClient.batchGetV2(INGESTION_SOURCE_ENTITY_NAME, ImmutableSet.of(ingestionSourceUrn),
+                  ImmutableSet.of(INGESTION_INFO_ASPECT_NAME), context.getAuthentication());
 
           if (!response.containsKey(ingestionSourceUrn)) {
             throw new DataHubGraphQLException(
@@ -88,7 +84,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
                 DataHubGraphQLErrorCode.BAD_REQUEST);
           }
 
-          final EnvelopedAspect envelopedInfo = response.get(ingestionSourceUrn).getAspects().get(Constants.INGESTION_INFO_ASPECT_NAME);
+          final EnvelopedAspect envelopedInfo = response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
           final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
 
           if (!ingestionSourceInfo.getConfig().hasRecipe()) {
@@ -124,14 +120,11 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
           execInput.setArgs(new StringMap(arguments));
 
-          proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
-          proposal.setAspectName(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-          proposal.setAspect(GenericRecordUtils.serializeAspect(execInput));
-          proposal.setChangeType(ChangeType.UPSERT);
-
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key,
+              EXECUTION_REQUEST_ENTITY_NAME, EXECUTION_REQUEST_INPUT_ASPECT_NAME, execInput);
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to create new ingestion execution request %s", input.toString()), e);
+          throw new RuntimeException(String.format("Failed to create new ingestion execution request %s", input), e);
         }
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");

@@ -78,7 +78,7 @@ public class OwnerUtils {
     for (OwnerInput input : owners) {
       addOwner(ownershipAspect, UrnUtils.getUrn(input.getOwnerUrn()), input.getType(), UrnUtils.getUrn(input.getOwnershipTypeUrn()));
     }
-    return buildMetadataChangeProposal(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect);
   }
 
   public static MetadataChangeProposal buildRemoveOwnersProposal(
@@ -93,7 +93,7 @@ public class OwnerUtils {
         new Ownership());
     ownershipAspect.setLastModified(getAuditStamp(actor));
     removeOwnersIfExists(ownershipAspect, ownerUrns, maybeOwnershipTypeUrn);
-    return buildMetadataChangeProposal(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect);
   }
 
   private static void addOwner(Ownership ownershipAspect, Urn ownerUrn, OwnershipType type, Urn ownershipUrn) {
