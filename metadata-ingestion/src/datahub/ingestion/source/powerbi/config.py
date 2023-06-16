@@ -376,7 +376,7 @@ class PowerBiDashboardSourceConfig(
         default=False,
         description="Whether to extract datasets not used in any PowerBI visualization",
     )
-    # platform instance 
+    # platform instance
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
@@ -384,10 +384,10 @@ class PowerBiDashboardSourceConfig(
     # Enable advance sql construct
     enable_advance_lineage_sql_construct: bool = pydantic.Field(
         default=False,
-        description="Whether to enable advance native sql construct parsing like join, sub-queries."
-          "native_query_parsing is should be enabled."
-          "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage" 
-          "as this option generates the upstream datasets URN in lowercase.",
+        description="Whether to enable advance native sql construct parsing like join, sub-queries. "
+        "native_query_parsing should be enabled. "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "as this option generates the upstream datasets URN in lowercase.",
     )
 
     @validator("dataset_type_mapping")

@@ -1507,7 +1507,6 @@ def test_independent_datasets_extraction(
     )
 
 
-
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_advance_sql_constructs(
@@ -1578,12 +1577,12 @@ def test_advance_sql_constructs(
                 "config": {
                     **default_source_config(),
                     "native_query_parsing": True,
-                    "enable_advance_lineage_sql_construct": True, 
+                    "enable_advance_lineage_sql_construct": True,
                     "extract_independent_datasets": True,
                     "extract_lineage": True,
                     "dataset_type_mapping": {
                         "Snowflake": "snowflake",
-                    }
+                    },
                 },
             },
             "sink": {

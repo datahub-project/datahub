@@ -40,9 +40,9 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 4.  Microsoft SQL Server
 5.  Google BigQuery
 
-Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift` data-sources and only first table from `FROM` clause will be ingested as upstream table. Advance SQL construct like JOIN and SUB-QUERIES in `FROM` clause are not supported.
+Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift`. To enable native SQL query parsing enable `native_query_parsing` and `enable_advance_lineage_sql_construct` flags in recipe.
 
-For example refer below native SQL query. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as upstream table.
+Use full-table-name in `from` clause. for example `operations_analytics.transformed_prod.v_unit_targets` in below native SQL query. The table `operations_analytics.transformed_prod.v_unit_targets` will be ingested as upstream table.
 
 ```shell
 let
@@ -52,7 +52,7 @@ let
       "operations_analytics_prod", 
       [Role = "OPERATIONS_ANALYTICS_MEMBER"]
     ){[Name = "OPERATIONS_ANALYTICS"]}[Data], 
-    "select #(lf)UPPER(REPLACE(AGENT_NAME,\'-\',\'\')) AS Agent,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGETS#(lf)#(lf)where YEAR_TARGET >= 2020#(lf)and TEAM_TYPE = \'foo\'#(lf)and TARGET_TEAM = \'bar\'", 
+    "select #(lf)UPPER(REPLACE(AGENT_NAME,\'-\',\'\')) AS Agent,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from operations_analytics.transformed_prod.v_unit_targets#(lf)#(lf)where YEAR_TARGET >= 2020#(lf)and TEAM_TYPE = \'foo\'#(lf)and TARGET_TEAM = \'bar\'", 
     null, 
     [EnableFolding = true]
   ), 
@@ -70,7 +70,6 @@ let
 in
   #"Added Conditional Column"
 ```
-Use full-table-name in `from` clause. For example dev.public.category 
 
 ## M-Query Pattern Supported For Lineage Extraction
 Lets consider a M-Query which combine two PostgreSQL tables. Such M-Query can be written as per below patterns.

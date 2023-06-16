@@ -46,9 +46,10 @@ def test_advance_query_1():
     assert len(tables) == 1
     assert tables[0] == "public.employee"
 
+
 def test_advance_query_2_self_join():
     query: str = """
-        SELECT 
+        SELECT
             s1.first_name,
             s2.first_name
         FROM student s1
@@ -65,9 +66,9 @@ def test_advance_query_2_self_join():
 def test_advance_query_3():
     query: str = """
         SELECT Name, OrderNumber
-        FROM PROD.Order 
-        WHERE OrderID IN 
-            (SELECT OrderID 
+        FROM PROD.Order
+        WHERE OrderID IN
+            (SELECT OrderID
             FROM Sales.SalesOrder
             WHERE OrderQty > 5)
     """
