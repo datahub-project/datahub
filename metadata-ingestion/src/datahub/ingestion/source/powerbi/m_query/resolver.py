@@ -453,8 +453,7 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
             return dataplatform_tables
 
         db_name: str = arguments[1]
-        # import pdb
-        # pdb.set_trace()
+
         # Default schema name in MS-SQL is dbo
         # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
         tables: List[str] = native_sql_parser.get_tables(
