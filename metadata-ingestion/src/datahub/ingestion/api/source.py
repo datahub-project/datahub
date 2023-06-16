@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
-from datahub.emitter.mcp_builder import PlatformKey, mcps_from_mce
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -249,19 +249,14 @@ class Source(Closeable, metaclass=ABCMeta):
             env and env.lower(),
         ]
 
-        platform_key: Optional[PlatformKey] = None
-        if (
-            platform
-            and isinstance(config, PlatformInstanceConfigMixin)
-            and config.platform_instance
-        ):
-            platform_key = PlatformKey(
-                platform=platform, instance=config.platform_instance
-            )
+        platform_instance: Optional[str] = None
+        if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
+            platform_instance = platform_instance
 
         return partial(
             auto_browse_path_v2,
-            platform_key=platform_key,
+            platform=platform,
+            platform_instance=platform_instance,
             drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
             dry_run=dry_run,
         )
