@@ -4,7 +4,7 @@ import enum
 import functools
 import logging
 import pathlib
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from pydantic import BaseModel
 import pydantic
 import pydantic.dataclasses
@@ -112,17 +112,35 @@ class TableName(FrozenModel):
         )
 
 
-class ColumnRef(FrozenModel):
+class _ColumnRef(FrozenModel):
     table: TableName
     column: str
 
 
-class DownstreamColumnRef(FrozenModel):
+class ColumnRef(BaseModel):
+    table: Urn
+    column: str
+
+
+class _DownstreamColumnRef(BaseModel):
     table: Optional[TableName]
     column: str
 
 
-class ColumnLineageInfo(FrozenModel):
+class DownstreamColumnRef(BaseModel):
+    table: Optional[Urn]
+    column: str
+
+
+class _ColumnLineageInfo(BaseModel):
+    downstream: _DownstreamColumnRef
+    upstreams: List[_ColumnRef]
+
+    # Logic for this column, as a SQL expression.
+    logic: Optional[str]
+
+
+class ColumnLineageInfo(BaseModel):
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
@@ -254,8 +272,6 @@ class SchemaResolver:
         if schema_info:
             return urn, schema_info
 
-        # TODO: Add a special case for snowflake, which uppercases default identifiers.
-
         urn_lower = self.get_urn_for_table(table, lower=True)
         if urn_lower != urn:
             schema_info = self._resolve_schema_info(urn_lower)
@@ -332,7 +348,7 @@ def _column_level_lineage(
     dialect: str,
     input_tables: Dict[TableName, SchemaInfo],
     output_table: Optional[TableName],
-) -> List[ColumnLineageInfo]:
+) -> List[_ColumnLineageInfo]:
     use_case_insensitive_cols = dialect in {
         # Column identifiers are case-insensitive in BigQuery, so we need to
         # do a normalization step beforehand to make sure it's resolved correctly.
@@ -462,7 +478,7 @@ def _column_level_lineage(
 
             # Generate SELECT lineage.
             # Using a set here to deduplicate upstreams.
-            direct_col_upstreams: Set[ColumnRef] = set()
+            direct_col_upstreams: Set[_ColumnRef] = set()
             for node in lineage_node.walk():
                 if node.downstream:
                     # We only want the leaf nodes.
@@ -482,7 +498,7 @@ def _column_level_lineage(
                         normalized_col, normalized_col
                     )
 
-                    direct_col_upstreams.add(ColumnRef(table=table_ref, column=col))
+                    direct_col_upstreams.add(_ColumnRef(table=table_ref, column=col))
                 else:
                     # This branch doesn't matter. For example, a count(*) column would go here, and
                     # we don't get any column-level lineage for that.
@@ -499,8 +515,8 @@ def _column_level_lineage(
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
             column_lineage.append(
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
+                _ColumnLineageInfo(
+                    downstream=_DownstreamColumnRef(
                         table=output_table, column=output_col
                     ),
                     upstreams=sorted(direct_col_upstreams),
@@ -545,6 +561,25 @@ def _try_extract_select(
         statement = _extract_select_from_create(statement)
 
     return statement
+
+
+def _translate_internal_column_lineage(
+    table_name_urn_mapping: Dict[TableName, str],
+    raw_column_lineage: _ColumnLineageInfo,
+) -> ColumnLineageInfo:
+    return ColumnLineageInfo(
+        downstream=DownstreamColumnRef(
+            table=table_name_urn_mapping.get(raw_column_lineage.downstream.table),
+            column=raw_column_lineage.downstream.column,
+        ),
+        upstreams=[
+            ColumnRef(
+                table=table_name_urn_mapping[upstream.table],
+                column=upstream.column,
+            )
+            for upstream in raw_column_lineage.upstreams
+        ],
+    )
 
 
 def sqlglot_tester(
@@ -621,7 +656,7 @@ def sqlglot_tester(
     select_statement = _try_extract_select(statement)
 
     # Generate column-level lineage.
-    column_lineage: Optional[List[ColumnLineageInfo]] = None
+    column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
         column_lineage = _column_level_lineage(
             select_statement,
@@ -643,10 +678,22 @@ def sqlglot_tester(
 
     # TODO convert TableNames to urns
 
+    # Convert TableName to urns.
+    in_urns = [table_name_urn_mapping[table] for table in sorted(tables)]
+    out_urns = [table_name_urn_mapping[table] for table in sorted(modified)]
+    column_lineage_urns = None
+    if column_lineage:
+        column_lineage_urns = [
+            _translate_internal_column_lineage(
+                table_name_urn_mapping, internal_col_lineage
+            )
+            for internal_col_lineage in column_lineage
+        ]
+
     return SqlParsingResult(
         query_type=get_query_type_of_sql(original_statement),
-        in_tables=[table_name_urn_mapping[table] for table in sorted(tables)],
-        out_tables=[table_name_urn_mapping[table] for table in sorted(modified)],
-        column_lineage=column_lineage,
+        in_tables=in_urns,
+        out_tables=out_urns,
+        column_lineage=column_lineage_urns,
         debug_info=debug_info,
     )
