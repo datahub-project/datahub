@@ -68,7 +68,7 @@ public class DeleteUtils {
         entityService,
         new Status());
     status.setRemoved(removed);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(urnStr), Constants.STATUS_ASPECT_NAME, status, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(urnStr), Constants.STATUS_ASPECT_NAME, status);
   }
 
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {

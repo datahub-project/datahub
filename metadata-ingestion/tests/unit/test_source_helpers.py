@@ -8,7 +8,6 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
     auto_status_aspect,
@@ -298,7 +297,6 @@ def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mo
 def test_auto_browse_path_v2_with_platform_instsance(telemetry_ping_mock):
     platform = "my_platform"
     platform_instance = "my_instance"
-    platform_key = PlatformKey(platform=platform, instance=platform_instance)
     platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)
     platform_instance_entry = models.BrowsePathEntryClass(
         platform_instance_urn, platform_instance_urn
@@ -310,7 +308,8 @@ def test_auto_browse_path_v2_with_platform_instsance(telemetry_ping_mock):
     new_wus = list(
         auto_browse_path_v2(
             wus,
-            platform_key=platform_key,
+            platform=platform,
+            platform_instance=platform_instance,
         )
     )
     assert telemetry_ping_mock.call_count == 0
