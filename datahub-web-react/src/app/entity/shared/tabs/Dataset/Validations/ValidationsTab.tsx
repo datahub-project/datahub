@@ -1,61 +1,98 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from 'antd';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
 import { FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
 import { TestResults } from './TestResults';
 import { Assertions } from './Assertions';
-import { RoutedTabs } from '../../../../../shared/RoutedTabs';
+import TabToolbar from '../../../components/styled/TabToolbar';
+import { useGetValidationsTab } from './useGetValidationsTab';
+import { ANTD_GRAY } from '../../../constants';
 
-enum ViewType {
-    ASSERTIONS = 'ASSERTIONS',
-    TESTS = 'TESTS',
+const TabTitle = styled.span`
+    margin-left: 4px;
+`;
+
+const TabButton = styled(Button)<{ selected: boolean }>`
+    background-color: ${(props) => (props.selected && ANTD_GRAY[3]) || 'none'};
+    margin-left: 4px;
+`;
+
+enum TabPaths {
+    ASSERTIONS = 'Assertions',
+    TESTS = 'Tests',
 }
+
+const DEFAULT_TAB = TabPaths.ASSERTIONS;
 
 /**
  * Component used for rendering the Entity Validations Tab.
  */
 export const ValidationsTab = () => {
     const { entityData } = useEntityData();
+    const history = useHistory();
 
     const totalAssertions = (entityData as any)?.assertions?.total;
     const passingTests = (entityData as any)?.testResults?.passing || [];
     const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
     const totalTests = maybeFailingTests.length + passingTests.length;
 
-    const defaultTabPath = totalTests > 0 && totalAssertions === 0 ? ViewType.TESTS : ViewType.ASSERTIONS;
+    const { selectedTab, basePath } = useGetValidationsTab(Object.values(TabPaths));
 
+    // If no tab was selected, select a default tab.
+    useEffect(() => {
+        if (!selectedTab) {
+            // Route to the default tab.
+            history.replace(`${basePath}/${DEFAULT_TAB}`);
+        }
+    }, [selectedTab, basePath, history]);
+
+    /**
+     * The top-level Toolbar tabs to display.
+     */
     const tabs = [
         {
-            name: (
-                <Button type="text" disabled={totalAssertions === 0}>
+            title: (
+                <>
                     <FileProtectOutlined />
-                    Assertions ({totalAssertions})
-                </Button>
+                    <TabTitle>Assertions ({totalAssertions})</TabTitle>
+                </>
             ),
-            path: ViewType.ASSERTIONS.toLocaleLowerCase(),
+            path: TabPaths.ASSERTIONS,
+            disabled: totalAssertions === 0,
             content: <Assertions />,
-            display: {
-                enabled: () => true,
-            },
         },
         {
-            name: (
-                <Button type="text" disabled={totalTests === 0}>
+            title: (
+                <>
                     <FileDoneOutlined />
-                    Tests ({totalTests})
-                </Button>
+                    <TabTitle>Tests ({totalTests})</TabTitle>
+                </>
             ),
-            path: ViewType.TESTS.toLocaleLowerCase(),
+            path: TabPaths.TESTS,
+            disabled: totalTests === 0,
             content: <TestResults passing={passingTests} failing={maybeFailingTests} />,
-            display: {
-                enabled: () => true,
-            },
         },
     ];
 
     return (
         <>
-            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs} />
+            <TabToolbar>
+                <div>
+                    {tabs.map((tab) => (
+                        <TabButton
+                            type="text"
+                            disabled={tab.disabled}
+                            selected={selectedTab === tab.path}
+                            onClick={() => history.replace(`${basePath}/${tab.path}`)}
+                        >
+                            {tab.title}
+                        </TabButton>
+                    ))}
+                </div>
+            </TabToolbar>
+            {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
         </>
     );
 };
