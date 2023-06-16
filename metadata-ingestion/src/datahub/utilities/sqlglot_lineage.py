@@ -1,4 +1,5 @@
 from collections import defaultdict
+import itertools
 import contextlib
 import enum
 import functools
@@ -13,7 +14,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.qualify
-from sqlglot.dialects.dialect import RESOLVES_IDENTIFIERS_AS_UPPERCASE
+import sqlglot.optimizer.qualify_columns
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -371,7 +372,7 @@ def _column_level_lineage(
                 col_normalized = (
                     # This is required to match Sqlglot's behavior.
                     col.upper()
-                    if dialect in RESOLVES_IDENTIFIERS_AS_UPPERCASE
+                    if dialect in {"snowflake"}
                     else col.lower()
                 )
             else:
@@ -384,7 +385,6 @@ def _column_level_lineage(
             table.as_sqlglot_table(),
             column_mapping=normalized_table_schema,
         )
-        # TODO undo this translation when we're done
 
     # TODO: Longer term solution: We'll also need to monkey-patch the column qualifier to use a
     # case-insensitive fallback, but not do it if there's a real match available.
@@ -560,6 +560,9 @@ def _try_extract_select(
         # Assumption: the output table is already captured in the modified tables list.
         statement = _extract_select_from_create(statement)
 
+    if isinstance(statement, sqlglot.exp.Subquery):
+        statement = statement.unnest()
+
     return statement
 
 
@@ -592,11 +595,13 @@ def sqlglot_tester(
     # TODO: convert datahub platform names to sqlglot dialect
     dialect = platform
 
+    logger.debug("Original sql statement: %s", sql)
     statement = _parse_statement(sql, dialect=dialect)
 
     original_statement = statement.copy()
     logger.debug(
-        "Got sql statement: %s", original_statement.sql(pretty=True, dialect=dialect)
+        "Formatted sql statement: %s",
+        original_statement.sql(pretty=True, dialect=dialect),
     )
 
     # Make sure the tables are resolved with the default db / schema.
@@ -627,7 +632,10 @@ def sqlglot_tester(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-    for table in [*tables, *modified]:
+    for table, is_input in itertools.chain(
+        [(table, True) for table in tables],
+        [(table, False) for table in modified],
+    ):
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
@@ -637,7 +645,7 @@ def sqlglot_tester(
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
         table_name_urn_mapping[table] = urn
-        if schema_info:
+        if is_input and schema_info:
             table_name_schema_mapping[table] = schema_info
 
     debug_info = SqlParsingDebugInfo(
@@ -666,7 +674,7 @@ def sqlglot_tester(
         )
     except UnsupportedStatementTypeError as e:
         # Wrap with details about the outer statement type too.
-        e.args[0] += f" (outer statement type: {type(statement)})"
+        e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
         debug_info.column_error = e
         logger.debug(debug_info.column_error)
     except SqlOptimizerError as e:
@@ -677,8 +685,8 @@ def sqlglot_tester(
     # TODO: Can we generate a common WHERE clauses section?
 
     # Convert TableName to urns.
-    in_urns = [table_name_urn_mapping[table] for table in sorted(tables)]
-    out_urns = [table_name_urn_mapping[table] for table in sorted(modified)]
+    in_urns = sorted(set(table_name_urn_mapping[table] for table in tables))
+    out_urns = sorted(set(table_name_urn_mapping[table] for table in modified))
     column_lineage_urns = None
     if column_lineage:
         column_lineage_urns = [
