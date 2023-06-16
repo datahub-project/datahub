@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -46,6 +47,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
@@ -234,9 +236,14 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   ) {
     return RestliUtil.toTask(() -> {
       Authentication authentication = AuthenticationContext.getAuthentication();
+      ResourceSpec resourceSpec = null;
+      if (StringUtils.isNotBlank(urn)) {
+        Urn resource = UrnUtils.getUrn(urn);
+        resourceSpec = new ResourceSpec(resource.getEntityType(), resource.toString());
+      }
       if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
           && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),
-          (ResourceSpec) null)) {
+          resourceSpec)) {
         throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to restore indices.");
       }
       RestoreIndicesArgs args = new RestoreIndicesArgs()

@@ -22,6 +22,7 @@ AND
 timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
+AND protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
@@ -31,16 +32,23 @@ AND
                 OR
                 "google.cloud.bigquery.v2.JobService.InsertJob"
             )
-        AND
-        protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
+        AND protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-        AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
+        AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
+        AND
+        (
+            (
+                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+                AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
+            )
+            OR
+            (
+                protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable:*
+            )
+        )
     )
     OR
-    (
-        protoPayload.metadata.tableDataRead:*
-    )
+    protoPayload.metadata.tableDataRead.reason = "JOB"
 )
 """.strip(
         "\t \n"
@@ -253,6 +261,8 @@ class QueryEvent:
     default_dataset: Optional[str] = None
     numAffectedRows: Optional[int] = None
 
+    query_on_view: bool = False
+
     @staticmethod
     def get_missing_key_entry(entry: AuditLogEntry) -> Optional[str]:
         return get_first_missing_key(
@@ -336,6 +346,8 @@ class QueryEvent:
                 BigQueryTableRef.from_spec_obj(spec).get_sanitized_table_ref()
                 for spec in raw_ref_views
             ]
+            query_event.query_on_view = True
+
         # payload
         query_event.payload = entry.payload if debug_include_full_payloads else None
         if not query_event.job_name:
@@ -412,6 +424,8 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
                 for spec in raw_ref_views
             ]
+            query_event.query_on_view = True
+
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
 
@@ -479,6 +493,8 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec).get_sanitized_table_ref()
                 for spec in raw_ref_views
             ]
+            query_event.query_on_view = True
+
         # payload
         query_event.payload = payload if debug_include_full_payloads else None
 
@@ -510,6 +526,8 @@ class ReadEvent:
     jobName: Optional[str]
 
     payload: Any
+
+    from_query: bool = False
 
     # We really should use composition here since the query isn't actually
     # part of the read event, but this solution is just simpler.
@@ -572,6 +590,27 @@ class ReadEvent:
                 "jobName from read events is absent when readReason is JOB. "
                 "Auditlog entry - {logEntry}".format(logEntry=entry)
             )
+        return readEvent
+
+    @classmethod
+    def from_query_event(
+        cls,
+        read_resource: BigQueryTableRef,
+        query_event: QueryEvent,
+        debug_include_full_payloads: bool = False,
+    ) -> "ReadEvent":
+
+        readEvent = ReadEvent(
+            actor_email=query_event.actor_email,
+            timestamp=query_event.timestamp,
+            resource=read_resource,
+            fieldsRead=[],
+            readReason="JOB",
+            jobName=query_event.job_name,
+            payload=query_event.payload if debug_include_full_payloads else None,
+            from_query=True,
+        )
+
         return readEvent
 
     @classmethod

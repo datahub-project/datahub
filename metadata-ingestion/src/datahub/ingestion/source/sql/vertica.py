@@ -27,6 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -143,7 +144,10 @@ class VerticaSource(SQLAlchemySource):
         config = VerticaConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
@@ -261,13 +265,9 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
-                schema, view = self.standardize_schema_table_names(
-                    schema=schema, entity=view
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
 
@@ -305,23 +305,14 @@ class VerticaSource(SQLAlchemySource):
                             dataset_urn, view
                         )
                         if lineage_info is not None:
-                            # Emit the lineage work unit
                             # upstream_column_props = []
-
-                            upstream_lineage = lineage_info
-                            lineage_mcpw = MetadataChangeProposalWrapper(
+                            yield MetadataChangeProposalWrapper(
                                 entityType="dataset",
                                 changeType=ChangeTypeClass.UPSERT,
                                 entityUrn=dataset_snapshot.urn,
                                 aspectName="upstreamLineage",
-                                aspect=upstream_lineage,
-                            )
-                            lineage_wu = MetadataWorkUnit(
-                                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-                                mcp=lineage_mcpw,
-                            )
-                            self.report.report_workunit(lineage_wu)
-                            yield lineage_wu
+                                aspect=lineage_info,
+                            ).as_workunit()
 
                     except Exception as e:
                         logger.warning(
@@ -401,13 +392,9 @@ class VerticaSource(SQLAlchemySource):
         try:
             # table_tags = self.get_extra_tags(inspector, schema, "projection")
             for projection in inspector.get_projection_names(schema):  # type: ignore
-                schema, projection = self.standardize_schema_table_names(
-                    schema=schema, entity=projection
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=projection, inspector=inspector
                 )
-                dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in projections_seen:
                     projections_seen.add(dataset_name)
                 else:
@@ -447,26 +434,9 @@ class VerticaSource(SQLAlchemySource):
                         )
 
                         if lineage_info is not None:
-                            # Emit the lineage work unit
-
-                            upstream_lineage = lineage_info
-
-                            lineage_mcpw = MetadataChangeProposalWrapper(
-                                entityType="dataset",
-                                changeType=ChangeTypeClass.UPSERT,
-                                entityUrn=dataset_snapshot.urn,
-                                aspectName="upstreamLineage",
-                                aspect=upstream_lineage,
-                            )
-
-                            lineage_wu = MetadataWorkUnit(
-                                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-                                mcp=lineage_mcpw,
-                            )
-
-                            self.report.report_workunit(lineage_wu)
-                            yield lineage_wu
-
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=dataset_snapshot.urn, aspect=lineage_info
+                            ).as_workunit()
                     except Exception as ex:
                         logger.warning(
                             f"Unable to get lineage of Projection {schema}.{projection} due to an exception %s",
@@ -501,18 +471,8 @@ class VerticaSource(SQLAlchemySource):
             inspector, schema, projection
         )
 
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = projection
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != projection:
-                properties["original_table_name"] = projection
-
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=projection,
             description=description,
             customProperties=properties,
         )
@@ -523,19 +483,13 @@ class VerticaSource(SQLAlchemySource):
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
             )
-            lineage_mcpw = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityType="dataset",
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_snapshot.urn,
                 aspectName="upstreamLineage",
                 aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-            )
-            lineage_wu = MetadataWorkUnit(
-                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-                mcp=lineage_mcpw,
-            )
-            self.report.report_workunit(lineage_wu)
-            yield lineage_wu
+            ).as_workunit()
 
         projection_owner = self._get_owner_information(projection, "projection")
         yield from add_owner_to_entity_wu(
@@ -562,24 +516,17 @@ class VerticaSource(SQLAlchemySource):
         db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{dataset_name}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["Projections"]),
-            ),
-        )
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=dataset_urn,
+            aspectName="subTypes",
+            aspect=SubTypesClass(typeNames=["Projections"]),
+        ).as_workunit()
 
         if self.config.domain:
             assert self.domain_registry
@@ -588,7 +535,6 @@ class VerticaSource(SQLAlchemySource):
                 entity_urn=dataset_urn,
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
     def get_projection_properties(
@@ -654,14 +600,10 @@ class VerticaSource(SQLAlchemySource):
         models_seen: Set[str] = set()
         try:
             for models in inspector.get_models_names(schema):  # type: ignore
-                schema, models = self.standardize_schema_table_names(
-                    schema=schema, entity=models
-                )
                 dataset_name = self.get_identifier(
                     schema="Entities", entity=models, inspector=inspector
                 )
 
-                dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in models_seen:
                     models_seen.add(dataset_name)
                 else:
@@ -723,22 +665,12 @@ class VerticaSource(SQLAlchemySource):
         description, properties, location = self.get_model_properties(
             inspector, schema, table
         )
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
 
-        normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=table,
             description=description,
             customProperties=properties,
         )
-
         dataset_snapshot.aspects.append(dataset_properties)
 
         schema_fields = self.get_schema_fields(dataset_name, columns)
@@ -756,24 +688,17 @@ class VerticaSource(SQLAlchemySource):
 
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{dataset_name}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["ML Models"]),
-            ),
-        )
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=dataset_urn,
+            aspectName="subTypes",
+            aspect=SubTypesClass(typeNames=["ML Models"]),
+        ).as_workunit()
         if self.config.domain:
             assert self.domain_registry
             yield from get_domain_wu(
@@ -781,7 +706,6 @@ class VerticaSource(SQLAlchemySource):
                 entity_urn=dataset_urn,
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
     def get_model_properties(
@@ -840,14 +764,10 @@ class VerticaSource(SQLAlchemySource):
         oauth_seen: Set[str] = set()
         try:
             for oauth in inspector.get_Oauth_names(schema):  # type: ignore
-                schema, oauth = self.standardize_schema_table_names(
-                    schema=schema, entity=oauth
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=oauth, inspector=inspector
                 )
 
-                dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in oauth_seen:
                     oauth_seen.add(dataset_name)
                 else:
@@ -905,17 +825,9 @@ class VerticaSource(SQLAlchemySource):
         description, properties, location_urn = self.get_oauth_properties(
             inspector, schema, oauth
         )
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = oauth
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != oauth:
-                properties["original_table_name"] = oauth
+
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=oauth,
             description=description,
             customProperties=properties,
         )
@@ -934,24 +846,17 @@ class VerticaSource(SQLAlchemySource):
 
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{dataset_name}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["oauth"]),
-            ),
-        )
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=dataset_urn,
+            aspectName="subTypes",
+            aspect=SubTypesClass(typeNames=["oauth"]),
+        ).as_workunit()
 
         if self.config.domain:
             assert self.domain_registry
@@ -960,7 +865,6 @@ class VerticaSource(SQLAlchemySource):
                 entity_urn=dataset_urn,
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
     def get_oauth_properties(
@@ -1018,9 +922,6 @@ class VerticaSource(SQLAlchemySource):
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
         for projection in inspector.get_projection_names(schema):  # type: ignore
-            schema, projection = self.standardize_schema_table_names(
-                schema=schema, entity=projection
-            )
             dataset_name = self.get_identifier(
                 schema=schema, entity=projection, inspector=inspector
             )
@@ -1031,7 +932,6 @@ class VerticaSource(SQLAlchemySource):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
-            dataset_name = self.normalise_dataset_name(dataset_name)
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
             else:
@@ -1335,6 +1235,3 @@ class VerticaSource(SQLAlchemySource):
                 return each["owner_name"]
 
         return None
-
-    def close(self):
-        self.prepare_for_commit()

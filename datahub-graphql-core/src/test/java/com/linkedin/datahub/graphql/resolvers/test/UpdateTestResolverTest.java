@@ -11,11 +11,11 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -48,23 +48,21 @@ public class UpdateTestResolverTest {
 
     resolver.get(mockEnv).get();
 
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(UrnUtils.getUrn(TEST_URN));
-    proposal.setEntityType(Constants.TEST_ENTITY_NAME);
-    TestInfo info = new TestInfo();
-    info.setCategory("test-category");
-    info.setDescription("test-description");
-    info.setName("test-name");
-    info.setDefinition(new TestDefinition().setJson("{}").setType(TestDefinitionType.JSON));
-    proposal.setAspectName(Constants.TEST_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(info));
-    proposal.setChangeType(ChangeType.UPSERT);
-
-    // Not ideal to match against "any", but we don't know the auto-generated execution request id
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any(Authentication.class)
-    );
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor = ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(proposalCaptor.capture(), Mockito.any(Authentication.class), Mockito.eq(false));
+    MetadataChangeProposal resultProposal = proposalCaptor.getValue();
+    assertEquals(resultProposal.getEntityType(), Constants.TEST_ENTITY_NAME);
+    assertEquals(resultProposal.getAspectName(), Constants.TEST_INFO_ASPECT_NAME);
+    assertEquals(resultProposal.getChangeType(), ChangeType.UPSERT);
+    assertEquals(resultProposal.getEntityUrn(), UrnUtils.getUrn(TEST_URN));
+    TestInfo resultInfo = GenericRecordUtils.deserializeAspect(resultProposal.getAspect().getValue(),
+        resultProposal.getAspect().getContentType(), TestInfo.class);
+    assertEquals(resultInfo.getName(), "test-name");
+    assertEquals(resultInfo.getCategory(), "test-category");
+    assertEquals(resultInfo.getDescription(), "test-description");
+    assertEquals(resultInfo.getDefinition().getType(), TestDefinitionType.JSON);
+    assertEquals(resultInfo.getDefinition().getJson(), "{}");
   }
 
   @Test

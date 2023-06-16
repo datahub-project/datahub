@@ -1,7 +1,7 @@
 from typing import Iterable
 
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     config_class,
@@ -9,6 +9,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
 from datahub.utilities.sample_data import download_sample_data
 
@@ -30,7 +31,7 @@ class DemoDataSource(Source):
         file_config = FileSourceConfig(path=str(download_sample_data()))
         self.file_source = GenericFileSource(ctx, file_config)
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from self.file_source.get_workunits()
 
     def get_report(self) -> SourceReport:

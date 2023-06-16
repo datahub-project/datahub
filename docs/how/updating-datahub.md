@@ -6,11 +6,40 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- #7900: The `catalog_pattern` and `schema_pattern` options of the Unity Catalog source now match against the fully qualified name of the catalog/schema instead of just the name. Unless you're using regex `^` in your patterns, this should not affect you.
+- #8201: Python SDK: In the DataFlow class, the `cluster` argument is deprecated in favor of `env`.
 
 ### Potential Downtime
 
 ### Deprecations
+
+### Other notable Changes
+
+## 0.10.4
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+- #8045: With the introduction of custom ownership types, the `Owner` aspect has been updated where the `type` field is deprecated in favor of a new field `typeUrn`. This latter field is an urn reference to the new OwnershipType entity. GraphQL endpoints have been updated to use the new field. For pre-existing ownership aspect records, DataHub now has logic to map the old field to the new field.
+
+### Other notable Changes
+- #8191: Updates GMS's health check endpoint to account for its dependency on external components. Notably, at this time, elasticsearch. This means that DataHub operators can now use GMS health status more reliably.
+
+## 0.10.3
+
+### Breaking Changes
+
+- #7900: The `catalog_pattern` and `schema_pattern` options of the Unity Catalog source now match against the fully qualified name of the catalog/schema instead of just the name. Unless you're using regex `^` in your patterns, this should not affect you.
+- #7942: Renaming the `containerPath` aspect to `browsePathsV2`. This means any data with the aspect name `containerPath` will be invalid. We had not exposed this in the UI or used it anywhere, but it was a model we recently merged to open up other work. This should not affect many people if anyone at all unless you were manually creating `containerPath` data through ingestion on your instance.
+- #8068: In the `datahub delete` CLI, if an `--entity-type` filter is not specified, we automatically delete across all entity types. The previous behavior was to use a default entity type of dataset.
+- #8068: In the `datahub delete` CLI, the `--start-time` and `--end-time` parameters are not required for timeseries aspect hard deletes. To recover the previous behavior of deleting all data, use `--start-time min --end-time max`.
+
+### Potential Downtime
+
+### Deprecations
+- The signature of `Source.get_workunits()` is changed from `Iterable[WorkUnit]` to the more restrictive `Iterable[MetadataWorkUnit]`.
+- Legacy usage creation via the `UsageAggregation` aspect, `/usageStats?action=batchIngest` GMS endpoint, and `UsageStatsWorkUnit` metadata-ingestion class are all deprecated.
 
 ### Other notable Changes
 

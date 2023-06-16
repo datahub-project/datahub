@@ -1,11 +1,11 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from datahub_classify.helper_classes import ColumnInfo, Metadata
-from typing_extensions import Protocol
+from pydantic import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mce_builder import get_sys_time, make_term_urn, make_user_urn
 from datahub.ingestion.glossary.classifier import ClassificationConfig, Classifier
 from datahub.ingestion.glossary.classifier_registry import classifier_registry
@@ -16,6 +16,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.perf_timer import PerfTimer
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -29,71 +32,29 @@ class ClassificationReportMixin:
     )
 
 
-class ClassificationSourceConfigProtocol(Protocol):
-    classification: Optional[ClassificationConfig]
+class ClassificationSourceConfigMixin(ConfigModel):
+    classification: ClassificationConfig = Field(
+        default=ClassificationConfig(),
+        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
+    )
 
 
-class ClassificationSourceProtocol(Protocol):
-    @property
-    def classifiers(self) -> List[Classifier]:
-        ...
-
-    @property
-    def logger(self) -> logging.Logger:
-        ...
-
-    @property
-    def config(self) -> ClassificationSourceConfigProtocol:
-        ...
-
-    @property
-    def report(self) -> ClassificationReportMixin:
-        ...
+class ClassificationHandler:
+    def __init__(
+        self, config: ClassificationSourceConfigMixin, report: ClassificationReportMixin
+    ):
+        self.config = config
+        self.report = report
+        self.classifiers = self.get_classifiers()
 
     def is_classification_enabled(self) -> bool:
-        ...
-
-    def is_classification_enabled_for_column(
-        self, dataset_name: str, column_name: str
-    ) -> bool:
-        ...
-
-    def is_classification_enabled_for_table(self, dataset_name: str) -> bool:
-        ...
-
-    def get_classifiers(self) -> List[Classifier]:
-        ...
-
-    def get_columns_to_classify(
-        self,
-        dataset_name: str,
-        schema_metadata: SchemaMetadata,
-        sample_data: Dict[str, list],
-    ) -> List[ColumnInfo]:
-        ...
-
-    def extract_field_wise_terms(
-        self, field_terms: Dict[str, str], column_infos: List[ColumnInfo]
-    ) -> None:
-        ...
-
-    def populate_terms_in_schema_metadata(
-        self, schema_metadata: SchemaMetadata, field_terms: Dict[str, str]
-    ) -> None:
-        ...
-
-
-class ClassificationMixin:
-    def is_classification_enabled(self: ClassificationSourceProtocol) -> bool:
         return (
             self.config.classification is not None
             and self.config.classification.enabled
             and len(self.config.classification.classifiers) > 0
         )
 
-    def is_classification_enabled_for_table(
-        self: ClassificationSourceProtocol, dataset_name: str
-    ) -> bool:
+    def is_classification_enabled_for_table(self, dataset_name: str) -> bool:
         return (
             self.config.classification is not None
             and self.config.classification.enabled
@@ -102,7 +63,7 @@ class ClassificationMixin:
         )
 
     def is_classification_enabled_for_column(
-        self: ClassificationSourceProtocol, dataset_name: str, column_name: str
+        self, dataset_name: str, column_name: str
     ) -> bool:
         return (
             self.config.classification is not None
@@ -114,8 +75,7 @@ class ClassificationMixin:
             )
         )
 
-    def get_classifiers(self: ClassificationSourceProtocol) -> List[Classifier]:
-        assert self.config.classification
+    def get_classifiers(self) -> List[Classifier]:
         classifiers = []
 
         for classifier in self.config.classification.classifiers:
@@ -134,38 +94,44 @@ class ClassificationMixin:
         return classifiers
 
     def classify_schema_fields(
-        self: ClassificationSourceProtocol,
+        self,
         dataset_name: str,
         schema_metadata: SchemaMetadata,
         sample_data: Dict[str, list],
     ) -> None:
-        assert self.config.classification
         column_infos = self.get_columns_to_classify(
             dataset_name, schema_metadata, sample_data
         )
 
         if not column_infos:
-            self.logger.debug(
-                f"No columns in {dataset_name} considered for classification"
-            )
+            logger.debug(f"No columns in {dataset_name} considered for classification")
             return None
 
+        logger.debug(f"Classifying Table {dataset_name}")
         self.report.num_tables_classification_attempted += 1
         field_terms: Dict[str, str] = {}
-        try:
-            for classifier in self.classifiers:
-                column_info_with_proposals = classifier.classify(column_infos)
-                self.extract_field_wise_terms(field_terms, column_info_with_proposals)
-        except Exception:
-            self.report.num_tables_classification_failed += 1
-            raise
+        with PerfTimer() as timer:
+            try:
+                for classifier in self.classifiers:
+                    column_info_with_proposals = classifier.classify(column_infos)
+                    self.extract_field_wise_terms(
+                        field_terms, column_info_with_proposals
+                    )
+            except Exception:
+                self.report.num_tables_classification_failed += 1
+                raise
+            finally:
+                time_taken = timer.elapsed_seconds()
+                logger.debug(
+                    f"Finished classification {dataset_name}; took {time_taken:.3f} seconds"
+                )
 
         if field_terms:
             self.report.num_tables_classified += 1
             self.populate_terms_in_schema_metadata(schema_metadata, field_terms)
 
     def populate_terms_in_schema_metadata(
-        self: ClassificationSourceProtocol,
+        self,
         schema_metadata: SchemaMetadata,
         field_terms: Dict[str, str],
     ) -> None:
@@ -189,11 +155,10 @@ class ClassificationMixin:
                 )
 
     def extract_field_wise_terms(
-        self: ClassificationSourceProtocol,
+        self,
         field_terms: Dict[str, str],
         column_info_with_proposals: List[ColumnInfo],
     ) -> None:
-        assert self.config.classification
         for col_info in column_info_with_proposals:
             if not col_info.infotype_proposals:
                 continue
@@ -210,7 +175,7 @@ class ClassificationMixin:
             )
 
     def get_columns_to_classify(
-        self: ClassificationSourceProtocol,
+        self,
         dataset_name: str,
         schema_metadata: SchemaMetadata,
         sample_data: Dict[str, list],
@@ -221,7 +186,7 @@ class ClassificationMixin:
             if not self.is_classification_enabled_for_column(
                 dataset_name, schema_field.fieldPath
             ):
-                self.logger.debug(
+                logger.debug(
                     f"Skipping column {dataset_name}.{schema_field.fieldPath} from classification"
                 )
                 continue

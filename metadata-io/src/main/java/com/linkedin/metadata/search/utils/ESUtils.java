@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -7,7 +8,9 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -42,13 +45,16 @@ public class ESUtils {
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
 
-  // we use this to make sure we filter for editable & non-editable fields
-  public static final String[][] EDITABLE_FIELD_TO_QUERY_PAIRS = {
-      {"fieldTags", "editedFieldTags"},
-      {"fieldGlossaryTerms", "editedFieldGlossaryTerms"},
-      {"fieldDescriptions", "editedFieldDescriptions"},
-      {"description", "editedDescription"},
-  };
+  // we use this to make sure we filter for editable & non-editable fields. Also expands out top-level properties
+  // to field level properties
+  public static final Map<String, List<String>> FIELDS_TO_EXPANDED_FIELDS_LIST = new HashMap<String, List<String>>() {{
+    put("tags", ImmutableList.of("tags", "fieldTags", "editedFieldTags"));
+    put("glossaryTerms", ImmutableList.of("glossaryTerms", "fieldGlossaryTerms", "editedFieldGlossaryTerms"));
+    put("fieldTags", ImmutableList.of("fieldTags", "editedFieldTags"));
+    put("fieldGlossaryTerms", ImmutableList.of("fieldGlossaryTerms", "editedFieldGlossaryTerms"));
+    put("fieldDescriptions", ImmutableList.of("fieldDescriptions", "editedFieldDescriptions"));
+    put("description", ImmutableList.of("description", "editedDescription"));
+  }};
 
   public static final Set<String> BOOLEAN_FIELDS = ImmutableSet.of(
       "removed"
@@ -149,9 +155,8 @@ public class ESUtils {
      * First we handle this expansion, if required, otherwise we build the filter as usual
      * without expansion.
      */
-    final Optional<String[]> maybeFieldToExpand = Arrays.stream(EDITABLE_FIELD_TO_QUERY_PAIRS)
-        .filter(pair -> Arrays.asList(pair).contains(fieldName))
-        .findFirst();
+    final Optional<List<String>> maybeFieldToExpand = Optional.ofNullable(FIELDS_TO_EXPANDED_FIELDS_LIST.get(
+        fieldName));
 
     if (maybeFieldToExpand.isPresent()) {
       return getQueryBuilderFromCriterionForFieldToExpand(maybeFieldToExpand.get(), criterion, isTimeseries);
@@ -246,7 +251,7 @@ public class ESUtils {
 
   @Nonnull
   private static QueryBuilder getQueryBuilderFromCriterionForFieldToExpand(
-      @Nonnull final String[] fields,
+      @Nonnull final List<String> fields,
       @Nonnull final Criterion criterion,
       final boolean isTimeseries) {
     final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();

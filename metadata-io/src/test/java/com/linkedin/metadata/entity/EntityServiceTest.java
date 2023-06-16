@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -19,6 +20,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -39,6 +41,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -95,6 +98,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected final EntityRegistry _testEntityRegistry =
         new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
     protected EventProducer _mockProducer;
+    protected UpdateIndicesService _mockUpdateIndicesService;
 
     protected EntityServiceTest() throws EntityRegistryException {
     }
@@ -1150,6 +1154,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected <T extends RecordTemplate> T simulatePullFromDB(T aspect, Class<T> clazz) throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     }
     
@@ -1205,7 +1212,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN with leading or trailing whitespace");
-
         }
 
         // Urn purely too long
@@ -1252,6 +1258,34 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         }
     }
 
+    @Test
+    public void testUIPreProcessedProposal() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+        datasetProperties.setDescription("Foo Bar");
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(entityUrn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName("editableDatasetProperties");
+        SystemMetadata systemMetadata = new SystemMetadata();
+        StringMap properties = new StringMap();
+        properties.put(APP_SOURCE, UI_SOURCE);
+        systemMetadata.setProperties(properties);
+        gmce.setSystemMetadata(systemMetadata);
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+        ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), captor.capture());
+        assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+    }
+
     @Nonnull
     protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
         CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);
@@ -1271,6 +1305,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
         return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
     }

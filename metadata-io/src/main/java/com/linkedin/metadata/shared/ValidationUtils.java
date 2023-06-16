@@ -150,7 +150,8 @@ public class ValidationUtils {
         .collect(Collectors.toCollection(LineageRelationshipArray::new));
 
     validatedEntityLineageResult.setFiltered(
-        entityLineageResult.getRelationships().size() - validatedRelationships.size());
+        (entityLineageResult.hasFiltered() && entityLineageResult.getFiltered() != null ? entityLineageResult.getFiltered() : 0)
+            + entityLineageResult.getRelationships().size() - validatedRelationships.size());
     validatedEntityLineageResult.setRelationships(validatedRelationships);
 
     return validatedEntityLineageResult;

@@ -49,7 +49,6 @@ checkpointing_provider_config_test_params: Dict[
                 token="dummy_test_tok",
                 timeout_sec=10,
                 extra_headers={},
-                max_threads=15,
             ),
         ),
         False,

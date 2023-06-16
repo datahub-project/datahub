@@ -8,7 +8,9 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.glossary.classifier import ClassificationConfig
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
@@ -45,6 +47,7 @@ class SnowflakeV2Config(
     SnowflakeUsageConfig,
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     convert_urns_to_lowercase: bool = Field(
         default=True,
@@ -77,11 +80,6 @@ class SnowflakeV2Config(
         description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
     )
 
-    classification: Optional[ClassificationConfig] = Field(
-        default=None,
-        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
-    )
-
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate Snowsight url for Snowflake Objects",
@@ -93,7 +91,7 @@ class SnowflakeV2Config(
     )
 
     use_legacy_lineage_method: bool = Field(
-        default=True,
+        default=False,
         description="Whether to use the legacy lineage computation method. If set to False, ingestion uses new optimised lineage extraction method that requires less ingestion process memory.",
     )
 

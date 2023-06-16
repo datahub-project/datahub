@@ -83,25 +83,33 @@ AND
 timestamp >= \"2021-07-18T23:45:00Z\"
 AND
 timestamp < \"2021-07-20T00:15:00Z\"
+AND protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
         protoPayload.methodName=
             (
-                \"google.cloud.bigquery.v2.JobService.Query\"
+                "google.cloud.bigquery.v2.JobService.Query"
                 OR
-                \"google.cloud.bigquery.v2.JobService.InsertJob\"
+                "google.cloud.bigquery.v2.JobService.InsertJob"
             )
-        AND
-        protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
+        AND protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-        AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
+        AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
+        AND
+        (
+            (
+                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+                AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
+            )
+            OR
+            (
+                protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable:*
+            )
+        )
     )
     OR
-    (
-        protoPayload.metadata.tableDataRead:*
-    )
+    protoPayload.metadata.tableDataRead.reason = "JOB"
 )"""  # noqa: W293
     source = BigQueryUsageExtractor(config, BigQueryV2Report())
     filter: str = source._generate_filter(BQ_AUDIT_V2)

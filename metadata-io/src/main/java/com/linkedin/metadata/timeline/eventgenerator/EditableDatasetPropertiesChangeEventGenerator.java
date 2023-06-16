@@ -84,11 +84,16 @@ public class EditableDatasetPropertiesChangeEventGenerator
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
+    if (currentValue == null) {
+      throw new IllegalArgumentException("EntityAspect currentValue should not be null");
+    }
+
     if (!previousValue.getAspect().equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
         .equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
     }
-    assert (currentValue != null);
+
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.DOCUMENTATION) {
       EditableDatasetProperties baseDatasetProperties = getEditableDatasetPropertiesFromAspect(previousValue);

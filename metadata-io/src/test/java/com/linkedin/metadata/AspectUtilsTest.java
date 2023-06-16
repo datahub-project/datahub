@@ -5,6 +5,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.TestEntityRegistry;
@@ -42,7 +43,10 @@ public class AspectUtilsTest {
     EbeanAspectDao aspectDao = new EbeanAspectDao(server);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
-    EntityService entityService = new EntityService(aspectDao, mockProducer, _testEntityRegistry, true);
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(true);
+    EntityService entityService = new EntityService(aspectDao, mockProducer, _testEntityRegistry, true,
+        null, preProcessHooks);
 
     MetadataChangeProposal proposal1 = new MetadataChangeProposal();
     proposal1.setEntityUrn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD));

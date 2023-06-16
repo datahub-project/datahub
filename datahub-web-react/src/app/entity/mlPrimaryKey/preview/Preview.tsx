@@ -1,5 +1,5 @@
 import React from 'react';
-import { DataPlatform, EntityType, Owner } from '../../../../types.generated';
+import { DataPlatform, DataProduct, EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -12,6 +12,7 @@ export const Preview = ({
     description,
     owners,
     platform,
+    dataProduct,
     platformInstanceId,
 }: {
     urn: string;
@@ -20,6 +21,7 @@ export const Preview = ({
     description?: string | null;
     owners?: Array<Owner> | null;
     platform?: DataPlatform | null | undefined;
+    dataProduct?: DataProduct | null;
     platformInstanceId?: string;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -36,6 +38,7 @@ export const Preview = ({
             type="ML Primary Key"
             typeIcon={entityRegistry.getIcon(EntityType.MlprimaryKey, 14, IconStyleType.ACCENT)}
             owners={owners}
+            dataProduct={dataProduct}
             platformInstanceId={platformInstanceId}
         />
     );

@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, AndFilterInput } from '../../../../../../types.generated';
+import { AndFilterInput } from '../../../../../../types.generated';
 import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
@@ -33,7 +33,6 @@ type Props = {
     onToggleFilters: () => void;
     placeholderText?: string | null;
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
-    entityFilters: EntityType[];
     filters: AndFilterInput[];
     query: string;
     isSelectMode: boolean;
@@ -51,7 +50,6 @@ export default function EmbeddedListSearchHeader({
     onToggleFilters,
     placeholderText,
     downloadSearchResults,
-    entityFilters,
     filters,
     query,
     isSelectMode,
@@ -99,7 +97,6 @@ export default function EmbeddedListSearchHeader({
                         <SearchMenuContainer>
                             <SearchExtendedMenu
                                 downloadSearchResults={downloadSearchResults}
-                                entityFilters={entityFilters}
                                 filters={filters}
                                 query={query}
                                 setShowSelectMode={setIsSelectMode}

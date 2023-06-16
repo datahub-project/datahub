@@ -157,8 +157,6 @@ export const HomePageHeader = () => {
     }, [suggestionsData]);
 
     const onSearch = (query: string, type?: EntityType, filters?: FacetFilterInput[]) => {
-        if (!query.trim() && !selectedQuickFilter) return;
-
         analytics.event({
             type: EventType.HomePageSearchEvent,
             query,
