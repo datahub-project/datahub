@@ -20,6 +20,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -292,8 +293,12 @@ class Mapper:
         """
 
         dataset_mcps: List[MetadataChangeProposalWrapper] = []
+
         if dataset is None:
             return dataset_mcps
+
+        logger.debug(f"Processing dataset {dataset.name}")
+
         if not any(
             [
                 self.__config.filter_dataset_endorsements.allowed(tag)
@@ -310,7 +315,6 @@ class Mapper:
         )
 
         for table in dataset.tables:
-            self.processed_datasets.add(dataset)
             # Create a URN for dataset
             ds_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.__config.platform_name,
@@ -408,6 +412,8 @@ class Mapper:
                 Constant.DATASET,
                 dataset.tags,
             )
+
+        self.processed_datasets.add(dataset)
 
         return dataset_mcps
 
@@ -1144,6 +1150,21 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             f"Dataset lineage would get ingested for data-platform = {self.source_config.dataset_type_mapping}"
         )
 
+    def extract_datasets_as_containers(self):
+        for dataset in self.mapper.processed_datasets:
+            yield from self.mapper.generate_container_for_dataset(dataset)
+
+    def extract_independent_datasets(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataWorkUnit]:
+        for dataset in workspace.independent_datasets:
+            yield from auto_workunit(
+                stream=self.mapper.to_datahub_dataset(
+                    dataset=dataset,
+                    workspace=workspace,
+                )
+            )
+
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1179,11 +1200,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             ):
                 yield work_unit
 
-        for dataset in self.mapper.processed_datasets:
-            if self.source_config.extract_datasets_to_containers:
-                dataset_workunits = self.mapper.generate_container_for_dataset(dataset)
-                for workunit in dataset_workunits:
-                    yield workunit
+        if self.source_config.extract_datasets_to_containers:
+            yield from self.extract_datasets_as_containers()
+
+        yield from self.extract_independent_datasets(workspace)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id

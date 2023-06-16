@@ -156,6 +156,7 @@ module.exports = {
           Authentication: [
             "docs/authentication/README",
             "docs/authentication/concepts",
+            "docs/authentication/changing-default-credentials",
             "docs/authentication/guides/add-users",
             {
               "Frontend Authentication": [
@@ -195,6 +196,7 @@ module.exports = {
             "docs/how/kafka-config",
             "docs/deploy/confluent-cloud",
             "docs/advanced/no-code-upgrade",
+            "docs/how/jattach-guide",
           ],
         },
         "docs/how/updating-datahub",
@@ -295,6 +297,11 @@ module.exports = {
             },
             {
               type: "doc",
+              label: "Evaluate Tests",
+              id: "docs/api/restli/evaluate-tests",
+            },
+            {
+              type: "doc",
               label: "Aspect Versioning and Rest.li Modeling",
               id: "docs/advanced/aspect-versioning",
             },
@@ -316,6 +323,7 @@ module.exports = {
         "metadata-integration/java/as-a-library",
         {
           "API and SDK Guides": [
+            "docs/advanced/patch",
             "docs/api/tutorials/datasets",
             "docs/api/tutorials/lineage",
             "docs/api/tutorials/tags",
@@ -557,6 +565,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_8",
             "docs/managed-datahub/release-notes/v_0_2_7",
             "docs/managed-datahub/release-notes/v_0_2_6",
             "docs/managed-datahub/release-notes/v_0_2_5",

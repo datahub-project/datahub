@@ -1,9 +1,15 @@
 package com.datahub.health.controller;
 
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -26,11 +32,46 @@ public class HealthCheckController {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
   private RestHighLevelClient elasticClient;
-  private Supplier<ResponseEntity<String>> memoizedSupplier;
+  private final Supplier<ResponseEntity<String>> memoizedSupplier;
 
-  public HealthCheckController() {
+  public HealthCheckController(ConfigurationProvider config) {
+
     this.memoizedSupplier = Suppliers.memoizeWithExpiration(
-        this::getElasticHealth, 5, TimeUnit.SECONDS);
+        this::getElasticHealth, config.getHealthCheck().getCacheDurationSeconds(), TimeUnit.SECONDS);
+  }
+
+  /**
+   * Combined health check endpoint for checking GMS clients.
+   * For now, just checks the health of the ElasticSearch client
+   * @return A ResponseEntity with a Map of String (component name) to ResponseEntity (the health check status of
+   * that component). The status code will be 200 if all components are okay, and 500 if one or more components are not
+   * healthy.
+   */
+  @GetMapping(path = "/ready", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Map<String, ResponseEntity<String>>> getCombinedHealthCheck(String... checks) {
+
+    Map<String, Supplier<ResponseEntity<String>>> healthChecks = new HashMap<>();
+    healthChecks.put("elasticsearch", this::getElasticHealthWithCache);
+    // Add new components here
+
+    List<String> componentsToCheck = checks != null && checks.length > 0
+        ? Arrays.asList(checks)
+        : new ArrayList<>(healthChecks.keySet());
+
+    Map<String, ResponseEntity<String>> componentHealth = new HashMap<>();
+    for (String check : componentsToCheck) {
+      componentHealth.put(check,
+          healthChecks.getOrDefault(check,
+              () -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Unrecognized component " + check))
+              .get());
+    }
+
+
+    boolean isHealthy = componentHealth.values().stream().allMatch(resp -> resp.getStatusCode() == HttpStatus.OK);
+    if (isHealthy) {
+      return ResponseEntity.ok(componentHealth);
+    }
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(componentHealth);
   }
 
   /**
@@ -43,8 +84,8 @@ public class HealthCheckController {
   }
 
   /**
-   *
-   * @return
+   * Query ElasticSearch health endpoint
+   * @return A response including the result from ElasticSearch
    */
   private ResponseEntity<String> getElasticHealth() {
     String responseString = null;
@@ -63,6 +104,6 @@ public class HealthCheckController {
         responseString = e.getMessage();
       }
     }
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseString);
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(responseString);
   }
 }
