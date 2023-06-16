@@ -33,8 +33,12 @@ public class SearchableAnnotation {
   boolean enableAutocomplete;
   // Whether or not to add field to filters.
   boolean addToFilters;
-  // Name of the filter
+  // Whether or not to add the "has values" to filters.
+  boolean addHasValuesToFilters;
+  // Display name of the filter
   Optional<String> filterNameOverride;
+  // Display name of the has values filter
+  Optional<String> hasValuesFilterNameOverride;
   // Boost multiplier to the match score. Matches on fields with higher boost score ranks higher
   double boostScore;
   // If set, add a index field of the given name that checks whether the field exists
@@ -80,18 +84,29 @@ public class SearchableAnnotation {
     final Optional<Boolean> queryByDefault = AnnotationUtils.getField(map, "queryByDefault", Boolean.class);
     final Optional<Boolean> enableAutocomplete = AnnotationUtils.getField(map, "enableAutocomplete", Boolean.class);
     final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToFilters", Boolean.class);
+    final Optional<Boolean> addHasValuesToFilters = AnnotationUtils.getField(map, "addHasValuesToFilters", Boolean.class);
     final Optional<String> filterNameOverride = AnnotationUtils.getField(map, "filterNameOverride", String.class);
+    final Optional<String> hasValuesFilterNameOverride =
+        AnnotationUtils.getField(map, "hasValuesFilterNameOverride", String.class);
     final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
     final Optional<String> hasValuesFieldName = AnnotationUtils.getField(map, "hasValuesFieldName", String.class);
     final Optional<String> numValuesFieldName = AnnotationUtils.getField(map, "numValuesFieldName", String.class);
-
     final Optional<Map> weightsPerFieldValueMap =
         AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class).map(m -> (Map<Object, Double>) m);
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
-    return new SearchableAnnotation(fieldName.orElse(schemaFieldName), resolvedFieldType,
-        getQueryByDefault(queryByDefault, resolvedFieldType), enableAutocomplete.orElse(false),
-        addToFilters.orElse(false), filterNameOverride, boostScore.orElse(1.0), hasValuesFieldName, numValuesFieldName,
+    return new SearchableAnnotation(
+        fieldName.orElse(schemaFieldName),
+        resolvedFieldType,
+        getQueryByDefault(queryByDefault, resolvedFieldType),
+        enableAutocomplete.orElse(false),
+        addToFilters.orElse(false),
+        addHasValuesToFilters.orElse(false),
+        filterNameOverride,
+        hasValuesFilterNameOverride,
+        boostScore.orElse(1.0),
+        hasValuesFieldName,
+        numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()));
   }
 
@@ -126,5 +141,18 @@ public class SearchableAnnotation {
 
   public String getFilterName() {
     return filterNameOverride.orElse(fieldName);
+  }
+
+  public String getHasValuesFilterName() {
+    return hasValuesFilterNameOverride.orElse(
+        hasValuesFieldName.orElse(String.format("has%s", capitalizeFirstLetter(fieldName))));
+  }
+
+  private static String capitalizeFirstLetter(String str) {
+    if (str == null || str.length() == 0) {
+      return str;
+    } else {
+      return str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
   }
 }
