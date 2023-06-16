@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -25,6 +26,7 @@ import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
@@ -556,10 +558,11 @@ public class EntityService {
   }
 
   private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
-    RecordTemplateValidator.validate(aspect, validationResult -> {
+    Consumer<ValidationResult> resultFunction = validationResult -> {
       throw new IllegalArgumentException("Invalid format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
-          + validationResult.getMessages());
-    }, validator);
+          + validationResult.getMessages()); };
+    RecordTemplateValidator.validate(buildKeyAspect(urn), resultFunction, validator);
+    RecordTemplateValidator.validate(aspect, resultFunction, validator);
   }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
@@ -690,6 +693,7 @@ public class EntityService {
     return systemMetadata;
   }
 
+  @VisibleForTesting
   static void validateUrn(@Nonnull final Urn urn) {
 
     if (urn.toString().trim().length() != urn.toString().length()) {
