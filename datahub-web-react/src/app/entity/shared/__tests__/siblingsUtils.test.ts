@@ -1,4 +1,4 @@
-import { dataset3WithLineage, dataset4WithLineage } from '../../../../Mocks';
+import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '../../../../Mocks';
 import { EntityType, SchemaFieldDataType } from '../../../../types.generated';
 import {
     combineEntityDataWithSiblings,
@@ -50,6 +50,7 @@ const usageStats = {
 
 const datasetPrimary = {
     ...dataset3WithLineage,
+    ...dataset3WithSchema.dataset,
     properties: {
         ...dataset3WithLineage.properties,
         description: 'primary description',
@@ -529,9 +530,9 @@ describe('siblingUtils', () => {
             // merges schema metadata properly  by fieldPath
             expect(combinedData.dataset.schemaMetadata?.fields).toHaveLength(4);
             expect(combinedData.dataset.schemaMetadata?.fields[0].fieldPath).toEqual('new_one');
-            expect(combinedData.dataset.schemaMetadata?.fields[1].fieldPath).toEqual('user_id');
-            expect(combinedData.dataset.schemaMetadata?.fields[2].fieldPath).toEqual('user_name');
-            expect(combinedData.dataset.schemaMetadata?.fields[3].fieldPath).toEqual('DUPLICATE_FIELD');
+            expect(combinedData.dataset.schemaMetadata?.fields[1].fieldPath).toEqual('DUPLICATE_FIELD');
+            expect(combinedData.dataset.schemaMetadata?.fields[2].fieldPath).toEqual('user_id');
+            expect(combinedData.dataset.schemaMetadata?.fields[3].fieldPath).toEqual('user_name');
 
             // will overwrite string properties w/ primary
             expect(combinedData.dataset.editableProperties.description).toEqual('secondary description');

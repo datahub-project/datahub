@@ -34,6 +34,12 @@ file to add a custom Data Platform:
 You can also ingest a Data Platform at runtime using either a file-based ingestion source, or using a normal curl to the
 [GMS Rest.li APIs](https://datahubproject.io/docs/metadata-service#restli-api). 
 
+### Using the cli
+
+```shell
+datahub put platform --name MyCustomDataPlatform --display_name "My Custom Data Platform" --logo "https://<your-logo-url>"
+```
+
 ### Using File-Based Ingestion Recipe
 
 **Step 1** Define a JSON file containing your custom Data Platform

@@ -2,6 +2,7 @@ from typing import Callable, List, Tuple, Union
 
 from avro.schema import Field, RecordSchema
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import DictWrapper
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -9,7 +10,15 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 _Path = List[Union[str, int]]
 
 
-def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
+def _add_prefix_to_paths(
+    prefix: _Path, items: List[Tuple[str, _Path]]
+) -> List[Tuple[str, _Path]]:
+    return [(urn, [*prefix, *path]) for urn, path in items]
+
+
+def list_urns_with_path(
+    model: Union[DictWrapper, MetadataChangeProposalWrapper]
+) -> List[Tuple[str, _Path]]:
     """List urns in the given model with their paths.
 
     Args:
@@ -19,9 +28,25 @@ def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
         A list of tuples of the form (urn, path), where path is a list of keys.
     """
 
-    schema: RecordSchema = model.RECORD_SCHEMA
-
     urns: List[Tuple[str, _Path]] = []
+
+    if isinstance(model, MetadataChangeProposalWrapper):
+        if model.entityUrn:
+            urns.append((model.entityUrn, ["urn"]))
+        if model.entityKeyAspect:
+            urns.extend(
+                _add_prefix_to_paths(
+                    ["entityKeyAspect"], list_urns_with_path(model.entityKeyAspect)
+                )
+            )
+        if model.aspect:
+            urns.extend(
+                _add_prefix_to_paths(["aspect"], list_urns_with_path(model.aspect))
+            )
+
+        return urns
+
+    schema: RecordSchema = model.RECORD_SCHEMA
 
     for key, value in model.items():
         if not value:
@@ -31,19 +56,31 @@ def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
         is_urn = field_schema.get_prop("Urn") is not None
 
         if isinstance(value, DictWrapper):
-            for urn, path in list_urns_with_path(value):
-                urns.append((urn, [key, *path]))
+            urns.extend(_add_prefix_to_paths([key], list_urns_with_path(value)))
         elif isinstance(value, list):
             for i, item in enumerate(value):
                 if isinstance(item, DictWrapper):
-                    for urn, path in list_urns_with_path(item):
-                        urns.append((urn, [key, i, *path]))
+                    urns.extend(
+                        _add_prefix_to_paths([key, i], list_urns_with_path(item))
+                    )
                 elif is_urn:
                     urns.append((item, [key, i]))
         elif is_urn:
             urns.append((value, [key]))
 
     return urns
+
+
+def list_urns(model: Union[DictWrapper, MetadataChangeProposalWrapper]) -> List[str]:
+    """List urns in the given model.
+
+    Args:
+        model: The model to list urns from.
+
+    Returns: A list of URNs contained in the given model.
+    """
+
+    return [urn for urn, _ in list_urns_with_path(model)]
 
 
 def transform_urns(model: DictWrapper, func: Callable[[str], str]) -> None:

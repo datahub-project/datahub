@@ -170,9 +170,10 @@ public class SearchUtils {
     return listResult;
   }
 
+  @SneakyThrows
   public static SearchFlags applyDefaultSearchFlags(@Nullable SearchFlags inputFlags, @Nullable String query,
                                                     @Nonnull SearchFlags defaultFlags) {
-    SearchFlags finalSearchFlags = inputFlags != null ? inputFlags : defaultFlags;
+    SearchFlags finalSearchFlags = inputFlags != null ? inputFlags : defaultFlags.copy();
     if (!finalSearchFlags.hasFulltext() || finalSearchFlags.isFulltext() == null) {
       finalSearchFlags.setFulltext(defaultFlags.isFulltext());
     }

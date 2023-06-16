@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import (
@@ -13,9 +13,20 @@ from google.cloud.bigquery.table import (
 )
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class BigqueryTableType:
+    # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
+    BASE_TABLE = "BASE TABLE"
+    EXTERNAL = "EXTERNAL"
+    VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED VIEW"
+    CLONE = "CLONE"
+    SNAPSHOT = "SNAPSHOT"
 
 
 @dataclass
@@ -94,6 +105,7 @@ class BigqueryTable(BaseTable):
 @dataclass
 class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
+    materialized: bool = False
 
 
 @dataclass
@@ -138,7 +150,7 @@ order by
 """
 
     # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
-    tables_for_dataset = """
+    tables_for_dataset = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -159,9 +171,9 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
   left join (
@@ -173,20 +185,20 @@ FROM
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
     from
-        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+        `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL')
-{table_filter}
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+{{table_filter}}
 order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
 """
 
-    tables_for_dataset_without_partition_data = """
+    tables_for_dataset_without_partition_data = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -200,20 +212,20 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL')
-{table_filter}
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+{{table_filter}}
 order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
 """
 
-    views_for_dataset: str = """
+    views_for_dataset: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -227,19 +239,19 @@ SELECT
   row_count,
   size_bytes
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('MATERIALIZED VIEW', 'VIEW')
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
 """
 
-    views_for_dataset_without_data_read: str = """
+    views_for_dataset_without_data_read: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -250,12 +262,12 @@ SELECT
   is_insertable_into,
   ddl as view_definition
 FROM
-  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
-  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('MATERIALIZED VIEW', 'VIEW')
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
@@ -351,8 +363,6 @@ class BigQueryDataDictionary:
     def get_datasets_for_project_id(
         conn: bigquery.Client, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        # FIXME: Due to a bug in BigQuery's type annotations, we need to cast here.
-        maxResults = cast(int, maxResults)
         datasets = conn.list_datasets(project_id, max_results=maxResults)
         return [BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets]
 
@@ -360,6 +370,12 @@ class BigQueryDataDictionary:
     def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
+        """
+        This method is not used as of now, due to below limitation.
+        Current query only fetches datasets in US region
+        We'll need Region wise separate queries to fetch all datasets
+        https://cloud.google.com/bigquery/docs/information-schema-datasets-schemata
+        """
         schemas = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
@@ -382,7 +398,8 @@ class BigQueryDataDictionary:
         dataset_name: str,
         tables: Dict[str, TableListItem],
         with_data_read_permission: bool = False,
-    ) -> List[BigqueryTable]:
+        report: Optional[BigQueryV2Report] = None,
+    ) -> Iterator[BigqueryTable]:
         filter: str = ", ".join(f"'{table}'" for table in tables.keys())
 
         if with_data_read_permission:
@@ -407,42 +424,61 @@ class BigQueryDataDictionary:
                     table_filter=f" and t.table_name in ({filter})" if filter else "",
                 ),
             )
-        # Some property we want to capture only available from the TableListItem we get from an earlier query of
-        # the list of tables.
-        return [
-            BigqueryTable(
-                name=table.table_name,
-                created=table.created,
-                last_altered=datetime.fromtimestamp(
-                    table.get("last_altered") / 1000, tz=timezone.utc
+
+        for table in cur:
+            try:
+                yield BigQueryDataDictionary._make_bigquery_table(
+                    table, tables.get(table.table_name)
                 )
-                if table.get("last_altered") is not None
-                else table.created,
-                size_in_bytes=table.get("bytes"),
-                rows_count=table.get("row_count"),
-                comment=table.comment,
-                ddl=table.ddl,
-                expires=tables[table.table_name].expires if tables else None,
-                labels=tables[table.table_name].labels if tables else None,
-                partition_info=PartitionInfo.from_table_info(tables[table.table_name])
-                if tables
-                else None,
-                clustering_fields=tables[table.table_name].clustering_fields
-                if tables
-                else None,
-                max_partition_id=table.get("max_partition_id"),
-                max_shard_id=BigqueryTableIdentifier.get_table_and_shard(
-                    table.table_name
-                )[1]
-                if len(BigqueryTableIdentifier.get_table_and_shard(table.table_name))
-                == 2
-                else None,
-                num_partitions=table.get("num_partitions"),
-                active_billable_bytes=table.get("active_billable_bytes"),
-                long_term_billable_bytes=table.get("long_term_billable_bytes"),
+            except Exception as e:
+                table_name = f"{project_id}.{dataset_name}.{table.table_name}"
+                logger.warning(
+                    f"Error while processing table {table_name}",
+                    exc_info=True,
+                )
+                if report:
+                    report.report_warning(
+                        "metadata-extraction",
+                        f"Failed to get table {table_name}: {e}",
+                    )
+
+    @staticmethod
+    def _make_bigquery_table(
+        table: bigquery.Row, table_basic: Optional[TableListItem]
+    ) -> BigqueryTable:
+        # Some properties we want to capture are only available from the TableListItem
+        # we get from an earlier query of the list of tables.
+        try:
+            expiration = table_basic.expires if table_basic else None
+        except OverflowError:
+            logger.info(f"Invalid expiration time for table {table.table_name}.")
+            expiration = None
+
+        _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
+        return BigqueryTable(
+            name=table.table_name,
+            created=table.created,
+            last_altered=datetime.fromtimestamp(
+                table.get("last_altered") / 1000, tz=timezone.utc
             )
-            for table in cur
-        ]
+            if table.get("last_altered") is not None
+            else table.created,
+            size_in_bytes=table.get("bytes"),
+            rows_count=table.get("row_count"),
+            comment=table.comment,
+            ddl=table.ddl,
+            expires=expiration,
+            labels=table_basic.labels if table_basic else None,
+            partition_info=PartitionInfo.from_table_info(table_basic)
+            if table_basic
+            else None,
+            clustering_fields=table_basic.clustering_fields if table_basic else None,
+            max_partition_id=table.get("max_partition_id"),
+            max_shard_id=shard,
+            num_partitions=table.get("num_partitions"),
+            active_billable_bytes=table.get("active_billable_bytes"),
+            long_term_billable_bytes=table.get("long_term_billable_bytes"),
+        )
 
     @staticmethod
     def get_views_for_dataset(
@@ -450,7 +486,8 @@ class BigQueryDataDictionary:
         project_id: str,
         dataset_name: str,
         has_data_read: bool,
-    ) -> List[BigqueryView]:
+        report: Optional[BigQueryV2Report] = None,
+    ) -> Iterator[BigqueryView]:
         if has_data_read:
             cur = BigQueryDataDictionary.get_query_result(
                 conn,
@@ -466,18 +503,35 @@ class BigQueryDataDictionary:
                 ),
             )
 
-        return [
-            BigqueryView(
-                name=table.table_name,
-                created=table.created,
-                last_altered=table.last_altered
-                if "last_altered" in table
-                else table.created,
-                comment=table.comment,
-                view_definition=table.view_definition,
+        for table in cur:
+            try:
+                yield BigQueryDataDictionary._make_bigquery_view(table)
+            except Exception as e:
+                view_name = f"{project_id}.{dataset_name}.{table.table_name}"
+                logger.warning(
+                    f"Error while processing view {view_name}",
+                    exc_info=True,
+                )
+                if report:
+                    report.report_warning(
+                        "metadata-extraction",
+                        f"Failed to get view {view_name}: {e}",
+                    )
+
+    @staticmethod
+    def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
+        return BigqueryView(
+            name=view.table_name,
+            created=view.created,
+            last_altered=datetime.fromtimestamp(
+                view.get("last_altered") / 1000, tz=timezone.utc
             )
-            for table in cur
-        ]
+            if view.get("last_altered") is not None
+            else view.created,
+            comment=view.comment,
+            view_definition=view.view_definition,
+            materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
+        )
 
     @staticmethod
     def get_columns_for_dataset(
@@ -557,7 +611,6 @@ class BigQueryDataDictionary:
                     logger.warning(
                         f"{table_identifier.project_id}.{table_identifier.dataset}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
                     )
-                    last_seen_table = column.table_name
             else:
                 columns.append(
                     BigqueryColumn(

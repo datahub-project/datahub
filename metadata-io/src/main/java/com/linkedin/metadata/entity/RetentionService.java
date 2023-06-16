@@ -107,6 +107,7 @@ public abstract class RetentionService {
     GenericAspect retentionAspect = GenericRecordUtils.serializeAspect(retentionConfig);
     aspectProposal.setAspect(retentionAspect);
     aspectProposal.setAspectName(Constants.DATAHUB_RETENTION_ASPECT);
+    aspectProposal.setChangeType(ChangeType.UPSERT);
     return getEntityService().ingestProposal(aspectProposal, auditStamp, false).isDidUpdate();
   }
 

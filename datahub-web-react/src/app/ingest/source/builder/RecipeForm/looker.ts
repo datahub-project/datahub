@@ -15,7 +15,7 @@ export const LOOKER_CLIENT_ID: RecipeField = {
     name: 'client_id',
     label: 'Client ID',
     tooltip: 'Looker API Client ID.',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.client_id',
     placeholder: 'client_id',
     required: true,

@@ -22,10 +22,12 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
             const [start, end] = dates;
             const startTimeMillisValue = start?.valueOf();
             const endTimeMillisValue = end?.valueOf();
+            const relativeStartDate = getTimeFromNow(startTimeMillisValue);
+            const relativeEndDate = getTimeFromNow(endTimeMillisValue);
             analytics.event({
                 type: EventType.LineageGraphTimeRangeSelectionEvent,
-                relativeStartDate: getTimeFromNow(startTimeMillisValue),
-                relativeEndDate: getTimeFromNow(endTimeMillisValue),
+                relativeStartDate,
+                relativeEndDate,
             });
 
             navigateToLineageUrl({
@@ -40,13 +42,10 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
         }
     };
 
-    return (
-        <LineageTimeSelector
-            onChange={lineageTimeSelectorOnChange}
-            initialDates={[
-                (startTimeMillis && startTimeMillis > 0 && moment(startTimeMillis)) || null,
-                moment(endTimeMillis),
-            ]}
-        />
-    );
+    const initialDates: [moment.Moment | null, moment.Moment | null] = [
+        startTimeMillis ? moment(startTimeMillis) : null,
+        endTimeMillis ? moment(endTimeMillis) : null,
+    ];
+
+    return <LineageTimeSelector onChange={lineageTimeSelectorOnChange} initialDates={initialDates} />;
 }

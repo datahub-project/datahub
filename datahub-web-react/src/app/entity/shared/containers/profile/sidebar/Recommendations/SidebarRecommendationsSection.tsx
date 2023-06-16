@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useGetAuthenticatedUser } from '../../../../../../useGetAuthenticatedUser';
+import { useUserContext } from '../../../../../../context/useUserContext';
 import { useEntityData } from '../../../../EntityContext';
 import { SidebarEntityRecommendations } from './SidebarEntityRecommendations';
 
@@ -8,7 +8,7 @@ const RecommendationsContainer = styled.div``;
 
 export const SidebarRecommendationsSection = () => {
     const { urn, entityType } = useEntityData();
-    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
+    const authenticatedUserUrn = useUserContext()?.user?.urn;
     return (
         <RecommendationsContainer>
             {authenticatedUserUrn && (

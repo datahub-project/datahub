@@ -65,7 +65,9 @@ def get_upstream_tables(
             logger.debug(f"Validation failed: {message}")
             reporter.report_warning(table.full_name, message)
             return []
-    except BaseException as e:  # TODO: Debug why BaseException is needed here and below.
+    except (
+        BaseException
+    ) as e:  # TODO: Debug why BaseException is needed here and below.
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
             message = "Unsupported m-query expression"
         else:

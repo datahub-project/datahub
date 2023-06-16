@@ -1,3 +1,4 @@
+import collections
 import json
 import re
 from pathlib import Path
@@ -311,6 +312,17 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
 
+ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
+    aspect.get_aspect_name(): aspect
+    for aspect in ASPECT_CLASSES
+}}
+
+from typing_extensions import TypedDict
+
+class AspectBag(TypedDict, total=False):
+    {f'{newline}    '.join(f"{aspect['Aspect']['name']}: {aspect['name']}Class" for aspect in aspects)}
+
+
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f',{newline}    '.join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect['Aspect'].get('keyForEntity'))}
 }}
@@ -358,6 +370,15 @@ def generate(
         ):
             raise ValueError(
                 f'Entity key {entity.keyAspect} is used by {aspect["Aspect"]["keyForEntity"]} and {entity.name}'
+            )
+
+        # Also require that the aspect list is deduplicated.
+        duplicate_aspects = collections.Counter(entity.aspects) - collections.Counter(
+            set(entity.aspects)
+        )
+        if duplicate_aspects:
+            raise ValueError(
+                f"Entity {entity.name} has duplicate aspects: {duplicate_aspects}"
             )
 
         aspect["Aspect"]["keyForEntity"] = entity.name

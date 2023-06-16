@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata"
             },
             "name": "demodata"
@@ -139,7 +139,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_accessadmin"
             },
@@ -222,7 +222,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_backupoperator"
             },
@@ -305,7 +305,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_datareader"
             },
@@ -388,7 +388,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_datawriter"
             },
@@ -471,7 +471,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_ddladmin"
             },
@@ -554,7 +554,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_denydatareader"
             },
@@ -637,7 +637,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_denydatawriter"
             },
@@ -720,7 +720,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_owner"
             },
@@ -803,7 +803,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_securityadmin"
             },
@@ -886,7 +886,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "dbo"
             },
@@ -1073,7 +1073,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "Foo"
             },
@@ -1568,7 +1568,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "guest"
             },
@@ -1651,7 +1651,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "INFORMATION_SCHEMA"
             },
@@ -1734,7 +1734,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "sys"
             },
@@ -1817,7 +1817,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata"
             },
             "name": "newdata"
@@ -1884,7 +1884,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_accessadmin"
             },
@@ -1967,7 +1967,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_backupoperator"
             },
@@ -2050,7 +2050,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_datareader"
             },
@@ -2133,7 +2133,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_datawriter"
             },
@@ -2216,7 +2216,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_ddladmin"
             },
@@ -2299,7 +2299,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_denydatareader"
             },
@@ -2382,7 +2382,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_denydatawriter"
             },
@@ -2465,7 +2465,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_owner"
             },
@@ -2548,7 +2548,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "db_securityadmin"
             },
@@ -2631,7 +2631,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "dbo"
             },
@@ -2818,7 +2818,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "FooNew"
             },
@@ -3133,7 +3133,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "guest"
             },
@@ -3216,7 +3216,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "INFORMATION_SCHEMA"
             },
@@ -3299,7 +3299,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "newdata",
                 "schema": "sys"
             },

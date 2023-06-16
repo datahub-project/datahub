@@ -3,7 +3,7 @@ title: Setup
 ---
 # BigQuery Ingestion Guide: Setup & Prerequisites
 
-To configure ingestion from BigQuery, you'll need a [Service Account](https://cloud.google.com/iam/docs/creating-managing-service-accounts) configured with the proper permission sets, and an associated [Service Account Key](https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
+To configure ingestion from BigQuery, you'll need a [Service Account](https://cloud.google.com/iam/docs/creating-managing-service-accounts) configured with the proper permission sets and an associated [Service Account Key](https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
 
 This setup guide will walk you through the steps you'll need to take via your Google Cloud Console.
 
@@ -27,11 +27,12 @@ Please refer to the BigQuery [Permissions](https://cloud.google.com/iam/docs/per
 1. To set up a new Service Account follow [this guide](https://cloud.google.com/iam/docs/creating-managing-service-accounts)
 
 2. When you are creating a Service Account, assign the following predefined Roles:
-   - [BigQuery Job User](https://cloud.google.com/bigquery/docs/access-control#bigquery.jobUser)
-   - [BigQuery Metadata Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)
-   - [BigQuery Resource Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.resourceViewer) -> This role is for Table-Level Lineage and Usage extraction
-   - [Logs View Accessor](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Table-Level Lineage and Usage extraction
-   - [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Profiling
+   * [BigQuery Job User](https://cloud.google.com/bigquery/docs/access-control#bigquery.jobUser)
+   * [BigQuery Metadata Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)
+   * [BigQuery Resource Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.resourceViewer) -> This role is for Table-Level Lineage and Usage extraction
+   * [Logs View Accessor](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Table-Level Lineage and Usage extraction
+   * [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Profiling
+   * [BigQuery Read Session User](https://cloud.google.com/bigquery/docs/access-control#bigquery.readSessionUser) -> This role is for Profiling
 
 :::note
 You can always add/remove roles to Service Accounts later on. Please refer to the BigQuery [Manage access to projects, folders, and organizations](https://cloud.google.com/iam/docs/granting-changing-revoking-access) guide for more details.
@@ -40,6 +41,7 @@ You can always add/remove roles to Service Accounts later on. Please refer to th
 3. Create and download a [Service Account Key](https://cloud.google.com/iam/docs/creating-managing-service-account-keys). We will use this to set up authentication within DataHub.
 
 The key file looks like this:
+
 ```json
 {
    "type": "service_account",
@@ -54,7 +56,9 @@ The key file looks like this:
    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%suppproject-id-1234567.iam.gserviceaccount.com"
 }
 ```
+
 ## Next Steps
+
 Once you've confirmed all of the above in BigQuery, it's time to [move on](configuration.md) to configure the actual ingestion source within the DataHub UI.
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*

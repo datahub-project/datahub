@@ -12,7 +12,6 @@ import { Message } from '../shared/Message';
 import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import {
     BUSINESS_GLOSSARY_INTRO_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_ID,
@@ -20,6 +19,7 @@ import {
 } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
+import { useUserContext } from '../context/useUserContext';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -79,7 +79,7 @@ function BusinessGlossaryPage() {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
-    const user = useGetAuthenticatedUser();
+    const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
     return (

@@ -181,8 +181,8 @@ record DataJobInputOutput {
 
   /**
    * Fine-grained column-level lineages
+   * Not currently supported in the UI
+   * Use UpstreamLineage aspect for datasets to express Column Level Lineage for the UI
    */
-   // No @Relationship specified here; 
-   // all Produces/Consumes relations are effectively determined by the input/output datasets/datasetFields
   fineGrainedLineages: optional array[FineGrainedLineage]
 }

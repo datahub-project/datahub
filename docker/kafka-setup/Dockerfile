@@ -2,7 +2,7 @@
 FROM confluentinc/cp-base-new@sha256:ac4e0f9bcaecdab728740529f37452231fa40760fcf561759fc3b219f46d2cc9 as confluent_base
 
 ARG MAVEN_REPO="https://repo1.maven.org/maven2"
-ARG SNAKEYAML_VERSION="1.33"
+ARG SNAKEYAML_VERSION="2.0"
 
 RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
     && wget -P /usr/share/java/cp-base-new $MAVEN_REPO/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
@@ -62,6 +62,7 @@ ENV METADATA_CHANGE_PROPOSAL_TOPIC_NAME="MetadataChangeProposal_v1"
 ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME="FailedMetadataChangeProposal_v1"
 ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
 ENV DATAHUB_UPGRADE_HISTORY_TOPIC_NAME="DataHubUpgradeHistory_v1"
+ENV USE_CONFLUENT_SCHEMA_REGISTRY="TRUE"
 
 COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
 COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh

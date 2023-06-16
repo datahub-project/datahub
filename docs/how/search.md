@@ -122,9 +122,13 @@ If you want to:
   - ```/q editedDescription: *logical* OR description: *logical*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
   - Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.  
 
-- Find a dataset which reside in one of the browsing folders, for instance, the **hive** folder
+- Find a dataset which resides in one of the browsing folders, for instance, the **hive** folder
   - ```/q browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20browsePaths%3A%20%2Ahive%2A)
   - BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/SampleKafkaDataset```, hence the need for wildcards on both ends of the term to return a result. 
+
+- Find a dataset without the **name** field
+  - ```/q -_exists_:name``` [Sample results](https://demo.datahubproject.io/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
+  - the `-` is negating the existence of the field name.
 
 <!--
 ## Additional Resources
@@ -174,9 +178,212 @@ for integrations and programmatic use-cases.
 }
 ```
 
+### Searching at Scale
+
+For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://datahubproject.io/docs/graphql/queries/#scrollacrossentities) GraphQL API: 
+
+```
+# Example query
+{
+  scrollAcrossEntities(input: { types: [DATASET], query: "*", count: 10}) {
+    nextScrollId
+    count
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+
+This will return a response containing a `nextScrollId` value which must be used in subsequent queries to retrieve more data, i.e:
+
+```
+{
+  scrollAcrossEntities(input: 
+    { types: [DATASET], query: "*", count: 10,
+    scrollId: "eyJzb3J0IjpbMy4wLCJ1cm46bGk6ZGF0YXNldDoodXJuOmxpOmRhdGFQbGF0Zm9ybTpiaWdxdWVyeSxiaWdxdWVyeS1wdWJsaWMtZGF0YS5jb3ZpZDE5X2dlb3RhYl9tb2JpbGl0eV9pbXBhY3QucG9ydF90cmFmZmljLFBST0QpIl0sInBpdElkIjpudWxsLCJleHBpcmF0aW9uVGltZSI6MH0="}
+  ) {
+    nextScrollId
+    count
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+
+In order to complete scrolling through all of the results, continue to request data in batches until the `nextScrollId` returned is null or undefined.
+
 
 ### DataHub Blog
 * [Using DataHub for Search & Discovery](https://blog.datahubproject.io/using-datahub-for-search-discovery-fa309089be22)
+
+## Customizing Search
+
+It is possible to completely customize search ranking, filtering, and queries using a search configuration yaml file.
+This no-code solution provides the ability to extend, or replace, the Elasticsearch-based search functionality. The
+only limitation is that the information used in the query/ranking/filtering must be present in the entities' document,
+however this does include `customProperties`, `tags`, `terms`, `domain`, as well as many additional fields.
+
+Additionally, multiple customizations can be applied to different query strings. A regex is applied to the search query
+to determine which customized search profile to use. This means a different query/ranking/filtering can be applied to
+a `select all`/`*` query or one that contains an actual query.
+
+Search results (excluding select `*`) are a balance between relevancy and the scoring function. In
+general, when trying to improve relevancy, focus on changing the query in the `boolQuery` section and rely on the
+`functionScore` for surfacing the *importance* in the case of a relevancy tie. Consider the scenario
+where a dataset named `orders` exists in multiple places. The relevancy between the dataset with the **name** `orders` and
+the **term** `orders` is the same, however one location may be more important and thus the function score preferred.
+
+**Note:** The customized query is a pass-through to Elasticsearch and must comply with their API, syntax errors are possible.
+It is recommended to test the customized queries prior to production deployment and knowledge of the Elasticsearch query
+language is required.
+
+### Enable Custom Search
+
+The following environment variables on GMS control whether a search configuration is enabled and the location of the
+configuration file.
+
+Enable Custom Search:
+```shell
+ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED=true
+```
+
+Custom Search File Location:
+```shell
+ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE=search_config.yml
+```
+The location of the configuration file can be on the Java classpath or the local filesystem. A default configuration
+file is included with the GMS jar with the name `search_config.yml`.
+
+### Search Configuration
+
+The search configuration yaml contains a simple list of configuration profiles selected using the `queryRegex`. If a
+single profile is desired, a catch-all regex of `.*` can be used.
+
+The list of search configurations can be grouped into 4 general sections.
+
+1. `queryRegex` - Responsible for selecting the search customization based on the [regex matching](https://www.w3schools.com/java/java_regex.asp) the search query string.
+*The first match is applied.*
+2. Built-in query booleans - There are 3 built-in queries which can be individually enabled/disabled. These include
+the `simple query string`[[1]](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-simple-query-string-query.html), 
+`match phrase prefix`[[2]](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-match-query-phrase-prefix.html), and
+`exact match`[[3]](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-term-query.html) queries,
+enabled with the following booleans
+respectively [`simpleQuery`, `prefixMatchQuery`, `exactMatchQuery`]
+3. `boolQuery` - The base Elasticsearch `boolean query`[[4](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html)].
+If enabled in #2 above, those queries will
+appear in the `should` section of the `boolean query`[[4](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html)].
+4. `functionScore` - The Elasticsearch `function score`[[5](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-function-score-query.html#score-functions)] section of the overall query.
+
+### Examples
+
+These examples assume a match-all `queryRegex` of `.*` so that it would impact any search query for simplicity.
+
+#### Example 1: Ranking By Tags/Terms
+
+Boost entities with tags of `primary` or `gold` and an example glossary term's uuid.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+
+        - filter:
+            terms:
+              tags.keyword:
+                - urn:li:tag:primary
+                - urn:li:tag:gold
+          weight: 3.0
+        
+        - filter:
+            terms:
+              glossaryTerms.keyword:
+                - urn:li:glossaryTerm:9afa9a59-93b2-47cb-9094-aa342eec24ad
+          weight: 3.0
+
+      score_mode: multiply
+      boost_mode: multiply
+```
+
+#### Example 2: Preferred Data Platform
+
+Boost the `urn:li:dataPlatform:hive` platform.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+        - filter:
+            terms:
+              platform.keyword:
+                - urn:li:dataPlatform:hive
+          weight: 3.0
+      score_mode: multiply
+      boost_mode: multiply
+```
+
+#### Example 3: Exclusion & Bury
+
+This configuration extends the 3 built-in queries with a rule to exclude `deprecated` entities from search results
+because they are not generally relevant as well as reduces the score of `materialized`.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    
+    boolQuery:
+      must_not:
+        term:
+          deprecated:
+            value: true
+
+    functionScore:
+      functions:
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+      score_mode: multiply
+      boost_mode: multiply
+```
 
 ## FAQ and Troubleshooting
 

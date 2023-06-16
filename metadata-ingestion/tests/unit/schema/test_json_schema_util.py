@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -27,7 +28,7 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE = {
     "title": "TestRecord",
     "properties": {
         "my.field": {
-            "type": "string",
+            "type": ["string", "null"],
             "description": "some.doc",
         }
     },
@@ -43,6 +44,12 @@ def assert_field_paths_are_unique(fields: Iterable[SchemaField]) -> None:
 
     if fields_paths:
         assert len(fields_paths) == len(set(fields_paths))
+
+
+def assert_fields_are_valid(fields: Iterable[SchemaField]) -> None:
+    for f in fields:
+        f.validate()
+        assert isinstance(f.nativeDataType, str)
 
 
 def assert_field_paths_match(
@@ -98,6 +105,7 @@ def test_json_schema_to_mce_fields_sample_events_with_different_field_types():
         }
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_to_record_with_two_fields():
@@ -122,6 +130,7 @@ def test_json_schema_to_record_with_two_fields():
         },
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_to_mce_fields_toplevel_isnt_a_record():
@@ -131,6 +140,7 @@ def test_json_schema_to_mce_fields_toplevel_isnt_a_record():
         {"path": "[version=2.0].[type=string]", "type": StringTypeClass}
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_with_recursion():
@@ -154,6 +164,7 @@ def test_json_schema_with_recursion():
         },
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_json_sample_payment_schema_to_schema_fields_with_nesting():
@@ -208,6 +219,7 @@ def test_json_sample_payment_schema_to_schema_fields_with_nesting():
     assert fields[3].description == "testDoc\nField default value: null"
     assert fields[4].description == "areaCodeDoc\nField default value: "
     assert fields[8].description == "addressDoc\nField default value: null"
+    assert_fields_are_valid(fields)
 
 
 def test_json_schema_to_schema_fields_with_nesting_across_records():
@@ -639,6 +651,7 @@ def test_array_handling():
         "[version=2.0].[type=Administrative-Unit].[type=integer].CODE_OFS_1_Text",
     ]
     assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
 
 
 def test_simple_array():
@@ -671,3 +684,139 @@ def test_simple_object():
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[0].type.type, RecordTypeClass)
+
+
+def test_required_field():
+    schema = {
+        "$id": "test",
+        "$schema": "http://json-schema.org/draft-06/schema#",
+        "properties": {
+            "a_str": {
+                "description": "Example String",
+                "type": "string",
+            },
+            "b_str": {"type": ["string", "null"]},
+        },
+        "required": ["b_str"],
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=object].[type=string].a_str",
+        "[version=2.0].[type=object].[type=string].b_str",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+    assert fields[0].nullable is False
+    assert fields[1].nullable is True
+    assert json.loads(fields[1].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[0].jsonProps or "{}")["required"] is False
+
+
+def test_anyof_with_properties():
+    # We expect the event / timestamp fields to be included in both branches of the anyOf.
+
+    schema = {
+        "$id": "test",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": False,
+        "anyOf": [{"required": ["anonymousId"]}, {"required": ["userId"]}],
+        "properties": {
+            "anonymousId": {
+                "description": "A temporary user id, used before a user logs in.",
+                "format": "uuid",
+                "type": "string",
+            },
+            "userId": {
+                "description": "Unique user id.",
+                "type": "string",
+            },
+            "event": {"description": "Unique name of the event.", "type": "string"},
+            "timestamp": {
+                "description": "Timestamp of when the message itself took place.",
+                "type": "string",
+            },
+        },
+        "required": ["event"],
+        "type": "object",
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=union].[type=union_0].[type=string(uuid)].anonymousId",
+        "[version=2.0].[type=union].[type=union_0].[type=string].userId",
+        "[version=2.0].[type=union].[type=union_0].[type=string].event",
+        "[version=2.0].[type=union].[type=union_0].[type=string].timestamp",
+        "[version=2.0].[type=union].[type=union_1].[type=string(uuid)].anonymousId",
+        "[version=2.0].[type=union].[type=union_1].[type=string].userId",
+        "[version=2.0].[type=union].[type=union_1].[type=string].event",
+        "[version=2.0].[type=union].[type=union_1].[type=string].timestamp",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+    # In the first one, the anonymousId is required, but the userId is not.
+    assert json.loads(fields[0].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[1].jsonProps or "{}")["required"] is False
+
+    # In the second one, the userId is required, but the anonymousId is not.
+    assert json.loads(fields[4].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[5].jsonProps or "{}")["required"] is True
+
+    # The event field is required in both branches.
+    assert json.loads(fields[2].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[6].jsonProps or "{}")["required"] is True
+
+    # The timestamp field is not required in either branch.
+    assert json.loads(fields[3].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[7].jsonProps or "{}")["required"] is False
+
+
+def test_top_level_trival_allof():
+    schema = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "event-wrapper",
+        "type": "object",
+        "allOf": [
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "event",
+                "properties": {
+                    "userId": {
+                        "description": "Unique user id.",
+                        "type": "string",
+                    },
+                    "event": {
+                        "description": "Unique name of the event.",
+                        "type": "string",
+                    },
+                    "timestamp": {
+                        "description": "Timestamp of when the message itself took place.",
+                        "type": "string",
+                    },
+                },
+                "required": ["event"],
+                "type": "object",
+                "additionalProperties": False,
+            },
+        ],
+        "properties": {
+            "extra-top-level-property": {
+                "type": "string",
+            },
+        },
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=object].[type=string].extra-top-level-property",
+        "[version=2.0].[type=object].[type=string].userId",
+        "[version=2.0].[type=object].[type=string].event",
+        "[version=2.0].[type=object].[type=string].timestamp",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+    assert json.loads(fields[0].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[1].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[2].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[3].jsonProps or "{}")["required"] is False

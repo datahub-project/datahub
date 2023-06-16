@@ -9,6 +9,11 @@ import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './typ
 import { useEntityQueryParams } from '../../../containers/profile/utils';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
 import { UnionType } from '../../../../../search/utils/constants';
+import {
+    DownloadSearchResults,
+    DownloadSearchResultsInput,
+    DownloadSearchResultsParams,
+} from '../../../../../search/utils/types';
 
 const FILTER = 'filter';
 
@@ -31,11 +36,18 @@ type Props = {
     defaultFilters?: Array<FacetFilterInput>;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    skipCache?: boolean;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
         error: ApolloError | undefined;
         refetch: (variables: GetSearchResultsParams['variables']) => Promise<SearchResultsInterface | undefined | null>;
+    };
+    useGetDownloadSearchResults?: (params: DownloadSearchResultsParams) => {
+        loading: boolean;
+        error: ApolloError | undefined;
+        searchResults: DownloadSearchResults | undefined | null;
+        refetch: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | undefined | null>;
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
@@ -50,7 +62,9 @@ export const EmbeddedListSearchSection = ({
     defaultFilters,
     searchBarStyle,
     searchBarInputStyle,
+    skipCache,
     useGetSearchResults,
+    useGetDownloadSearchResults,
     shouldRefetch,
     resetShouldRefetch,
 }: Props) => {
@@ -133,7 +147,9 @@ export const EmbeddedListSearchSection = ({
             defaultFilters={defaultFilters}
             searchBarStyle={searchBarStyle}
             searchBarInputStyle={searchBarInputStyle}
+            skipCache={skipCache}
             useGetSearchResults={useGetSearchResults}
+            useGetDownloadSearchResults={useGetDownloadSearchResults}
             shouldRefetch={shouldRefetch}
             resetShouldRefetch={resetShouldRefetch}
         />

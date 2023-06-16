@@ -154,7 +154,7 @@ const quickLinkContent = [
     title: "Get Started",
     icon: <ThunderboltTwoTone />,
     description: "Details on how to get DataHub up and running",
-    to: "/docs/get-started-with-datahub",
+    to: "/docs/quickstart",
   },
   {
     title: "Ingest Metadata",
@@ -163,10 +163,10 @@ const quickLinkContent = [
     to: "/docs/metadata-ingestion",
   },
   {
-    title: "Enrich Metadata",
+    title: "API",
     icon: <DeploymentUnitOutlined />,
-    description: "Improve the quality and coverage of Metadata",
-    to: "docs/enrich-metadata",
+    description: "Details on how to utilize Metadata programmatically",
+    to: "docs/api/datahub-apis",
   },
   {
     title: "Act on Metadata",

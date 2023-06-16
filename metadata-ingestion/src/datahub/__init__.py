@@ -21,4 +21,5 @@ if sys.version_info < (3, 7):
         "DataHub requires Python 3.7 or newer. "
         "Please upgrade your Python version to continue using DataHub.",
         FutureWarning,
+        stacklevel=2,
     )

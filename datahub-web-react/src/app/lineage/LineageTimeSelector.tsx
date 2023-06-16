@@ -37,7 +37,8 @@ type Props = {
 export default function LineageTimeSelector({ onChange, initialDates }: Props) {
     const [isOpen, setIsOpen] = useState(false);
     const [headerText, setHeaderText] = useState('No time range selected');
-    const [startDate, endDate] = initialDates;
+    const [startDate, setStartDate] = useState<moment.Moment | null>(initialDates[0]);
+    const [endDate, setEndDate] = useState<moment.Moment | null>(initialDates[1]);
 
     useEffect(() => {
         const timeRangeDescription = getTimeRangeDescription(startDate, endDate);
@@ -55,7 +56,7 @@ export default function LineageTimeSelector({ onChange, initialDates }: Props) {
                     </Header>
                     <RangePicker
                         allowClear
-                        allowEmpty={[false, false]}
+                        allowEmpty={[true, true]}
                         bordered={false}
                         value={initialDates}
                         disabledDate={(current: any) => {
@@ -66,9 +67,13 @@ export default function LineageTimeSelector({ onChange, initialDates }: Props) {
                             'Last 7 days': [moment().subtract(7, 'days'), moment()],
                             'Last 14 days': [moment().subtract(14, 'days'), moment()],
                             'Last 28 days': [moment().subtract(28, 'days'), moment()],
-                            'All Time': [moment(0), moment()],
+                            'All Time': [null, null],
                         }}
                         onChange={(dates, dateStrings) => {
+                            if (dates) {
+                                setStartDate(dates[0]);
+                                setEndDate(dates[1]);
+                            }
                             onChange(dates, dateStrings);
                             setIsOpen(false);
                         }}

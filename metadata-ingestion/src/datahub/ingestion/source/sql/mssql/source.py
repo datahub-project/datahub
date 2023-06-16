@@ -61,7 +61,7 @@ register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", hidden_from_schema=True)
+    scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
     include_stored_procedures: bool = Field(
         default=True,
         description="Include ingest of stored procedures. Requires access to the 'sys' schema.",
@@ -668,11 +668,12 @@ class SQLServerSource(SQLAlchemySource):
                 for db in databases:
                     if self.config.database_pattern.allowed(db["name"]):
                         url = self.config.get_sql_alchemy_url(current_db=db["name"])
-                        inspector = inspect(
-                            create_engine(url, **self.config.options).connect()
-                        )
-                        self.current_database = db["name"]
-                        yield inspector
+                        with create_engine(
+                            url, **self.config.options
+                        ).connect() as conn:
+                            inspector = inspect(conn)
+                            self.current_database = db["name"]
+                            yield inspector
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any

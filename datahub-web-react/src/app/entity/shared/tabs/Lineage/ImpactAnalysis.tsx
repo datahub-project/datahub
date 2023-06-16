@@ -2,7 +2,7 @@ import React from 'react';
 import { LineageDirection } from '../../../../../types.generated';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
 import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
-import { getDefaultLineageEndTime, getDefaultLineageStartTime } from '../../../../lineage/utils/lineageUtils';
+import generateUseDownloadScrollAcrossLineageSearchResultsHook from './generateUseDownloadScrollAcrossLineageSearchResultsHook';
 
 type Props = {
     urn: string;
@@ -25,11 +25,19 @@ export const ImpactAnalysis = ({
     setSkipCache,
     resetShouldRefetch,
 }: Props) => {
-    const finalStartTimeMillis = (startTimeMillis === undefined && getDefaultLineageStartTime()) || startTimeMillis;
-    const finalEndTimeMillis = (endTimeMillis === undefined && getDefaultLineageEndTime()) || endTimeMillis;
+    const finalStartTimeMillis = startTimeMillis || undefined;
+    const finalEndTimeMillis = endTimeMillis || undefined;
     return (
         <EmbeddedListSearchSection
             useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
+                urn,
+                direction,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
+            })}
+            useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
                 urn,
                 direction,
                 startTimeMillis: finalStartTimeMillis,

@@ -122,6 +122,7 @@ shadowJar {
     relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
     relocate 'org.jgrapht', 'datahub.shaded.org.jgrapht'
     relocate 'org.jheaps', 'datahub.shaded.org.jheaps'
+    relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
  
   finalizedBy checkShadowJar
 }

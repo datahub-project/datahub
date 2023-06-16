@@ -285,12 +285,170 @@ def default_query_results(query):  # noqa: C901
                 ),
             }
             for op_idx in range(1, NUM_OPS + 1)
+        ] + [
+            {
+                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
+                "UPSTREAM_TABLE_NAME": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
+                "UPSTREAM_TABLE_COLUMNS": json.dumps(
+                    [{"columnId": 0, "columnName": "COL_1"}]
+                ),
+                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
+                    [
+                        {
+                            "columnId": 0,
+                            "columnName": "COL_1",
+                            "directSources": [
+                                {
+                                    "columnName": "COL_1",
+                                    "objectDomain": "Table",
+                                    "objectId": 0,
+                                    "objectName": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
+                                }
+                            ],
+                        }
+                    ]
+                ),
+            }
+        ]
+    elif query in (
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
+            start_time_millis=1654499820000,
+            end_time_millis=1654586220000,
+            include_view_lineage=True,
+            include_column_lineage=True,
+        ),
+    ):
+        return [
+            {
+                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
+                "UPSTREAM_TABLES": json.dumps(
+                    [
+                        {
+                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "upstream_object_domain": "TABLE",
+                        }
+                    ]
+                    + (  # This additional upstream is only for TABLE_1
+                        [
+                            {
+                                "upstream_object_name": "TEST_DB.TEST_SCHEMA.VIEW_1",
+                                "upstream_object_domain": "VIEW",
+                            },
+                            {
+                                "upstream_object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
+                                "upstream_object_domain": "TABLE",
+                            },
+                        ]
+                        if op_idx == 1
+                        else []
+                    )
+                ),
+                "UPSTREAM_COLUMNS": json.dumps(
+                    [
+                        {
+                            "column_name": "COL_{}".format(col_idx),
+                            "upstreams": [
+                                [
+                                    {
+                                        "object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                                        "object_domain": "Table",
+                                        "column_name": "COL_{}".format(col_idx),
+                                    }
+                                ]
+                            ],
+                        }
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                    + (  # This additional upstream is only for TABLE_1
+                        [
+                            {
+                                "column_name": "COL_1",
+                                "upstreams": [
+                                    [
+                                        {
+                                            "object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
+                                            "object_domain": "Table",
+                                            "column_name": "COL_1",
+                                        }
+                                    ]
+                                ],
+                            }
+                        ]
+                        if op_idx == 1
+                        else []
+                    )
+                ),
+            }
+            for op_idx in range(1, NUM_OPS + 1)
+        ]
+    elif query in (
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
+            start_time_millis=1654499820000,
+            end_time_millis=1654586220000,
+            include_view_lineage=False,
+            include_column_lineage=False,
+        ),
+    ):
+        return [
+            {
+                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
+                "UPSTREAM_TABLES": json.dumps(
+                    [
+                        {
+                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "upstream_object_domain": "TABLE",
+                        },
+                    ]
+                    + (  # This additional upstream is only for TABLE_1
+                        [
+                            {
+                                "upstream_object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
+                                "upstream_object_domain": "TABLE",
+                            },
+                        ]
+                        if op_idx == 1
+                        else []
+                    )
+                ),
+            }
+            for op_idx in range(1, NUM_OPS + 1)
         ]
     elif query == snowflake_query.SnowflakeQuery.external_table_lineage_history(
         1654499820000,
         1654586220000,
     ):
         return []
+    elif query in [
+        snowflake_query.SnowflakeQuery.view_dependencies(),
+    ]:
+        return [
+            {
+                "REFERENCED_OBJECT_DOMAIN": "table",
+                "REFERENCING_OBJECT_DOMAIN": "view",
+                "DOWNSTREAM_VIEW": "TEST_DB.TEST_SCHEMA.VIEW_2",
+                "VIEW_UPSTREAM": "TEST_DB.TEST_SCHEMA.TABLE_2",
+            }
+        ]
+    elif query in [
+        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
+    ]:
+        # VIEW_2 has dependency on TABLE_2
+        return [
+            {
+                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.VIEW_2",
+                "DOWNSTREAM_TABLE_DOMAIN": "view",
+                "UPSTREAM_TABLES": json.dumps(
+                    [
+                        {
+                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "upstream_object_domain": "table",
+                        }
+                    ]
+                ),
+            }
+        ]
     elif query in [
         snowflake_query.SnowflakeQuery.view_lineage_history(
             1654499820000,
@@ -332,21 +490,11 @@ def default_query_results(query):  # noqa: C901
             }
         ]
     elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies(),
-    ]:
-        return [
-            {
-                "REFERENCED_OBJECT_DOMAIN": "table",
-                "REFERENCING_OBJECT_DOMAIN": "view",
-                "DOWNSTREAM_VIEW": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                "VIEW_UPSTREAM": "TEST_DB.TEST_SCHEMA.VIEW_2",
-            }
-        ]
-    elif query in [
         snowflake_query.SnowflakeQuery.external_table_lineage_history(
             1654499820000,
             1654586220000,
         ),
+        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
         snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
     ]:

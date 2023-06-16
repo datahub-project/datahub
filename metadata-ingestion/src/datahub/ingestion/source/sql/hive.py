@@ -19,11 +19,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemySource,
-    register_custom_type,
+from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.two_tier_sql_source import (
+    TwoTierSQLAlchemyConfig,
+    TwoTierSQLAlchemySource,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NullTypeClass,
@@ -90,7 +90,7 @@ except Exception as e:
     logger.warning(f"Failed to patch method due to {e}")
 
 
-class HiveConfig(BasicSQLAlchemyConfig):
+class HiveConfig(TwoTierSQLAlchemyConfig):
     # defaults
     scheme = Field(default="hive", hidden_from_docs=True)
 
@@ -113,7 +113,7 @@ class HiveConfig(BasicSQLAlchemyConfig):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-class HiveSource(SQLAlchemySource):
+class HiveSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 

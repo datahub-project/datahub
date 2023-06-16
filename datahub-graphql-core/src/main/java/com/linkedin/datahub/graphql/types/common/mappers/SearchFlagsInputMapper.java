@@ -24,6 +24,8 @@ public class SearchFlagsInputMapper implements ModelMapper<SearchFlags, com.link
     com.linkedin.metadata.query.SearchFlags result = new com.linkedin.metadata.query.SearchFlags();
     if (searchFlags.getFulltext() != null) {
       result.setFulltext(searchFlags.getFulltext());
+    } else {
+      result.setFulltext(true);
     }
     if (searchFlags.getSkipCache() != null) {
       result.setSkipCache(searchFlags.getSkipCache());

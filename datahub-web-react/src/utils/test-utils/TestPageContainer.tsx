@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
+import { HelmetProvider } from 'react-helmet-async';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
@@ -20,6 +21,7 @@ import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEn
 import { ChartEntity } from '../../app/entity/chart/ChartEntity';
 import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
 import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
+import UserContextProvider from '../../app/context/UserContextProvider';
 
 type Props = {
     children: React.ReactNode;
@@ -52,31 +54,35 @@ export default ({ children, initialEntries }: Props) => {
     jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
 
     return (
-        <ThemeProvider theme={defaultThemeConfig}>
-            <MemoryRouter initialEntries={initialEntries}>
-                <EntityRegistryContext.Provider value={entityRegistry}>
-                    <LineageExplorerContext.Provider
-                        value={{
-                            expandTitles: false,
-                            showColumns: false,
-                            collapsedColumnsNodes: {},
-                            setCollapsedColumnsNodes: null,
-                            fineGrainedMap: {},
-                            selectedField: null,
-                            setSelectedField: () => {},
-                            highlightedEdges: [],
-                            setHighlightedEdges: () => {},
-                            visibleColumnsByUrn: {},
-                            setVisibleColumnsByUrn: () => {},
-                            columnsByUrn: {},
-                            setColumnsByUrn: () => {},
-                            refetchCenterNode: () => {},
-                        }}
-                    >
-                        {children}
-                    </LineageExplorerContext.Provider>
-                </EntityRegistryContext.Provider>
-            </MemoryRouter>
-        </ThemeProvider>
+        <HelmetProvider>
+            <ThemeProvider theme={defaultThemeConfig}>
+                <MemoryRouter initialEntries={initialEntries}>
+                    <EntityRegistryContext.Provider value={entityRegistry}>
+                        <UserContextProvider>
+                            <LineageExplorerContext.Provider
+                                value={{
+                                    expandTitles: false,
+                                    showColumns: false,
+                                    collapsedColumnsNodes: {},
+                                    setCollapsedColumnsNodes: null,
+                                    fineGrainedMap: {},
+                                    selectedField: null,
+                                    setSelectedField: () => {},
+                                    highlightedEdges: [],
+                                    setHighlightedEdges: () => {},
+                                    visibleColumnsByUrn: {},
+                                    setVisibleColumnsByUrn: () => {},
+                                    columnsByUrn: {},
+                                    setColumnsByUrn: () => {},
+                                    refetchCenterNode: () => {},
+                                }}
+                            >
+                                {children}
+                            </LineageExplorerContext.Provider>
+                        </UserContextProvider>
+                    </EntityRegistryContext.Provider>
+                </MemoryRouter>
+            </ThemeProvider>
+        </HelmetProvider>
     );
 };

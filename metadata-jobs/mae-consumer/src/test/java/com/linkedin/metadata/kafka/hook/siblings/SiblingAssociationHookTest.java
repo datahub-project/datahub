@@ -53,7 +53,8 @@ public class SiblingAssociationHookTest {
     _mockEntityClient = Mockito.mock(RestliEntityClient.class);
     _mockSearchService = Mockito.mock(EntitySearchService.class);
     _mockAuthentication = Mockito.mock(Authentication.class);
-    _siblingAssociationHook = new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, _mockAuthentication);
+    _siblingAssociationHook = new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, _mockAuthentication,
+        true);
     _siblingAssociationHook.setEnabled(true);
   }
 

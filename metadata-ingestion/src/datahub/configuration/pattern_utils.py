@@ -1,5 +1,7 @@
 from datahub.configuration.common import AllowDenyPattern
 
+UUID_REGEX = r"[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}"
+
 
 def is_schema_allowed(
     schema_pattern: AllowDenyPattern,

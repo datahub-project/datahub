@@ -1,0 +1,12 @@
+query($urn: String!, $input: SearchAcrossEntitiesInput!) {
+  listDataProductAssets(urn: $urn, input: $input) {
+    count
+    total
+    searchResults {
+      entity {
+        urn
+        type
+      }
+    }
+  }
+}

@@ -1,7 +1,9 @@
+import time
 from datetime import datetime
 from unittest import mock
 
 import pytest
+from freezegun import freeze_time
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -12,12 +14,25 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
+    convert_usage_aggregation_class,
 )
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
+    DatasetFieldUsageCountsClass,
+    DatasetUsageStatisticsClass,
+    DatasetUserUsageCountsClass,
+    FieldUsageCountsClass,
+    TimeWindowSizeClass,
+    UsageAggregationClass,
+    UsageAggregationMetricsClass,
+    UserUsageCountsClass,
+    WindowDurationClass,
+)
 
 _TestTableRef = str
 
 _TestAggregatedDataset = GenericAggregatedDataset[_TestTableRef]
+USAGE_ASPECT_NAME = DatasetUsageStatisticsClass.get_aspect_name()
 
 
 def _simple_urn_builder(resource):
@@ -164,13 +179,16 @@ def test_make_usage_workunit():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=True,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -196,12 +214,15 @@ def test_query_formatting():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=True,
         include_top_n_queries=True,
     )
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -226,14 +247,17 @@ def test_query_trimming():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=top_n_queries,
         format_sql_queries=False,
         include_top_n_queries=True,
         total_budget_for_query_list=total_budget_for_query_list,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
@@ -266,14 +290,83 @@ def test_make_usage_workunit_include_top_n_queries():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=_simple_urn_builder,
+        resource_urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=False,
     )
 
-    assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
+    ts_timestamp = int(floored_ts.timestamp() * 1000)
+    assert (
+        wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
+    )
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries is None
+
+
+@freeze_time("2023-01-01 00:00:00")
+def test_convert_usage_aggregation_class():
+    urn = make_dataset_urn_with_platform_instance(
+        "platform", "test_db.test_schema.test_table", None
+    )
+    usage_aggregation = UsageAggregationClass(
+        bucket=int(time.time() * 1000),
+        duration=WindowDurationClass.DAY,
+        resource=urn,
+        metrics=UsageAggregationMetricsClass(
+            uniqueUserCount=5,
+            users=[
+                UserUsageCountsClass(count=3, user="abc", userEmail="abc@acryl.io"),
+                UserUsageCountsClass(count=2),
+                UserUsageCountsClass(count=1, user="def"),
+            ],
+            totalSqlQueries=10,
+            topSqlQueries=["SELECT * FROM my_table", "SELECT col from a.b.c"],
+            fields=[FieldUsageCountsClass("col", 7), FieldUsageCountsClass("col2", 0)],
+        ),
+    )
+    assert convert_usage_aggregation_class(
+        usage_aggregation
+    ) == MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=DatasetUsageStatisticsClass(
+            timestampMillis=int(time.time() * 1000),
+            eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
+            uniqueUserCount=5,
+            totalSqlQueries=10,
+            topSqlQueries=["SELECT * FROM my_table", "SELECT col from a.b.c"],
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user="abc", count=3, userEmail="abc@acryl.io"
+                ),
+                DatasetUserUsageCountsClass(user="def", count=1),
+            ],
+            fieldCounts=[
+                DatasetFieldUsageCountsClass(fieldPath="col", count=7),
+                DatasetFieldUsageCountsClass(fieldPath="col2", count=0),
+            ],
+        ),
+    )
+
+    empty_urn = make_dataset_urn_with_platform_instance(
+        "platform",
+        "test_db.test_schema.empty_table",
+        None,
+    )
+    empty_usage_aggregation = UsageAggregationClass(
+        bucket=int(time.time() * 1000) - 1000 * 60 * 60 * 24,
+        duration=WindowDurationClass.MONTH,
+        resource=empty_urn,
+        metrics=UsageAggregationMetricsClass(),
+    )
+    assert convert_usage_aggregation_class(
+        empty_usage_aggregation
+    ) == MetadataChangeProposalWrapper(
+        entityUrn=empty_urn,
+        aspect=DatasetUsageStatisticsClass(
+            timestampMillis=int(time.time() * 1000) - 1000 * 60 * 60 * 24,
+            eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.MONTH),
+        ),
+    )

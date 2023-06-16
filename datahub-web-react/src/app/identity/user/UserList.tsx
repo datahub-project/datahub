@@ -12,7 +12,6 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import ViewInviteTokenModal from './ViewInviteTokenModal';
-import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { useListRolesQuery } from '../../../graphql/role.generated';
 import { scrollToTop } from '../../shared/searchUtils';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
@@ -24,6 +23,7 @@ import {
 } from '../../onboarding/config/UsersOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
+import { useUserContext } from '../../context/useUserContext';
 
 const UserContainer = styled.div``;
 
@@ -50,8 +50,8 @@ export const UserList = () => {
     const [page, setPage] = useState(1);
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
 
-    const authenticatedUser = useGetAuthenticatedUser();
-    const canManagePolicies = authenticatedUser?.platformPrivileges.managePolicies || false;
+    const authenticatedUser = useUserContext();
+    const canManagePolicies = authenticatedUser?.platformPrivileges?.managePolicies || false;
 
     const pageSize = DEFAULT_USER_LIST_PAGE_SIZE;
     const start = (page - 1) * pageSize;

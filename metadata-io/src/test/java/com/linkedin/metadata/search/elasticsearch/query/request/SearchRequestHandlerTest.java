@@ -5,6 +5,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,6 +16,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -31,6 +33,7 @@ import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
@@ -39,9 +42,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static com.linkedin.metadata.utils.SearchUtil.*;
+import static org.testng.Assert.*;
 
 
 @Import(ESTestConfiguration.class)
@@ -62,13 +64,18 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
     exactMatchConfiguration.setEnableStructured(true);
 
+    PartialConfiguration partialConfiguration = new PartialConfiguration();
+    partialConfiguration.setFactor(0.4f);
+    partialConfiguration.setUrnFactor(0.7f);
+
     testQueryConfig.setExactMatch(exactMatchConfiguration);
+    testQueryConfig.setPartial(partialConfiguration);
   }
 
   @Test
   public void testDatasetFieldsAndHighlights() {
     EntitySpec entitySpec = entityRegistry.getEntitySpec("dataset");
-    SearchRequestHandler datasetHandler = SearchRequestHandler.getBuilder(entitySpec, testQueryConfig);
+    SearchRequestHandler datasetHandler = SearchRequestHandler.getBuilder(entitySpec, testQueryConfig, null);
 
     /*
        Ensure efficient query performance, we do not expect upstream/downstream/fineGrained lineage
@@ -83,18 +90,24 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testSearchRequestHandler() {
-    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig);
+    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
-            10,  new SearchFlags().setFulltext(false));
+        10,  new SearchFlags().setFulltext(false), null);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
     // Filters
-    Optional<AggregationBuilder> aggregationBuilder =
-        sourceBuilder.aggregations().getAggregatorFactories().stream().findFirst();
-    assertTrue(aggregationBuilder.isPresent());
-    TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggregationBuilder.get();
-    assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
+    Collection<AggregationBuilder> aggBuilders = sourceBuilder.aggregations().getAggregatorFactories();
+    // Expect 2 aggregations: textFieldOverride and _index
+   assertEquals(aggBuilders.size(), 2);
+   for (AggregationBuilder aggBuilder : aggBuilders) {
+     if (aggBuilder.getName().equals("textFieldOverride")) {
+       TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
+       assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
+     } else if (!aggBuilder.getName().equals("_entityType")) {
+       fail("Found unexepected aggregation: " + aggBuilder.getName());
+     }
+   }
     // Highlights
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
@@ -102,7 +115,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(fields.size(), 20);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-                "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
+            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
     highlightableFields.forEach(field -> {
       assertTrue(fields.contains(field), "Missing: " + field);
       assertTrue(fields.contains(field + ".*"), "Missing: " + field + ".*");
@@ -110,9 +123,51 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testAggregationsInSearch() {
+    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
+    final String nestedAggString = String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
+    SearchRequest searchRequest = requestHandler.getSearchRequest("*", null, null, 0,
+            10,  new SearchFlags().setFulltext(true), List.of("textFieldOverride", "_entityType", nestedAggString, AGGREGATION_SEPARATOR_CHAR, "not_a_facet"));
+    SearchSourceBuilder sourceBuilder = searchRequest.source();
+    // Filters
+    Collection<AggregationBuilder> aggregationBuilders =
+        sourceBuilder.aggregations().getAggregatorFactories();
+    assertEquals(aggregationBuilders.size(), 3);
+
+    // Expected aggregations
+    AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride")
+        .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
+    AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType")
+        .field("_index").size(testQueryConfig.getMaxTermBucketSize());
+    AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index")
+        .size(testQueryConfig.getMaxTermBucketSize())
+        .subAggregation(AggregationBuilders.terms(nestedAggString)
+            .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
+
+    for (AggregationBuilder builder : aggregationBuilders) {
+      if (builder.getName().equals("textFieldOverride") || builder.getName().equals("_entityType")) {
+        assertTrue(builder.getSubAggregations().isEmpty());
+        if (builder.getName().equalsIgnoreCase("textFieldOverride")) {
+          assertEquals(builder, expectedTextFieldAggregationBuilder);
+        } else {
+          assertEquals(builder, expectedEntityTypeAggregationBuilder);
+        }
+      } else if (builder.getName().equals(nestedAggString)) {
+        assertEquals(builder.getSubAggregations().size(), 1);
+        Optional<AggregationBuilder> subAgg = builder.getSubAggregations().stream().findFirst();
+        assertTrue(subAgg.isPresent());
+        assertEquals(subAgg.get().getName(), nestedAggString);
+        assertEquals(builder, expectedNestedAggregationBuilder);
+      } else {
+        fail("Found unexpected aggregation builder: " + builder.getName());
+      }
+    }
+  }
+
+  @Test
   public void testFilteredSearch() {
 
-    final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig);
+    final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
 
     final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
@@ -154,7 +209,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     } else {
       testQuery =
           (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithoutRemovedCondition, null,
-              0, 10, new SearchFlags().setFulltext(false)).source().query();
+              0, 10, new SearchFlags().setFulltext(false), null).source().query();
     }
     return testQuery;
   }
@@ -201,7 +256,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     } else {
       queryWithRemoved =
           (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
-              null, 0, 10, new SearchFlags().setFulltext(false)).source().query();
+              null, 0, 10, new SearchFlags().setFulltext(false), null).source().query();
     }
     return queryWithRemoved;
   }
@@ -392,10 +447,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         ));
 
     final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(
-        TestEntitySpecBuilder.getSpec(), testQueryConfig);
+        TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
 
     return (BoolQueryBuilder) requestHandler
-        .getSearchRequest("", filter, null, 0, 10,  new SearchFlags().setFulltext(false))
+        .getSearchRequest("", filter, null, 0, 10,  new SearchFlags().setFulltext(false), null)
         .source()
         .query();
   }

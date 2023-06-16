@@ -4,6 +4,7 @@ import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -21,12 +22,14 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.AspectType;
@@ -49,6 +52,7 @@ import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -67,6 +71,7 @@ import com.linkedin.util.Pair;
 import io.ebean.PagedList;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -132,6 +137,10 @@ public class EntityService {
    */
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
 
   @Value
   public static class UpdateAspectResult {
@@ -164,6 +173,11 @@ public class EntityService {
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
   protected static final int MAX_KEYS_PER_QUERY = 500;
+
+  private static final int URN_NUM_BYTES_LIMIT = 512;
+
+  // TODO(iprentic): Move this to a common utils location once used in other places
+  private static final String DELIMITER_SEPARATOR = "␟";
 
   public EntityService(
       @Nonnull final AspectDao aspectDao,
@@ -543,7 +557,7 @@ public class EntityService {
 
   private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
     RecordTemplateValidator.validate(aspect, validationResult -> {
-      throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
+      throw new IllegalArgumentException("Invalid format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
           + validationResult.getMessages());
     }, validator);
   }
@@ -676,9 +690,16 @@ public class EntityService {
     return systemMetadata;
   }
 
-  private void validateUrn(@Nonnull final Urn urn) {
-    if (!urn.toString().trim().equals(urn.toString())) {
+  static void validateUrn(@Nonnull final Urn urn) {
+
+    if (urn.toString().trim().length() != urn.toString().length()) {
       throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+    if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
+      throw new IllegalArgumentException("Error: cannot provide an URN longer than " + Integer.toString(URN_NUM_BYTES_LIMIT) + " bytes (when URL encoded)");
+    }
+    if (urn.toString().contains(DELIMITER_SEPARATOR)) {
+      throw new IllegalArgumentException("Error: URN cannot contain " + DELIMITER_SEPARATOR + " character");
     }
   }
 
@@ -781,7 +802,7 @@ public class EntityService {
 
     // Produce MCL after a successful update
     boolean isNoOp = oldValue == updatedValue;
-    if (!isNoOp || _alwaysEmitChangeLog) {
+    if (!isNoOp || _alwaysEmitChangeLog || shouldAspectEmitChangeLog(urn, aspectName)) {
       log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
       String entityName = urnToEntityName(urn);
       EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
@@ -1028,32 +1049,40 @@ public class EntityService {
       RecordTemplate newAspect, SystemMetadata newSystemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn,
       AuditStamp auditStamp, AspectSpec aspectSpec) {
-    log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
+    boolean isNoOp = oldAspect == newAspect;
+    if (!isNoOp || _alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
+      log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
-    final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
-    metadataChangeLog.setEntityUrn(entityUrn);
-    metadataChangeLog.setCreated(auditStamp);
-    // The change log produced by this method is always an upsert as it contains the entire RecordTemplate update
-    metadataChangeLog.setChangeType(ChangeType.UPSERT);
+      // Uses new data map to prevent side effects on original
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(new DataMap(mcp.data()));
+      metadataChangeLog.setEntityUrn(entityUrn);
+      metadataChangeLog.setCreated(auditStamp);
+      metadataChangeLog.setChangeType(isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT);
 
-    if (oldAspect != null) {
-      metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
+      if (oldAspect != null) {
+        metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
+      }
+      if (oldSystemMetadata != null) {
+        metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
+      }
+      if (newAspect != null) {
+        metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
+      }
+      if (newSystemMetadata != null) {
+        metadataChangeLog.setSystemMetadata(newSystemMetadata);
+      }
+
+      log.debug("Serialized MCL event: {}", metadataChangeLog);
+
+      produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
+
+      return true;
+    } else {
+      log.debug(
+          "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
+          mcp.getAspectName(), entityUrn);
+      return false;
     }
-    if (oldSystemMetadata != null) {
-      metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
-    }
-    if (newAspect != null) {
-      metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
-    }
-    if (newSystemMetadata != null) {
-      metadataChangeLog.setSystemMetadata(newSystemMetadata);
-    }
-
-    log.debug("Serialized MCL event: {}", metadataChangeLog);
-
-    produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
-
-    return true;
   }
 
   public Integer getCountAspect(@Nonnull String aspectName, @Nullable String urnLike) {
@@ -1075,7 +1104,7 @@ public class EntityService {
     logger.accept(String.format(
         "Reading rows %s through %s from the aspects table completed.", args.start, args.start + args.batchSize));
 
-    for (EbeanAspectV2 aspect : rows.getList()) {
+    for (EbeanAspectV2 aspect : rows != null ? rows.getList() : List.<EbeanAspectV2>of()) {
       // 1. Extract an Entity type from the entity Urn
       result.timeGetRowMs = System.currentTimeMillis() - startTime;
       startTime = System.currentTimeMillis();
@@ -1130,7 +1159,12 @@ public class EntityService {
       result.createRecordMs += System.currentTimeMillis() - startTime;
       startTime = System.currentTimeMillis();
 
+      // Force indexing to skip diff mode and fix error states
       SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
+      StringMap properties = latestSystemMetadata.getProperties() != null ? latestSystemMetadata.getProperties()
+          : new StringMap();
+      properties.put(FORCE_INDEXING_KEY, Boolean.TRUE.toString());
+      latestSystemMetadata.setProperties(properties);
 
       // 5. Produce MAE events for the aspect record
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
@@ -2050,12 +2084,26 @@ public class EntityService {
           urn,
           ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
       );
-      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)) {
-        return new DataPlatformInfo(entityResponse.getAspects().get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME).getValue().data());
+      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects()
+          .containsKey(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)) {
+        return new DataPlatformInfo(
+            entityResponse.getAspects().get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME).getValue().data());
       }
     } catch (Exception e) {
       log.warn(String.format("Failed to find Data Platform Info for urn %s", urn));
     }
     return null;
+  }
+
+  private boolean shouldAspectEmitChangeLog(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    final String entityName = urnToEntityName(urn);
+    final EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+    final AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    return shouldAspectEmitChangeLog(aspectSpec);
+  }
+
+  private boolean shouldAspectEmitChangeLog(@Nonnull final AspectSpec aspectSpec) {
+    final List<RelationshipFieldSpec> relationshipFieldSpecs = aspectSpec.getRelationshipFieldSpecs();
+    return relationshipFieldSpecs.stream().anyMatch(RelationshipFieldSpec::isLineageRelationship);
   }
 }

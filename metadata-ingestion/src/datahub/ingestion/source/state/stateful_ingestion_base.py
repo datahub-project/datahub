@@ -27,10 +27,7 @@ from datahub.ingestion.source.state.use_case_handler import (
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
-from datahub.metadata.schema_classes import (
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-)
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -166,16 +163,13 @@ class StatefulIngestionSourceBase(Source):
     """
 
     def __init__(
-        self, config: StatefulIngestionConfigBase, ctx: PipelineContext
+        self,
+        config: StatefulIngestionConfigBase[StatefulIngestionConfig],
+        ctx: PipelineContext,
     ) -> None:
         super().__init__(ctx)
-        self.stateful_ingestion_config = config.stateful_ingestion
-        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
         self.report: StatefulIngestionReport = StatefulIngestionReport()
-        self._initialize_checkpointing_state_provider()
-        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
+        self.state_provider = StateProviderWrapper(config.stateful_ingestion, ctx)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -184,6 +178,26 @@ class StatefulIngestionSourceBase(Source):
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
+
+    def close(self) -> None:
+        self.state_provider.prepare_for_commit()
+        super().close()
+
+
+class StateProviderWrapper:
+    def __init__(
+        self,
+        config: Optional[StatefulIngestionConfig],
+        ctx: PipelineContext,
+    ) -> None:
+        self.ctx = ctx
+        self.stateful_ingestion_config = config
+
+        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.report: StatefulIngestionReport = StatefulIngestionReport()
+        self._initialize_checkpointing_state_provider()
+        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
 
     #
     # Checkpointing specific support.
@@ -278,12 +292,6 @@ class StatefulIngestionSourceBase(Source):
             raise ValueError(f"No use-case handler for job_id{job_id}")
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
-    def get_platform_instance_id(self) -> Optional[str]:
-        # This method is retained for backwards compatibility, but it is not
-        # required that new sources implement it. We mainly need it for the
-        # fallback logic in _get_last_checkpoint.
-        raise NotImplementedError("no platform_instance_id configured")
-
     def _get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
@@ -292,28 +300,15 @@ class StatefulIngestionSourceBase(Source):
         """
         last_checkpoint: Optional[Checkpoint] = None
         if self.is_stateful_ingestion_configured():
-            # TRICKY: We currently don't include the platform_instance_id in the
-            # checkpoint urn, but we previously did. As such, we need to fallback
-            # and try the old urn format if the new format doesn't return anything.
-
             # Obtain the latest checkpoint from GMS for this job.
             assert self.ctx.pipeline_name
-            last_checkpoint_aspect = self.ingestion_checkpointing_state_provider.get_latest_checkpoint(  # type: ignore
-                pipeline_name=self.ctx.pipeline_name,
-                job_name=job_id,
+            assert self.ingestion_checkpointing_state_provider
+            last_checkpoint_aspect = (
+                self.ingestion_checkpointing_state_provider.get_latest_checkpoint(
+                    pipeline_name=self.ctx.pipeline_name,
+                    job_name=job_id,
+                )
             )
-            if last_checkpoint_aspect is None:
-                # Try again with the platform_instance_id, if implemented.
-                try:
-                    platform_instance_id = self.get_platform_instance_id()
-                except NotImplementedError:
-                    pass
-                else:
-                    last_checkpoint_aspect = self.ingestion_checkpointing_state_provider.get_latest_checkpoint(  # type: ignore
-                        pipeline_name=self.ctx.pipeline_name,
-                        job_name=job_id,
-                        platform_instance_id=platform_instance_id,
-                    )
 
             # Convert it to a first-class Checkpoint object.
             last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
@@ -326,7 +321,7 @@ class StatefulIngestionSourceBase(Source):
     # Base-class implementations for common state management tasks.
     def get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[StateType]
-    ) -> Optional[Checkpoint]:
+    ) -> Optional[Checkpoint[StateType]]:
         if not self.is_stateful_ingestion_configured() or (
             self.stateful_ingestion_config
             and self.stateful_ingestion_config.ignore_old_state
@@ -355,6 +350,8 @@ class StatefulIngestionSourceBase(Source):
         # Perform validations
         if not self.is_stateful_ingestion_configured():
             return None
+        assert self.stateful_ingestion_config
+
         if (
             self.stateful_ingestion_config
             and self.stateful_ingestion_config.ignore_new_state
@@ -378,7 +375,7 @@ class StatefulIngestionSourceBase(Source):
             job_checkpoint.prepare_for_commit()
             try:
                 checkpoint_aspect = job_checkpoint.to_checkpoint_aspect(
-                    self.stateful_ingestion_config.max_checkpoint_state_size  # type: ignore
+                    self.stateful_ingestion_config.max_checkpoint_state_size
                 )
             except Exception as e:
                 logger.error(
@@ -398,7 +395,3 @@ class StatefulIngestionSourceBase(Source):
     def prepare_for_commit(self) -> None:
         """NOTE: Sources should call this method from their close method."""
         self._prepare_checkpoint_states_for_commit()
-
-    def close(self) -> None:
-        self.prepare_for_commit()
-        super().close()

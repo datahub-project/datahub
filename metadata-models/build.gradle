@@ -15,7 +15,12 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
-  compile spec.product.pegasus.data
+  compile spec.product.pegasus.data 
+    constraints {
+      implementation('org.apache.commons:commons-text:1.10.0') {
+        because 'Vulnerability Issue'
+      }
+    }
   compile project(':li-utils')
   dataModel project(':li-utils')
 

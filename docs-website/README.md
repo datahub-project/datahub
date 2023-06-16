@@ -14,8 +14,8 @@ yarn install
 # This command starts a local development server and open up a browser window.
 ../gradlew yarnStart
 
-# Every time a markdown file is changed, update the site:
-# If a more complex docs site change is made, you'll need to restart the server.
+# Every time a markdown file is changed, update the site by running this in a separate terminal.
+# If you're making changes to the docusaurus config, you'll still need to restart the server.
 ../gradlew fastReload
 ```
 
@@ -27,29 +27,21 @@ yarn install
 
 This command generates static content into the `dist` directory and can be served using any static contents hosting service. You can preview the built static site using `../gradlew serve`, although we're recommend using the local development instructions locally.
 
-## Generating GraphQL API Docs
-
-To regenerate GraphQL API docs, simply rebuild the docs-website directory. 
-
-```console
-./gradlew docs-website:build
-```
-
 ## Managing Content
 
 Please use the following steps when adding/managing content for the docs site.
 
 ### Leverage Documentation Templates
 
-* [Feature Guide Template](../docs/_feature-guide-template.md)
-* [Metadata Ingestion Source Template](../metadata-ingestion/source-docs-template.md)
+- [Feature Guide Template](../docs/_feature-guide-template.md)
+- [Metadata Ingestion Source Template](../metadata-ingestion/source-docs-template.md)
 
 ### Self-Hosted vs. Managed DataHub
 
 The docs site includes resources for both self-hosted (aka open-source) DataHub and Managed DataHub alike.
 
-* All Feature Guides should include the `FeatureAvailability` component within the markdown file itself
-* Features only available via Managed DataHub should have the `saasOnly` class if they are included in `sidebar.js` to display the small "cloud" icon:
+- All Feature Guides should include the `FeatureAvailability` component within the markdown file itself
+- Features only available via Managed DataHub should have the `saasOnly` class if they are included in `sidebar.js` to display the small "cloud" icon:
 
 ```
 {
@@ -83,7 +75,7 @@ title: [value to display in the sidebar]
 ---
 ```
 
-*This will be ignored your H1 value begins with `DataHub ` or `About DataHub `*
+_This will be ignored your H1 value begins with `DataHub ` or `About DataHub `_
 
 **NOTE:** Assigning a value for `label:` in `sidebar.js` is not reliable, e.g.
 
@@ -106,12 +98,13 @@ By the end of this section, readers should understand the core use cases that Da
 **Get Started**
 
 The goal of this section is to provide the bare-minimum steps required to:
-  - Get DataHub Running
-  - Optionally configure SSO
-  - Add/invite Users
-  - Create Polices & assign roles
-  - Ingest at least one source (i.e., data warehouse)
-  - Understand high-level options for enriching metadata
+
+- Get DataHub Running
+- Optionally configure SSO
+- Add/invite Users
+- Create Polices & assign roles
+- Ingest at least one source (i.e., data warehouse)
+- Understand high-level options for enriching metadata
 
 **Ingest Metadata**
 
@@ -123,7 +116,7 @@ The purpose of this section is to provide direction on how to enrich metadata wh
 
 **Act on Metadata**
 
-This section provides concrete examples of acting on metadata changes in real-time and enabling Active Metadata workflows/practices. 
+This section provides concrete examples of acting on metadata changes in real-time and enabling Active Metadata workflows/practices.
 
 **Deploy DataHub**
 
@@ -136,3 +129,37 @@ The purpose of this section is to provide developers & technical users with conc
 **Feature Guides**
 
 This section aims to provide plain-language feature overviews for both technical and non-technical readers alike.
+
+
+## Docs Generation Features
+
+**Includes all markdown files**
+
+By default, all markdown files in the repository will be included in the docs site.
+However, you can exclude files by modifying the `filter_patterns` array in `generateDocsDir.ts`.
+
+Any file that is included in our docs site should be linked to from the sidebar.
+You can suppress this check by adding the path to the file in a comment in `sidebar.js`:
+
+**Inline Code Snippets**
+
+Use an "inline" directive to include code snippets from other files. The `show_path_as_comment` option will include the path to the file as a comment at the top of the snippet.
+
+  ```python
+  {{ inline /metadata-ingestion/examples/library/data_quality_mcpw_rest.py show_path_as_comment }}
+  ```
+
+
+## Docs site generation process
+
+This process is orchestrated by a combination of Gradle and Yarn tasks. The main entrypoint is via the `docs-website:yarnGenerate` task, which in turn eventually runs `yarn run generate`.
+
+Steps:
+1. Generate the GraphQL combined schema using the gradle's `docs-website:generateGraphQLSchema` task. This generates `./graphql/combined.graphql`.
+2. Generate docs for ingestion sources using the `:metadata-ingestion:docGen` gradle task.
+3. Generate docs for our metadata model using the `:metadata-ingestion:modelDocGen` gradle task.
+4. Run `yarn run _generate-graphql` to produce some markdown in the `./docs` directory.
+5. Run `yarn run _generate-python-sdk` to generate the Python SDK reference docs in the `./docs` directory.
+6. Run the `generateDocsDir.ts` script to add markdown files from elsewhere in our repo to the `./docs` directory.
+7. Run a copy or rsync to copy the `./docs` directory to `./genDocs`, and delete the `./docs` directory.
+8. The docusaurus build process will then use the `./genDocs` directory as the source for the docs site.

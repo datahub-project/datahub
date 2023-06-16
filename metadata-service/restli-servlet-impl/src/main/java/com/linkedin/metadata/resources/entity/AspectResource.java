@@ -18,6 +18,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -127,8 +128,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @ActionParam(PARAM_LIMIT) @Optional("10000") int limit,
-      @ActionParam(PARAM_LATEST_VALUE) @Optional("false") boolean latestValue,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter) throws URISyntaxException {
+      @ActionParam(PARAM_LATEST_VALUE) @Optional("false") boolean latestValue, // This field is deprecated.
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sort) throws URISyntaxException {
     log.info(
         "Get Timeseries Aspect values for aspect {} for entity {} with startTimeMillis {}, endTimeMillis {} and limit {}.",
         aspectName, entityName, startTimeMillis, endTimeMillis, limit);
@@ -149,10 +151,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       if (endTimeMillis != null) {
         response.setEndTimeMillis(endTimeMillis);
       }
-      response.setLimit(limit);
+      if (latestValue) {
+        response.setLimit(1);
+      } else {
+        response.setLimit(limit);
+      }
       response.setValues(new EnvelopedAspectArray(
-          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit,
-              latestValue, filter)));
+          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit, filter, sort)));
       return response;
     }, MetricRegistry.name(this.getClass(), "getTimeseriesAspectValues"));
   }

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Generic, Optional, TypeVar
+from typing import Optional
 
 from pydantic.fields import Field
 
@@ -26,14 +26,11 @@ class BaseColumn:
     comment: Optional[str]
 
 
-SqlTableColumn = TypeVar("SqlTableColumn", bound="BaseColumn")
-
-
 @dataclass
-class BaseTable(Generic[SqlTableColumn]):
+class BaseTable:
     name: str
     comment: Optional[str]
-    created: datetime
+    created: Optional[datetime]
     last_altered: Optional[datetime]
     size_in_bytes: Optional[int]
     rows_count: Optional[int]
@@ -42,7 +39,7 @@ class BaseTable(Generic[SqlTableColumn]):
 
 
 @dataclass
-class BaseView(Generic[SqlTableColumn]):
+class BaseView:
     name: str
     comment: Optional[str]
     created: Optional[datetime]

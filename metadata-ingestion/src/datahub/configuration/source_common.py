@@ -38,7 +38,6 @@ class EnvConfigMixin(ConfigModel):
 
     _env_deprecation = pydantic_field_deprecated(
         "env",
-        new_field="platform_instance",
         message="env is deprecated and will be removed in a future release. Please use platform_instance instead.",
     )
 

@@ -4,25 +4,39 @@ import re
 import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, Iterable, List
+from typing import Any, Dict, Generator, Iterable, List, Optional
 
 import click
 import requests
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     CorpGroupSnapshot,
     CorpUserSnapshot,
@@ -40,7 +54,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class AzureADConfig(ConfigModel):
+class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     """Config to create a token and connect to Azure AD instance"""
 
     # Required
@@ -133,9 +147,14 @@ class AzureADConfig(ConfigModel):
         description="Whether workunit ID's for users should be masked to avoid leaking sensitive information.",
     )
 
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="Azure AD Stateful Ingestion Config."
+    )
+
 
 @dataclass
-class AzureADSourceReport(SourceReport):
+class AzureADSourceReport(StaleEntityRemovalSourceReport):
     filtered: List[str] = field(default_factory=list)
     filtered_tracking: bool = field(default=True, repr=False)
     filtered_count: int = field(default=0)
@@ -152,7 +171,10 @@ class AzureADSourceReport(SourceReport):
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)
-class AzureADSource(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
+class AzureADSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -227,13 +249,21 @@ class AzureADSource(Source):
 
     """
 
+    config: AzureADConfig
+    report: AzureADSourceReport
+    token_data: dict
+    token: str
+    selected_azure_ad_groups: list
+    azure_ad_groups_users: list
+    stale_entity_removal_handler: StaleEntityRemovalHandler
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = AzureADConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super(AzureADSource, self).__init__(config, ctx)
         self.config = config
         self.report = AzureADSourceReport(
             filtered_tracking=self.config.filtered_tracking
@@ -265,7 +295,15 @@ class AzureADSource(Source):
             click.echo("Error: Token response invalid")
             exit()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
         # 1) the groups
         # 2) the groups' memberships
@@ -290,31 +328,21 @@ class AzureADSource(Source):
                         if self.config.mask_group_id
                         else datahub_corp_group_snapshot.urn
                     )
-                    wu = MetadataWorkUnit(id=wu_id, mce=mce)
-                    self.report.report_workunit(wu)
-                    yield wu
+                    yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                     group_origin_mcp = MetadataChangeProposalWrapper(
                         entityUrn=datahub_corp_group_snapshot.urn,
                         aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
                     )
                     group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                    group_origin_wu = MetadataWorkUnit(
-                        id=group_origin_wu_id, mcp=group_origin_mcp
-                    )
-                    self.report.report_workunit(group_origin_wu)
-                    yield group_origin_wu
+                    yield MetadataWorkUnit(id=group_origin_wu_id, mcp=group_origin_mcp)
 
                     group_status_mcp = MetadataChangeProposalWrapper(
                         entityUrn=datahub_corp_group_snapshot.urn,
                         aspect=StatusClass(removed=False),
                     )
                     group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                    group_status_wu = MetadataWorkUnit(
-                        id=group_status_wu_id, mcp=group_status_mcp
-                    )
-                    self.report.report_workunit(group_status_wu)
-                    yield group_status_wu
+                    yield MetadataWorkUnit(id=group_status_wu_id, mcp=group_status_mcp)
 
         # Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[
@@ -429,27 +457,21 @@ class AzureADSource(Source):
             datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
             mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
             wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            wu = MetadataWorkUnit(id=wu_id, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(id=wu_id, mce=mce)
 
             user_origin_mcp = MetadataChangeProposalWrapper(
                 entityUrn=datahub_corp_user_snapshot.urn,
                 aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
             )
             user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            user_origin_wu = MetadataWorkUnit(id=user_origin_wu_id, mcp=user_origin_mcp)
-            self.report.report_workunit(user_origin_wu)
-            yield user_origin_wu
+            yield MetadataWorkUnit(id=user_origin_wu_id, mcp=user_origin_mcp)
 
             user_status_mcp = MetadataChangeProposalWrapper(
                 entityUrn=datahub_corp_user_snapshot.urn,
                 aspect=StatusClass(removed=False),
             )
             user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            user_status_wu = MetadataWorkUnit(id=user_status_wu_id, mcp=user_status_mcp)
-            self.report.report_workunit(user_status_wu)
-            yield user_status_wu
+            yield MetadataWorkUnit(id=user_status_wu_id, mcp=user_status_mcp)
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -486,6 +508,7 @@ class AzureADSource(Source):
                     f"Response status code: {str(response.status_code)}. "
                     f"Response content: {str(response.content)}"
                 )
+                logger.debug(f"URL = {url}")
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_ad_data_", error_str)
                 continue

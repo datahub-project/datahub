@@ -49,6 +49,13 @@
         "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:powerbi",
+        "name": "powerbi",
+        "displayName": "PowerBI",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/powerbi/",
+        "recipe": "source:\n  type: \"powerbi\"\n  config:\n    # Your Power BI tenant identifier\n    tenant_id: null\n    # Your Power BI client id\n    client_id: null\n    # Your Power BI client secret\n    client_secret: null\n    stateful_ingestion:\n        enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:dbt",
         "name": "dbt-cloud",
         "displayName": "dbt Cloud",
@@ -166,13 +173,6 @@
         "displayName": "Metabase",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/metabase/",
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
-    },
-    {
-        "urn": "urn:li:dataPlatform:powerbi",
-        "name": "powerbi",
-        "displayName": "Power BI",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/powerbi/",
-        "recipe": "source:\n  type: \"powerbi\"\n  config:\n    # Your Power BI tenant identifier\n    tenant_id: a949d688-67c0-4bf1-a344-e939411c6c0a\n    # Ingest elements of below PowerBi Workspace into Datahub\n    workspace_id: 4bd10256-e999-45dd-8e56-571c77153a5f\n    # Workspaces dataset environments (PROD, DEV, QA, STAGE)\n    env: DEV\n    # Azure AD Application identifier\n    client_id: foo\n    # Azure AD App client secret\n    client_secret: bar\n    # Enable / Disable ingestion of user information for dashboards\n    extract_ownership: true\n    # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub \"data platform\" dataset\n    dataset_type_mapping:\n        PostgreSql: postgres\n        Oracle: oracle"
     },
     {
         "urn": "urn:li:dataPlatform:mode",

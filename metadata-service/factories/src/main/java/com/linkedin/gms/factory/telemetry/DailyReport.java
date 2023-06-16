@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import java.io.IOException;
@@ -25,17 +26,19 @@ public class DailyReport {
   private final RestHighLevelClient _elasticClient;
   private final ConfigurationProvider _configurationProvider;
   private final EntityService _entityService;
+  private final GitVersion _gitVersion;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
   private MixpanelAPI mixpanel;
   private MessageBuilder mixpanelBuilder;
 
   public DailyReport(IndexConvention indexConvention, RestHighLevelClient elasticClient,
-      ConfigurationProvider configurationProvider, EntityService entityService) {
+      ConfigurationProvider configurationProvider, EntityService entityService, GitVersion gitVersion) {
     this._indexConvention = indexConvention;
     this._elasticClient = elasticClient;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
+    this._gitVersion = gitVersion;
     try {
       String clientId = getClientId(entityService);
 
@@ -47,6 +50,7 @@ public class DailyReport {
       JSONObject props = new JSONObject();
       props.put("java_version", System.getProperty("java.version"));
       props.put("os", System.getProperty("os.name"));
+      props.put("server_version", _gitVersion.getVersion());
       JSONObject update = mixpanelBuilder.set(clientId, props);
       try {
         mixpanel.sendMessage(update);
@@ -93,6 +97,7 @@ public class DailyReport {
     report.put("wau", weeklyActiveUsers);
     report.put("mau", monthlyActiveUsers);
     report.put("server_type", _configurationProvider.getDatahub().getServerType());
+    report.put("server_version", _gitVersion.getVersion());
 
     ping("service-daily", report);
   }

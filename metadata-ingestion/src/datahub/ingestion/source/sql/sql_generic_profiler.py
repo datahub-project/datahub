@@ -17,16 +17,24 @@ from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.schema_classes import DatasetProfileClass
-from datahub.utilities.stats_collections import TopKDict
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
 @dataclass
 class DetailedProfilerReportMixin:
-    profiling_skipped_not_updated: TopKDict[str, int] = field(default_factory=TopKDict)
-    profiling_skipped_size_limit: TopKDict[str, int] = field(default_factory=TopKDict)
+    profiling_skipped_not_updated: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    profiling_skipped_size_limit: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
 
-    profiling_skipped_row_limit: TopKDict[str, int] = field(default_factory=TopKDict)
-    num_tables_not_eligible_profiling: Dict[str, int] = field(default_factory=TopKDict)
+    profiling_skipped_row_limit: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    num_tables_not_eligible_profiling: Dict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
 
 
 class ProfilingSqlReport(DetailedProfilerReportMixin, SQLSourceReport):
@@ -163,9 +171,7 @@ class GenericProfiler:
         if (threshold_time is not None) and (
             last_altered is not None and last_altered < threshold_time
         ):
-            self.report.profiling_skipped_not_updated[schema_name] = (
-                self.report.profiling_skipped_not_updated.get(schema_name, 0) + 1
-            )
+            self.report.profiling_skipped_not_updated[schema_name] += 1
             return False
 
         if self.config.profiling.profile_table_size_limit is not None and (
@@ -173,18 +179,14 @@ class GenericProfiler:
             or size_in_bytes / (2**30)
             > self.config.profiling.profile_table_size_limit
         ):
-            self.report.profiling_skipped_size_limit[schema_name] = (
-                self.report.profiling_skipped_size_limit.get(schema_name, 0) + 1
-            )
+            self.report.profiling_skipped_size_limit[schema_name] += 1
             return False
 
         if self.config.profiling.profile_table_row_limit is not None and (
             rows_count is None
             or rows_count > self.config.profiling.profile_table_row_limit
         ):
-            self.report.profiling_skipped_row_limit[schema_name] = (
-                self.report.profiling_skipped_row_limit.get(schema_name, 0) + 1
-            )
+            self.report.profiling_skipped_row_limit[schema_name] += 1
             return False
 
         return True

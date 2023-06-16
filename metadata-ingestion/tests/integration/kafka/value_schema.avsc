@@ -2,6 +2,7 @@
   "namespace": "io.codebrews.createuserrequest",
   "type": "record",
   "name": "CreateUserRequest",
+  "doc": "Value schema for kafka topic",
   "fields": [
     {
       "name": "email",

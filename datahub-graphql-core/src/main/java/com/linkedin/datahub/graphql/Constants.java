@@ -22,4 +22,7 @@ public class Constants {
     public static final String LINEAGE_SCHEMA_FILE = "lineage.graphql";
     public static final String BROWSE_PATH_DELIMITER = "/";
     public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
+
+    public static final String ENTITY_FILTER_NAME = "_entityType";
+
 }

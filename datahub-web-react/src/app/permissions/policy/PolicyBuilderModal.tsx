@@ -91,6 +91,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         content: (
             <PolicyPrivilegeForm
                 policyType={policy.type}
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 resources={policy.resources!}
                 setResources={(resources: ResourceFilter) => {
                     setPolicy({ ...policy, resources });

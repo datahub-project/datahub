@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata"
             },
             "name": "demodata"
@@ -139,7 +139,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_accessadmin"
             },
@@ -222,7 +222,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_backupoperator"
             },
@@ -305,7 +305,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_datareader"
             },
@@ -388,7 +388,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_datawriter"
             },
@@ -471,7 +471,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_ddladmin"
             },
@@ -554,7 +554,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_denydatareader"
             },
@@ -637,7 +637,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_denydatawriter"
             },
@@ -720,7 +720,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_owner"
             },
@@ -803,7 +803,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "db_securityadmin"
             },
@@ -886,7 +886,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "dbo"
             },
@@ -1073,7 +1073,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "Foo"
             },
@@ -1568,7 +1568,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "guest"
             },
@@ -1651,7 +1651,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "INFORMATION_SCHEMA"
             },
@@ -1734,7 +1734,7 @@
         "json": {
             "customProperties": {
                 "platform": "mssql",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "demodata",
                 "schema": "sys"
             },

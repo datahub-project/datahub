@@ -2,6 +2,7 @@
 
 /docs
 /genDocs
+/genStatic
 
 # Generated GraphQL
 /graphql/combined.graphql
@@ -31,3 +32,4 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vscode
+.vercel

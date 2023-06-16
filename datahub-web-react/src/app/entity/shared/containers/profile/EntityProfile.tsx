@@ -73,11 +73,16 @@ type Props<T, U> = {
     isNameEditable?: boolean;
 };
 
+const MAX_SIDEBAR_WIDTH = 800;
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_COMPACT_WIDTH = 490 - 24 * 2;
+
 const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
     flex: 1;
+    min-width: 0;
 `;
 
 const HeaderAndTabs = styled.div`
@@ -113,6 +118,7 @@ const Sidebar = styled.div<{ $width: number }>`
     min-width: ${(props) => props.$width}px;
     padding-left: 20px;
     padding-right: 20px;
+    padding-bottom: 20px;
 `;
 
 const Header = styled.div`
@@ -128,6 +134,10 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
+const CompactProfile = styled.div`
+    max-width: ${MAX_COMPACT_WIDTH};
+`;
+
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
     enabled: (_, _1) => true,
@@ -136,9 +146,6 @@ const defaultTabDisplayConfig = {
 const defaultSidebarSection = {
     visible: (_, _1) => true,
 };
-
-const MAX_SIDEBAR_WIDTH = 800;
-const MIN_SIDEBAR_WIDTH = 200;
 
 /**
  * Container for display of the Entity Page
@@ -168,6 +175,7 @@ export const EntityProfile = <T, U>({
         display: { ...defaultSidebarSection, ...sidebarSection.display },
     }));
 
+    const [shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch] = useState(false);
     const [sidebarWidth, setSidebarWidth] = useState(window.innerWidth * 0.25);
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
     const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
@@ -177,7 +185,7 @@ export const EntityProfile = <T, U>({
         ({
             tabName,
             tabParams,
-            method = 'push',
+            method = 'replace',
         }: {
             tabName: string;
             tabParams?: Record<string, any>;
@@ -255,13 +263,15 @@ export const EntityProfile = <T, U>({
                     routeToTab,
                     refetch,
                     lineage,
+                    shouldRefetchEmbeddedListSearch,
+                    setShouldRefetchEmbeddedListSearch,
                 }}
             >
-                <div>
+                <>
                     {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                     {(error && <ErrorSection />) ||
                         (!loading && (
-                            <>
+                            <CompactProfile>
                                 <EntityHeader
                                     headerDropdownItems={headerDropdownItems}
                                     headerActionItems={headerActionItems}
@@ -269,9 +279,9 @@ export const EntityProfile = <T, U>({
                                 />
                                 <Divider style={{ marginBottom: '0' }} />
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
-                            </>
+                            </CompactProfile>
                         ))}
-                </div>
+                </>
             </EntityContext.Provider>
         );
     }
@@ -293,6 +303,8 @@ export const EntityProfile = <T, U>({
                 routeToTab,
                 refetch,
                 lineage,
+                shouldRefetchEmbeddedListSearch,
+                setShouldRefetchEmbeddedListSearch,
             }}
         >
             <>

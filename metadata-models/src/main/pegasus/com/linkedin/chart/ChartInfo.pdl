@@ -39,6 +39,9 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
   chartUrl: optional Url
 
   /**

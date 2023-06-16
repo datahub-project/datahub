@@ -1,4 +1,5 @@
 import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
 
 /**
@@ -24,6 +25,8 @@ export enum EventType {
     RecommendationClickEvent,
     HomePageRecommendationClickEvent,
     HomePageExploreAllClickEvent,
+    SearchBarExploreAllClickEvent,
+    SearchResultsExploreAllClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
@@ -61,6 +64,12 @@ export enum EventType {
     CreateQueryEvent,
     UpdateQueryEvent,
     DeleteQueryEvent,
+    SelectAutoCompleteOption,
+    SelectQuickFilterEvent,
+    DeselectQuickFilterEvent,
+    EmbedProfileViewEvent,
+    EmbedProfileViewInDataHubEvent,
+    EmbedLookupNotFoundEvent,
 }
 
 /**
@@ -127,6 +136,8 @@ export interface SearchEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
+    selectedQuickFilterValues?: string[];
+    selectedQuickFilterTypes?: string[];
 }
 
 /**
@@ -137,6 +148,8 @@ export interface HomePageSearchEvent extends BaseEvent {
     query: string;
     entityTypeFilter?: EntityType;
     pageNumber: number;
+    selectedQuickFilterValues?: string[];
+    selectedQuickFilterTypes?: string[];
 }
 
 /**
@@ -233,7 +246,6 @@ export interface BatchEntityActionEvent extends BaseEvent {
 
 export interface RecommendationImpressionEvent extends BaseEvent {
     type: EventType.RecommendationImpressionEvent;
-    renderId: string; // TODO : Determine whether we need a render id to join with click event.
     moduleId: string;
     renderType: RecommendationRenderType;
     scenarioType: ScenarioType;
@@ -355,6 +367,14 @@ export interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
 
+export interface SearchBarExploreAllClickEvent extends BaseEvent {
+    type: EventType.SearchBarExploreAllClickEvent;
+}
+
+export interface SearchResultsExploreAllClickEvent extends BaseEvent {
+    type: EventType.SearchResultsExploreAllClickEvent;
+}
+
 // Business glossary events
 
 export interface CreateGlossaryEntityEvent extends BaseEvent {
@@ -470,6 +490,43 @@ export interface DeleteQueryEvent extends BaseEvent {
     type: EventType.DeleteQueryEvent;
 }
 
+export interface SelectAutoCompleteOption extends BaseEvent {
+    type: EventType.SelectAutoCompleteOption;
+    optionType: string;
+    entityType?: EntityType;
+    entityUrn?: string;
+}
+
+export interface SelectQuickFilterEvent extends BaseEvent {
+    type: EventType.SelectQuickFilterEvent;
+    quickFilterType: string;
+    quickFilterValue: string;
+}
+
+export interface DeselectQuickFilterEvent extends BaseEvent {
+    type: EventType.DeselectQuickFilterEvent;
+    quickFilterType: string;
+    quickFilterValue: string;
+}
+
+export interface EmbedProfileViewEvent extends BaseEvent {
+    type: EventType.EmbedProfileViewEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
+export interface EmbedProfileViewInDataHubEvent extends BaseEvent {
+    type: EventType.EmbedProfileViewInDataHubEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
+export interface EmbedLookupNotFoundEvent extends BaseEvent {
+    type: EventType.EmbedLookupNotFoundEvent;
+    url: string;
+    reason: EmbedLookupNotFoundReason;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -483,6 +540,8 @@ export type Event =
     | SearchEvent
     | HomePageSearchEvent
     | HomePageExploreAllClickEvent
+    | SearchBarExploreAllClickEvent
+    | SearchResultsExploreAllClickEvent
     | SearchResultsViewEvent
     | SearchResultClickEvent
     | BrowseResultClickEvent
@@ -529,4 +588,10 @@ export type Event =
     | LineageTabTimeRangeSelectionEvent
     | CreateQueryEvent
     | UpdateQueryEvent
-    | DeleteQueryEvent;
+    | DeleteQueryEvent
+    | SelectAutoCompleteOption
+    | SelectQuickFilterEvent
+    | DeselectQuickFilterEvent
+    | EmbedProfileViewEvent
+    | EmbedProfileViewInDataHubEvent
+    | EmbedLookupNotFoundEvent;

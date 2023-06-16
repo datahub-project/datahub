@@ -37,6 +37,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -76,7 +77,8 @@ public class DashboardType implements SearchableEntityType<Dashboard, String>, B
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         INPUT_FIELDS_ASPECT_NAME,
         SUB_TYPES_ASPECT_NAME,
-        EMBED_ASPECT_NAME
+        EMBED_ASPECT_NAME,
+        DATA_PRODUCTS_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
@@ -148,11 +150,10 @@ public class DashboardType implements SearchableEntityType<Dashboard, String>, B
     @Override
     public AutoCompleteResults autoComplete(@Nonnull String query,
                                             @Nullable String field,
-                                            @Nullable List<FacetFilterInput> filters,
+                                            @Nullable Filter filters,
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("dashboard", query, facetFilters, limit, context.getAuthentication());
+        final AutoCompleteResult result = _entityClient.autoComplete("dashboard", query, filters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 

@@ -6,6 +6,8 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
 import { handleBatchError } from '../utils';
+import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.generated';
+import { useEntityContext } from '../EntityContext';
 
 export enum EntityActionItem {
     /**
@@ -16,6 +18,10 @@ export enum EntityActionItem {
      * Batch add a Domain to a set of assets
      */
     BATCH_ADD_DOMAIN,
+    /**
+     * Batch add a Data Product to a set of assets
+     */
+    BATCH_ADD_DATA_PRODUCT,
 }
 
 interface Props {
@@ -28,10 +34,13 @@ function EntityActions(props: Props) {
     // eslint ignore react/no-unused-prop-types
     const entityRegistry = useEntityRegistry();
     const { urn, actionItems, refetchForEntity } = props;
+    const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const [isBatchAddGlossaryTermModalVisible, setIsBatchAddGlossaryTermModalVisible] = useState(false);
     const [isBatchSetDomainModalVisible, setIsBatchSetDomainModalVisible] = useState(false);
+    const [isBatchSetDataProductModalVisible, setIsBatchSetDataProductModalVisible] = useState(false);
     const [batchAddTermsMutation] = useBatchAddTermsMutation();
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
+    const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
@@ -55,6 +64,7 @@ function EntityActions(props: Props) {
                             duration: 2,
                         });
                         refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })
@@ -91,6 +101,7 @@ function EntityActions(props: Props) {
                             duration: 3,
                         });
                         refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })
@@ -99,6 +110,41 @@ function EntityActions(props: Props) {
                 message.error(
                     handleBatchError(entityUrns, e, {
                         content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
+            });
+    };
+
+    // eslint-disable-next-line
+    const batchSetDataProduct = (entityUrns: Array<string>) => {
+        batchSetDataProductMutation({
+            variables: {
+                input: {
+                    dataProductUrn: urn,
+                    resourceUrns: entityUrns,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    setIsBatchSetDataProductModalVisible(false);
+                    message.loading({ content: 'Updating...', duration: 3 });
+                    setTimeout(() => {
+                        message.success({
+                            content: `Added assets to Data Product!`,
+                            duration: 3,
+                        });
+                        refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
+                    }, 3000);
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error(
+                    handleBatchError(entityUrns, e, {
+                        content: `Failed to add assets to Data Product. An unknown error occurred.`,
                         duration: 3,
                     }),
                 );
@@ -115,6 +161,11 @@ function EntityActions(props: Props) {
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DOMAIN) && (
                     <Button onClick={() => setIsBatchSetDomainModalVisible(true)}>
+                        <LinkOutlined /> Add assets
+                    </Button>
+                )}
+                {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
+                    <Button onClick={() => setIsBatchSetDataProductModalVisible(true)}>
                         <LinkOutlined /> Add assets
                     </Button>
                 )}
@@ -138,6 +189,17 @@ function EntityActions(props: Props) {
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
                         entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS),
+                    )}
+                />
+            )}
+            {isBatchSetDataProductModalVisible && (
+                <SearchSelectModal
+                    titleText="Add assets to Data Product"
+                    continueText="Add"
+                    onContinue={batchSetDataProduct}
+                    onCancel={() => setIsBatchSetDataProductModalVisible(false)}
+                    fixedEntityTypes={Array.from(
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DATA_PRODUCTS),
                     )}
                 />
             )}

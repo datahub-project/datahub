@@ -4,7 +4,6 @@ from datahub.upgrade.upgrade import VersionStats, is_client_server_compatible
 
 
 def test_is_client_server_compatible():
-
     # Client and Server are Compatible
     assert compare_client_server_version_string("0.9.6", "0.9.6") == 0
     assert compare_client_server_version_string("0.9.6.1", "0.9.6") == 0

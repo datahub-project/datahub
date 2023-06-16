@@ -13,7 +13,7 @@ services:
       - mysqldb
       - mongo
     ports:
-      - "58083:58083"    
+      - "28083:28083"
 #    volumes:        
 #      - ./../kafka-connect/setup/confluentinc-kafka-connect-jdbc-10.2.5:/usr/local/share/kafka/plugins/confluentinc-kafka-connect-jdbc-10.2.5
 #      - ./../kafka-connect/setup/confluentinc-connect-transforms-1.4.1:/usr/local/share/kafka/plugins/confluentinc-connect-transforms-1.4.1
@@ -59,7 +59,7 @@ services:
     container_name: test_mysql
     hostname: test_mysql
     ports:
-      - "53306:3306"
+      - "23306:3306"
     volumes:  
       - ./../kafka-connect/setup/conf/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
       - ./../kafka-connect/setup/mysql-setup.sql:/docker-entrypoint-initdb.d/mysql-setup.sql

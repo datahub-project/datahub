@@ -134,7 +134,8 @@ def test_registry():
         "console-alias",
         "console",
         lambda: warnings.warn(
-            ConfigurationWarning("console-alias is deprecated, use console instead")
+            ConfigurationWarning("console-alias is deprecated, use console instead"),
+            stacklevel=2,
         ),
     )
     with pytest.warns(ConfigurationWarning):

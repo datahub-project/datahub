@@ -1,5 +1,6 @@
 import time
 import urllib
+from http import HTTPStatus
 from typing import Any, Optional
 
 import pytest
@@ -1340,7 +1341,7 @@ def test_native_user_endpoints(frontend_session):
     # Pass the reset token when resetting credentials
     reset_credentials_json = {
         "email": "test@email.com",
-        "password": "password",
+        "password": "newpassword",
         "resetToken": reset_token,
     }
 
@@ -1353,7 +1354,7 @@ def test_native_user_endpoints(frontend_session):
     # Test that a bad reset token leads to failed response
     bad_user_reset_credentials_json = {
         "email": "test@email.com",
-        "password": "password",
+        "password": "newerpassword",
         "resetToken": "reset_token",
     }
     bad_reset_credentials_response = frontend_session.post(
@@ -1376,25 +1377,12 @@ def test_native_user_endpoints(frontend_session):
 
     # Tests that unauthenticated users can't invite users or send reset password links
 
-    native_user_frontend_session = requests.Session()
+    unauthenticated_session = requests.Session()
 
-    native_user_login_data = '{"username":"test@email.com", "password":"password"}'
-    native_user_frontend_session.post(
-        f"{get_frontend_url()}/logIn", headers=headers, data=native_user_login_data
-    )
-
-    unauthenticated_get_invite_token_response = native_user_frontend_session.post(
+    unauthenticated_get_invite_token_response = unauthenticated_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=get_invite_token_json
     )
-    unauthenticated_get_invite_token_response.raise_for_status()
-    unauthenticated_get_invite_token_res_data = (
-        unauthenticated_get_invite_token_response.json()
-    )
-
-    assert unauthenticated_get_invite_token_res_data
-    assert "errors" in unauthenticated_get_invite_token_res_data
-    assert unauthenticated_get_invite_token_res_data["data"]
-    assert unauthenticated_get_invite_token_res_data["data"]["getInviteToken"] is None
+    assert unauthenticated_get_invite_token_response.status_code == HTTPStatus.UNAUTHORIZED
 
     unauthenticated_create_reset_token_json = {
         "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n
@@ -1405,24 +1393,11 @@ def test_native_user_endpoints(frontend_session):
         "variables": {"input": {"userUrn": "urn:li:corpuser:test@email.com"}},
     }
 
-    unauthenticated_create_reset_token_response = native_user_frontend_session.post(
+    unauthenticated_create_reset_token_response = unauthenticated_session.post(
         f"{get_frontend_url()}/api/v2/graphql",
         json=unauthenticated_create_reset_token_json,
     )
-    unauthenticated_create_reset_token_response.raise_for_status()
-    unauthenticated_create_reset_token_res_data = (
-        unauthenticated_create_reset_token_response.json()
-    )
-
-    assert unauthenticated_create_reset_token_res_data
-    assert "errors" in unauthenticated_create_reset_token_res_data
-    assert unauthenticated_create_reset_token_res_data["data"]
-    assert (
-        unauthenticated_create_reset_token_res_data["data"][
-            "createNativeUserResetToken"
-        ]
-        is None
-    )
+    assert unauthenticated_create_reset_token_response.status_code == HTTPStatus.UNAUTHORIZED
 
     # cleanup steps
     json = {
@@ -1431,7 +1406,11 @@ def test_native_user_endpoints(frontend_session):
         "variables": {"urn": "urn:li:corpuser:test@email.com"},
     }
 
-    remove_user_response = native_user_frontend_session.post(
+    frontend_session.post(
+        f"{get_frontend_url()}/logIn", headers=headers, data=root_login_data
+    )
+
+    remove_user_response = frontend_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
     )
     remove_user_response.raise_for_status()

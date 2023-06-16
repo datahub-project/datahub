@@ -321,7 +321,6 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 @click.pass_context
 @telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
-
     lite_config = get_lite_config()
     new_lite_config_dict = lite_config.dict()
     # Update the type and config sections only
