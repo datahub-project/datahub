@@ -36,15 +36,16 @@ FROZEN_TIME = "2021-07-22 18:54:06"
         "tests/unit/serde/test_serde_usage.json",
         # Profiles with the MetadataChangeProposal format.
         "tests/unit/serde/test_serde_profile.json",
+        # Test one that uses patch.
+        "tests/unit/serde/test_serde_patch.json",
     ],
 )
 def test_serde_to_json(
     pytestconfig: PytestConfig, tmp_path: pathlib.Path, json_filename: str
 ) -> None:
     golden_file = pytestconfig.rootpath / json_filename
+    output_file = tmp_path / "output.json"
 
-    output_filename = "output.json"
-    output_file = tmp_path / output_filename
     pipeline = Pipeline.create(
         {
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
@@ -57,7 +58,7 @@ def test_serde_to_json(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/{output_filename}",
+        output_path=f"{output_file}",
         golden_path=golden_file,
     )
 

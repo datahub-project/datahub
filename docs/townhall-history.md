@@ -2,6 +2,31 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 03/23/2023
+[Full YouTube video](https://youtu.be/BTX8rIBe0yo)
+
+### Agenda
+
+- Community & Roadmap Update
+- Recent Releases
+- Community Case Study — Jumio’s DataHub adoption journey
+- DataHub 201: Data Debugging
+- Sneak Peek: Streamlined Filtering Experience 
+
+## 02/23/2023
+[Full YouTube video](https://youtu.be/UItt4ppJSFc)
+
+### Agenda
+
+- Community & Roadmap Update
+- Recent Releases
+- Community Case Study - How the Hurb Team successfully implemented and adopted DataHub within their organization
+- Sneak Peek: Subscriptions and Notifications
+- Search Improvements - API support for pagination
+- New Feature - Custom Queries
+- Simplifying Metadata Ingestion
+- DataHub 201: Rolling Out DataHub
+
 ## 01/26/2023
 [Full YouTube video](https://youtu.be/A3mSiGHZ6Rc)
 

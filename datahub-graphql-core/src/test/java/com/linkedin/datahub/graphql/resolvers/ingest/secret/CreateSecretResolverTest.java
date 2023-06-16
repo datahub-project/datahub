@@ -66,7 +66,8 @@ public class CreateSecretResolverTest {
             .setAspectName(Constants.SECRET_VALUE_ASPECT_NAME)
             .setAspect(GenericRecordUtils.serializeAspect(value))
             .setEntityKeyAspect(GenericRecordUtils.serializeAspect(key)))),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
   }
 

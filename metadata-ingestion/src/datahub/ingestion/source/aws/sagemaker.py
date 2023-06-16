@@ -41,6 +41,7 @@ class SagemakerSource(Source):
     - Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)
     """
 
+    platform = "sagemaker"
     source_config: SagemakerSourceConfig
     report = SagemakerSourceReport()
 

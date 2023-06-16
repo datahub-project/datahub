@@ -3,7 +3,12 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
 import bson
+import bson.dbref
+import bson.int64
+import bson.objectid
+import bson.timestamp
 import pymongo
+import pymongo.collection
 from packaging import version
 from pydantic import PositiveInt, validator
 from pydantic.fields import Field
@@ -199,7 +204,7 @@ def construct_schema_pymongo(
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class MongoDBSource(Source):
     """
