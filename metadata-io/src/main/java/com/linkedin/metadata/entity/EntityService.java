@@ -622,28 +622,21 @@ public class EntityService {
     return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
       final String aspectName = aspectSpec.getName();
-      EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
-      if (latest == null) {
-        //TODO: best effort mint
-        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
-
-        if (defaultTemplate != null) {
-          latest = new EntityAspect();
-          latest.setAspect(aspectName);
-          latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
-          latest.setUrn(urnStr);
-          latest.setVersion(ASPECT_LATEST_VERSION);
-          latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
-          latest.setCreatedBy(auditStamp.getActor().toString());
-        } else {
-          throw new UnsupportedOperationException("Patch not supported for empty aspect for aspect name: " + aspectName);
-        }
-      }
-
-      long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+      final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      final long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
       try {
-        RecordTemplate currentValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry);
-        RecordTemplate updatedValue =  _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
+
+        final RecordTemplate currentValue = latest != null
+            ? EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry)
+            : _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
+
+        if (latest == null && currentValue == null) {
+          // Attempting to patch a value to an aspect which has no default value and no existing value.
+          throw new UnsupportedOperationException(String.format("Patch not supported for aspect with name %s. "
+              + "Default aspect is required because no aspect currently exists for urn %s.", aspectName, urn));
+        }
+
+        final RecordTemplate updatedValue = _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
 
         validateAspect(urn, updatedValue);
         return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> updatedValue, auditStamp, providedSystemMetadata,
