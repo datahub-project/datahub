@@ -3,7 +3,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import dataclasses
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union
 from unittest.mock import patch
 
@@ -322,9 +322,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             properties=obj.properties or {},
             owner=obj.owner,
             generation=obj.generation,
-            created_at=datetime.fromtimestamp(obj.created_at / 1000),
+            created_at=datetime.fromtimestamp(obj.created_at / 1000, tz=timezone.utc),
             created_by=obj.created_by,
-            updated_at=datetime.fromtimestamp(obj.updated_at / 1000)
+            updated_at=datetime.fromtimestamp(obj.updated_at / 1000, tz=timezone.utc)
             if obj.updated_at
             else None,
             updated_by=obj.updated_by,
@@ -348,8 +348,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             query_id=info.query_id,
             query_text=info.query_text,
             statement_type=info.statement_type,
-            start_time=datetime.fromtimestamp(info.query_start_time_ms / 1000),
-            end_time=datetime.fromtimestamp(info.query_end_time_ms / 1000),
+            start_time=datetime.fromtimestamp(
+                info.query_start_time_ms / 1000, tz=timezone.utc
+            ),
+            end_time=datetime.fromtimestamp(
+                info.query_end_time_ms / 1000, tz=timezone.utc
+            ),
             user_id=info.user_id,
             user_name=info.user_name,
             executed_as_user_id=info.executed_as_user_id,
