@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Button } from 'antd';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
@@ -32,13 +32,14 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
 export const ValidationsTab = () => {
     const { entityData } = useEntityData();
     const history = useHistory();
+    const { pathname } = useLocation();
 
     const totalAssertions = (entityData as any)?.assertions?.total;
     const passingTests = (entityData as any)?.testResults?.passing || [];
     const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
     const totalTests = maybeFailingTests.length + passingTests.length;
 
-    const { selectedTab, basePath } = useGetValidationsTab(Object.values(TabPaths));
+    const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
     // If no tab was selected, select a default tab.
     useEffect(() => {

@@ -29,8 +29,6 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
     const routeToTab = useRouteToTab();
     const baseEntity = useBaseEntity<T>();
 
-    console.log(selectedTab);
-
     const enabledTabs = tabs.filter((tab) => tab.display?.enabled(entityData, baseEntity));
 
     useEffect(() => {
