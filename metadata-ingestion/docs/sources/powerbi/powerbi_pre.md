@@ -42,7 +42,15 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 
 Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift`. To enable native SQL query parsing enable `native_query_parsing` and `enable_advance_lineage_sql_construct` flags in recipe.
 
+<br/>
+
+> caveat: By default `convert_lineage_urns_to_lowercase` is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage as this option generates the upstream datasets URN in lowercase.
+
+<br/>
+
+
 Use full-table-name in `from` clause. for example `operations_analytics.transformed_prod.v_unit_targets` in below native SQL query. The table `operations_analytics.transformed_prod.v_unit_targets` will be ingested as upstream table.
+
 
 ```shell
 let
