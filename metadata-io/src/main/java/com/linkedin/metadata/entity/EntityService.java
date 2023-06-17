@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -24,6 +25,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
@@ -563,10 +565,11 @@ public class EntityService {
   }
 
   private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
-    RecordTemplateValidator.validate(aspect, validationResult -> {
+    Consumer<ValidationResult> resultFunction = validationResult -> {
       throw new IllegalArgumentException("Invalid format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
-          + validationResult.getMessages());
-    }, validator);
+          + validationResult.getMessages()); };
+    RecordTemplateValidator.validate(buildKeyAspect(urn), resultFunction, validator);
+    RecordTemplateValidator.validate(aspect, resultFunction, validator);
   }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
@@ -619,28 +622,21 @@ public class EntityService {
     return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
       final String aspectName = aspectSpec.getName();
-      EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
-      if (latest == null) {
-        //TODO: best effort mint
-        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
-
-        if (defaultTemplate != null) {
-          latest = new EntityAspect();
-          latest.setAspect(aspectName);
-          latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
-          latest.setUrn(urnStr);
-          latest.setVersion(ASPECT_LATEST_VERSION);
-          latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
-          latest.setCreatedBy(auditStamp.getActor().toString());
-        } else {
-          throw new UnsupportedOperationException("Patch not supported for empty aspect for aspect name: " + aspectName);
-        }
-      }
-
-      long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+      final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      final long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
       try {
-        RecordTemplate currentValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry);
-        RecordTemplate updatedValue =  _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
+
+        final RecordTemplate currentValue = latest != null
+            ? EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry)
+            : _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
+
+        if (latest == null && currentValue == null) {
+          // Attempting to patch a value to an aspect which has no default value and no existing value.
+          throw new UnsupportedOperationException(String.format("Patch not supported for aspect with name %s. "
+              + "Default aspect is required because no aspect currently exists for urn %s.", aspectName, urn));
+        }
+
+        final RecordTemplate updatedValue = _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
 
         validateAspect(urn, updatedValue);
         return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> updatedValue, auditStamp, providedSystemMetadata,
@@ -697,6 +693,7 @@ public class EntityService {
     return systemMetadata;
   }
 
+  @VisibleForTesting
   static void validateUrn(@Nonnull final Urn urn) {
 
     if (urn.toString().trim().length() != urn.toString().length()) {
