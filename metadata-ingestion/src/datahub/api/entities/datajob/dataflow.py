@@ -1,5 +1,16 @@
+import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Union,
+    cast,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -22,23 +33,62 @@ if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DataFlow:
+    """The DataHub representation of data-flow.
+
+    Args:
+        urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://datahubproject.io/docs/what/urn/.
+        id (str): Identifier of DataFlow in orchestrator.
+        orchestrator (str): orchestrator. for example airflow.
+        cluster (Optional[str]): [deprecated] Please use env.
+        name (str): Name of the DataFlow.
+        description (str): Description about DataFlow
+        properties (Optional[str]): Additional properties if any.
+        url (Optional[str]): URL pointing to DataFlow.
+        tags (Set[str]): tags that need to be apply on DataFlow.
+        owners (Set[str]): owners that need to be apply on DataFlow.
+        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to. For more detail refer https://datahubproject.io/docs/platform-instances/.
+        env (Optional[str]): The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer https://datahubproject.io/docs/graphql/enums/#fabrictype.
+    """
+
     urn: DataFlowUrn = field(init=False)
     id: str
     orchestrator: str
-    cluster: str
+    cluster: Optional[str] = None  # Deprecated in favor of env
     name: Optional[str] = None
     description: Optional[str] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
     owners: Set[str] = field(default_factory=set)
+    platform_instance: Optional[str] = None
+    env: Optional[str] = None
 
     def __post_init__(self):
+        if self.env is not None and self.cluster is not None:
+            raise ValueError(
+                "Cannot provide both env and cluster parameter. Cluster is deprecated in favor of env."
+            )
+
+        if self.env is None and self.cluster is None:
+            raise ValueError("env is required")
+
+        if self.cluster is not None:
+            logger.warning(
+                "The cluster argument is deprecated. Use env and possibly platform_instance instead."
+            )
+            self.env = self.cluster
+
+        # self.env is optional, cast is required to pass lint
         self.urn = DataFlowUrn.create_from_ids(
-            orchestrator=self.orchestrator, env=self.cluster, flow_id=self.id
+            orchestrator=self.orchestrator,
+            env=cast(str, self.env),
+            flow_id=self.id,
+            platform_instance=self.platform_instance,
         )
 
     def generate_ownership_aspect(self):
