@@ -189,6 +189,9 @@ class Pipeline:
             if self.config.datahub_api:
                 self.graph = DataHubGraph(self.config.datahub_api)
 
+            telemetry.telemetry_instance.update_capture_exception_context(
+                server=self.graph
+            )
         with _add_init_error_context("set up framework context"):
             self.ctx = PipelineContext(
                 run_id=self.config.run_id,

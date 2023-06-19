@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import platform
+import sys
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -113,13 +114,18 @@ class Telemetry:
     def __init__(self):
         if SENTRY_DSN:
             self.sentry_enabled = True
-            import sentry_sdk
+            try:
+                import sentry_sdk
 
-            sentry_sdk.init(
-                dsn=SENTRY_DSN,
-                environment=SENTRY_ENVIRONMENT,
-                release=datahub_package.__version__,
-            )
+                sentry_sdk.init(
+                    dsn=SENTRY_DSN,
+                    environment=SENTRY_ENVIRONMENT,
+                    release=datahub_package.__version__,
+                )
+            except Exception as e:
+                # We need to print initialization errors to stderr, since logger is not initialized yet
+                print(f"Error initializing Sentry: {e}", file=sys.stderr)
+                logger.info(f"Error initializing Sentry: {e}")
 
         # try loading the config if it exists, update it if that fails
         if not CONFIG_FILE.exists() or not self.load_config():
@@ -226,7 +232,24 @@ class Telemetry:
 
         return False
 
-    def init_tracking(self) -> None:
+    def update_capture_exception_context(
+        self,
+        server: Optional[DataHubGraph] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if self.sentry_enabled:
+            from sentry_sdk import set_tag
+
+            properties = {
+                **_default_telemetry_properties(),
+                **self._server_props(server),
+                **(properties or {}),
+            }
+
+            for key in properties:
+                set_tag(key, properties[key])
+
+    def init_capture_exception(self) -> None:
         if self.sentry_enabled:
             import sentry_sdk
 
@@ -241,6 +264,7 @@ class Telemetry:
                 },
             )
 
+    def init_tracking(self) -> None:
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
 
@@ -277,11 +301,6 @@ class Telemetry:
         try:
             logger.debug(f"Sending telemetry for {event_name}")
             properties.update(self._server_props(server))
-            if self.sentry_enabled:
-                from sentry_sdk import set_tag
-
-                for key in properties:
-                    set_tag(key, properties[key])
 
             if not self.enabled or self.mp is None:
                 return
@@ -361,6 +380,7 @@ def with_telemetry(
         @wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
             telemetry_instance.init_tracking()
+            telemetry_instance.init_capture_exception()
 
             call_props: Dict[str, Any] = {"function": function}
             for kwarg in kwargs_to_track:
