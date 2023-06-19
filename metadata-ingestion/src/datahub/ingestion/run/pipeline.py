@@ -386,6 +386,7 @@ class Pipeline:
                 except Exception as e:
                     if telemetry.telemetry_instance.sentry_enabled:
                         import sentry_sdk
+
                         sentry_sdk.capture_exception(e)
                     # TODO: Transformer errors should cause the pipeline to fail.
                     logger.error(
