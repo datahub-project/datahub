@@ -38,6 +38,7 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_CUSTOM_PARAM_RESOURCE = "auth.oidc.customParam.resource";
     public static final String OIDC_READ_TIMEOUT = "auth.oidc.readTimeout";
     public static final String OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "auth.oidc.extractJwtAccessTokenClaims";
+    public static final String OIDC_PREFERRED_JWS_ALGORITHM = "auth.oidc.preferredJwsAlgorithm";
 
     /**
      * Default values
@@ -71,6 +72,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> customParamResource;
     private String readTimeout;
     private Optional<Boolean> extractJwtAccessTokenClaims;
+    private Optional<String> preferredJwsAlgorithm;
 
     public OidcConfigs(final com.typesafe.config.Config configs) {
         super(configs);
@@ -97,5 +99,6 @@ public class OidcConfigs extends SsoConfigs {
         customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
         readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
         extractJwtAccessTokenClaims = getOptional(configs, OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).map(Boolean::parseBoolean);
+        preferredJwsAlgorithm = Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
     }
 }

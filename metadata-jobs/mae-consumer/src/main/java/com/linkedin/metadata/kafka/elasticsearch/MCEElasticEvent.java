@@ -1,15 +1,16 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
 import com.linkedin.data.template.RecordTemplate;
+import com.datahub.util.RecordUtils;
 import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import com.datahub.util.RecordUtils;
-import java.io.IOException;
-import javax.annotation.Nullable;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
+
+import java.io.IOException;
+import javax.annotation.Nullable;
 
 
 public class MCEElasticEvent extends ElasticEvent {

@@ -133,7 +133,7 @@ TrinoDialect._get_columns = _get_columns
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="trino", description="", hidden_from_schema=True)
+    scheme = Field(default="trino", description="", hidden_from_docs=True)
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"

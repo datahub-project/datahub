@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.ListGroupsInput;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -55,10 +56,11 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
           // First, get all group Urns.
           final SearchResult gmsResult =
               _entityClient.search(CORP_GROUP_ENTITY_NAME,
-                  query,
-                  null,
-                  new SortCriterion().setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
-                  start, count, context.getAuthentication());
+                      query,
+                      null,
+                      new SortCriterion().setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
+                      start, count, context.getAuthentication(),
+                      new SearchFlags().setFulltext(true));
 
           // Then, get hydrate all groups.
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(CORP_GROUP_ENTITY_NAME,

@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,7 @@ abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
 
   protected EntityService _entityService;
   protected RetentionService _retentionService;
+  protected UpdateIndicesService _mockUpdateIndicesService;
 
   protected AspectMigrationsDaoTest() throws EntityRegistryException {
     _snapshotEntityRegistry = new TestEntityRegistry();

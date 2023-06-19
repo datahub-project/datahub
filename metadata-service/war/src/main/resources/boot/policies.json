@@ -23,7 +23,11 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
         "MANAGE_TAGS",
-        "MANAGE_GLOBAL_VIEWS"
+        "MANAGE_GLOBAL_VIEWS",
+        "RESTORE_INDICES_PRIVILEGE",
+        "SET_WRITEABLE_PRIVILEGE",
+        "APPLY_RETENTION_PRIVILEGE",
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -46,7 +50,16 @@
       "privileges":[
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
-        "EDIT_LINEAGE"
+        "EDIT_LINEAGE",
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
+        "SEARCH_PRIVILEGE",
+        "GET_COUNTS_PRIVILEGE",
+        "GET_TIMESERIES_ASPECT_PRIVILEGE",
+        "GET_ENTITY_PRIVILEGE",
+        "GET_TIMELINE_PRIVILEGE",
+        "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
+        "MANAGE_DATA_PRODUCTS",
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
       ],
       "displayName":"Root User - Edit and View All Resources",
       "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
@@ -88,10 +101,12 @@
         "MANAGE_DOMAINS",
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
-        "MANAGE_TAGS"
+        "MANAGE_TAGS",
+        "MANAGE_GLOBAL_VIEWS",
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
       ],
-      "displayName":"All Users - All Platform Privileges (EXCEPT MANAGE POLICIES)",
-      "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
+      "displayName":"All Users - Base Platform Privileges",
+      "description":"Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
       "state":"ACTIVE",
       "type":"PLATFORM",
       "editable":true
@@ -116,7 +131,12 @@
         "users":[]
       },
       "privileges":[
-        "VIEW_ENTITY_PAGE"
+        "VIEW_ENTITY_PAGE",
+        "SEARCH_PRIVILEGE",
+        "GET_COUNTS_PRIVILEGE",
+        "GET_TIMESERIES_ASPECT_PRIVILEGE",
+        "GET_ENTITY_PRIVILEGE",
+        "GET_TIMELINE_PRIVILEGE"
       ],
       "displayName":"All Users - View Entity Page",
       "description":"Grants entity view to all users",
@@ -170,7 +190,11 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
         "MANAGE_TAGS",
-        "MANAGE_GLOBAL_VIEWS"
+        "MANAGE_GLOBAL_VIEWS",
+        "RESTORE_INDICES_PRIVILEGE",
+        "SET_WRITEABLE_PRIVILEGE",
+        "APPLY_RETENTION_PRIVILEGE",
+        "MANAGE_GLOBAL_OWNERSHIP_TYPES"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -201,6 +225,7 @@
         "EDIT_ENTITY_DOC_LINKS",
         "EDIT_ENTITY_STATUS",
         "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
         "EDIT_ENTITY",
@@ -218,8 +243,15 @@
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
-        "EDIT_LINEAGE"
-
+        "EDIT_LINEAGE",
+        "EDIT_ENTITY_QUERIES",
+        "SEARCH_PRIVILEGE",
+        "GET_COUNTS_PRIVILEGE",
+        "GET_TIMESERIES_ASPECT_PRIVILEGE",
+        "GET_ENTITY_PRIVILEGE",
+        "GET_TIMELINE_PRIVILEGE",
+        "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
+        "MANAGE_DATA_PRODUCTS"
       ],
       "displayName":"Admins - Metadata Policy",
       "description":"Admins have all metadata privileges.",
@@ -276,6 +308,7 @@
         "EDIT_ENTITY_DOC_LINKS",
         "EDIT_ENTITY_STATUS",
         "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
         "EDIT_ENTITY",
@@ -293,7 +326,15 @@
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
-        "EDIT_LINEAGE"
+        "EDIT_LINEAGE",
+        "EDIT_ENTITY_QUERIES",
+        "SEARCH_PRIVILEGE",
+        "GET_COUNTS_PRIVILEGE",
+        "GET_TIMESERIES_ASPECT_PRIVILEGE",
+        "GET_ENTITY_PRIVILEGE",
+        "GET_TIMELINE_PRIVILEGE",
+        "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
+        "MANAGE_DATA_PRODUCTS"
       ],
       "displayName":"Editors - Metadata Policy",
       "description":"Editors have all metadata privileges.",
@@ -339,7 +380,12 @@
       "privileges":[
         "VIEW_ENTITY_PAGE",
         "VIEW_DATASET_USAGE",
-        "VIEW_DATASET_PROFILE"
+        "VIEW_DATASET_PROFILE",
+        "SEARCH_PRIVILEGE",
+        "GET_COUNTS_PRIVILEGE",
+        "GET_TIMESERIES_ASPECT_PRIVILEGE",
+        "GET_ENTITY_PRIVILEGE",
+        "GET_TIMELINE_PRIVILEGE"
       ],
       "displayName":"Readers - Metadata Policy",
       "description":"Readers can view all assets.",
@@ -367,6 +413,7 @@
         "EDIT_ENTITY_DOC_LINKS",
         "EDIT_ENTITY_STATUS",
         "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
         "EDIT_ENTITY",
@@ -384,7 +431,13 @@
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
-        "EDIT_LINEAGE"
+        "EDIT_LINEAGE",
+        "EDIT_ENTITY_QUERIES",
+        "GET_TIMELINE_PRIVILEGE",
+        "GET_ENTITY_PRIVILEGE",
+        "GET_TIMESERIES_ASPECT_PRIVILEGE",
+        "GET_COUNTS_PRIVILEGE",
+        "MANAGE_DATA_PRODUCTS"
       ],
       "displayName":"Asset Owners - Metadata Policy",
       "description":"Asset Owners have all metadata privileges ONLY for assets they own.",

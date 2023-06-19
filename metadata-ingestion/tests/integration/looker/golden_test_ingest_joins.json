@@ -205,7 +205,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"explore\"]}",
+        "value": "{\"typeNames\": [\"Explore\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

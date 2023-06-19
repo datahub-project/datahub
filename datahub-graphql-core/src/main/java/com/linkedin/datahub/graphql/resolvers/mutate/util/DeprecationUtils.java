@@ -8,8 +8,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -83,7 +83,7 @@ public class DeprecationUtils {
       // Note is required field in GMS. Set to empty string if not provided.
       deprecation.setNote("");
     }
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DEPRECATION_ASPECT_NAME, deprecation, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DEPRECATION_ASPECT_NAME, deprecation);
   }
 
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {

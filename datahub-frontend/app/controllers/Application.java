@@ -263,6 +263,7 @@ public class Application extends Controller {
     Materializer materializer = ActorMaterializer.create(system);
     AsyncHttpClientConfig asyncHttpClientConfig =
         new DefaultAsyncHttpClientConfig.Builder()
+            .setDisableUrlEncodingForBoundRequests(true)
             .setMaxRequestRetry(0)
             .setShutdownQuietPeriod(0)
             .setShutdownTimeout(0)

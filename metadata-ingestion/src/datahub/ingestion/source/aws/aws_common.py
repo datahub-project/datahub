@@ -11,7 +11,7 @@ from datahub.configuration.common import (
     ConfigModel,
     PermissiveConfigModel,
 )
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
@@ -59,7 +59,7 @@ def assume_role(
     return dict(assumed_role_object["Credentials"])
 
 
-AUTODETECT_CREDENTIALS_DOC_LINK = "Can be auto-detected, see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html for details."
+AUTODETECT_CREDENTIALS_DOC_LINK = "Can be auto-detected, see [the AWS boto3 docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html) for details."
 
 
 class AwsConnectionConfig(ConfigModel):
@@ -97,11 +97,11 @@ class AwsConnectionConfig(ConfigModel):
 
     aws_endpoint_url: Optional[str] = Field(
         default=None,
-        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+        description="The AWS service endpoint. This is normally [constructed automatically](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html), but can be overridden here.",
     )
     aws_proxy: Optional[Dict[str, str]] = Field(
         default=None,
-        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+        description="A set of proxy configs to use with AWS. See the [botocore.config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html) docs for details.",
     )
 
     def _normalized_aws_roles(self) -> List[AwsAssumeRoleConfig]:
@@ -201,7 +201,7 @@ class AwsConnectionConfig(ConfigModel):
         return self.get_session().client("sagemaker")
 
 
-class AwsSourceConfig(EnvBasedSourceConfigBase, AwsConnectionConfig):
+class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
     """
     Common AWS credentials config.
 

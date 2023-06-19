@@ -176,14 +176,10 @@ class IcebergProfiler:
                     )
                 dataset_profile.fieldProfiles.append(column_profile)
 
-        mcp = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=dataset_profile,
-        )
-        wu = MetadataWorkUnit(id=f"profile-{dataset_name}", mcp=mcp)
-        self.report.report_workunit(wu)
-        self.report.report_entity_profiled(dataset_name)
-        yield wu
+        ).as_workunit()
 
     # The following will eventually be done by the Iceberg API (in the new Python refactored API).
     def _renderValue(

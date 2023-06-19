@@ -78,6 +78,11 @@ public interface TopicConvention {
   String getMetadataChangeEventTopicName(@Nonnull Urn urn, @Nonnull RecordTemplate aspect);
 
   /**
+   * The name of the DataHub Upgrade history topic.
+   */
+  String getDataHubUpgradeHistoryTopicName();
+
+  /**
    * Returns the avro class that defines the given MCE v5 topic.
    *
    * @param urn the urn of the entity being updated

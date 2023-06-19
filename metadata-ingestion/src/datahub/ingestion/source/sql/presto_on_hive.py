@@ -27,6 +27,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -63,17 +67,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
-class PrestoOnHiveContainerSubTypes(str, Enum):
-    DATABASE = "Database"
-    CATALOG = "Catalog"
-    SCHEMA = "Schema"
-
-
-class PrestoOnHiveDatasetSubTypes(str, Enum):
-    VIEW = "View"
-    TABLE = "Table"
-
-
 class PrestoOnHiveConfigMode(str, Enum):
     hive: str = "hive"  # noqa: F811
     presto: str = "presto"
@@ -107,9 +100,7 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         default="localhost:3306",
         description="Host URL and port to connect to. Example: localhost:3306",
     )
-    scheme: str = Field(
-        default="mysql+pymysql", description="", hidden_from_schema=True
-    )
+    scheme: str = Field(default="mysql+pymysql", description="", hidden_from_docs=True)
 
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -138,7 +129,19 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
     )
 
-    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
+    extra_properties: List[str] = Field(
+        default=[],
+        description="By default, the connector extracts a specific set of properties from the metastore tables with a sql query. Use this list of keys to provide additional properties that you would like to extract. You have to make sure the column name returned by the sql query is the same as the key you provide here.",
+    )
+
+    enable_properties_merge: bool = Field(
+        default=False,
+        description="By default, the connector overwrites properties every time. Set this to True to enable merging of properties with what exists on the server.",
+    )
+
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
@@ -294,19 +297,19 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self.config: PrestoOnHiveConfig = config
         self._alchemy_client = SQLAlchemyClient(config)
         self.database_container_subtype = (
-            PrestoOnHiveContainerSubTypes.CATALOG
+            DatasetContainerSubTypes.CATALOG
             if config.use_catalog_subtype
-            else PrestoOnHiveContainerSubTypes.DATABASE
+            else DatasetContainerSubTypes.DATABASE
         )
         self.view_subtype = (
-            PrestoOnHiveDatasetSubTypes.VIEW
+            DatasetSubTypes.VIEW.title()
             if config.use_dataset_pascalcase_subtype
-            else PrestoOnHiveDatasetSubTypes.VIEW.lower()
+            else DatasetSubTypes.VIEW.lower()
         )
         self.table_subtype = (
-            PrestoOnHiveDatasetSubTypes.TABLE
+            DatasetSubTypes.TABLE.title()
             if config.use_dataset_pascalcase_subtype
-            else PrestoOnHiveDatasetSubTypes.TABLE.lower()
+            else DatasetSubTypes.TABLE.lower()
         )
 
     def get_db_name(self, inspector: Inspector) -> str:
@@ -325,6 +328,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def gen_database_containers(
         self,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = gen_database_key(
             database,
@@ -339,13 +343,14 @@ class PrestoOnHiveSource(SQLAlchemySource):
             sub_types=[self.database_container_subtype],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
+            extra_properties=extra_properties,
         )
 
     def gen_schema_containers(
         self,
         schema: str,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         assert isinstance(self.config, PrestoOnHiveConfig)
         where_clause_suffix: str = ""
@@ -388,12 +393,12 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield from gen_schema_container(
                 database=database,
                 schema=schema,
-                sub_types=["Schema"],
+                sub_types=[DatasetContainerSubTypes.SCHEMA],
                 database_container_key=database_container_key,
                 schema_container_key=schema_container_key,
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
-                report=self.report,
+                extra_properties=extra_properties,
             )
 
     def get_default_ingestion_job_id(self) -> JobId:
@@ -483,13 +488,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
             dataset_snapshot.aspects.append(schema_metadata)
 
             # add table properties
-            properties: Dict[str, str] = {
-                "create_date": columns[-1]["create_date"],
-                "table_type": columns[-1]["table_type"],
-                "table_location": ""
-                if columns[-1]["table_location"] is None
-                else columns[-1]["table_location"],
-            }
+            default_properties = ["create_date", "table_type", "table_location"]
+            properties: Dict[str, str] = {}
+            for prop in default_properties + self.config.extra_properties:
+                if prop in columns[-1]:
+                    properties[prop] = str(columns[-1][prop]) or ""
 
             par_columns: str = ", ".join(
                 [c["col_name"] for c in columns if c["is_partition_col"]]
@@ -497,39 +500,57 @@ class PrestoOnHiveSource(SQLAlchemySource):
             if par_columns != "":
                 properties["partitioned_columns"] = par_columns
 
-            dataset_properties = DatasetPropertiesClass(
-                name=key.table,
-                description=columns[-1]["description"],
-                customProperties=properties,
+            table_description = (
+                columns[-1]["description"] if "description" in columns[-1] else ""
             )
-            dataset_snapshot.aspects.append(dataset_properties)
 
             yield from self.add_hive_dataset_to_container(
                 dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
             )
 
+            if self.config.enable_properties_merge:
+                from datahub.specific.dataset import DatasetPatchBuilder
+
+                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
+                    urn=dataset_snapshot.urn
+                )
+                patch_builder.set_display_name(key.table).set_description(
+                    description=table_description
+                )
+                for prop, value in properties.items():
+                    patch_builder.add_custom_property(key=prop, value=value)
+                yield from [
+                    MetadataWorkUnit(
+                        id=f"{mcp_raw.entityUrn}-{DatasetPropertiesClass.ASPECT_NAME}",
+                        mcp_raw=mcp_raw,
+                    )
+                    for mcp_raw in patch_builder.build()
+                ]
+            else:
+                # we add to the MCE to keep compatibility with previous output
+                # if merging is disabled
+                dataset_properties = DatasetPropertiesClass(
+                    name=key.table,
+                    description=table_description,
+                    customProperties=properties,
+                )
+                dataset_snapshot.aspects.append(dataset_properties)
+
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            wu = SqlWorkUnit(id=dataset_name, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield SqlWorkUnit(id=dataset_name, mce=mce)
 
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
 
-            subtypes_workunit = MetadataWorkUnit(
-                id=f"{dataset_name}-subtypes",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="subTypes",
-                    aspect=SubTypesClass(typeNames=[self.table_subtype]),
-                ),
-            )
-            self.report.report_workunit(subtypes_workunit)
-            yield subtypes_workunit
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=[self.table_subtype]),
+            ).as_workunit()
 
             if self.config.domain:
                 assert self.domain_registry
@@ -538,7 +559,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                     entity_urn=dataset_urn,
                     domain_config=self.config.domain,
                     domain_registry=self.domain_registry,
-                    report=self.report,
                 )
 
     def add_hive_dataset_to_container(
@@ -555,7 +575,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
 
     def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
@@ -724,27 +743,20 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            wu = SqlWorkUnit(id=dataset.dataset_name, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield SqlWorkUnit(id=dataset.dataset_name, mce=mce)
 
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
 
             # Add views subtype
-            subtypes_aspect = MetadataWorkUnit(
-                id=f"{dataset.dataset_name}-subtypes",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="subTypes",
-                    aspect=SubTypesClass(typeNames=[self.view_subtype]),
-                ),
-            )
-            self.report.report_workunit(subtypes_aspect)
-            yield subtypes_aspect
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=[self.view_subtype]),
+            ).as_workunit()
 
             # Add views definition
             view_properties_aspect = ViewPropertiesClass(
@@ -752,18 +764,13 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 viewLanguage="SQL",
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
             )
-            view_properties_wu = MetadataWorkUnit(
-                id=f"{dataset.dataset_name}-viewProperties",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="viewProperties",
-                    aspect=view_properties_aspect,
-                ),
-            )
-            self.report.report_workunit(view_properties_wu)
-            yield view_properties_wu
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="viewProperties",
+                aspect=view_properties_aspect,
+            ).as_workunit()
 
             if self.config.domain:
                 assert self.domain_registry
@@ -772,7 +779,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                     entity_urn=dataset_urn,
                     domain_registry=self.domain_registry,
                     domain_config=self.config.domain,
-                    report=self.report,
                 )
 
     def _get_db_filter_where_clause(self) -> str:

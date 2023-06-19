@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.ListGlobalViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -67,13 +68,14 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
       try {
 
         final SearchResult gmsResult = _entityClient.search(
-            Constants.DATAHUB_VIEW_ENTITY_NAME,
-            query,
-            buildFilters(),
-            DEFAULT_SORT_CRITERION,
-            start,
-            count,
-            context.getAuthentication());
+                Constants.DATAHUB_VIEW_ENTITY_NAME,
+                query,
+                buildFilters(),
+                DEFAULT_SORT_CRITERION,
+                start,
+                count,
+                context.getAuthentication(),
+                new SearchFlags().setFulltext(true));
 
         final ListViewsResult result = new ListViewsResult();
         result.setStart(gmsResult.getFrom());

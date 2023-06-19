@@ -60,7 +60,7 @@ def get_base() -> Any:
                     "max_threads": {
                         "type": "number",
                         "description": "Experimental: Max parallelism for REST API calls",
-                        "default": 1,
+                        "default": 15,
                     },
                     "retry_status_codes": {
                         "type": "array",

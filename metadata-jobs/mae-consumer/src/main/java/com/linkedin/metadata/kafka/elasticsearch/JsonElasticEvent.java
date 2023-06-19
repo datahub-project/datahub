@@ -1,7 +1,5 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
-import java.io.IOException;
-import javax.annotation.Nullable;
 import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -9,6 +7,8 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 
+import java.io.IOException;
+import javax.annotation.Nullable;
 
 public class JsonElasticEvent extends ElasticEvent {
   private final String _document;

@@ -217,6 +217,34 @@ public class ESBrowseDAO {
   }
 
   /**
+   * Constructs search request for entity search.
+   *
+   * @param path the path which is being browsed
+   * @param sort the sort values of the last search result in the previous page
+   * @param pitId the PointInTime ID of the previous request
+   * @param keepAlive keepAlive string representation of time to keep point in time alive
+   * @param size count of entities
+   * @return {@link SearchRequest}
+   */
+  @VisibleForTesting
+  @Nonnull
+  SearchRequest constructEntitiesSearchRequest(@Nonnull String indexName, @Nonnull String path,
+      @Nonnull Map<String, String> requestMap, @Nullable Object[] sort, @Nullable String pitId, @Nonnull String keepAlive,
+      int size) {
+    final SearchRequest searchRequest = new SearchRequest(indexName);
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+
+    searchSourceBuilder.size(size);
+    searchSourceBuilder.fetchSource(new String[]{BROWSE_PATH, URN}, null);
+    searchSourceBuilder.sort(URN, SortOrder.ASC);
+    searchSourceBuilder.query(buildQueryString(path, requestMap, false));
+    searchRequest.source(searchSourceBuilder);
+    return searchRequest;
+  }
+
+  /**
    * Extracts group search response into browse result metadata.
    *
    * @param groupsResponse groups search response

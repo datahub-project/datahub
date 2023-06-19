@@ -20,6 +20,7 @@ import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
+import { isDeleteDisabled } from './utils';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -71,7 +72,6 @@ interface Props {
     refetchForEntity?: () => void;
     refetchForTerms?: () => void;
     refetchForNodes?: () => void;
-    refreshBrowser?: () => void;
     onDeleteEntity?: () => void;
 }
 
@@ -84,7 +84,6 @@ function EntityDropdown(props: Props) {
         refetchForEntity,
         refetchForTerms,
         refetchForNodes,
-        refreshBrowser,
         onDeleteEntity: onDelete,
         size,
         options,
@@ -135,12 +134,11 @@ function EntityDropdown(props: Props) {
     const entityHasChildren = !!entityData?.children?.total;
     const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
-    const canDeleteGlossaryEntity = !entityHasChildren && canManageGlossaryEntity;
 
     /**
      * A default path to redirect to if the entity is deleted.
      */
-    const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType);
+    const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
 
     return (
         <>
@@ -208,7 +206,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
                                 key="5"
-                                disabled={isGlossaryEntity && !canDeleteGlossaryEntity}
+                                disabled={isDeleteDisabled(entityType, entityData)}
                                 onClick={onDeleteEntity}
                             >
                                 <Tooltip
@@ -216,7 +214,9 @@ function EntityDropdown(props: Props) {
                                         entityType,
                                     )} with child entities.`}
                                     overlayStyle={
-                                        canManageGlossaryEntity && entityHasChildren ? {} : { display: 'none' }
+                                        isGlossaryEntity && canManageGlossaryEntity && entityHasChildren
+                                            ? {}
+                                            : { display: 'none' }
                                     }
                                 >
                                     <MenuItem>
@@ -252,9 +252,7 @@ function EntityDropdown(props: Props) {
                     refetch={refetchForEntity}
                 />
             )}
-            {isMoveModalVisible && (
-                <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} refetchData={refreshBrowser} />
-            )}
+            {isMoveModalVisible && <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </>
     );

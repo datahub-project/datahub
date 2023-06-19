@@ -199,9 +199,12 @@ class JobProcessor:
         self,
         model_data_url: str,
         job_key: JobKey,
-        metrics: Dict[str, Any] = {},
-        hyperparameters: Dict[str, Any] = {},
+        metrics: Optional[Dict[str, Any]] = None,
+        hyperparameters: Optional[Dict[str, Any]] = None,
     ) -> None:
+        metrics = metrics or {}
+        hyperparameters = hyperparameters or {}
+
         model_jobs = self.model_image_to_jobs[model_data_url]
 
         # if model doesn't have job yet, init
@@ -215,9 +218,12 @@ class JobProcessor:
         self,
         model_name: str,
         job_key: JobKey,
-        metrics: Dict[str, Any] = {},
-        hyperparameters: Dict[str, Any] = {},
+        metrics: Optional[Dict[str, Any]] = None,
+        hyperparameters: Optional[Dict[str, Any]] = None,
     ) -> None:
+        metrics = metrics or {}
+        hyperparameters = hyperparameters or {}
+
         model_jobs = self.model_name_to_jobs[model_name]
 
         # if model doesn't have job yet, init
@@ -313,13 +319,11 @@ class JobProcessor:
                 )
             )
             dataset_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            dataset_wu = MetadataWorkUnit(
+            yield MetadataWorkUnit(
                 id=dataset_urn,
                 mce=dataset_mce,
             )
             self.report.report_dataset_scanned()
-            self.report.report_workunit(dataset_wu)
-            yield dataset_wu
 
         # third pass: construct and yield MCEs
         for job_urn in sorted(processed_jobs):
@@ -341,12 +345,10 @@ class JobProcessor:
                     ],
                 )
             )
-            flow_wu = MetadataWorkUnit(
+            yield MetadataWorkUnit(
                 id=flow_urn,
                 mce=flow_mce,
             )
-            self.report.report_workunit(flow_wu)
-            yield flow_wu
 
             job_snapshot.aspects.append(
                 DataJobInputOutputClass(
@@ -357,13 +359,11 @@ class JobProcessor:
             )
 
             job_mce = MetadataChangeEvent(proposedSnapshot=job_snapshot)
-            job_wu = MetadataWorkUnit(
+            yield MetadataWorkUnit(
                 id=job_urn,
                 mce=job_mce,
             )
             self.report.report_job_scanned()
-            self.report.report_workunit(job_wu)
-            yield job_wu
 
     def create_common_job_snapshot(
         self,
@@ -845,7 +845,7 @@ class JobProcessor:
                     "channel_name": config.get("ChannelName"),
                 }
 
-        output_s3_uri = job.get("OutputDataConfig", {}).get("S3OutputPath")
+        output_data_s3_uri = job.get("OutputDataConfig", {}).get("S3OutputPath")
         checkpoint_s3_uri = job.get("CheckpointConfig", {}).get("S3Uri")
         debug_s3_path = job.get("DebugHookConfig", {}).get("S3OutputPath")
         tensorboard_output_path = job.get("TensorBoardOutputConfig", {}).get(
@@ -866,7 +866,7 @@ class JobProcessor:
 
         # process all output datasets at once
         for output_s3_uri in [
-            output_s3_uri,
+            output_data_s3_uri,
             checkpoint_s3_uri,
             debug_s3_path,
             tensorboard_output_path,

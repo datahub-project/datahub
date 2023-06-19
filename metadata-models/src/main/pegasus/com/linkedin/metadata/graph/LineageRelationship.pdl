@@ -35,7 +35,7 @@ record LineageRelationship {
   degree: int = 1
 
   /**
-   * Timestamp for when this lineage relationship wa created. Could be null.
+   * Timestamp for when this lineage relationship was created. Could be null.
    */
   createdOn: optional long
 
@@ -43,4 +43,19 @@ record LineageRelationship {
    * Urn of the actor that created this lineage relationship. Could be null.
    */
   createdActor: optional Urn
+
+  /**
+   * Timestamp for when this lineage relationship was last updated. Could be null.
+   */
+  updatedOn: optional long
+
+  /**
+   * Urn of the actor that last updated this lineage relationship. Could be null.
+   */
+  updatedActor: optional Urn
+
+  /**
+   * Whether this lineage edge is a manual edge.
+   */
+  isManual: optional boolean
 }

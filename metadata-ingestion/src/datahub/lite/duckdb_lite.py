@@ -6,11 +6,11 @@ from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import duckdb
 
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
 from datahub.lite.lite_local import (
     AutoComplete,
     Browseable,
@@ -37,12 +37,6 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
-
-
-class DuckDBLiteConfig(ConfigModel):
-    file: str
-    read_only: bool = False
-    options: dict = {}
 
 
 class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
@@ -678,7 +672,6 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     def _create_edges_from_data_platform_instance(
         self, data_platform_instance_urn: Urn
     ) -> None:
-
         data_platform_urn = DataPlatformUrn.create_from_string(
             data_platform_instance_urn.get_entity_id()[0]
         )
@@ -725,7 +718,6 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     def post_update_hook(
         self, entity_urn: str, aspect_name: str, aspect: _Aspect
     ) -> None:
-
         if isinstance(aspect, DatasetPropertiesClass):
             dp: DatasetPropertiesClass = aspect
             if dp.name:

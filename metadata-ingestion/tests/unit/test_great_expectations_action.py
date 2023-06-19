@@ -11,6 +11,9 @@ from great_expectations.core.expectation_validation_result import (
 from great_expectations.core.id_dict import IDDict
 from great_expectations.core.run_identifier import RunIdentifier
 from great_expectations.data_context import DataContext
+from great_expectations.data_context.data_context.file_data_context import (
+    FileDataContext,
+)
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
     ValidationResultIdentifier,
@@ -46,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="function")
 def ge_data_context(tmp_path: str) -> DataContext:
-    return DataContext.create(tmp_path)
+    return FileDataContext.create(tmp_path)
 
 
 @pytest.fixture(scope="function")

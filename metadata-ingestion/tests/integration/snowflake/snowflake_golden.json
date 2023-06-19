@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "platform": "snowflake",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "test_db"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/",
@@ -100,7 +100,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "OTHER_DB.OTHER_SCHEMA.my_other_tag:other",
+            "name": "my_other_tag: other",
             "description": "Represents the Snowflake tag `OTHER_DB.OTHER_SCHEMA.my_other_tag` with value `other`."
         }
     },
@@ -118,7 +118,7 @@
         "json": {
             "customProperties": {
                 "platform": "snowflake",
-                "instance": "PROD",
+                "env": "PROD",
                 "database": "test_db",
                 "schema": "test_schema"
             },
@@ -318,6 +318,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -468,7 +479,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -576,6 +587,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -726,7 +748,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -834,6 +856,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -984,7 +1017,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -1092,6 +1125,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1242,7 +1286,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -1350,6 +1394,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1500,7 +1555,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -1608,6 +1663,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1758,7 +1824,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -1866,6 +1932,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2016,7 +2093,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -2124,6 +2201,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2274,7 +2362,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -2382,6 +2470,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2532,7 +2631,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -2640,6 +2739,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2790,7 +2900,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -2806,7 +2916,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.security:pii",
+            "name": "security: pii",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.security` with value `pii`."
         }
     },
@@ -3049,7 +3159,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -3065,7 +3175,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.my_tag_0:my_value_0",
+            "name": "my_tag_0: my_value_0",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_0` with value `my_value_0`."
         }
     },
@@ -3081,7 +3191,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1",
+            "name": "my_tag_1: my_value_1",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_1` with value `my_value_1`."
         }
     },
@@ -3097,7 +3207,7 @@
     "aspectName": "tagProperties",
     "aspect": {
         "json": {
-            "name": "TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2",
+            "name": "my_tag_2: my_value_2",
             "description": "Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_2` with value `my_value_2`."
         }
     },
@@ -3333,7 +3443,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -3351,13 +3461,13 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:TEST_DB.TEST_SCHEMA.my_tag_0:my_value_0"
+                    "tag": "urn:li:tag:test_db.test_schema.my_tag_0:my_value_0"
                 },
                 {
-                    "tag": "urn:li:tag:TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"
+                    "tag": "urn:li:tag:test_db.test_schema.my_tag_1:my_value_1"
                 },
                 {
-                    "tag": "urn:li:tag:TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"
+                    "tag": "urn:li:tag:test_db.test_schema.my_tag_2:my_value_2"
                 }
             ]
         }
@@ -3589,6 +3699,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -3610,9 +3744,28 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
                     "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.table_1,PROD)",
+                    "type": "TRANSFORMED"
                 }
             ],
             "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.table_1,PROD),col_1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
@@ -3745,14 +3898,6 @@
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
-                    "type": "TRANSFORMED"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],

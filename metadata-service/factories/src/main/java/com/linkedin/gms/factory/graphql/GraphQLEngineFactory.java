@@ -27,6 +27,9 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.service.LineageService;
@@ -87,6 +90,7 @@ public class GraphQLEngineFactory {
   private TimeseriesAspectService _timeseriesAspectService;
 
   @Autowired
+  @Qualifier("recommendationsService")
   private RecommendationsService _recommendationsService;
 
   @Autowired
@@ -102,6 +106,7 @@ public class GraphQLEngineFactory {
   private EntityRegistry _entityRegistry;
 
   @Autowired
+  @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
 
   @Autowired
@@ -137,12 +142,24 @@ public class GraphQLEngineFactory {
   private ViewService _viewService;
 
   @Autowired
+  @Qualifier("ownerShipTypeService")
+  private OwnershipTypeService _ownershipTypeService;
+
+  @Autowired
   @Qualifier("settingsService")
   private SettingsService _settingsService;
 
   @Autowired
   @Qualifier("lineageService")
   private LineageService _lineageService;
+
+  @Autowired
+  @Qualifier("queryService")
+  private QueryService _queryService;
+
+  @Autowired
+  @Qualifier("dataProductService")
+  private DataProductService _dataProductService;
 
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
@@ -182,9 +199,12 @@ public class GraphQLEngineFactory {
     args.setInviteTokenService(_inviteTokenService);
     args.setPostService(_postService);
     args.setViewService(_viewService);
+    args.setOwnershipTypeService(_ownershipTypeService);
     args.setSettingsService(_settingsService);
     args.setLineageService(_lineageService);
+    args.setQueryService(_queryService);
     args.setFeatureFlags(_configProvider.getFeatureFlags());
+    args.setDataProductService(_dataProductService);
     return new GmsGraphQLEngine(
             args
     ).builder().build();

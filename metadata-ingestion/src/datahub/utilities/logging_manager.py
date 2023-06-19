@@ -111,7 +111,11 @@ class _BufferLogHandler(logging.Handler):
         self._storage = storage
 
     def emit(self, record: logging.LogRecord) -> None:
-        self._storage.write(self.format(record))
+        try:
+            message = self.format(record)
+        except TypeError as e:
+            message = f"Error formatting log message: {e}\nMessage: {record.msg}, Args: {record.args}"
+        self._storage.write(message)
 
 
 def _remove_all_handlers(logger: logging.Logger) -> None:

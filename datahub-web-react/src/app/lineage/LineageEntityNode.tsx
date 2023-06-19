@@ -16,6 +16,7 @@ import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width } f
 import LineageEntityColumns from './LineageEntityColumns';
 import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
 import ManageLineageMenu from './manage/ManageLineageMenu';
+import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -62,6 +63,7 @@ export default function LineageEntityNode({
 }) {
     const { direction } = node;
     const { expandTitles, collapsedColumnsNodes, showColumns, refetchCenterNode } = useContext(LineageExplorerContext);
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const [hasExpanded, setHasExpanded] = useState(false);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
@@ -76,7 +78,13 @@ export default function LineageEntityNode({
             } else {
                 // update non-center node using onExpandClick in useEffect below
                 getAsyncEntityLineage({
-                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode, showColumns },
+                    variables: {
+                        urn: node.data.urn,
+                        separateSiblings: isHideSiblingMode,
+                        showColumns,
+                        startTimeMillis,
+                        endTimeMillis,
+                    },
                 });
                 setTimeout(() => setHasExpanded(false), 0);
             }
@@ -160,7 +168,13 @@ export default function LineageEntityNode({
                             if (node.data.urn && node.data.type) {
                                 // getAsyncEntity(node.data.urn, node.data.type);
                                 getAsyncEntityLineage({
-                                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode, showColumns },
+                                    variables: {
+                                        urn: node.data.urn,
+                                        separateSiblings: isHideSiblingMode,
+                                        showColumns,
+                                        startTimeMillis,
+                                        endTimeMillis,
+                                    },
                                 });
                             }
                         }}

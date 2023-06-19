@@ -4,7 +4,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
@@ -28,6 +28,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     Source,
     SourceCapability,
     SourceReport,
@@ -35,7 +36,11 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
+from datahub.ingestion.glossary.classification_mixin import ClassificationHandler
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
@@ -46,7 +51,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
-from datahub.ingestion.source.snowflake.snowflake_lineage import (
+from datahub.ingestion.source.snowflake.snowflake_lineage_legacy import (
+    SnowflakeLineageExtractor as SnowflakeLineageLegacyExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
@@ -73,7 +81,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
-from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -86,9 +93,6 @@ from datahub.ingestion.source.sql.sql_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -124,11 +128,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -207,7 +208,6 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     supported=True,
 )
 class SnowflakeV2Source(
-    ClassificationMixin,
     SnowflakeQueryMixin,
     SnowflakeConnectionMixin,
     SnowflakeCommonMixin,
@@ -221,15 +221,6 @@ class SnowflakeV2Source(
         self.logger = logger
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
@@ -247,9 +238,17 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
+        self.lineage_extractor: Union[
+            SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor
+        ]
         if config.include_table_lineage:
             # For lineage
-            self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
+            if self.config.use_legacy_lineage_method:
+                self.lineage_extractor = SnowflakeLineageLegacyExtractor(
+                    config, self.report
+                )
+            else:
+                self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
 
         if config.include_usage_stats or config.include_operational_stats:
             # For usage stats
@@ -274,23 +273,13 @@ class SnowflakeV2Source(
                 config, self.report, self.profiling_state_handler
             )
 
-        if self.is_classification_enabled():
-            self.classifiers = self.get_classifiers()
+        if self.config.classification.enabled:
+            self.classification_handler = ClassificationHandler(
+                self.config, self.report
+            )
 
-        # Currently caching using instance variables
-        # TODO - rewrite cache for readability or use out of the box solution
-        self.db_tables: Dict[str, Optional[Dict[str, List[SnowflakeTable]]]] = {}
-        self.db_views: Dict[str, Optional[Dict[str, List[SnowflakeView]]]] = {}
-
-        # For column related queries and constraints, we currently query at schema level
-        # TODO: In future, we may consider using queries and caching at database level first
-        self.schema_columns: Dict[
-            Tuple[str, str], Optional[Dict[str, List[SnowflakeColumn]]]
-        ] = {}
-        self.schema_pk_constraints: Dict[Tuple[str, str], Dict[str, SnowflakePK]] = {}
-        self.schema_fk_constraints: Dict[
-            Tuple[str, str], Dict[str, List[SnowflakeFK]]
-        ] = {}
+        # Caches tables for a single database. Consider moving to disk or S3 when possible.
+        self.db_tables: Dict[str, List[SnowflakeTable]] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -323,8 +312,8 @@ class SnowflakeV2Source(
             else:
                 test_report.internal_failure = True
                 test_report.internal_failure_reason = f"{e}"
-        finally:
-            return test_report
+
+        return test_report
 
     @staticmethod
     def check_capabilities(
@@ -476,6 +465,14 @@ class SnowflakeV2Source(
 
         return _report
 
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
@@ -504,29 +501,44 @@ class SnowflakeV2Source(
                 yield from self._process_database(snowflake_db)
 
             except SnowflakePermissionError as e:
-                # FIXME - This may break satetful ingestion if new tables than previous run are emitted above
+                # FIXME - This may break stateful ingestion if new tables than previous run are emitted above
                 # and stateful ingestion is enabled
                 self.report_error(GENERIC_PERMISSION_ERROR_KEY, str(e))
                 return
 
         self.connection.close()
 
-        # TODO: The checkpoint state for stale entity detection can be comitted here.
+        lru_cache_functions: List[Callable] = [
+            self.data_dictionary.get_tables_for_database,
+            self.data_dictionary.get_views_for_database,
+            self.data_dictionary.get_columns_for_schema,
+            self.data_dictionary.get_pk_constraints_for_schema,
+            self.data_dictionary.get_fk_constraints_for_schema,
+        ]
+        for func in lru_cache_functions:
+            self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()  # type: ignore
 
-        if self.config.profiling.enabled and len(databases) != 0:
-            yield from self.profiler.get_workunits(databases)
+        # TODO: The checkpoint state for stale entity detection can be committed here.
 
         discovered_tables: List[str] = [
-            self.get_dataset_identifier(table.name, schema.name, db.name)
+            self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
-            for table in schema.tables
+            for table_name in schema.tables
+            if self._is_dataset_pattern_allowed(
+                self.get_dataset_identifier(table_name, schema.name, db.name),
+                SnowflakeObjectDomain.TABLE,
+            )
         ]
         discovered_views: List[str] = [
-            self.get_dataset_identifier(table.name, schema.name, db.name)
+            self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
-            for table in schema.views
+            for table_name in schema.views
+            if self._is_dataset_pattern_allowed(
+                self.get_dataset_identifier(table_name, schema.name, db.name),
+                SnowflakeObjectDomain.VIEW,
+            )
         ]
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
@@ -565,12 +577,6 @@ class SnowflakeV2Source(
                 )
 
             yield from self.usage_extractor.get_workunits(discovered_datasets)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:
@@ -676,8 +682,12 @@ class SnowflakeV2Source(
             for tag in snowflake_db.tags:
                 yield from self._process_tag(tag)
 
+        self.db_tables = {}
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
+
+        if self.config.profiling.enabled and self.db_tables:
+            yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
     def fetch_schemas_for_database(self, snowflake_db, db_name):
         try:
@@ -729,17 +739,20 @@ class SnowflakeV2Source(
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
         if self.config.include_tables:
-            self.fetch_tables_for_schema(snowflake_schema, db_name, schema_name)
+            tables = self.fetch_tables_for_schema(
+                snowflake_schema, db_name, schema_name
+            )
+            self.db_tables[schema_name] = tables
 
             if self.config.include_technical_schema:
-                for table in snowflake_schema.tables:
+                for table in tables:
                     yield from self._process_table(table, schema_name, db_name)
 
         if self.config.include_views:
-            self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
+            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
 
             if self.config.include_technical_schema:
-                for view in snowflake_schema.views:
+                for view in views:
                     yield from self._process_view(view, schema_name, db_name)
 
         if self.config.include_technical_schema and snowflake_schema.tags:
@@ -754,8 +767,9 @@ class SnowflakeV2Source(
 
     def fetch_views_for_schema(self, snowflake_schema, db_name, schema_name):
         try:
-            snowflake_schema.views = self.get_views_for_schema(schema_name, db_name)
-
+            views = self.get_views_for_schema(schema_name, db_name)
+            snowflake_schema.views = [view.name for view in views]
+            return views
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
@@ -774,7 +788,9 @@ class SnowflakeV2Source(
 
     def fetch_tables_for_schema(self, snowflake_schema, db_name, schema_name):
         try:
-            snowflake_schema.tables = self.get_tables_for_schema(schema_name, db_name)
+            tables = self.get_tables_for_schema(schema_name, db_name)
+            snowflake_schema.tables = [table.name for table in tables]
+            return tables
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
@@ -837,7 +853,13 @@ class SnowflakeV2Source(
     def fetch_sample_data_for_classification(
         self, table, schema_name, db_name, dataset_name
     ):
-        if table.columns and self.is_classification_enabled_for_table(dataset_name):
+        if (
+            table.columns
+            and self.config.classification.enabled
+            and self.classification_handler.is_classification_enabled_for_table(
+                dataset_name
+            )
+        ):
             try:
                 table.sample_data = self.get_sample_values_for_table(
                     table.name, schema_name, db_name
@@ -887,6 +909,7 @@ class SnowflakeV2Source(
     def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
         try:
             table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
+            table.column_count = len(table.columns)
             if self.config.extract_tags != TagOption.skip:
                 table.column_tags = self.tag_extractor.get_column_tags_for_table(
                     table.name, schema_name, db_name
@@ -996,7 +1019,6 @@ class SnowflakeV2Source(
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(
             dataset_urn=dataset_urn,
@@ -1007,7 +1029,9 @@ class SnowflakeV2Source(
             yield dpi_aspect
 
         subTypes = SubTypes(
-            typeNames=["view"] if isinstance(table, SnowflakeView) else ["table"]
+            typeNames=[DatasetSubTypes.VIEW]
+            if isinstance(table, SnowflakeView)
+            else [DatasetSubTypes.TABLE]
         )
 
         yield MetadataChangeProposalWrapper(
@@ -1020,12 +1044,14 @@ class SnowflakeV2Source(
                 entity_urn=dataset_urn,
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
         if table.tags:
             tag_associations = [
-                TagAssociation(tag=make_tag_urn(tag.identifier())) for tag in table.tags
+                TagAssociation(
+                    tag=make_tag_urn(self.snowflake_identifier(tag.identifier()))
+                )
+                for tag in table.tags
             ]
             global_tags = GlobalTags(tag_associations)
             yield MetadataChangeProposalWrapper(
@@ -1074,11 +1100,10 @@ class SnowflakeV2Source(
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_key = tag.identifier()
-        tag_urn = make_tag_urn(self.snowflake_identifier(tag_key))
+        tag_urn = make_tag_urn(self.snowflake_identifier(tag.identifier()))
 
         tag_properties_aspect = TagProperties(
-            name=tag_key,
+            name=tag.display_name(),
             description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 
@@ -1172,17 +1197,20 @@ class SnowflakeV2Source(
         return foreign_keys
 
     def classify_snowflake_table(self, table, dataset_name, schema_metadata):
-        if isinstance(
-            table, SnowflakeTable
-        ) and self.is_classification_enabled_for_table(dataset_name):
+        if (
+            isinstance(table, SnowflakeTable)
+            and self.config.classification.enabled
+            and self.classification_handler.is_classification_enabled_for_table(
+                dataset_name
+            )
+        ):
             if table.sample_data is not None:
                 table.sample_data.columns = [
                     self.snowflake_identifier(col) for col in table.sample_data.columns
                 ]
-            logger.debug(f"Classifying Table {dataset_name}")
 
             try:
-                self.classify_schema_fields(
+                self.classification_handler.classify_schema_fields(
                     dataset_name,
                     schema_metadata,
                     table.sample_data.to_dict(orient="list")
@@ -1216,10 +1244,9 @@ class SnowflakeV2Source(
             name=database.name,
             database=self.snowflake_identifier(database.name),
             database_container_key=database_container_key,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             external_url=self.get_external_url_for_database(database.name)
             if self.config.include_external_url
             else None,
@@ -1263,8 +1290,7 @@ class SnowflakeV2Source(
             database_container_key=database_container_key,
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
-            sub_types=[SqlContainerSubTypes.SCHEMA],
-            report=self.report,
+            sub_types=[DatasetContainerSubTypes.SCHEMA],
             domain_registry=self.domain_registry,
             description=schema.comment,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
@@ -1286,11 +1312,7 @@ class SnowflakeV2Source(
     def get_tables_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
-        if db_name not in self.db_tables.keys():
-            tables = self.data_dictionary.get_tables_for_database(db_name)
-            self.db_tables[db_name] = tables
-        else:
-            tables = self.db_tables[db_name]
+        tables = self.data_dictionary.get_tables_for_database(db_name)
 
         # get all tables for database failed,
         # falling back to get tables for schema
@@ -1304,11 +1326,7 @@ class SnowflakeV2Source(
     def get_views_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
-        if db_name not in self.db_views.keys():
-            views = self.data_dictionary.get_views_for_database(db_name)
-            self.db_views[db_name] = views
-        else:
-            views = self.db_views[db_name]
+        views = self.data_dictionary.get_views_for_database(db_name)
 
         # get all views for database failed,
         # falling back to get views for schema
@@ -1322,11 +1340,7 @@ class SnowflakeV2Source(
     def get_columns_for_table(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
-        if (db_name, schema_name) not in self.schema_columns.keys():
-            columns = self.data_dictionary.get_columns_for_schema(schema_name, db_name)
-            self.schema_columns[(db_name, schema_name)] = columns
-        else:
-            columns = self.schema_columns[(db_name, schema_name)]
+        columns = self.data_dictionary.get_columns_for_schema(schema_name, db_name)
 
         # get all columns for schema failed,
         # falling back to get columns for table
@@ -1342,13 +1356,9 @@ class SnowflakeV2Source(
     def get_pk_constraints_for_table(
         self, table_name: str, schema_name: str, db_name: str
     ) -> Optional[SnowflakePK]:
-        if (db_name, schema_name) not in self.schema_pk_constraints.keys():
-            constraints = self.data_dictionary.get_pk_constraints_for_schema(
-                schema_name, db_name
-            )
-            self.schema_pk_constraints[(db_name, schema_name)] = constraints
-        else:
-            constraints = self.schema_pk_constraints[(db_name, schema_name)]
+        constraints = self.data_dictionary.get_pk_constraints_for_schema(
+            schema_name, db_name
+        )
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name)
@@ -1356,13 +1366,9 @@ class SnowflakeV2Source(
     def get_fk_constraints_for_table(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeFK]:
-        if (db_name, schema_name) not in self.schema_fk_constraints.keys():
-            constraints = self.data_dictionary.get_fk_constraints_for_schema(
-                schema_name, db_name
-            )
-            self.schema_fk_constraints[(db_name, schema_name)] = constraints
-        else:
-            constraints = self.schema_fk_constraints[(db_name, schema_name)]
+        constraints = self.data_dictionary.get_fk_constraints_for_schema(
+            schema_name, db_name
+        )
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
@@ -1374,7 +1380,6 @@ class SnowflakeV2Source(
         if not self.report.ignore_start_time_lineage:
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
-        self.report.check_role_grants = self.config.check_role_grants
         self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
@@ -1412,25 +1417,32 @@ class SnowflakeV2Source(
         except Exception:
             self.report.edition = None
 
-    # Stateful Ingestion Overrides.
-    def get_platform_instance_id(self) -> str:
-        return self.config.get_account()
-
     # Ideally we do not want null values in sample data for a column.
     # However that would require separate query per column and
-    # that would be expensive, hence not done.
+    # that would be expensive, hence not done. To compensale for possibility
+    # of some null values in collected sample, we fetch extra (20% more)
+    # rows than configured sample_size.
     def get_sample_values_for_table(self, table_name, schema_name, db_name):
         # Create a cursor object.
-        cur = self.get_connection().cursor()
-        NUM_SAMPLED_ROWS = 1000
-        # Execute a statement that will generate a result set.
-        sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+        logger.debug(
+            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
+        )
 
-        cur.execute(sql)
-        # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
+        actual_sample_size = self.config.classification.sample_size * 1.2
+        with PerfTimer() as timer:
+            cur = self.get_connection().cursor()
+            # Execute a statement that will generate a result set.
+            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({actual_sample_size} rows);'
 
-        dat = cur.fetchall()
-        df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+            cur.execute(sql)
+            # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
+
+            dat = cur.fetchall()
+            df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+            time_taken = timer.elapsed_seconds()
+            logger.debug(
+                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name}; took {time_taken:.3f} seconds"
+            )
 
         return df
 
@@ -1553,6 +1565,7 @@ class SnowflakeV2Source(
 
     def close(self) -> None:
         super().close()
+        StatefulIngestionSourceBase.close(self)
         if hasattr(self, "lineage_extractor"):
             self.lineage_extractor.close()
         if hasattr(self, "usage_extractor"):

@@ -32,7 +32,7 @@ describe('constructTree', () => {
                 testEntityRegistry,
                 {},
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Yet Another Dataset',
             expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
@@ -54,6 +54,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,
@@ -106,6 +107,7 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -157,6 +159,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,
@@ -252,6 +255,7 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -281,6 +285,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,
@@ -368,6 +373,7 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: entry.entity.type },
@@ -383,7 +389,7 @@ describe('constructTree', () => {
                 testEntityRegistry,
                 {},
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Display Name of Sixth',
             expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
@@ -421,6 +427,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,

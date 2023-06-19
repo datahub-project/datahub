@@ -18,8 +18,7 @@ import play.Logger;
 
 public class AuthenticationManager {
 
-  private AuthenticationManager() {
-
+  private AuthenticationManager(boolean verbose) {
   }
 
   public static void authenticateJaasUser(@Nonnull String userName, @Nonnull String password) throws Exception {
@@ -33,7 +32,9 @@ public class AuthenticationManager {
       LoginContext lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
       lc.login();
     } catch (LoginException le) {
-      throw new AuthenticationException(le.toString());
+      AuthenticationException authenticationException = new AuthenticationException(le.getMessage());
+      authenticationException.setRootCause(le);
+      throw authenticationException;
     }
   }
 
@@ -58,8 +59,6 @@ public class AuthenticationManager {
         } else if (callback instanceof PasswordCallback) {
           pc = (PasswordCallback) callback;
           pc.setPassword(this.password.toCharArray());
-        } else {
-          Logger.warn("The submitted callback is unsupported! type: " + callback.getClass(), callback);
         }
       }
     }

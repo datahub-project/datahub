@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Button, Checkbox, Divider, Empty, List, ListProps } from 'antd';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -69,6 +69,11 @@ export const SearchResultList = ({
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
+    const onClickExploreAll = useCallback(() => {
+        analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
+        navigateToSearchUrl({ query: '*', history });
+    }, [history]);
+
     const onClickResult = (result: SearchResult, index: number) => {
         analytics.event({
             type: EventType.SearchResultClickEvent,
@@ -104,7 +109,7 @@ export const SearchResultList = ({
                                 style={{ fontSize: 18, color: ANTD_GRAY[8] }}
                                 description={`No results found for "${query}"`}
                             />
-                            <Button onClick={() => navigateToSearchUrl({ query: '*', page: 0, history })}>
+                            <Button onClick={onClickExploreAll}>
                                 <RocketOutlined /> Explore all
                             </Button>
                         </NoDataContainer>

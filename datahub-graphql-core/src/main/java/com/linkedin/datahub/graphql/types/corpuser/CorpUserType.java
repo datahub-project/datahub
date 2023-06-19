@@ -8,8 +8,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -26,13 +26,12 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserEditableInfo;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
@@ -46,6 +45,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -106,17 +106,17 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final SearchResult searchResult = _entityClient.search("corpuser", query, Collections.emptyMap(), start, count,
-            context.getAuthentication());
+            context.getAuthentication(), new SearchFlags().setFulltext(true));
         return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
     public AutoCompleteResults autoComplete(@Nonnull String query,
                                             @Nullable String field,
-                                            @Nullable List<FacetFilterInput> filters,
+                                            @Nullable Filter filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        final AutoCompleteResult result = _entityClient.autoComplete("corpuser", query, Collections.emptyMap(), limit, context.getAuthentication());
+        final AutoCompleteResult result = _entityClient.autoComplete("corpuser", query, filters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -129,18 +129,13 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
         if (isAuthorizedToUpdate(urn, input, context)) {
             // Get existing editable info to merge with
             Optional<CorpUserEditableInfo> existingCorpUserEditableInfo =
-                _entityClient.getVersionedAspect(urn, Constants.CORP_USER_EDITABLE_INFO_NAME, 0L, CorpUserEditableInfo.class,
+                _entityClient.getVersionedAspect(urn, CORP_USER_EDITABLE_INFO_NAME, 0L, CorpUserEditableInfo.class,
                     context.getAuthentication());
 
             // Create the MCP
-            final MetadataChangeProposal proposal = new MetadataChangeProposal();
-            proposal.setEntityUrn(Urn.createFromString(urn));
-            proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
-            proposal.setAspectName(Constants.CORP_USER_EDITABLE_INFO_NAME);
-            proposal.setAspect(
-                GenericRecordUtils.serializeAspect(mapCorpUserEditableInfo(input, existingCorpUserEditableInfo)));
-            proposal.setChangeType(ChangeType.UPSERT);
-            _entityClient.ingestProposal(proposal, context.getAuthentication());
+            final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(urn),
+                CORP_USER_EDITABLE_INFO_NAME, mapCorpUserEditableInfo(input, existingCorpUserEditableInfo));
+            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
 
             return load(urn, context).getData();
         }

@@ -2,7 +2,6 @@
 
 set -e
 # Script assumptions:
-#   - The gradle build has already been run.
 #   - Python 3.6+ is installed and in the PATH.
 #   - pytest is installed
 #   - requests is installed
@@ -40,9 +39,11 @@ echo "--------------------------------------------------------------------"
 
 pwd ../../../
 
-DATAHUB_TELEMETRY_ENABLED=false  \
-DOCKER_COMPOSE_BASE="file://$(cd "$(dirname "${DIR}/../../../../../")"; pwd)" \
-datahub docker quickstart --build-locally --dump-logs-on-failure
+if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
+  DATAHUB_TELEMETRY_ENABLED=false  \
+  DOCKER_COMPOSE_BASE="file://$(cd "$(dirname "${DIR}/../../../../../")"; pwd)" \
+  datahub docker quickstart --dump-logs-on-failure
+fi
 is_healthy "datahub-gms" 60
 
 echo "--------------------------------------------------------------------"

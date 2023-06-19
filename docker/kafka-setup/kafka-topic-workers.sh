@@ -13,7 +13,7 @@ job() {
   i=$1
   topic_args=$2
   kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER \
-     --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR \
+     --replication-factor $REPLICATION_FACTOR \
      $topic_args
 }
 
@@ -63,3 +63,4 @@ for ((i=1;i<=$WORKERS;i++)); do
   echo will start $i
   work $i &
 done
+

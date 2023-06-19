@@ -18,6 +18,7 @@ import {
     InputFields,
     Entity,
     LineageRelationship,
+    SiblingProperties,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -51,6 +52,7 @@ export type FetchedEntity = {
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
     fineGrainedLineages?: [FineGrainedLineage];
+    siblings?: Maybe<SiblingProperties>;
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
@@ -75,6 +77,8 @@ export type NodeData = {
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
+    upstreamRelationships?: Array<LineageRelationship>;
+    downstreamRelationships?: Array<LineageRelationship>;
 };
 
 export type VizNode = {
@@ -87,9 +91,14 @@ export type VizNode = {
 export type VizEdge = {
     source: VizNode;
     target: VizNode;
+    curve: { x: number; y: number }[];
     sourceField?: string;
     targetField?: string;
-    curve: { x: number; y: number }[];
+    createdOn?: Maybe<number>;
+    createdActor?: Maybe<Entity>;
+    updatedOn?: Maybe<number>;
+    updatedActor?: Maybe<Entity>;
+    isManual?: boolean;
 };
 
 export type ColumnEdge = {

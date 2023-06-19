@@ -6,6 +6,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
                         "active": true,
                         "displayName": "Bart Simpson",
                         "email": "bsimpson",
@@ -13,6 +14,11 @@
                         "firstName": "Bart",
                         "lastName": "Simpson",
                         "fullName": "Bart Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -30,6 +36,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
                         "active": true,
                         "displayName": "Homer Simpson",
                         "email": "hsimpson",
@@ -40,6 +47,11 @@
                         "firstName": "Homer",
                         "lastName": "Simpson",
                         "fullName": "Homer Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -56,8 +68,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
@@ -70,8 +83,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,

@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import platform
+import shutil
 import sys
 import time
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -36,6 +38,10 @@ from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.global_warning_util import (
+    clear_global_warnings,
+    get_global_warnings,
+)
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
@@ -123,11 +129,31 @@ class CliReport(Report):
     py_version: str = sys.version
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
+    _peak_memory_usage: int = 0
+    _peak_disk_usage: int = 0
 
     def compute_stats(self) -> None:
-        self.mem_info = humanfriendly.format_size(
-            psutil.Process(os.getpid()).memory_info().rss
-        )
+        try:
+            mem_usage = psutil.Process(os.getpid()).memory_info().rss
+            if self._peak_memory_usage < mem_usage:
+                self._peak_memory_usage = mem_usage
+                self.peak_memory_usage = humanfriendly.format_size(
+                    self._peak_memory_usage
+                )
+            self.mem_info = humanfriendly.format_size(mem_usage)
+
+            disk_usage = shutil.disk_usage("/")
+            if self._peak_disk_usage < disk_usage.used:
+                self._peak_disk_usage = disk_usage.used
+                self.peak_disk_usage = humanfriendly.format_size(self._peak_disk_usage)
+            self.disk_info = {
+                "total": humanfriendly.format_size(disk_usage.total),
+                "used": humanfriendly.format_size(disk_usage.used),
+                "free": humanfriendly.format_size(disk_usage.free),
+            }
+        except Exception as e:
+            logger.warning(f"Failed to compute report memory usage: {e}")
+
         return super().compute_stats()
 
 
@@ -158,10 +184,15 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
+        self.graph = None
+        with _add_init_error_context("connect to DataHub"):
+            if self.config.datahub_api:
+                self.graph = DataHubGraph(self.config.datahub_api)
+
         with _add_init_error_context("set up framework context"):
             self.ctx = PipelineContext(
                 run_id=self.config.run_id,
-                datahub_api=self.config.datahub_api,
+                graph=self.graph,
                 pipeline_name=self.config.pipeline_name,
                 dry_run=dry_run,
                 preview_mode=preview_mode,
@@ -277,8 +308,7 @@ class Pipeline:
                     status="CANCELLED"
                     if self.final_status == "cancelled"
                     else "FAILURE"
-                    if self.source.get_report().failures
-                    or self.sink.get_report().failures
+                    if self.has_failures()
                     else "SUCCESS"
                     if self.final_status == "completed"
                     else "UNKNOWN",
@@ -357,6 +387,7 @@ class Pipeline:
                     if telemetry.telemetry_instance.sentry_enabled:
                         import sentry_sdk
                         sentry_sdk.capture_exception(e)
+                    # TODO: Transformer errors should cause the pipeline to fail.
                     logger.error(
                         "Failed to process some records. Continuing.", exc_info=e
                     )
@@ -382,11 +413,13 @@ class Pipeline:
             self.sink.close()
             self.process_commits()
             self.final_status = "completed"
-        except (SystemExit, RuntimeError) as e:
+        except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
             self.final_status = "cancelled"
             logger.error("Caught error", exc_info=e)
             raise
         finally:
+            clear_global_warnings()
+
             if callback and hasattr(callback, "close"):
                 callback.close()  # type: ignore
 
@@ -449,18 +482,22 @@ class Pipeline:
             )
         if self.sink.get_report().failures:
             raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
-        if raise_warnings and (
-            self.source.get_report().warnings or self.sink.get_report().warnings
-        ):
-            raise PipelineExecutionError(
-                "Source reported warnings", self.source.get_report()
-            )
+        if raise_warnings:
+            if self.source.get_report().warnings:
+                raise PipelineExecutionError(
+                    "Source reported warnings", self.source.get_report()
+                )
+            if self.sink.get_report().warnings:
+                raise PipelineExecutionError(
+                    "Sink reported warnings", self.sink.get_report()
+                )
 
     def log_ingestion_stats(self) -> None:
         source_failures = self._approx_all_vals(self.source.get_report().failures)
         source_warnings = self._approx_all_vals(self.source.get_report().warnings)
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
+        global_warnings = len(get_global_warnings())
 
         telemetry.telemetry_instance.ping(
             "ingest_stats",
@@ -474,8 +511,11 @@ class Pipeline:
                 "source_warnings": stats.discretize(source_warnings),
                 "sink_failures": stats.discretize(sink_failures),
                 "sink_warnings": stats.discretize(sink_warnings),
+                "global_warnings": global_warnings,
                 "failures": stats.discretize(source_failures + sink_failures),
-                "warnings": stats.discretize(source_warnings + sink_warnings),
+                "warnings": stats.discretize(
+                    source_warnings + sink_warnings + global_warnings
+                ),
             },
             self.ctx.graph,
         )
@@ -497,6 +537,11 @@ class Pipeline:
             else:
                 return "bright_green"
 
+    def has_failures(self) -> bool:
+        return bool(
+            self.source.get_report().failures or self.sink.get_report().failures
+        )
+
     def pretty_print_summary(
         self, warnings_as_failure: bool = False, currently_running: bool = False
     ) -> int:
@@ -507,6 +552,10 @@ class Pipeline:
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
+        global_warnings = get_global_warnings()
+        if len(global_warnings) > 0:
+            click.secho("Global Warnings:", bold=True)
+            click.echo(global_warnings)
         click.echo()
         workunits_produced = self.source.get_report().events_produced
         duration_message = f"in {humanfriendly.format_timespan(self.source.get_report().running_time)}."
@@ -526,11 +575,16 @@ class Pipeline:
                 bold=True,
             )
             return 1
-        elif self.source.get_report().warnings or self.sink.get_report().warnings:
+        elif (
+            self.source.get_report().warnings
+            or self.sink.get_report().warnings
+            or len(global_warnings) > 0
+        ):
             num_warn_source = self._approx_all_vals(self.source.get_report().warnings)
             num_warn_sink = len(self.sink.get_report().warnings)
+            num_warn_global = len(global_warnings)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_warn_source+num_warn_sink} warnings{' so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_warn_source+num_warn_sink+num_warn_global} warnings{' so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=True
                 ),

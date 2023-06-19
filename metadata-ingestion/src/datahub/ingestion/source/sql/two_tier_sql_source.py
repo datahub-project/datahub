@@ -1,5 +1,5 @@
 import typing
-from typing import Iterable, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -74,11 +74,9 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         schema: str,
         schema_container_key: Optional[PlatformKey] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=self.get_database_container_key(db_name, schema),
-            report=self.report,
         )
 
     def get_allowed_schemas(
@@ -107,15 +105,15 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
             for db in databases:
                 if self.config.database_pattern.allowed(db):
                     url = self.config.get_sql_alchemy_url(current_db=db)
-                    inspector = inspect(
-                        create_engine(url, **self.config.options).connect()
-                    )
-                    yield inspector
+                    with create_engine(url, **self.config.options).connect() as conn:
+                        inspector = inspect(conn)
+                        yield inspector
 
     def gen_schema_containers(
         self,
         schema: str,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         return []
 

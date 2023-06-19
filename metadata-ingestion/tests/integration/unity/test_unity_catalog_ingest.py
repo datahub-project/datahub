@@ -1,11 +1,22 @@
+import uuid
 from unittest import mock
+from unittest.mock import patch
 
+import databricks
+from databricks.sdk.service.catalog import (
+    CatalogInfo,
+    GetMetastoreSummaryResponse,
+    SchemaInfo,
+)
+from databricks.sdk.service.iam import ServicePrincipal
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
+SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())
+SERVICE_PRINCIPAL_ID_2 = str(uuid.uuid4())
 
 
 def register_mock_api(request_mock):
@@ -26,32 +37,31 @@ def register_mock_api(request_mock):
         )
 
 
-def register_mock_data(unity_catalog_api_instance):
-    unity_catalog_api_instance.list_metastores.return_value = {
-        "metastores": [
-            {
-                "name": "acryl metastore",
-                "storage_root": "s3://db-9063-5b7e3b6d3736-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "default_data_access_config_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
-                "storage_root_credential_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
-                "storage_root_credential_name": "2c983545-d403-4f87-9063-5b7e3b6d3736-data-access-config-1666185153576",
-                "delta_sharing_scope": "INTERNAL",
-                "owner": "abc@acryl.io",
-                "privilege_model_version": "1.0",
-                "region": "us-west-1",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "created_at": 1666185153375,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666185154797,
-                "updated_by": "abc@acryl.io",
-                "cloud": "aws",
-                "global_metastore_id": "aws:us-west-1:2c983545-d403-4f87-9063-5b7e3b6d3736",
-            }
-        ]
-    }
+def register_mock_data(workspace_client):
+    workspace_client.metastores.summary.return_value = GetMetastoreSummaryResponse.from_dict(
+        {
+            "name": "acryl metastore",
+            "storage_root": "s3://db-9063-5b7e3b6d3736-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736",
+            "default_data_access_config_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
+            "storage_root_credential_id": "9a9bacc4-cd82-409f-b55c-8ad1b2bde8da",
+            "storage_root_credential_name": "2c983545-d403-4f87-9063-5b7e3b6d3736-data-access-config-1666185153576",
+            "delta_sharing_scope": "INTERNAL",
+            "owner": "abc@acryl.io",
+            "privilege_model_version": "1.0",
+            "region": "us-west-1",
+            "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+            "created_at": 1666185153375,
+            "created_by": "abc@acryl.io",
+            "updated_at": 1666185154797,
+            "updated_by": "abc@acryl.io",
+            "cloud": "aws",
+            "global_metastore_id": "aws:us-west-1:2c983545-d403-4f87-9063-5b7e3b6d3736",
+        }
+    )
 
-    unity_catalog_api_instance.list_catalogs.return_value = {
-        "catalogs": [
+    workspace_client.catalogs.list.return_value = [
+        CatalogInfo.from_dict(d)
+        for d in [
             {
                 "name": "main",
                 "owner": "account users",
@@ -76,7 +86,7 @@ def register_mock_data(unity_catalog_api_instance):
             },
             {
                 "name": "system",
-                "owner": "System user",
+                "owner": SERVICE_PRINCIPAL_ID_2,
                 "comment": "System catalog (auto-created)",
                 "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
                 "created_at": 1666185153391,
@@ -86,10 +96,11 @@ def register_mock_data(unity_catalog_api_instance):
                 "catalog_type": "SYSTEM_CATALOG",
             },
         ]
-    }
+    ]
 
-    unity_catalog_api_instance.list_schemas.return_value = {
-        "schemas": [
+    workspace_client.schemas.list.return_value = [
+        SchemaInfo.from_dict(d)
+        for d in [
             {
                 "name": "default",
                 "catalog_name": "quickstart_catalog",
@@ -106,7 +117,7 @@ def register_mock_data(unity_catalog_api_instance):
             {
                 "name": "information_schema",
                 "catalog_name": "quickstart_catalog",
-                "owner": "System user",
+                "owner": SERVICE_PRINCIPAL_ID_1,
                 "comment": "Information schema (auto-created)",
                 "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
                 "full_name": "quickstart_catalog.information_schema",
@@ -131,10 +142,11 @@ def register_mock_data(unity_catalog_api_instance):
                 "catalog_type": "MANAGED_CATALOG",
             },
         ]
-    }
+    ]
 
-    unity_catalog_api_instance.list_tables.return_value = {
-        "tables": [
+    # Set as function so TableInfo can be patched
+    workspace_client.tables.list = lambda *args, **kwargs: [
+        databricks.sdk.service.catalog.TableInfo.from_dict(
             {
                 "name": "quickstart_table",
                 "catalog_name": "quickstart_catalog",
@@ -181,8 +193,26 @@ def register_mock_data(unity_catalog_api_instance):
                 "updated_by": "abc@acryl.io",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
             }
+        )
+    ]
+
+    workspace_client.service_principals.list.return_value = [
+        ServicePrincipal.from_dict(d)
+        for d in [
+            {
+                "displayName": "Service Principal 1",
+                "active": True,
+                "id": "4940620261358622",
+                "applicationId": SERVICE_PRINCIPAL_ID_1,
+            },
+            {
+                "displayName": "Service Principal 2",
+                "active": True,
+                "id": "8202844266343024",
+                "applicationId": SERVICE_PRINCIPAL_ID_2,
+            },
         ]
-    }
+    ]
 
 
 @freeze_time(FROZEN_TIME)
@@ -193,12 +223,11 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
     output_file_name = "unity_catalog_mcps.json"
 
-    with mock.patch(
-        "databricks_cli.unity_catalog.api.UnityCatalogApi"
-    ) as UnityCatalogApi:
-        unity_catalog_api_instance: mock.MagicMock = mock.MagicMock()
-        UnityCatalogApi.return_value = unity_catalog_api_instance
-        register_mock_data(unity_catalog_api_instance)
+    with patch("databricks.sdk.WorkspaceClient") as WorkspaceClient:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        WorkspaceClient.return_value = workspace_client
+        register_mock_data(workspace_client)
+
         config_dict: dict = {
             "run_id": "unity-catalog-test",
             "pipeline_name": "unity-catalog-test-pipeline",
@@ -207,6 +236,7 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                 "config": {
                     "workspace_url": "https://dummy.cloud.databricks.com",
                     "token": "fake",
+                    "include_ownership": True,
                 },
             },
             "sink": {

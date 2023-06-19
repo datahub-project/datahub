@@ -15,6 +15,10 @@ record MLFeatureProperties {
   /**
    * Documentation of the MLFeature
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**

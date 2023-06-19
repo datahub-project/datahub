@@ -4,7 +4,7 @@ CREATE DATABASE IF NOT EXISTS db2;
 CREATE TABLE IF NOT EXISTS db1.pokes (foo INT, bar STRING);
 LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db1.pokes;
 
-CREATE TABLE IF NOT EXISTS db2.pokes (foo INT, bar STRING, primary key(foo) DISABLE NOVALIDATE NORELY);
+CREATE TABLE IF NOT EXISTS db2.pokes (foo INT, bar STRING, CONSTRAINT pk_1173723383_1683022998392_0 primary key(foo) DISABLE NOVALIDATE NORELY);
 LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db2.pokes;
 
 -- Setup a table with a special character.

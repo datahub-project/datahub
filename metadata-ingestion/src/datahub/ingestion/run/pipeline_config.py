@@ -8,7 +8,7 @@ from pydantic import Field, root_validator, validator
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
-from datahub.ingestion.graph.client import DataHubGraphConfig
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,27 @@ class FailureLoggingConfig(ConfigModel):
     log_config: Optional[FileSinkConfig] = None
 
 
+class FlagsConfig(ConfigModel):
+    """Experimental flags for the ingestion pipeline.
+
+    As ingestion flags an experimental feature, we do not guarantee backwards compatibility.
+    Use at your own risk!
+    """
+
+    generate_browse_path_v2: bool = Field(
+        default=True,
+        description="Generate BrowsePathsV2 aspects from container hierarchy and existing BrowsePaths aspects.",
+    )
+
+    generate_browse_path_v2_dry_run: bool = Field(
+        default=True,
+        description=(
+            "Run through browse paths v2 generation but do not actually write the aspects to DataHub. "
+            "Requires `generate_browse_path_v2` to also be enabled."
+        ),
+    )
+
+
 class PipelineConfig(ConfigModel):
     # Once support for discriminated unions gets merged into Pydantic, we can
     # simplify this configuration and validation.
@@ -45,9 +66,10 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
+    flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
-    datahub_api: Optional[DataHubGraphConfig] = None
+    datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
     failure_log: FailureLoggingConfig = FailureLoggingConfig()
 
@@ -91,13 +113,13 @@ class PipelineConfig(ConfigModel):
 
     @validator("datahub_api", always=True)
     def datahub_api_should_use_rest_sink_as_default(
-        cls, v: Optional[DataHubGraphConfig], values: Dict[str, Any], **kwargs: Any
-    ) -> Optional[DataHubGraphConfig]:
+        cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
+    ) -> Optional[DatahubClientConfig]:
         if v is None and "sink" in values and hasattr(values["sink"], "type"):
             sink_type = values["sink"].type
             if sink_type == "datahub-rest":
                 sink_config = values["sink"].config
-                v = DataHubGraphConfig.parse_obj(sink_config)
+                v = DatahubClientConfig.parse_obj_allow_extras(sink_config)
         return v
 
     @classmethod

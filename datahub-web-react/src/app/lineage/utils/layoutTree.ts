@@ -24,6 +24,14 @@ const UPSTREAM_X_MODIFIER = -1;
 const UPSTREAM_DIRECTION_SHIFT = -20;
 const COLUMN_HEIGHT_BUFFER = 1.2;
 
+function getParentRelationship(direction: Direction, parent: VizNode | null, node: NodeData) {
+    const directionRelationships =
+        direction === Direction.Downstream
+            ? parent?.data?.downstreamRelationships
+            : parent?.data?.upstreamRelationships;
+    return directionRelationships?.find((r) => r?.entity?.urn === node?.urn);
+}
+
 function layoutNodesForOneDirection(
     data: NodeData,
     direction: Direction,
@@ -141,9 +149,15 @@ function layoutNodesForOneDirection(
                           { x: vizNodeForNode.x, y: vizNodeForNode.y - (nodeWidth / 2) * xModifier + directionShift },
                       ];
 
+                const relationship = getParentRelationship(direction, parent, node);
+
                 const vizEdgeForPair = {
                     source: parent,
                     target: vizNodeForNode,
+                    createdActor: relationship?.createdActor,
+                    createdOn: relationship?.createdOn,
+                    updatedOn: relationship?.updatedOn,
+                    isManual: relationship?.isManual || false,
                     curve,
                 };
                 edgesToRender.push(vizEdgeForPair);

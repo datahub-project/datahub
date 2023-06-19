@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.ListDomainsInput;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -62,7 +63,8 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
                   new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
                   start,
                   count,
-                  context.getAuthentication());
+                  context.getAuthentication(),
+                  new SearchFlags().setFulltext(true));
 
           // Now that we have entities we can bind this to a result.
           final ListDomainsResult result = new ListDomainsResult();

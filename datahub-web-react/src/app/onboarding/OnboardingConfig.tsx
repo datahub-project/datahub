@@ -4,6 +4,7 @@ import { EntityProfileOnboardingConfig } from './config/EntityProfileOnboardingC
 import { GroupsOnboardingConfig } from './config/GroupsOnboardingConfig';
 import { HomePageOnboardingConfig } from './config/HomePageOnboardingConfig';
 import { IngestionOnboardingConfig } from './config/IngestionOnboardingConfig';
+import { LineageGraphOnboardingConfig } from './config/LineageGraphOnboardingConfig';
 import { PoliciesOnboardingConfig } from './config/PoliciesOnboardingConfig';
 import { RolesOnboardingConfig } from './config/RolesOnboardingConfig';
 import { SearchOnboardingConfig } from './config/SearchOnboardingConfig';
@@ -21,6 +22,7 @@ const ALL_ONBOARDING_CONFIGS: OnboardingStep[][] = [
     GroupsOnboardingConfig,
     RolesOnboardingConfig,
     PoliciesOnboardingConfig,
+    LineageGraphOnboardingConfig,
 ];
 export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.reduce(
     (acc, config) => [...acc, ...config],

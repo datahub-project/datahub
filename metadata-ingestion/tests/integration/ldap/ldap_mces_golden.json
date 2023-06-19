@@ -30,6 +30,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Bart"
+                        },
                         "active": true,
                         "displayName": "Bart Simpson",
                         "email": "bsimpson",
@@ -37,6 +40,11 @@
                         "firstName": "Bart",
                         "lastName": "Simpson",
                         "fullName": "Bart Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -54,6 +62,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Homer"
+                        },
                         "active": true,
                         "displayName": "Homer Simpson",
                         "email": "hsimpson",
@@ -64,6 +75,11 @@
                         "firstName": "Homer",
                         "lastName": "Simpson",
                         "fullName": "Homer Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -81,12 +97,20 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Lisa"
+                        },
                         "active": true,
                         "displayName": "Lisa Simpson",
                         "email": "lsimpson",
                         "firstName": "Lisa",
                         "lastName": "Simpson",
                         "fullName": "Lisa Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -104,12 +128,20 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Maggie"
+                        },
                         "active": true,
                         "displayName": "Maggie Simpson",
                         "email": "msimpson",
                         "firstName": "Maggie",
                         "lastName": "Simpson",
                         "fullName": "Maggie Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -127,12 +159,20 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Hester"
+                        },
                         "active": true,
                         "displayName": "Hester Bevan",
                         "email": "hbevan",
                         "firstName": "Hester",
                         "lastName": "Bevan",
                         "fullName": "Hester Bevan"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -150,12 +190,20 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Evalyn"
+                        },
                         "active": true,
                         "displayName": "Evalyn Haas",
                         "email": "ehaas",
                         "firstName": "Evalyn",
                         "lastName": "Haas",
                         "fullName": "Evalyn Haas"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
                     }
                 }
             ]
@@ -214,8 +262,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -228,8 +277,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -242,8 +292,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -256,8 +307,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -270,8 +322,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -284,8 +337,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -298,8 +352,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -312,8 +367,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -326,8 +382,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

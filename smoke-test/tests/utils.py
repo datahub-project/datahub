@@ -1,16 +1,23 @@
+import functools
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import subprocess
+import time
 from typing import Any, Dict, List, Tuple
 from time import sleep
 from joblib import Parallel, delayed
 
 import requests_wrapper as requests
-
+import logging
 from datahub.cli import cli_utils
+from datahub.cli.cli_utils import get_system_auth
+from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.consistency_utils import wait_for_writes_to_sync
 
 TIME: int = 1581407189000
+logger = logging.getLogger(__name__)
 
 
 def get_frontend_session():
@@ -19,10 +26,16 @@ def get_frontend_session():
     headers = {
         "Content-Type": "application/json",
     }
-    username, password = get_admin_credentials()
-    data = '{"username":"' + username + '", "password":"' + password + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
+    system_auth = get_system_auth()
+    if system_auth is not None:
+        session.headers.update({"Authorization": system_auth})
+    else:
+        username, password = get_admin_credentials()
+        data = '{"username":"' + username + '", "password":"' + password + '"}'
+        response = session.post(
+            f"{get_frontend_url()}/logIn", headers=headers, data=data
+        )
+        response.raise_for_status()
 
     return session
 
@@ -38,6 +51,10 @@ def get_admin_credentials():
     )
 
 
+def get_root_urn():
+    return "urn:li:corpuser:datahub"
+
+
 def get_gms_url():
     return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
 
@@ -51,6 +68,7 @@ def get_kafka_broker_url():
 
 
 def get_kafka_schema_registry():
+    #  internal registry "http://localhost:8080/schema-registry/api/"
     return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL") or "http://localhost:8081"
 
 
@@ -108,9 +126,22 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     )
     pipeline.run()
     pipeline.raise_from_status()
-    sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-
+    wait_for_writes_to_sync()
     return pipeline
+
+
+@functools.lru_cache(maxsize=1)
+def get_datahub_graph() -> DataHubGraph:
+    return DataHubGraph(DatahubClientConfig(server=get_gms_url()))
+
+
+def delete_urn(urn: str) -> None:
+    get_datahub_graph().hard_delete_entity(urn)
+
+
+def delete_urns(urns: List[str]) -> None:
+    for urn in urns:
+        delete_urn(urn)
 
 
 def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
@@ -135,24 +166,13 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
             snapshot_union = entry["proposedSnapshot"]
             snapshot = list(snapshot_union.values())[0]
             urn = snapshot["urn"]
-        payload_obj = {"urn": urn}
-
-        cli_utils.post_delete_endpoint_with_session_and_url(
-            session,
-            get_gms_url() + "/entities?action=delete",
-            payload_obj,
-        )
+        delete_urn(urn)
 
     with open(filename) as f:
         d = json.load(f)
         Parallel(n_jobs=10)(delayed(delete)(entry) for entry in d)
 
-    # Deletes require 60 seconds when run between tests operating on common data, otherwise standard sync wait
-    if shared_data:
-        sleep(60)
-    else:
-        sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-
+    wait_for_writes_to_sync()
 
 # Fixed now value
 NOW: datetime = datetime.now()
@@ -178,7 +198,7 @@ def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
 
 
 def get_strftime_from_timestamp_millis(ts_millis: int) -> str:
-    return datetime.fromtimestamp(ts_millis / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.fromtimestamp(ts_millis / 1000, tz=timezone.utc).isoformat()
 
 
 def create_datahub_step_state_aspect(
@@ -212,3 +232,6 @@ def create_datahub_step_state_aspects(
     ]
     with open(onboarding_filename, "w") as f:
         json.dump(aspects_dict, f, indent=2)
+
+
+

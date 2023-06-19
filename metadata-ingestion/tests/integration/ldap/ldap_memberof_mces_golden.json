@@ -6,6 +6,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
                         "active": true,
                         "displayName": "Hester Bevan",
                         "email": "hbevan",
@@ -37,6 +38,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
                         "active": true,
                         "displayName": "Evalyn Haas",
                         "email": "ehaas",

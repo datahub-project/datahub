@@ -10,3 +10,5 @@ Sign up for fully managed, hassle-free and secure SaaS service for DataHub, prov
     Sign up
 </a>
 </p>
+
+Refer to [Managed Datahub Exclusives](/docs/managed-datahub/managed-datahub-overview.md) for more information. 

@@ -1,12 +1,6 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
         ...dataJobFields
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
         runs(start: 0, count: 20) {
             count
             start

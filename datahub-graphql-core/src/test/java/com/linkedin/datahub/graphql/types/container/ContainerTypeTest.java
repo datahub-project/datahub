@@ -170,8 +170,6 @@ public class ContainerTypeTest {
 
     assertEquals(result.size(), 2);
 
-    System.out.println(result.get(0).getData());
-
     Container container1 = result.get(0).getData();
     assertEquals(container1.getUrn(), TEST_CONTAINER_1_URN);
     assertEquals(container1.getType(), EntityType.CONTAINER);

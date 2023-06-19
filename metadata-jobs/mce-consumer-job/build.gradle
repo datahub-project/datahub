@@ -40,7 +40,7 @@ dependencies {
 }
 
 bootJar {
-    mainClassName = 'com.linkedin.metadata.kafka.MceConsumerApplication'
+    mainClass = 'com.linkedin.metadata.kafka.MceConsumerApplication'
     archiveFileName = "${project.name}.jar"
 
     // working around the restli error when it tries to open a jar within the spring boot fat jar
@@ -48,7 +48,8 @@ bootJar {
 }
 
 docker {
-    name "${docker_registry}/${docker_repo}:${version}"
+    name "${docker_registry}/${docker_repo}:v${version}"
+    version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
     files bootJar.outputs.files
     files fileTree(rootProject.projectDir) {
@@ -56,8 +57,7 @@ docker {
         include "docker/${docker_repo}/*"
         include 'metadata-models/src/main/resources/*'
     }
-    tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
-    tag("-version", "${docker_registry}/${docker_repo}:v${version}")
+    tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
     // platform('linux/arm64', 'linux/amd64')
     buildx(true)

@@ -48,7 +48,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -123,7 +122,7 @@ class ClickHouseConfig(
 ):
     # defaults
     host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme = Field(default="clickhouse", description="", hidden_from_schema=True)
+    scheme = Field(default="clickhouse", description="", hidden_from_docs=True)
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
@@ -360,8 +359,8 @@ class ClickHouseSource(SQLAlchemySource):
         config = ClickHouseConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        for wu in super().get_workunits():
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        for wu in super().get_workunits_internal():
             if (
                 self.config.include_table_lineage
                 and isinstance(wu, SqlWorkUnit)
@@ -376,13 +375,7 @@ class ClickHouseSource(SQLAlchemySource):
                 )
 
                 if lineage_mcp is not None:
-                    lineage_wu = MetadataWorkUnit(
-                        id=f"{self.platform}-{lineage_mcp.entityUrn}-{lineage_mcp.aspectName}",
-                        mcp=lineage_mcp,
-                    )
-                    self.report.report_workunit(lineage_wu)
-
-                    yield lineage_wu
+                    yield lineage_mcp.as_workunit()
 
                 if lineage_properties_aspect:
                     aspects = dataset_snapshot.aspects
@@ -651,10 +644,7 @@ class ClickHouseSource(SQLAlchemySource):
             return None, properties
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="upstreamLineage",
             aspect=UpstreamLineage(upstreams=upstream_lineage),
         )
 

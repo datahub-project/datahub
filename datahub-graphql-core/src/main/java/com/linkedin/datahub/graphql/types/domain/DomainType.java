@@ -3,13 +3,22 @@ package com.linkedin.datahub.graphql.types.domain;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
+import org.apache.commons.lang3.NotImplementedException;
+
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -19,9 +28,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
-public class DomainType implements com.linkedin.datahub.graphql.types.EntityType<Domain, String> {
+public class DomainType implements SearchableEntityType<Domain, String>, com.linkedin.datahub.graphql.types.EntityType<Domain, String> {
 
   static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
     Constants.DOMAIN_KEY_ASPECT_NAME,
@@ -78,6 +88,26 @@ public class DomainType implements com.linkedin.datahub.graphql.types.EntityType
       throw new RuntimeException("Failed to batch load Domains", e);
     }
   }
+
+  @Override
+  public SearchResults search(@Nonnull String query,
+      @Nullable List<FacetFilterInput> filters,
+      int start,
+      int count,
+      @Nonnull final QueryContext context) throws Exception {
+    throw new NotImplementedException("Searchable type (deprecated) not implemented on Domain entity type");
+  }
+
+  @Override
+  public AutoCompleteResults autoComplete(@Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter filters,
+      int limit,
+      @Nonnull final QueryContext context) throws Exception {
+    final AutoCompleteResult result = _entityClient.autoComplete(Constants.DOMAIN_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+    return AutoCompleteResultsMapper.map(result);
+  }
+
 
   private Urn getUrn(final String urnStr) {
     try {

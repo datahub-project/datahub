@@ -33,7 +33,7 @@ const StepsContainer = styled.div`
 export enum IngestionSourceBuilderStepTitles {
     SELECT_TEMPLATE = 'Choose Type',
     DEFINE_RECIPE = 'Configure Recipe',
-    CREATE_SCHEDULE = 'Schedule Execution',
+    CREATE_SCHEDULE = 'Schedule Ingestion',
     NAME_SOURCE = 'Finish up',
 }
 

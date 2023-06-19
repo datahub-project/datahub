@@ -97,7 +97,7 @@ if need_write:
         aspect=current_editable_schema_metadata,
     )
     graph.emit(event)
-    log.info(f"Tag {term_to_add} added to column {column} of dataset {dataset_urn}")
+    log.info(f"Term {term_to_add} added to column {column} of dataset {dataset_urn}")
 
 else:
-    log.info(f"Tag {term_to_add} already attached to column {column}, omitting write")
+    log.info(f"Term {term_to_add} already attached to column {column}, omitting write")

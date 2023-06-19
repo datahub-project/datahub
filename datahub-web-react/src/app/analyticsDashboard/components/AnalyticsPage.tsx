@@ -10,7 +10,7 @@ import { Message } from '../../shared/Message';
 import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { useUserContext } from '../../context/useUserContext';
 
 const HighlightGroup = styled.div`
     display: flex;
@@ -47,7 +47,7 @@ const StyledSearchBar = styled(Input)`
 `;
 
 export const AnalyticsPage = () => {
-    const me = useGetAuthenticatedUser();
+    const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
     const { data: highlightData, loading: highlightLoading, error: highlightError } = useGetHighlightsQuery();

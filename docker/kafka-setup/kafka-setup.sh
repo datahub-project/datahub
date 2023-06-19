@@ -1,5 +1,12 @@
 #!/bin/bash
 
+## Exit early if PRECREATION is not needed
+if [[ $DATAHUB_PRECREATE_TOPICS == "false" ]]; then
+  echo "DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS}"
+  echo "Pre-creation of topics has been turned off, exiting"
+  exit 0
+fi
+
 . kafka-config.sh
 
 echo "bootstrap.servers=$KAFKA_BOOTSTRAP_SERVER" > $CONNECTION_PROPERTIES_PATH
@@ -7,6 +14,7 @@ echo "security.protocol=$KAFKA_PROPERTIES_SECURITY_PROTOCOL" >> $CONNECTION_PROP
 
 ## Add support for SASL_PLAINTEXT
 if [[ $KAFKA_PROPERTIES_SECURITY_PROTOCOL == "SASL_PLAINTEXT" ]]; then
+    echo "sasl.mechanism=$KAFKA_PROPERTIES_SASL_MECHANISM" >> $CONNECTION_PROPERTIES_PATH
     echo "sasl.jaas.config=$KAFKA_PROPERTIES_SASL_JAAS_CONFIG" >> $CONNECTION_PROPERTIES_PATH
     echo "sasl.kerberos.service.name=$KAFKA_PROPERTIES_SASL_KERBEROS_SERVICE_NAME" >> $CONNECTION_PROPERTIES_PATH
 fi
@@ -97,20 +105,22 @@ send() {
 }
 
 ## Produce the jobs to run.
-send "$METADATA_AUDIT_EVENT_NAME" "--topic $METADATA_AUDIT_EVENT_NAME"
-send "$METADATA_CHANGE_EVENT_NAME" "--topic $METADATA_CHANGE_EVENT_NAME"
-send "$FAILED_METADATA_CHANGE_EVENT_NAME" "--topic $FAILED_METADATA_CHANGE_EVENT_NAME"
-send "$METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME" "--topic $METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME"
+send "$METADATA_AUDIT_EVENT_NAME" "--partitions $PARTITIONS --topic $METADATA_AUDIT_EVENT_NAME"
+send "$METADATA_CHANGE_EVENT_NAME" "--partitions $PARTITIONS --topic $METADATA_CHANGE_EVENT_NAME"
+send "$FAILED_METADATA_CHANGE_EVENT_NAME" "--partitions $PARTITIONS --topic $FAILED_METADATA_CHANGE_EVENT_NAME"
+send "$METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME" "--partitions $PARTITIONS --topic $METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME"
 
 # Set retention to 90 days
-send "$METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME" "--config retention.ms=7776000000 --topic $METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME"
-send "$METADATA_CHANGE_PROPOSAL_TOPIC_NAME" "--topic $METADATA_CHANGE_PROPOSAL_TOPIC_NAME"
-send "$FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME" "--topic $FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME"
-send "$PLATFORM_EVENT_TOPIC_NAME" "--topic $PLATFORM_EVENT_TOPIC_NAME"
+send "$METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME" "--partitions $PARTITIONS --config retention.ms=7776000000 --topic $METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME"
+send "$METADATA_CHANGE_PROPOSAL_TOPIC_NAME" "--partitions $PARTITIONS --topic $METADATA_CHANGE_PROPOSAL_TOPIC_NAME"
+send "$FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME" "--partitions $PARTITIONS --topic $FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME"
+send "$PLATFORM_EVENT_TOPIC_NAME" "--partitions $PARTITIONS --topic $PLATFORM_EVENT_TOPIC_NAME"
 
+# Infinite retention upgrade topic
+send "$DATAHUB_UPGRADE_HISTORY_TOPIC_NAME" "--partitions 1 --config retention.ms=-1 --topic $DATAHUB_UPGRADE_HISTORY_TOPIC_NAME"
 # Create topic for datahub usage event
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
-  send "$DATAHUB_USAGE_EVENT_NAME" "--topic $DATAHUB_USAGE_EVENT_NAME"
+  send "$DATAHUB_USAGE_EVENT_NAME" "--partitions $PARTITIONS --topic $DATAHUB_USAGE_EVENT_NAME"
 fi
 
 ## close the filo
@@ -131,4 +141,15 @@ echo "Topic Creation Complete."
 # End Topic Creation Logic
 ############################################################
 
-kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --entity-type topics --entity-name _schemas --alter --add-config cleanup.policy=compact
+## If using confluent schema registry as a standalone component, then configure compact cleanup policy.
+if [[ $USE_CONFLUENT_SCHEMA_REGISTRY == "TRUE" ]]; then
+    kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER \
+      --entity-type topics \
+      --entity-name _schemas \
+      --alter --add-config cleanup.policy=compact
+fi
+
+# Make sure the retention.ms config for $DATAHUB_UPGRADE_HISTORY_TOPIC_NAME is configured to infinite
+# Please see the bug report below for details
+# https://github.com/datahub-project/datahub/issues/7882
+kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --entity-type topics --entity-name "$DATAHUB_UPGRADE_HISTORY_TOPIC_NAME" --alter --add-config retention.ms=-1

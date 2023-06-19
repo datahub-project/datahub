@@ -1,5 +1,8 @@
+import logging
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union, overload
+from typing import Iterable, Optional, Type, TypeVar, Union, overload
+
+from deprecated import deprecated
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
@@ -7,7 +10,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass
+from datahub.metadata.schema_classes import UsageAggregationClass, _Aspect
+
+logger = logging.getLogger(__name__)
+
+T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 
 
 @dataclass
@@ -18,13 +25,25 @@ class MetadataWorkUnit(WorkUnit):
     # A workunit creator can determine if this workunit is allowed to fail
     treat_errors_as_warnings: bool = False
 
+    # When this is set to false, this MWU will be ignored by automatic helpers
+    # like auto_status_aspect and auto_stale_entity_removal.
+    is_primary_source: bool = True
+
     @overload
-    def __init__(self, id: str, mce: MetadataChangeEvent):
+    def __init__(
+        self, id: str, mce: MetadataChangeEvent, *, is_primary_source: bool = True
+    ):
         # TODO: Force `mce` to be a keyword-only argument.
         ...
 
     @overload
-    def __init__(self, id: str, *, mcp_raw: MetadataChangeProposal):
+    def __init__(
+        self,
+        id: str,
+        *,
+        mcp_raw: MetadataChangeProposal,
+        is_primary_source: bool = True,
+    ):
         # We force `mcp_raw` to be a keyword-only argument.
         ...
 
@@ -35,6 +54,7 @@ class MetadataWorkUnit(WorkUnit):
         *,
         mcp: MetadataChangeProposalWrapper,
         treat_errors_as_warnings: bool = False,
+        is_primary_source: bool = True,
     ):
         # We force `mcp` to be a keyword-only argument.
         ...
@@ -46,9 +66,11 @@ class MetadataWorkUnit(WorkUnit):
         mcp: Optional[MetadataChangeProposalWrapper] = None,
         mcp_raw: Optional[MetadataChangeProposal] = None,
         treat_errors_as_warnings: bool = False,
+        is_primary_source: bool = True,
     ):
         super().__init__(id)
         self.treat_errors_as_warnings = treat_errors_as_warnings
+        self.is_primary_source = is_primary_source
 
         if sum(1 if v else 0 for v in [mce, mcp, mcp_raw]) != 1:
             raise ValueError("exactly one of mce, mcp, or mcp_raw must be provided")
@@ -71,6 +93,30 @@ class MetadataWorkUnit(WorkUnit):
             assert self.metadata.entityUrn
             return self.metadata.entityUrn
 
+    def get_aspect_of_type(self, aspect_cls: Type[T_Aspect]) -> Optional[T_Aspect]:
+        aspects: list
+        if isinstance(self.metadata, MetadataChangeEvent):
+            aspects = self.metadata.proposedSnapshot.aspects
+        elif isinstance(self.metadata, MetadataChangeProposalWrapper):
+            aspects = [self.metadata.aspect]
+        elif isinstance(self.metadata, MetadataChangeProposal):
+            aspects = []
+            # Best effort attempt to deserialize MetadataChangeProposalClass
+            if self.metadata.aspectName == aspect_cls.ASPECT_NAME:
+                try:
+                    mcp = MetadataChangeProposalWrapper.try_from_mcpc(self.metadata)
+                    if mcp:
+                        aspects = [mcp.aspect]
+                except Exception:
+                    pass
+        else:
+            raise ValueError(f"Unexpected type {type(self.metadata)}")
+
+        aspects = [a for a in aspects if isinstance(a, aspect_cls)]
+        if len(aspects) > 1:
+            logger.warning(f"Found multiple aspects of type {aspect_cls} in MCE {self}")
+        return aspects[-1] if aspects else None
+
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
         from datahub.emitter.mcp_builder import mcps_from_mce
 
@@ -86,6 +132,7 @@ class MetadataWorkUnit(WorkUnit):
         ]
 
 
+@deprecated
 @dataclass
 class UsageStatsWorkUnit(WorkUnit):
     usageStats: UsageAggregationClass

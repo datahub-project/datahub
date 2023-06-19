@@ -1,0 +1,21 @@
+namespace com.linkedin.query
+
+/**
+ * A query statement against one or more data assets.
+ */
+record QueryStatement {
+  /**
+   * The query text
+   */
+  value: string
+
+  /**
+   * The language of the Query, e.g. SQL.
+   */
+  language: enum QueryLanguage {
+    /**
+     * A SQL Query
+     */
+    SQL
+  } = "SQL"
+}

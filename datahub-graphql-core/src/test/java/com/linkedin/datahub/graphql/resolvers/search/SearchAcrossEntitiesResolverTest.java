@@ -100,7 +100,8 @@ public class SearchAcrossEntitiesResolverTest {
           10,
           null,
           null,
-          TEST_VIEW_URN.toString()
+          TEST_VIEW_URN.toString(),
+         null
       );
       DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
       QueryContext mockContext = getMockAllowContext();
@@ -193,7 +194,8 @@ public class SearchAcrossEntitiesResolverTest {
                 new FacetFilterInput("baseField", "baseTest", ImmutableList.of("baseTest"), false, FilterOperator.EQUAL)
             ))
         ),
-        TEST_VIEW_URN.toString()
+        TEST_VIEW_URN.toString(),
+        null
     );
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -268,7 +270,8 @@ public class SearchAcrossEntitiesResolverTest {
         10,
         null,
         null,
-        TEST_VIEW_URN.toString()
+        TEST_VIEW_URN.toString(),
+        null
     );
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -343,7 +346,8 @@ public class SearchAcrossEntitiesResolverTest {
         10,
         null,
         null,
-        TEST_VIEW_URN.toString()
+        TEST_VIEW_URN.toString(),
+        null
     );
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -400,7 +404,8 @@ public class SearchAcrossEntitiesResolverTest {
         10,
         null,
         null,
-        TEST_VIEW_URN.toString()
+        TEST_VIEW_URN.toString(),
+        null
     );
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -435,6 +440,7 @@ public class SearchAcrossEntitiesResolverTest {
         Mockito.any(),
         Mockito.anyInt(),
         Mockito.anyInt(),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenThrow(new RemoteInvocationException());
 
@@ -446,7 +452,8 @@ public class SearchAcrossEntitiesResolverTest {
         10,
         null,
         null,
-        TEST_VIEW_URN.toString()
+        TEST_VIEW_URN.toString(),
+        null
     );
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -485,6 +492,7 @@ public class SearchAcrossEntitiesResolverTest {
         Mockito.eq(filter),
         Mockito.eq(start),
         Mockito.eq(limit),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenReturn(
         result
@@ -507,6 +515,7 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
+            Mockito.eq(null),
             Mockito.any(Authentication.class)
         );
   }

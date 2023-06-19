@@ -5,6 +5,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,13 +31,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 @Slf4j
 @RestController
 public class GraphQLController {
 
   public GraphQLController() {
-
+    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error"));
+    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call"));
   }
 
   @Inject
@@ -50,6 +54,9 @@ public class GraphQLController {
 
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = new ObjectMapper();
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+        .maxStringLength(maxSize).build());
     JsonNode bodyJson = null;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -148,6 +155,7 @@ public class GraphQLController {
   private void submitMetrics(ExecutionResult executionResult) {
     try {
       observeErrors(executionResult);
+      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call")).inc();
       Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
       if (tracingInstrumentation instanceof Map) {
         Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;

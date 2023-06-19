@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
-
 import { Button, Drawer } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
@@ -18,6 +16,7 @@ import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import usePrevious from '../shared/usePrevious';
+import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -59,13 +58,21 @@ export default function LineageExplorer({ urn, type }: Props) {
     const previousUrn = usePrevious(urn);
     const history = useHistory();
     const [fineGrainedMap] = useState<any>({ forward: {}, reverse: {} });
+    const [fineGrainedMapForSiblings] = useState<any>({});
 
     const entityRegistry = useEntityRegistry();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const showColumns = useIsShowColumnsMode();
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     const { loading, error, data, refetch } = useGetEntityLineageQuery({
-        variables: { urn, separateSiblings: isHideSiblingMode, showColumns },
+        variables: {
+            urn,
+            separateSiblings: isHideSiblingMode,
+            showColumns,
+            startTimeMillis,
+            endTimeMillis,
+        },
     });
 
     const entityData: EntityAndType | null | undefined = useMemo(() => getEntityAndType(data), [data]);
@@ -74,10 +81,11 @@ export default function LineageExplorer({ urn, type }: Props) {
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
 
-    // in the case that sibling mode changes, we want to clear out our cache of entities
+    // In the case that any URL params change, we want to reset asyncEntities. If new parameters are added,
+    // they should be added to the dependency array below.
     useEffect(() => {
         setAsyncEntities({});
-    }, [isHideSiblingMode]);
+    }, [isHideSiblingMode, startTimeMillis, endTimeMillis]);
 
     useEffect(() => {
         if (showColumns) {
@@ -93,6 +101,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(
                     fineGrainedMap,
+                    fineGrainedMapForSiblings,
                     asyncEntities,
                     entityRegistry,
                     entityAndType,
@@ -103,6 +112,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 config?.downstreamChildren?.forEach((downstream) => {
                     newAsyncEntities = extendAsyncEntities(
                         fineGrainedMap,
+                        fineGrainedMapForSiblings,
                         newAsyncEntities,
                         entityRegistry,
                         downstream,
@@ -112,6 +122,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 config?.upstreamChildren?.forEach((downstream) => {
                     newAsyncEntities = extendAsyncEntities(
                         fineGrainedMap,
+                        fineGrainedMapForSiblings,
                         newAsyncEntities,
                         entityRegistry,
                         downstream,
@@ -121,7 +132,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 setAsyncEntities(newAsyncEntities);
             }
         },
-        [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap],
+        [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap, fineGrainedMapForSiblings],
     );
 
     // set asyncEntity to have fullyFetched: false so we can update it in maybeAddAsyncLoadedEntity
@@ -189,6 +200,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 onClose={handleClose}
                 visible={isDrawerVisible}
                 width={490}
+                bodyStyle={{ overflowX: 'hidden' }}
                 mask={false}
                 footer={
                     selectedEntity && (

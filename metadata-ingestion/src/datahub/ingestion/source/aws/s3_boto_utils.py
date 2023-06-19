@@ -67,7 +67,7 @@ def get_s3_tags(
     else:
         logger.warn("Could not connect to DatahubApi. No current tags to maintain")
     # Remove duplicate tags
-    tags_to_add = list(set(tags_to_add))
+    tags_to_add = sorted(list(set(tags_to_add)))
     new_tags = GlobalTagsClass(
         tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
     )

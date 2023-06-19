@@ -98,8 +98,8 @@ nodes:
         source_ref: FIBO
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
         values:
-          - House.Colors.Red
-          - House.Colors.Pink
+          - Housing.Colors.Red
+          - Housing.Colors.Pink
 
       - name: Kitchen
         description: a room or area where food is prepared and cooked.
@@ -113,7 +113,7 @@ nodes:
         source_ref: FIBO
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
         related_terms:
-          - House.Kitchen
+          - Housing.Kitchen
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Spoon"
             label: Wiki link

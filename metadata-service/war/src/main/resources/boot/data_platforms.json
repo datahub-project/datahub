@@ -451,7 +451,7 @@
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "nifi",
-      "displayName": "Nifi",
+      "displayName": "NiFi",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/nifilogo.svg"
     }
@@ -533,6 +533,16 @@
       "displayName": "Vertica",
       "type": "OLAP_DATASTORE",
       "logoUrl": "/assets/platforms/verticalogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:gcs",
+    "aspect": {
+      "datasetNameDelimiter": "/",
+      "name": "gcs",
+      "displayName": "Google Cloud Storage",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/gcslogo.svg"
     }
   }
 ]

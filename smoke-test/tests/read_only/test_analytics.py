@@ -49,6 +49,7 @@ def test_metadata_analytics_chart_is_accessible(frontend_session):
                 }
             }
         """,
+        "variables": {"input": {"query": "*"}},
     }
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     res_json = response.json()

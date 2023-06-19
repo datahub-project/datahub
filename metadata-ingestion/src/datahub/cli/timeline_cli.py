@@ -127,7 +127,7 @@ def get_timeline(
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def timeline(
     ctx: Any,
     urn: str,

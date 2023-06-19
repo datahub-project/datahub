@@ -15,37 +15,13 @@ from datahub.emitter import mce_builder
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
-from datahub.metadata.schema_classes import (
-    ASPECT_CLASSES,
-    KEY_ASPECTS,
-    MetadataChangeEventClass,
-    OwnershipClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.type_helpers import PytestConfig
 
 FROZEN_TIME = "2021-07-22 18:54:06"
-
-
-def test_codegen_aspect_name():
-    assert issubclass(OwnershipClass, _Aspect)
-
-    assert OwnershipClass.ASPECT_NAME == "ownership"
-    assert OwnershipClass.get_aspect_name() == "ownership"
-
-
-def test_codegen_aspects():
-    # These bounds are extremely loose, and mainly verify that the lists aren't empty.
-    assert len(ASPECT_CLASSES) > 30
-    assert len(KEY_ASPECTS) > 10
-
-
-def test_cannot_instantiated_codegen_aspect():
-    with pytest.raises(TypeError, match="instantiate"):
-        _Aspect()
 
 
 @freeze_time(FROZEN_TIME)
@@ -60,15 +36,16 @@ def test_cannot_instantiated_codegen_aspect():
         "tests/unit/serde/test_serde_usage.json",
         # Profiles with the MetadataChangeProposal format.
         "tests/unit/serde/test_serde_profile.json",
+        # Test one that uses patch.
+        "tests/unit/serde/test_serde_patch.json",
     ],
 )
 def test_serde_to_json(
     pytestconfig: PytestConfig, tmp_path: pathlib.Path, json_filename: str
 ) -> None:
     golden_file = pytestconfig.rootpath / json_filename
+    output_file = tmp_path / "output.json"
 
-    output_filename = "output.json"
-    output_file = tmp_path / output_filename
     pipeline = Pipeline.create(
         {
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
@@ -81,7 +58,7 @@ def test_serde_to_json(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/{output_filename}",
+        output_path=f"{output_file}",
         golden_path=golden_file,
     )
 

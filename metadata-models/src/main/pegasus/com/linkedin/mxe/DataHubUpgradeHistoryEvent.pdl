@@ -1,0 +1,18 @@
+namespace com.linkedin.mxe
+
+/**
+ * Kafka event for recording a historical version upgrade. Used for backwards incompatible changes to infrastructure that requires infrastructure level blocking changes.
+ */
+record DataHubUpgradeHistoryEvent {
+
+  /**
+   * Version of the upgrade
+   */
+  version: string
+
+  /**
+   * A string->string map of custom properties that one might want to attach to an event
+   **/
+  systemMetadata: optional SystemMetadata
+
+}

@@ -38,7 +38,7 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
         try {
           // First, get all counts
           Map<String, Long> gmsResult = _entityClient.batchGetTotalEntityCount(
-              input.getTypes().stream().map(type -> EntityTypeMapper.getName(type)).collect(Collectors.toList()), context.getAuthentication());
+              input.getTypes().stream().map(EntityTypeMapper::getName).collect(Collectors.toList()), context.getAuthentication());
 
           // bind to a result.
           List<EntityCountResult> resultList = gmsResult.entrySet().stream().map(entry -> {

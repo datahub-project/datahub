@@ -3,14 +3,15 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
+from pydantic import Field, PositiveInt, PrivateAttr, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    LineageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
+    StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
@@ -20,23 +21,25 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    query_log_delay: Optional[PositiveInt] = Field(
-        default=None,
-        description="To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least query_log_delay additional events to be processed before attempting to resolve BigQuery job information from the logs. If query_log_delay is None, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage.",
-    )
+    _query_log_delay_removed = pydantic_removed_field("query_log_delay")
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
     )
 
+    apply_view_usage_to_tables: bool = Field(
+        default=False,
+        description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies usage to views / tables mentioned in the query. If set to True, usage is applied to base tables only.",
+    )
+
 
 class BigQueryV2Config(
     BigQueryBaseConfig,
     SQLAlchemyConfig,
-    LineageStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
+    StatefulUsageConfigMixin,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -54,7 +57,12 @@ class BigQueryV2Config(
 
     capture_table_label_as_tag: bool = Field(
         default=False,
-        description="Capture BigQuery table labels as tag",
+        description="Capture BigQuery table labels as DataHub tag",
+    )
+
+    capture_dataset_label_as_tag: bool = Field(
+        default=False,
+        description="Capture BigQuery dataset labels as DataHub tag",
     )
 
     dataset_pattern: AllowDenyPattern = Field(
@@ -78,9 +86,16 @@ class BigQueryV2Config(
     )
 
     number_of_datasets_process_in_batch: int = Field(
-        default=80,
-        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+        hidden_from_docs=True,
+        default=500,
+        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care.",
     )
+
+    number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
+        default=200,
+        description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+    )
+
     column_limit: int = Field(
         default=300,
         description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",
@@ -88,19 +103,27 @@ class BigQueryV2Config(
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
         default=None,
-        description="[deprecated] Use project_id_pattern instead. You can use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account",
+        description="[deprecated] Use project_id_pattern or project_ids instead.",
+    )
+    project_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
+            "don't want to give project resourcemanager.projects.list to your service account. "
+            "Overrides `project_id_pattern`."
+        ),
     )
 
     project_on_behalf: Optional[str] = Field(
         default=None,
-        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account..",
+        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
     )
 
-    storage_project_id: None = Field(default=None, hidden_from_schema=True)
+    storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
-        default=False,
-        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+        default=True,
+        description="Use sql parser to resolve view/table lineage. Only invoked on tables with both upstream tables and views. Used to distinguish between direct/base objects accessed, to only emit upstream lineage for directly accessed objects.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,
@@ -110,6 +133,11 @@ class BigQueryV2Config(
     lineage_sql_parser_use_raw_names: bool = Field(
         default=False,
         description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
+    )
+
+    extract_lineage_from_catalog: bool = Field(
+        default=False,
+        description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
     )
 
     convert_urns_to_lowercase: bool = Field(
@@ -159,9 +187,23 @@ class BigQueryV2Config(
     )
     _credentials_path: Optional[str] = PrivateAttr(None)
 
+    _cache_path: Optional[str] = PrivateAttr(None)
+
     upstream_lineage_in_report: bool = Field(
         default=False,
         description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
+    )
+
+    run_optimized_column_query: bool = Field(
+        hidden_from_docs=True,
+        default=False,
+        description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
+    )
+
+    file_backed_cache_size: int = Field(
+        hidden_from_docs=True,
+        default=2000,
+        description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
     def __init__(self, **data: Any):
@@ -231,10 +273,9 @@ class BigQueryV2Config(
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
-        return "|".join(pattern) if self.table_pattern else ""
+        return "|".join(pattern) if pattern else ""
 
-    # TODO: remove run_on_compute when the legacy bigquery source will be deprecated
-    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+    def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:
             return f"bigquery://{self.project_on_behalf}"
         # When project_id is not set, we will attempt to detect the project ID
@@ -242,13 +283,6 @@ class BigQueryV2Config(
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
 
-    @validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"
-
-    @validator("platform_instance")
-    def bigquery_doesnt_need_platform_instance(cls, v):
-        if v is not None:
-            raise ConfigurationError(
-                "BigQuery project ids are globally unique. You do not need to specify a platform instance."
-            )
+    platform_instance_not_supported_for_bigquery = pydantic_removed_field(
+        "platform_instance"
+    )

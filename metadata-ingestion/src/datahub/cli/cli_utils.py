@@ -10,12 +10,13 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 import click
 import requests
 import yaml
+from deprecated import deprecated
 from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
-from datahub.emitter.request_helper import _make_curl_command
+from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -317,50 +318,7 @@ def post_rollback_endpoint(
     )
 
 
-def post_delete_references_endpoint(
-    payload_obj: dict,
-    path: str,
-    cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Tuple[int, List[Dict]]:
-    session, gms_host = cached_session_host or get_session_and_host()
-    url = gms_host + path
-
-    payload = json.dumps(payload_obj)
-    response = session.post(url, payload)
-    summary = parse_run_restli_response(response)
-    reference_count = summary.get("total", 0)
-    related_aspects = summary.get("relatedAspects", [])
-    return reference_count, related_aspects
-
-
-def post_delete_endpoint(
-    payload_obj: dict,
-    path: str,
-    cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> typing.Tuple[str, int, int]:
-    session, gms_host = cached_session_host or get_session_and_host()
-    url = gms_host + path
-
-    return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
-
-
-def post_delete_endpoint_with_session_and_url(
-    session: Session,
-    url: str,
-    payload_obj: dict,
-) -> typing.Tuple[str, int, int]:
-    payload = json.dumps(payload_obj)
-
-    response = session.post(url, payload)
-
-    summary = parse_run_restli_response(response)
-    urn: str = summary.get("urn", "")
-    rows_affected: int = summary.get("rows", 0)
-    timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
-
-    return urn, rows_affected, timeseries_rows_affected
-
-
+@deprecated(reason="Use DataHubGraph.get_urns_by_filter instead")
 def get_urns_by_filter(
     platform: Optional[str],
     env: Optional[str] = None,
@@ -369,6 +327,7 @@ def get_urns_by_filter(
     include_removed: bool = False,
     only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
+    # TODO: Replace with DataHubGraph call
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
     url = gms_host + endpoint
@@ -385,7 +344,7 @@ def get_urns_by_filter(
     ):
         filter_criteria.append(
             {
-                "field": "platform",
+                "field": "platform.keyword",
                 "value": f"urn:li:dataPlatform:{platform}",
                 "condition": "EQUAL",
             }
@@ -574,6 +533,8 @@ def get_entity(
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
         )
+
+    # TODO: Replace with DataHubGraph.get_entity_raw.
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
     if aspect and len(aspect):
@@ -610,7 +571,7 @@ def post_entity(
     }
     payload = json.dumps(proposal)
     url = gms_host + endpoint
-    curl_command = _make_curl_command(session, "POST", url, payload)
+    curl_command = make_curl_command(session, "POST", url, payload)
     log.debug(
         "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
         curl_command,
@@ -653,7 +614,7 @@ def get_latest_timeseries_aspect_values(
 
 def get_aspects_for_entity(
     entity_urn: str,
-    aspects: List[str] = [],
+    aspects: List[str],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, _Aspect]]:

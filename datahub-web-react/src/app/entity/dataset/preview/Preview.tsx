@@ -12,6 +12,7 @@ import {
     Maybe,
     Deprecation,
     DatasetStatsSummary,
+    DataProduct,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -32,6 +33,7 @@ export const Preview = ({
     owners,
     globalTags,
     domain,
+    dataProduct,
     deprecation,
     snippet,
     insights,
@@ -41,6 +43,8 @@ export const Preview = ({
     container,
     parentContainers,
     rowCount,
+    columnCount,
+    sizeInBytes,
     statsSummary,
     lastUpdatedMs,
 }: {
@@ -55,6 +59,7 @@ export const Preview = ({
     platformInstanceId?: string;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     deprecation?: Deprecation | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
@@ -65,6 +70,8 @@ export const Preview = ({
     container?: Container | null;
     parentContainers?: ParentContainersResult | null;
     rowCount?: number | null;
+    columnCount?: number | null;
+    sizeInBytes?: number | null;
     statsSummary?: DatasetStatsSummary | null;
     lastUpdatedMs?: number | null;
 }): JSX.Element => {
@@ -86,6 +93,7 @@ export const Preview = ({
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
+            dataProduct={dataProduct}
             container={container || undefined}
             deprecation={deprecation}
             snippet={snippet}
@@ -97,6 +105,8 @@ export const Preview = ({
             subHeader={
                 <DatasetStatsSummaryView
                     rowCount={rowCount}
+                    columnCount={columnCount}
+                    sizeInBytes={sizeInBytes}
                     queryCountLast30Days={statsSummary?.queryCountLast30Days}
                     uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
                     lastUpdatedMs={lastUpdatedMs}

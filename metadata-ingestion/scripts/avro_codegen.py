@@ -1,8 +1,8 @@
+import collections
 import json
-import types
-import unittest.mock
+import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import avro.schema
 import click
@@ -66,29 +66,89 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
     return schemas
 
 
-def merge_schemas(schemas_obj: List[Any]) -> str:
-    # Combine schemas.
+def patch_schemas(schemas: Dict[str, dict], pdl_path: Path) -> Dict[str, dict]:
+    # We can easily find normal urn types using the generated avro schema,
+    # but for arrays of urns there's nothing in the avro schema and hence
+    # we have to look in the PDL files instead.
+    urn_arrays: Dict[
+        str, List[Tuple[str, str]]
+    ] = {}  # schema name -> list of (field name, type)
+
+    # First, we need to load the PDL files and find all urn arrays.
+    for pdl_file in Path(pdl_path).glob("**/*.pdl"):
+        pdl_text = pdl_file.read_text()
+
+        # TRICKY: We assume that all urn types end with "Urn".
+        arrays = re.findall(
+            r"^\s*(\w+)\s*:\s*(?:optional\s+)?array\[(\w*Urn)\]",
+            pdl_text,
+            re.MULTILINE,
+        )
+        if arrays:
+            schema_name = pdl_file.stem
+            urn_arrays[schema_name] = [(item[0], item[1]) for item in arrays]
+
+    # Then, we can patch each schema.
+    patched_schemas = {}
+    for name, schema in schemas.items():
+        patched_schemas[name] = patch_schema(schema, urn_arrays)
+
+    return patched_schemas
+
+
+def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> dict:
+    """
+    This method patches the schema to add an "Urn" property to all urn fields.
+    Because the inner type in an array is not a named Avro schema, for urn arrays
+    we annotate the array field and add an "urn_is_array" property.
+    """
+
+    # We're using Names() to generate a full list of embedded schemas.
+    all_schemas = avro.schema.Names()
+    patched = avro.schema.make_avsc_object(schema, names=all_schemas)
+
+    for nested in all_schemas.names.values():
+        if isinstance(nested, (avro.schema.EnumSchema, avro.schema.FixedSchema)):
+            continue
+        assert isinstance(nested, avro.schema.RecordSchema)
+
+        # Patch normal urn types.
+        field: avro.schema.Field
+        for field in nested.fields:
+            java_class: Optional[str] = field.props.get("java", {}).get("class")
+            if java_class and java_class.startswith(
+                "com.linkedin.pegasus2avro.common.urn."
+            ):
+                field.set_prop("Urn", java_class.split(".")[-1])
+
+        # Patch array urn types.
+        if nested.name in urn_arrays:
+            mapping = urn_arrays[nested.name]
+
+            for field_name, type in mapping:
+                field = nested.fields_dict[field_name]
+                field.set_prop("Urn", type)
+                field.set_prop("urn_is_array", True)
+
+    return patched.to_json()
+
+
+def merge_schemas(schemas_obj: List[dict]) -> str:
+    # Combine schemas as a "union" of all of the types.
     merged = ["null"] + schemas_obj
 
-    # Patch add_name method to NOT complain about duplicate names
-    def add_name(self, name_attr, space_attr, new_schema):
-        to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+    # Patch add_name method to NOT complain about duplicate names.
+    class NamesWithDups(avro.schema.Names):
+        def add_name(self, name_attr, space_attr, new_schema):
+            to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+            self.names[to_add.fullname] = new_schema
+            return to_add
 
-        self.names[to_add.fullname] = new_schema
-        return to_add
-
-    with unittest.mock.patch("avro.schema.Names.add_name", add_name):
-        cleaned_schema = avro.schema.make_avsc_object(merged)
+    cleaned_schema = avro.schema.make_avsc_object(merged, names=NamesWithDups())
 
     # Convert back to an Avro schema JSON representation.
-    class MappingProxyEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, types.MappingProxyType):
-                return dict(obj)
-            return json.JSONEncoder.default(self, obj)
-
     out_schema = cleaned_schema.to_json()
-    encoded = json.dumps(out_schema, cls=MappingProxyEncoder, indent=2)
+    encoded = json.dumps(out_schema, indent=2)
     return encoded
 
 
@@ -149,11 +209,11 @@ load_schema_method = """
 import functools
 import pathlib
 
+@functools.lru_cache(maxsize=None)
 def _load_schema(schema_name: str) -> str:
     return (pathlib.Path(__file__).parent / f"{schema_name}.avsc").read_text()
 """
 individual_schema_method = """
-@functools.lru_cache(maxsize=None)
 def get{schema_name}Schema() -> str:
     return _load_schema("{schema_name}")
 """
@@ -163,6 +223,17 @@ def make_load_schema_methods(schemas: Iterable[str]) -> str:
     return load_schema_method + "".join(
         individual_schema_method.format(schema_name=schema) for schema in schemas
     )
+
+
+def save_raw_schemas(schema_save_dir: Path, schemas: Dict[str, dict]) -> None:
+    # Save raw avsc files.
+    schema_save_dir.mkdir()
+    for name, schema in schemas.items():
+        (schema_save_dir / f"{name}.avsc").write_text(json.dumps(schema, indent=2))
+
+    # Add getXSchema methods.
+    with open(schema_save_dir / "__init__.py", "w") as schema_dir_init:
+        schema_dir_init.write(make_load_schema_methods(schemas.keys()))
 
 
 def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
@@ -177,9 +248,9 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
     ] += """
 
 class _Aspect(DictWrapper):
-    ASPECT_NAME: str = None  # type: ignore
-    ASPECT_TYPE: str = "default"
-    ASPECT_INFO: dict = None  # type: ignore
+    ASPECT_NAME: ClassVar[str] = None  # type: ignore
+    ASPECT_TYPE: ClassVar[str] = "default"
+    ASPECT_INFO: ClassVar[dict] = None  # type: ignore
 
     def __init__(self):
         if type(self) is _Aspect:
@@ -225,7 +296,11 @@ class _Aspect(DictWrapper):
             schema_classes_lines[
                 empty_line
             ] += f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
-        schema_classes_lines[empty_line] += f"\n    ASPECT_INFO = {aspect['Aspect']}"
+
+        aspect_info = {
+            k: v for k, v in aspect["Aspect"].items() if k not in {"name", "type"}
+        }
+        schema_classes_lines[empty_line] += f"\n    ASPECT_INFO = {aspect_info}"
 
         schema_classes_lines[empty_line + 1] += "\n"
 
@@ -233,11 +308,20 @@ class _Aspect(DictWrapper):
     newline = "\n"
     schema_classes_lines.append(
         f"""
-from typing import Type
-
 ASPECT_CLASSES: List[Type[_Aspect]] = [
     {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
+
+ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
+    aspect.get_aspect_name(): aspect
+    for aspect in ASPECT_CLASSES
+}}
+
+from typing_extensions import TypedDict
+
+class AspectBag(TypedDict, total=False):
+    {f'{newline}    '.join(f"{aspect['Aspect']['name']}: {aspect['name']}Class" for aspect in aspects)}
+
 
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f',{newline}    '.join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect['Aspect'].get('keyForEntity'))}
@@ -253,12 +337,20 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     "entity_registry", type=click.Path(exists=True, dir_okay=False), required=True
 )
 @click.argument(
+    "pdl_path", type=click.Path(exists=True, file_okay=False), required=True
+)
+@click.argument(
     "schemas_path", type=click.Path(exists=True, file_okay=False), required=True
 )
 @click.argument("outdir", type=click.Path(), required=True)
-def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
+def generate(
+    entity_registry: str, pdl_path: str, schemas_path: str, outdir: str
+) -> None:
     entities = load_entity_registry(Path(entity_registry))
     schemas = load_schemas(schemas_path)
+
+    # Patch the avsc files.
+    schemas = patch_schemas(schemas, Path(pdl_path))
 
     # Special handling for aspects.
     aspects = {
@@ -280,6 +372,15 @@ def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
                 f'Entity key {entity.keyAspect} is used by {aspect["Aspect"]["keyForEntity"]} and {entity.name}'
             )
 
+        # Also require that the aspect list is deduplicated.
+        duplicate_aspects = collections.Counter(entity.aspects) - collections.Counter(
+            set(entity.aspects)
+        )
+        if duplicate_aspects:
+            raise ValueError(
+                f"Entity {entity.name} has duplicate aspects: {duplicate_aspects}"
+            )
+
         aspect["Aspect"]["keyForEntity"] = entity.name
         aspect["Aspect"]["entityCategory"] = entity.category
         aspect["Aspect"]["entityAspects"] = entity.aspects
@@ -288,8 +389,8 @@ def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
 
     # Check for unused aspects. We currently have quite a few.
     # unused_aspects = set(aspects.keys()) - set().union(
-    #    {entity.keyAspect for entity in entities},
-    #    *(set(entity.aspects) for entity in entities),
+    #     {entity.keyAspect for entity in entities},
+    #     *(set(entity.aspects) for entity in entities),
     # )
 
     merged_schema = merge_schemas(list(schemas.values()))
@@ -303,17 +404,17 @@ def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
         Path(outdir) / "schema_classes.py",
     )
 
-    # Save raw schema files in codegen as well.
+    # Keep a copy of a few raw avsc files.
+    required_avsc_schemas = {"MetadataChangeEvent", "MetadataChangeProposal"}
     schema_save_dir = Path(outdir) / "schemas"
-    schema_save_dir.mkdir()
-    for schema_out_file, schema in schemas.items():
-        (schema_save_dir / f"{schema_out_file}.avsc").write_text(
-            json.dumps(schema, indent=2)
-        )
-
-    # Add load_schema method.
-    with open(schema_save_dir / "__init__.py", "a") as schema_dir_init:
-        schema_dir_init.write(make_load_schema_methods(schemas.keys()))
+    save_raw_schemas(
+        schema_save_dir,
+        {
+            name: schema
+            for name, schema in schemas.items()
+            if name in required_avsc_schemas
+        },
+    )
 
     # Add headers for all generated files
     generated_files = Path(outdir).glob("**/*.py")

@@ -17,7 +17,9 @@ dependencies {
   runtime project(':metadata-service:servlet')
   runtime project(':metadata-service:auth-servlet-impl')
   runtime project(':metadata-service:graphql-servlet-impl')
+  runtime project(':metadata-service:health-servlet')
   runtime project(':metadata-service:openapi-servlet')
+  runtime project(':metadata-service:schema-registry-servlet')
   runtime project(':metadata-jobs:mce-consumer')
   runtime project(':metadata-jobs:mae-consumer')
   runtime project(':metadata-jobs:pe-consumer')
@@ -36,8 +38,13 @@ dependencies {
   runtime externalDependency.log4j2Api
   runtime externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
+  testRuntime externalDependency.logbackClassic
+  implementation externalDependency.charle
 }
-
+configurations.all{
+  exclude group: "com.charleskorn.kaml", module:"kaml"
+  
+}
 configurations {
   jetty9
 }
@@ -48,7 +55,7 @@ dependencies {
 
 task run(type: JavaExec, dependsOn: build) {
   main = "org.eclipse.jetty.runner.Runner"
-  args = [war.archivePath]
+  args = ["${projectDir}/build/libs/war.war"]
   classpath configurations.jetty9
 }
 
@@ -57,7 +64,8 @@ war {
 }
 
 docker {
-  name "${docker_registry}/${docker_repo}:${version}"
+  name "${docker_registry}/${docker_repo}:v${version}"
+  version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files war.outputs.files
   files fileTree(rootProject.projectDir) {
@@ -65,8 +73,7 @@ docker {
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }
-  tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
-  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
+  tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // platform('linux/arm64', 'linux/amd64')
   buildx(true)

@@ -4,6 +4,7 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import { EntityType, RecommendationContent, Tag } from '../../../../types.generated';
 import { StyledTag } from '../../../entity/shared/components/styled/StyledTag';
+import { UnionType } from '../../../search/utils/constants';
 import { navigateToSearchUrl } from '../../../search/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
@@ -46,16 +47,21 @@ export const TagSearchList = ({ content, onClick }: Props) => {
                     field: 'tags',
                     values: [tag.urn],
                 },
+                {
+                    field: 'fieldTags',
+                    values: [tag.urn],
+                },
             ],
             history,
+            unionType: UnionType.OR,
         });
     };
 
     return (
         <TagSearchListContainer>
             {tags.map((tag, index) => (
-                <TagContainer>
-                    <TagButton type="link" key={tag.urn} onClick={() => onClickTag(tag, index)}>
+                <TagContainer key={tag.urn}>
+                    <TagButton type="link" onClick={() => onClickTag(tag, index)}>
                         <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex} closable={false}>
                             {entityRegistry.getDisplayName(EntityType.Tag, tag)}
                         </StyledTag>

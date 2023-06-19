@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Generic, List, Optional, TypeVar
+from typing import Optional
 
 from pydantic.fields import Field
 
@@ -26,23 +26,20 @@ class BaseColumn:
     comment: Optional[str]
 
 
-SqlTableColumn = TypeVar("SqlTableColumn", bound="BaseColumn")
-
-
 @dataclass
-class BaseTable(Generic[SqlTableColumn]):
+class BaseTable:
     name: str
     comment: Optional[str]
-    created: datetime
+    created: Optional[datetime]
     last_altered: Optional[datetime]
     size_in_bytes: Optional[int]
     rows_count: Optional[int]
-    columns: List[SqlTableColumn] = field(default_factory=list)
+    column_count: Optional[int] = None
     ddl: Optional[str] = None
 
 
 @dataclass
-class BaseView(Generic[SqlTableColumn]):
+class BaseView:
     name: str
     comment: Optional[str]
     created: Optional[datetime]
@@ -50,7 +47,7 @@ class BaseView(Generic[SqlTableColumn]):
     view_definition: str
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
-    columns: List[SqlTableColumn] = field(default_factory=list)
+    column_count: Optional[int] = None
 
 
 class SQLAlchemyGenericConfig(SQLAlchemyConfig):
@@ -65,7 +62,7 @@ class SQLAlchemyGenericConfig(SQLAlchemyConfig):
         return self.connect_uri
 
 
-@platform_name("Other SQLAlchemy databases", id="sqlalchemy")
+@platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")

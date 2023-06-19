@@ -85,7 +85,7 @@ PrestoDialect._get_full_table = _get_full_table
 
 class PrestoConfig(TrinoConfig):
     # defaults
-    scheme = Field(default="presto", description="", hidden_from_schema=True)
+    scheme = Field(default="presto", description="", hidden_from_docs=True)
 
 
 @platform_name("Presto", doc_order=1)

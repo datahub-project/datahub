@@ -3,9 +3,11 @@ import { EntityType, MlModelGroup } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { getDataProduct } from '../../shared/utils';
 
 export const Preview = ({ group }: { group: MlModelGroup }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const genericProperties = entityRegistry.getGenericEntityProperties(EntityType.MlmodelGroup, group);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, group.urn)}
@@ -18,6 +20,7 @@ export const Preview = ({ group }: { group: MlModelGroup }): JSX.Element => {
             platform={group?.platform?.properties?.displayName || capitalizeFirstLetterOnly(group?.platform?.name)}
             qualifier={group?.origin}
             owners={group?.ownership?.owners}
+            dataProduct={getDataProduct(genericProperties?.dataProduct)}
         />
     );
 };

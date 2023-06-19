@@ -55,8 +55,8 @@ public class ESBulkProcessor implements Closeable {
     private final BulkProcessor bulkProcessor;
 
     private ESBulkProcessor(@NonNull RestHighLevelClient searchClient, @NonNull Boolean async, Integer bulkRequestsLimit,
-                           Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
-                           TimeValue defaultTimeout, WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
+                            Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
+                            TimeValue defaultTimeout, WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
                             BulkProcessor ignored) {
         this.searchClient = searchClient;
         this.async = async;
@@ -140,5 +140,9 @@ public class ESBulkProcessor implements Closeable {
     @Override
     public void close() throws IOException {
         bulkProcessor.close();
+    }
+
+    public void flush() {
+        bulkProcessor.flush();
     }
 }

@@ -1,40 +1,49 @@
 package com.linkedin.datahub.graphql.resolvers;
 
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 public class ResolverUtils {
 
     private static final Set<String> KEYWORD_EXCLUDED_FILTERS = ImmutableSet.of(
-        "runId"
+        "runId",
+        "_entityType"
     );
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    static {
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    }
 
     private static final Logger _logger = LoggerFactory.getLogger(ResolverUtils.class.getName());
 
@@ -128,7 +137,8 @@ public class ResolverUtils {
 
         // If or filters are not set, someone may be using the legacy and filters
         final List<Criterion> andCriterions = criterionListFromAndFilter(andFilters);
-        return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
+        return new Filter().setOr(
+            new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
     }
 
     public static Criterion criterionFromFilter(final FacetFilterInput filter) {
@@ -142,7 +152,7 @@ public class ResolverUtils {
         if (skipKeywordSuffix) {
             result.setField(filter.getField());
         } else {
-            result.setField(getFilterField(filter.getField()));
+            result.setField(getFilterField(filter.getField(), skipKeywordSuffix));
         }
 
         // `value` is deprecated in place of `values`- this is to support old query patterns. If values is provided,
@@ -176,10 +186,28 @@ public class ResolverUtils {
         return result;
     }
 
-    private static String getFilterField(final String originalField) {
+    private static String getFilterField(final String originalField, final boolean skipKeywordSuffix) {
         if (KEYWORD_EXCLUDED_FILTERS.contains(originalField)) {
             return originalField;
         }
-        return originalField + ESUtils.KEYWORD_SUFFIX;
+        return ESUtils.toKeywordField(originalField, skipKeywordSuffix);
+    }
+
+    public static Filter buildFilterWithUrns(@Nonnull Set<Urn> urns, @Nullable Filter inputFilters) {
+        Criterion urnMatchCriterion = new Criterion().setField("urn")
+            .setValue("")
+            .setValues(new StringArray(urns.stream().map(Object::toString).collect(Collectors.toList())));
+        if (inputFilters == null) {
+            return QueryUtils.newFilter(urnMatchCriterion);
+        }
+
+        // Add urn match criterion to each or clause
+        if (inputFilters.getOr() != null && !inputFilters.getOr().isEmpty()) {
+            for (ConjunctiveCriterion conjunctiveCriterion : inputFilters.getOr()) {
+                conjunctiveCriterion.getAnd().add(urnMatchCriterion);
+            }
+            return inputFilters;
+        }
+        return QueryUtils.newFilter(urnMatchCriterion);
     }
 }

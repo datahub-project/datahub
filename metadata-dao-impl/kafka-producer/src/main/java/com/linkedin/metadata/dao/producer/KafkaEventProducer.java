@@ -7,6 +7,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -19,6 +20,7 @@ import com.linkedin.mxe.Topics;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.concurrent.Future;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -94,7 +96,7 @@ public class KafkaEventProducer implements EventProducer {
 
   @Override
   @WithSpan
-  public void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull AspectSpec aspectSpec,
+  public Future<?> produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
     try {
@@ -111,19 +113,16 @@ public class KafkaEventProducer implements EventProducer {
     if (aspectSpec.isTimeseries()) {
       topic = _topicConvention.getMetadataChangeLogTimeseriesTopicName();
     }
-    _producer.send(new ProducerRecord(topic, urn.toString(), record),
+    return _producer.send(new ProducerRecord(topic, urn.toString(), record),
             _kafkaHealthChecker.getKafkaCallBack("MCL", urn.toString()));
   }
 
   @Override
   @WithSpan
-  public void produceMetadataChangeProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal) {
+  public Future<?> produceMetadataChangeProposal(@Nonnull final Urn urn,
+      @Nonnull final MetadataChangeProposal metadataChangeProposal) {
     GenericRecord record;
 
-    Urn urn = metadataChangeProposal.getEntityUrn();
-    if (urn == null) {
-      throw new IllegalArgumentException("Urn for proposal cannot be null.");
-    }
     try {
       log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeProposal: %s",
           urn,
@@ -135,12 +134,12 @@ public class KafkaEventProducer implements EventProducer {
     }
 
     String topic = _topicConvention.getMetadataChangeProposalTopicName();
-    _producer.send(new ProducerRecord(topic, urn.toString(), record),
+    return _producer.send(new ProducerRecord(topic, urn.toString(), record),
             _kafkaHealthChecker.getKafkaCallBack("MCP", urn.toString()));
   }
 
   @Override
-  public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event) {
+  public Future<?> producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event) {
     GenericRecord record;
     try {
       log.debug(String.format("Converting Pegasus Event to Avro Event urn %s\nEvent: %s",
@@ -153,8 +152,24 @@ public class KafkaEventProducer implements EventProducer {
     }
 
     final String topic = _topicConvention.getPlatformEventTopicName();
-    _producer.send(new ProducerRecord(topic, key == null ? name : key, record),
+    return _producer.send(new ProducerRecord(topic, key == null ? name : key, record),
             _kafkaHealthChecker.getKafkaCallBack("Platform Event", name));
+  }
+
+  @Override
+  public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
+    GenericRecord record;
+    try {
+      log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));
+      record = EventUtils.pegasusToAvroDUHE(event);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus DataHub Upgrade History Event to Avro: %s", event), e);
+      throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
+    }
+
+    final String topic = _topicConvention.getDataHubUpgradeHistoryTopicName();
+    _producer.send(new ProducerRecord(topic, event.getVersion(), record), _kafkaHealthChecker
+            .getKafkaCallBack("History Event", "Event Version: " + event.getVersion()));
   }
 
   @VisibleForTesting

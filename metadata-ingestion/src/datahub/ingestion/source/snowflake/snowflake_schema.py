@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import lru_cache
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -37,6 +38,9 @@ class SnowflakeTag:
     schema: str
     name: str
     value: str
+
+    def display_name(self) -> str:
+        return f"{self.name}: {self.value}"
 
     def identifier(self) -> str:
         return f"{self._id_prefix_as_str()}:{self.value}"
@@ -95,8 +99,8 @@ class SnowflakeSchema:
     created: Optional[datetime]
     last_altered: Optional[datetime]
     comment: Optional[str]
-    tables: List[SnowflakeTable] = field(default_factory=list)
-    views: List[SnowflakeView] = field(default_factory=list)
+    tables: List[str] = field(default_factory=list)
+    views: List[str] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
 
 
@@ -237,6 +241,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             snowflake_schemas.append(snowflake_schema)
         return snowflake_schemas
 
+    @lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
@@ -291,6 +296,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return tables
 
+    @lru_cache(maxsize=1)
     def get_views_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
@@ -338,6 +344,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return views
 
+    @lru_cache(maxsize=1)
     def get_columns_for_schema(
         self, schema_name: str, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeColumn]]]:
@@ -393,6 +400,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return columns
 
+    @lru_cache(maxsize=1)
     def get_pk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
@@ -409,6 +417,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             constraints[row["table_name"]].column_names.append(row["column_name"])
         return constraints
 
+    @lru_cache(maxsize=1)
     def get_fk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeFK]]:

@@ -1,0 +1,9 @@
+id: foogroup@acryl.io
+display_name: Foo Group
+admins:
+  - datahub
+members:
+  - bar@acryl.io # refer to a user either by id or by urn
+  - id: joe@acryl.io # inline specification of user
+    slack: "@joe_shmoe"
+    display_name: "Joe's Hub"

@@ -85,6 +85,13 @@ In the modal that pops up you can select the Term you care about in one of two w
 
 ![](../imgs/glossary/add-term-modal.png)
 
+## Privileges
+
+Glossary Terms and Term Groups abide by metadata policies like other entities. However, there are two special privileges provided for configuring privileges within your Business Glossary.
+
+- **Manage Direct Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete Terms and Term Groups directly underneath the Term Group they have this privilege on.
+- **Manage All Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete any Term or Term Group anywhere underneath the Term Group they have this privilege on. This applies to the children of a child Term Group as well (and so on).
+
 ## Managing Glossary with Git 
 
 In many cases, it may be preferable to manage the Business Glossary in a version-control system like git. This can make
@@ -93,6 +100,28 @@ managing changes across teams easier, by funneling all changes through a change 
 To manage your glossary using Git, you can define it within a file and then use the DataHub CLI to ingest
 it into DataHub whenever a change is made (e.g. on a `git commit` hook). For detailed information about the format of
 the glossary file, and how to ingest it into DataHub, check out the [Business Glossary](../generated/ingestion/sources/business-glossary.md) source guide.
+
+## About Glossary Term Relationships
+
+DataHub supports 2 different kinds of relationships _between_ individual Glossary Terms: **Inherits From** and **Contains**. 
+
+**Contains** can be used to relate two Glossary Terms when one is a _superset_ of or _consists_ of another.
+For example: **Address** Term _Contains_ **Zip Code** Term, **Street** Term, & **City** Term (_Has-A_ style relationship)
+
+**Inherits** can be used to relate two Glossary Terms when one is a _sub-type_ or _sub-category_ of another.
+For example: **Email** Term _Inherits From_  **PII** Term (_Is-A_ style relationship)
+
+These relationship types allow you to map the concepts existing within your organization, enabling you to
+change the mapping between concepts behind the scenes, without needing to change the Glossary Terms
+that are attached to individual Data Assets and Columns. 
+
+For example, you can define a very specific, concrete Glossary Term like `Email Address` to represent a physical
+data type, and then associate this with a higher-level `PII` Glossary Term via an `Inheritance` relationship. 
+This allows you to easily maintain a set of all Data Assets that contain or process `PII`, while keeping it easy to add 
+and remove new Terms from the `PII` Classification, e.g. without requiring re-annotation of individual Data Assets or Columns.
+
+
+
 
 ## Demo
 
@@ -108,7 +137,7 @@ Check out [our demo site](https://demo.datahubproject.io/glossary) to see an exa
 * [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
 * [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
 
-You can easily fetch the Glossary Terms for an entity with a given its URN using the **glossaryTerms** property. Check out [Working with Metadata Entities](../api/graphql/querying-entities.md#querying-for-glossary-terms-of-an-asset) for an example.
+You can easily fetch the Glossary Terms for an entity with a given its URN using the **glossaryTerms** property. Check out [Working with Metadata Entities](../api/graphql/how-to-set-up-graphql.md#querying-for-glossary-terms-of-an-asset) for an example.
 
 ## Resources
 - [Creating a Business Glossary and Putting it to use in DataHub](https://blog.datahubproject.io/creating-a-business-glossary-and-putting-it-to-use-in-datahub-43a088323c12)

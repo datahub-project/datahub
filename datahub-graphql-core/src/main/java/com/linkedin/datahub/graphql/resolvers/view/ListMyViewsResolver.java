@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.ListMyViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -75,7 +76,8 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                 DEFAULT_SORT_CRITERION,
                 start,
                 count,
-                context.getAuthentication());
+                context.getAuthentication(),
+                new SearchFlags().setFulltext(true));
 
         final ListViewsResult result = new ListViewsResult();
         result.setStart(gmsResult.getFrom());

@@ -41,7 +41,7 @@ export const TABLEAU_TOKEN_NAME: RecipeField = {
     tooltip:
         'The name of the Personal Access Token used to extract metadata. Required if authenticating using a Personal Access Token.',
     type: FieldType.TEXT,
-    fieldPath: 'source.config.username',
+    fieldPath: 'source.config.token_name',
     placeholder: 'access_token_name',
     rules: null,
 };
@@ -52,7 +52,7 @@ export const TABLEAU_TOKEN_VALUE: RecipeField = {
     tooltip:
         'The value of the Personal Access Token used to extract metadata. Required if authenticating using a Personal Access Token.',
     type: FieldType.SECRET,
-    fieldPath: 'source.config.password',
+    fieldPath: 'source.config.token_value',
     placeholder: 'access_token_value',
     rules: null,
 };

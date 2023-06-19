@@ -21,6 +21,14 @@ const UnderlineWrapper = styled.span`
     cursor: pointer;
 `;
 
+const StyledMenuItem = styled(Menu.Item)`
+    padding: 0;
+`;
+
+const MenuItemContent = styled.div`
+    padding: 5px 12px;
+`;
+
 function PopoverContent({ centerEntity, direction }: { centerEntity?: () => void; direction: string }) {
     return (
         <div>
@@ -96,50 +104,57 @@ export default function ManageLineageMenu({
                             <Menu>
                                 {isManualLineageSupported && (
                                     <>
-                                        <Popover
-                                            content={
-                                                !canEditLineage ? (
-                                                    UNAUTHORIZED_TEXT
-                                                ) : (
-                                                    <PopoverContent centerEntity={centerEntity} direction="upstream" />
-                                                )
-                                            }
-                                            overlayStyle={
-                                                isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }
-                                            }
+                                        <StyledMenuItem
+                                            key="0"
+                                            onClick={() => manageLineage(Direction.Upstream)}
+                                            disabled={isUpstreamDisabled}
                                         >
-                                            <div>
-                                                <Menu.Item
-                                                    key="0"
-                                                    onClick={() => manageLineage(Direction.Upstream)}
-                                                    disabled={isUpstreamDisabled}
-                                                >
+                                            <Popover
+                                                content={
+                                                    !canEditLineage ? (
+                                                        UNAUTHORIZED_TEXT
+                                                    ) : (
+                                                        <PopoverContent
+                                                            centerEntity={centerEntity}
+                                                            direction="upstream"
+                                                        />
+                                                    )
+                                                }
+                                                overlayStyle={
+                                                    isUpstreamDisabled
+                                                        ? { zIndex: POPOVER_Z_INDEX }
+                                                        : { display: 'none' }
+                                                }
+                                            >
+                                                <MenuItemContent>
                                                     <ArrowUpOutlined />
                                                     &nbsp; Edit Upstream
-                                                </Menu.Item>
-                                            </div>
-                                        </Popover>
-                                        <Popover
-                                            content={getDownstreamDisabledPopoverContent(
-                                                !!canEditLineage,
-                                                isDashboard,
-                                                centerEntity,
-                                            )}
-                                            overlayStyle={
-                                                isDownstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }
-                                            }
+                                                </MenuItemContent>
+                                            </Popover>
+                                        </StyledMenuItem>
+                                        <StyledMenuItem
+                                            key="1"
+                                            onClick={() => manageLineage(Direction.Downstream)}
+                                            disabled={isDownstreamDisabled}
                                         >
-                                            <div>
-                                                <Menu.Item
-                                                    key="1"
-                                                    onClick={() => manageLineage(Direction.Downstream)}
-                                                    disabled={isDownstreamDisabled}
-                                                >
+                                            <Popover
+                                                content={getDownstreamDisabledPopoverContent(
+                                                    !!canEditLineage,
+                                                    isDashboard,
+                                                    centerEntity,
+                                                )}
+                                                overlayStyle={
+                                                    isDownstreamDisabled
+                                                        ? { zIndex: POPOVER_Z_INDEX }
+                                                        : { display: 'none' }
+                                                }
+                                            >
+                                                <MenuItemContent>
                                                     <ArrowDownOutlined />
                                                     &nbsp; Edit Downstream
-                                                </Menu.Item>
-                                            </div>
-                                        </Popover>
+                                                </MenuItemContent>
+                                            </Popover>
+                                        </StyledMenuItem>
                                     </>
                                 )}
                                 {!isCenterNode && centerEntity && (

@@ -20,6 +20,7 @@ dependencies {
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   implementation externalDependency.slf4jApi
+  testImplementation project(path: ':metadata-integration:java:datahub-client')
   runtime externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
@@ -39,7 +40,9 @@ dependencies {
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
-  compile externalDependency.mixpanel
+  compile (externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
 
   annotationProcessor externalDependency.lombok
 
@@ -58,6 +61,9 @@ dependencies {
   testCompile externalDependency.lombok
   testCompile project(':test-models')
   testImplementation externalDependency.springBootTest
+  testImplementation project(':datahub-graphql-core')
+  // logback >=1.3 required due to `testcontainers` only
+  testImplementation 'ch.qos.logback:logback-classic:1.4.7'
 
   testAnnotationProcessor externalDependency.lombok
 
@@ -70,6 +76,15 @@ dependencies {
     }
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
+    }
+    implementation(externalDependency.snakeYaml) {
+      because("previous versions are vulnerable to CVE-2022-25857")
+    }
+    implementation(externalDependency.woodstoxCore) {
+      because("previous versions are vulnerable to CVE-2022-40151-2")
+    }
+    implementation(externalDependency.jettison) {
+      because("previous versions are vulnerable")
     }
   }
 }

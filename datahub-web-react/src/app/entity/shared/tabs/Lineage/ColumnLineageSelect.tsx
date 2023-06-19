@@ -1,5 +1,6 @@
-import { Button, Select, Tooltip } from 'antd';
 import * as React from 'react';
+import { Button, Select, Tooltip } from 'antd';
+import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { blue } from '@ant-design/colors';
 import { useHistory, useLocation } from 'react-router';
@@ -7,6 +8,7 @@ import { ImpactAnalysisIcon } from '../Dataset/Schema/components/MenuColumn';
 import updateQueryParams from '../../../../shared/updateQueryParams';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
 import { useEntityData } from '../../EntityContext';
+import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
 
 const StyledSelect = styled(Select)`
     margin-right: 5px;
@@ -49,6 +51,7 @@ export default function ColumnsLineageSelect({
     const { entityData } = useEntityData();
     const location = useLocation();
     const history = useHistory();
+    const { entityWithSchema } = useGetEntityWithSchema();
 
     function selectColumn(column: any) {
         updateQueryParams({ column }, location, history);
@@ -67,7 +70,7 @@ export default function ColumnsLineageSelect({
                     allowClear
                     placeholder="Select column"
                 >
-                    {entityData?.schemaMetadata?.fields.map((field) => {
+                    {entityWithSchema?.schemaMetadata?.fields.map((field) => {
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
                             <Select.Option value={field.fieldPath}>
@@ -94,7 +97,10 @@ export default function ColumnsLineageSelect({
                     isSelected={isColumnLevelLineage}
                 >
                     <ImpactAnalysisIcon />
-                    <TextWrapper>Column Lineage</TextWrapper>
+                    <TextWrapper>
+                        <b>Column Lineage</b>
+                        <CaretDownOutlined style={{ fontSize: '10px', marginLeft: 4 }} />
+                    </TextWrapper>
                 </StyledButton>
             </Tooltip>
         </>

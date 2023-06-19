@@ -53,8 +53,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -67,8 +70,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"view: include_able_view {\\n  sql_table_name: looker_schema.include_able ;;\\n}\\n\", \"viewLanguage\": \"lookml\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "view: include_able_view {\n  sql_table_name: looker_schema.include_able ;;\n}\n",
+            "viewLanguage": "lookml"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -129,8 +135,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -143,8 +152,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
+            "viewLanguage": "lookml"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -250,8 +262,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -264,8 +279,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
+            "viewLanguage": "lookml"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -326,8 +344,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -340,8 +361,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
+            "viewLanguage": "lookml"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -402,8 +426,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -416,8 +443,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
+            "viewLanguage": "lookml"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -529,8 +559,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -543,8 +574,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -557,8 +589,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
