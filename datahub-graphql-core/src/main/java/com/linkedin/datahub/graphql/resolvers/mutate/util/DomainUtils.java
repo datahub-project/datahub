@@ -76,7 +76,7 @@ public class DomainUtils {
       newDomains.add(domainUrn);
     }
     domains.setDomains(newDomains);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
   }
 
   public static void validateDomain(Urn domainUrn, EntityService entityService) {
