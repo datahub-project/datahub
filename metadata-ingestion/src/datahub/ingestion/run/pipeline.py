@@ -387,14 +387,20 @@ class Pipeline:
                 except SystemExit:
                     raise
                 except Exception as e:
-                    if telemetry.telemetry_instance.sentry_enabled:
-                        import sentry_sdk
-
-                        sentry_sdk.capture_exception(e)
-                    # TODO: Transformer errors should cause the pipeline to fail.
                     logger.error(
                         "Failed to process some records. Continuing.", exc_info=e
                     )
+
+                    try:
+                        if telemetry.telemetry_instance.sentry_enabled:
+                            import sentry_sdk
+
+                            sentry_sdk.capture_exception(e)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to capture exception in Sentry.", exc_info=e
+                        )
+                    # TODO: Transformer errors should cause the pipeline to fail.
 
                 self.extractor.close()
                 if not self.dry_run:
