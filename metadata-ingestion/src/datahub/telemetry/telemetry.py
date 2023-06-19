@@ -292,20 +292,12 @@ class Telemetry:
             properties: metadata for the event
         """
 
-        if properties is None:
-            properties = {}
         if not self.enabled or self.mp is None:
             return
 
         # send event
         try:
             logger.debug(f"Sending telemetry for {event_name}")
-            properties.update(self._server_props(server))
-
-            if not self.enabled or self.mp is None:
-                return
-            self.mp.track(self.client_id, event_name, properties)
-
             properties = {
                 **_default_telemetry_properties(),
                 **self._server_props(server),
