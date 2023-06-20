@@ -222,6 +222,11 @@ type Query {
     listOwnershipTypes(
         "Input required for listing custom ownership types"
         input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
+
+    """
+    Get the sizes of indices
+    """
+    getIndexSizes(input: GetIndexSizesInput!): GetIndexSizesResult!
 }
 
 """
@@ -10953,6 +10958,49 @@ type ListOwnershipTypesResult {
     The Custom Ownership Types themselves
     """
     ownershipTypes: [OwnershipTypeEntity!]!
+}
+
+"""
+Input required for getting index sizes
+"""
+input GetIndexSizesInput {
+    """
+    A list placeholder argument
+    """
+    indices: [Int!]!
+}
+
+"""
+Output for get index sizes
+"""
+type GetIndexSizesResult {
+    """
+    A list of the sizes for each index
+    """
+    indices: [IndexSizeResult!]!
+}
+
+type IndexSizeResult {
+   """
+   Name of the index
+   """
+   indexName: String!
+
+   """
+   Name of the entity for the index
+   """
+   entityName: String!
+
+   """
+   Name of the aspect for the index
+   """
+   aspectName: String!
+
+   """
+   Size of the index in MB
+   """
+   indexSizeMb: Float!
+
 }
 
 input CreateOwnershipTypeInput {
