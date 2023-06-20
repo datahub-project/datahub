@@ -39,7 +39,7 @@ export default function AutoCompleteItem({ query, entity }: Props) {
 
     return (
         <Tooltip
-            overlayStyle={{ maxWidth: 500, visibility: displayTooltip ? 'visible' : 'hidden' }}
+            overlayStyle={{ maxWidth: 750, visibility: displayTooltip ? 'visible' : 'hidden' }}
             style={{ width: '100%' }}
             title={<AutoCompleteTooltipContent entity={entity} />}
             placement="top"

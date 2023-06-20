@@ -15,7 +15,6 @@ from typing import (
 
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -173,7 +172,8 @@ def auto_browse_path_v2(
     *,
     dry_run: bool = False,
     drop_dirs: Sequence[str] = (),
-    platform_key: Optional[PlatformKey] = None,
+    platform: Optional[str] = None,
+    platform_instance: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
     """Generate BrowsePathsV2 from Container and BrowsePaths aspects.
 
@@ -248,7 +248,9 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=_prepend_platform_instance(path, platform_key)
+                        path=_prepend_platform_instance(
+                            path, platform, platform_instance
+                        )
                     ),
                 ).as_workunit()
         elif urn not in emitted_urns and guess_entity_type(urn) == "container":
@@ -258,16 +260,14 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=_prepend_platform_instance([], platform_key)
+                        path=_prepend_platform_instance([], platform, platform_instance)
                     ),
                 ).as_workunit()
 
     if num_out_of_batch or num_out_of_order:
         properties = {
-            "platform": platform_key.platform if platform_key else None,
-            "has_platform_instance": bool(platform_key.instance)
-            if platform_key
-            else False,
+            "platform": platform,
+            "has_platform_instance": bool(platform_instance),
             "num_out_of_batch": num_out_of_batch,
             "num_out_of_order": num_out_of_order,
         }
@@ -293,12 +293,12 @@ def _batch_workunits_by_urn(
 
 
 def _prepend_platform_instance(
-    entries: List[BrowsePathEntryClass], platform_key: Optional[PlatformKey]
+    entries: List[BrowsePathEntryClass],
+    platform: Optional[str],
+    platform_instance: Optional[str],
 ) -> List[BrowsePathEntryClass]:
-    if platform_key and platform_key.instance:
-        urn = make_dataplatform_instance_urn(
-            platform_key.platform, platform_key.instance
-        )
+    if platform and platform_instance:
+        urn = make_dataplatform_instance_urn(platform, platform_instance)
         return [BrowsePathEntryClass(id=urn, urn=urn)] + entries
 
     return entries

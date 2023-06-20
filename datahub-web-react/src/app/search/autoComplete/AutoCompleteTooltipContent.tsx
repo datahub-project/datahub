@@ -53,7 +53,7 @@ export default function AutoCompleteTooltipContent({ entity }: Props) {
                     }
                     queryCountLast30Days={(entity as Dataset).statsSummary?.queryCountLast30Days}
                     uniqueUserCountLast30Days={(entity as Dataset).statsSummary?.uniqueUserCountLast30Days}
-                    color="" // need to pass in empty color so that tooltip decides the color here
+                    mode="tooltip-content"
                 />
             )}
         </ContentWrapper>

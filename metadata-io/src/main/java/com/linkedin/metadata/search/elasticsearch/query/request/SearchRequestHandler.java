@@ -31,6 +31,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -81,11 +82,11 @@ public class SearchRequestHandler {
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(false);
-
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
   private static final String REMOVED = "removed";
-
   private static final String URN_FILTER = "urn";
+  private static final String[] FIELDS_TO_FETCH = new String[]{"urn", "usageCountLast30Days"};
+  private static final String[] URN_FIELD = new String[]{"urn"};
 
   private final List<EntitySpec> _entitySpecs;
   private final Set<String> _defaultQueryFieldNames;
@@ -106,8 +107,8 @@ public class SearchRequestHandler {
     List<SearchableAnnotation> annotations = getSearchableAnnotations();
     _defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     _filtersToDisplayName = annotations.stream()
-        .filter(SearchableAnnotation::isAddToFilters)
-        .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
+        .flatMap(annotation -> getFacetFieldDisplayNameFromAnnotation(annotation).stream())
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond, mapMerger()));
     _filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
@@ -133,13 +134,6 @@ public class SearchRequestHandler {
         .flatMap(List::stream)
         .map(SearchableFieldSpec::getSearchableAnnotation)
         .collect(Collectors.toList());
-  }
-
-  private Set<String> getFacetFields(List<SearchableAnnotation> annotations) {
-    return annotations.stream()
-        .filter(SearchableAnnotation::isAddToFilters)
-        .map(SearchableAnnotation::getFieldName)
-        .collect(Collectors.toSet());
   }
 
   @VisibleForTesting
@@ -695,4 +689,20 @@ public class SearchRequestHandler {
         .setFilterValues(filterValues);
   }
 
+  private List<Pair<String, String>> getFacetFieldDisplayNameFromAnnotation(
+      @Nonnull final SearchableAnnotation annotation
+  ) {
+    final List<Pair<String, String>> facetsFromAnnotation = new ArrayList<>();
+    // Case 1: Default Keyword field
+    if (annotation.isAddToFilters()) {
+      facetsFromAnnotation.add(Pair.of(annotation.getFieldName(), annotation.getFilterName()));
+    }
+    // Case 2: HasX boolean field
+    if (annotation.isAddHasValuesToFilters() && annotation.getHasValuesFieldName().isPresent()) {
+      facetsFromAnnotation.add(Pair.of(
+          annotation.getHasValuesFieldName().get(), annotation.getHasValuesFilterName()
+      ));
+    }
+    return facetsFromAnnotation;
+  }
 }

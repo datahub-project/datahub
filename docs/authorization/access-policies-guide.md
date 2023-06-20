@@ -193,42 +193,42 @@ scope.
 
 The common Metadata Privileges, which span across entity types, include:
 
-| Common Privileges                | Description                                                                                                                      |
-|----------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| View Entity Page                 | Allow actor to access the entity page for the resource in the UI. If not granted, it will redirect them to an unauthorized page. |
-| Edit Tags                        | Allow actor to add and remove tags to an asset.                                                                                  |
-| Edit Glossary Terms              | Allow actor to add and remove glossary terms to an asset.                                                                        |
-| Edit Owners                      | Allow actor to add and remove owners of an entity.                                                                               |
-| Edit Description                 | Allow actor to edit the description (documentation) of an entity.                                                                |
-| Edit Links                       | Allow actor to edit links associated with an entity.                                                                             |
-| Edit Status                      | Allow actor to edit the status of an entity (soft deleted or not).                                                               |
-| Edit Domain                      | Allow actor to edit the Domain of an entity.                                                                                     |
-| Edit Deprecation                 | Allow actor to edit the Deprecation status of an entity.                                                                         |
-| Edit Assertions                  | Allow actor to add and remove assertions from an entity.                                                                         |
-| Edit All                         | Allow actor to edit any information about an entity. Super user privileges.                                                      |
-| Get Timeline API[^1]             | Allow actor to get the timeline of an entity via API.                                                                            |
-| Get Entity API[^1]               | Allow actor to get an entity via API.                                                                                            |
-| Get Timeseries Aspect API[^1]    | Allow actor to get a timeseries aspect via API.                                                                                  |
-| Get Aspect/Entity Count APIs[^1] | Allow actor to get aspect and entity counts via API.                                                                             |
-| Search API                       | Allow actor to search for entities via API.                                                                                      |
-| Produce Platform Event API       | Allow actor to ingest a platform event via API.                                                                                  |
+| Common Privileges                | Description                                                                                                                                                  |
+|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| View Entity Page                 | Allow actor to access the entity page for the resource in the UI. If not granted, it will redirect them to an unauthorized page.                             |
+| Edit Tags                        | Allow actor to add and remove tags to an asset.                                                                                                              |
+| Edit Glossary Terms              | Allow actor to add and remove glossary terms to an asset.                                                                                                    |
+| Edit Owners                      | Allow actor to add and remove owners of an entity.                                                                                                           |
+| Edit Description                 | Allow actor to edit the description (documentation) of an entity.                                                                                            |
+| Edit Links                       | Allow actor to edit links associated with an entity.                                                                                                         |
+| Edit Status                      | Allow actor to edit the status of an entity (soft deleted or not).                                                                                           |
+| Edit Domain                      | Allow actor to edit the Domain of an entity.                                                                                                                 |
+| Edit Deprecation                 | Allow actor to edit the Deprecation status of an entity.                                                                                                     |
+| Edit Assertions                  | Allow actor to add and remove assertions from an entity.                                                                                                     |
+| Edit All                         | Allow actor to edit any information about an entity. Super user privileges. Controls the ability to ingest using API when REST API Authorization is enabled. |
+| Get Timeline API[^1]             | Allow actor to get the timeline of an entity via API.                                                                                                        |
+| Get Entity API[^1]               | Allow actor to get an entity via API.                                                                                                                        |
+| Get Timeseries Aspect API[^1]    | Allow actor to get a timeseries aspect via API.                                                                                                              |
+| Get Aspect/Entity Count APIs[^1] | Allow actor to get aspect and entity counts via API.                                                                                                         |
+| Search API                       | Allow actor to search for entities via API.                                                                                                                  |
+| Produce Platform Event API       | Allow actor to ingest a platform event via API.                                                                                                              |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 
 **Specific Metadata Privileges** include
 
-| Entity       | Privilege                          | Description                                                                                                                                                                |
-|--------------|------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Dataset      | Edit Dataset Column Tags           | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                              |
-| Dataset      | Edit Dataset Column Glossary Terms | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                    |
-| Dataset      | Edit Dataset Column Descriptions   | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                      |
-| Dataset      | Edit Dataset Queries               | Allow actor to edit the Highlighted Queries on the Queries tab of the dataset.                                                                                             |
-| Dataset      | View Dataset Usage                 | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This includes example queries, number of queries, etc.                         |
-| Dataset      | View Dataset Profile               | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This   includes snapshot statistics like #rows, #columns, null percentage per field, etc. |
-| Tag          | Edit Tag Color                     | Allow actor to change the color of a Tag.                                                                                                                                  |
-| Group        | Edit Group Members                 | Allow actor to add and remove members to a group.                                                                                                                          |
-| User         | Edit User Profile                  | Allow actor to change the user's profile including display name, bio, title, profile image, etc.                                                                           |
-| User + Group | Edit Contact Information           | Allow actor to change the contact information such as email & chat handles.                                                                                                |
+| Entity       | Privilege                          | Description                                                                                                                                                                                                          |
+|--------------|------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Dataset      | Edit Dataset Column Tags           | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                                                        |
+| Dataset      | Edit Dataset Column Glossary Terms | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                                                              |
+| Dataset      | Edit Dataset Column Descriptions   | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                                                                |
+| Dataset      | Edit Dataset Queries               | Allow actor to edit the Highlighted Queries on the Queries tab of the dataset.                                                                                                                                       |
+| Dataset      | View Dataset Usage                 | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This includes example queries, number of queries, etc. Also applies to REST APIs when REST API Authorization is enabled. |
+| Dataset      | View Dataset Profile               | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This includes snapshot statistics like #rows, #columns, null percentage per field, etc.                                             |
+| Tag          | Edit Tag Color                     | Allow actor to change the color of a Tag.                                                                                                                                                                            |
+| Group        | Edit Group Members                 | Allow actor to add and remove members to a group.                                                                                                                                                                    |
+| User         | Edit User Profile                  | Allow actor to change the user's profile including display name, bio, title, profile image, etc.                                                                                                                     |
+| User + Group | Edit Contact Information           | Allow actor to change the contact information such as email & chat handles.                                                                                                                                          |
 
 > **Still have questions about Privileges?** Let us know in [Slack](https://slack.datahubproject.io)!
 
@@ -304,6 +304,9 @@ when they are bootstrapping with DataHub. This way, those setting up DataHub can
 Note that these Privileges *can* and likely *should* be changed inside the **Policies** page before onboarding
 your company's users.
 
+### REST API Authorization
+
+Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZATION` is set to `true` for GMS. Some policies only apply when this setting is enabled, marked above, and other Metadata and Platform policies apply to the APIs where relevant, also specified in the table above.
 
 ## Additional Resources
 

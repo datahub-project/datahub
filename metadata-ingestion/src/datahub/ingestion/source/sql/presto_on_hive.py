@@ -297,7 +297,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self.config: PrestoOnHiveConfig = config
         self._alchemy_client = SQLAlchemyClient(config)
         self.database_container_subtype = (
-            DatasetContainerSubTypes.PRESTO_CATALOG
+            DatasetContainerSubTypes.CATALOG
             if config.use_catalog_subtype
             else DatasetContainerSubTypes.DATABASE
         )

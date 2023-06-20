@@ -7,12 +7,14 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.ebean.EbeanServer;
@@ -46,7 +48,11 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(server);
     _aspectDao.setConnectionValidated(true);
-    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true);
+    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(true);
+    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true,
+        _mockUpdateIndicesService, preProcessHooks);
     _retentionService = new EbeanRetentionService(_entityService, server, 1000);
     _entityService.setRetentionService(_retentionService);
   }
