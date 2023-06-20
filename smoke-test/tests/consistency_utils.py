@@ -1,8 +1,15 @@
 import time
+import os
 import subprocess
+
 _ELASTIC_BUFFER_WRITES_TIME_IN_SEC: int = 1
+USE_STATIC_SLEEP: bool = bool(os.getenv("USE_STATIC_SLEEP", False))
+ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 5))
 
 def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
+    if USE_STATIC_SLEEP:
+        time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+        return
     start_time = time.time()
     # get offsets
     lag_zero = False
