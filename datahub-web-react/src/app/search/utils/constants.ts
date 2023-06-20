@@ -90,6 +90,7 @@ export const FIELD_TO_LABEL = {
     typeNames: 'Sub Type',
     origin: 'Environment',
     degree: 'Degree',
+    [BROWSE_PATH_V2_FILTER_NAME]: 'Browse',
 };
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = [

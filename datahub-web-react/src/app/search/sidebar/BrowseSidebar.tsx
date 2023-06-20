@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import EntityNode from './EntityNode';
 import { BrowseProvider } from './BrowseContext';
 import useAggregationsQuery from './useAggregationsQuery';
@@ -14,7 +13,7 @@ const Sidebar = styled.div<{ visible: boolean; width: number }>`
     width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
-    background-color: ${ANTD_GRAY[2]};
+    background-color: #f8f9fa;
 `;
 
 const SidebarHeader = styled.div`

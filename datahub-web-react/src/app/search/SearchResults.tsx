@@ -19,7 +19,6 @@ import { generateOrFilters } from './utils/generateOrFilters';
 import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
 import { useUserContext } from '../context/useUserContext';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 import { SidebarProvider } from './sidebar/SidebarContext';
@@ -54,7 +53,7 @@ const ResultContainer = styled.div<{ displayUpdatedStyles: boolean }>`
     ${(props) =>
         props.displayUpdatedStyles
             ? `
-        background-color: ${ANTD_GRAY[2]};
+        background-color: #F8F9FA;
     `
             : `
         max-width: calc(100% - 260px);
@@ -206,17 +205,17 @@ export const SearchResults = ({
                                     </b>{' '}
                                     of <b>{totalResults}</b> results
                                 </Typography.Text>
-                                <SearchMenuContainer>
-                                    <SearchExtendedMenu
-                                        downloadSearchResults={downloadSearchResults}
-                                        filters={generateOrFilters(unionType, selectedFilters)}
-                                        query={query}
-                                        viewUrn={viewUrn}
-                                        setShowSelectMode={setIsSelectMode}
-                                        totalResults={totalResults}
-                                    />
-                                </SearchMenuContainer>
                             </LeftControlsContainer>
+                            <SearchMenuContainer>
+                                <SearchExtendedMenu
+                                    downloadSearchResults={downloadSearchResults}
+                                    filters={generateOrFilters(unionType, selectedFilters)}
+                                    query={query}
+                                    viewUrn={viewUrn}
+                                    setShowSelectMode={setIsSelectMode}
+                                    totalResults={totalResults}
+                                />
+                            </SearchMenuContainer>
                         </PaginationInfoContainer>
                         {isSelectMode && (
                             <StyledTabToolbar>

@@ -72,7 +72,7 @@ const PlatformNode = () => {
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
             header={
-                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader}>
+                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader} style={{ paddingTop: 8 }}>
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen && !isClosing}
