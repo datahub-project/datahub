@@ -247,17 +247,6 @@ class SnowflakeLineageExtractor(
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
-            if self.report.edition == SnowflakeEdition.STANDARD:
-                logger.info(
-                    "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
-                )  # See Edition Note above for why
-            else:
-                self._populate_external_lineage_from_access_history(discovered_tables)
-                logger.info(
-                    "Done populating external lineage from access history."
-                    f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
-                )
-
             self._populate_external_lineage_from_copy_history(discovered_tables)
             logger.info(
                 "Done populating external lineage from copy history."
@@ -298,35 +287,9 @@ class SnowflakeLineageExtractor(
                 f"Populating external table lineage from Snowflake failed due to error {e}.",
             )
 
-    # Handles the case where a table is populated from an external location via copy.
-    # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-    # TODO: Remove this. The method _populate_external_lineage_from_copy_history covers this already.
-    def _populate_external_lineage_from_access_history(
-        self, discovered_tables: List[str]
-    ) -> None:
-        query: str = SnowflakeQuery.external_table_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
-        )
-
-        try:
-            for db_row in self.query(query):
-                self._process_external_lineage_result_row(db_row, discovered_tables)
-        except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                error_msg = "Failed to get external lineage. Please grant imported privileges on SNOWFLAKE database. "
-                self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_warning(
-                    "external_lineage",
-                    f"Populating table external lineage from Snowflake failed due to error {e}.",
-                )
-
-    # Handles the case where a table is populated from an external stage via copy.
+    # Handles the case where a table is populated from an external stage/s3 location via copy.
     # Eg: copy into category_english from @external_s3_stage;
+    # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
     # NOTE: Snowflake does not log this information to the access_history table.
     def _populate_external_lineage_from_copy_history(
         self, discovered_tables: List[str]
