@@ -10965,9 +10965,9 @@ Input required for getting index sizes
 """
 input GetIndexSizesInput {
     """
-    A list placeholder argument
+    Optional input to specify indices to list
     """
-    indices: [Int!]!
+    indices: [String!]
 }
 
 """
