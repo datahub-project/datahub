@@ -22,15 +22,15 @@ public class GetIndexSizesResolver implements DataFetcher<CompletableFuture<GetI
   @Override
   public CompletableFuture<GetIndexSizesResult> get(DataFetchingEnvironment environment) throws Exception {
     return CompletableFuture.supplyAsync(() -> {
-          List<TimeseriesIndexSizeResult> res = _timeseriesAspectService.getIndexSizes();
-          return mapResult(res);
-        }
-    );
+      // TODO(indy): Implement listing specific indices using indices input parameter
+      List<TimeseriesIndexSizeResult> res = _timeseriesAspectService.getIndexSizes();
+      return mapResult(res);
+    });
   }
 
-  private GetIndexSizesResult mapResult (List<TimeseriesIndexSizeResult> indexSizeResults) {
+  private GetIndexSizesResult mapResult(List<TimeseriesIndexSizeResult> indexSizeResults) {
     return new GetIndexSizesResult(
-        indexSizeResults.stream().map( result -> new IndexSizeResult(
+        indexSizeResults.stream().map(result -> new IndexSizeResult(
                 result.getIndexName(), result.getEntityName(), result.getAspectName(), result.getSizeMb())
             ).collect(Collectors.toList()));
   }
