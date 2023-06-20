@@ -71,10 +71,6 @@ class SnowflakeV2Config(
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
     _provision_role_removed = pydantic_removed_field("provision_role")
 
-    # FIXME: This validator already exists in one of the parent classes, but for some reason it
-    # does not have any effect there. As such, we have to re-add it here.
-    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
-
     extract_tags: TagOption = Field(
         default=TagOption.skip,
         description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
