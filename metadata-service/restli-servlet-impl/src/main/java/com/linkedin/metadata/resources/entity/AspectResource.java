@@ -7,6 +7,8 @@ import com.datahub.authorization.ResourceSpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
+import com.linkedin.timeseries.TimeseriesIndexSizeResultArray;
+import com.linkedin.timeseries.TimeseriesIndicesSizesResult;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -41,6 +43,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -65,6 +68,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String ACTION_INGEST_PROPOSAL = "ingestProposal";
   private static final String ACTION_GET_COUNT = "getCount";
   private static final String ACTION_RESTORE_INDICES = "restoreIndices";
+  private static final String ACTION_GET_INDEX_SIZES = "getIndexSizes";
 
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ASPECT = "aspect";
@@ -257,6 +261,23 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       result.put("result", _entityService.restoreIndices(args, log::info));
       return result.toString();
     }, MetricRegistry.name(this.getClass(), "restoreIndices"));
+  }
+
+  @Action(name = ACTION_GET_INDEX_SIZES)
+  @Nonnull
+  @WithSpan
+  public Task<TimeseriesIndicesSizesResult> getIndexSizes() {
+    return RestliUtil.toTask(() -> {
+      Authentication authentication = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE),
+          List.of(java.util.Optional.empty()))) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get index sizes.");
+      }
+      TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
+      result.setIndexSizes(new TimeseriesIndexSizeResultArray(_timeseriesAspectService.getIndexSizes()));
+      return result;
+    }, MetricRegistry.name(this.getClass(), "getIndexSizes"));
   }
 
   private static void tryIndexRunId(final Urn urn, final @Nullable SystemMetadata systemMetadata,
