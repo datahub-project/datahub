@@ -10,11 +10,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
-import com.linkedin.restli.server.annotations.ActionParam;
-import com.linkedin.restli.server.annotations.Optional;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -23,12 +20,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
 
 @Slf4j
 public class Utils {
+
+  private Utils() { }
   public static String restoreIndices(
       @Nonnull String aspectName,
       @Nullable String urn,
@@ -38,7 +36,6 @@ public class Utils {
       @Nonnull Authorizer authorizer,
       @Nonnull EntityService entityService
   ) {
-
     Authentication authentication = AuthenticationContext.getAuthentication();
     ResourceSpec resourceSpec = null;
     if (StringUtils.isNotBlank(urn)) {
