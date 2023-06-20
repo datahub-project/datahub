@@ -8,17 +8,16 @@ import { EntityType } from '../../types.generated';
 import { LogoCountCard } from '../shared/LogoCountCard';
 import { EventType } from '../analytics/event';
 import analytics from '../analytics';
-import { useAppConfig } from '../useAppConfig';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { ENTITY_SUB_TYPE_FILTER_NAME } from './utils/constants';
+import { useIsBrowseV2 } from './useSearchAndBrowseVersion';
 
 const BrowseEntityCardWrapper = styled.div``;
 
 export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType; count: number }) => {
-    const appConfig = useAppConfig();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { showBrowseV2 } = appConfig.config.featureFlags;
+    const showBrowseV2 = useIsBrowseV2();
     const isGlossaryEntityCard = entityType === EntityType.GlossaryTerm;
     const entityPathName = entityRegistry.getPathName(entityType);
     const url = isGlossaryEntityCard ? PageRoutes.GLOSSARY : `${PageRoutes.BROWSE}/${entityPathName}`;
