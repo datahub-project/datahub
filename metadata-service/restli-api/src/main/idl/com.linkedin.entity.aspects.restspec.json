@@ -35,6 +35,9 @@
       } ],
       "returns" : "int"
     }, {
+      "name" : "getIndexSizes",
+      "returns" : "com.linkedin.timeseries.TimeseriesIndicesSizesResult"
+    }, {
       "name" : "getTimeseriesAspectValues",
       "parameters" : [ {
         "name" : "urn",

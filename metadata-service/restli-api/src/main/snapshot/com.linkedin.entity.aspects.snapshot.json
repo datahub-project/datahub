@@ -3963,7 +3963,43 @@
       "doc" : "A string->string map of custom properties that one might want to attach to an event\n",
       "optional" : true
     } ]
-  }, "com.linkedin.mxe.SystemMetadata", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.mxe.SystemMetadata", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties", {
+    "type" : "record",
+    "name" : "TimeseriesIndexSizeResult",
+    "namespace" : "com.linkedin.timeseries",
+    "doc" : "Encapsulates the response of the getIndexSizes API",
+    "fields" : [ {
+      "name" : "indexName",
+      "type" : "string",
+      "doc" : "Name of the index"
+    }, {
+      "name" : "entityName",
+      "type" : "string",
+      "doc" : "Name of the entity associated with the index"
+    }, {
+      "name" : "aspectName",
+      "type" : "string",
+      "doc" : "Name of the aspect associated with the index"
+    }, {
+      "name" : "sizeMb",
+      "type" : "float",
+      "doc" : "Size",
+      "default" : 0.0
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "TimeseriesIndicesSizesResult",
+    "namespace" : "com.linkedin.timeseries",
+    "doc" : "Encapsulates the response of the getIndexSizes API",
+    "fields" : [ {
+      "name" : "indexSizes",
+      "type" : {
+        "type" : "array",
+        "items" : "TimeseriesIndexSizeResult"
+      },
+      "doc" : "Collection of index sizes for all indices in the result"
+    } ]
+  } ],
   "schema" : {
     "name" : "aspects",
     "namespace" : "com.linkedin.entity",
@@ -4000,6 +4036,9 @@
           "optional" : true
         } ],
         "returns" : "int"
+      }, {
+        "name" : "getIndexSizes",
+        "returns" : "com.linkedin.timeseries.TimeseriesIndicesSizesResult"
       }, {
         "name" : "getTimeseriesAspectValues",
         "parameters" : [ {
