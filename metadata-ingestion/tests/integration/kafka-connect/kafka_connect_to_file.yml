@@ -16,6 +16,9 @@ source:
       - provider: env
         path_key: POSTGRES_CONNECTION_URL
         value: jdbc:postgresql://test_postgres:5432/postgres
+      - provider: env
+        path_key: S3_ENDPOINT_URL
+        value: http://s3mock:9090
     convert_lineage_urns_to_lowercase: true
     platform_instance_map:   # optional
       mysql: mysql1      # optional
