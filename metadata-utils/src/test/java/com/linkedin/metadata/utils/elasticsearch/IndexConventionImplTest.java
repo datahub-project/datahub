@@ -47,7 +47,8 @@ public class IndexConventionImplTest {
         Pair.of(entityName, aspectName)));
     assertEquals(indexConventionNoPrefix.getEntityAndAspectName("totally not an index"), Optional.empty());
     assertEquals(indexConventionNoPrefix.getEntityAndAspectName("dataset_v2"), Optional.empty());
-    assertEquals(indexConventionNoPrefix.getEntityAndAspectName("dashboard_dashboardusagestatisticsaspect_v1"), Optional.of(Pair.of("dashboard", "dashboardusagestatistics")));
+    assertEquals(indexConventionNoPrefix.getEntityAndAspectName("dashboard_dashboardusagestatisticsaspect_v1"),
+        Optional.of(Pair.of("dashboard", "dashboardusagestatistics")));
   }
 
   @Test
