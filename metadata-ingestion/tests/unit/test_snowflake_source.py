@@ -648,3 +648,15 @@ def test_snowflake_query_create_deny_regex_sql():
         create_deny_regex_sql_filter(DEFAULT_TABLES_DENY_LIST, ["upstream_table_name"])
         == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
     )
+
+
+def test_snowflake_temporary_patterns_config_rename():
+    conf = SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "username": "user",
+            "password": "password",
+            "upstreams_deny_pattern": [".*tmp.*"],
+        }
+    )
+    assert conf.temporary_tables_pattern == [".*tmp.*"]
