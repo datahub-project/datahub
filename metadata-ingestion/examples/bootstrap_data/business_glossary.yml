@@ -68,6 +68,8 @@ nodes:
   - name: Housing
     description: Provides terms related to the housing domain
     owners:
+      users:
+        - mjames
       groups:
         - interior
     nodes:
@@ -117,3 +119,31 @@ nodes:
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Spoon"
             label: Wiki link
+
+      - name: Silverware
+        description: an implement used for eating, stirring, and serving food.
+        id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d2b4"
+        owners:
+        users:
+          - mjames
+        groups:
+          - interior
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://www.google.com"
+        inherits:
+          - Housing.Kitchen
+        contains:
+          - Housing.Kitchen.Spoon
+          - Housing.Kitchen.Fork
+          - Housing.Kitchen.Knife
+        values:
+          - Housing.Material.Silver
+        related_terms:
+          - Housing.Kitchen.Cutlery
+        custom_properties:
+          - is_confidential: false
+        knowledge_links:
+          - url: "https://en.wikipedia.org/wiki/Silverware"
+            label: Wiki link
+        domain: "urn:li:domain:Design"
