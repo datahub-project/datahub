@@ -45,6 +45,8 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -54,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,6 +71,8 @@ import static com.linkedin.metadata.search.utils.SearchUtils.*;
 @Slf4j
 @RequiredArgsConstructor
 public class JavaEntityClient implements EntityClient {
+    private static final int DEFAULT_RETRY_INTERVAL = 2;
+    private static final int DEFAULT_RETRY_COUNT = 3;
 
     private final Clock _clock = Clock.systemUTC();
 
@@ -449,7 +454,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
         throws RemoteInvocationException {
-        _deleteEntityService.deleteReferencesTo(urn, false);
+        withRetry(() -> _deleteEntityService.deleteReferencesTo(urn, false));
     }
 
     @Nonnull
@@ -569,5 +574,31 @@ public class JavaEntityClient implements EntityClient {
         if (systemMetadata != null && systemMetadata.hasRunId()) {
             _entitySearchService.appendRunId(entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
         }
+    }
+
+    private <T> T withRetry(@Nonnull final Supplier<T> block) {
+        final BackoffPolicy backoffPolicy = new ExponentialBackoff(DEFAULT_RETRY_INTERVAL);
+        final int finalAttempt = DEFAULT_RETRY_COUNT - 1;
+        int attempt = 0;
+
+        while (attempt <= finalAttempt) {
+            try {
+                return block.get();
+            } catch (Exception e) {
+                if (attempt == finalAttempt) {
+                    throw e;
+                } else {
+                    attempt = attempt + 1;
+                    try {
+                        Thread.sleep(backoffPolicy.nextBackoff(attempt, e) * 1000);
+                    } catch (InterruptedException interruptedException) {
+                        throw new RuntimeException(interruptedException);
+                    }
+                }
+            }
+        }
+
+        // Should never hit this line.
+        throw new RuntimeException("Failed to execute entity client request!");
     }
 }
