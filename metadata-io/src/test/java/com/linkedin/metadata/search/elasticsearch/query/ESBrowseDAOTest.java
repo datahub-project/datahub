@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.ESTestConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.net.URISyntaxException;
@@ -13,6 +16,9 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -22,15 +28,26 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
-
-public class ESBrowseDAOTest {
+@Import(ESTestConfiguration.class)
+public class ESBrowseDAOTest extends AbstractTestNGSpringContextTests {
   private RestHighLevelClient _mockClient;
   private ESBrowseDAO _browseDAO;
+
+  @Autowired
+  private SearchConfiguration _searchConfiguration;
+  @Autowired
+  private CustomSearchConfiguration _customSearchConfiguration;
 
   @BeforeMethod
   public void setup() {
     _mockClient = mock(RestHighLevelClient.class);
-    _browseDAO = new ESBrowseDAO(new TestEntityRegistry(), _mockClient, new IndexConventionImpl("es_browse_dao_test"));
+    _browseDAO = new ESBrowseDAO(
+        new TestEntityRegistry(),
+        _mockClient,
+        new IndexConventionImpl("es_browse_dao_test"),
+        _searchConfiguration,
+        _customSearchConfiguration
+    );
   }
 
   public static Urn makeUrn(Object id) {
