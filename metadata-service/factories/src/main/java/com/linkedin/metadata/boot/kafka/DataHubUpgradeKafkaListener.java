@@ -108,6 +108,10 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   }
 
   public void waitForUpdate() {
+    if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+      log.warn("Wait for system update is disabled. Proceeding with startup.");
+      return;
+    }
     int maxBackOffs = Integer.parseInt(_configurationProvider.getSystemUpdate().getMaxBackOffs());
     long initialBackOffMs = Long.parseLong(_configurationProvider.getSystemUpdate().getInitialBackOffMs());
     int backOffFactor = Integer.parseInt(_configurationProvider.getSystemUpdate().getBackOffFactor());
