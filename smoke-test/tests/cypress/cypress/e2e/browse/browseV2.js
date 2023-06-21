@@ -166,7 +166,7 @@ describe("search", () => {
     );
     cy.url().should(
       "include",
-      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Furn%3Ali%3Acontainer%3Ab5e95fce839e7d78151ed7e0a7420d84%E2%90%9Furn%3Ali%3Acontainer%3A348c96555971d3f5c1ffd7dd2e7446cb"
+      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Fcypress_project%E2%90%9Fjaffle_shop"
     );
 
     cy.get("[data-testid=browse-node-jaffle_shop]").click({ force: true });
@@ -181,7 +181,7 @@ describe("search", () => {
     );
     cy.url().should(
       "not.include",
-      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Furn%3Ali%3Acontainer%3Ab5e95fce839e7d78151ed7e0a7420d84%E2%90%9Furn%3Ali%3Acontainer%3A348c96555971d3f5c1ffd7dd2e7446cb"
+      "filter_browsePathV2___false___EQUAL___2=%E2%90%9Fcypress_project%E2%90%9Fjaffle_shop"
     );
   });
 });
