@@ -25,6 +25,7 @@ services:
     - DATAHUB_ANALYTICS_ENABLED=${DATAHUB_ANALYTICS_ENABLED:-true}
     volumes:
     - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
+    - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
   datahub-gms:
     image: linkedin/datahub-gms:debug
     ports:
