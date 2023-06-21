@@ -57,7 +57,8 @@ public class AspectUtilsTest {
     proposal1.setChangeType(ChangeType.PATCH);
 
     List<MetadataChangeProposal> proposalList = AspectUtils.getAdditionalChanges(proposal1, entityService);
-    Assert.assertEquals(proposalList.size(), 3);
+    // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
+    Assert.assertEquals(proposalList.size(), 4);
     Assert.assertEquals(proposalList.get(0).getChangeType(), ChangeType.UPSERT);
   }
 }

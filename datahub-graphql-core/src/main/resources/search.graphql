@@ -60,6 +60,13 @@ extend type Query {
   List Data Product assets for a given urn
   """
   listDataProductAssets(urn: String!, input: SearchAcrossEntitiesInput!): SearchResults
+  
+  """
+  Browse for different entities by getting organizational groups and their
+  aggregated counts + content. Uses browsePathsV2 aspect and replaces our old
+  browse endpoint.
+  """
+  browseV2(input: BrowseV2Input!): BrowseResultsV2
 }
 
 """
@@ -964,6 +971,29 @@ type BrowsePath {
 }
 
 """
+A hierarchical entity path V2
+"""
+type BrowsePathV2 {
+  """
+  The components of the browse path
+  """
+  path: [BrowsePathEntry!]!
+}
+
+type BrowsePathEntry {
+  """
+  The path name of a group of browse results
+  """
+  name: String!
+
+  """
+  An optional entity associated with this browse entry. This will usually be a container entity.
+  If this entity is not populated, the name must be used.
+  """
+  entity: Entity
+}
+
+"""
 A set of filter criteria
 """
 input FilterInput {
@@ -1069,4 +1099,100 @@ type SystemFreshness {
   In case an index was consulted, this reflects the freshness of the index
   """
   freshnessMillis: Long!
+}
+
+"""
+Input required for browse queries
+"""
+input BrowseV2Input {
+  """
+  The browse entity type
+  """
+  type: EntityType!
+
+  """
+  The browse path V2 - a list with each entry being part of the browse path V2
+  """
+  path: [String!]
+
+  """
+  The starting point of paginated results
+  """
+  start: Int
+
+  """
+  The number of elements included in the results
+  """
+  count: Int
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+
+  """
+  The search query string
+  """
+  query: String
+}
+
+"""
+The results of a browse path V2 traversal query
+"""
+type BrowseResultsV2 {
+  """
+  The groups present at the provided browse path V2
+  """
+  groups: [BrowseResultGroupV2!]!
+
+  """
+  The starting point of paginated results
+  """
+  start: Int!
+
+  """
+  The number of groups included in the results
+  """
+  count: Int!
+
+  """
+  The total number of browse groups under the path with filters applied
+  """
+  total: Int!
+
+  """
+  Metadata containing resulting browse groups
+  """
+  metadata: BrowseResultMetadata!
+}
+
+"""
+A group of Entities under a given browse path
+"""
+type BrowseResultGroupV2 {
+  """
+  The path name of a group of browse results
+  """
+  name: String!
+
+  """
+  An optional entity associated with this browse group. This will usually be a container entity.
+  If this entity is not populated, the name must be used.
+  """
+  entity: Entity
+
+  """
+  The number of entities within the group
+  """
+  count: Long!
+
+  """
+  Whether or not there are any more groups underneath this group
+  """
+  hasSubGroups: Boolean!
 }
