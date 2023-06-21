@@ -91,8 +91,8 @@ def test_okta_config():
     assert config.ingest_users is True
     assert config.ingest_groups is True
     assert config.ingest_group_membership is True
-    assert config.okta_profile_to_username_attr == "login"
-    assert config.okta_profile_to_username_regex == "([^@]+)"
+    assert config.okta_profile_to_username_attr == "email"
+    assert config.okta_profile_to_username_regex == "(.*)"
     assert config.okta_profile_to_group_name_attr == "name"
     assert config.okta_profile_to_group_name_regex == "(.*)"
     assert config.include_deprovisioned_users is False
