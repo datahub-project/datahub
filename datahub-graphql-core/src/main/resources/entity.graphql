@@ -7965,8 +7965,14 @@ type ActorFilter {
   """
   resourceOwners: Boolean!
 
-  resourceOwnersTypesUrns: [String!]
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
 
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True), resolved.
+  """
   resolvedOwnershipTypes: [OwnershipTypeEntity!]
 
   """
@@ -8097,7 +8103,10 @@ input ActorFilterInput {
   """
   resourceOwners: Boolean!
 
-  resourceOwnersTypesUrns: [String!]
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
 
   """
   Whether the filter should apply to all users

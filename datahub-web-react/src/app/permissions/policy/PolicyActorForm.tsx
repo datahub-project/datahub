@@ -66,25 +66,23 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         setActors({
             ...actors,
             resourceOwners: value,
-            resourceOwnersTypesUrns: value ? actors.resourceOwnersTypesUrns : null,
+            resourceOwnersTypes: value ? actors.resourceOwnersTypes : null,
         });
     };
 
     const onSelectOwnershipTypeActor = (newType: string) => {
-        const newResourceOwnersTypesUrns: Maybe<string[]> = [...(actors.resourceOwnersTypesUrns || []), newType];
+        const newResourceOwnersTypes: Maybe<string[]> = [...(actors.resourceOwnersTypes || []), newType];
         setActors({
             ...actors,
-            resourceOwnersTypesUrns: newResourceOwnersTypesUrns,
+            resourceOwnersTypes: newResourceOwnersTypes,
         });
     };
 
     const onDeselectOwnershipTypeActor = (type: string) => {
-        const newResourceOwnersTypesUrns: Maybe<string[]> = actors.resourceOwnersTypesUrns?.filter(
-            (u: string) => u !== type,
-        );
+        const newResourceOwnersTypes: Maybe<string[]> = actors.resourceOwnersTypes?.filter((u: string) => u !== type);
         setActors({
             ...actors,
-            resourceOwnersTypesUrns: newResourceOwnersTypesUrns?.length ? newResourceOwnersTypesUrns : null,
+            resourceOwnersTypes: newResourceOwnersTypes?.length ? newResourceOwnersTypes : null,
         });
     };
 
@@ -208,7 +206,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Select dropdown values.
     const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
-    const ownershipTypesSelectValue = actors.resourceOwnersTypesUrns || [];
+    const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types

@@ -1624,7 +1624,7 @@ public class GmsGraphQLEngine {
             return filter.getRoles();
         })).dataFetcher("resolvedOwnershipTypes", new LoadableTypeBatchResolver<>(ownershipType, (env) -> {
             final ActorFilter filter = env.getSource();
-            return filter.getResourceOwnersTypesUrns();
+            return filter.getResourceOwnersTypes();
         })));
     }
 

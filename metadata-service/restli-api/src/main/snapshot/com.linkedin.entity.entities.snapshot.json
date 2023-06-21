@@ -5251,12 +5251,12 @@
                         "doc" : "Whether the filter should return true for owners of a particular resource.\nOnly applies to policies of type 'Metadata', which have a resource associated with them.",
                         "default" : false
                       }, {
-                        "name" : "resourceOwnersTypesUrns",
+                        "name" : "resourceOwnersTypes",
                         "type" : {
                           "type" : "array",
                           "items" : "com.linkedin.common.Urn"
                         },
-                        "doc" : "Define type of ownership for policy",
+                        "doc" : "Define type of ownership for the policy",
                         "optional" : true
                       }, {
                         "name" : "allUsers",

@@ -25,9 +25,9 @@ record DataHubActorFilter {
   resourceOwners: boolean = false
 
   /**
-   * Define type of ownership for policy
+   * Define type of ownership for the policy
   */
-  resourceOwnersTypesUrns: optional array[Urn]
+  resourceOwnersTypes: optional array[Urn]
 
   /**
    * Whether the filter should apply to all users.

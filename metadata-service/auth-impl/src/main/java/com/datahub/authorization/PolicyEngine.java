@@ -312,11 +312,11 @@ public class PolicyEngine {
     if (!actorFilter.isResourceOwners() || !requestResource.isPresent()) {
       return false;
     }
-    List<Urn> ownershipTypesUrns = actorFilter.getResourceOwnersTypesUrns();
-    return isActorOwner(actor, requestResource.get(), ownershipTypesUrns, context);
+    List<Urn> ownershipTypes = actorFilter.getResourceOwnersTypes();
+    return isActorOwner(actor, requestResource.get(), ownershipTypes, context);
   }
 
-  private Set<String> getOwnersForType(ResourceSpec resourceSpec, List<Urn> ownershipTypesUrns) {
+  private Set<String> getOwnersForType(ResourceSpec resourceSpec, List<Urn> ownershipTypes) {
     Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
     EnvelopedAspect ownershipAspect;
     try {
@@ -332,14 +332,14 @@ public class PolicyEngine {
     }
     Ownership ownership = new Ownership(ownershipAspect.getValue().data());
     Stream<Owner> ownersStream = ownership.getOwners().stream();
-    if (ownershipTypesUrns != null) {
-      ownersStream = ownersStream.filter(owner -> ownershipTypesUrns.contains(owner.getTypeUrn()));
+    if (ownershipTypes != null) {
+      ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
     }
     return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
   }
 
-  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, List<Urn> ownershipTypesUrns, PolicyEvaluationContext context) {
-    Set<String> owners = this.getOwnersForType(resourceSpec.getSpec(), ownershipTypesUrns);
+  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, List<Urn> ownershipTypes, PolicyEvaluationContext context) {
+    Set<String> owners = this.getOwnersForType(resourceSpec.getSpec(), ownershipTypes);
     if (isUserOwner(actor, owners)) {
       return true;
     }
