@@ -1680,7 +1680,7 @@ public class EntityService {
    * @param urns the list of urns of the entities to check
    * @return a set of urns of entities that exist.
    */
-  public Set<Urn> exists(List<Urn> urns) {
+  public Set<Urn> exists(@Nonnull final List<Urn> urns) {
     final List<EntityAspectIdentifier> dbKeys = urns.stream()
         .map(urn -> getEntityAspectNames(urn).stream()
             .map(aspectName -> new EntityAspectIdentifier(urn.toString(), aspectName,
