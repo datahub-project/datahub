@@ -271,7 +271,7 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     required=False,
     default=3000,
     type=int,
-    help="Batch size when querying for entities to delete. "
+    help="Batch size when querying for entities to delete."
     "Maximum 10000. Large batch sizes may cause timeouts.",
 )
 @click.option(
