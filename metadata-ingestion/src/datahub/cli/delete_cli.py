@@ -221,7 +221,6 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     type=str,
     help="The aspect to delete for specified entity(s)",
 )
-@click.option("--aspect-name", required=False, hidden=True, type=str)
 @click.option(
     "-f",
     "--force",
