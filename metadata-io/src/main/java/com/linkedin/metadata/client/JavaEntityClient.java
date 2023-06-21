@@ -579,7 +579,7 @@ public class JavaEntityClient implements EntityClient {
         }
     }
 
-    private <T> T withRetry(@Nonnull final Supplier<T> block) {
+    protected <T> T withRetry(@Nonnull final Supplier<T> block) {
         final BackoffPolicy backoffPolicy = new ExponentialBackoff(DEFAULT_RETRY_INTERVAL);
         int attemptCount = 0;
 
