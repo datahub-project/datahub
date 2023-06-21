@@ -10,13 +10,10 @@ import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,6 +25,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -53,12 +52,13 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
         final Optional<String> ingestionSourceUrn = Optional.ofNullable(environment.getArgument("urn"));
         final UpdateIngestionSourceInput input = bindArgument(environment.getArgument("input"), UpdateIngestionSourceInput.class);
 
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-
+        // Create the policy info.
+        final DataHubIngestionSourceInfo info = mapIngestionSourceInfo(input);
+        final MetadataChangeProposal proposal;
         if (ingestionSourceUrn.isPresent()) {
           // Update existing ingestion source
           try {
-            proposal.setEntityUrn(Urn.createFromString(ingestionSourceUrn.get()));
+            proposal = buildMetadataChangeProposalWithUrn(Urn.createFromString(ingestionSourceUrn.get()), INGESTION_INFO_ASPECT_NAME, info);
           } catch (URISyntaxException e) {
             throw new DataHubGraphQLException(
                 String.format("Malformed urn %s provided.", ingestionSourceUrn.get()),
@@ -69,22 +69,13 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
           // Since we are creating a new Ingestion Source, we need to generate a unique UUID.
           final UUID uuid = UUID.randomUUID();
           final String uuidStr = uuid.toString();
-
-          // Create the Ingestion source key
           final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
           key.setId(uuidStr);
-          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
+          proposal = buildMetadataChangeProposalWithKey(key, INGESTION_SOURCE_ENTITY_NAME, INGESTION_INFO_ASPECT_NAME, info);
         }
 
-        // Create the policy info.
-        final DataHubIngestionSourceInfo info = mapIngestionSourceInfo(input);
-        proposal.setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME);
-        proposal.setAspectName(Constants.INGESTION_INFO_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(info));
-        proposal.setChangeType(ChangeType.UPSERT);
-
         try {
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform update against ingestion source with urn %s", input.toString()), e);
         }

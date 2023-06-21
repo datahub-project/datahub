@@ -18,10 +18,11 @@ import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { ENTITY_FILTER_NAME } from './utils/constants';
+import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME } from './utils/constants';
 import CustomAvatar from '../shared/avatar/CustomAvatar';
 import { IconStyleType } from '../entity/Entity';
 import { formatNumber } from '../shared/formatNumber';
+import useGetBrowseV2LabelOverride from './filters/useGetBrowseV2LabelOverride';
 
 type Props = {
     field: string;
@@ -44,6 +45,7 @@ const MAX_COUNT_VAL = 10000;
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
 export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const filterLabelOverride = useGetBrowseV2LabelOverride(field, value, entityRegistry);
     const countText = hideCount ? '' : ` (${count === MAX_COUNT_VAL ? '10k+' : formatNumber(count)})`;
 
     if (field === ENTITY_FILTER_NAME) {
@@ -211,6 +213,11 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (field === 'degree') {
         return <>{value}</>;
     }
+
+    if (field === BROWSE_PATH_V2_FILTER_NAME) {
+        return <>{filterLabelOverride || value}</>;
+    }
+
     return (
         <>
             {value}

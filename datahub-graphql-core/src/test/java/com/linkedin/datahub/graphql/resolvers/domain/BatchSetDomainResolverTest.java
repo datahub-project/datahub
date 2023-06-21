@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -21,6 +22,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
 
@@ -70,21 +72,13 @@ public class BatchSetDomainResolverTest {
         Urn.createFromString(TEST_DOMAIN_2_URN)
     )));
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(newDomains));
-    proposal1.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        DOMAINS_ASPECT_NAME, newDomains);
 
     verifyIngestProposal(mockService, 1, proposal1);
 
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(newDomains));
-    proposal2.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        DOMAINS_ASPECT_NAME, newDomains);
 
     verifyIngestProposal(mockService, 1, proposal2);
 
@@ -134,7 +128,8 @@ public class BatchSetDomainResolverTest {
         Urn.createFromString(TEST_DOMAIN_2_URN)
     )));
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        DOMAINS_ASPECT_NAME, newDomains);
     proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
     proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
     proposal1.setAspectName(Constants.DOMAINS_ASPECT_NAME);
@@ -143,12 +138,8 @@ public class BatchSetDomainResolverTest {
 
     verifyIngestProposal(mockService, 1, proposal1);
 
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(newDomains));
-    proposal2.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        DOMAINS_ASPECT_NAME, newDomains);
 
     verifyIngestProposal(mockService, 1, proposal2);
 
@@ -196,21 +187,13 @@ public class BatchSetDomainResolverTest {
 
     final Domains newDomains = new Domains().setDomains(new UrnArray(ImmutableList.of()));
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(newDomains));
-    proposal1.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        DOMAINS_ASPECT_NAME, newDomains);
 
     verifyIngestProposal(mockService, 1, proposal1);
 
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(newDomains));
-    proposal2.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        DOMAINS_ASPECT_NAME, newDomains);
 
     verifyIngestProposal(mockService, 1, proposal2);
   }

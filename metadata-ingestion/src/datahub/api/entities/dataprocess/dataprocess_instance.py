@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union, cast
 
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -128,7 +128,7 @@ class DataProcessInstance:
                 if isinstance(self.template_urn, DataFlowUrn):
                     job_flow_urn = self.template_urn
                     template_object = DataFlow(
-                        cluster=self.template_urn.get_env(),
+                        env=self.template_urn.get_env(),
                         orchestrator=self.template_urn.get_orchestrator_name(),
                         id=self.template_urn.get_flow_id(),
                     )
@@ -326,7 +326,7 @@ class DataProcessInstance:
         dpi = DataProcessInstance(
             id=id,
             orchestrator=dataflow.orchestrator,
-            cluster=dataflow.cluster,
+            cluster=cast(str, dataflow.env),
             template_urn=dataflow.urn,
         )
         dpi._template_object = dataflow
