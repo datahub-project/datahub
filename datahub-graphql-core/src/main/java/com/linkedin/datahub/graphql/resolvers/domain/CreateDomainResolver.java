@@ -12,9 +12,7 @@ import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -28,6 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -60,21 +60,18 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
         key.setId(id);
 
-        if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DOMAIN_ENTITY_NAME), context.getAuthentication())) {
+        if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME), context.getAuthentication())) {
           throw new IllegalArgumentException("This Domain already exists!");
         }
 
         // Create the MCP
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, DOMAIN_ENTITY_NAME,
+            DOMAIN_PROPERTIES_ASPECT_NAME, mapDomainProperties(input, context));
         proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-        proposal.setEntityType(Constants.DOMAIN_ENTITY_NAME);
-        proposal.setAspectName(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input, context)));
-        proposal.setChangeType(ChangeType.UPSERT);
 
-        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType)))) {
+        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
           log.warn("Technical owner does not exist, defaulting to None ownership.");
           ownershipType = OwnershipType.NONE;
         }

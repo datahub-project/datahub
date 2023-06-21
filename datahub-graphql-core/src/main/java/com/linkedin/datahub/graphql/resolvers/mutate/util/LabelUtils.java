@@ -326,7 +326,7 @@ public class LabelUtils {
       tags.setTags(new TagAssociationArray());
     }
     removeTagsIfExists(tags, tagUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), TAGS_ASPECT_NAME, tags, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), TAGS_ASPECT_NAME, tags);
   }
 
   private static MetadataChangeProposal buildRemoveTagsToSubResourceProposal(
@@ -347,7 +347,7 @@ public class LabelUtils {
       editableFieldInfo.setGlobalTags(new GlobalTags());
     }
     removeTagsIfExists(editableFieldInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata);
   }
 
   private static MetadataChangeProposal buildAddTagsToEntityProposal(
@@ -363,7 +363,7 @@ public class LabelUtils {
       tags.setTags(new TagAssociationArray());
     }
     addTagsIfNotExists(tags, tagUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), TAGS_ASPECT_NAME, tags, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), TAGS_ASPECT_NAME, tags);
   }
 
   private static MetadataChangeProposal buildAddTagsToSubResourceProposal(
@@ -382,7 +382,7 @@ public class LabelUtils {
     }
 
     addTagsIfNotExists(editableFieldInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata);
   }
 
   private static void addTagsIfNotExists(GlobalTags tags, List<Urn> tagUrns) throws URISyntaxException {
@@ -457,7 +457,7 @@ public class LabelUtils {
     }
 
     addTermsIfNotExists(terms, termUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), GLOSSARY_TERM_ASPECT_NAME, terms);
   }
 
   private static MetadataChangeProposal buildAddTermsToSubResourceProposal(
@@ -478,7 +478,7 @@ public class LabelUtils {
     editableFieldInfo.getGlossaryTerms().setAuditStamp(getAuditStamp(actor));
 
     addTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), termUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata);
   }
 
   private static MetadataChangeProposal buildRemoveTermsToEntityProposal(
@@ -493,7 +493,7 @@ public class LabelUtils {
     terms.setAuditStamp(getAuditStamp(actor));
 
     removeTermsIfExists(terms, termUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), GLOSSARY_TERM_ASPECT_NAME, terms);
   }
 
   private static MetadataChangeProposal buildRemoveTermsToSubResourceProposal(
@@ -511,7 +511,7 @@ public class LabelUtils {
     }
 
     removeTermsIfExists(editableFieldInfo.getGlossaryTerms(), termUrns);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), EDITABLE_SCHEMA_METADATA, editableSchemaMetadata);
   }
 
   private static void addTermsIfNotExists(GlossaryTerms terms, List<Urn> termUrns)

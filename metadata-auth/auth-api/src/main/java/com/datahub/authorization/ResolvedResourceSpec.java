@@ -6,12 +6,14 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 
 /**
  * Wrapper around authorization request with field resolvers for lazily fetching the field values for each field type
  */
 @RequiredArgsConstructor
+@ToString
 public class ResolvedResourceSpec {
   @Getter
   private final ResourceSpec spec;

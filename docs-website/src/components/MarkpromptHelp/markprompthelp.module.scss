@@ -73,12 +73,14 @@ button {
 
 .MarkpromptOverlay {
   position: fixed;
+  z-index: calc(var(--ifm-z-index-fixed) + 1);
   inset: 0;
   animation: overlayShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
   background-color: var(--markprompt-overlay);
 }
 
 .MarkpromptContent {
+  z-index: calc(var(--ifm-z-index-fixed) + 2);
   background-color: var(--markprompt-muted);
   border-radius: var(--markprompt-radius);
   border: 1px solid var(--markprompt-border);
@@ -89,7 +91,7 @@ button {
   transform: translate(-50%, -50%);
   width: 80vw;
   max-width: 600px;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 100px);
   max-height: 600px;
   animation-name: contentShow;
   animation-duration: 300ms;

@@ -230,7 +230,7 @@ Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to app
 
 ### Elasticsearch Service
 
-Provision an elasticsearch domain running elasticsearch version 7.9 or above that shares the VPC with the kubernetes
+Provision an elasticsearch domain running elasticsearch version 7.10 or above that shares the VPC with the kubernetes
 cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
 be able to see the following page. Take a note of the endpoint marked by the red box.
 

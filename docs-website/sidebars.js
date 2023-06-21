@@ -290,6 +290,11 @@ module.exports = {
             },
             {
               type: "doc",
+              label: "Evaluate Tests",
+              id: "docs/api/restli/evaluate-tests",
+            },
+            {
+              type: "doc",
               label: "Aspect Versioning and Rest.li Modeling",
               id: "docs/advanced/aspect-versioning",
             },
@@ -311,6 +316,7 @@ module.exports = {
         "metadata-integration/java/as-a-library",
         {
           "API and SDK Guides": [
+            "docs/advanced/patch",
             "docs/api/tutorials/datasets",
             "docs/api/tutorials/lineage",
             "docs/api/tutorials/tags",
