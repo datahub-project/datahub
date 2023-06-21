@@ -19,6 +19,7 @@ import useSidebarAnalytics from './useSidebarAnalytics';
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
+    padding-right: 8px;
 `;
 
 const EnvironmentNode = () => {
@@ -64,7 +65,7 @@ const EnvironmentNode = () => {
             }
             body={
                 <ExpandableNode.Body>
-                    {platformAggregations.map((platformAggregation) => (
+                    {platformAggregations?.map((platformAggregation) => (
                         <BrowseProvider
                             key={platformAggregation.value}
                             entityAggregation={entityAggregation}
