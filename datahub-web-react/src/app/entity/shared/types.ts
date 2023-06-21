@@ -34,6 +34,8 @@ import {
     FineGrainedLineage,
     EntityPrivileges,
     Embed,
+    FabricType,
+    BrowsePathV2,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -105,6 +107,8 @@ export type GenericEntityProperties = {
     privileges?: Maybe<EntityPrivileges>;
     embed?: Maybe<Embed>;
     exists?: boolean;
+    origin?: Maybe<FabricType>;
+    browsePathV2?: Maybe<BrowsePathV2>;
 };
 
 export type GenericEntityUpdate = {

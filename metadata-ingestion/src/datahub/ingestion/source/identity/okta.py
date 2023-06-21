@@ -78,7 +78,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User
     # profile. Reference: https://developer.okta.com/docs/reference/api/users/
     okta_profile_to_username_attr: str = Field(
-        default="login",
+        default="email",
         description="Which Okta User Profile attribute to use as input to DataHub username mapping. Common values used are - login, email.",
     )
     okta_profile_to_username_regex: str = Field(
