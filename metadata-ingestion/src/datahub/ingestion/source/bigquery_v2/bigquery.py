@@ -13,6 +13,7 @@ from google.cloud.bigquery.table import TableListItem
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn,
     make_tag_urn,
     set_dataset_urn_to_lower,
@@ -105,6 +106,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
@@ -138,9 +140,9 @@ def cleanup(config: BigQueryV2Config) -> None:
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
-@capability(
+@capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
-    "Not supported since BigQuery project ids are globally unique",
+    "Platform instance is pre-set to the BigQuery project id",
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
@@ -397,6 +399,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 capable=False, failure_reason=f"{e}"
             )
             return test_report
+
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str, project_id: str
+    ) -> MetadataWorkUnit:
+        aspect = DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(self.platform, project_id),
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=aspect
+        ).as_workunit()
 
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
@@ -986,6 +999,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
+        )
+        yield self.get_dataplatform_instance_aspect(
+            dataset_urn=dataset_urn, project_id=project_id
         )
 
         subTypes = SubTypes(typeNames=sub_types)

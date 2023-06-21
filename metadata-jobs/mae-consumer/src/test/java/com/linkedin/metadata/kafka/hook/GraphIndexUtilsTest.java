@@ -12,6 +12,7 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -29,7 +30,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.kafka.hook.GraphIndexUtils.*;
+import static com.linkedin.metadata.graph.GraphIndexUtils.*;
 import static org.testng.Assert.*;
 
 

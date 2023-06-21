@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -190,6 +191,25 @@ public class JavaEntityClient implements EntityClient {
             _cachingEntitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit, null), _entityService);
     }
 
+
+    /**
+     * Gets browse V2 snapshot of a given path
+     *
+     * @param entityName entity being browsed
+     * @param path path being browsed
+     * @param filter browse filter
+     * @param input search query
+     * @param start start offset of first group
+     * @param count max number of results requested
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
+                                   @Nonnull String input, int start, int count, @Nonnull Authentication authentication) {
+        // TODO: cache browseV2 results
+        return _entitySearchService.browseV2(entityName, path, filter, input, start, count);
+    }
+
     @SneakyThrows
     @Deprecated
     public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
@@ -304,17 +324,6 @@ public class JavaEntityClient implements EntityClient {
                 _entitySearchService.search(entity, input, filter, sortCriterion, start, count, searchFlags), _entityService);
     }
 
-    /**
-     * Searches for entities matching to a given query and filters across multiple entity types
-     *
-     * @param entities entity types to search (if empty, searches all entities)
-     * @param input search query
-     * @param filter search filters
-     * @param start start offset for search results
-     * @param count max number of search results requested
-     * @return Snapshot key
-     * @throws RemoteInvocationException
-     */
     @Nonnull
     public SearchResult searchAcrossEntities(
         @Nonnull List<String> entities,

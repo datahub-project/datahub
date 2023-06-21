@@ -20,6 +20,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -40,6 +41,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -96,6 +98,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected final EntityRegistry _testEntityRegistry =
         new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
     protected EventProducer _mockProducer;
+    protected UpdateIndicesService _mockUpdateIndicesService;
 
     protected EntityServiceTest() throws EntityRegistryException {
     }
@@ -1209,16 +1212,12 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN with leading or trailing whitespace");
-
         }
 
         // Urn purely too long
-        StringBuilder buildStringTooLong = new StringBuilder();
-        for (int i = 0; i < 510; i++) {
-            buildStringTooLong.append('a');
-        }
+        String stringTooLong = "a".repeat(510);
 
-        Urn testUrnTooLong = new Urn("li", "testType", new TupleKey(buildStringTooLong.toString()));
+        Urn testUrnTooLong = new Urn("li", "testType", new TupleKey(stringTooLong));
         try {
             EntityService.validateUrn(testUrnTooLong);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");
@@ -1254,6 +1253,34 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: URN cannot contain ␟ character");
         }
+    }
+
+    @Test
+    public void testUIPreProcessedProposal() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+        datasetProperties.setDescription("Foo Bar");
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(entityUrn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName("editableDatasetProperties");
+        SystemMetadata systemMetadata = new SystemMetadata();
+        StringMap properties = new StringMap();
+        properties.put(APP_SOURCE, UI_SOURCE);
+        systemMetadata.setProperties(properties);
+        gmce.setSystemMetadata(systemMetadata);
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+        ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), captor.capture());
+        assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
     }
 
     @Nonnull

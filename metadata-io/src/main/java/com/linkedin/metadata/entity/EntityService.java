@@ -10,21 +10,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
@@ -41,6 +43,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
@@ -57,6 +60,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.search.utils.BrowsePathV2Utils;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -169,6 +174,8 @@ public class EntityService {
   private final Map<String, Set<String>> _entityToValidAspects;
   private RetentionService _retentionService;
   private final Boolean _alwaysEmitChangeLog;
+  private final UpdateIndicesService _updateIndicesService;
+  private final PreProcessHooks _preProcessHooks;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
@@ -183,13 +190,17 @@ public class EntityService {
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
       @Nonnull final EntityRegistry entityRegistry,
-      final boolean alwaysEmitChangeLog) {
+      final boolean alwaysEmitChangeLog,
+      final UpdateIndicesService updateIndicesService,
+      final PreProcessHooks preProcessHooks) {
 
     _aspectDao = aspectDao;
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
     _alwaysEmitChangeLog = alwaysEmitChangeLog;
+    _updateIndicesService = updateIndicesService;
+    _preProcessHooks = preProcessHooks;
   }
 
   /**
@@ -556,10 +567,11 @@ public class EntityService {
   }
 
   private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
-    RecordTemplateValidator.validate(aspect, validationResult -> {
+    Consumer<ValidationResult> resultFunction = validationResult -> {
       throw new IllegalArgumentException("Invalid format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
-          + validationResult.getMessages());
-    }, validator);
+          + validationResult.getMessages()); };
+    RecordTemplateValidator.validate(buildKeyAspect(urn), resultFunction, validator);
+    RecordTemplateValidator.validate(aspect, resultFunction, validator);
   }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
@@ -612,28 +624,21 @@ public class EntityService {
     return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
       final String aspectName = aspectSpec.getName();
-      EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
-      if (latest == null) {
-        //TODO: best effort mint
-        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
-
-        if (defaultTemplate != null) {
-          latest = new EntityAspect();
-          latest.setAspect(aspectName);
-          latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
-          latest.setUrn(urnStr);
-          latest.setVersion(ASPECT_LATEST_VERSION);
-          latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
-          latest.setCreatedBy(auditStamp.getActor().toString());
-        } else {
-          throw new UnsupportedOperationException("Patch not supported for empty aspect for aspect name: " + aspectName);
-        }
-      }
-
-      long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+      final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      final long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
       try {
-        RecordTemplate currentValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry);
-        RecordTemplate updatedValue =  _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
+
+        final RecordTemplate currentValue = latest != null
+            ? EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry)
+            : _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
+
+        if (latest == null && currentValue == null) {
+          // Attempting to patch a value to an aspect which has no default value and no existing value.
+          throw new UnsupportedOperationException(String.format("Patch not supported for aspect with name %s. "
+              + "Default aspect is required because no aspect currently exists for urn %s.", aspectName, urn));
+        }
+
+        final RecordTemplate updatedValue = _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
 
         validateAspect(urn, updatedValue);
         return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> updatedValue, auditStamp, providedSystemMetadata,
@@ -690,6 +695,7 @@ public class EntityService {
     return systemMetadata;
   }
 
+  @VisibleForTesting
   static void validateUrn(@Nonnull final Urn urn) {
 
     if (urn.toString().trim().length() != urn.toString().length()) {
@@ -1053,28 +1059,14 @@ public class EntityService {
     if (!isNoOp || _alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
-      // Uses new data map to prevent side effects on original
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(new DataMap(mcp.data()));
-      metadataChangeLog.setEntityUrn(entityUrn);
-      metadataChangeLog.setCreated(auditStamp);
-      metadataChangeLog.setChangeType(isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT);
-
-      if (oldAspect != null) {
-        metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
-      }
-      if (oldSystemMetadata != null) {
-        metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
-      }
-      if (newAspect != null) {
-        metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
-      }
-      if (newSystemMetadata != null) {
-        metadataChangeLog.setSystemMetadata(newSystemMetadata);
-      }
+      final MetadataChangeLog metadataChangeLog = constructMCL(mcp, urnToEntityName(entityUrn), entityUrn,
+          isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT, aspectSpec.getName(), auditStamp, newAspect, newSystemMetadata,
+          oldAspect, oldSystemMetadata);
 
       log.debug("Serialized MCL event: {}", metadataChangeLog);
 
       produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
+      preprocessEvent(metadataChangeLog);
 
       return true;
     } else {
@@ -1082,6 +1074,19 @@ public class EntityService {
           "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
           mcp.getAspectName(), entityUrn);
       return false;
+    }
+  }
+
+  private void preprocessEvent(MetadataChangeLog metadataChangeLog) {
+    if (_preProcessHooks.isUiEnabled()) {
+      if (metadataChangeLog.getSystemMetadata() != null) {
+        if (metadataChangeLog.getSystemMetadata().getProperties() != null) {
+          if (UI_SOURCE.equals(metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE))) {
+            // Pre-process the update indices hook for UI updates to avoid perceived lag from Kafka
+            _updateIndicesService.handleChangeEvent(metadataChangeLog);
+          }
+        }
+      }
     }
   }
 
@@ -1326,24 +1331,8 @@ public class EntityService {
       @Nonnull final AspectSpec aspectSpec, @Nullable final RecordTemplate oldAspectValue,
       @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
       @Nullable final SystemMetadata newSystemMetadata, @Nonnull AuditStamp auditStamp, @Nonnull final ChangeType changeType) {
-    final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
-    metadataChangeLog.setEntityType(entityName);
-    metadataChangeLog.setEntityUrn(urn);
-    metadataChangeLog.setChangeType(changeType);
-    metadataChangeLog.setAspectName(aspectName);
-    metadataChangeLog.setCreated(auditStamp);
-    if (newAspectValue != null) {
-      metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspectValue));
-    }
-    if (newSystemMetadata != null) {
-      metadataChangeLog.setSystemMetadata(newSystemMetadata);
-    }
-    if (oldAspectValue != null) {
-      metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspectValue));
-    }
-    if (oldSystemMetadata != null) {
-      metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
-    }
+    final MetadataChangeLog metadataChangeLog = constructMCL(null, entityName, urn, changeType, aspectName, auditStamp,
+        newAspectValue, newSystemMetadata, oldAspectValue, oldSystemMetadata);
     produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
   }
 
@@ -1420,6 +1409,11 @@ public class EntityService {
       aspectsToGet.add(BROWSE_PATHS);
     }
 
+    boolean shouldCheckBrowsePathV2 = isAspectMissing(entityType, BROWSE_PATHS_V2_ASPECT_NAME, includedAspects);
+    if (shouldCheckBrowsePathV2) {
+      aspectsToGet.add(BROWSE_PATHS_V2_ASPECT_NAME);
+    }
+
     boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
     if (shouldCheckDataPlatform) {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
@@ -1441,6 +1435,15 @@ public class EntityService {
       try {
         BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
         aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
+      } catch (URISyntaxException e) {
+        log.error("Failed to parse urn: {}", urn);
+      }
+    }
+
+    if (shouldCheckBrowsePathV2 && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null) {
+      try {
+        BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn, false);
+        aspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
       }
@@ -2083,6 +2086,18 @@ public class EntityService {
     BrowsePaths browsePathAspect = new BrowsePaths();
     browsePathAspect.setPaths(browsePaths);
     return browsePathAspect;
+  }
+
+  /**
+   * Builds the default browse path V2 aspects for all entities.
+   *
+   * This method currently supports datasets, charts, dashboards, and data jobs best. Everything else
+   * will have a basic "Default" folder added to their browsePathV2.
+   */
+  @Nonnull
+  public BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
+    return BrowsePathV2Utils.getDefaultBrowsePathV2(urn, this.getEntityRegistry(), dataPlatformDelimiter, this, useContainerPaths);
   }
 
   /**
