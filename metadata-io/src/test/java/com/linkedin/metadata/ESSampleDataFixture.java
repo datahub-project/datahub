@@ -66,6 +66,9 @@ public class ESSampleDataFixture {
     @Autowired
     private SearchConfiguration _searchConfiguration;
 
+    @Autowired
+    private CustomSearchConfiguration _customSearchConfiguration;
+
     @Bean(name = "sampleDataPrefix")
     protected String indexPrefix() {
         return "smpldat";
@@ -107,7 +110,7 @@ public class ESSampleDataFixture {
 
         ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, customSearchConfiguration);
-        ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
+        ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention, _searchConfiguration, _customSearchConfiguration);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
     }

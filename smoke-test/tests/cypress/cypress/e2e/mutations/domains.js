@@ -34,8 +34,10 @@ describe("add remove domain", () => {
     it("search filter by domain", () => {
         cy.login();
         cy.goToStarSearchList()
+        cy.get("[data-testid=filter-dropdown-Domain").click({ force: true });
         cy.waitTextVisible(test_domain)
-        cy.get('[data-testid="facet-domains-' + test_domain_urn + '"]').click()
+        cy.get(`[data-testid="filter-option-${test_domain}"]`).click({ force: true });
+        cy.get("[data-testid=update-filters]").click({ force: true });
         cy.waitTextVisible("customers")
     })
 

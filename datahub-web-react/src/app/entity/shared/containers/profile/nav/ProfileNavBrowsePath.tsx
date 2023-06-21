@@ -8,7 +8,7 @@ import { PageRoutes } from '../../../../../../conf/Global';
 import { ANTD_GRAY } from '../../../constants';
 import { LineageSelector } from './LineageSelector';
 
-const BrowseRow = styled(Row)`
+export const BrowseRow = styled(Row)`
     padding: 10px 20px;
     background-color: ${(props) => props.theme.styles['body-background']};
     display: flex;
@@ -19,6 +19,7 @@ const BrowseRow = styled(Row)`
 export const BreadcrumbItem = styled(Breadcrumb.Item)<{ disabled?: boolean }>`
     &&& :hover {
         color: ${(props) => (props.disabled ? ANTD_GRAY[7] : props.theme.styles['primary-color'])};
+        cursor: pointer;
     }
 `;
 
@@ -50,6 +51,7 @@ export const ProfileNavBrowsePath = ({ urn, type, path, breadcrumbLinksEnabled }
                             ? '#'
                             : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
                     }
+                    data-testid={`legacy-browse-path-${part}`}
                 >
                     {part}
                 </Link>
