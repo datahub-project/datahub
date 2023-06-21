@@ -42,7 +42,7 @@ function updateFineGrainedMap(
     mapForFieldReverse[upstreamEntityUrn] = listForDownstreamReverse;
 }
 
-function extendColumnLineage(
+export function extendColumnLineage(
     lineageVizConfig: FetchedEntity,
     fineGrainedMap: any,
     fineGrainedMapForSiblings: any,

@@ -63,10 +63,9 @@ export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
     return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
 }
 
-export function populateColumnsByUrn(
+export function getPopulatedColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: { [x: string]: FetchedEntity },
-    setColumnsByUrn: (colsByUrn: Record<string, SchemaField[]>) => void,
 ) {
     let populatedColumnsByUrn = { ...columnsByUrn };
     Object.entries(fetchedEntities).forEach(([urn, fetchedEntity]) => {
@@ -93,14 +92,22 @@ export function populateColumnsByUrn(
                         fieldPath: downgradeV2FieldPath(upstream.path) || '',
                         nullable: false,
                         recursive: false,
-                        type: SchemaFieldDataType.Boolean,
+                        type: SchemaFieldDataType.String,
                     });
                 });
             });
             populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fields };
         }
     });
-    setColumnsByUrn(populatedColumnsByUrn);
+    return populatedColumnsByUrn;
+}
+
+export function populateColumnsByUrn(
+    columnsByUrn: Record<string, SchemaField[]>,
+    fetchedEntities: { [x: string]: FetchedEntity },
+    setColumnsByUrn: (colsByUrn: Record<string, SchemaField[]>) => void,
+) {
+    setColumnsByUrn(getPopulatedColumnsByUrn(columnsByUrn, fetchedEntities));
 }
 
 export function haveDisplayedFieldsChanged(displayedFields: SchemaField[], previousDisplayedFields?: SchemaField[]) {
