@@ -7,13 +7,17 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.Cancellable;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.tasks.TaskSubmissionResponse;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
@@ -22,12 +26,21 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
+import org.elasticsearch.index.reindex.ReindexRequest;
+
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.*;
+
 
 @Slf4j
 @Builder(builderMethodName = "hiddenBuilder")
 public class ESBulkProcessor implements Closeable {
     private static final String ES_WRITES_METRIC = "num_elasticSearch_writes";
+    private static final String ES_BATCHES_METRIC = "num_elasticSearch_batches_submitted";
     private static final String ES_DELETE_EXCEPTION_METRIC = "delete_by_query";
+    private static final String ES_SUBMIT_DELETE_EXCEPTION_METRIC = "submit_delete_by_query_task";
+    private static final String ES_SUBMIT_REINDEX_METRIC = "reindex_submit";
+    private static final String ES_REINDEX_SUCCESS_METRIC = "reindex_success";
+    private static final String ES_REINDEX_FAILED_METRIC = "reindex_failed";
 
     public static ESBulkProcessor.ESBulkProcessorBuilder builder(RestHighLevelClient searchClient) {
         return hiddenBuilder().searchClient(searchClient);
@@ -106,6 +119,76 @@ public class ESBulkProcessor implements Closeable {
             MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_DELETE_EXCEPTION_METRIC, e);
         }
 
+        return Optional.empty();
+    }
+
+    public Optional<Cancellable> reindex(QueryBuilder queryBuilder, String index, int batchSize, @Nullable TimeValue timeout) {
+        final long startTime = System.currentTimeMillis();
+        String destIndex = index + "_" + startTime;
+        ReindexRequest reindexRequest = new ReindexRequest()
+            .setSourceQuery(queryBuilder).setDestIndex(destIndex)
+            .setSourceBatchSize(batchSize);
+        if (timeout != null) {
+            reindexRequest.setTimeout(timeout);
+        }
+        reindexRequest.setSourceIndices(index);
+        try {
+            // flush pending writes
+            bulkProcessor.flush();
+            ActionListener<BulkByScrollResponse> renameIndexTask = new ActionListener<BulkByScrollResponse>() {
+                @Override
+                public void onResponse(BulkByScrollResponse bulkByScrollResponse) {
+                    try {
+                        log.info("Reindex from {} to {} succeeded", index, destIndex);
+                        renameReindexedIndices(searchClient, index, index + "*", destIndex);
+                        log.info("Finished setting up {}", index);
+                        MetricUtils.counter(this.getClass(), ES_REINDEX_SUCCESS_METRIC).inc();
+                    } catch (IOException e) {
+                        log.error(String.format("Failed to rename index %s after reindexing", index));
+                        MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_REINDEX_FAILED_METRIC, e);
+                    }
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    log.error(String.format("Failed to reindex %s", index));
+                    MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_REINDEX_FAILED_METRIC, e);
+                }
+            };
+            Cancellable resp = searchClient.reindexAsync(reindexRequest, RequestOptions.DEFAULT, renameIndexTask);
+            MetricUtils.counter(this.getClass(), ES_BATCHES_METRIC).inc();
+            return Optional.of(resp);
+        } catch (Exception e) {
+            log.error("ERROR: Failed to submit a delete by query task. See stacktrace for a more detailed error:", e);
+            MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_SUBMIT_DELETE_EXCEPTION_METRIC, e);
+        }
+        return Optional.empty();
+    }
+
+    public Optional<TaskSubmissionResponse> deleteByQueryAsync(QueryBuilder queryBuilder, boolean refresh,
+        int limit, @Nullable TimeValue timeout, String... indices) {
+        DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest()
+            .setQuery(queryBuilder)
+            .setBatchSize(limit)
+            .setMaxRetries(numRetries)
+            .setRetryBackoffInitialTime(TimeValue.timeValueSeconds(retryInterval))
+            .setRefresh(refresh);
+        if (timeout != null) {
+            deleteByQueryRequest.setTimeout(timeout);
+        }
+        // count the number of conflicts, but do not abort the operation
+        deleteByQueryRequest.setConflicts("proceed");
+        deleteByQueryRequest.indices(indices);
+        try {
+            // flush pending writes
+            bulkProcessor.flush();
+            TaskSubmissionResponse resp = searchClient.submitDeleteByQueryTask(deleteByQueryRequest, RequestOptions.DEFAULT);
+            MetricUtils.counter(this.getClass(), ES_BATCHES_METRIC).inc();
+            return Optional.of(resp);
+        } catch (Exception e) {
+            log.error("ERROR: Failed to submit a delete by query task. See stacktrace for a more detailed error:", e);
+            MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_SUBMIT_DELETE_EXCEPTION_METRIC, e);
+        }
         return Optional.empty();
     }
 

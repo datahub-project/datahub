@@ -23,6 +23,13 @@ public interface TimeseriesAspectService {
   void configure();
 
 
+  // TODO: comments
+  public long countByFilter(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nullable final Filter filter
+  );
+
   /**
    * Retrieve a list of Time-Series Aspects for an individual entity, matching a set of optional filters, sorted by the timestampMillis
    * field descending.
@@ -118,6 +125,32 @@ public interface TimeseriesAspectService {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final Filter filter);
+
+  /**
+   * Reindex the index represented by entityName and aspect name, applying the filter
+   * @param entityName The name of the entity.
+   * @param aspectName  The name of the aspect.
+   * @param filter A filter to be used when reindexing
+   * @param options Options to control reindex parameters
+   */
+  void reindex(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options);
+
+  /**
+   * Generic filter based deletion for Time-Series Aspects.
+   *
+   * @param entityName The name of the entity.
+   * @param aspectName  The name of the aspect.
+   * @param filter A filter to be used for deletion of the documents on the index.
+   * @param options Options to control delete parameters
+   * @return The Job ID of the deletion operation
+   */
+  @Nonnull
+  String deleteAspectValuesAsync(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final Filter filter,
+      @Nonnull final BatchWriteOperationsOptions options);
 
   /**
    * Rollback the Time-Series aspects associated with a particular runId. This is invoked as a part of an

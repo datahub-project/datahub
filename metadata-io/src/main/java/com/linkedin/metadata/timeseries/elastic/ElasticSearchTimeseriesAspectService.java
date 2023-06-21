@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
@@ -52,9 +53,13 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Cancellable;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.core.CountRequest;
+import org.elasticsearch.client.core.CountResponse;
+import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -160,7 +165,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     try {
       String indicesPattern = _indexConvention.getAllTimeseriesAspectIndicesPattern();
       Response r = _searchClient.getLowLevelClient().performRequest(new Request("GET", indicesPattern + "/_stats"));
-      JsonNode body =  new ObjectMapper().readTree(r.getEntity().getContent());
+      JsonNode body = new ObjectMapper().readTree(r.getEntity().getContent());
       body.get("indices").fields().forEachRemaining(entry -> {
         TimeseriesIndexSizeResult elemResult = new TimeseriesIndexSizeResult();
         elemResult.setIndexName(entry.getKey());
@@ -177,6 +182,24 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       return res;
     } catch (IOException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public long countByFilter(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nullable final Filter filter
+  ) {
+    final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter, true));
+    CountRequest countRequest = new CountRequest();
+    countRequest.query(filterQueryBuilder);
+    try {
+      CountResponse resp = _searchClient.count(countRequest, RequestOptions.DEFAULT);
+      return resp.getCount();
+    } catch (IOException e) {
+      log.error("Count query failed:", e);
+      throw new ESQueryException("Count query failed:", e);
     }
   }
 
@@ -256,7 +279,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
    * @param entityName the name of the entity.
    * @param aspectName the name of the aspect.
    * @param filter the filter to be used for deletion of the documents on the index.
-   * @return the numer of documents returned.
+   * @return the number of documents returned.
    */
   @Nonnull
   @Override
@@ -274,6 +297,41 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     } else {
       log.error("Delete query failed");
       throw new ESQueryException("Delete query failed");
+    }
+  }
+
+  @Override
+  public void reindex(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options) {
+    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
+    final int batchSize = options.getBatchSize() > 0 ? options.getBatchSize() : DEFAULT_LIMIT;
+    TimeValue timeout = options.getTimeoutSeconds() > 0 ? TimeValue.timeValueSeconds(options.getTimeoutSeconds()) : null;
+    final Optional<Cancellable> result = _bulkProcessor
+        .reindex(filterQueryBuilder, indexName, batchSize, timeout);
+
+    if (result.isEmpty()) {
+      log.error("Async reindex query failed");
+      throw new ESQueryException("Async reindex query failed");
+    }
+  }
+
+  @Nonnull
+  @Override
+  public String deleteAspectValuesAsync(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options) {
+    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
+    final int batchSize = options.getBatchSize() > 0 ? options.getBatchSize() : DEFAULT_LIMIT;
+    TimeValue timeout = options.getTimeoutSeconds() > 0 ? TimeValue.timeValueSeconds(options.getTimeoutSeconds()) : null;
+    final Optional<TaskSubmissionResponse> result = _bulkProcessor
+        .deleteByQueryAsync(filterQueryBuilder, false, batchSize, timeout, indexName);
+
+    if (result.isPresent()) {
+      return result.get().getTask();
+    } else {
+      log.error("Async delete query failed");
+      throw new ESQueryException("Async delete query failed");
     }
   }
 

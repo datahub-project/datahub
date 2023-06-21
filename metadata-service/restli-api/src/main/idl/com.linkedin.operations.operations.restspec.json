@@ -37,6 +37,39 @@
         "optional" : true
       } ],
       "returns" : "string"
+    }, {
+      "name" : "truncateTimeseriesAspect",
+      "parameters" : [ {
+        "name" : "entityType",
+        "type" : "string"
+      }, {
+        "name" : "aspect",
+        "type" : "string"
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long"
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "default" : "true"
+      }, {
+        "name" : "batchSize",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "timeoutSeconds",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "forceDeleteByQuery",
+        "type" : "boolean",
+        "optional" : true
+      }, {
+        "name" : "forceReindex",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "string"
     } ],
     "entity" : {
       "path" : "/operations/{operationsId}"

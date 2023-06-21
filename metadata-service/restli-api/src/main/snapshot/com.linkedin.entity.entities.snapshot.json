@@ -5646,7 +5646,7 @@
     }, {
       "name" : "maxAggValues",
       "type" : "int",
-      "doc" : "The maximum number of values in an facet aggregation",
+      "doc" : "The maximum number of values in a facet aggregation",
       "default" : 20
     }, {
       "name" : "fulltext",
