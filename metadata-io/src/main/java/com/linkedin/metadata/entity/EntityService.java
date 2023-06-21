@@ -10,12 +10,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.github.fge.jsonpatch.Patch;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
@@ -24,6 +26,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
@@ -57,6 +60,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.search.utils.BrowsePathV2Utils;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
@@ -563,10 +567,11 @@ public class EntityService {
   }
 
   private void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
-    RecordTemplateValidator.validate(aspect, validationResult -> {
+    Consumer<ValidationResult> resultFunction = validationResult -> {
       throw new IllegalArgumentException("Invalid format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
-          + validationResult.getMessages());
-    }, validator);
+          + validationResult.getMessages()); };
+    RecordTemplateValidator.validate(buildKeyAspect(urn), resultFunction, validator);
+    RecordTemplateValidator.validate(aspect, resultFunction, validator);
   }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
@@ -619,28 +624,21 @@ public class EntityService {
     return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
       final String aspectName = aspectSpec.getName();
-      EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
-      if (latest == null) {
-        //TODO: best effort mint
-        RecordTemplate defaultTemplate = _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
-
-        if (defaultTemplate != null) {
-          latest = new EntityAspect();
-          latest.setAspect(aspectName);
-          latest.setMetadata(EntityUtils.toJsonAspect(defaultTemplate));
-          latest.setUrn(urnStr);
-          latest.setVersion(ASPECT_LATEST_VERSION);
-          latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
-          latest.setCreatedBy(auditStamp.getActor().toString());
-        } else {
-          throw new UnsupportedOperationException("Patch not supported for empty aspect for aspect name: " + aspectName);
-        }
-      }
-
-      long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+      final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      final long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
       try {
-        RecordTemplate currentValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry);
-        RecordTemplate updatedValue =  _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
+
+        final RecordTemplate currentValue = latest != null
+            ? EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), _entityRegistry)
+            : _entityRegistry.getAspectTemplateEngine().getDefaultTemplate(aspectSpec.getName());
+
+        if (latest == null && currentValue == null) {
+          // Attempting to patch a value to an aspect which has no default value and no existing value.
+          throw new UnsupportedOperationException(String.format("Patch not supported for aspect with name %s. "
+              + "Default aspect is required because no aspect currently exists for urn %s.", aspectName, urn));
+        }
+
+        final RecordTemplate updatedValue = _entityRegistry.getAspectTemplateEngine().applyPatch(currentValue, jsonPatch, aspectSpec);
 
         validateAspect(urn, updatedValue);
         return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> updatedValue, auditStamp, providedSystemMetadata,
@@ -697,6 +695,7 @@ public class EntityService {
     return systemMetadata;
   }
 
+  @VisibleForTesting
   static void validateUrn(@Nonnull final Urn urn) {
 
     if (urn.toString().trim().length() != urn.toString().length()) {
@@ -1410,6 +1409,11 @@ public class EntityService {
       aspectsToGet.add(BROWSE_PATHS);
     }
 
+    boolean shouldCheckBrowsePathV2 = isAspectMissing(entityType, BROWSE_PATHS_V2_ASPECT_NAME, includedAspects);
+    if (shouldCheckBrowsePathV2) {
+      aspectsToGet.add(BROWSE_PATHS_V2_ASPECT_NAME);
+    }
+
     boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
     if (shouldCheckDataPlatform) {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
@@ -1431,6 +1435,15 @@ public class EntityService {
       try {
         BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
         aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
+      } catch (URISyntaxException e) {
+        log.error("Failed to parse urn: {}", urn);
+      }
+    }
+
+    if (shouldCheckBrowsePathV2 && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null) {
+      try {
+        BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn, false);
+        aspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
       }
@@ -2047,6 +2060,18 @@ public class EntityService {
     BrowsePaths browsePathAspect = new BrowsePaths();
     browsePathAspect.setPaths(browsePaths);
     return browsePathAspect;
+  }
+
+  /**
+   * Builds the default browse path V2 aspects for all entities.
+   *
+   * This method currently supports datasets, charts, dashboards, and data jobs best. Everything else
+   * will have a basic "Default" folder added to their browsePathV2.
+   */
+  @Nonnull
+  public BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
+    return BrowsePathV2Utils.getDefaultBrowsePathV2(urn, this.getEntityRegistry(), dataPlatformDelimiter, this, useContainerPaths);
   }
 
   /**

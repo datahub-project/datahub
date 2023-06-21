@@ -1215,12 +1215,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         }
 
         // Urn purely too long
-        StringBuilder buildStringTooLong = new StringBuilder();
-        for (int i = 0; i < 510; i++) {
-            buildStringTooLong.append('a');
-        }
+        String stringTooLong = "a".repeat(510);
 
-        Urn testUrnTooLong = new Urn("li", "testType", new TupleKey(buildStringTooLong.toString()));
+        Urn testUrnTooLong = new Urn("li", "testType", new TupleKey(stringTooLong));
         try {
             EntityService.validateUrn(testUrnTooLong);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");

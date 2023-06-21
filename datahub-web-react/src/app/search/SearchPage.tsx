@@ -1,48 +1,39 @@
 import React, { useEffect, useState } from 'react';
-import * as QueryString from 'query-string';
-import { useHistory, useLocation, useParams } from 'react-router';
-import { useEntityRegistry } from '../useEntityRegistry';
+import { useHistory } from 'react-router';
 import { FacetFilterInput } from '../../types.generated';
-import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
-import { UnionType } from './utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from './utils/constants';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
-import { generateOrFilters } from './utils/generateOrFilters';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+    SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
     SEARCH_RESULTS_FILTERS_ID,
+    SEARCH_RESULTS_FILTERS_V2_INTRO,
 } from '../onboarding/config/SearchOnboardingConfig';
-import { useUserContext } from '../context/useUserContext';
 import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
-
-type SearchPageParams = {
-    type?: string;
-};
+import SearchFilters from './filters/SearchFilters';
+import useGetSearchQueryInputs from './useGetSearchQueryInputs';
+import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
+import { useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
+import useFilterMode from './filters/useFilterMode';
 
 /**
  * A search results page.
  */
 export const SearchPage = () => {
+    const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
+    const showSearchFiltersV2 = useIsSearchV2();
+    const searchVersion = useSearchVersion();
     const history = useHistory();
-    const location = useLocation();
-    const userContext = useUserContext();
-
-    const entityRegistry = useEntityRegistry();
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
-    const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
-    const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
-    const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
-    const viewUrn = userContext.localState?.selectedViewUrn;
-
-    const filters: Array<FacetFilterInput> = useFilters(params);
+    const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
+    const { filterMode, filterModeRef, setFilterMode } = useFilterMode(filters, unionType);
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -61,11 +52,13 @@ export const SearchPage = () => {
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [],
-                orFilters: generateOrFilters(unionType, filters),
+                orFilters,
                 viewUrn,
             },
         },
     });
+
+    const total = data?.searchAcrossEntities?.total || 0;
 
     const searchResultEntities =
         data?.searchAcrossEntities?.searchResults?.map((result) => ({
@@ -84,7 +77,7 @@ export const SearchPage = () => {
                 types: [],
                 query,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: generateOrFilters(unionType, filters),
+                orFilters,
                 scrollId: null,
             },
         },
@@ -99,6 +92,11 @@ export const SearchPage = () => {
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, unionType });
+    };
+
+    const onClearFilters = () => {
+        trackClearAllFiltersEvent(total);
+        onChangeFilters([]);
     };
 
     const onChangeUnionType = (newUnionType: UnionType) => {
@@ -133,14 +131,30 @@ export const SearchPage = () => {
     };
 
     useEffect(() => {
-        if (!loading) {
-            analytics.event({
-                type: EventType.SearchResultsViewEvent,
-                query,
-                total: data?.searchAcrossEntities?.count || 0,
-            });
-        }
-    }, [query, data, loading]);
+        if (loading) return;
+
+        const entityTypes = Array.from(
+            new Set(
+                filters
+                    .filter((filter) => ENTITY_SUB_TYPE_FILTER_FIELDS.includes(filter.field))
+                    .flatMap((filter) => filter.values ?? []),
+            ),
+        );
+
+        const filterFields = Array.from(new Set(filters.map((filter) => filter.field)));
+
+        analytics.event({
+            type: EventType.SearchResultsViewEvent,
+            query,
+            total,
+            entityTypes,
+            filterFields,
+            filterCount: filters.length,
+            // Only track changes to the filters, ignore toggling the mode by itself
+            filterMode: filterModeRef.current,
+            searchVersion,
+        });
+    }, [filters, filterModeRef, loading, query, searchVersion, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state
@@ -155,7 +169,28 @@ export const SearchPage = () => {
 
     return (
         <>
-            {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
+            {!loading && (
+                <OnboardingTour
+                    stepIds={[
+                        SEARCH_RESULTS_FILTERS_ID,
+                        SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+                        SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
+                        SEARCH_RESULTS_FILTERS_V2_INTRO,
+                    ]}
+                />
+            )}
+            {showSearchFiltersV2 && (
+                <SearchFilters
+                    availableFilters={data?.searchAcrossEntities?.facets || []}
+                    activeFilters={filters}
+                    unionType={unionType}
+                    mode={filterMode}
+                    onChangeFilters={onChangeFilters}
+                    onClearFilters={onClearFilters}
+                    onChangeUnionType={onChangeUnionType}
+                    onChangeMode={setFilterMode}
+                />
+            )}
             <SearchResults
                 unionType={unionType}
                 downloadSearchResults={downloadSearchResults}
@@ -164,7 +199,7 @@ export const SearchPage = () => {
                 viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
-                filters={data?.searchAcrossEntities?.facets}
+                facets={data?.searchAcrossEntities?.facets}
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}
