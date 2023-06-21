@@ -505,6 +505,7 @@ class SnowflakeQuery:
     def show_external_tables() -> str:
         return "show external tables in account"
 
+    # Note - This method should be removed once legacy lineage is removed
     @staticmethod
     def external_table_lineage_history(
         start_time_millis: int, end_time_millis: int
