@@ -1,8 +1,6 @@
 ### Business Glossary File Format
 
-The business glossary source file should be a `.yml` file. For a comprehensive example, look [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml).
-
-A business glossary can have the following top-level keys:
+The business glossary source file should be a .yml file with the following top-level keys:
 
 **Glossary**: the top level keys of the business glossary file
 
@@ -79,7 +77,165 @@ Example **GlossaryTerm**:
   domain: "urn:li:domain:Design"                                            # (optional) domain name or domain urn
 ```
 
-To see how these all work together, please see the example file at the top of this section.
+To see how these all work together, check out this comprehensive example business glossary file below:
+
+<details>
+<summary>Example business glossary file</summary>
+
+```yaml
+version: 1
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: Classification
+    description: A set of terms related to Data Classification
+    knowledge_links:
+      - label: Wiki link for classification
+        url: "https://en.wikipedia.org/wiki/Classification"
+    terms:
+      - name: Sensitive
+        description: Sensitive Data
+        custom_properties:
+          is_confidential: false
+      - name: Confidential
+        description: Confidential Data
+        custom_properties:
+          is_confidential: true
+      - name: HighlyConfidential
+        description: Highly Confidential Data
+        custom_properties:
+          is_confidential: true
+        domain: Marketing
+  - name: PersonalInformation
+    description: All terms related to personal information
+    owners:
+      users:
+        - mjames
+    terms:
+      - name: Email
+        ## An example of using an id to pin a term to a specific guid
+        # id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"
+        description: An individual's email address
+        inherits:
+          - Classification.Confidential
+        owners:
+          groups:
+            - Trust and Safety
+      - name: Address
+        description: A physical address
+      - name: Gender
+        description: The gender identity of the individual
+        inherits:
+          - Classification.Sensitive
+  - name: ClientsAndAccounts
+    description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
+    owners:
+      groups:
+        - finance
+    terms:
+      - name: Account
+        description: Container for records associated with a business arrangement for regular transactions and services
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        inherits:
+          - Classification.HighlyConfidential
+        contains:
+          - ClientsAndAccounts.Balance
+      - name: Balance
+        description: Amount of money available or owed
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
+  - name: Housing
+    description: Provides terms related to the housing domain
+    owners:
+      users:
+        - mjames
+      groups:
+        - interior
+    nodes:
+      - name: Colors
+        description: "Colors that are used in Housing construction"
+        terms:
+          - name: Red
+            description: "red color"
+            term_source: "EXTERNAL"
+            source_ref: FIBO
+            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+
+          - name: Green
+            description: "green color"
+            term_source: "EXTERNAL"
+            source_ref: FIBO
+            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+
+          - name: Pink
+            description: pink color
+            term_source: "EXTERNAL"
+            source_ref: FIBO
+            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+    terms:
+      - name: WindowColor
+        description: Supported window colors
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        values:
+          - Housing.Colors.Red
+          - Housing.Colors.Pink
+
+      - name: Kitchen
+        description: a room or area where food is prepared and cooked.
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+
+      - name: Spoon
+        description: an implement consisting of a small, shallow oval or round bowl on a long handle, used for eating, stirring, and serving food.
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        related_terms:
+          - Housing.Kitchen
+        knowledge_links:
+          - url: "https://en.wikipedia.org/wiki/Spoon"
+            label: Wiki link
+
+      - name: Silverware
+        description: an implement used for eating, stirring, and serving food.
+        id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d2b4"
+        owners:
+        users:
+          - mjames
+        groups:
+          - interior
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://www.google.com"
+        inherits:
+          - Housing.Kitchen
+        contains:
+          - Housing.Kitchen.Spoon
+          - Housing.Kitchen.Fork
+          - Housing.Kitchen.Knife
+        values:
+          - Housing.Material.Silver
+        related_terms:
+          - Housing.Kitchen.Cutlery
+        custom_properties:
+          - is_confidential: false
+        knowledge_links:
+          - url: "https://en.wikipedia.org/wiki/Silverware"
+            label: Wiki link
+        domain: "urn:li:domain:Design"
+```
+</details>
+
+Source file linked [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml).
 
 
 ## Compatibility
