@@ -547,7 +547,7 @@ public class PolicyEngineTest {
     actorFilter.setResourceOwners(true);
     actorFilter.setAllUsers(false);
     actorFilter.setAllGroups(false);
-    actorFilter.setResourceOwnersTypesUrns(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
+    actorFilter.setResourceOwnersTypes(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
@@ -586,7 +586,7 @@ public class PolicyEngineTest {
     actorFilter.setResourceOwners(true);
     actorFilter.setAllUsers(false);
     actorFilter.setAllGroups(false);
-    actorFilter.setResourceOwnersTypesUrns(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
+    actorFilter.setResourceOwnersTypes(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
