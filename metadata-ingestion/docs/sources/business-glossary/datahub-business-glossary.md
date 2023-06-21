@@ -11,13 +11,11 @@ version: 1                                     			# the version of business glos
 source: DataHub                                			# the source format of the terms. Currently only supports `DataHub`
 owners:                                        			# owners contains two nested fields
   users:                                       		    # (optional) a list of user IDs
-    - mjames
+    - njones
   groups:                                               # (optional) a list of group IDs
-    - finance
+    - logistics
 url: "https://github.com/datahub-project/datahub/"      # (optional) external url pointing to where the glossary is defined externally, if applicable
-nodes:                                                  # (optional) list of child **GlossaryNode** objects. See **GlossaryNode** section below
-	...
-terms:                                                  # (optional) list of child **GlossaryTerm** objects. See **GlossaryTerm** section below
+nodes:                                                  # list of child **GlossaryNode** objects. See **GlossaryNode** section below
 	...
 ```
 
@@ -26,21 +24,20 @@ terms:                                                  # (optional) list of chi
 Example **GlossaryNode**:
 
 ```yaml
-- name: Housing                                                 # name of the node
-  description: Provides terms related to the housing domain     # description of the node
-  id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"    # (optional) identifier of the node (normally inferred from the name, see e`nable_auto_id` config. Use this if you need a stable identifier)
+- name: Shipping                                                # name of the node
+  description: Provides terms related to the shipping domain    # description of the node
   owners:                                                       # (optional) owners contains 2 nested fields
     users:                                                      # (optional) a list of user IDs
-      - mjames
+      - njones
     groups:                                                     # (optional) a  list of group IDs
-      - interior
+      - logistics
   terms:                                                        # list of **GlossaryTerm** objects
     ...
   nodes:                                                        # list of child **GlossaryNode** objects
     ...
   knowledge_links:                                              # (optional) list of **KnowledgeCard** objects
-    - label: Wiki link for housing
-      url: "https://en.wikipedia.org/wiki/Housing"
+    - label: Wiki link for shipping
+      url: "https://en.wikipedia.org/wiki/Freight_transport"
 ```
 
 **GlossaryTerm**: a term in your business glossary
@@ -48,33 +45,30 @@ Example **GlossaryNode**:
 Example **GlossaryTerm**:
 
 ```yaml
-- name: Silverware                                                          # name of the term
-  description: an implement used for eating, stirring, and serving food.    # description of the term
-  id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d2b4"                # (optional) identifier of the node (normally inferred from the name, see e`nable_auto_id` config. Use this if you need a stable identifier)
+- name: FullAddress                                                          # name of the term
+  description: A collection of information to give the location of a building or plot of land.    # description of the term
   owners:                                                                   # (optional) owners contains 2 nested fields
     users:                                                                  # (optional) a list of user IDs
-      - mjames
+      - njones
     groups:                                                                 # (optional) a  list of group IDs
-      - interior
+      - logistics
   term_source: "EXTERNAL"                                                   # one of `EXTERNAL` or `INTERNAL`. Whether the term is coming from an external glossary or one defined in your organization.
   source_ref: FIBO                                                          # (optional) if external, what is the name of the source the glossary term is coming from?
   source_url: "https://www.google.com"                                      # (optional) if external, what is the url of the source definition?
   inherits:                                                                 # (optional) list of **GlossaryTerm** that this term inherits from
-    -  Housing.Kitchen
+    -  Privacy.PII
   contains:                                                                 # (optional) a list of **GlossaryTerm** that this term contains
-    - Housing.Kitchen.Spoon
-    - Housing.Kitchen.Fork
-    - Housing.Kitchen.Knife
-  values:                                                                   # (optional) a list of values describing the term
-    - Housing.Material.Silver
+    - Shipping.ZipCode
+    - Shipping.CountryCode
+    - Shipping.StreetAddress
   related_terms:                                                            # (optional) a list of related terms
     - Housing.Kitchen.Cutlery
   custom_properties:                                                        # (optional) a map of key/value pairs of arbitrary custom properties
-    - is_confidential: false
-  knowledge_links:                                                          # (optional) a list of **KnowledgeCard** related to this term
-    - url: "https://en.wikipedia.org/wiki/Silverware"
+    - is_used_for_compliance_tracking: true
+  knowledge_links:                                                          # (optional) a list of **KnowledgeCard** related to this term. These appear as links on the glossary node's page
+    - url: "https://en.wikipedia.org/wiki/Address"
       label: Wiki link
-  domain: "urn:li:domain:Design"                                            # (optional) domain name or domain urn
+  domain: "urn:li:domain:Logistics"                                            # (optional) domain name or domain urn
 ```
 
 To see how these all work together, check out this comprehensive example business glossary file below:
@@ -117,6 +111,7 @@ nodes:
     terms:
       - name: Email
         ## An example of using an id to pin a term to a specific guid
+        ## See "how to generate custom IDs for your terms" section below
         # id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"
         description: An individual's email address
         inherits:
@@ -130,6 +125,41 @@ nodes:
         description: The gender identity of the individual
         inherits:
           - Classification.Sensitive
+  - name: Shipping
+    description: Provides terms related to the shipping domain
+    owners:
+      users:
+        - njones
+      groups:
+        - logistics
+    terms:
+      - name: FullAddress
+        description: A collection of information to give the location of a building or plot of land.
+        owners:
+          users:
+            - njones
+          groups:
+            - logistics
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://www.google.com"
+        inherits:
+          - Privacy.PII
+        contains:
+          - Shipping.ZipCode
+          - Shipping.CountryCode
+          - Shipping.StreetAddress
+        related_terms:
+          - Housing.Kitchen.Cutlery
+        custom_properties:
+          - is_used_for_compliance_tracking: true
+        knowledge_links:
+          - url: "https://en.wikipedia.org/wiki/Address"
+            label: Wiki link
+        domain: "urn:li:domain:Logistics"
+    knowledge_links:
+      - label: Wiki link for shipping
+        url: "https://en.wikipedia.org/wiki/Freight_transport"
   - name: ClientsAndAccounts
     description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
     owners:
@@ -204,39 +234,20 @@ nodes:
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Spoon"
             label: Wiki link
-
-      - name: Silverware
-        description: an implement used for eating, stirring, and serving food.
-        id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d2b4"
-        owners:
-        users:
-          - mjames
-        groups:
-          - interior
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://www.google.com"
-        inherits:
-          - Housing.Kitchen
-        contains:
-          - Housing.Kitchen.Spoon
-          - Housing.Kitchen.Fork
-          - Housing.Kitchen.Knife
-        values:
-          - Housing.Material.Silver
-        related_terms:
-          - Housing.Kitchen.Cutlery
-        custom_properties:
-          - is_confidential: false
-        knowledge_links:
-          - url: "https://en.wikipedia.org/wiki/Silverware"
-            label: Wiki link
-        domain: "urn:li:domain:Design"
 ```
 </details>
 
 Source file linked [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml).
 
+## Generating custom IDs for your terms
+
+IDs are normally inferred from the glossary term/node's name, see the `enable_auto_id` config. But, if you need a stable 
+identifier, you can generate a custom ID for your term. It should be unique across the entire Glossary.
+
+Here's an example ID:
+`id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"`
+
+A note of caution: once you select a custom ID, it cannot be easily changed.
 
 ## Compatibility
 
