@@ -264,6 +264,15 @@ class Telemetry:
                 },
             )
 
+    def capture_exception(self, e: BaseException) -> None:
+        import sentry_sdk
+
+        try:
+            if self.sentry_enabled:
+                sentry_sdk.capture_exception(e)
+        except Exception as e:
+            logger.warning("Failed to capture exception in Sentry.", exc_info=e)
+
     def init_tracking(self) -> None:
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
@@ -414,6 +423,7 @@ def with_telemetry(
                             **_error_props(e),
                         },
                     )
+                telemetry_instance.capture_exception(e)
                 raise e
             # Catch SIGINTs
             except KeyboardInterrupt as e:
@@ -421,6 +431,7 @@ def with_telemetry(
                     "function-call",
                     {**call_props, "status": "cancelled"},
                 )
+                telemetry_instance.capture_exception(e)
                 raise e
 
             # Catch general exceptions
@@ -433,6 +444,7 @@ def with_telemetry(
                         **_error_props(e),
                     },
                 )
+                telemetry_instance.capture_exception(e)
                 raise e
 
         return wrapper
