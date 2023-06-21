@@ -62,8 +62,8 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         ?.find((facet) => facet.field === PLATFORM_FILTER_NAME)
         ?.aggregations.filter((aggregation) => aggregation.count)
         .sort((a, b) => {
-            const nameA = registry.getDisplayName(EntityType.DataPlatform, a.entity);
-            const nameB = registry.getDisplayName(EntityType.DataPlatform, b.entity);
+            const nameA = a.entity ? registry.getDisplayName(EntityType.DataPlatform, a.entity) : a.value;
+            const nameB = b.entity ? registry.getDisplayName(EntityType.DataPlatform, b.entity) : b.value;
             return nameA.localeCompare(nameB);
         });
 
