@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.FineGrainedLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -75,6 +76,9 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
             } else if (DATA_JOB_INPUT_OUTPUT_ASPECT_NAME.equals(name)) {
                 final com.linkedin.datajob.DataJobInputOutput gmsDataJobInputOutput = new com.linkedin.datajob.DataJobInputOutput(data);
                 result.setInputOutput(mapDataJobInputOutput(gmsDataJobInputOutput));
+                if (gmsDataJobInputOutput.hasFineGrainedLineages() && gmsDataJobInputOutput.getFineGrainedLineages() != null) {
+                    result.setFineGrainedLineages(FineGrainedLineagesMapper.map(gmsDataJobInputOutput.getFineGrainedLineages()));
+                }
             } else if (EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME.equals(name)) {
                 final EditableDataJobProperties editableDataJobProperties = new EditableDataJobProperties(data);
                 final DataJobEditableProperties dataJobEditableProperties = new DataJobEditableProperties();

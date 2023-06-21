@@ -1,5 +1,5 @@
 import { ColumnEdge, FetchedEntity, NodeData } from '../types';
-import { InputFields, SchemaField } from '../../../types.generated';
+import { EntityType, InputFields, SchemaField, SchemaFieldDataType } from '../../../types.generated';
 import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
@@ -82,6 +82,22 @@ export function populateColumnsByUrn(
                     convertInputFieldsToSchemaFields(fetchedEntity.inputFields) as SchemaField[],
                 ),
             };
+        } else if (fetchedEntity.type === EntityType.DataJob && fetchedEntity.fineGrainedLineages) {
+            // Add upstream fields from fineGrainedLineage onto DataJob to mimic upstream dataset fields.
+            // DataJobs will virtually "have" these fields so we can draw full column paths
+            // from upstream dataset fields to downstream dataset fields.
+            const fields: SchemaField[] = [];
+            fetchedEntity.fineGrainedLineages.forEach((fineGrainedLineage) => {
+                fineGrainedLineage.upstreams?.forEach((upstream) => {
+                    fields.push({
+                        fieldPath: downgradeV2FieldPath(upstream.path) || '',
+                        nullable: false,
+                        recursive: false,
+                        type: SchemaFieldDataType.Boolean,
+                    });
+                });
+            });
+            populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fields };
         }
     });
     setColumnsByUrn(populatedColumnsByUrn);

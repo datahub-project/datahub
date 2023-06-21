@@ -5674,6 +5674,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    fine grained lineage
+    """
+    fineGrainedLineages: [FineGrainedLineage!]
 }
 
 """

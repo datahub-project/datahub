@@ -23,28 +23,30 @@ public class UpstreamLineagesMapper {
   }
 
   public List<com.linkedin.datahub.graphql.generated.FineGrainedLineage> apply(@Nonnull final com.linkedin.dataset.UpstreamLineage upstreamLineage) {
-    final List<com.linkedin.datahub.graphql.generated.FineGrainedLineage> result = new ArrayList<>();
-    if (!upstreamLineage.hasFineGrainedLineages()) {
-      return result;
+//    final List<com.linkedin.datahub.graphql.generated.FineGrainedLineage> result = new ArrayList<>();
+    if (!upstreamLineage.hasFineGrainedLineages() || upstreamLineage.getFineGrainedLineages() == null) {
+      return new ArrayList<>();
     }
 
-    for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
-      com.linkedin.datahub.graphql.generated.FineGrainedLineage resultEntry = new com.linkedin.datahub.graphql.generated.FineGrainedLineage();
-      if (fineGrainedLineage.hasUpstreams()) {
-        resultEntry.setUpstreams(fineGrainedLineage.getUpstreams().stream()
-            .filter(entry -> entry.getEntityType().equals("schemaField"))
-            .map(entry -> mapDatasetSchemaField(entry)).collect(
-            Collectors.toList()));
-      }
-      if (fineGrainedLineage.hasDownstreams()) {
-        resultEntry.setDownstreams(fineGrainedLineage.getDownstreams().stream()
-            .filter(entry -> entry.getEntityType().equals("schemaField"))
-            .map(entry ->  mapDatasetSchemaField(entry)).collect(
-            Collectors.toList()));
-      }
-      result.add(resultEntry);
-    }
-    return result;
+    return FineGrainedLineagesMapper.map(upstreamLineage.getFineGrainedLineages());
+
+//    for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
+//      com.linkedin.datahub.graphql.generated.FineGrainedLineage resultEntry = new com.linkedin.datahub.graphql.generated.FineGrainedLineage();
+//      if (fineGrainedLineage.hasUpstreams()) {
+//        resultEntry.setUpstreams(fineGrainedLineage.getUpstreams().stream()
+//            .filter(entry -> entry.getEntityType().equals("schemaField"))
+//            .map(entry -> mapDatasetSchemaField(entry)).collect(
+//            Collectors.toList()));
+//      }
+//      if (fineGrainedLineage.hasDownstreams()) {
+//        resultEntry.setDownstreams(fineGrainedLineage.getDownstreams().stream()
+//            .filter(entry -> entry.getEntityType().equals("schemaField"))
+//            .map(entry ->  mapDatasetSchemaField(entry)).collect(
+//            Collectors.toList()));
+//      }
+//      result.add(resultEntry);
+//    }
+//    return result;
   }
 
   private static SchemaFieldRef mapDatasetSchemaField(final Urn schemaFieldUrn) {
