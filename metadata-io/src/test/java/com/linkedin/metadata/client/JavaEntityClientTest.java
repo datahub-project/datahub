@@ -1,5 +1,6 @@
 package com.linkedin.metadata.client;
 
+import com.linkedin.data.template.RequiredFieldNotPresentException;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -60,13 +61,12 @@ public class JavaEntityClientTest {
     }
 
     @Test
-    void testSuccessAndNoRetries() {
+    void testSuccessWithNoRetries() {
         JavaEntityClient client = getJavaEntityClient();
 
         Supplier<Object> mockSupplier = mock(Supplier.class);
 
-        when(mockSupplier.get())
-                .thenReturn(42);
+        when(mockSupplier.get()).thenReturn(42);
 
         assertEquals(client.withRetry(mockSupplier), 42);
         verify(mockSupplier, times(1)).get();
@@ -102,5 +102,18 @@ public class JavaEntityClientTest {
 
         assertThrows(IllegalStateException.class, () -> client.withRetry(mockSupplier));
         verify(mockSupplier, times(4)).get();
+    }
+
+    @Test
+    void testThrowAfterNonRetryableException() {
+        JavaEntityClient client = getJavaEntityClient();
+
+        Supplier<Object> mockSupplier = mock(Supplier.class);
+
+        when(mockSupplier.get())
+                .thenThrow(new RequiredFieldNotPresentException("error"));
+
+        assertThrows(RequiredFieldNotPresentException.class, () -> client.withRetry(mockSupplier));
+        verify(mockSupplier, times(1)).get();
     }
 }
