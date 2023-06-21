@@ -4,6 +4,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -67,6 +68,12 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @Named("authorizerChain")
   private Authorizer _authorizer;
 
+  public OperationsResource () { }
+
+  @VisibleForTesting
+  OperationsResource (TimeseriesAspectService timeseriesAspectService) {
+    this._timeseriesAspectService = timeseriesAspectService;
+  }
   @Action(name = ACTION_RESTORE_INDICES)
   @Nonnull
   @WithSpan
@@ -98,6 +105,65 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     }, MetricRegistry.name(this.getClass(), "getIndexSizes"));
   }
 
+  @VisibleForTesting
+  String executeTruncateTimeseriesAspect(
+      @Nonnull String entityType,
+      @Nonnull String aspectName,
+      @Nonnull Long endTimeMillis,
+      @Nonnull Boolean dryRun,
+      @Nullable Integer batchSize,
+      @Nullable Long timeoutSeconds,
+      @Nullable Boolean forceDeleteByQuery,
+      @Nullable Boolean forceReindex
+  ) {
+    if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
+      return "please only set forceReindex OR forceDeleteByQuery flags";
+    }
+    List<Criterion> criteria = new ArrayList<>();
+    criteria.add(
+        QueryUtils.newCriterion("timestampMillis", String.valueOf(endTimeMillis), Condition.LESS_THAN_OR_EQUAL_TO));
+
+    final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
+    long numToDelete = _timeseriesAspectService.countByFilter(entityType, aspectName, filter);
+    long totalNum = _timeseriesAspectService.countByFilter(entityType, aspectName, new Filter());
+
+    String deleteSummary = String.format("Delete %d out of %d rows (%.2f%%). ", numToDelete, totalNum, ((double) numToDelete) / totalNum);
+    boolean reindex = !(forceDeleteByQuery != null && forceDeleteByQuery) && ((forceReindex != null && forceReindex) ||  numToDelete > (totalNum / 2));
+
+    if (reindex) {
+      deleteSummary += "Reindexing the aspect without the deleted records. ";
+    } else {
+      deleteSummary += "Issuing a delete by query request. ";
+    }
+
+    if (dryRun) {
+      deleteSummary += "This was a dry run. Run with dryRun = false to execute.";
+    }
+
+    log.info(deleteSummary);
+
+    if (dryRun) {
+      return deleteSummary;
+    } else {
+      BatchWriteOperationsOptions options = new BatchWriteOperationsOptions();
+      if (batchSize != null) {
+        options.setBatchSize(batchSize);
+      }
+      if (timeoutSeconds != null) {
+        options.setTimeoutSeconds(timeoutSeconds);
+      }
+      if (reindex) {
+        _timeseriesAspectService.reindex(entityType, aspectName, filter, options);
+        return String.format("Reindex %s %s index", entityType, aspectName);
+      } else {
+
+        String taskId = _timeseriesAspectService.deleteAspectValuesAsync(entityType, aspectName, filter, options);
+        log.info("delete by query request submitted with ID " + taskId);
+        return taskId;
+      }
+    }
+  }
+
   @Action(name = ACTION_TRUNCATE_TIMESERIES_ASPECT)
   @Nonnull
   @WithSpan
@@ -111,53 +177,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_FORCE_DELETE_BY_QUERY) @Optional @Nullable Boolean forceDeleteByQuery,
       @ActionParam(PARAM_FORCE_REINDEX) @Optional @Nullable Boolean forceReindex
   ) {
-    return RestliUtil.toTask(() -> {
-      if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
-        return "please only set forceReindex OR forceDeleteByQuery flags";
-      }
-      List<Criterion> criteria = new ArrayList<>();
-      criteria.add(
-          QueryUtils.newCriterion("timestampMillis", String.valueOf(endTimeMillis), Condition.LESS_THAN_OR_EQUAL_TO));
-
-      final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
-      long numToDelete = _timeseriesAspectService.countByFilter(entityType, aspectName, filter);
-      long totalNum = _timeseriesAspectService.countByFilter(entityType, aspectName, new Filter());
-
-      String deleteSummary = String.format("Delete %d out of %d rows (%.2f%%). ", numToDelete, totalNum, ((double) numToDelete) / totalNum);
-      boolean reindex = (forceReindex != null && forceReindex) || !(forceDeleteByQuery != null && forceDeleteByQuery) || numToDelete > (totalNum / 2);
-
-      if (reindex) {
-        deleteSummary += "Reindexing the aspect without the deleted records. ";
-      } else {
-        deleteSummary += "Issuing a delete by query request. ";
-      }
-
-      if (dryRun) {
-        deleteSummary += "This was a dry run. Run with dryRun = false to execute.";
-      }
-
-      log.info(deleteSummary);
-
-      if (dryRun) {
-        return deleteSummary;
-      } else {
-        BatchWriteOperationsOptions options = new BatchWriteOperationsOptions();
-        if (batchSize != null) {
-          options.setBatchSize(batchSize);
-        }
-        if (timeoutSeconds != null) {
-          options.setTimeoutSeconds(timeoutSeconds);
-        }
-        if (reindex) {
-          _timeseriesAspectService.reindex(entityType, aspectName, filter, options);
-          return String.format("Reindex %s %s index", entityType, aspectName);
-        } else {
-
-          String taskId = _timeseriesAspectService.deleteAspectValuesAsync(entityType, aspectName, filter, options);
-          log.info("delete by query request submitted with ID " + taskId);
-          return taskId;
-        }
-      }
-    }, MetricRegistry.name(this.getClass(), "truncateTimeseriesAspect"));
+    return RestliUtil.toTask(() ->
+        executeTruncateTimeseriesAspect(entityType, aspectName, endTimeMillis, dryRun, batchSize, timeoutSeconds, forceDeleteByQuery, forceReindex),
+        MetricRegistry.name(this.getClass(), "truncateTimeseriesAspect"));
   }
 }
