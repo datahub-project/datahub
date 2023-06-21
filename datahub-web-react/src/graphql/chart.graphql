@@ -71,6 +71,9 @@ query getChart($urn: String!) {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
         statsSummary {
             viewCount
             uniqueUserCountLast30Days
