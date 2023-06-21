@@ -103,6 +103,36 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testTransformFilterForEntitiesWithUnderscore() {
+
+    Criterion c = new Criterion().setValue("data_job").setValues(
+        new StringArray(ImmutableList.of("data_job"))
+    ).setNegated(false).setCondition(Condition.EQUAL).setField("_entityType");
+
+    Filter f = new Filter().setOr(
+        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(c))));
+    Filter originalF = null;
+    try {
+      originalF = f.copy();
+    } catch (CloneNotSupportedException e) {
+      fail(e.getMessage());
+    }
+    assertEquals(f, originalF);
+
+    Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, _indexConvention);
+    assertNotEquals(originalF, transformedFilter);
+
+    Criterion expectedNewCriterion = new Criterion().setValue("smpldat_datajobindex_v2").setValues(
+        new StringArray(ImmutableList.of("smpldat_datajobindex_v2"))
+    ).setNegated(false).setCondition(Condition.EQUAL).setField("_index");
+
+    Filter expectedNewFilter = new Filter().setOr(
+        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(expectedNewCriterion))));
+
+    assertEquals(transformedFilter, expectedNewFilter);
+  }
+
+  @Test
   public void testTransformFilterForEntitiesWithSomeChanges() {
 
     Criterion criterionChanged = new Criterion().setValue("dataset").setValues(

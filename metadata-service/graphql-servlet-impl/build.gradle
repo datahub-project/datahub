@@ -13,6 +13,7 @@ dependencies {
   compile externalDependency.springContext
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
 
   implementation externalDependency.charle
   implementation externalDependency.jetbrains

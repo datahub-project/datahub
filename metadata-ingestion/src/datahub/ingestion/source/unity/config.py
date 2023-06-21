@@ -7,6 +7,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -88,10 +89,11 @@ class UnityCatalogSourceConfig(
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
-    metastore_id_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for metastore id to filter in ingestion.",
+    _only_ingest_assigned_metastore_removed = pydantic_removed_field(
+        "only_ingest_assigned_metastore"
     )
+
+    _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
 
     catalog_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),

@@ -189,12 +189,11 @@ snowflake_common = {
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    # Cannot upgrade to 3.0.0 because of dependency on pyarrow>=10.0.1, conflicts with feast
-    "snowflake-connector-python!=2.8.2, <3.0.0",
+    "snowflake-connector-python!=2.8.2",
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.6",
+    "acryl-datahub-classify==0.0.8",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -279,7 +278,7 @@ plugins: Dict[str, Set[str]] = {
         *sqllineage_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
-        "google-cloud-datacatalog-lineage==0.2.0",
+        "google-cloud-datacatalog-lineage==0.2.2",
     },
     "bigquery-beta": sql_common
     | bigquery_common
@@ -302,7 +301,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.29.0",
+        "feast~=0.31.1",
         "flask-openid>=1.3.0",
         # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
         "typeguard<3",
@@ -371,7 +370,7 @@ plugins: Dict[str, Set[str]] = {
     "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
-    "nifi": {"requests", "packaging"},
+    "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
@@ -479,7 +478,8 @@ base_dev_requirements = {
             "powerbi",
             "powerbi-report-server",
             "salesforce",
-            "unity-catalog"
+            "unity-catalog",
+            "nifi"
             # airflow is added below
         ]
         if plugin

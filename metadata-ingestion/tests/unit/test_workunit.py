@@ -19,8 +19,8 @@ def test_get_aspects_of_type_mcp():
     wu = MetadataChangeProposalWrapper(
         entityUrn="urn:li:container:asdf", aspect=aspect
     ).as_workunit()
-    assert wu.get_aspects_of_type(StatusClass) == [aspect]
-    assert wu.get_aspects_of_type(ContainerClass) == []
+    assert wu.get_aspect_of_type(StatusClass) == aspect
+    assert wu.get_aspect_of_type(ContainerClass) is None
 
 
 def test_get_aspects_of_type_mce():
@@ -34,9 +34,9 @@ def test_get_aspects_of_type_mce():
         )
     )
     wu = MetadataWorkUnit(id="id", mce=mce)
-    assert wu.get_aspects_of_type(StatusClass) == [status_aspect, status_aspect_2]
-    assert wu.get_aspects_of_type(UpstreamLineageClass) == [lineage_aspect]
-    assert wu.get_aspects_of_type(ContainerClass) == []
+    assert wu.get_aspect_of_type(StatusClass) == status_aspect_2
+    assert wu.get_aspect_of_type(UpstreamLineageClass) == lineage_aspect
+    assert wu.get_aspect_of_type(ContainerClass) is None
 
 
 def test_get_aspects_of_type_mcpc():
@@ -52,8 +52,8 @@ def test_get_aspects_of_type_mcpc():
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == [aspect]
-    assert wu.get_aspects_of_type(ContainerClass) == []
+    assert wu.get_aspect_of_type(StatusClass) == aspect
+    assert wu.get_aspect_of_type(ContainerClass) is None
 
     # Failure scenarios
     mcpc = MetadataChangeProposalClass(
@@ -67,7 +67,7 @@ def test_get_aspects_of_type_mcpc():
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None
 
     mcpc = MetadataChangeProposalClass(
         entityUrn="urn:li:container:asdf",
@@ -80,7 +80,7 @@ def test_get_aspects_of_type_mcpc():
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None
 
     mcpc = MetadataChangeProposalClass(
         entityUrn="urn:li:container:asdf",
@@ -93,7 +93,7 @@ def test_get_aspects_of_type_mcpc():
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None
 
     mcpc = MetadataChangeProposalClass(
         entityUrn="urn:li:container:asdf",
@@ -106,4 +106,4 @@ def test_get_aspects_of_type_mcpc():
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None

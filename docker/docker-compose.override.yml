@@ -36,9 +36,9 @@ services:
     restart: on-failure
     healthcheck:
       test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
-      start_period: 2s
+      start_period: 10s
       interval: 1s
-      retries: 5
+      retries: 3
       timeout: 5s
     volumes:
     - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql

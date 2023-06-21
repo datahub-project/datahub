@@ -32,11 +32,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -50,9 +46,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_container,
     gen_schema_key,
     get_domain_wu,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -325,15 +318,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
 
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -474,6 +458,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             parent_container_key=schema_container_key,
         )
 
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -525,21 +517,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     profile_requests, profiler, platform=self.platform
                 )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report, auto_status_aspect(self.get_workunits_internal())
-            ),
-        )
-
-    def standardize_schema_table_names(
-        self, schema: str, entity: str
-    ) -> Tuple[str, str]:
-        # Some SQLAlchemy dialects need a standardization step to clean the schema
-        # and table names. See BigQuery for an example of when this is useful.
-        return schema, entity
-
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
     ) -> str:
@@ -588,9 +565,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
-    def normalise_dataset_name(self, dataset_name: str) -> str:
-        return dataset_name
-
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
@@ -600,14 +574,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         tables_seen: Set[str] = set()
         try:
             for table in inspector.get_table_names(schema):
-                schema, table = self.standardize_schema_table_names(
-                    schema=schema, entity=table
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=table, inspector=inspector
                 )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 if dataset_name not in tables_seen:
                     tables_seen.add(dataset_name)
@@ -666,18 +635,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             inspector, schema, table
         )
 
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
-
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=table,
             description=description,
             customProperties=properties,
         )
@@ -882,14 +841,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
-                schema, view = self.standardize_schema_table_names(
-                    schema=schema, entity=view
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
-                dataset_name = self.normalise_dataset_name(dataset_name)
-
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
 
                 if not sql_config.view_pattern.allowed(dataset_name):
@@ -1084,9 +1038,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 logger.debug("Source does not support generating profile candidates.")
 
         for table in inspector.get_table_names(schema):
-            schema, table = self.standardize_schema_table_names(
-                schema=schema, entity=table
-            )
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
@@ -1096,8 +1047,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
-
-            dataset_name = self.normalise_dataset_name(dataset_name)
 
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)

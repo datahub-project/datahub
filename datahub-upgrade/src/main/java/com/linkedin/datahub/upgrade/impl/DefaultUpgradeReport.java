@@ -18,6 +18,12 @@ public class DefaultUpgradeReport implements UpgradeReport {
   }
 
   @Override
+  public void addLine(String line, Exception e) {
+    log.error(line, e);
+    reportLines.add(line + String.format(": %s", e));
+  }
+
+  @Override
   public List<String> lines() {
     return reportLines;
   }

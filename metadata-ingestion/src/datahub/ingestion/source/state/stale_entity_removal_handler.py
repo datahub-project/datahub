@@ -1,11 +1,14 @@
 import logging
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Dict, Iterable, Optional, Set, Type, cast
 
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
+from datahub.ingestion.api.source_helpers import auto_stale_entity_removal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -88,6 +91,20 @@ class StaleEntityRemovalHandler(
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
+
+    @classmethod
+    def create(
+        cls,
+        source: StatefulIngestionSourceBase,
+        config: StatefulIngestionConfigBase,
+        ctx: PipelineContext,
+        state_type_class: Type["GenericCheckpointState"] = GenericCheckpointState,
+    ) -> "StaleEntityRemovalHandler":
+        return cls(source, config, state_type_class, ctx.pipeline_name, ctx.run_id)
+
+    @property
+    def workunit_processor(self):
+        return partial(auto_stale_entity_removal, self)
 
     @classmethod
     def compute_job_id(
@@ -191,7 +208,7 @@ class StaleEntityRemovalHandler(
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return
         logger.debug("Checking for stale entity removal.")
-        last_checkpoint: Optional[Checkpoint] = self.state_provider.get_last_checkpoint(
+        last_checkpoint = self.state_provider.get_last_checkpoint(
             self.job_id, self.state_type_class
         )
         if not last_checkpoint:
@@ -199,14 +216,15 @@ class StaleEntityRemovalHandler(
         cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
         # Get the underlying states
-        last_checkpoint_state = cast(GenericCheckpointState, last_checkpoint.state)
+        last_checkpoint_state: GenericCheckpointState = last_checkpoint.state
         cur_checkpoint_state = cast(GenericCheckpointState, cur_checkpoint.state)
+
+        assert self.stateful_ingestion_config
 
         # Check if the entity delta is below the fail-safe threshold.
         entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
             last_checkpoint_state
         )
-        assert self.stateful_ingestion_config
         if (
             entity_difference_percent
             > self.stateful_ingestion_config.fail_safe_threshold
@@ -217,11 +235,30 @@ class StaleEntityRemovalHandler(
         ):
             # Log the failure. This would prevent the current state from getting committed.
             self.source.get_report().report_failure(
-                "Stateful Ingestion",
+                "stale-entity-removal",
                 f"Will not soft-delete entities, since we'd be deleting {entity_difference_percent:.1f}% of the existing entities. "
                 f"To force a deletion, increase the value of 'stateful_ingestion.fail_safe_threshold' (currently {self.stateful_ingestion_config.fail_safe_threshold})",
             )
-            # Bail so that we don't emit the stale entity removal workunits.
+            return
+
+        if self.source.get_report().events_produced == 0:
+            # SUBTLE: By reporting this as a failure here, we also ensure that the
+            # new (empty) state doesn't get committed.
+            # TODO: Move back to using fail_safe_threshold once we're confident that we've squashed all the bugs.
+            self.source.get_report().report_failure(
+                "stale-entity-removal",
+                "Skipping stale entity soft-deletion because the source produced no events. "
+                "This is a fail-safe mechanism to prevent accidental deletion of all entities.",
+            )
+            return
+
+        # If the source already had a failure, skip soft-deletion.
+        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far.
+        if self.source.get_report().failures:
+            self.source.get_report().report_warning(
+                "stale-entity-removal",
+                "Skipping stale entity soft-deletion since source already had failures.",
+            )
             return
 
         # Everything looks good, emit the soft-deletion workunits

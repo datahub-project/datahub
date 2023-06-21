@@ -16,6 +16,12 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka"
 
     with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "kafka", cleanup=False
+    ) as docker_services:
+        wait_for_port(docker_services, "test_zookeeper", 52181, timeout=120)
+
+    # Running docker compose twice, since the broker sometimes fails to come up on the first try.
+    with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "kafka"
     ) as docker_services:
         wait_for_port(docker_services, "test_broker", 29092, timeout=120)

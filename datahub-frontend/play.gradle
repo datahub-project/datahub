@@ -46,7 +46,7 @@ dependencies {
     exclude group: "net.minidev", module: "json-smart"
     exclude group: "com.nimbusds", module: "nimbus-jose-jwt"
   }
-  compile(externalDependency.pac4j){
+  compile(externalDependency.pac4jCore){
     exclude group: "org.pac4j", module: "pac4j-core"
   }
 
