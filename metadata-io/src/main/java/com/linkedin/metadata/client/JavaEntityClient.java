@@ -42,6 +42,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.shared.ValidationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
@@ -73,6 +74,8 @@ import static com.linkedin.metadata.search.utils.SearchUtils.*;
 public class JavaEntityClient implements EntityClient {
     private static final int DEFAULT_RETRY_INTERVAL = 2;
     private static final int DEFAULT_RETRY_COUNT = 3;
+
+    private final static Set<String> NON_RETRYABLE = Set.of("com.linkedin.data.template.RequiredFieldNotPresentException");
 
     private final Clock _clock = Clock.systemUTC();
 
@@ -578,27 +581,31 @@ public class JavaEntityClient implements EntityClient {
 
     private <T> T withRetry(@Nonnull final Supplier<T> block) {
         final BackoffPolicy backoffPolicy = new ExponentialBackoff(DEFAULT_RETRY_INTERVAL);
-        final int finalAttempt = DEFAULT_RETRY_COUNT - 1;
-        int attempt = 0;
+        int attemptCount = 0;
 
-        while (attempt <= finalAttempt) {
+        while (attemptCount < DEFAULT_RETRY_COUNT + 1) {
             try {
                 return block.get();
-            } catch (Exception e) {
-                if (attempt == finalAttempt) {
-                    throw e;
+            } catch (Throwable ex) {
+                MetricUtils.counter(JavaEntityClient.class, "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase()).inc();
+
+                final boolean skipRetry = NON_RETRYABLE.contains(ex.getClass().getCanonicalName())
+                        || (ex.getCause() != null && NON_RETRYABLE.contains(ex.getCause().getClass().getCanonicalName()));
+
+                if (attemptCount == DEFAULT_RETRY_COUNT || skipRetry) {
+                    throw ex;
                 } else {
-                    attempt = attempt + 1;
+                    attemptCount = attemptCount + 1;
                     try {
-                        Thread.sleep(backoffPolicy.nextBackoff(attempt, e) * 1000);
-                    } catch (InterruptedException interruptedException) {
-                        throw new RuntimeException(interruptedException);
+                        Thread.sleep(backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }
         }
 
         // Should never hit this line.
-        throw new RuntimeException("Failed to execute entity client request!");
+        throw new IllegalStateException("No JavaEntityClient call executed.");
     }
 }
