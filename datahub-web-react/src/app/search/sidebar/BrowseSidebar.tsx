@@ -10,7 +10,7 @@ import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/Search
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
-    width: ${(props) => (props.visible ? `${props.width}px` : '0px')};
+    width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
     background-color: #f8f9fa;
