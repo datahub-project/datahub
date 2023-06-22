@@ -21,10 +21,15 @@ def YamlFileUpdater(file: pathlib.Path) -> Iterator[Any]:
     _, ind, bsi = ruamel.yaml.util.load_yaml_guess_indent(file.read_text())
     yaml.width = 2**20  # type: ignore[assignment]
 
-    # TODO: Some folks use a different mapping indent than sequence indent.
-    # We should support that, but for now, we just use the sequence indent.
-    yaml.map_indent = ind
     yaml.sequence_indent = ind
     yaml.block_seq_indent = bsi
+
+    if (ind, bsi) == (4, 2):
+        # (2, 4, 2) is much more common than (4, 4, 2).
+        yaml.map_indent = 2  # type: ignore[assignment]
+    else:
+        # TODO: Some folks use a different mapping indent than sequence indent.
+        # We should support that, but for now, we just use the sequence indent.
+        yaml.map_indent = ind
 
     yaml.dump(doc, file)

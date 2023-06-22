@@ -12,7 +12,7 @@ def test_update_yaml_file(tmp_path: pathlib.Path) -> None:
 # this is a comment
 #
 obj:
-    key1: value1
+  key1: value1
 
 list_ty:
   - foo
@@ -32,7 +32,7 @@ list_ty:
         == """# this is a comment
 #
 obj:
-    key1: value1
+  key1: value1
 
 list_ty:
   - foo
