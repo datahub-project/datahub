@@ -42,6 +42,8 @@ _DELETE_WITH_REFERENCES_TYPES = {
 def delete() -> None:
     """Delete metadata from DataHub.
 
+    See `datahub delete by-filter` for the list of available filters.
+
     See https://datahubproject.io/docs/how/delete-metadata for more detailed docs.
     """
     pass
@@ -96,9 +98,9 @@ class DeletionResult:
         return value1 + value2
 
 
-@delete.command()
+@delete.command(no_args_is_help=True)
 @click.option(
-    "--registry-id", required=False, type=str, help="e.g. mycompany-dq-model:0.0.1"
+    "--registry-id", required=True, type=str, help="e.g. mycompany-dq-model:0.0.1"
 )
 @click.option(
     "--soft/--hard",
@@ -152,7 +154,7 @@ def by_registry(
         click.echo(tabulate(structured_rows, _RUN_TABLE_COLUMNS, tablefmt="grid"))
 
 
-@delete.command()
+@delete.command(no_args_is_help=True)
 @click.option("--urn", required=True, type=str, help="the urn of the entity")
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option(
@@ -203,8 +205,13 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
         logger.info(f"Deleted {references_count} references to {urn}")
 
 
-@delete.command()
-@click.option("--urn", required=False, type=str, help="the urn of the entity")
+@delete.command(no_args_is_help=True)
+@click.option(
+    "--urn",
+    required=False,
+    type=str,
+    help="Urn of the entity to delete, for single entity deletion",
+)
 @click.option(
     "-a",
     "--aspect",
@@ -212,45 +219,74 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     "--aspect-name",
     required=False,
     type=str,
-    help="the aspect name associated with the entity",
+    help="The aspect to delete for specified entity(s)",
 )
 @click.option(
-    "-f", "--force", required=False, is_flag=True, help="force the delete if set"
+    "-f",
+    "--force",
+    required=False,
+    is_flag=True,
+    help="Force deletion, with no confirmation prompts",
 )
 @click.option(
     "--soft/--hard",
     required=False,
     is_flag=True,
     default=True,
-    help="specifies soft/hard deletion",
+    help="Soft deletion can be undone, while hard deletion removes from the database",
 )
 @click.option(
-    "-e", "--env", required=False, type=str, help="the environment of the entity"
+    "-e", "--env", required=False, type=str, help="Environment filter (e.g. PROD)"
 )
 @click.option(
-    "-p", "--platform", required=False, type=str, help="the platform of the entity"
+    "-p",
+    "--platform",
+    required=False,
+    type=str,
+    help="Platform filter (e.g. snowflake)",
 )
 @click.option(
     "--entity-type",
     required=False,
     type=str,
-    help="the entity type of the entity",
+    help="Entity type filter (e.g. dataset)",
 )
-@click.option("--query", required=False, type=str)
+@click.option("--query", required=False, type=str, help="Elasticsearch query string")
 @click.option(
     "--start-time",
     required=False,
     type=ClickDatetime(),
-    help="the start time (only for timeseries aspects)",
+    help="Start time (only for timeseries aspects)",
 )
 @click.option(
     "--end-time",
     required=False,
     type=ClickDatetime(),
-    help="the end time (only for timeseries aspects)",
+    help="End time (only for timeseries aspects)",
 )
-@click.option("-n", "--dry-run", required=False, is_flag=True)
-@click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
+@click.option(
+    "-b",
+    "--batch-size",
+    required=False,
+    default=3000,
+    type=int,
+    help="Batch size when querying for entities to delete."
+    "Maximum 10000. Large batch sizes may cause timeouts.",
+)
+@click.option(
+    "-n",
+    "--dry-run",
+    required=False,
+    is_flag=True,
+    help="Print entities to be deleted; perform no deletion",
+)
+@click.option(
+    "--only-soft-deleted",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Only delete soft-deleted entities, for hard deletion",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 def by_filter(
@@ -264,10 +300,11 @@ def by_filter(
     query: Optional[str],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
+    batch_size: int,
     dry_run: bool,
     only_soft_deleted: bool,
 ) -> None:
-    """Delete metadata from datahub using a single urn or a combination of filters"""
+    """Delete metadata from datahub using a single urn or a combination of filters."""
 
     # Validate the cli arguments.
     _validate_user_urn_and_filters(
@@ -277,6 +314,7 @@ def by_filter(
         soft=soft, aspect=aspect, only_soft_deleted=only_soft_deleted
     )
     _validate_user_aspect_flags(aspect=aspect, start_time=start_time, end_time=end_time)
+    _validate_batch_size(batch_size)
     # TODO: add some validation on entity_type
 
     if not force and not soft and not dry_run:
@@ -301,6 +339,7 @@ def by_filter(
                 env=env,
                 query=query,
                 status=soft_delete_filter,
+                batch_size=batch_size,
             )
         )
         if len(urns) == 0:
@@ -441,6 +480,13 @@ def _validate_user_aspect_flags(
         raise click.UsageError(
             "Aspect-specific deletion is only supported for timeseries aspects. Please delete the full entity or use a rollback instead."
         )
+
+
+def _validate_batch_size(batch_size: int) -> None:
+    if batch_size <= 0:
+        raise click.UsageError("Batch size must be a positive integer.")
+    elif batch_size > 10000:
+        raise click.UsageError("Batch size cannot exceed 10,000.")
 
 
 def _delete_one_urn(
