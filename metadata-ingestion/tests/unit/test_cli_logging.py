@@ -7,7 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
-from datahub.utilities.logging_manager import get_log_buffer, DATAHUB_PACKAGES
+from datahub.utilities.logging_manager import DATAHUB_PACKAGES, get_log_buffer
 
 
 @pytest.fixture(autouse=True, scope="module")
