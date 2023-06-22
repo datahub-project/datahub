@@ -35,7 +35,11 @@ import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 
+import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import com.linkedin.util.Pair;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +51,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -146,6 +152,32 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
             .doc(document.toString(), XContentType.JSON)
             .retryOnConflict(_numRetries);
     _bulkProcessor.add(updateRequest);
+  }
+
+  @Override
+  public List<TimeseriesIndexSizeResult> getIndexSizes() {
+    List<TimeseriesIndexSizeResult> res = new ArrayList<>();
+    try {
+      String indicesPattern = _indexConvention.getAllTimeseriesAspectIndicesPattern();
+      Response r = _searchClient.getLowLevelClient().performRequest(new Request("GET", indicesPattern + "/_stats"));
+      JsonNode body =  new ObjectMapper().readTree(r.getEntity().getContent());
+      body.get("indices").fields().forEachRemaining(entry -> {
+        TimeseriesIndexSizeResult elemResult = new TimeseriesIndexSizeResult();
+        elemResult.setIndexName(entry.getKey());
+        Optional<Pair<String, String>> indexEntityAndAspect = _indexConvention.getEntityAndAspectName(entry.getKey());
+        if (indexEntityAndAspect.isPresent()) {
+          elemResult.setEntityName(indexEntityAndAspect.get().getFirst());
+          elemResult.setAspectName(indexEntityAndAspect.get().getSecond());
+        }
+        int sizeBytes = entry.getValue().get("primaries").get("store").get("size_in_bytes").asInt();
+        float sizeMb = (float) sizeBytes / 1000;
+        elemResult.setSizeMb(sizeMb);
+        res.add(elemResult);
+      });
+      return res;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
