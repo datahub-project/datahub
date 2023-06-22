@@ -23,6 +23,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
+
 public class JavaEntityClientTest {
 
     private EntityService _entityService;
@@ -36,6 +37,7 @@ public class JavaEntityClientTest {
     private RestliEntityClient _restliEntityClient;
     private MockedStatic<MetricUtils> _metricUtils;
     private Counter _counter;
+
 
     @BeforeMethod
     public void setupTest() {
@@ -74,70 +76,60 @@ public class JavaEntityClientTest {
     @Test
     void testSuccessWithNoRetries() {
         JavaEntityClient client = getJavaEntityClient();
-
         Supplier<Object> mockSupplier = mock(Supplier.class);
 
         when(mockSupplier.get()).thenReturn(42);
 
         assertEquals(client.withRetry(mockSupplier, null), 42);
         verify(mockSupplier, times(1)).get();
-        verify(MetricUtils.counter(any(), any()), times(0)).inc();
+        _metricUtils.verify(() -> MetricUtils.counter(any(), any()), times(0));
     }
 
     @Test
     void testSuccessAfterMultipleRetries() {
         JavaEntityClient client = getJavaEntityClient();
-
         Supplier<Object> mockSupplier = mock(Supplier.class);
+        Exception e = new IllegalArgumentException();
 
-        when(mockSupplier.get())
-                .thenThrow(new IllegalStateException("error"))
-                .thenThrow(new IllegalStateException("error"))
-                .thenThrow(new IllegalStateException("error"))
-                .thenReturn(42);
+        when(mockSupplier.get()).thenThrow(e).thenThrow(e).thenThrow(e).thenReturn(42);
 
-        assertEquals(client.withRetry(mockSupplier, null), 42);
+        assertEquals(client.withRetry(mockSupplier, "test"), 42);
         verify(mockSupplier, times(4)).get();
-        verify(
-                MetricUtils.counter(JavaEntityClient.class, "deleteEntityReferences_exception_IllegalStateException"),
+        _metricUtils.verify(
+                () -> MetricUtils.counter(client.getClass(), "test_exception_" + e.getClass().getName()),
                 times(3)
-        ).inc();
+        );
     }
 
     @Test
     void testThrowAfterMultipleRetries() {
         JavaEntityClient client = getJavaEntityClient();
-
         Supplier<Object> mockSupplier = mock(Supplier.class);
+        Exception e = new IllegalArgumentException();
 
-        when(mockSupplier.get())
-                .thenThrow(new IllegalStateException("error"))
-                .thenThrow(new IllegalStateException("error"))
-                .thenThrow(new IllegalStateException("error"))
-                .thenThrow(new IllegalStateException("error"));
+        when(mockSupplier.get()).thenThrow(e).thenThrow(e).thenThrow(e).thenThrow(e);
 
-        assertThrows(IllegalStateException.class, () -> client.withRetry(mockSupplier, null));
+        assertThrows(IllegalArgumentException.class, () -> client.withRetry(mockSupplier, "test"));
         verify(mockSupplier, times(4)).get();
-        verify(
-                MetricUtils.counter(JavaEntityClient.class, "deleteEntityReferences_exception_IllegalStateException"),
+        _metricUtils.verify(
+                () -> MetricUtils.counter(client.getClass(), "test_exception_" + e.getClass().getName()),
                 times(4)
-        ).inc();
+        );
     }
 
     @Test
     void testThrowAfterNonRetryableException() {
         JavaEntityClient client = getJavaEntityClient();
-
         Supplier<Object> mockSupplier = mock(Supplier.class);
+        Exception e = new RequiredFieldNotPresentException("test");
 
-        when(mockSupplier.get())
-                .thenThrow(new RequiredFieldNotPresentException("error"));
+        when(mockSupplier.get()).thenThrow(e);
 
         assertThrows(RequiredFieldNotPresentException.class, () -> client.withRetry(mockSupplier, null));
         verify(mockSupplier, times(1)).get();
-        verify(
-                MetricUtils.counter(JavaEntityClient.class, "deleteEntityReferences_exception_RequiredFieldNotPresentException"),
+        _metricUtils.verify(
+                () -> MetricUtils.counter(client.getClass(), "exception_" + e.getClass().getName()),
                 times(1)
-        ).inc();
+        );
     }
 }
