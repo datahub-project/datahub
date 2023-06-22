@@ -22,6 +22,14 @@ is `1`.
 - **platform**: a valid platform like kafka, snowflake, etc..
 - **platform_instance**: optional string specifying the platform instance of this entity
 
+For example if dataset URN is `urn:li:dataset:(urn:li:dataPlatform:redshift,userdb.public.customer_table,DEV)` then **EntityConfig** will look like:
+  ```yml
+  name : userdb.public.customer_table
+  type: dataset
+  env: DEV
+  platform: redshift
+  ```
+
 **FineGrainedLineageConfig**:
 
 - **upstreamType**: type of upstream entity in a fine-grained lineage; default = "FIELD_SET"
@@ -31,13 +39,7 @@ is `1`.
 - **transformOperation**: (optional) transform operation applied to the upstream entities to produce the downstream field(s)
 - **confidenceScore**: (optional) the confidence in this lineage between 0 (low confidence) and 1 (high confidence); default = 1.0
 
-
-For example if dataset URN is `urn:li:dataset:(urn:li:dataPlatform:redshift,userdb.public.customer_table,DEV)` then **EntityConfig** will look like:
-  ```yml
-  name : userdb.public.customer_table
-  type: dataset
-  env: DEV
-  platform: redshift
-  ```
+**FineGrainedLineageConfig** can be used to display fine grained lineage, also referred to as column-level lineage,
+for custom sources.
 
 You can also view an example lineage file checked in [here](../../../../metadata-ingestion/examples/bootstrap_data/file_lineage.yml)
