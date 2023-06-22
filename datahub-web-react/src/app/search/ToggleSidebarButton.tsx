@@ -30,6 +30,7 @@ const ToggleSidebarButton = ({ isOpen, onClick }: Props) => {
 
     const button = (
         <Button
+            data-testid="browse-v2-toggle"
             size="small"
             onClick={onClickButton}
             icon={<ToggleIcon component={isOpen ? CollapseIcon : ExpandIcon} />}

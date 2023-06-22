@@ -36,6 +36,25 @@ describe("search", () => {
     cy.get("[data-testid=browse-v2").should("not.exist");
   });
 
+  it("should hide the hide and show when the toggle button is clicked", () => {
+    setBrowseFeatureFlag(true);
+    cy.login();
+    cy.visit("/");
+    cy.get("input[data-testid=search-input]").type("*{enter}");
+
+    cy.get("[data-testid=browse-v2")
+      .invoke("css", "width")
+      .should("match", /\d\d\dpx/);
+    cy.get("[data-testid=browse-v2-toggle").click();
+    cy.get("[data-testid=browse-v2")
+      .invoke("css", "width")
+      .should("match", /0px/);
+    cy.get("[data-testid=browse-v2-toggle").click();
+    cy.get("[data-testid=browse-v2")
+      .invoke("css", "width")
+      .should("match", /\d\d\dpx/);
+  });
+
   it("should take you to the old browse experience when clicking entity type on home page with the browse flag off", () => {
     setBrowseFeatureFlag(false);
     cy.login();
