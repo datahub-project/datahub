@@ -189,7 +189,7 @@ project.ext.externalDependency = [
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
     'springBootTest': "org.springframework.boot:spring-boot-starter-test:$springBootVersion",
-    'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
+    'springBoot': "org.springframework.boot:sphazring-boot:$springBootVersion",
     'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
@@ -210,7 +210,7 @@ project.ext.externalDependency = [
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
-    'jline': 'jline:jline:1.4.1',
+    'jline': 'jline:jline:2.11',
     'jetbrains': 'org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
     'pac4jCore': 'org.pac4j:pac4j-core:5.2.0'
 
