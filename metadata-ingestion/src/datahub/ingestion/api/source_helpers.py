@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -288,9 +289,11 @@ def auto_empty_dataset_usage_statistics(
 ) -> Iterable[MetadataWorkUnit]:
     """Emit empty usage statistics aspect for all dataset_urns ingested with no usage."""
     buckets = config.buckets() if all_buckets else config.majority_buckets()
+    bucket_timestamps = [int(bucket.timestamp() * 1000) for bucket in buckets]
 
     # Maps time bucket -> urns with usage statistics for that bucket
-    usage_statistics_urns: Dict[int, Set[str]] = {bucket: set() for bucket in buckets}
+    usage_statistics_urns: Dict[int, Set[str]] = {ts: set() for ts in bucket_timestamps}
+    invalid_timestamps = set()
 
     for wu in stream:
         yield wu
@@ -302,15 +305,21 @@ def auto_empty_dataset_usage_statistics(
             dataset_urns.add(urn)
             usage_aspect = wu.get_aspect_of_type(DatasetUsageStatisticsClass)
             if usage_aspect:
-                if usage_aspect.timestampMillis in buckets:
+                if usage_aspect.timestampMillis in bucket_timestamps:
                     usage_statistics_urns[usage_aspect.timestampMillis].add(urn)
                 elif all_buckets:
-                    logger.warning(
-                        f"Usage statistic with unexpected timestamp: {usage_aspect.timestampMillis}, "
-                        "bucket_duration={config.bucket_duration}"
-                    )
+                    invalid_timestamps.add(usage_aspect.timestampMillis)
 
-    for bucket in buckets:
+    if invalid_timestamps:
+        logger.warning(
+            f"Usage statistics with unexpected timestamps, bucket_duration={config.bucket_duration}:\n"
+            ", ".join(
+                str(datetime.fromtimestamp(ts, tz=timezone.utc))
+                for ts in invalid_timestamps
+            )
+        )
+
+    for bucket in bucket_timestamps:
         for urn in dataset_urns - usage_statistics_urns[bucket]:
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,

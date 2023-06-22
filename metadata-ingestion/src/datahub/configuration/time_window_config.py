@@ -63,27 +63,25 @@ class BaseTimeWindowConfig(ConfigModel):
             )
         return v
 
-    def buckets(self) -> List[int]:
+    def buckets(self) -> List[datetime]:
         """Returns list of timestamps for each DatasetUsageStatistics bucket.
 
         Includes all buckets in the time window, including partially contained buckets.
-        The timestamps are in milliseconds since the epoch.
         """
         bucket_timedelta = get_bucket_duration_delta(self.bucket_duration)
 
         curr_bucket = get_time_bucket(self.start_time, self.bucket_duration)
         buckets = []
         while curr_bucket < self.end_time:
-            buckets.append(int(curr_bucket.timestamp() * 1000))
+            buckets.append(curr_bucket)
             curr_bucket += bucket_timedelta
 
         return buckets
 
-    def majority_buckets(self) -> List[int]:
+    def majority_buckets(self) -> List[datetime]:
         """Returns list of timestamps for each DatasetUsageStatistics bucket.
 
         Includes only buckets in the time window for which a majority of the bucket is ingested.
-        The timestamps are in milliseconds since the epoch.
         """
         bucket_timedelta = get_bucket_duration_delta(self.bucket_duration)
 
@@ -93,7 +91,7 @@ class BaseTimeWindowConfig(ConfigModel):
             start = max(self.start_time, curr_bucket)
             end = min(self.end_time, curr_bucket + bucket_timedelta)
             if end - start >= bucket_timedelta / 2:
-                buckets.append(int(curr_bucket.timestamp() * 1000))
+                buckets.append(curr_bucket)
             curr_bucket += bucket_timedelta
 
         return buckets
