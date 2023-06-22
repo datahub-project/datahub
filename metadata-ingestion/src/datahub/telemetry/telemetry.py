@@ -265,10 +265,10 @@ class Telemetry:
             )
 
     def capture_exception(self, e: BaseException) -> None:
-        import sentry_sdk
-
         try:
             if self.sentry_enabled:
+                import sentry_sdk
+
                 sentry_sdk.capture_exception(e)
         except Exception as e:
             logger.warning("Failed to capture exception in Sentry.", exc_info=e)
