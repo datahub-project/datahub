@@ -1,9 +1,12 @@
 package com.linkedin.metadata;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -59,6 +62,14 @@ public class ESTestConfiguration {
         searchConfiguration.setExactMatch(exactMatchConfiguration);
         searchConfiguration.setPartial(partialConfiguration);
         return searchConfiguration;
+    }
+
+    @Bean
+    public CustomSearchConfiguration customSearchConfiguration() throws Exception {
+        CustomConfiguration customConfiguration = new CustomConfiguration();
+        customConfiguration.setEnabled(true);
+        customConfiguration.setFile("search_config_builder_test.yml");
+        return customConfiguration.resolve(new YAMLMapper());
     }
 
     @Scope("singleton")

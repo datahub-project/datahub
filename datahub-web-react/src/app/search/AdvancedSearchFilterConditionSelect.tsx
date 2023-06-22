@@ -93,7 +93,9 @@ export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props)
                 dropdownMatchSelectWidth={false}
             >
                 {Object.keys(labelsForField).map((labelKey) => (
-                    <Option value={labelKey}>{labelsForField[labelKey]}</Option>
+                    <Option key={labelKey} value={labelKey}>
+                        {labelsForField[labelKey]}
+                    </Option>
                 ))}
             </StyledSelect>
         </>

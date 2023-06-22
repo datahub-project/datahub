@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -13,11 +14,8 @@ import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestSignal;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
-import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -25,6 +23,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * Cancels a requested ingestion execution by emitting a KILL signal.
@@ -51,23 +52,19 @@ public class CancelIngestionExecutionRequestResolver implements DataFetcher<Comp
             bindArgument(environment.getArgument("input"), CancelIngestionExecutionRequestInput.class);
 
         try {
-
-          final MetadataChangeProposal proposal = new MetadataChangeProposal();
-          proposal.setEntityUrn(Urn.createFromString(input.getExecutionRequestUrn()));
-
           final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
           final Map<Urn, EntityResponse> response =
-              _entityClient.batchGetV2(Constants.INGESTION_SOURCE_ENTITY_NAME, ImmutableSet.of(ingestionSourceUrn),
-                  ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME), context.getAuthentication());
+              _entityClient.batchGetV2(INGESTION_SOURCE_ENTITY_NAME, ImmutableSet.of(ingestionSourceUrn),
+                  ImmutableSet.of(INGESTION_INFO_ASPECT_NAME), context.getAuthentication());
 
           if (!response.containsKey(ingestionSourceUrn)) {
             throw new DataHubGraphQLException(
-                String.format("Failed to find ingestion source with urn %s", ingestionSourceUrn.toString()),
+                String.format("Failed to find ingestion source with urn %s", ingestionSourceUrn),
                 DataHubGraphQLErrorCode.BAD_REQUEST);
           }
 
           final EnvelopedAspect envelopedInfo =
-              response.get(ingestionSourceUrn).getAspects().get(Constants.INGESTION_INFO_ASPECT_NAME);
+              response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
           final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
 
           // Build the arguments map.
@@ -78,14 +75,11 @@ public class CancelIngestionExecutionRequestResolver implements DataFetcher<Comp
               .setTime(System.currentTimeMillis())
               .setActor(Urn.createFromString(context.getActorUrn()))
           );
-          proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
-          proposal.setAspectName(Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME);
-          proposal.setAspect(GenericRecordUtils.serializeAspect(execSignal));
-          proposal.setChangeType(ChangeType.UPSERT);
-
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(
+              input.getExecutionRequestUrn()), EXECUTION_REQUEST_SIGNAL_ASPECT_NAME, execSignal);
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to submit cancel signal %s", input.toString()), e);
+          throw new RuntimeException(String.format("Failed to submit cancel signal %s", input), e);
         }
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");

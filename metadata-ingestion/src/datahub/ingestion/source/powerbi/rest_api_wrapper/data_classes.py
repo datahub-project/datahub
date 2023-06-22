@@ -46,6 +46,7 @@ class Workspace:
     report_endorsements: Dict[str, List[str]]
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
+    independent_datasets: List["PowerBIDataset"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
