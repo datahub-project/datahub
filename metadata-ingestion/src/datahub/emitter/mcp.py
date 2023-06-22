@@ -197,6 +197,11 @@ class MetadataChangeProposalWrapper:
         Raises:
             Exception if the generic aspect is invalid, e.g. contains invalid json.
         """
+
+        if mcpc.changeType != ChangeTypeClass.UPSERT:
+            # We can only generate MCPWs for upserts.
+            return None
+
         converted, aspect = _try_from_generic_aspect(mcpc.aspectName, mcpc.aspect)
         if converted:
             return cls(

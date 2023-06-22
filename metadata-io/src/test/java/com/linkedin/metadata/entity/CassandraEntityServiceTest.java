@@ -7,6 +7,7 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.CassandraTestUtils;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.event.EventProducer;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +66,11 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
     _aspectDao = new CassandraAspectDao(session);
     _aspectDao.setConnectionValidated(true);
     _mockProducer = mock(EventProducer.class);
-    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true);
+    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(true);
+    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true,
+        _mockUpdateIndicesService, preProcessHooks);
     _retentionService = new CassandraRetentionService(_entityService, session, 1000);
     _entityService.setRetentionService(_retentionService);
   }

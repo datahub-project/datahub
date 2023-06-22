@@ -10,15 +10,13 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -32,6 +30,7 @@ import java.util.concurrent.CompletionException;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.testng.Assert.assertThrows;
+import static com.linkedin.metadata.Constants.*;
 
 public class CreateGlossaryTermResolverTest {
 
@@ -72,9 +71,6 @@ public class CreateGlossaryTermResolverTest {
 
     final GlossaryTermKey key = new GlossaryTermKey();
     key.setName("test-id");
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-    proposal.setEntityType(Constants.GLOSSARY_TERM_ENTITY_NAME);
     GlossaryTermInfo props = new GlossaryTermInfo();
     props.setDefinition(description);
     props.setName("test-name");
@@ -83,11 +79,8 @@ public class CreateGlossaryTermResolverTest {
       final GlossaryNodeUrn parent = GlossaryNodeUrn.createFromString(parentNode);
       props.setParentNode(parent);
     }
-    proposal.setAspectName(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(props));
-    proposal.setChangeType(ChangeType.UPSERT);
-
-    return proposal;
+    return MutationUtils.buildMetadataChangeProposalWithKey(key, GLOSSARY_TERM_ENTITY_NAME,
+        GLOSSARY_TERM_INFO_ASPECT_NAME, props);
   }
 
   @Test
@@ -102,7 +95,8 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
   }
 
@@ -118,7 +112,8 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
   }
 
@@ -134,7 +129,8 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
   }
 
@@ -144,7 +140,7 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
         mockClient.filter(
-            Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
             Mockito.any(),
             Mockito.eq(null),
             Mockito.eq(0),
@@ -158,14 +154,14 @@ public class CreateGlossaryTermResolverTest {
     Map<Urn, EntityResponse> result = new HashMap<>();
     EnvelopedAspectMap map = new EnvelopedAspectMap();
     GlossaryTermInfo termInfo = new GlossaryTermInfo().setName("Duplicated Name");
-    map.put(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(termInfo.data())));
+    map.put(GLOSSARY_TERM_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(termInfo.data())));
     result.put(UrnUtils.getUrn(EXISTING_TERM_URN), new EntityResponse().setAspects(map));
 
     Mockito.when(
         mockClient.batchGetV2(
-            Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
             Mockito.any(),
-            Mockito.eq(Collections.singleton(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)),
+            Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME)),
             Mockito.any()
         )
     ).thenReturn(result);
@@ -194,7 +190,7 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
         mockClient.filter(
-            Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
             Mockito.any(),
             Mockito.eq(null),
             Mockito.eq(0),
@@ -204,9 +200,9 @@ public class CreateGlossaryTermResolverTest {
     ).thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
     Mockito.when(
         mockClient.batchGetV2(
-            Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
             Mockito.any(),
-            Mockito.eq(Collections.singleton(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)),
+            Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME)),
             Mockito.any()
         )
     ).thenReturn(new HashMap<>());

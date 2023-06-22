@@ -10,7 +10,7 @@ record SearchFlags {
   skipCache: boolean = false
 
   /**
-   * The maximum number of values in an facet aggregation
+   * The maximum number of values in a facet aggregation
    */
   maxAggValues: int = 20
 
