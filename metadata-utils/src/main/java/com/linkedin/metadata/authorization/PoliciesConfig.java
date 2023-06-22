@@ -321,6 +321,11 @@ public class PoliciesConfig {
       "Restore Indicies API",
       "The ability to use the Restore Indices API.");
 
+  public static final Privilege GET_TIMESERIES_INDEX_SIZES_PRIVILEGE = Privilege.of(
+      "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
+      "Get Timeseries index sizes API",
+      "The ability to use the get Timeseries indices size API.");
+
   public static final Privilege SEARCH_PRIVILEGE = Privilege.of(
       "SEARCH_PRIVILEGE",
       "Search API",
