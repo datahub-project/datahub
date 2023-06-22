@@ -11005,6 +11005,7 @@ type ListOwnershipTypesResult {
     ownershipTypes: [OwnershipTypeEntity!]!
 }
 
+
 input CreateOwnershipTypeInput {
     """
     The name of the Custom Ownership Type

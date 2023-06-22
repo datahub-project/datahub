@@ -82,7 +82,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
         description="Which Okta User Profile attribute to use as input to DataHub username mapping. Common values used are - login, email.",
     )
     okta_profile_to_username_regex: str = Field(
-        default="([^@]+)",
+        default="(.*)",
         description="A regex used to parse the DataHub username from the attribute specified in `okta_profile_to_username_attr`.",
     )
 
