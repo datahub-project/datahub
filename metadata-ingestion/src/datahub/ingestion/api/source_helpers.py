@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -13,6 +14,7 @@ from typing import (
     Union,
 )
 
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -20,13 +22,17 @@ from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
     BrowsePathsV2Class,
+    ChangeTypeClass,
     ContainerClass,
+    DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
     TagKeyClass,
+    TimeWindowSizeClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns
@@ -149,11 +155,11 @@ def auto_materialize_referenced_tags(
 
     for wu in stream:
         for urn in list_urns(wu.metadata):
-            if guess_entity_type(urn) == "tag":
+            if guess_entity_type(urn) == TagUrn.ENTITY_TYPE:
                 referenced_tags.add(urn)
 
         urn = wu.get_urn()
-        if guess_entity_type(urn) == "tag":
+        if guess_entity_type(urn) == TagUrn.ENTITY_TYPE:
             tags_with_aspects.add(urn)
 
         yield wu
@@ -272,6 +278,64 @@ def auto_browse_path_v2(
             "num_out_of_order": num_out_of_order,
         }
         telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
+
+
+def auto_empty_dataset_usage_statistics(
+    stream: Iterable[MetadataWorkUnit],
+    *,
+    dataset_urns: Set[str],
+    config: BaseTimeWindowConfig,
+    all_buckets: bool = False,  # TODO: Enable when CREATE changeType is supported for timeseries aspects
+) -> Iterable[MetadataWorkUnit]:
+    """Emit empty usage statistics aspect for all dataset_urns ingested with no usage."""
+    buckets = config.buckets() if all_buckets else config.majority_buckets()
+    bucket_timestamps = [int(bucket.timestamp() * 1000) for bucket in buckets]
+
+    # Maps time bucket -> urns with usage statistics for that bucket
+    usage_statistics_urns: Dict[int, Set[str]] = {ts: set() for ts in bucket_timestamps}
+    invalid_timestamps = set()
+
+    for wu in stream:
+        yield wu
+        if not wu.is_primary_source:
+            continue
+
+        urn = wu.get_urn()
+        if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE:
+            dataset_urns.add(urn)
+            usage_aspect = wu.get_aspect_of_type(DatasetUsageStatisticsClass)
+            if usage_aspect:
+                if usage_aspect.timestampMillis in bucket_timestamps:
+                    usage_statistics_urns[usage_aspect.timestampMillis].add(urn)
+                elif all_buckets:
+                    invalid_timestamps.add(usage_aspect.timestampMillis)
+
+    if invalid_timestamps:
+        logger.warning(
+            f"Usage statistics with unexpected timestamps, bucket_duration={config.bucket_duration}:\n"
+            ", ".join(
+                str(datetime.fromtimestamp(ts, tz=timezone.utc))
+                for ts in invalid_timestamps
+            )
+        )
+
+    for bucket in bucket_timestamps:
+        for urn in dataset_urns - usage_statistics_urns[bucket]:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DatasetUsageStatisticsClass(
+                    timestampMillis=bucket,
+                    eventGranularity=TimeWindowSizeClass(unit=config.bucket_duration),
+                    uniqueUserCount=0,
+                    totalSqlQueries=0,
+                    topSqlQueries=[],
+                    userCounts=[],
+                    fieldCounts=[],
+                ),
+                changeType=ChangeTypeClass.CREATE
+                if all_buckets
+                else ChangeTypeClass.UPSERT,
+            ).as_workunit()
 
 
 def _batch_workunits_by_urn(
