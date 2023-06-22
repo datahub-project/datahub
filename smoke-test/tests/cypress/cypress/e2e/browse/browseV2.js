@@ -36,7 +36,7 @@ describe("search", () => {
     cy.get("[data-testid=browse-v2").should("not.exist");
   });
 
-  it("should hide the hide and show when the toggle button is clicked", () => {
+  it("should hide and show the sidebar when the toggle button is clicked", () => {
     setBrowseFeatureFlag(true);
     cy.login();
     cy.visit("/");
