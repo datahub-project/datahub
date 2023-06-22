@@ -11,6 +11,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { SearchResult } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { EntityAndType } from '../entity/shared/types';
+import { useIsSearchV2 } from './useSearchAndBrowseVersion';
 
 const ResultList = styled(List)`
     &&& {
@@ -36,6 +37,18 @@ const NoDataContainer = styled.div`
 const ThinDivider = styled(Divider)`
     margin-top: 16px;
     margin-bottom: 16px;
+`;
+
+const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+    ${(props) =>
+        props.showUpdatedStyles &&
+        `    
+        background-color: white;
+        border-radius: 5px;
+        margin: 0 auto 8px auto;
+        padding: 8px 16px;
+        max-width: 1200px;
+    `}
 `;
 
 const SiblingResultContainer = styled.div`
@@ -68,6 +81,7 @@ export const SearchResultList = ({
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+    const showSearchFiltersV2 = useIsSearchV2();
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
@@ -116,7 +130,7 @@ export const SearchResultList = ({
                     ),
                 }}
                 renderItem={(item, index) => (
-                    <>
+                    <ResultWrapper showUpdatedStyles={showSearchFiltersV2}>
                         <ListItem
                             isSelectMode={isSelectMode}
                             onClick={() => onClickResult(item, index)}
@@ -144,8 +158,8 @@ export const SearchResultList = ({
                                 />
                             </SiblingResultContainer>
                         )}
-                        <ThinDivider />
-                    </>
+                        {!showSearchFiltersV2 && <ThinDivider />}
+                    </ResultWrapper>
                 )}
             />
         </>

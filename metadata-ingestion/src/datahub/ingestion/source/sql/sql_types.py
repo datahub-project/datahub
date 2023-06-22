@@ -237,10 +237,17 @@ def resolve_trino_modified_type(type_string: str) -> Any:
 
 
 def resolve_athena_modified_type(type_string: str) -> Any:
+    # for cases like struct<...>, array<...>, map<...>
+    match_complex = re.match(r"([a-zA-Z]+)<.+>", type_string)
     # for cases like timestamp(3), decimal(10,0)
-    match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
-    if match:
-        modified_type_base: str = match.group(1)
+    match_simple = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
+
+    modified_type_base = ""
+    if match_complex:
+        modified_type_base = match_complex.group(1)
+    elif match_simple:
+        modified_type_base = match_simple.group(1)
+    if modified_type_base:
         return ATHENA_SQL_TYPES_MAP[modified_type_base]
     return ATHENA_SQL_TYPES_MAP[type_string]
 

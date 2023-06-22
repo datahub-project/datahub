@@ -36,3 +36,18 @@ body {
         border-color: @gray-5;
     }
 }
+
+.ant-checkbox {
+    &:not(.ant-checkbox-disabled) {
+        &.ant-checkbox-checked {
+            .ant-checkbox-inner {
+                border-color: @primary-color;
+            }
+        }
+        &:not(.ant-checkbox-checked) {
+            .ant-checkbox-inner {
+                border-color: @gray-7;
+            }
+        }
+    }
+}
