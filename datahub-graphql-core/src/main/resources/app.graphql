@@ -379,6 +379,16 @@ type FeatureFlagsConfig {
   Right now this only affects ability to edit user profile image URL but can be extended.
   """
   readOnlyModeEnabled: Boolean!
+
+  """
+  Whether search filters V2 should be shown or the default filter side-panel
+  """
+  showSearchFiltersV2: Boolean!
+
+  """
+  Whether browse V2 sidebar should be shown
+  """
+  showBrowseV2: Boolean!
 }
 
 """
