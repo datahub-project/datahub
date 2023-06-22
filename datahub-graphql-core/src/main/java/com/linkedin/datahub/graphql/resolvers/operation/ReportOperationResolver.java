@@ -18,10 +18,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ReportOperationInput;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.timeseries.PartitionSpec;
 import com.linkedin.timeseries.PartitionType;
@@ -35,6 +32,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * Resolver used for reporting Asset Operations
@@ -44,7 +44,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class ReportOperationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private static final List<String> SUPPORTED_ENTITY_TYPES = ImmutableList.of(
-      Constants.DATASET_ENTITY_NAME
+      DATASET_ENTITY_NAME
   );
 
   private final EntityClient _entityClient;
@@ -67,13 +67,9 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
 
       try {
         // Create an MCP to emit the operation
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(entityUrn);
-        proposal.setEntityType(entityUrn.getEntityType());
-        proposal.setAspectName(Constants.OPERATION_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(mapOperation(input, context)));
-        proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, context.getAuthentication());
+        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(entityUrn, OPERATION_ASPECT_NAME,
+            mapOperation(input, context));
+        _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         return true;
       } catch (Exception e) {
         log.error("Failed to report operation. {}", e.getMessage());

@@ -103,6 +103,11 @@ public class PoliciesConfig {
       "Manage Public Views",
       "Create, update, and delete any Public (shared) Views.");
 
+  public static final Privilege MANAGE_GLOBAL_OWNERSHIP_TYPES = Privilege.of(
+      "MANAGE_GLOBAL_OWNERSHIP_TYPES",
+      "Manage Ownership Types",
+      "Create, update and delete Ownership Types.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -119,7 +124,8 @@ public class PoliciesConfig {
       CREATE_TAGS_PRIVILEGE,
       CREATE_DOMAINS_PRIVILEGE,
       CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
-      MANAGE_GLOBAL_VIEWS
+      MANAGE_GLOBAL_VIEWS,
+      MANAGE_GLOBAL_OWNERSHIP_TYPES
   );
 
   // Resource Privileges //
@@ -314,6 +320,11 @@ public class PoliciesConfig {
       "RESTORE_INDICES_PRIVILEGE",
       "Restore Indicies API",
       "The ability to use the Restore Indices API.");
+
+  public static final Privilege GET_TIMESERIES_INDEX_SIZES_PRIVILEGE = Privilege.of(
+      "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
+      "Get Timeseries index sizes API",
+      "The ability to use the get Timeseries indices size API.");
 
   public static final Privilege SEARCH_PRIVILEGE = Privilege.of(
       "SEARCH_PRIVILEGE",

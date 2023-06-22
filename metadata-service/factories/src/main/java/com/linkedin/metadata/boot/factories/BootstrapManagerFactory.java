@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot.factories;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
@@ -8,10 +9,12 @@ import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
+import com.linkedin.metadata.boot.steps.BackfillBrowsePathsV2Step;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
+import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRolesStep;
@@ -26,11 +29,10 @@ import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -59,6 +61,10 @@ public class BootstrapManagerFactory {
   private EntitySearchService _entitySearchService;
 
   @Autowired
+  @Qualifier("searchService")
+  private SearchService _searchService;
+
+  @Autowired
   @Qualifier("searchDocumentTransformer")
   private SearchDocumentTransformer _searchDocumentTransformer;
 
@@ -80,6 +86,9 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
   private Boolean _upgradeDefaultBrowsePathsEnabled;
 
+  @Value("${bootstrap.backfillBrowsePathsV2.enabled}")
+  private Boolean _backfillBrowsePathsV2Enabled;
+
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
@@ -100,28 +109,32 @@ public class BootstrapManagerFactory {
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices = new RestoreColumnLineageIndices(_entityService, _entityRegistry);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep = new IngestDefaultGlobalSettingsStep(_entityService);
-    final WaitForSystemUpdateStep waitForSystemUpdateStep = _configurationProvider.getSystemUpdate().isWaitForSystemUpdate()
-        ? new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider) : null;
+    final WaitForSystemUpdateStep waitForSystemUpdateStep = new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener,
+        _configurationProvider);
+    final IngestOwnershipTypesStep ingestOwnershipTypesStep = new IngestOwnershipTypesStep(_entityService);
 
-    final List<BootstrapStep> finalSteps = Stream.of(
-                    waitForSystemUpdateStep,
-                    ingestRootUserStep,
-                    ingestPoliciesStep,
-                    ingestRolesStep,
-                    ingestDataPlatformsStep,
-                    ingestDataPlatformInstancesStep,
-                    _ingestRetentionPoliciesStep,
-                    ingestSettingsStep,
-                    restoreGlossaryIndicesStep,
-                    removeClientIdAspectStep,
-                    restoreDbtSiblingsIndices,
-                    indexDataPlatformsStep,
-                    restoreColumnLineageIndices)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+    final List<BootstrapStep> finalSteps = new ArrayList<>(ImmutableList.of(
+        waitForSystemUpdateStep,
+        ingestRootUserStep,
+        ingestPoliciesStep,
+        ingestRolesStep,
+        ingestDataPlatformsStep,
+        ingestDataPlatformInstancesStep,
+        _ingestRetentionPoliciesStep,
+        ingestOwnershipTypesStep,
+        ingestSettingsStep,
+        restoreGlossaryIndicesStep,
+        removeClientIdAspectStep,
+        restoreDbtSiblingsIndices,
+        indexDataPlatformsStep,
+        restoreColumnLineageIndices));
 
     if (_upgradeDefaultBrowsePathsEnabled) {
       finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));
+    }
+
+    if (_backfillBrowsePathsV2Enabled) {
+      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
     }
 
     return new BootstrapManager(finalSteps);

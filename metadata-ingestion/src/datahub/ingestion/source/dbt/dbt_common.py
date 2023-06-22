@@ -31,26 +31,22 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
+    ATHENA_SQL_TYPES_MAP,
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
     VERTICA_SQL_TYPES_MAP,
+    resolve_athena_modified_type,
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
     resolve_vertica_modified_type,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -510,6 +506,7 @@ _field_type_mapping = {
     **BIGQUERY_TYPES_MAP,
     **SPARK_SQL_TYPES_MAP,
     **TRINO_SQL_TYPES_MAP,
+    **ATHENA_SQL_TYPES_MAP,
     **VERTICA_SQL_TYPES_MAP,
 }
 
@@ -523,9 +520,11 @@ def get_column_type(
     TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
-        # resolve modified type
+        # resolve a modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
+        elif dbt_adapter == "athena":
+            TypeClass = resolve_athena_modified_type(column_type)
         elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
             # Redshift uses a variant of Postgres, so we can use the same logic.
             TypeClass = resolve_postgres_modified_type(column_type)
@@ -688,12 +687,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.owner_extraction_pattern
             )
         # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
+            self, self.config, ctx
         )
 
     def create_test_entity_mcps(
@@ -878,15 +873,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # return dbt nodes + global custom properties
         raise NotImplementedError()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_materialize_referenced_tags(
-            auto_stale_entity_removal(
-                self.stale_entity_removal_handler,
-                auto_workunit_reporter(
-                    self.report, auto_status_aspect(self.get_workunits_internal())
-                ),
-            )
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            self.stale_entity_removal_handler.workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:

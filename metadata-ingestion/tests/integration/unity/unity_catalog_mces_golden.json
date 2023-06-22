@@ -10,6 +10,7 @@
                 "platform": "databricks",
                 "metastore": "acryl metastore"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data",
             "name": "acryl metastore"
         }
     },
@@ -101,6 +102,7 @@
                 "metastore": "acryl metastore",
                 "catalog": "main"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main",
             "name": "main",
             "description": "Main catalog (auto-created)"
         }
@@ -209,6 +211,7 @@
                 "catalog": "main",
                 "unity_schema": "default"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/default",
             "name": "default",
             "description": "Default schema (auto-created)"
         }
@@ -342,7 +345,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/default/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "main.default.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -492,6 +497,7 @@
                 "catalog": "main",
                 "unity_schema": "information_schema"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/information_schema",
             "name": "information_schema",
             "description": "Information schema (auto-created)"
         }
@@ -625,7 +631,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/information_schema/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "main.information_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -775,6 +783,7 @@
                 "catalog": "main",
                 "unity_schema": "quickstart_schema"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/quickstart_schema",
             "name": "quickstart_schema",
             "description": "A new Unity Catalog schema called quickstart_schema"
         }
@@ -908,7 +917,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/quickstart_schema/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "main.quickstart_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -1057,6 +1068,7 @@
                 "metastore": "acryl metastore",
                 "catalog": "quickstart_catalog"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
             "name": "quickstart_catalog",
             "description": ""
         }
@@ -1165,6 +1177,7 @@
                 "catalog": "quickstart_catalog",
                 "unity_schema": "default"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/default",
             "name": "default",
             "description": "Default schema (auto-created)"
         }
@@ -1298,7 +1311,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/default/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.default.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -1448,6 +1463,7 @@
                 "catalog": "quickstart_catalog",
                 "unity_schema": "information_schema"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/information_schema",
             "name": "information_schema",
             "description": "Information schema (auto-created)"
         }
@@ -1581,7 +1597,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/information_schema/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.information_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -1731,6 +1749,7 @@
                 "catalog": "quickstart_catalog",
                 "unity_schema": "quickstart_schema"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema",
             "name": "quickstart_schema",
             "description": "A new Unity Catalog schema called quickstart_schema"
         }
@@ -1864,7 +1883,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -2013,6 +2034,7 @@
                 "metastore": "acryl metastore",
                 "catalog": "system"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system",
             "name": "system",
             "description": "System catalog (auto-created)"
         }
@@ -2121,6 +2143,7 @@
                 "catalog": "system",
                 "unity_schema": "default"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/default",
             "name": "default",
             "description": "Default schema (auto-created)"
         }
@@ -2254,7 +2277,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/default/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "system.default.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -2404,6 +2429,7 @@
                 "catalog": "system",
                 "unity_schema": "information_schema"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/information_schema",
             "name": "information_schema",
             "description": "Information schema (auto-created)"
         }
@@ -2537,7 +2563,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/information_schema/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "system.information_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"
@@ -2687,6 +2715,7 @@
                 "catalog": "system",
                 "unity_schema": "quickstart_schema"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/quickstart_schema",
             "name": "quickstart_schema",
             "description": "A new Unity Catalog schema called quickstart_schema"
         }
@@ -2820,7 +2849,9 @@
                 "updated_by": "abc@acryl.io",
                 "updated_at": "2022-10-19 13:27:29.633000"
             },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/quickstart_schema/quickstart_table",
             "name": "quickstart_table",
+            "qualifiedName": "system.quickstart_schema.quickstart_table",
             "created": {
                 "time": 1666185698688,
                 "actor": "urn:li:corpuser:abc@acryl.io"

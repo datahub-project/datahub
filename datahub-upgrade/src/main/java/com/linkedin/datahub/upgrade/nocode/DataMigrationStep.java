@@ -86,7 +86,7 @@ public class DataMigrationStep implements UpgradeStep {
                 Class.forName(oldAspectName).asSubclass(RecordTemplate.class),
                 oldAspect.getMetadata());
           } catch (Exception e) {
-            context.report().addLine(String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s", oldAspectName, e.getMessage()));
+            context.report().addLine(String.format("Failed to convert aspect with name %s into a RecordTemplate class", oldAspectName), e);
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
@@ -95,7 +95,7 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             urn = Urn.createFromString(oldAspect.getKey().getUrn());
           } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to bind Urn with value %s into Urn object: %s", oldAspect.getKey().getUrn(), e));
+            throw new RuntimeException(String.format("Failed to bind Urn with value %s into Urn object", oldAspect.getKey().getUrn()), e);
           }
 
           // 3. Verify that the entity associated with the aspect is found in the registry.
@@ -104,7 +104,7 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             entitySpec = _entityRegistry.getEntitySpec(entityName);
           } catch (Exception e) {
-            context.report().addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
+            context.report().addLine(String.format("Failed to find Entity with name %s in Entity Registry", entityName), e);
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
@@ -113,10 +113,9 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             newAspectName = PegasusUtils.getAspectNameFromSchema(aspectRecord.schema());
           } catch (Exception e) {
-            context.report().addLine(String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",
+            context.report().addLine(String.format("Failed to retrieve @Aspect name from schema %s, urn %s",
                 aspectRecord.schema().getFullName(),
-                entityName,
-                    e));
+                entityName), e);
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
@@ -125,10 +124,9 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             aspectSpec = entitySpec.getAspectSpec(newAspectName);
           } catch (Exception e) {
-            context.report().addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
+            context.report().addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s",
                 newAspectName,
-                entityName,
-                    e));
+                entityName), e);
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 

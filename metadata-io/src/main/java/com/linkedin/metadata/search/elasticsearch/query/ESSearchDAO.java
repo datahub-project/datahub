@@ -5,17 +5,12 @@ import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -131,14 +126,20 @@ public class ESSearchDAO {
 
   @VisibleForTesting
   SearchResult transformIndexIntoEntityName(SearchResult result) {
-    AggregationMetadataArray aggArray = result.getMetadata().getAggregations();
+    return result.setMetadata(result.getMetadata().setAggregations(transformIndexIntoEntityName(result.getMetadata().getAggregations())));
+  }
+  private ScrollResult transformIndexIntoEntityName(ScrollResult result) {
+    return result.setMetadata(result.getMetadata().setAggregations(transformIndexIntoEntityName(result.getMetadata().getAggregations())));
+  }
+
+  private AggregationMetadataArray transformIndexIntoEntityName(AggregationMetadataArray aggArray) {
     List<AggregationMetadata> newAggs = new ArrayList<>();
     for (AggregationMetadata aggMeta : aggArray) {
       List<String> aggregateFacets = List.of(aggMeta.getName().split(AGGREGATION_SEPARATOR_CHAR));
       int entityTypeIdx = aggregateFacets.indexOf(INDEX_VIRTUAL_FIELD);
       newAggs.add(transformAggregationMetadata(aggMeta, entityTypeIdx));
     }
-    return result.setMetadata(result.getMetadata().setAggregations(new AggregationMetadataArray(newAggs)));
+    return new AggregationMetadataArray(newAggs);
   }
 
   @Nonnull
@@ -148,10 +149,10 @@ public class ESSearchDAO {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler
+      return transformIndexIntoEntityName(SearchRequestHandler
               .getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
               .extractScrollResult(searchResponse,
-              filter, scrollId, keepAlive, size, supportsPointInTime());
+              filter, scrollId, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
         final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
@@ -331,45 +332,6 @@ public class ESSearchDAO {
     scrollRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
-  }
-
-  private static Criterion transformEntityTypeCriterion(Criterion criterion, IndexConvention indexConvention) {
-    return criterion.setField("_index").setValues(
-        new StringArray(criterion.getValues().stream().map(
-            indexConvention::getEntityIndexName).collect(
-            Collectors.toList()))).setValue(indexConvention.getEntityIndexName(criterion.getValue()));
-  }
-
-  private static ConjunctiveCriterion transformConjunctiveCriterion(ConjunctiveCriterion conjunctiveCriterion,
-      IndexConvention indexConvention) {
-    return new ConjunctiveCriterion().setAnd(
-        conjunctiveCriterion.getAnd().stream().map(
-                criterion -> criterion.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                    ? transformEntityTypeCriterion(criterion, indexConvention)
-                    : criterion)
-            .collect(Collectors.toCollection(CriterionArray::new)));
-  }
-
-  private static ConjunctiveCriterionArray transformConjunctiveCriterionArray(ConjunctiveCriterionArray criterionArray,
-      IndexConvention indexConvention) {
-    return new ConjunctiveCriterionArray(
-        criterionArray.stream().map(
-            conjunctiveCriterion -> transformConjunctiveCriterion(conjunctiveCriterion, indexConvention))
-            .collect(Collectors.toList()));
-  }
-
-  /**
-   * Allows filtering on entities which are stored as different indices under the hood by transforming the tag
-   * _entityType to _index and updating the type to the index name.
-   * @param filter The filter to parse and transform if needed
-   * @param indexConvention The index convention used to generate the index name for an entity
-   * @return A filter, with the changes if necessary
-   */
-  static Filter transformFilterForEntities(Filter filter, @Nonnull IndexConvention indexConvention) {
-    if (filter != null && filter.getOr() != null) {
-      return new Filter().setOr(transformConjunctiveCriterionArray(filter.getOr(), indexConvention));
-    }
-    return filter;
   }
 
   private boolean supportsPointInTime() {

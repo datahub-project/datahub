@@ -28,6 +28,11 @@ public class Constants {
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   // Forces indexing for no-ops, enabled for restore indices calls. Only considered in the no-op case
   public static final String FORCE_INDEXING_KEY = "forceIndexing";
+  // Indicates an event source from an application with hooks that have already been processed and should not be reprocessed
+  public static final String APP_SOURCE = "appSource";
+
+  // App sources
+  public static final String UI_SOURCE = "ui";
 
   /**
    * Entities
@@ -67,6 +72,7 @@ public class Constants {
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
+  public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
 
   /**
    * Aspects
@@ -76,6 +82,7 @@ public class Constants {
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String DATA_PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
   public static final String BROWSE_PATHS_ASPECT_NAME = "browsePaths";
+  public static final String BROWSE_PATHS_V2_ASPECT_NAME = "browsePathsV2";
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
@@ -273,6 +280,10 @@ public class Constants {
   // DataProduct
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
+
+  // Ownership Types
+  public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
+  public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
