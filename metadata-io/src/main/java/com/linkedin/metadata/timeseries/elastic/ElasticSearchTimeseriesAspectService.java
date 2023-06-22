@@ -53,7 +53,6 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.Request;
-import org.elasticsearch.client.Cancellable;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -297,22 +296,6 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     } else {
       log.error("Delete query failed");
       throw new ESQueryException("Delete query failed");
-    }
-  }
-
-  @Override
-  public void reindex(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
-      @Nonnull BatchWriteOperationsOptions options) {
-    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
-    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
-    final int batchSize = options.getBatchSize() > 0 ? options.getBatchSize() : DEFAULT_LIMIT;
-    TimeValue timeout = options.getTimeoutSeconds() > 0 ? TimeValue.timeValueSeconds(options.getTimeoutSeconds()) : null;
-    final Optional<Cancellable> result = _bulkProcessor
-        .reindex(filterQueryBuilder, indexName, batchSize, timeout);
-
-    if (result.isEmpty()) {
-      log.error("Async reindex query failed");
-      throw new ESQueryException("Async reindex query failed");
     }
   }
 

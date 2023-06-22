@@ -22,8 +22,13 @@ public interface TimeseriesAspectService {
    */
   void configure();
 
-
-  // TODO: comments
+  /**
+   * Count the number of entries using a filter
+   * @param entityName the name of the entity to count entries for
+   * @param aspectName the name of the timeseries aspect to count for that entity
+   * @param filter the filter to apply to the count
+   * @return The count of the number of entries that match the filter
+   */
   public long countByFilter(
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
@@ -125,16 +130,6 @@ public interface TimeseriesAspectService {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final Filter filter);
-
-  /**
-   * Reindex the index represented by entityName and aspect name, applying the filter
-   * @param entityName The name of the entity.
-   * @param aspectName  The name of the aspect.
-   * @param filter A filter to be used when reindexing
-   * @param options Options to control reindex parameters
-   */
-  void reindex(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
-      @Nonnull BatchWriteOperationsOptions options);
 
   /**
    * Generic filter based deletion for Time-Series Aspects.

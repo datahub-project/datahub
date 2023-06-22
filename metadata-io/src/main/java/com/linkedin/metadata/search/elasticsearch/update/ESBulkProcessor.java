@@ -7,13 +7,11 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.Cancellable;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.tasks.TaskSubmissionResponse;
@@ -26,9 +24,6 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
-import org.elasticsearch.index.reindex.ReindexRequest;
-
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.*;
 
 
 @Slf4j
@@ -121,50 +116,6 @@ public class ESBulkProcessor implements Closeable {
 
         return Optional.empty();
     }
-
-    public Optional<Cancellable> reindex(QueryBuilder queryBuilder, String index, int batchSize, @Nullable TimeValue timeout) {
-        final long startTime = System.currentTimeMillis();
-        String destIndex = index + "_" + startTime;
-        ReindexRequest reindexRequest = new ReindexRequest()
-            .setSourceQuery(queryBuilder).setDestIndex(destIndex)
-            .setSourceBatchSize(batchSize);
-        if (timeout != null) {
-            reindexRequest.setTimeout(timeout);
-        }
-        reindexRequest.setSourceIndices(index);
-        try {
-            // flush pending writes
-            bulkProcessor.flush();
-            ActionListener<BulkByScrollResponse> renameIndexTask = new ActionListener<BulkByScrollResponse>() {
-                @Override
-                public void onResponse(BulkByScrollResponse bulkByScrollResponse) {
-                    try {
-                        log.info("Reindex from {} to {} succeeded", index, destIndex);
-                        renameReindexedIndices(searchClient, index, index + "*", destIndex);
-                        log.info("Finished setting up {}", index);
-                        MetricUtils.counter(this.getClass(), ES_REINDEX_SUCCESS_METRIC).inc();
-                    } catch (IOException e) {
-                        log.error(String.format("Failed to rename index %s after reindexing", index));
-                        MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_REINDEX_FAILED_METRIC, e);
-                    }
-                }
-
-                @Override
-                public void onFailure(Exception e) {
-                    log.error(String.format("Failed to reindex %s", index));
-                    MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_REINDEX_FAILED_METRIC, e);
-                }
-            };
-            Cancellable resp = searchClient.reindexAsync(reindexRequest, RequestOptions.DEFAULT, renameIndexTask);
-            MetricUtils.counter(this.getClass(), ES_BATCHES_METRIC).inc();
-            return Optional.of(resp);
-        } catch (Exception e) {
-            log.error("ERROR: Failed to submit a delete by query task. See stacktrace for a more detailed error:", e);
-            MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_SUBMIT_DELETE_EXCEPTION_METRIC, e);
-        }
-        return Optional.empty();
-    }
-
     public Optional<TaskSubmissionResponse> deleteByQueryAsync(QueryBuilder queryBuilder, boolean refresh,
         int limit, @Nullable TimeValue timeout, String... indices) {
         DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest()
