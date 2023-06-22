@@ -9,7 +9,7 @@ buildscript {
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.4'
   ext.testContainersVersion = '1.17.4'
-  ext.elasticsearchVersion = '7.10.2'
+  ext.elasticsearchVersion = '7.11.0'
   // TODO: Change to final release version once it's out ETA Mid-April
   ext.jacksonVersion = '2.13.5'
   ext.jettyVersion = '10.0.4'
@@ -102,7 +102,7 @@ project.ext.externalDependency = [
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
     "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
-    'hazelcast':'com.hazelcast:hazelcast:5.2.3',
+    'hazelcast':'com.hazelcast:hazelcast:5.3.0',
     'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
     'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
