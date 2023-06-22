@@ -7,8 +7,7 @@ import {
 } from '../columnLineageUtils';
 import { dataJob1, dataset1, dataset2 } from '../../../../Mocks';
 import { FetchedEntity } from '../../types';
-import { FineGrainedLineage } from '../../../../types.generated';
-import { SchemaFieldDataType } from '../../../../types.generated';
+import { FineGrainedLineage, SchemaFieldDataType } from '../../../../types.generated';
 
 describe('getSourceUrnFromSchemaFieldUrn', () => {
     it('should get the source urn for a chart schemaField', () => {
