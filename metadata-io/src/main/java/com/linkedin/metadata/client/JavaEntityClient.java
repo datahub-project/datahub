@@ -457,7 +457,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
         throws RemoteInvocationException {
-        withRetry(() -> _deleteEntityService.deleteReferencesTo(urn, false));
+        withRetry(() -> _deleteEntityService.deleteReferencesTo(urn, false), "deleteEntityReferences");
     }
 
     @Nonnull
@@ -579,7 +579,7 @@ public class JavaEntityClient implements EntityClient {
         }
     }
 
-    protected <T> T withRetry(@Nonnull final Supplier<T> block) {
+    protected <T> T withRetry(@Nonnull final Supplier<T> block, @Nullable String counterPrefix) {
         final BackoffPolicy backoffPolicy = new ExponentialBackoff(DEFAULT_RETRY_INTERVAL);
         int attemptCount = 0;
 
@@ -587,7 +587,7 @@ public class JavaEntityClient implements EntityClient {
             try {
                 return block.get();
             } catch (Throwable ex) {
-                MetricUtils.counter(JavaEntityClient.class, "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase()).inc();
+                MetricUtils.counter(this.getClass(), buildMetricName(ex, counterPrefix)).inc();
 
                 final boolean skipRetry = NON_RETRYABLE.contains(ex.getClass().getCanonicalName())
                         || (ex.getCause() != null && NON_RETRYABLE.contains(ex.getCause().getClass().getCanonicalName()));
@@ -607,5 +607,19 @@ public class JavaEntityClient implements EntityClient {
 
         // Should never hit this line.
         throw new IllegalStateException("No JavaEntityClient call executed.");
+    }
+
+    private String buildMetricName(Throwable throwable, @Nullable String counterPrefix) {
+        StringBuilder builder = new StringBuilder();
+
+        // deleteEntityReferences_failures
+        if (counterPrefix != null) {
+            builder.append(counterPrefix).append(MetricUtils.DELIMITER);
+        }
+
+        return builder.append("exception")
+                .append(MetricUtils.DELIMITER)
+                .append(throwable.getClass().getName())
+                .toString();
     }
 }
