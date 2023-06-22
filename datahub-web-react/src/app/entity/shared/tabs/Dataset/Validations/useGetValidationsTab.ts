@@ -23,13 +23,13 @@ export const useGetValidationsTab = (pathname: string, tabNames: string[]): Sele
         const selectedTabPath = match[1];
         const routedTab = tabNames.find((tab) => tab === selectedTabPath);
         return {
-            basePath: pathname.substring(0, pathname.lastIndexOf('/')),
+            basePath: trimmedPathName.substring(0, trimmedPathName.lastIndexOf('/')),
             selectedTab: routedTab,
         };
     }
     // No match found!
     return {
-        basePath: pathname,
+        basePath: trimmedPathName,
         selectedTab: undefined,
     };
 };
