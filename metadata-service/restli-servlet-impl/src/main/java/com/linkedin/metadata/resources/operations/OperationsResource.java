@@ -68,10 +68,10 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @Named("authorizerChain")
   private Authorizer _authorizer;
 
-  public OperationsResource () { }
+  public OperationsResource() { }
 
   @VisibleForTesting
-  OperationsResource (TimeseriesAspectService timeseriesAspectService) {
+  OperationsResource(TimeseriesAspectService timeseriesAspectService) {
     this._timeseriesAspectService = timeseriesAspectService;
   }
   @Action(name = ACTION_RESTORE_INDICES)

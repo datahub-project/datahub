@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 
 public class OperationsResourceTest extends TestCase {
-  final String TASK_ID = "task ID";
+  private static final String TASK_ID = "taskId123";
   TimeseriesAspectService mockTimeseriesAspectServiceWouldDeleteByQuery = new TimeseriesAspectService() {
     @Override
     public void configure() {
