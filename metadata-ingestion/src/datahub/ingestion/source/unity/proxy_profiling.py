@@ -13,7 +13,6 @@ from databricks.sdk.service.sql import (
     StatementState,
     StatementStatus,
 )
-from databricks_cli.unity_catalog.api import UnityCatalogApi
 
 from datahub.ingestion.source.unity.proxy_types import (
     ColumnProfile,
@@ -29,7 +28,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # TODO: Move to separate proxy/ directory with rest of proxy code
 class UnityCatalogProxyProfilingMixin:
     _workspace_client: WorkspaceClient
-    _unity_catalog_api: UnityCatalogApi
     report: UnityCatalogReport
     warehouse_id: str
 
