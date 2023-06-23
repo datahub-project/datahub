@@ -8,6 +8,7 @@ import {
     FolderOutlined,
     SolutionOutlined,
     DownOutlined,
+    NotificationOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
@@ -74,6 +75,8 @@ export function HeaderLinks(props: Props) {
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
     const showDomains = me?.platformPrivileges?.createDomains || me?.platformPrivileges?.manageDomains;
+    const showManagePosts = process.env.MANAGE_POSTS_ENABLED ?? true;
+    console.log(`Manage posts are enabled: ${showManagePosts}`);
 
     useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -101,6 +104,20 @@ export function HeaderLinks(props: Props) {
                                 <NavTitleContainer>
                                     <ApiOutlined />
                                     <NavTitleText>Ingestion</NavTitleText>
+                                </NavTitleContainer>
+                            </Tooltip>
+                        </Button>
+                    </Link>
+                </LinkWrapper>
+            )}
+            {showManagePosts && (
+                <LinkWrapper>
+                    <Link to="/posts">
+                        <Button id="manage-posts-page" type="text">
+                            <Tooltip title="Manage home page posts">
+                                <NavTitleContainer>
+                                    <NotificationOutlined />
+                                    <NavTitleText>News</NavTitleText>
                                 </NavTitleContainer>
                             </Tooltip>
                         </Button>

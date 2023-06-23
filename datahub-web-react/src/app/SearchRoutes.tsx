@@ -12,6 +12,7 @@ import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import GlossaryRoutes from './glossary/GlossaryRoutes';
 import { SettingsPage } from './settings/SettingsPage';
+import { ManagePostPage } from './post/ManagePostsPage';
 
 /**
  * Container for all searchable page routes
@@ -39,6 +40,7 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
                 <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
                 <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPage />} />
+                <Route path={PageRoutes.POSTS} render={() => <ManagePostPage />} />
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutes />} />
