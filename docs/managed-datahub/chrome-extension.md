@@ -3,24 +3,16 @@ description: Learn how to upload and use the Acryl DataHub Chrome extension (bet
 ---
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Local Chrome Extension
+# Acryl DataHub Chrome Extension
 <FeatureAvailability saasOnly />
 
 ## Installing the Extension
 
-In order to use the Acryl DataHub Chrome extension before it's available on the Chrome store, you'll need to upload the same folder we're providing to the Chrome store on your own browser. The steps involved are:
+In order to use the Acryl DataHub Chrome extension, you need to download it onto your browser from the Chrome web store [here](https://chrome.google.com/webstore/detail/datahub-chrome-extension/aoenebhmfokhglijmoacfjcnebdpchfj).
 
-1. In Chrome, open a new tab and navigate to `chrome://extensions/`
+![](imgs/saas/chrome-store-extension-screenshot.png)
 
-2. Enable developer mode by clicking the toggle on the top right of the page
-
-![](imgs/saas/extension_developer_mode.png)
-
-3. Click **Load unpacked** on the top left of the page and choose the folder that we provided you
-
-![](imgs/saas/extension_load_unpacked.png)
-
-Now you have the Acryl DataHub Chrome extension installed on your browser!
+Simply click "Add to Chrome" then "Add extension" on the ensuing popup.
 
 ## Configuring the Extension
 
@@ -54,7 +46,7 @@ Once you have everything configured on your extension, it's time to use it!
 
 1. First ensure that you are logged in to your Acryl DataHub instance.
 
-2. Navigate to Looker and log in to view your data assets.
+2. Navigate to Looker or Tableau and log in to view your data assets.
 
 3. Navigate to a page where DataHub can provide insights on your data assets (Dashboards and Explores).
 
@@ -62,3 +54,17 @@ Once you have everything configured on your extension, it's time to use it!
 
 ![](imgs/saas/extension_view_in_looker.png)
 
+## Advanced: Self-Hosted DataHub
+
+If you are using the Acryl DataHub Chrome extension for your self-hosted DataHub instance, everything above is applicable. However, there is one additional step you must take in order to set up your instance to be compatible with the extension.
+
+### Configure Auth Cookies
+
+In order for the Chrome extension to work with your instance, it needs to be able to make authenticated requests. Therefore, authentication cookies need to be set up so that they can be shared with the extension on your browser. You must update the values of two environment variables in your `datahub-frontend` container:
+
+```
+AUTH_COOKIE_SAME_SITE="NONE"
+AUTH_COOKIE_SECURE=true
+```
+
+Once your re-deploy your `datahub-frontend` container with these values, you should be good to go!

@@ -19,17 +19,6 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-const StyledCheckbox = styled(Checkbox)`
-    .ant-checkbox-inner {
-        border-color: ${ANTD_GRAY[7]};
-    }
-    .ant-checkbox-checked {
-        .ant-checkbox-inner {
-            border-color: ${(props) => props.theme.styles['primary-color']};
-        }
-    }
-`;
-
 interface CommonFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
@@ -132,7 +121,7 @@ function FormField(props: Props) {
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     let input = <Input placeholder={field.placeholder} />;
-    if (isBoolean) input = <StyledCheckbox />;
+    if (isBoolean) input = <Checkbox />;
     if (field.type === FieldType.TEXTAREA)
         input = <Input.TextArea required={field.required} placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
