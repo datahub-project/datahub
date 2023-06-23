@@ -46,7 +46,8 @@ const EntityNode = () => {
     });
 
     const showEnvironments =
-        environmentAggregations.length > 1 || (hasEnvironmentFilter && !!environmentAggregations.length);
+        environmentAggregations &&
+        (environmentAggregations.length > 1 || (hasEnvironmentFilter && !!environmentAggregations.length));
     const color = count > 0 ? '#000' : ANTD_GRAY[8];
 
     return (
@@ -75,7 +76,7 @@ const EntityNode = () => {
             body={
                 <ExpandableNode.Body>
                     {showEnvironments
-                        ? environmentAggregations.map((environmentAggregation) => (
+                        ? environmentAggregations?.map((environmentAggregation) => (
                               <BrowseProvider
                                   key={environmentAggregation.value}
                                   entityAggregation={entityAggregation}
@@ -84,7 +85,7 @@ const EntityNode = () => {
                                   <EnvironmentNode />
                               </BrowseProvider>
                           ))
-                        : platformAggregations.map((platformAggregation) => (
+                        : platformAggregations?.map((platformAggregation) => (
                               <BrowseProvider
                                   key={platformAggregation.value}
                                   entityAggregation={entityAggregation}
