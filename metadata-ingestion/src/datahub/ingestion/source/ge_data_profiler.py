@@ -10,6 +10,7 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from functools import lru_cache
 from typing import (
     Any,
     Callable,
@@ -273,19 +274,32 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         # Compute columns to profile
         columns_to_profile: List[str] = []
+
         # Compute ignored columns
-        ignored_columns: List[str] = []
-        for col in self.dataset.get_table_columns():
+        ignored_columns_by_pattern: List[str] = []
+        ignored_columns_by_type: List[str] = []
+
+        types_to_ignore = _get_column_types_to_ignore(self.dataset.engine.dialect.name)
+
+        for col_dict in self.dataset.columns:
+            col = col_dict["name"]
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not self.config._allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
             ):
-                ignored_columns.append(col)
+                ignored_columns_by_pattern.append(col)
+            elif col_dict.get("type") and str(col_dict["type"]) in types_to_ignore:
+                ignored_columns_by_type.append(col)
             else:
                 columns_to_profile.append(col)
-        if ignored_columns:
+
+        if ignored_columns_by_pattern:
             self.report.report_dropped(
-                f"The profile of columns by pattern {self.dataset_name}({', '.join(sorted(ignored_columns))})"
+                f"The profile of columns by pattern {self.dataset_name}({', '.join(sorted(ignored_columns_by_pattern))})"
+            )
+        if ignored_columns_by_type:
+            self.report.report_dropped(
+                f"The profile of columns by type {self.dataset_name}({', '.join(sorted(ignored_columns_by_type))})"
             )
 
         if self.config.max_number_of_fields_to_profile is not None:
@@ -1085,3 +1099,13 @@ class DatahubGEProfiler:
                 logger.debug(f"Setting table name to be {batch._table}")
 
         return batch
+
+
+# More dialect specific types to ignore can be added here
+# Stringified types are used to avoid dialect specific import errors
+@lru_cache(maxsize=1)
+def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
+    if dialect_name.lower() == "postgresql":
+        return ["JSON"]
+
+    return []
