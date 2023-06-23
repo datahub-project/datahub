@@ -12,7 +12,6 @@ import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
-import com.linkedin.util.Pair;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
