@@ -228,7 +228,7 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         try:
-            table = inspector.get_table_names(schema)
+            tables = inspector.get_table_names(schema)
             # created new function get_all_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
             # And query in get_all_columns is modified to run at schema level.
             columns = inspector.get_all_columns(schema)
