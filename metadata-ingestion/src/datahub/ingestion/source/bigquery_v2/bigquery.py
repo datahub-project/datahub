@@ -155,6 +155,10 @@ def cleanup(config: BigQueryV2Config) -> None:
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(
+    SourceCapability.USAGE_STATS,
+    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
@@ -218,7 +222,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
-        self.usage_extractor = BigQueryUsageExtractor(config, self.report)
+        self.usage_extractor = BigQueryUsageExtractor(
+            config, self.report, dataset_urn_builder=self.gen_dataset_urn_from_ref
+        )
 
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
@@ -330,7 +336,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_ids: List[str],
         report: BigQueryV2Report,
     ) -> CapabilityReport:
-        usage_extractor = BigQueryUsageExtractor(connection_conf, report)
+        usage_extractor = BigQueryUsageExtractor(
+            connection_conf, report, lambda ref: ""
+        )
         for project_id in project_ids:
             try:
                 logger.info(f"Usage capability test for project {project_id}")
@@ -488,7 +496,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self._process_project(conn, project_id)
 
         if self._should_ingest_usage():
-            yield from self.usage_extractor.run(
+            yield from self.usage_extractor.get_usage_workunits(
                 [p.id for p in projects], self.table_refs
             )
 
@@ -1060,12 +1068,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
-        dataset_urn = make_dataset_urn(
+        return make_dataset_urn(
             self.platform,
             str(datahub_dataset_name),
             self.config.env,
         )
-        return dataset_urn
+
+    def gen_dataset_urn_from_ref(self, ref: BigQueryTableRef) -> str:
+        return self.gen_dataset_urn(
+            ref.table_identifier.project_id,
+            ref.table_identifier.dataset,
+            ref.table_identifier.table,
+        )
 
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
