@@ -12,7 +12,7 @@ from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import reflection, make_url
+from sqlalchemy.engine import make_url, reflection
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
@@ -140,11 +140,11 @@ class ClickHouseConfig(
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
     def get_sql_alchemy_url(self, current_db=None):
-        url = make_url(super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db))
-        if url.drivername == "clickhouse+native" and self.secure:
-            url = url.update_query_dict({'secure': 'true'})
-        elif url.drivername != "clickhouse+native" and self.protocol:
-            url = url.update_query_dict({'protocol': self.protocol})
+        url = make_url(
+            super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
+        )
+        if url.drivername != "clickhouse+native" and self.protocol:
+            url = url.update_query_dict({"protocol": self.protocol})
 
         if current_db:
             url = url.set(database=current_db)
