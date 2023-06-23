@@ -19,6 +19,7 @@ import { useHasFilterField } from './SidebarContext';
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
+    padding-left: 4px;
 `;
 
 const EntityNode = () => {
@@ -62,9 +63,7 @@ const EntityNode = () => {
                     data-testid={`browse-entity-${registry.getCollectionName(entityType)}`}
                 >
                     <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.StaticButton
-                            icon={registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
-                        />
+                        {registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
                         <ExpandableNode.Title color={color} size={16}>
                             {registry.getCollectionName(entityType)}
                         </ExpandableNode.Title>
