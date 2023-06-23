@@ -54,8 +54,6 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   private static final String PARAM_IS_DRY_RUN = "dryRun";
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_TIMEOUT_SECONDS = "timeoutSeconds";
-  private static final String PARAM_FORCE_DELETE_BY_QUERY = "forceDeleteByQuery";
-  private static final String PARAM_FORCE_REINDEX = "forceReindex";
 
   @Inject
   @Named("entityService")
@@ -74,6 +72,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   OperationsResource(TimeseriesAspectService timeseriesAspectService) {
     this._timeseriesAspectService = timeseriesAspectService;
   }
+
   @Action(name = ACTION_RESTORE_INDICES)
   @Nonnull
   @WithSpan
@@ -114,6 +113,13 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @Nullable Integer batchSize,
       @Nullable Long timeoutSeconds
   ) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE),
+        List.of(java.util.Optional.empty()))) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to truncate timeseries index");
+    }
+
     // TODO(indy): Add optimization to perform a reindex if many documents will be truncated
     List<Criterion> criteria = new ArrayList<>();
     criteria.add(

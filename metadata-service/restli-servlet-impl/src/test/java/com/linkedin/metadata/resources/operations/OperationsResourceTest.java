@@ -59,12 +59,6 @@ public class OperationsResourceTest extends TestCase {
       return new DeleteAspectValuesResult();
     }
 
-    @Override
-    public void reindex(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
-        @Nonnull BatchWriteOperationsOptions options) {
-
-    }
-
     @Nonnull
     @Override
     public String deleteAspectValuesAsync(@Nonnull String entityName, @Nonnull String aspectName,
