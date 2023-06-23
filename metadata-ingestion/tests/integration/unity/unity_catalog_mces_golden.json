@@ -335,7 +335,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -343,7 +343,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/default/quickstart_table",
             "name": "quickstart_table",
@@ -621,7 +621,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -629,7 +629,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/information_schema/quickstart_table",
             "name": "quickstart_table",
@@ -907,7 +907,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -915,7 +915,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/quickstart_schema/quickstart_table",
             "name": "quickstart_table",
@@ -1301,7 +1301,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -1309,7 +1309,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/default/quickstart_table",
             "name": "quickstart_table",
@@ -1587,7 +1587,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -1595,7 +1595,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/information_schema/quickstart_table",
             "name": "quickstart_table",
@@ -1873,7 +1873,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -1881,7 +1881,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table",
             "name": "quickstart_table",
@@ -2267,7 +2267,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -2275,7 +2275,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/default/quickstart_table",
             "name": "quickstart_table",
@@ -2553,7 +2553,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -2561,7 +2561,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/information_schema/quickstart_table",
             "name": "quickstart_table",
@@ -2839,7 +2839,7 @@
                 "generation": "2",
                 "table_type": "MANAGED",
                 "created_by": "abc@acryl.io",
-                "created_at": "2022-10-19 13:21:38.688000",
+                "created_at": "2022-10-19 13:21:38.688000+00:00",
                 "delta.lastCommitTimestamp": "1666185711000",
                 "delta.lastUpdateVersion": "1",
                 "delta.minReaderVersion": "1",
@@ -2847,7 +2847,7 @@
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
                 "owner": "account users",
                 "updated_by": "abc@acryl.io",
-                "updated_at": "2022-10-19 13:27:29.633000"
+                "updated_at": "2022-10-19 13:27:29.633000+00:00"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/quickstart_schema/quickstart_table",
             "name": "quickstart_table",
