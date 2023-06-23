@@ -250,7 +250,6 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 Expected Response:
 
-````json
 ```json
 {
   "data": {
@@ -260,16 +259,14 @@ Expected Response:
   },
   "extensions": {}
 }
-````
-
-````
+```
 
 </TabItem>
 <TabItem value="python" label="Python" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_documentation.py show_path_as_comment }}
-````
+```
 
 </TabItem>
 </Tabs>
