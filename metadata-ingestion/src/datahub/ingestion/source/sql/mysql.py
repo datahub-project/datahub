@@ -5,6 +5,7 @@ from pydantic.fields import Field
 from sqlalchemy import util
 from sqlalchemy.dialects.mysql import base
 from sqlalchemy.dialects.mysql.enumerated import SET
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -83,3 +84,15 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        with inspector.engine.connect() as conn:
+            for row in conn.execute(
+                "SELECT table_schema, table_name, data_length from information_schema.tables"
+            ):
+                table_schema = row[0]
+                table_name = row[1]
+                data_length = row[2]
+                self.profile_metadata_info.dataset_name_to_storage_bytes[
+                    f"{table_schema}.{table_name}"
+                ] = data_length
