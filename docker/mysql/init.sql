@@ -27,18 +27,3 @@ INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, creat
   now(),
   'urn:li:corpuser:__datahub_system'
 );
-
--- create metadata index table
-CREATE TABLE metadata_index (
- `id` BIGINT NOT NULL AUTO_INCREMENT,
- `urn` VARCHAR(200) NOT NULL,
- `aspect` VARCHAR(150) NOT NULL,
- `path` VARCHAR(150) NOT NULL,
- `longVal` BIGINT,
- `stringVal` VARCHAR(200),
- `doubleVal` DOUBLE,
- CONSTRAINT id_pk PRIMARY KEY (id),
- INDEX longIndex (`urn`,`aspect`,`path`,`longVal`),
- INDEX stringIndex (`urn`,`aspect`,`path`,`stringVal`),
- INDEX doubleIndex (`urn`,`aspect`,`path`,`doubleVal`)
-);
