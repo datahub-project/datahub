@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Join;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -84,23 +85,34 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
 
   private void mapProperties(@Nonnull Join join, @Nonnull DataMap dataMap) {
     final JoinProperties joinProperties = new JoinProperties(dataMap);
-    join.setProperties(
-        com.linkedin.datahub.graphql.generated.JoinProperties.builder()
-            .setName(joinProperties.getName())
-            .setDatasetA(joinProperties.getDatasetA().toString())
-            .setDatasetB(joinProperties.getDatasetB().toString())
+    join.setProperties(com.linkedin.datahub.graphql.generated.JoinProperties.builder()
+        .setName(joinProperties.getName())
+        .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
+        .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
         .setJoinFieldMappings(mapJoinFieldMappings(joinProperties))
+        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
+                ? joinProperties.getCreated().getActor().toString() : "")
+        .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
+                ? joinProperties.getCreated().getTime() : 0)
         .build());
   }
+  private Dataset createPartialDataset(@Nonnull Urn datasetUrn) {
 
+    Dataset partialDataset = new Dataset();
+
+    partialDataset.setUrn(datasetUrn.toString());
+
+    return partialDataset;
+
+  }
   private com.linkedin.datahub.graphql.generated.JoinFieldMapping mapJoinFieldMappings(JoinProperties joinProperties) {
     return com.linkedin.datahub.graphql.generated.JoinFieldMapping.builder()
         .setDetails(joinProperties.getJoinFieldMappings().getDetails())
         .setFieldMapping(joinProperties.getJoinFieldMappings()
             .getFieldMapping()
-                    .stream()
+            .stream()
             .map(this::mapFieldMap)
-                    .collect(Collectors.toList()))
+            .collect(Collectors.toList()))
         .build();
   }
 

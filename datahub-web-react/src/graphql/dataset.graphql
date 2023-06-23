@@ -110,6 +110,11 @@ fragment nonSiblingDatasetFields on Dataset {
         timestampMillis
         lastUpdatedTimestamp
     }
+    incoming: relationships(
+        input: { types: ["joinA", "joinB"], direction: INCOMING, start: 0, count: 100 }
+    ) {
+        ...fullRelationshipResults
+    }
     ...viewProperties
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
         aspectName

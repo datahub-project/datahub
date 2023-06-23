@@ -973,11 +973,17 @@ fragment inputFieldsFields on InputFields {
 
 fragment joinPropertiesFields on JoinProperties {
     name
-    datasetA
-    datasetB
+    datasetA {
+        ...datasetJoinFields
+    }
+    datasetB {
+        ...datasetJoinFields
+    }
     joinFieldMappings {
         ...joinFieldMappingFields
     }
+    createdTime
+    createdActor
 }
 
 fragment joinFieldMappingFields on JoinFieldMapping {
@@ -992,6 +998,23 @@ fragment joinEditablePropertiesFields on JoinEditableProperties {
     description
     name
 }
+
+fragment datasetJoinFields on Dataset {
+    urn
+    name
+    properties {
+        name
+        description
+    }
+    editableProperties {
+        name
+        description
+    }
+    schemaMetadata {
+        ...schemaMetadataFields
+    }
+}
+
 fragment browsePathV2Fields on BrowsePathV2 {
     path {
         name

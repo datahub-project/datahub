@@ -654,6 +654,18 @@ fragment searchResultFields on Entity {
         editableProperties {
             ...joinEditablePropertiesFields
         }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        browsePaths {
+            path
+        }
     }
     ... on MLFeatureTable {
         name
@@ -741,6 +753,7 @@ fragment searchResultFields on Entity {
         editableProperties {
             ...joinEditablePropertiesFields
         }
+    }
     ... on DataProduct {
         ...dataProductSearchFields
     }

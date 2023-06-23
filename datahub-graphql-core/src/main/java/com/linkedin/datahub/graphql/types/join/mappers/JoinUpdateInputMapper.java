@@ -84,6 +84,20 @@ public class JoinUpdateInputMapper
           }
           joinProperties.setJoinFieldMappings(joinFieldMapping1);
         }
+        if (input.getProperties().getCreated() != null && input.getProperties().getCreated()) {
+          joinProperties.setCreated(timestamp);
+        } else {
+          if (input.getProperties().getCreatedBy().trim().length() > 0 && input.getProperties().getCreatedAt() != 0) {
+              final TimeStamp timestampEdit = new TimeStamp();
+            try {
+              timestampEdit.setActor(Urn.createFromString(input.getProperties().getCreatedBy()));
+            } catch (URISyntaxException e) {
+              throw new RuntimeException(e);
+            }
+            timestampEdit.setTime(input.getProperties().getCreatedAt());
+            joinProperties.setCreated(timestampEdit);
+          }
+        }
         joinProperties.setLastModified(timestamp);
         proposals.add(updateMappingHelper.aspectToProposal(joinProperties, JOIN_PROPERTIES_ASPECT_NAME));
       }
