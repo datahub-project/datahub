@@ -236,14 +236,14 @@ class VerticaSource(SQLAlchemySource):
             primary_key = inspector.get_pk_constraint(schema)
 
             description, properties, location_urn = self.get_table_properties(
-                inspector, schema, table
+                inspector, schema, tables
             )
 
             # called get_table_owner function from vertica dialect , it returns a list of all owners of all table in the current schema
             table_owner = inspector.get_table_owner(schema)
 
             # loops on each table in the schema
-            for table_name in table:
+            for table_name in tables:
                 finalcolumns = []
                 # loops through columns in the schema and creates all columns on current table
                 for column in columns:
@@ -381,7 +381,7 @@ class VerticaSource(SQLAlchemySource):
         views_seen: Set[str] = set()
 
         try:
-            view = inspector.get_view_names(schema)
+            views = inspector.get_view_names(schema)
 
             # created new function get_all_view_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
             # And query in get_all_view_columns is modified to run at schema level.
@@ -389,14 +389,14 @@ class VerticaSource(SQLAlchemySource):
 
             # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_view_properties(
-                inspector, schema, view
+                inspector, schema, views
             )
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             view_owner = inspector.get_view_owner(schema)
 
             # started a loop on each view in the schema
-            for view_name in view:
+            for view_name in views:
                 finalcolumns = []
                 # loops through columns in the schema and creates all columns on current view
                 for column in columns:
@@ -653,7 +653,7 @@ class VerticaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         projection_seen: Set[str] = set()
         try:
-            projection = inspector.get_projection_names(schema)
+            projections = inspector.get_projection_names(schema)
 
             # created new function get_all_projection_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
             # And query in get_all_projection_columns is modified to run at schema level.
@@ -661,14 +661,14 @@ class VerticaSource(SQLAlchemySource):
 
             # called get_projection_properties function from dialect , it returns a list description and properties of all view in the schema
             description, properties, location_urn = self.get_projection_properties(
-                inspector, schema, projection
+                inspector, schema, projections
             )
 
             # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
             projection_owner = inspector.get_projection_owner(schema)
 
             # started a loop on each view in the schema
-            for projection_name in projection:
+            for projection_name in projections:
                 finalcolumns = []
                 # loops through all the columns in the schema and find all the columns of current projection
                 for column in columns:
