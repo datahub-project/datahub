@@ -129,7 +129,6 @@ class ClickHouseConfig(
         default=pydantic.SecretStr(""), description="password"
     )
 
-    secure: Optional[bool] = Field(default=None, description="")
     protocol: Optional[str] = Field(default=None, description="")
     uri_opts: Dict[str, str] = Field(
         default={},
