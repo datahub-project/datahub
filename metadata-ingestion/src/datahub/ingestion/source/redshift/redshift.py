@@ -108,7 +108,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
-@capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
@@ -593,7 +596,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             database=database,
             schema=table.schema,
             sub_type=DatasetSubTypes.TABLE,
-            tags_to_add=[],
             custom_properties=custom_properties,
         )
 
@@ -609,17 +611,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             database=get_db_name(self.config),
             schema=schema,
             sub_type=DatasetSubTypes.VIEW,
-            tags_to_add=[],
             custom_properties={},
         )
 
         datahub_dataset_name = f"{database}.{schema}.{view.name}"
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=datahub_dataset_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
         if view.ddl:
             view_properties_aspect = ViewProperties(
                 materialized=view.type == "VIEW_MATERIALIZED",
@@ -683,6 +679,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
+    def gen_dataset_urn(self, datahub_dataset_name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datahub_dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
     # TODO: Move to common
     def gen_dataset_workunits(
         self,
@@ -690,16 +694,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         schema: str,
         sub_type: str,
-        tags_to_add: Optional[List[str]] = None,
         custom_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         datahub_dataset_name = f"{database}.{schema}.{table.name}"
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=datahub_dataset_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
 
         yield from self.gen_schema_metadata(
             dataset_urn, table, str(datahub_dataset_name)
@@ -857,12 +855,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         with PerfTimer() as timer:
-            usage_extractor = RedshiftUsageExtractor(
+            yield from RedshiftUsageExtractor(
                 config=self.config,
                 connection=connection,
                 report=self.report,
-            )
-            yield from usage_extractor.generate_usage(all_tables=all_tables)
+                dataset_urn_builder=self.gen_dataset_urn,
+            ).get_usage_workunits(all_tables=all_tables)
 
             self.report.usage_extraction_sec[database] = round(
                 timer.elapsed_seconds(), 2
@@ -917,12 +915,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     continue
                 datahub_dataset_name = f"{database}.{schema}.{table.name}"
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=datahub_dataset_name,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
+                dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
 
                 lineage_info = self.lineage_extractor.get_lineage(
                     table,
@@ -937,12 +930,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         for schema in self.db_views[database]:
             for view in self.db_views[database][schema]:
                 datahub_dataset_name = f"{database}.{schema}.{view.name}"
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=datahub_dataset_name,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
+                dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
                 lineage_info = self.lineage_extractor.get_lineage(
                     view,
                     dataset_urn,
