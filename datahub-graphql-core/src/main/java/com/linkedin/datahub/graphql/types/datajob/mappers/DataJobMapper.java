@@ -76,9 +76,6 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
             } else if (DATA_JOB_INPUT_OUTPUT_ASPECT_NAME.equals(name)) {
                 final com.linkedin.datajob.DataJobInputOutput gmsDataJobInputOutput = new com.linkedin.datajob.DataJobInputOutput(data);
                 result.setInputOutput(mapDataJobInputOutput(gmsDataJobInputOutput));
-                if (gmsDataJobInputOutput.hasFineGrainedLineages() && gmsDataJobInputOutput.getFineGrainedLineages() != null) {
-                    result.setFineGrainedLineages(FineGrainedLineagesMapper.map(gmsDataJobInputOutput.getFineGrainedLineages()));
-                }
             } else if (EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME.equals(name)) {
                 final EditableDataJobProperties editableDataJobProperties = new EditableDataJobProperties(data);
                 final DataJobEditableProperties dataJobEditableProperties = new DataJobEditableProperties();
@@ -172,6 +169,10 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
             }).collect(Collectors.toList()));
         } else {
             result.setInputDatajobs(ImmutableList.of());
+        }
+
+        if (inputOutput.hasFineGrainedLineages() && inputOutput.getFineGrainedLineages() != null) {
+            result.setFineGrainedLineages(FineGrainedLineagesMapper.map(inputOutput.getFineGrainedLineages()));
         }
 
         return result;

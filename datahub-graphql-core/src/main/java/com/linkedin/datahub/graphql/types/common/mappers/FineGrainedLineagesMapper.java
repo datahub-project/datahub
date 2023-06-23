@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+
 public class FineGrainedLineagesMapper {
 
   public static final FineGrainedLineagesMapper INSTANCE = new FineGrainedLineagesMapper();
@@ -28,13 +30,13 @@ public class FineGrainedLineagesMapper {
       com.linkedin.datahub.graphql.generated.FineGrainedLineage resultEntry = new com.linkedin.datahub.graphql.generated.FineGrainedLineage();
       if (fineGrainedLineage.hasUpstreams()) {
         resultEntry.setUpstreams(fineGrainedLineage.getUpstreams().stream()
-            .filter(entry -> entry.getEntityType().equals("schemaField"))
+            .filter(entry -> entry.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
             .map(FineGrainedLineagesMapper::mapDatasetSchemaField).collect(
                 Collectors.toList()));
       }
       if (fineGrainedLineage.hasDownstreams()) {
         resultEntry.setDownstreams(fineGrainedLineage.getDownstreams().stream()
-            .filter(entry -> entry.getEntityType().equals("schemaField"))
+            .filter(entry -> entry.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
             .map(FineGrainedLineagesMapper::mapDatasetSchemaField).collect(
                 Collectors.toList()));
       }

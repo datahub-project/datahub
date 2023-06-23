@@ -42,14 +42,16 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
-        fineGrainedLineages {
-            upstreams {
-                urn
-                path
-            }
-            downstreams {
-                urn
-                path
+        inputOutput {
+            fineGrainedLineages {
+                upstreams {
+                    urn
+                    path
+                }
+                downstreams {
+                    urn
+                    path
+                }
             }
         }
     }

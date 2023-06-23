@@ -63,6 +63,12 @@ export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
     return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
 }
 
+/*
+ * Populate a columnsByUrn map with a list of columns per entity in the order that they will appear.
+ * We need columnsByUrn in order to ensure that an entity does have a column that lineage data is
+ * pointing to and to know where to draw column arrows in and out of the entity. DataJobs won't show columns
+ * underneath them, but we need this populated for validating that this column "exists" on the entity.
+ */
 export function getPopulatedColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: { [x: string]: FetchedEntity },
@@ -88,12 +94,14 @@ export function getPopulatedColumnsByUrn(
             const fields: SchemaField[] = [];
             fetchedEntity.fineGrainedLineages.forEach((fineGrainedLineage) => {
                 fineGrainedLineage.upstreams?.forEach((upstream) => {
-                    fields.push({
-                        fieldPath: downgradeV2FieldPath(upstream.path) || '',
-                        nullable: false,
-                        recursive: false,
-                        type: SchemaFieldDataType.String,
-                    });
+                    if (!fields.some((field) => field.fieldPath === upstream.path)) {
+                        fields.push({
+                            fieldPath: downgradeV2FieldPath(upstream.path) || '',
+                            nullable: false,
+                            recursive: false,
+                            type: SchemaFieldDataType.String,
+                        });
+                    }
                 });
             });
             populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fields };
