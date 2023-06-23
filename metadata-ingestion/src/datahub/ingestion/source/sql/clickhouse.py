@@ -12,7 +12,7 @@ from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine import reflection, make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
@@ -31,12 +31,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemySource,
     SqlWorkUnit,
     logger,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.two_tier_sql_source import (
+    TwoTierSQLAlchemyConfig,
+    TwoTierSQLAlchemySource,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -118,7 +120,7 @@ class LineageItem:
 
 
 class ClickHouseConfig(
-    BasicSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
+    TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
     # defaults
     host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
@@ -129,19 +131,26 @@ class ClickHouseConfig(
 
     secure: Optional[bool] = Field(default=None, description="")
     protocol: Optional[str] = Field(default=None, description="")
-
+    uri_opts: Dict[str, str] = Field(
+        default={},
+        description="The part of the URI and it's used to provide additional configuration options or parameters for the database connection.",
+    )
     include_table_lineage: Optional[bool] = Field(
         default=True, description="Whether table lineage should be ingested."
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
-    def get_sql_alchemy_url(self, database=None):
-        uri_opts = None
-        if self.scheme == "clickhouse+native" and self.secure:
-            uri_opts = {"secure": "true"}
-        elif self.scheme != "clickhouse+native" and self.protocol:
-            uri_opts = {"protocol": self.protocol}
-        return super().get_sql_alchemy_url(uri_opts=uri_opts)
+    def get_sql_alchemy_url(self, current_db=None):
+        url = make_url(super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db))
+        if url.drivername == "clickhouse+native" and self.secure:
+            url = url.update_query_dict({'secure': 'true'})
+        elif url.drivername != "clickhouse+native" and self.protocol:
+            url = url.update_query_dict({'protocol': self.protocol})
+
+        if current_db:
+            url = url.set(database=current_db)
+
+        return str(url)
 
 
 PROPERTIES_COLUMNS = (
@@ -330,7 +339,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-class ClickHouseSource(SQLAlchemySource):
+class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 
@@ -359,6 +368,7 @@ class ClickHouseSource(SQLAlchemySource):
         config = ClickHouseConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    #
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         for wu in super().get_workunits_internal():
             if (
