@@ -127,6 +127,21 @@ export function encodeSchemaField(fieldPath: string) {
 export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
     return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
 }
+
 export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
     return decodeSchemaField(schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', ''));
+}
+
+export function isSameColumn({
+    sourceUrn,
+    targetUrn,
+    sourceField,
+    targetField,
+}: {
+    sourceUrn: string;
+    targetUrn: string;
+    sourceField: string;
+    targetField: string;
+}) {
+    return sourceUrn === targetUrn && sourceField === targetField;
 }

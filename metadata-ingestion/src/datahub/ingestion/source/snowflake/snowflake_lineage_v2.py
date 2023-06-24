@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set
+from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Set
 
 from snowflake.connector import SnowflakeConnection
 
@@ -77,12 +77,17 @@ class SnowflakeLineageExtractor(
     Edition Note - Snowflake Standard Edition does not have Access History Feature. So it does not support lineage extraction for edges 3, 4, 5 mentioned above.
     """
 
-    def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
+    def __init__(
+        self,
+        config: SnowflakeV2Config,
+        report: SnowflakeV2Report,
+        dataset_urn_builder: Callable[[str], str],
+    ) -> None:
         self._external_lineage_map: Dict[str, Set[str]] = defaultdict(set)
         self.config = config
-        self.platform = "snowflake"
         self.report = report
         self.logger = logger
+        self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
 
     def get_workunits(
@@ -188,12 +193,6 @@ class SnowflakeLineageExtractor(
     def _create_upstream_lineage_workunit(
         self, dataset_name, upstreams, fine_upstreams=[]
     ):
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
         logger.debug(
             f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
         )
@@ -209,7 +208,7 @@ class SnowflakeLineageExtractor(
             or None,
         )
         return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=upstream_lineage
+            entityUrn=self.dataset_urn_builder(dataset_name), aspect=upstream_lineage
         ).as_workunit()
 
     def get_upstreams_from_query_result_row(self, dataset_name, db_row):
@@ -226,14 +225,9 @@ class SnowflakeLineageExtractor(
             and "UPSTREAM_COLUMNS" in db_row
             and db_row["UPSTREAM_COLUMNS"] is not None
         ):
-            dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
             fine_upstreams = self.map_query_result_fine_upstreams(
-                dataset_urn, json.loads(db_row["UPSTREAM_COLUMNS"])
+                self.dataset_urn_builder(dataset_name),
+                json.loads(db_row["UPSTREAM_COLUMNS"]),
             )
 
         # Populate the external-table-lineage(s3->snowflake), if present
@@ -379,12 +373,7 @@ class SnowflakeLineageExtractor(
         ):
             upstreams.append(
                 UpstreamClass(
-                    dataset=builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        upstream_name,
-                        self.config.platform_instance,
-                        self.config.env,
-                    ),
+                    dataset=self.dataset_urn_builder(upstream_name),
                     type=DatasetLineageTypeClass.TRANSFORMED,
                 )
             )
@@ -495,15 +484,9 @@ class SnowflakeLineageExtractor(
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
                     upstream_col.objectName
                 )
-                upstream_dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    upstream_dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
                 column_upstreams.append(
                     builder.make_schema_field_urn(
-                        upstream_dataset_urn,
+                        self.dataset_urn_builder(upstream_dataset_name),
                         self.snowflake_identifier(upstream_col.columnName),
                     )
                 )

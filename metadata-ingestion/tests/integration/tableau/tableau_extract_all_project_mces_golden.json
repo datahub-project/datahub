@@ -34210,7 +34210,9 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Incidents"
+                            "/prod/tableau/default/Executive Dashboard/Incidents",
+                            "/prod/tableau/default/Executive Dashboard/Problems",
+                            "/prod/tableau/default/Executive Dashboard/Requests"
                         ]
                     }
                 },
@@ -41625,6 +41627,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
+                            "/prod/tableau/default/Customer Payment Query",
                             "/prod/tableau/default/test publish datasource"
                         ]
                     }
@@ -41645,6 +41648,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
+                            "/prod/tableau/default/Customer Payment Query",
                             "/prod/tableau/default/test publish datasource"
                         ]
                     }

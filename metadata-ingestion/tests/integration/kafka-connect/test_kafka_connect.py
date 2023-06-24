@@ -45,7 +45,6 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         str(test_resources_dir_kafka / "docker-compose.yml"),
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
-
     with docker_compose_runner(
         docker_compose_file, "kafka-connect", cleanup=False
     ) as docker_services:
