@@ -494,7 +494,8 @@
                         "1989-08-24"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -909,7 +910,8 @@
                         "1993-02-09"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -1992,7 +1994,8 @@
                         "3.8"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -2043,7 +2046,8 @@
                     "stdev": "0.0",
                     "sampleValues": []
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -2323,7 +2327,8 @@
                     "nullCount": 0,
                     "sampleValues": []
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -2352,7 +2357,8 @@
                     "nullCount": 0,
                     "sampleValues": []
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
