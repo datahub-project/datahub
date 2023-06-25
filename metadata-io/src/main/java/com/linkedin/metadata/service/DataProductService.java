@@ -22,7 +22,6 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.r2.RemoteInvocationException;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
@@ -251,7 +250,7 @@ public class DataProductService {
       CompletableFuture.runAsync(() -> {
         try {
           _entityClient.deleteEntityReferences(dataProductUrn, authentication);
-        } catch (RemoteInvocationException e) {
+        } catch (Exception e) {
           log.error(String.format("Caught exception while attempting to clear all entity references for DataProduct with urn %s", dataProductUrn), e);
         }
       });

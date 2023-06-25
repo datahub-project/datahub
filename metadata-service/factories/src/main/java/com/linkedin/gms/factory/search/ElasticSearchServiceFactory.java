@@ -67,7 +67,8 @@ public class ElasticSearchServiceFactory {
     return new ElasticSearchService(
         new EntityIndexBuilders(components.getIndexBuilder(), entityRegistry, components.getIndexConvention(),
             settingsBuilder), esSearchDAO,
-        new ESBrowseDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention()),
+        new ESBrowseDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
+            searchConfiguration, customSearchConfiguration),
         new ESWriteDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
             components.getBulkProcessor(), components.getNumRetries()));
   }

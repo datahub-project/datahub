@@ -26,6 +26,8 @@ import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResultForEntity;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.BrowsePathEntry;
+import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
@@ -101,6 +103,7 @@ import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
+import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
@@ -780,6 +783,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("dataProduct", getResolver(dataProductType))
             .dataFetcher("listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
             .dataFetcher("listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
+            .dataFetcher("browseV2", new BrowseV2Resolver(this.entityClient, this.viewService))
         );
     }
 
@@ -954,6 +958,14 @@ public class GmsGraphQLEngine {
             .type("EntityRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((EntityRelationship) env.getSource()).getEntity()))
+            )
+            .type("BrowseResultGroupV2", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
+                    (env) -> ((BrowseResultGroupV2) env.getSource()).getEntity()))
+            )
+            .type("BrowsePathEntry", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
+                    (env) -> ((BrowsePathEntry) env.getSource()).getEntity()))
             )
             .type("LineageRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
