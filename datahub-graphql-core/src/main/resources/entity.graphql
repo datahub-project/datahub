@@ -3153,6 +3153,11 @@ as opposed to technical metadata
 """
 type DatasetEditableProperties {
     """
+    Display name of the Dataset
+    """
+    name: String
+
+    """
     Description of the Dataset
     """
     description: String
