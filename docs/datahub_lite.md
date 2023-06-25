@@ -136,7 +136,7 @@ instances
 # At the final level
 > datahub lite ls /databases/mysql/instances/default/databases/datahub/tables/
 metadata_aspect_v2
-metadata_index
+
 # Listing a leaf entity functions just like the unix ls command
 > datahub lite ls /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2
 metadata_aspect_v2
@@ -447,7 +447,7 @@ List all the ids in the DataHub Lite instance.
 > datahub lite list-urns
 urn:li:container:21d4204e13d5b984c58acad468ecdbdd
 urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)
-urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_index,PROD)
+
 urn:li:container:aa82e8309ce84acc350640647a54ca3b
 urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.ALL_PLUGINS,PROD)
 urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.APPLICABLE_ROLES,PROD)

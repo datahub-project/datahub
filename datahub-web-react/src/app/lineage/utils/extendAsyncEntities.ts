@@ -5,6 +5,7 @@ import {
     decodeSchemaField,
     getFieldPathFromSchemaFieldUrn,
     getSourceUrnFromSchemaFieldUrn,
+    isSameColumn,
 } from './columnLineageUtils';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
@@ -21,6 +22,17 @@ function updateFineGrainedMap(
     downstreamEntityUrn: string,
     downstreamField: string,
 ) {
+    // ignore self-referential CLL fields
+    if (
+        isSameColumn({
+            sourceUrn: upstreamEntityUrn,
+            targetUrn: downstreamEntityUrn,
+            sourceField: upstreamField,
+            targetField: downstreamField,
+        })
+    ) {
+        return;
+    }
     const mapForUrn = fineGrainedMap.forward[upstreamEntityUrn] || {};
     const mapForField = mapForUrn[upstreamField] || {};
     const listForDownstream = [...(mapForField[downstreamEntityUrn] || [])];
