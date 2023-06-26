@@ -18,7 +18,7 @@ source:
         value: jdbc:postgresql://test_postgres:5432/postgres
     convert_lineage_urns_to_lowercase: true
     platform_instance_map:   # optional
-      mysql: mysqlx      # optional
+      mysql: mysql1      # optional
     connect_to_platform_map: # optional
       postgres_source:     # optional - Connector name
         postgres: postgres1  # optional - Platform to instance map
