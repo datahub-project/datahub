@@ -6,14 +6,13 @@ import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateParentNodeInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
@@ -22,6 +21,7 @@ import org.testng.annotations.Test;
 import java.net.URISyntaxException;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -49,16 +49,11 @@ public class UpdateParentNodeResolverTest {
             0))
         .thenReturn(new GlossaryTermInfo().setName(name));
 
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(Urn.createFromString(TERM_URN));
-    proposal.setEntityType(Constants.GLOSSARY_TERM_ENTITY_NAME);
     GlossaryTermInfo info = new GlossaryTermInfo();
     info.setName(name);
     info.setParentNode(GlossaryNodeUrn.createFromString(PARENT_NODE_URN));
-    proposal.setAspectName(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(info));
-    proposal.setChangeType(ChangeType.UPSERT);
-    return proposal;
+    return MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TERM_URN),
+        GLOSSARY_TERM_INFO_ASPECT_NAME, info);
   }
 
   @Test
@@ -98,15 +93,11 @@ public class UpdateParentNodeResolverTest {
             0))
         .thenReturn(new GlossaryNodeInfo().setName(name));
 
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(Urn.createFromString(NODE_URN));
-    proposal.setEntityType(Constants.GLOSSARY_NODE_ENTITY_NAME);
     GlossaryNodeInfo info = new GlossaryNodeInfo();
     info.setName(name);
     info.setParentNode(GlossaryNodeUrn.createFromString(PARENT_NODE_URN));
-    proposal.setAspectName(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(info));
-    proposal.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(NODE_URN),
+        GLOSSARY_NODE_INFO_ASPECT_NAME, info);
 
     UpdateParentNodeResolver resolver = new UpdateParentNodeResolver(mockService, mockClient);
 

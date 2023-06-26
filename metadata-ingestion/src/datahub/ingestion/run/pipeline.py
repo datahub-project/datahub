@@ -189,6 +189,9 @@ class Pipeline:
             if self.config.datahub_api:
                 self.graph = DataHubGraph(self.config.datahub_api)
 
+            telemetry.telemetry_instance.update_capture_exception_context(
+                server=self.graph
+            )
         with _add_init_error_context("set up framework context"):
             self.ctx = PipelineContext(
                 run_id=self.config.run_id,
@@ -384,10 +387,10 @@ class Pipeline:
                 except SystemExit:
                     raise
                 except Exception as e:
-                    # TODO: Transformer errors should cause the pipeline to fail.
                     logger.error(
                         "Failed to process some records. Continuing.", exc_info=e
                     )
+                    # TODO: Transformer errors should cause the pipeline to fail.
 
                 self.extractor.close()
                 if not self.dry_run:

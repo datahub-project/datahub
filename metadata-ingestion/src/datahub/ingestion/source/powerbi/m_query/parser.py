@@ -74,7 +74,7 @@ def get_upstream_tables(
             message = "Failed to parse m-query expression"
 
         reporter.report_warning(table.full_name, message)
-        logger.info(f"{message} for table {table.full_name}: {str(e)}")
+        logger.info(f"{message} for table {table.full_name}")
         logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
         return []
 

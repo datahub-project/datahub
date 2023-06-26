@@ -10,7 +10,7 @@ RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
 
-ENV KAFKA_VERSION 3.4.0
+ENV KAFKA_VERSION 3.4.1
 ENV SCALA_VERSION 2.13
 
 # Set the classpath for JARs required by `cub`

@@ -3,8 +3,7 @@ from time import sleep
 
 from datahub.cli import timeline_cli
 from datahub.cli.cli_utils import guess_entity_type, post_entity
-from tests.utils import ingest_file_via_rest, get_datahub_graph
-from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
+from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync, get_datahub_graph
 
 
 def test_all():
@@ -176,4 +175,4 @@ def put(urn: str, aspect: str, aspect_data: str) -> None:
             entity_type=entity_type,
             aspect_value=aspect_obj,
         )
-        sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+        wait_for_writes_to_sync()

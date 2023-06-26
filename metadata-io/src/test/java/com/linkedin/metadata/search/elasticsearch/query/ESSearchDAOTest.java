@@ -61,13 +61,13 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
     Filter f = new Filter().setOr(
         new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(c))));
 
-    Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, _indexConvention);
+    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, _indexConvention);
     assertEquals(f, transformedFilter);
   }
 
   @Test
   public void testTransformFilterForEntitiesNullFilter() {
-    Filter transformedFilter = ESSearchDAO.transformFilterForEntities(null, _indexConvention);
+    Filter transformedFilter = SearchUtil.transformFilterForEntities(null, _indexConvention);
     assertNotNull(_indexConvention);
     assertEquals(null, transformedFilter);
   }
@@ -89,7 +89,7 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
     }
     assertEquals(f, originalF);
 
-    Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, _indexConvention);
+    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, _indexConvention);
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion = new Criterion().setValue("smpldat_datasetindex_v2").setValues(
@@ -119,7 +119,7 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
     }
     assertEquals(f, originalF);
 
-    Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, _indexConvention);
+    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, _indexConvention);
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion = new Criterion().setValue("smpldat_datajobindex_v2").setValues(
@@ -152,7 +152,7 @@ public class ESSearchDAOTest extends AbstractTestNGSpringContextTests {
     }
     assertEquals(f, originalF);
 
-    Filter transformedFilter = ESSearchDAO.transformFilterForEntities(f, _indexConvention);
+    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, _indexConvention);
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion = new Criterion().setValue("smpldat_datasetindex_v2").setValues(
