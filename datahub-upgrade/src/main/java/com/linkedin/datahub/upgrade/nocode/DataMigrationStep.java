@@ -13,7 +13,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.datahub.util.RecordUtils;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
@@ -36,16 +36,16 @@ public class DataMigrationStep implements UpgradeStep {
   private static final String BROWSE_PATHS_ASPECT_NAME = PegasusUtils.getAspectNameFromSchema(new BrowsePaths().schema());
 
   private final EbeanServer _server;
-  private final EntityService _entityService;
+  private final EntityServiceImpl _entityServiceImpl;
   private final EntityRegistry _entityRegistry;
   private final Set<Urn> urnsWithBrowsePath = new HashSet<>();
 
   public DataMigrationStep(
       final EbeanServer server,
-      final EntityService entityService,
+      final EntityServiceImpl entityServiceImpl,
       final EntityRegistry entityRegistry) {
     _server = server;
-    _entityService = entityService;
+    _entityServiceImpl = entityServiceImpl;
     _entityRegistry = entityRegistry;
   }
 
@@ -132,7 +132,7 @@ public class DataMigrationStep implements UpgradeStep {
 
           // 6. Write the row back using the EntityService
           boolean emitMae = oldAspect.getKey().getVersion() == 0L;
-          _entityService.updateAspect(
+          _entityServiceImpl.updateAspect(
               urn,
               entityName,
               newAspectName,
@@ -148,13 +148,13 @@ public class DataMigrationStep implements UpgradeStep {
             // Emit a browse path aspect.
             final BrowsePaths browsePaths;
             try {
-              browsePaths = _entityService.buildDefaultBrowsePath(urn);
+              browsePaths = _entityServiceImpl.buildDefaultBrowsePath(urn);
 
               final AuditStamp browsePathsStamp = new AuditStamp();
               browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
               browsePathsStamp.setTime(System.currentTimeMillis());
 
-              _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp, null);
+              _entityServiceImpl.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp, null);
               urnsWithBrowsePath.add(urn);
 
             } catch (URISyntaxException e) {

@@ -3,7 +3,7 @@ package com.linkedin.datahub.upgrade.config;
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
@@ -25,11 +25,11 @@ public class NoCodeUpgradeConfig {
   @Nonnull
   public NoCodeUpgrade createInstance() {
     final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
-    final EntityService entityService = applicationContext.getBean(EntityService.class);
+    final EntityServiceImpl entityServiceImpl = applicationContext.getBean(EntityServiceImpl.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
     final RestliEntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);
     final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
-    return new NoCodeUpgrade(ebeanServer, entityService, entityRegistry, systemAuthentication, entityClient);
+    return new NoCodeUpgrade(ebeanServer, entityServiceImpl, entityRegistry, systemAuthentication, entityClient);
   }
 }
