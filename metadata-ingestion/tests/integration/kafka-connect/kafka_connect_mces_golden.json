@@ -178,13 +178,13 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres.public.member)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.public.member)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "postgres_source:postgres.public.member",
+            "name": "postgres_source:postgres1.postgres.public.member",
             "type": {
                 "string": "COMMAND"
             }
@@ -197,7 +197,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres.public.member)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.public.member)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -480,10 +480,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql1.librarydb.mixedcasetable,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,mysqlx.librarydb.mixedcasetable,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka2.test-mysql-jdbc-mixedcasetable,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,test-mysql-jdbc-mixedcasetable,PROD)"
             ]
         }
     },
@@ -519,10 +519,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql1.librarydb.book,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,mysqlx.librarydb.book,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka2.test-mysql-jdbc-book,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,test-mysql-jdbc-book,PROD)"
             ]
         }
     },
@@ -558,10 +558,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql1.librarydb.member,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,mysqlx.librarydb.member,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka2.test-mysql-jdbc-member,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,test-mysql-jdbc-member,PROD)"
             ]
         }
     },
@@ -1105,7 +1105,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres.public.member)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.public.member)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

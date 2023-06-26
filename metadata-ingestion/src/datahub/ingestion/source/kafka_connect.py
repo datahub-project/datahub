@@ -1082,11 +1082,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     self.config, connector_name, target_platform
                 )
 
-                job_id = (
-                    source_dataset
-                    if source_dataset
-                    else f"unknown_source.{target_dataset}"
-                )
+                job_id = self.get_job_id(lineage, connector, self.config)
                 job_urn = builder.make_data_job_urn_with_flow(flow_urn, job_id)
 
                 inlets = (
@@ -1120,6 +1116,36 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                         outputDatasets=outlets,
                     ),
                 ).as_workunit()
+
+    def get_job_id(
+        self,
+        lineage: KafkaConnectLineage,
+        connector: ConnectorManifest,
+        config: KafkaConnectSourceConfig,
+    ) -> str:
+        connector_class = connector.config.get("connector.class")
+
+        # Note - This block is only to maintain backward compatibility of Job URN
+        if (
+            connector_class
+            and (
+                "JdbcSourceConnector" in connector_class
+                or connector_class.startswith("io.debezium.connector")
+            )
+            and lineage.source_dataset
+            and config.connect_to_platform_map
+            and config.connect_to_platform_map.get(connector.name)
+            and config.connect_to_platform_map[connector.name].get(
+                lineage.source_platform
+            )
+        ):
+            return f"{config.connect_to_platform_map[connector.name][lineage.source_platform]}.{lineage.source_dataset}"
+
+        return (
+            lineage.source_dataset
+            if lineage.source_dataset
+            else f"unknown_source.{lineage.target_dataset}"
+        )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [

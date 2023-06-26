@@ -23,9 +23,6 @@ source:
       postgres_source:     # optional - Connector name
         postgres: postgres1  # optional - Platform to instance map
         kafka: kafka1
-      mysql_source1:
-        mysql: mysql1
-        kafka: kafka2
     generic_connectors:   # optional - Generic connector lineage info
       - connector_name: generic-connector
         source_dataset: generic-dataset
