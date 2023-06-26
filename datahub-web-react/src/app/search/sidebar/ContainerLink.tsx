@@ -44,7 +44,7 @@ const ContainerLink = ({ entity }: Props) => {
     if (!containerUrl) return null;
 
     return (
-        <Tooltip placement="top" title={`view ${displayName} profile`} mouseEnterDelay={1}>
+        <Tooltip placement="top" title={`View ${displayName} profile`} mouseEnterDelay={1}>
             <Link to={containerUrl}>
                 <ExpandableNode.StaticButton
                     icon={<ContainerIcon isSelected={isBrowsePathSelected} component={ExternalLink} />}
