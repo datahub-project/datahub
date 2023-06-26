@@ -2103,6 +2103,7 @@ public class EntityServiceImpl implements EntityService {
    * will have a basic "Default" folder added to their browsePathV2.
    */
   @Nonnull
+  @Override
   public BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException {
     Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
     return BrowsePathV2Utils.getDefaultBrowsePathV2(urn, this.getEntityRegistry(), dataPlatformDelimiter, this, useContainerPaths);

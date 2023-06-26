@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -298,4 +299,13 @@ public interface EntityService {
   void setWritable(boolean canWrite);
 
   BrowsePaths buildDefaultBrowsePath(final @Nonnull Urn urn) throws URISyntaxException;
+
+  /**
+   * Builds the default browse path V2 aspects for all entities.
+   *
+   * This method currently supports datasets, charts, dashboards, and data jobs best. Everything else
+   * will have a basic "Default" folder added to their browsePathV2.
+   */
+  @Nonnull
+  BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException;
 }
