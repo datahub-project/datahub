@@ -102,7 +102,7 @@ const BrowseNode = () => {
                         </ExpandableNode.Title>
                         {isContainer && <ContainerLink entity={entity} />}
                     </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(987654321)}</Count>
+                    <Count color={color}>{formatNumber(count)}</Count>
                 </ExpandableNode.SelectableHeader>
             }
             body={
