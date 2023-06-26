@@ -82,6 +82,7 @@ def write_metadata_file(
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
             UsageAggregation,
+            dict,
         ]
     ],
 ) -> None:
@@ -91,6 +92,7 @@ def write_metadata_file(
         for i, record in enumerate(records):
             if i > 0:
                 f.write(",\n")
-            obj = _to_obj_for_file(record)
-            json.dump(obj, f, indent=4)
+            if not isinstance(record, dict):
+                record = _to_obj_for_file(record)
+            json.dump(record, f, indent=4)
         f.write("\n]")

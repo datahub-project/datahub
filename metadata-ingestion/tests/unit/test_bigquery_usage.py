@@ -34,10 +34,10 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     TimeWindowSizeClass,
 )
+from datahub.testing.compare_goldens import assert_mces_equal
 from tests.performance.bigquery import generate_events, ref_from_table
 from tests.performance.data_generation import generate_data, generate_queries
 from tests.performance.data_model import Container, FieldAccess, Query, Table, View
-from tests.test_helpers.mce_helpers import assert_mces_equal
 
 PROJECT_1 = "project-1"
 PROJECT_2 = "project-2"
