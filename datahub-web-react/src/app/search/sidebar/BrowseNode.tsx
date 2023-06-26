@@ -73,8 +73,6 @@ const BrowseNode = () => {
 
     const color = '#000';
 
-    // todo - maybe show the full container, but then when we hover over the header, we slide the text over to make room for the container?
-
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
@@ -100,11 +98,9 @@ const BrowseNode = () => {
                             maxWidth={isContainer ? 175 : 200}
                             padLeft
                         >
-                            {/* {displayName} {displayName} {displayName} {displayName} {displayName} {displayName}{' '}
-                            {displayName} {displayName} {displayName}{' '} */}
                             {displayName}
                         </ExpandableNode.Title>
-                        {isContainer && entity && <ContainerLink entity={entity} />}
+                        {isContainer && <ContainerLink entity={entity} />}
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(987654321)}</Count>
                 </ExpandableNode.SelectableHeader>
