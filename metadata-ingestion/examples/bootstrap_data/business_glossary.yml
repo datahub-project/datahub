@@ -69,8 +69,6 @@ nodes:
           - Shipping.ZipCode
           - Shipping.CountryCode
           - Shipping.StreetAddress
-        related_terms:
-          - Housing.Kitchen.Cutlery
         custom_properties:
           - is_used_for_compliance_tracking: true
         knowledge_links:

@@ -61,8 +61,6 @@ Example **GlossaryTerm**:
     - Shipping.ZipCode
     - Shipping.CountryCode
     - Shipping.StreetAddress
-  related_terms:                                                            # (optional) a list of related terms
-    - Housing.Kitchen.Cutlery
   custom_properties:                                                        # (optional) a map of key/value pairs of arbitrary custom properties
     - is_used_for_compliance_tracking: true
   knowledge_links:                                                          # (optional) a list of **KnowledgeCard** related to this term. These appear as links on the glossary node's page
