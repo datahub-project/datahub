@@ -9,7 +9,7 @@ buildscript {
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.4'
   ext.testContainersVersion  = '1.17.4'
-  ext.elasticsearchVersion = '7.10.2'
+  ext.elasticsearchVersion = '7.11.0'
   // TODO: Change to final release version once it's out ETA Mid-April
   ext.jacksonVersion = '2.15.0-rc2'
   ext.jettyVersion = '10.0.4' //changed from 9.4.46.v20220331 for fix vulnerabilities
