@@ -102,7 +102,7 @@ project.ext.externalDependency = [
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
     "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
-    'hazelcast':'com.hazelcast:hazelcast:5.2.3',
+    'hazelcast':'com.hazelcast:hazelcast:5.3.0',
     'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
     'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
@@ -211,7 +211,7 @@ project.ext.externalDependency = [
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
-    'jline': 'jline:jline:1.4.1',
+    'jline': 'jline:jline:2.11',
     'jetbrains': 'org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
     'pac4jCore': 'org.pac4j:pac4j-core:5.2.0'
 
