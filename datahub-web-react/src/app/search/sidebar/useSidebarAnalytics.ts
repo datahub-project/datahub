@@ -48,7 +48,17 @@ const useSidebarAnalytics = () => {
         });
     };
 
-    return { trackToggleNodeEvent, trackSelectNodeEvent } as const;
+    const trackClickContainerLinkEvent = () => {
+        analytics.event({
+            type: EventType.BrowseV2ClickContainerLinkEvent,
+            entity: entityDisplayName,
+            environment: environmentDisplayName,
+            platform: platformDisplayName,
+            targetDepth,
+        });
+    };
+
+    return { trackToggleNodeEvent, trackSelectNodeEvent, trackClickContainerLinkEvent } as const;
 };
 
 export default useSidebarAnalytics;

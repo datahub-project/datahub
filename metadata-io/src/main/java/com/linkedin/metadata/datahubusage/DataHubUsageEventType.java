@@ -21,6 +21,7 @@ public enum DataHubUsageEventType {
   BROWSE_V2_TOGGLE_SIDEBAR_EVENT("BrowseV2ToggleSidebarEvent"),
   BROWSE_V2_TOGGLE_NODE_EVENT("BrowseV2ToggleNodeEvent"),
   BROWSE_V2_SELECT_NODE_EVENT("BrowseV2SelectNodeEvent"),
+  BROWSE_V2_CLICK_CONTAINER_LINK_EVENT("BrowseV2ClickContainerLinkEvent"),
   ENTITY_VIEW_EVENT("EntityViewEvent"),
   ENTITY_SECTION_VIEW_EVENT("EntitySectionViewEvent"),
   ENTITY_ACTION_EVENT("EntityActionEvent"),

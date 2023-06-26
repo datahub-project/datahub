@@ -8,6 +8,7 @@ import ExpandableNode from './ExpandableNode';
 import { ReactComponent as ExternalLink } from '../../../images/link-out.svg';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Entity } from '../../../types.generated';
+import useSidebarAnalytics from './useSidebarAnalytics';
 
 // todo - this hover rule feels a little weird
 const ContainerIcon = styled(Icon)<{ isSelected: boolean }>`
@@ -35,8 +36,10 @@ const ContainerLink = ({ entity }: Props) => {
     const history = useHistory();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const displayName = useBrowseDisplayName();
+    const { trackClickContainerLinkEvent } = useSidebarAnalytics();
 
     const onClickButton = () => {
+        trackClickContainerLinkEvent();
         const containerUrl = registry.getEntityUrl(entity.type, entity.urn);
         history.push(containerUrl);
     };
