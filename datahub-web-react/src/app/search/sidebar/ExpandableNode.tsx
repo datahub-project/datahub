@@ -51,6 +51,18 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
 `;
 
+ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
+    & {
+        border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
+        background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
+        border-radius: 8px;
+    }
+
+    &:hover {
+        background-color: ${(props) => props.theme.styles['primary-color-light']};
+    }
+`;
+
 ExpandableNode.HeaderLeft = styled.div`
     display: flex;
     align-items: center;
@@ -121,8 +133,9 @@ ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: stri
 };
 
 // Reduce the ellipsis tolerance the deeper we get into the browse path
-const BaseTitleContainer = styled.div<{ depth: number }>`
-    max-width: ${(props) => 175 - props.depth * 8}px;
+const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number }>`
+    /* todo - can we only do the 175 for container cases?, or maybe detect child count? */
+    max-width: ${(props) => props.maxWidth - props.depth * 8}px;
 `;
 
 const BaseTitle = styled(Typography.Text)<{ color: string; size: number }>`
@@ -135,15 +148,17 @@ ExpandableNode.Title = ({
     size,
     depth = 0,
     children,
+    maxWidth = 200,
 }: {
     color: string;
     size: number;
     depth?: number;
     children: ReactNode;
+    maxWidth?: number;
 }) => {
     return (
-        <BaseTitleContainer depth={depth}>
-            <BaseTitle ellipsis={{ tooltip: true }} color={color} size={size}>
+        <BaseTitleContainer depth={depth} maxWidth={maxWidth}>
+            <BaseTitle ellipsis={{ tooltip: { mouseEnterDelay: 2 } }} color={color} size={size}>
                 {children}
             </BaseTitle>
         </BaseTitleContainer>

@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
-import Icon from '@ant-design/icons/lib/components/Icon';
 import { useHistory } from 'react-router';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
@@ -23,21 +22,8 @@ import {
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
 import { EntityType } from '../../../types.generated';
-import { ReactComponent as ExternalLink } from '../../../images/link-out.svg';
 import { useEntityRegistry } from '../../useEntityRegistry';
-
-// todo - move this back into ExpandableNode if it makes sense
-const SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
-    & {
-        border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
-        background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
-        border-radius: 8px;
-    }
-
-    &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color-light']};
-    }
-`;
+import ContainerLink from './ContainerLink';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -47,16 +33,6 @@ const FolderStyled = styled(FolderOutlined)`
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
-`;
-
-const ContainerIcon = styled(Icon)<{ isSelected: boolean }>`
-    && {
-        color: ${(props) => props.theme.styles['primary-color']};
-        ${(props) => !props.isSelected && 'display: none;'}
-        ${SelectableHeader}:hover & {
-            display: inherit;
-        }
-    }
 `;
 
 const BrowseNode = () => {
@@ -107,11 +83,13 @@ const BrowseNode = () => {
 
     const color = '#000';
 
+    // todo - maybe show the full container, but then when we hover over the header, we slide the text over to make room for the container?
+
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
             header={
-                <SelectableHeader
+                <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
                     isSelected={isBrowsePathSelected}
                     onClick={onClickBrowseHeader}
@@ -125,26 +103,20 @@ const BrowseNode = () => {
                             dataTestId={`browse-node-expand-${displayName}`}
                         />
                         <FolderStyled />
-                        <ExpandableNode.Title color={color} size={14} depth={browsePathLength}>
-                            {displayName} {displayName} {displayName} {displayName} {displayName} {displayName}{' '}
-                            {displayName} {displayName} {displayName}{' '}
+                        <ExpandableNode.Title
+                            color={color}
+                            size={14}
+                            depth={browsePathLength}
+                            maxWidth={isContainer ? 175 : 200}
+                        >
+                            {/* {displayName} {displayName} {displayName} {displayName} {displayName} {displayName}{' '}
+                            {displayName} {displayName} {displayName}{' '} */}
+                            {displayName}
                         </ExpandableNode.Title>
-                        {isContainer && (
-                            <Tooltip placement="top" title={`view ${displayName} profile`}>
-                                <ExpandableNode.StaticButton
-                                    icon={
-                                        <ContainerIcon
-                                            isSelected={isBrowsePathSelected}
-                                            component={ExternalLink}
-                                            onClick={onClickContainerButton}
-                                        />
-                                    }
-                                />
-                            </Tooltip>
-                        )}
+                        {isContainer && <ContainerLink onClick={onClickContainerButton} />}
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(987654321)}</Count>
-                </SelectableHeader>
+                </ExpandableNode.SelectableHeader>
             }
             body={
                 <ExpandableNode.Body>
