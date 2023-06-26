@@ -32,7 +32,7 @@ Often the structure of the `Resolver` classes is to call a service to receive a 
 > **listOwnershipTypes example:** The [`ListOwnershipTypesResolver`](https://github.com/datahub-project/datahub/commit/ea92b86e6ab4cbb18742fb8db6bc11fae8970cdb#diff-d2ad02d0ec286017d032640cfdb289fbdad554ef5f439355104766fa068513ac) calls the `search` method in its `EntityClient` to get the ownership types, then calls the defined `mapUnresolvedOwnershipTypes` function to transform the response into a `ListOwnershipTypesResult`.
 
 Tip: Resolver classes can be tested with unit tests! 
-> **listOwnershipTypes example:** The reference commit adds the [`ListOwnershipTypesResolverTest` class](datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/ownership/UpdateOwnershipTypeResolverTest.java).
+> **listOwnershipTypes example:** The reference commit adds the [`ListOwnershipTypeResolverTest` class](https://github.com/datahub-project/datahub/commit/ea92b86e6ab4cbb18742fb8db6bc11fae8970cdb#diff-9443d70b221e36e9d47bfa9244673d1cd553a92ae496d03622932ad0a4832045).
 
 ### Adding the resolver to the GMS server
 The main GMS server is located in [`GmsGraphQLEngine.java`](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java). To hook up the resolver to handle the endpoint, find the relevant section based on if the new enpoint is a `Query` or a `Mutation` and add the resolver as the `dataFetcher` for the name of the endpoint. 
