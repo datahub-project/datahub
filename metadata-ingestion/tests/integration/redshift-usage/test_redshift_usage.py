@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 from freezegun import freeze_time
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.redshift.config import RedshiftConfig
@@ -21,7 +22,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from tests.test_helpers import mce_helpers
 
-FROZEN_TIME = "2021-08-24 09:00:00"
+FROZEN_TIME = "2021-09-15 09:00:00"
 
 
 def test_redshift_usage_config():
@@ -94,6 +95,7 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
         config=config,
         connection=mock_connection,
         report=source_report,
+        dataset_urn_builder=lambda table: make_dataset_urn("redshift", table),
     )
 
     all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
@@ -127,7 +129,7 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
             ]
         },
     }
-    mwus = usage_extractor.generate_usage(all_tables=all_tables)
+    mwus = usage_extractor.get_usage_workunits(all_tables=all_tables)
     metadata: List[
         Union[
             MetadataChangeEvent,
@@ -200,6 +202,7 @@ def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tm
         config=config,
         connection=mock_connection,
         report=RedshiftReport(),
+        dataset_urn_builder=lambda table: make_dataset_urn("redshift", table),
     )
 
     all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
@@ -215,7 +218,7 @@ def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tm
             ]
         },
     }
-    mwus = usage_extractor.generate_usage(all_tables=all_tables)
+    mwus = usage_extractor.get_usage_workunits(all_tables=all_tables)
     metadata: List[
         Union[
             MetadataChangeEvent,

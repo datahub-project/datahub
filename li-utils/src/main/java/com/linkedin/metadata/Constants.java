@@ -82,6 +82,7 @@ public class Constants {
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String DATA_PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
   public static final String BROWSE_PATHS_ASPECT_NAME = "browsePaths";
+  public static final String BROWSE_PATHS_V2_ASPECT_NAME = "browsePathsV2";
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";

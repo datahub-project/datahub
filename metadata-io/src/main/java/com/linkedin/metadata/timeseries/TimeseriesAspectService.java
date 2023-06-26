@@ -9,6 +9,7 @@ import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
+import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -144,4 +145,6 @@ public interface TimeseriesAspectService {
       @Nonnull final String aspectName,
       @Nonnull final String docId,
       @Nonnull final JsonNode document);
+
+  List<TimeseriesIndexSizeResult> getIndexSizes();
 }
