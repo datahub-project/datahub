@@ -2,7 +2,7 @@ import collections
 import logging
 import time
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import pydantic.error_wrappers
 import redshift_connector
@@ -12,6 +12,7 @@ from pydantic.main import BaseModel
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift_schema import (
@@ -22,7 +23,6 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -169,19 +169,34 @@ class RedshiftUsageExtractor:
         config: RedshiftConfig,
         connection: redshift_connector.Connection,
         report: RedshiftReport,
+        dataset_urn_builder: Callable[[str], str],
     ):
         self.config = config
         self.report = report
         self.connection = connection
+        self.dataset_urn_builder = dataset_urn_builder
 
-    def generate_usage(
+    def get_usage_workunits(
+        self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from auto_empty_dataset_usage_statistics(
+            self._get_workunits_internal(all_tables),
+            config=self.config,
+            dataset_urns={
+                self.dataset_urn_builder(f"{database}.{schema}.{table.name}")
+                for database in all_tables
+                for schema in all_tables[database]
+                for table in all_tables[database][schema]
+            },
+        )
+
+    def _get_workunits_internal(
         self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         self.report.num_usage_stat_skipped = 0
         self.report.num_operational_stats_skipped = 0
 
-        """Gets Redshift usage stats as work units"""
         if self.config.include_operational_stats:
             with PerfTimer() as timer:
                 # Generate operation aspect workunits
@@ -320,7 +335,6 @@ class RedshiftUsageExtractor:
 
             assert event.operation_type in ["insert", "delete"]
 
-            resource: str = f"{event.database}.{event.schema_}.{event.table}"
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
             user_email: str = event.username
@@ -334,15 +348,10 @@ class RedshiftUsageExtractor:
                     else OperationTypeClass.DELETE
                 ),
             )
-            dataset_urn = DatasetUrn.create_from_ids(
-                platform_id="redshift",
-                table_name=resource.lower(),
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
 
+            resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
             yield MetadataChangeProposalWrapper(
-                entityUrn=str(dataset_urn), aspect=operation_aspect
+                entityUrn=self.dataset_urn_builder(resource), aspect=operation_aspect
             ).as_workunit()
             self.report.num_operational_stats_workunits_emitted += 1
 
@@ -354,7 +363,7 @@ class RedshiftUsageExtractor:
             floored_ts: datetime = get_time_bucket(
                 event.starttime, self.config.bucket_duration
             )
-            resource: str = f"{event.database}.{event.schema_}.{event.table}"
+            resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
             # Get a reference to the bucket value(or initialize not yet in dict) and update it.
             agg_bucket: AggregatedDataset = datasets[floored_ts].setdefault(
                 resource,
@@ -378,12 +387,7 @@ class RedshiftUsageExtractor:
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn_with_platform_instance(
-                "redshift",
-                resource.lower(),
-                self.config.platform_instance,
-                self.config.env,
-            ),
+            self.dataset_urn_builder,
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
