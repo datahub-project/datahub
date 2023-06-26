@@ -437,6 +437,7 @@ module.exports = {
             "docs/developers",
             "docs/docker/development",
             "metadata-ingestion/developing",
+            "docs/api/graphql/graphql-endpoint-development",
             {
               Modules: [
                 "datahub-web-react/README",
