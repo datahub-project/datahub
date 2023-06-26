@@ -31,6 +31,7 @@ const FolderStyled = styled(FolderOutlined)`
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
+    padding-right: 2px;
 `;
 
 const BrowseNode = () => {
@@ -97,6 +98,7 @@ const BrowseNode = () => {
                             size={14}
                             depth={browsePathLength}
                             maxWidth={isContainer ? 175 : 200}
+                            padLeft
                         >
                             {/* {displayName} {displayName} {displayName} {displayName} {displayName} {displayName}{' '}
                             {displayName} {displayName} {displayName}{' '} */}

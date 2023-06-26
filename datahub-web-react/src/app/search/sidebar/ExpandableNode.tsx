@@ -133,9 +133,9 @@ ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: stri
 };
 
 // Reduce the ellipsis tolerance the deeper we get into the browse path
-const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number }>`
-    /* todo - can we only do the 175 for container cases?, or maybe detect child count? */
+const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number; padLeft: boolean }>`
     max-width: ${(props) => props.maxWidth - props.depth * 8}px;
+    padding-left: ${(props) => (props.padLeft ? 4 : 0)}px;
 `;
 
 const BaseTitle = styled(Typography.Text)<{ color: string; size: number }>`
@@ -149,15 +149,17 @@ ExpandableNode.Title = ({
     depth = 0,
     children,
     maxWidth = 200,
+    padLeft = false,
 }: {
     color: string;
     size: number;
     depth?: number;
     children: ReactNode;
     maxWidth?: number;
+    padLeft?: boolean;
 }) => {
     return (
-        <BaseTitleContainer depth={depth} maxWidth={maxWidth}>
+        <BaseTitleContainer depth={depth} maxWidth={maxWidth} padLeft={padLeft}>
             <BaseTitle ellipsis={{ tooltip: { mouseEnterDelay: 2 } }} color={color} size={size}>
                 {children}
             </BaseTitle>

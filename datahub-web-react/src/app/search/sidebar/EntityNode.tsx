@@ -64,7 +64,7 @@ const EntityNode = () => {
                 >
                     <ExpandableNode.HeaderLeft>
                         {registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
-                        <ExpandableNode.Title color={color} size={16}>
+                        <ExpandableNode.Title color={color} size={16} padLeft>
                             {registry.getCollectionName(entityType)}
                         </ExpandableNode.Title>
                         <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
