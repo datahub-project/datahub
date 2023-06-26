@@ -2,9 +2,12 @@ import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import Icon from '@ant-design/icons/lib/components/Icon';
+import { useHistory } from 'react-router';
 import { useBrowseDisplayName, useIsBrowsePathSelected } from './BrowseContext';
 import ExpandableNode from './ExpandableNode';
 import { ReactComponent as ExternalLink } from '../../../images/link-out.svg';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { Entity } from '../../../types.generated';
 
 // todo - this hover rule feels a little weird
 const ContainerIcon = styled(Icon)<{ isSelected: boolean }>`
@@ -18,7 +21,7 @@ const ContainerIcon = styled(Icon)<{ isSelected: boolean }>`
 `;
 
 type Props = {
-    onClick: () => void;
+    entity: Entity;
 };
 
 // The tooltip needs some text to hold onto
@@ -27,17 +30,22 @@ const EmptySpace = styled.span`
     content: ' ';
 `;
 
-const ContainerLink = ({ onClick }: Props) => {
+const ContainerLink = ({ entity }: Props) => {
+    const registry = useEntityRegistry();
+    const history = useHistory();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const displayName = useBrowseDisplayName();
 
-    // todo - add a delay
+    const onClickButton = () => {
+        const containerUrl = registry.getEntityUrl(entity.type, entity.urn);
+        history.push(containerUrl);
+    };
 
     return (
         <Tooltip placement="top" title={`view ${displayName} profile`} mouseEnterDelay={1}>
             <ExpandableNode.StaticButton
                 icon={<ContainerIcon isSelected={isBrowsePathSelected} component={ExternalLink} />}
-                onClick={onClick}
+                onClick={onClickButton}
             />
             <EmptySpace />
         </Tooltip>

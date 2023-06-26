@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
-import { useHistory } from 'react-router';
 import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import useBrowsePagination from './useBrowsePagination';
@@ -22,7 +21,6 @@ import {
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
 import { EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import ContainerLink from './ContainerLink';
 
 const FolderStyled = styled(FolderOutlined)`
@@ -36,8 +34,6 @@ const Count = styled(Typography.Text)`
 `;
 
 const BrowseNode = () => {
-    const registry = useEntityRegistry();
-    const history = useHistory();
     const isBrowsePathPrefix = useIsBrowsePathPrefix();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const onSelectBrowsePath = useOnSelectBrowsePath();
@@ -46,11 +42,11 @@ const BrowseNode = () => {
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
-    const { count } = browseResultGroup;
+    const { count, entity } = browseResultGroup;
     const displayName = useBrowseDisplayName();
     const { trackSelectNodeEvent } = useSidebarAnalytics();
 
-    const isContainer = browseResultGroup.entity?.type === EntityType.Container;
+    const isContainer = entity?.type === EntityType.Container;
 
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
@@ -66,13 +62,6 @@ const BrowseNode = () => {
         const isNowSelected = !isBrowsePathSelected;
         onSelectBrowsePath(isNowSelected);
         trackSelectNodeEvent(isNowSelected ? 'select' : 'deselect', 'browse');
-    };
-
-    const onClickContainerButton = () => {
-        const { entity } = browseResultGroup;
-        if (!entity) return;
-        const containerUrl = registry.getEntityUrl(entity.type, entity.urn);
-        history.push(containerUrl);
     };
 
     const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({
@@ -113,7 +102,7 @@ const BrowseNode = () => {
                             {displayName} {displayName} {displayName}{' '} */}
                             {displayName}
                         </ExpandableNode.Title>
-                        {isContainer && <ContainerLink onClick={onClickContainerButton} />}
+                        {isContainer && entity && <ContainerLink entity={entity} />}
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(987654321)}</Count>
                 </ExpandableNode.SelectableHeader>
