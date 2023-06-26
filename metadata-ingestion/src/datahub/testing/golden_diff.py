@@ -150,7 +150,8 @@ class GoldenDiff:
             s.append(f"Urn added, {urn}{' with aspects:' if verbose else ''}")
             if verbose:
                 for aspect_diff in self.aspect_changes[urn].values():
-                    for ga in aspect_diff.aspects_added.values():
+                    for i, ga in aspect_diff.aspects_added.items():
+                        s.append(self.report_aspect(ga, i))
                         s.append(serialize_aspect(ga.aspect))
         if self.urns_added:
             s.append("")
@@ -159,7 +160,8 @@ class GoldenDiff:
             s.append(f"Urn removed, {urn}{' with aspects:' if verbose else ''}")
             if verbose:
                 for aspect_diff in self.aspect_changes[urn].values():
-                    for ga in aspect_diff.aspects_removed.values():
+                    for i, ga in aspect_diff.aspects_removed.items():
+                        s.append(self.report_aspect(ga, i))
                         s.append(serialize_aspect(ga.aspect))
         if self.urns_removed:
             s.append("")
@@ -189,7 +191,7 @@ class GoldenDiff:
         return "\n".join(s)
 
     @staticmethod
-    def report_aspect(ga: GoldenAspect, idx: int, msg: str) -> str:
+    def report_aspect(ga: GoldenAspect, idx: int, msg: str = "") -> str:
         ordinal = f"{inflection.ordinalize(idx+1)} " if idx else ""
         return f"{ordinal}<{ga.aspect_name}> {msg}"
 
@@ -220,4 +222,4 @@ class GoldenDiff:
 def serialize_aspect(aspect: Union[GoldenAspect, Dict[str, Any]]) -> str:
     if isinstance(aspect, GoldenAspect):  # Unpack aspect
         aspect = aspect.aspect
-    return "\t" + yaml.dump(aspect, sort_keys=False).replace("\n", "\n\t").strip()
+    return "    " + yaml.dump(aspect, sort_keys=False).replace("\n", "\n    ").strip()
