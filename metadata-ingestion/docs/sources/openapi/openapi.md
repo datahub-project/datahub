@@ -2,8 +2,8 @@ The dataset metadata should be defined directly in the Swagger file, section `["
 
 ## Capabilities
 
-This plugin reads the swagger file where the endpoints are defined, reads example data if provided or searches for
-data for the endpoints which accept a `GET` call.
+This plugin reads the swagger file where the endpoints are defined, reads example data if provided (for any method), or searches for
+data for the endpoints which do not have example data and accept a `GET` call.
 
 For every selected endpoint defined in the `paths` section,
 the tool searches whether the metadata are already defined.
