@@ -25,7 +25,8 @@ source:
   type: clickhouse
   config:
     host_port: localhost:8443
-    protocol: https
+    uri_opts:
+      protocol: https
 
 #---------------------------------------------------------------------------
 # For the Native interface:

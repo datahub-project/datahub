@@ -128,8 +128,6 @@ class ClickHouseConfig(
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
-
-    protocol: Optional[str] = Field(default=None, description="")
     uri_opts: Dict[str, str] = Field(
         default={},
         description="The part of the URI and it's used to provide additional configuration options or parameters for the database connection.",
@@ -143,8 +141,9 @@ class ClickHouseConfig(
         url = make_url(
             super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
         )
-        if url.drivername != "clickhouse+native" and self.protocol:
-            url = url.update_query_dict({"protocol": self.protocol})
+        if url.drivername == "clickhouse+native" and url.query.get('protocol'):
+            logger.debug(f'driver = {url.drivername}, query = url.query')
+            raise Exception(f"You cannot use a schema clickhouse+native and clickhouse+http at the same time")
 
         if current_db:
             url = url.set(database=current_db)
