@@ -213,9 +213,13 @@ class PowerBiAPI:
         return workspaces
 
     def get_modified_workspaces(self) -> List[Workspace]:
-        workspaces = []
+        workspaces: List[Workspace] = []
+
+        if self.__config.modified_since is None:
+            return workspaces
+
         try:
-            modified_workspace_ids = self._get_resolver().get_modified_workspaces(
+            modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
                 self.__config.modified_since
             )
             workspaces = [
@@ -233,7 +237,8 @@ class PowerBiAPI:
                 for workspace_id in modified_workspace_ids
             ]
         except:
-            self.log_http_error(message="Unable to fetch list of modified workspaces")
+            self.log_http_error(message="Unable to fetch list of modified workspaces.")
+
         return workspaces
 
     def _get_scan_result(self, workspace_ids: List[str]) -> Any:

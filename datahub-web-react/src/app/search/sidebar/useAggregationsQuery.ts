@@ -47,17 +47,25 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
             const type = aggregation.value as EntityType;
             return registry.getEntity(type).isBrowseEnabled() && !GLOSSARY_ENTITY_TYPES.includes(type);
         })
+        .sort((a, b) => {
+            const nameA = registry.getCollectionName(a.value as EntityType);
+            const nameB = registry.getCollectionName(b.value as EntityType);
+            return nameA.localeCompare(nameB);
+        });
+
+    const environmentAggregations = data?.aggregateAcrossEntities?.facets
+        ?.find((facet) => facet.field === ORIGIN_FILTER_NAME)
+        ?.aggregations.filter((aggregation) => aggregation.count)
         .sort((a, b) => a.value.localeCompare(b.value));
 
-    const environmentAggregations =
-        data?.aggregateAcrossEntities?.facets
-            ?.find((facet) => facet.field === ORIGIN_FILTER_NAME)
-            ?.aggregations.filter((aggregation) => aggregation.count) ?? [];
-
-    const platformAggregations =
-        data?.aggregateAcrossEntities?.facets
-            ?.find((facet) => facet.field === PLATFORM_FILTER_NAME)
-            ?.aggregations.filter((aggregation) => aggregation.count) ?? [];
+    const platformAggregations = data?.aggregateAcrossEntities?.facets
+        ?.find((facet) => facet.field === PLATFORM_FILTER_NAME)
+        ?.aggregations.filter((aggregation) => aggregation.count)
+        .sort((a, b) => {
+            const nameA = a.entity ? registry.getDisplayName(EntityType.DataPlatform, a.entity) : a.value;
+            const nameB = b.entity ? registry.getDisplayName(EntityType.DataPlatform, b.entity) : b.value;
+            return nameA.localeCompare(nameB);
+        });
 
     return {
         loading,
