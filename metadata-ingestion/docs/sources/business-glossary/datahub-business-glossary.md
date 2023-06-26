@@ -31,8 +31,6 @@ Example **GlossaryNode**:
       - njones
     groups:                                                     # (optional) a  list of group IDs
       - logistics
-  terms:                                                        # list of **GlossaryTerm** objects
-    ...
   nodes:                                                        # list of child **GlossaryNode** objects
     ...
   knowledge_links:                                              # (optional) list of **KnowledgeCard** objects
