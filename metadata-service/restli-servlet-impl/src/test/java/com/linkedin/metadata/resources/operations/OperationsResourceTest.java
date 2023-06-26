@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 public class OperationsResourceTest extends TestCase {
   private static final String TASK_ID = "taskId123";
+
   TimeseriesAspectService mockTimeseriesAspectService = new TimeseriesAspectService() {
     @Override
     public void configure() {
@@ -95,5 +96,13 @@ public class OperationsResourceTest extends TestCase {
     output = testResource.executeTruncateTimeseriesAspect(entityType, aspectName, endTimeMillis, false, null,
         null);
     assertEquals(TASK_ID, output);
+  }
+
+  @Test
+  public void testIsTaskIdValid() {
+    assertFalse(OperationsResource.isTaskIdValid("hello"));
+    assertTrue(OperationsResource.isTaskIdValid("aB1cdEf2GHIJKLMnoPQr3S:123456"));
+    assertFalse(OperationsResource.isTaskIdValid("123456:aB1cdEf2GHIJKLMnoPQr3S"));
+    assertFalse(OperationsResource.isTaskIdValid(":123"));
   }
 }

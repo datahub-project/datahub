@@ -3685,6 +3685,22 @@
       },
       "supports" : [ ],
       "actions" : [ {
+        "name" : "getEsTaskStatus",
+        "parameters" : [ {
+          "name" : "nodeId",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "taskId",
+          "type" : "long",
+          "default" : "0"
+        }, {
+          "name" : "task",
+          "type" : "string",
+          "optional" : true
+        } ],
+        "returns" : "string"
+      }, {
         "name" : "getIndexSizes",
         "returns" : "com.linkedin.timeseries.TimeseriesIndicesSizesResult"
       }, {
