@@ -39,18 +39,3 @@ INSERT INTO metadata_aspect_v2
 SELECT * FROM temp_metadata_aspect_v2
 WHERE NOT EXISTS (SELECT * from metadata_aspect_v2);
 DROP TABLE temp_metadata_aspect_v2;
-
--- create metadata index table
-CREATE TABLE IF NOT EXISTS metadata_index (
- `id` BIGINT NOT NULL AUTO_INCREMENT,
- `urn` VARCHAR(200) NOT NULL,
- `aspect` VARCHAR(150) NOT NULL,
- `path` VARCHAR(150) NOT NULL,
- `longVal` BIGINT,
- `stringVal` VARCHAR(200),
- `doubleVal` DOUBLE,
- CONSTRAINT id_pk PRIMARY KEY (id),
- INDEX longIndex (`urn`,`aspect`,`path`,`longVal`),
- INDEX stringIndex (`urn`,`aspect`,`path`,`stringVal`),
- INDEX doubleIndex (`urn`,`aspect`,`path`,`doubleVal`)
-);

@@ -30,6 +30,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
+snowdialect.ischema_names["GEOMETRY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
 

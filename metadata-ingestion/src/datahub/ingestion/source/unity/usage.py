@@ -10,6 +10,7 @@ from databricks.sdk.service.sql import QueryStatementType
 from sqllineage.runner import LineageRunner
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
@@ -62,20 +63,24 @@ class UnityCatalogUsageExtractor:
             )
         return self._spark_sql_parser
 
-    def run(self, table_refs: Set[TableReference]) -> Iterable[MetadataWorkUnit]:
+    def get_usage_workunits(
+        self, table_refs: Set[TableReference]
+    ) -> Iterable[MetadataWorkUnit]:
         try:
-            table_map = defaultdict(list)
-            for ref in table_refs:
-                table_map[ref.table].append(ref)
-                table_map[f"{ref.schema}.{ref.table}"].append(ref)
-                table_map[ref.qualified_table_name].append(ref)
-
-            yield from self._generate_workunits(table_map)
+            yield from self._get_workunits_internal(table_refs)
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-extraction", str(e))
 
-    def _generate_workunits(self, table_map: TableMap) -> Iterable[MetadataWorkUnit]:
+    def _get_workunits_internal(
+        self, table_refs: Set[TableReference]
+    ) -> Iterable[MetadataWorkUnit]:
+        table_map = defaultdict(list)
+        for ref in table_refs:
+            table_map[ref.table].append(ref)
+            table_map[f"{ref.schema}.{ref.table}"].append(ref)
+            table_map[ref.qualified_table_name].append(ref)
+
         for query in self._get_queries():
             self.report.num_queries += 1
             table_info = self._parse_query(query, table_map)
@@ -100,9 +105,13 @@ class UnityCatalogUsageExtractor:
             )
             return
 
-        yield from self.usage_aggregator.generate_workunits(
-            resource_urn_builder=self.table_urn_builder,
-            user_urn_builder=self.user_urn_builder,
+        yield from auto_empty_dataset_usage_statistics(
+            self.usage_aggregator.generate_workunits(
+                resource_urn_builder=self.table_urn_builder,
+                user_urn_builder=self.user_urn_builder,
+            ),
+            dataset_urns={self.table_urn_builder(ref) for ref in table_refs},
+            config=self.config,
         )
 
     def _generate_operation_workunit(
