@@ -76,36 +76,38 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         mock_sample_values.return_value = pd.DataFrame(
             data={
-                "col_1": [random.randint(0, 100) for i in range(20)],
+                "col_1": [random.randint(1, 80) for i in range(20)],
                 "col_2": [random_email() for i in range(20)],
                 "col_3": [random_cloud_region() for i in range(20)],
             }
         )
 
-        datahub_classifier_config = DataHubClassifierConfig()
-        datahub_classifier_config.confidence_level_threshold = 0.58
-        datahub_classifier_config.minimum_values_threshold = 10
-        datahub_classifier_config.info_types_config = {
-            "Age": InfoTypeConfig(
-                Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                    Name=0, Values=1, Description=0, Datatype=0
-                )
-            ),
-            "CloudRegion": InfoTypeConfig(
-                Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                    Name=0,
-                    Description=0,
-                    Datatype=0,
-                    Values=1,
+        datahub_classifier_config = DataHubClassifierConfig(
+            minimum_values_threshold=10,
+            confidence_level_threshold=0.58,
+            info_types_config={
+                "Age": InfoTypeConfig(
+                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
+                        Name=0, Values=1, Description=0, Datatype=0
+                    )
                 ),
-                Values=ValuesFactorConfig(
-                    prediction_type="regex",
-                    regex=[
-                        r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
-                    ],
+                "CloudRegion": InfoTypeConfig(
+                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
+                        Name=0,
+                        Description=0,
+                        Datatype=0,
+                        Values=1,
+                    ),
+                    Values=ValuesFactorConfig(
+                        prediction_type="regex",
+                        regex=[
+                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
+                        ],
+                    ),
                 ),
-            ),
-        }
+            },
+        )
+
         pipeline = Pipeline(
             config=PipelineConfig(
                 source=SourceConfig(
@@ -119,7 +121,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_view_lineage=True,
-                        include_usage_stats=False,
+                        include_usage_stats=True,
                         use_legacy_lineage_method=False,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,

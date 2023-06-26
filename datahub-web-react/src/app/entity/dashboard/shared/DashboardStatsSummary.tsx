@@ -6,6 +6,8 @@ import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
+import { countFormatter, needsFormatting } from '../../../../utils/formatter';
+import ExpandingStat from '../../dataset/shared/ExpandingStat';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
@@ -33,9 +35,15 @@ export const DashboardStatsSummary = ({
 }: Props) => {
     const statsViews = [
         (!!chartCount && (
-            <StatText>
-                <b>{chartCount}</b> charts
-            </StatText>
+            <ExpandingStat
+                disabled={!needsFormatting(chartCount)}
+                render={(isExpanded) => (
+                    <StatText color={ANTD_GRAY[8]}>
+                        <b>{isExpanded ? formatNumberWithoutAbbreviation(chartCount) : countFormatter(chartCount)}</b>{' '}
+                        charts
+                    </StatText>
+                )}
+            />
         )) ||
             undefined,
         (!!viewCount && (

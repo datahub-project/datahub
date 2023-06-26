@@ -13,6 +13,7 @@ from google.cloud.bigquery.table import TableListItem
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn,
     make_tag_urn,
     set_dataset_urn_to_lower,
@@ -105,6 +106,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
@@ -138,9 +140,9 @@ def cleanup(config: BigQueryV2Config) -> None:
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
-@capability(
+@capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
-    "Not supported since BigQuery project ids are globally unique",
+    "Platform instance is pre-set to the BigQuery project id",
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
@@ -152,6 +154,10 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+)
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
@@ -216,7 +222,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
-        self.usage_extractor = BigQueryUsageExtractor(config, self.report)
+        self.usage_extractor = BigQueryUsageExtractor(
+            config, self.report, dataset_urn_builder=self.gen_dataset_urn_from_ref
+        )
 
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
@@ -328,7 +336,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_ids: List[str],
         report: BigQueryV2Report,
     ) -> CapabilityReport:
-        usage_extractor = BigQueryUsageExtractor(connection_conf, report)
+        usage_extractor = BigQueryUsageExtractor(
+            connection_conf, report, lambda ref: ""
+        )
         for project_id in project_ids:
             try:
                 logger.info(f"Usage capability test for project {project_id}")
@@ -397,6 +407,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 capable=False, failure_reason=f"{e}"
             )
             return test_report
+
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str, project_id: str
+    ) -> MetadataWorkUnit:
+        aspect = DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(self.platform, project_id),
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=aspect
+        ).as_workunit()
 
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
@@ -475,7 +496,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self._process_project(conn, project_id)
 
         if self._should_ingest_usage():
-            yield from self.usage_extractor.run(
+            yield from self.usage_extractor.get_usage_workunits(
                 [p.id for p in projects], self.table_refs
             )
 
@@ -987,6 +1008,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
+        yield self.get_dataplatform_instance_aspect(
+            dataset_urn=dataset_urn, project_id=project_id
+        )
 
         subTypes = SubTypes(typeNames=sub_types)
         yield MetadataChangeProposalWrapper(
@@ -1044,12 +1068,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
-        dataset_urn = make_dataset_urn(
+        return make_dataset_urn(
             self.platform,
             str(datahub_dataset_name),
             self.config.env,
         )
-        return dataset_urn
+
+    def gen_dataset_urn_from_ref(self, ref: BigQueryTableRef) -> str:
+        return self.gen_dataset_urn(
+            ref.table_identifier.project_id,
+            ref.table_identifier.dataset,
+            ref.table_identifier.table,
+        )
 
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
