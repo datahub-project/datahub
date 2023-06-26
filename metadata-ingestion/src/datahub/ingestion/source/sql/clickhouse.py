@@ -141,9 +141,11 @@ class ClickHouseConfig(
         url = make_url(
             super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
         )
-        if url.drivername == "clickhouse+native" and url.query.get('protocol'):
-            logger.debug(f'driver = {url.drivername}, query = url.query')
-            raise Exception(f"You cannot use a schema clickhouse+native and clickhouse+http at the same time")
+        if url.drivername == "clickhouse+native" and url.query.get("protocol"):
+            logger.debug(f"driver = {url.drivername}, query = {url.query}")
+            raise Exception(
+                "You cannot use a schema clickhouse+native and clickhouse+http at the same time"
+            )
 
         if current_db:
             url = url.set(database=current_db)
