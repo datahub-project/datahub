@@ -202,7 +202,6 @@ class LookerDashboardSourceConfig(
     def stateful_ingestion_should_be_enabled(
         cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> Optional[bool]:
-
         stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
             StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
         )

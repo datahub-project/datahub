@@ -158,7 +158,6 @@ class SnowflakeQuery:
 
     @staticmethod
     def get_all_tags_in_database_without_propagation(db_name: str) -> str:
-
         allowed_object_domains = (
             "("
             f"'{SnowflakeObjectDomain.DATABASE.upper()}',"

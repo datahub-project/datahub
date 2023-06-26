@@ -664,7 +664,6 @@ class BigQueryUsageExtractor:
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
     ) -> Iterable[AuditLogEntry]:
-
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
 

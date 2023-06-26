@@ -599,7 +599,6 @@ class ReadEvent:
         query_event: QueryEvent,
         debug_include_full_payloads: bool = False,
     ) -> "ReadEvent":
-
         readEvent = ReadEvent(
             actor_email=query_event.actor_email,
             timestamp=query_event.timestamp,

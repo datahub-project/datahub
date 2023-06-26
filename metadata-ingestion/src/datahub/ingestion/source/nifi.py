@@ -142,7 +142,6 @@ class NifiSourceConfig(EnvConfigMixin):
 
     @root_validator(pre=False)
     def validator_site_url_to_site_name(cls, values):
-
         site_url_to_site_name = values.get("site_url_to_site_name")
         site_url = values.get("site_url")
         site_name = values.get("site_name")

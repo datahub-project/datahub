@@ -316,7 +316,6 @@ def test_client_cert_auth_without_client_cert_file():
 
 
 def test_single_user_auth_failed_to_get_token():
-
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         username="username",
@@ -338,7 +337,6 @@ def test_single_user_auth_failed_to_get_token():
 
 
 def test_kerberos_auth_failed_to_get_token():
-
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         auth="KERBEROS",
@@ -358,7 +356,6 @@ def test_kerberos_auth_failed_to_get_token():
 
 
 def test_client_cert_auth_failed():
-
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         auth="CLIENT_CERT",
@@ -379,7 +376,6 @@ def test_client_cert_auth_failed():
 
 
 def test_failure_to_create_nifi_flow():
-
     with patch("datahub.ingestion.source.nifi.NifiSource.authenticate"):
         config = NifiSourceConfig(
             site_url="https://localhost:12345",  # will never work
