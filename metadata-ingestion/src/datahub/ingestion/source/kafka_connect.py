@@ -41,6 +41,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
+KAFKA = "kafka"
+SOURCE = "source"
+SINK = "sink"
+CONNECTOR_CLASS = "connector.class"
+
 
 class ProvidedConfig(ConfigModel):
     provider: str
@@ -357,7 +362,7 @@ class ConfluentJDBCSourceConnector:
                 source_dataset=dataset_name if include_source_dataset else None,
                 source_platform=source_platform,
                 target_dataset=topic,
-                target_platform="kafka",
+                target_platform=KAFKA,
             )
             lineages.append(lineage)
         return lineages
@@ -445,7 +450,7 @@ class ConfluentJDBCSourceConnector:
                     source_dataset=None,
                     source_platform=source_platform,
                     target_dataset=topic,
-                    target_platform="kafka",
+                    target_platform=KAFKA,
                 )
                 lineages.append(lineage)
                 self.report_warning(
@@ -511,7 +516,7 @@ class ConfluentJDBCSourceConnector:
                         source_dataset=dataset_name,
                         source_platform=source_platform,
                         target_dataset=topic,
-                        target_platform="kafka",
+                        target_platform=KAFKA,
                     )
                     topic_names.remove(topic)
                     lineages.append(lineage)
@@ -612,7 +617,7 @@ class MongoSourceConnector:
                     source_dataset=table_name,
                     source_platform=source_platform,
                     target_dataset=topic,
-                    target_platform="kafka",
+                    target_platform=KAFKA,
                 )
                 lineages.append(lineage)
         self.connector_manifest.lineages = lineages
@@ -645,7 +650,7 @@ class DebeziumSourceConnector:
         self,
         connector_manifest: ConnectorManifest,
     ) -> DebeziumParser:
-        connector_class = connector_manifest.config.get("connector.class", "")
+        connector_class = connector_manifest.config.get(CONNECTOR_CLASS, "")
 
         if connector_class == "io.debezium.connector.mysql.MySqlConnector":
             parser = self.DebeziumParser(
@@ -721,7 +726,7 @@ class DebeziumSourceConnector:
                     source_dataset=table_name,
                     source_platform=source_platform,
                     target_dataset=topic,
-                    target_platform="kafka",
+                    target_platform=KAFKA,
                 )
                 lineages.append(lineage)
         self.connector_manifest.lineages = lineages
@@ -865,7 +870,7 @@ class BigQuerySinkConnector:
             lineages.append(
                 KafkaConnectLineage(
                     source_dataset=topic,
-                    source_platform="kafka",
+                    source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform=target_platform,
                 )
@@ -962,7 +967,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest.topic_names = topics[c]["topics"]
 
             # Populate Source Connector metadata
-            if connector_manifest.type == "source":
+            if connector_manifest.type == SOURCE:
                 tasks = self.session.get(
                     f"{self.config.connect_uri}/connectors/{c}/tasks",
                 ).json()
@@ -970,7 +975,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 connector_manifest.tasks = tasks
 
                 # JDBC source connector lineages
-                if connector_manifest.config.get("connector.class").__eq__(
+                if connector_manifest.config.get(CONNECTOR_CLASS).__eq__(
                     "io.confluent.connect.jdbc.JdbcSourceConnector"
                 ):
                     connector_manifest = ConfluentJDBCSourceConnector(
@@ -978,14 +983,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                         config=self.config,
                         report=self.report,
                     ).connector_manifest
-                elif connector_manifest.config.get("connector.class", "").startswith(
+                elif connector_manifest.config.get(CONNECTOR_CLASS, "").startswith(
                     "io.debezium.connector"
                 ):
                     connector_manifest = DebeziumSourceConnector(
                         connector_manifest=connector_manifest, config=self.config
                     ).connector_manifest
                 elif (
-                    connector_manifest.config.get("connector.class", "")
+                    connector_manifest.config.get(CONNECTOR_CLASS, "")
                     == "com.mongodb.kafka.connect.MongoSourceConnector"
                 ):
                     connector_manifest = MongoSourceConnector(
@@ -1009,13 +1014,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                             source_dataset=target_connector.source_dataset,
                             source_platform=target_connector.source_platform,
                             target_dataset=topic,
-                            target_platform="kafka",
+                            target_platform=KAFKA,
                         )
 
                     connector_manifest.lineages.append(lineage)
 
-            if connector_manifest.type == "sink":
-                if connector_manifest.config.get("connector.class").__eq__(
+            if connector_manifest.type == SINK:
+                if connector_manifest.config.get(CONNECTOR_CLASS).__eq__(
                     "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
                 ):
                     connector_manifest = BigQuerySinkConnector(
@@ -1035,7 +1040,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     def construct_flow_workunit(self, connector: ConnectorManifest) -> MetadataWorkUnit:
         connector_name = connector.name
         connector_type = connector.type
-        connector_class = connector.config.get("connector.class")
+        connector_class = connector.config.get(CONNECTOR_CLASS)
         flow_property_bag = connector.flow_property_bag
         # connector_url = connector.url  # NOTE: this will expose connector credential when used
         flow_urn = builder.make_data_flow_urn(
@@ -1123,11 +1128,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector: ConnectorManifest,
         config: KafkaConnectSourceConfig,
     ) -> str:
-        connector_class = connector.config.get("connector.class")
+        connector_class = connector.config.get(CONNECTOR_CLASS)
 
         # Note - This block is only to maintain backward compatibility of Job URN
         if (
             connector_class
+            and connector.type == SOURCE
             and (
                 "JdbcSourceConnector" in connector_class
                 or connector_class.startswith("io.debezium.connector")
