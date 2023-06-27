@@ -3,7 +3,6 @@ import json
 import pytest
 
 from datahub.testing import compare_goldens
-
 from tests.test_helpers import mce_helpers
 
 basic_1 = json.loads(

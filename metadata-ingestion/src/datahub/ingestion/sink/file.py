@@ -27,6 +27,14 @@ def _to_obj_for_file(
 ) -> dict:
     if isinstance(obj, MetadataChangeProposalWrapper):
         return obj.to_obj(simplified_structure=simplified_structure)
+    elif isinstance(obj, MetadataChangeProposal) and simplified_structure:
+        serialized = obj.to_obj()
+        if serialized.get("aspect") and serialized["aspect"].get("contentType") in [
+            "application/json",
+            "application/json-patch+json",
+        ]:
+            serialized["aspect"] = {"json": json.loads(serialized["aspect"]["value"])}
+        return serialized
     return obj.to_obj()
 
 

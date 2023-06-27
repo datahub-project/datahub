@@ -52,6 +52,12 @@ AspectsByUrn = Dict[str, Dict[str, List[GoldenAspect]]]
 
 
 def get_aspects_by_urn(obj: object) -> AspectsByUrn:
+    """Restructure a list of MCPs by urn and aspect.
+    Retains information like the original dict and index to facilitate `apply_delta` later.
+
+    Raises:
+        AssertionError: If the input is not purely a list of MCPs.
+    """
     d: AspectsByUrn = defaultdict(dict)
     assert isinstance(obj, list), obj
     for i, entry in enumerate(obj):
@@ -79,6 +85,7 @@ class AspectDiff:
     ] = field(init=False, default_factory=lambda: defaultdict(list))
 
     def __post_init__(self):
+        # Parse DeepDiff to distinguish between aspects that were added, removed, or changed
         for key, diff_levels in self.diff.tree.items():
             for diff_level in diff_levels:
                 path = diff_level.path(output_format="list")
@@ -145,6 +152,7 @@ class GoldenDiff:
         )
 
     def pretty(self, verbose: bool = False) -> str:
+        """The pretty human-readable string output of the diff between golden and output."""
         s = []
         for urn in self.urns_added:
             s.append(f"Urn added, {urn}{' with aspects:' if verbose else ''}")
