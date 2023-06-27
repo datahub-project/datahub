@@ -14,7 +14,6 @@ import com.datahub.authentication.AuthenticationException;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorContext;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityServiceImpl;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
