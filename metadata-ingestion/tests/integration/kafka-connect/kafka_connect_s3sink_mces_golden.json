@@ -34,7 +34,7 @@
     },
     "systemMetadata": {
       "lastObserved": 1635166800000,
-      "runId": "kafka-connect-s3sink-run"
+      "runId": "kafka-connect-run"
     }
   },
   {
@@ -53,7 +53,7 @@
     },
     "systemMetadata": {
       "lastObserved": 1635166800000,
-      "runId": "kafka-connect-s3sink-run"
+      "runId": "kafka-connect-run"
     }
   },
   {
@@ -73,7 +73,7 @@
     },
     "systemMetadata": {
       "lastObserved": 1635166800000,
-      "runId": "kafka-connect-s3sink-run"
+      "runId": "kafka-connect-run"
     }
   },
   {
@@ -88,7 +88,7 @@
     },
     "systemMetadata": {
       "lastObserved": 1635166800000,
-      "runId": "kafka-connect-s3sink-run"
+      "runId": "kafka-connect-run"
     }
   },
   {
@@ -103,7 +103,7 @@
     },
     "systemMetadata": {
       "lastObserved": 1635166800000,
-      "runId": "kafka-connect-s3sink-run"
+      "runId": "kafka-connect-run"
     }
   }
 ]

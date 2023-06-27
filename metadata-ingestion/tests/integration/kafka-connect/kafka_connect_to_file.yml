@@ -9,6 +9,7 @@ source:
     connector_patterns:
       deny:
         - source_mongodb_connector
+        - confluent_s3_sink_connector
     provided_configs:
       - provider: env
         path_key: MYSQL_CONNECTION_URL

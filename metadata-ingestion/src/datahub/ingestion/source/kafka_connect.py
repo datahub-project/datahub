@@ -915,18 +915,15 @@ class ConfluentS3SinkConnector:
         target_platform: str
         bucket: str
         topics_dir: str
-        topics: List[str]
+        topics: Iterable[str]
 
     def _get_parser(self, connector_manifest: ConnectorManifest) -> S3SinkParser:
         # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#s3
         bucket = connector_manifest.config.get("s3.bucket.name")
         if not bucket:
-            raise ValueError(f"Could not find 's3.bucket.name' in connector configuration {self.connector_manifest.name}")
-
-        # https://docs.confluent.io/platform/current/installation/configuration/connect/sink-connect-configs.html#topics
-        topics = connector_manifest.config.get("topics")
-        if not topics:
-            raise ValueError(f"Could not find 'topics' in connector configuration {self.connector_manifest.name}")
+            raise ValueError(
+                "Could not find 's3.bucket.name' in connector configuration"
+            )
 
         # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#storage
         topics_dir = connector_manifest.config.get("topics.dir", "topics")
@@ -935,13 +932,10 @@ class ConfluentS3SinkConnector:
             target_platform="s3",
             bucket=bucket,
             topics_dir=topics_dir,
-            topics=[s for s in topics.split(",") if s],
+            topics=connector_manifest.topic_names,
         )
 
     def _extract_lineages(self):
-        lineages: List[KafkaConnectLineage] = list()
-        parser = self._get_parser(self.connector_manifest)
-
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
 
         # remove keys, secrets from properties
@@ -955,18 +949,27 @@ class ConfluentS3SinkConnector:
             if k in self.connector_manifest.flow_property_bag:
                 del self.connector_manifest.flow_property_bag[k]
 
-        for topic in parser.topics:
-            target_dataset = f"{parser.bucket}/{parser.topics_dir}/{topic}"
+        try:
+            parser = self._get_parser(self.connector_manifest)
 
-            lineages.append(
-                KafkaConnectLineage(
-                    source_dataset=topic,
-                    source_platform="kafka",
-                    target_dataset=target_dataset,
-                    target_platform=parser.target_platform,
+            lineages: List[KafkaConnectLineage] = list()
+            for topic in parser.topics:
+                target_dataset = f"{parser.bucket}/{parser.topics_dir}/{topic}"
+
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_dataset=topic,
+                        source_platform="kafka",
+                        target_dataset=target_dataset,
+                        target_platform=parser.target_platform,
+                    )
                 )
+            self.connector_manifest.lineages = lineages
+        except Exception as e:
+            self.report.report_warning(
+                self.connector_manifest.name, f"Error resolving lineage: {e}"
             )
-        self.connector_manifest.lineages = lineages
+
         return
 
 
