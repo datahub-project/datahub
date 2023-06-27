@@ -8,7 +8,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSEnableWriteModeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
 import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.EbeanServer;
 import java.util.ArrayList;
@@ -28,13 +28,12 @@ public class NoCodeUpgrade implements Upgrade {
   // Upgrade requires the EbeanServer.
   public NoCodeUpgrade(
       final EbeanServer server,
-      final EntityServiceImpl entityServiceImpl,
+      final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
       final RestliEntityClient entityClient) {
     _steps = buildUpgradeSteps(
-        server,
-        entityServiceImpl,
+        server, entityService,
         entityRegistry,
         systemAuthentication,
         entityClient);
@@ -62,7 +61,7 @@ public class NoCodeUpgrade implements Upgrade {
 
   private List<UpgradeStep> buildUpgradeSteps(
       final EbeanServer server,
-      final EntityServiceImpl entityServiceImpl,
+      final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
       final RestliEntityClient entityClient) {
@@ -71,7 +70,7 @@ public class NoCodeUpgrade implements Upgrade {
     steps.add(new GMSQualificationStep(ImmutableMap.of("noCode", "true")));
     steps.add(new UpgradeQualificationStep(server));
     steps.add(new CreateAspectTableStep(server));
-    steps.add(new DataMigrationStep(server, entityServiceImpl, entityRegistry));
+    steps.add(new DataMigrationStep(server, entityService, entityRegistry));
     steps.add(new GMSEnableWriteModeStep(systemAuthentication, entityClient));
     return steps;
   }

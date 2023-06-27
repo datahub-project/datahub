@@ -10,7 +10,7 @@ import com.linkedin.datahub.upgrade.common.steps.ClearSearchServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSDisableWriteModeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSEnableWriteModeStep;
 import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -25,13 +25,13 @@ public class RestoreBackup implements Upgrade {
 
   public RestoreBackup(
       final EbeanServer server,
-      final EntityServiceImpl entityServiceImpl,
+      final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
       final RestliEntityClient entityClient,
       final GraphService graphClient,
       final EntitySearchService searchClient) {
-    _steps = buildSteps(server, entityServiceImpl, entityRegistry, systemAuthentication, entityClient, graphClient, searchClient);
+    _steps = buildSteps(server, entityService, entityRegistry, systemAuthentication, entityClient, graphClient, searchClient);
   }
 
   @Override
@@ -46,7 +46,7 @@ public class RestoreBackup implements Upgrade {
 
   private List<UpgradeStep> buildSteps(
       final EbeanServer server,
-      final EntityServiceImpl entityServiceImpl,
+      final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
       final RestliEntityClient entityClient,
@@ -57,7 +57,7 @@ public class RestoreBackup implements Upgrade {
     steps.add(new ClearSearchServiceStep(searchClient, true));
     steps.add(new ClearGraphServiceStep(graphClient, true));
     steps.add(new ClearAspectV2TableStep(server));
-    steps.add(new RestoreStorageStep(entityServiceImpl, entityRegistry));
+    steps.add(new RestoreStorageStep(entityService, entityRegistry));
     steps.add(new GMSEnableWriteModeStep(systemAuthentication, entityClient));
     return steps;
   }

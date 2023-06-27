@@ -3,7 +3,7 @@ package com.linkedin.datahub.upgrade.config;
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -27,14 +27,14 @@ public class RestoreBackupConfig {
   @Nonnull
   public RestoreBackup createInstance() {
     final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
-    final EntityServiceImpl entityServiceImpl = applicationContext.getBean(EntityServiceImpl.class);
+    final EntityService entityService = applicationContext.getBean(EntityService.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
     final RestliEntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);
     final GraphService graphClient = applicationContext.getBean(GraphService.class);
     final EntitySearchService searchClient = applicationContext.getBean(EntitySearchService.class);
     final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
-    return new RestoreBackup(ebeanServer, entityServiceImpl, entityRegistry, systemAuthentication, entityClient,
+    return new RestoreBackup(ebeanServer, entityService, entityRegistry, systemAuthentication, entityClient,
         graphClient, searchClient);
   }
 }

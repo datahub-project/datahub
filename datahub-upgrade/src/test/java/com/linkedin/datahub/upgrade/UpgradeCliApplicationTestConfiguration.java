@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -22,7 +23,7 @@ public class UpgradeCliApplicationTestConfiguration {
     private EbeanServer ebeanServer;
 
     @MockBean
-    private EntityServiceImpl _entityServiceImpl;
+    private EntityService _entityService;
 
     @MockBean
     private SearchService searchService;

@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
@@ -33,7 +33,7 @@ public class SendMAEStep implements UpgradeStep {
   private static final int DEFAULT_THREADS = 1;
 
   private final EbeanServer _server;
-  private final EntityServiceImpl _entityServiceImpl;
+  private final EntityService _entityService;
 
   public class KafkaJob implements Callable<RestoreIndicesResult> {
       UpgradeContext context;
@@ -44,13 +44,13 @@ public class SendMAEStep implements UpgradeStep {
       }
       @Override
       public RestoreIndicesResult call() {
-        return _entityServiceImpl.restoreIndices(args, context.report()::addLine);
+        return _entityService.restoreIndices(args, context.report()::addLine);
       }
   }
 
-  public SendMAEStep(final EbeanServer server, final EntityServiceImpl entityServiceImpl, final EntityRegistry entityRegistry) {
+  public SendMAEStep(final EbeanServer server, final EntityService entityService, final EntityRegistry entityRegistry) {
     _server = server;
-    _entityServiceImpl = entityServiceImpl;
+    _entityService = entityService;
   }
 
   @Override
