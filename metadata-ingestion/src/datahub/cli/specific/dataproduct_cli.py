@@ -56,6 +56,7 @@ def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) ->
 
 
 def _print_diff(orig_file, new_file):
+
     with open(orig_file) as fp:
         orig_lines = fp.readlines()
     with open(new_file) as fp:

@@ -1420,6 +1420,7 @@ def test_reports_with_failed_page_request(
 def test_independent_datasets_extraction(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(

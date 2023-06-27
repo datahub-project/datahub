@@ -256,6 +256,7 @@ class Mapper:
         self,
         table: powerbi_data_classes.Table,
     ) -> SchemaMetadataClass:
+
         fields = []
         table_fields = (
             [self.to_datahub_schema_field(column) for column in table.columns]

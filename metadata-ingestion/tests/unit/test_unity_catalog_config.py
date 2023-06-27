@@ -63,6 +63,7 @@ def test_profiling_requires_warehouses_id():
 
 @freeze_time(FROZEN_TIME)
 def test_workspace_url_should_start_with_https():
+
     with pytest.raises(ValueError, match="Workspace URL must start with http scheme"):
         UnityCatalogSourceConfig.parse_obj(
             {
