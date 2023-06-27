@@ -13,6 +13,7 @@ import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorContext;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -57,7 +58,7 @@ public class DataHubTokenAuthenticator implements Authenticator {
           + " found.");
     }
     final Object entityService = context.data().get(ENTITY_SERVICE);
-    if (!(entityService instanceof EntityServiceImpl)) {
+    if (!(entityService instanceof EntityService)) {
       throw new RuntimeException(
           "Unable to initialize DataHubTokenAuthenticator, entity service reference is not of type: "
               + "EntityService.class, found: " + entityService.getClass());
