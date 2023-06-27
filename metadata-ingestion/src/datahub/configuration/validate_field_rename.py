@@ -40,7 +40,7 @@ def pydantic_renamed_field(
     # Hack: Pydantic maintains unique list of validators by referring its __name__.
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
     # This hack ensures that multiple field renames do not overwrite each other.
-    _validate_field_rename.__name__ = f"{_validate_field_rename.__name__}_{new_name}"
+    _validate_field_rename.__name__ = f"{_validate_field_rename.__name__}_{old_name}"
 
     # Why aren't we using pydantic.validator here?
     # The `values` argument that is passed to field validators only contains items
