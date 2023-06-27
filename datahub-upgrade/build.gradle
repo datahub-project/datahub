@@ -20,6 +20,9 @@ dependencies {
   compile project(':metadata-service:restli-client')
   implementation externalDependency.charle
   jetty9 "org.eclipse.jetty:jetty-runner:10.0.14"
+  compile (externalDependency.nettyio){
+    exclude group:'io.netty', module: 'netty-handler'
+  }
 
   compile externalDependency.javaxInject
   compile(externalDependency.hadoopClient) {

@@ -12,6 +12,10 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliClient
+ // compile externalDependency.jettyClient
+  compile('org.xerial.snappy:snappy-java:1.1.10.1'){
+    exclude group:'org.xerial.snappy', module: 'snappy-java'
+  }
 
   testCompile externalDependency.mockito
   testCompile externalDependency.testng

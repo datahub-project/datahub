@@ -41,18 +41,13 @@ dependencies {
   testRuntime externalDependency.logbackClassic
   implementation externalDependency.charle
   implementation externalDependency.common
-  implementation externalDependency.jline
-  implementation 'com.google.guava:guava:32.0.1-jre'
-  
-
-
+  compile (externalDependency.nettyio){
+    exclude group:'io.netty', module: 'netty-handler'
+  }
 }
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"
   exclude group: "commons-io", module:"commons-io"
-  exclude group: "jline", module:"jline"
-  exclude group: "com.google.guava", module:"guava"
-
 
 }
 configurations {

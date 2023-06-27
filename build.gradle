@@ -213,7 +213,11 @@ project.ext.externalDependency = [
     'common': 'commons-io:commons-io:2.7',
     'jline': 'jline:jline:2.11',
     'jetbrains': 'org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
-    'pac4jCore': 'org.pac4j:pac4j-core:5.2.0'
+    'pac4jCore': 'org.pac4j:pac4j-core:5.2.0',
+    'nettyio': 'io.netty:netty-handler:4.1.94.Final'
+    // https://mvnrepository.com/artifact/io.netty/netty-handler
+   // implementation group: 'io.netty', name: 'netty-handler', version: '4.1.94.Final'
+
 
 ]
 
