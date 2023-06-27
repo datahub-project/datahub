@@ -64,6 +64,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Import(ESTestConfiguration.class)
@@ -853,7 +854,8 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
     // test without filter
     count =
         _elasticSearchTimeseriesAspectService.countByFilter(ENTITY_NAME, ASPECT_NAME, new Filter());
-    assertEquals(count, 300L);
+    // There may be other entities in there from other tests
+    assertTrue(count >= 300L);
   }
 
   @Test(groups = {"testCountAfterDelete"}, dependsOnGroups = {"deleteAspectValues1"})
