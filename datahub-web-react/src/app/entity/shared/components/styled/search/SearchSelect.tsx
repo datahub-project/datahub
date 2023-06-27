@@ -45,6 +45,7 @@ type Props = {
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (Entities: EntityAndType[]) => void;
+    singleSelect?: boolean;
 };
 
 /**
@@ -54,7 +55,13 @@ type Props = {
  * This component provides easy ways to filter for a specific set of entity types, and provides a set of entity urns
  * when the selection is complete.
  */
-export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntities, setSelectedEntities }: Props) => {
+export const SearchSelect = ({
+    fixedEntityTypes,
+    placeholderText,
+    selectedEntities,
+    setSelectedEntities,
+    singleSelect,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -160,16 +167,18 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     entityRegistry={entityRegistry}
                 />
             </SearchBarContainer>
-            <TabToolbar>
-                <SearchSelectBar
-                    isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
-                    onChangeSelectAll={onChangeSelectAll}
-                    showCancel={false}
-                    showActions={false}
-                    refetch={refetch}
-                    selectedEntities={selectedEntities}
-                />
-            </TabToolbar>
+            {!singleSelect && (
+                <TabToolbar>
+                    <SearchSelectBar
+                        isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
+                        onChangeSelectAll={onChangeSelectAll}
+                        showCancel={false}
+                        showActions={false}
+                        refetch={refetch}
+                        selectedEntities={selectedEntities}
+                    />
+                </TabToolbar>
+            )}
             <EmbeddedListSearchResults
                 loading={loading}
                 searchResponse={searchAcrossEntities}
@@ -186,6 +195,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 isSelectMode
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                singleSelect={singleSelect}
             />
         </Container>
     );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Divider, List, Checkbox } from 'antd';
+import { Divider, List, Checkbox, Radio } from 'antd';
 import styled from 'styled-components';
 import { Entity, EntityPath } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -10,6 +10,9 @@ import { getPlatformName } from '../../../entity/shared/utils';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 
 const StyledCheckbox = styled(Checkbox)`
+    margin-right: 12px;
+`;
+const StyledRadio = styled(Radio)`
     margin-right: 12px;
 `;
 
@@ -75,6 +78,7 @@ type Props = {
     selectedEntities?: EntityAndType[];
     setSelectedEntities?: (entities: EntityAndType[]) => any;
     bordered?: boolean;
+    singleSelect?: boolean;
 };
 
 export const EntityNameList = ({
@@ -85,6 +89,7 @@ export const EntityNameList = ({
     selectedEntities = [],
     setSelectedEntities,
     bordered = true,
+    singleSelect,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
@@ -104,7 +109,11 @@ export const EntityNameList = ({
      * Invoked when a new entity is selected. Simply updates the state of the list of selected entities.
      */
     const onSelectEntity = (selectedEntity: EntityAndType, selected: boolean) => {
-        if (selected) {
+        if (singleSelect) {
+            if (selected) {
+                setSelectedEntities?.([selectedEntity]);
+            }
+        } else if (selected) {
             setSelectedEntities?.([...selectedEntities, selectedEntity]);
         } else {
             setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
@@ -130,14 +139,30 @@ export const EntityNameList = ({
                 return (
                     <>
                         <ListItem isSelectMode={isSelectMode || false}>
-                            {isSelectMode && (
-                                <StyledCheckbox
-                                    checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
-                                    onChange={(e) =>
-                                        onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)
-                                    }
-                                />
-                            )}
+                            {singleSelect
+                                ? isSelectMode && (
+                                      <StyledRadio
+                                          className="radioButton"
+                                          checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
+                                          onChange={(e) =>
+                                              onSelectEntity(
+                                                  {
+                                                      urn: entity.urn,
+                                                      type: entity.type,
+                                                  },
+                                                  e.target.checked,
+                                              )
+                                          }
+                                      />
+                                  )
+                                : isSelectMode && (
+                                      <StyledCheckbox
+                                          checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
+                                          onChange={(e) =>
+                                              onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)
+                                          }
+                                      />
+                                  )}
                             <DefaultPreviewCard
                                 name={displayName}
                                 urn={entity.urn}

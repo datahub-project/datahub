@@ -30,6 +30,7 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { RelationTab } from '../shared/tabs/Dataset/Relationship/RelationTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -95,6 +96,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Schema',
                     component: SchemaTab,
+                },
+                {
+                    name: 'Relationships',
+                    component: RelationTab,
                 },
                 {
                     name: 'View Definition',

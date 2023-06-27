@@ -74,6 +74,7 @@ interface Props {
     setSelectedEntities: (entities: EntityAndType[]) => any;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
+    singleSelect?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -92,6 +93,7 @@ export const EmbeddedListSearchResults = ({
     setSelectedEntities,
     numResultsPerPage,
     setNumResultsPerPage,
+    singleSelect,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -135,6 +137,7 @@ export const EmbeddedListSearchResults = ({
                             selectedEntities={selectedEntities}
                             setSelectedEntities={setSelectedEntities}
                             bordered={false}
+                            singleSelect={singleSelect}
                         />
                     )}
                 </ResultContainer>

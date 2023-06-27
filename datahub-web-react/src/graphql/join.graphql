@@ -41,6 +41,13 @@ query getJoin($urn: String!) {
     }
 }
 
+mutation updateJoin($urn: String!, $input: JoinUpdateInput!) {
+    updateJoin(urn: $urn, input: $input) {
+        urn
+        joinId
+    }
+}
+
 mutation createJoin($input: JoinUpdateInput!) {
     createJoin(input: $input) {
         urn

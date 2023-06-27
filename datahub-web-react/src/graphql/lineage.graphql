@@ -480,29 +480,6 @@ fragment lineageNodePropertiesOptimized on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
-    ... on Join {
-        urn
-        type
-        joinId
-        properties {
-            ...joinPropertiesFields
-        }
-        editableProperties {
-            ...joinEditablePropertiesFields
-        }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        browsePaths {
-            path
-        }
-    }
 }
 
 fragment lineageFields on EntityWithRelationships {
