@@ -5,8 +5,11 @@ import json
 import logging
 import os
 import sys
+import tzlocal
+import pytz
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
+from croniter import croniter
 
 import click
 import click_spinner
@@ -27,6 +30,15 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities import memory_leak_detector
+from datahub.ingestion.graph.client import get_default_graph
+
+from datahub.metadata.schema_classes import (
+    DataHubIngestionSourceConfigClass as IngestionSourceConfig,
+    DataHubIngestionSourceInfoClass as IngestionSourceInfo,
+    DataHubIngestionSourceScheduleClass as IngestionSourceSchedule
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.utilities.urns.ingestion_source_urn import IngestionSourceUrn
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +209,116 @@ def run(
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_func_check_upgrade(pipeline))
 
+
+@ingest.command()
+@click.pass_context
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+@click.option(
+    "-n",
+    "--name",
+    type=str,
+    help="Recipe Name",
+    required=True,
+)
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(dir_okay=False),
+    help="Config file in .toml or .yaml format.",
+    required=True,
+)
+@click.option(
+    "--executor-id",
+    type=str,
+    default="default",
+    help="Executor id to route execution requests to. Do not use this unless you have configured a custom executor.",
+)
+@click.option(
+    "--cli-version",
+    type=str,
+    help="Provide a custom CLI version to use for ingestion. By default will use server default.",
+    required=False,
+)
+@click.option(
+    "--schedule",
+    type=str,
+    help="Cron definition for schedule. If none is provided, ingestion recipe will not be scheduled",
+    required=False,
+)
+@click.option(
+    "--time-zone",
+    type=str,
+    help=f"Timezone for the schedule. By default uses the timezone of the current system: {tzlocal.get_localzone_name()}.",
+    required=False,
+)
+def deploy(
+    ctx: click.Context,
+    name: str,
+    config: str,
+    executor_id: str = None,
+    cli_version: str = None,
+    schedule: str = None,
+    time_zone: str = tzlocal.get_localzone_name(),
+) -> None:
+    """Deploy ingestion recipe to your DataHub instance."""
+
+    pipeline_config = load_config_file(
+        config,
+        squirrel_original_config=True,
+        squirrel_field="__raw_config",
+        allow_stdin=True,
+        resolve_env_vars=False,
+    )
+
+    pipeline_config.pop("__raw_config")
+
+    if name.startswith(f"urn:li:{IngestionSourceUrn.ENTITY_TYPE}"):
+        ingestion_source_urn = IngestionSourceUrn.create_from_string(name)
+        ingestion_source_name = ingestion_source_urn.get_entity_id_as_string()
+    else:
+        ingestion_source_name = name.lower().replace(' ', '_')
+        ingestion_source_urn = IngestionSourceUrn.create_from_id(ingestion_source_name)
+
+    # Create ingestion source config
+    ingestion_source_config = IngestionSourceConfig(
+        recipe=json.dumps(pipeline_config),
+        version=cli_version,
+        executorId=executor_id,
+    )
+
+    # Construct the IngestionSourceInfo aspect
+    ingestion_source_info = IngestionSourceInfo(
+        name=ingestion_source_name,
+        type=pipeline_config['source']['type'],
+        config=ingestion_source_config,
+        platform=None,
+        schedule=_createIngestionSchedule(schedule, time_zone)
+    )
+
+    mcp = MetadataChangeProposalWrapper(entityUrn=str(ingestion_source_urn), aspect=ingestion_source_info)
+
+    print(mcp)
+
+    datahub_graph = get_default_graph()
+    datahub_graph.emit(mcp)
+    click.echo(
+        f"✅ Successfully wrote data ingestion source metadata for {ingestion_source_urn} to DataHub ({datahub_graph})"
+    )
+
+def _createIngestionSchedule(schedule: str = None, time_zone: str = None) -> Union[None, IngestionSourceSchedule]:
+    if schedule:
+        if not croniter.is_valid(schedule):
+            click.echo(f"Schedule is invalid. You can check your Cron expression {schedule} at http://crontab.guru")
+            exit()
+        if time_zone not in pytz.all_timezones:
+            click.echo(f"Unknown time zone {time_zone}.")
+            exit()
+
+        return IngestionSourceSchedule(schedule, time_zone)
+
+
+    return None
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
     connection_report = None

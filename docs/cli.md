@@ -92,12 +92,26 @@ Source specific crawlers are provided by plugins and might sometimes need additi
 Usage: datahub [datahub-options] ingest [command-options]
 
 Command Options:
-  -c / --config        Config file in .toml or .yaml format
-  -n / --dry-run       Perform a dry run of the ingestion, essentially skipping writing to sink
-  --preview            Perform limited ingestion from the source to the sink to get a quick preview
-  --preview-workunits  The number of workunits to produce for preview
-  --strict-warnings    If enabled, ingestion runs with warnings will yield a non-zero error code
+  -c / --config             Config file in .toml or .yaml format
+  -n / --dry-run            Perform a dry run of the ingestion, essentially skipping writing to sink
+  --preview                 Perform limited ingestion from the source to the sink to get a quick preview
+  --preview-workunits       The number of workunits to produce for preview
+  --strict-warnings         If enabled, ingestion runs with warnings will yield a non-zero error code
+  --test-source-connection  When set, ingestion will only test the source connection details from the recipe
 ```
+
+#### ingest deploy
+
+The `ingest deploy` command instructs the cli to upload an ingestion recipe to DataHub to be run by DataHub's [UI Ingestion](./ui-ingestion.md).
+This command can also be used to schedule the ingestion while uploading or even to update existing sources.
+
+To schedule a recipe called "test", to run at 5am everyday, London time with the recipe configured in a local `recipe.yaml` file: 
+````shell
+datahub ingest deploy --name "test" --schedule "5 * * * *" --time-zone "Europe/London" -c recipe.yaml
+````
+
+The `name` parameter specifies the recipe name to be uploaded, or if the name already exists, updates an existing recipe.
+**Note**: In case the name contains whitespaces the cli will convert them to underscores (`_`).
 
 ### init
 
