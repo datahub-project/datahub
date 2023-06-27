@@ -16,7 +16,8 @@ public class InstitutionalMemoryMapper {
 
     public InstitutionalMemory apply(@Nonnull final com.linkedin.common.InstitutionalMemory input, @Nonnull final Urn entityUrn) {
         final InstitutionalMemory result = new InstitutionalMemory();
-        result.setElements(input.getElements().stream().map(metadata -> InstitutionalMemoryMetadataMapper.map(metadata, entityUrn)).collect(Collectors.toList()));
+        result.setElements(input.getElements().stream().map(metadata ->
+            InstitutionalMemoryMetadataMapper.map(metadata, entityUrn)).collect(Collectors.toList()));
         return result;
     }
 }
