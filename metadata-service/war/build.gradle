@@ -43,6 +43,9 @@ dependencies {
   implementation externalDependency.common
   implementation externalDependency.jline
   implementation 'com.google.guava:guava:32.0.1-jre'
+  implementation 'org.eclipse.jetty:jetty-runner:10.0.14'
+  implementation 'org.eclipse.jetty:jetty-io:10.0.14'
+
 
 }
 configurations.all{
@@ -50,6 +53,8 @@ configurations.all{
   exclude group: "commons-io", module:"commons-io"
   exclude group: "jline", module:"jline"
   exclude group: "com.google.guava", module:"guava"
+  exclude group: "org.eclipse.jetty", module:"jetty-runner"
+  exclude group: "org.eclipse.jetty",module: "jetty-io"
 
 }
 configurations {
