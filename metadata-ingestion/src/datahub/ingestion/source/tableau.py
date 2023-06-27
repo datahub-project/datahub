@@ -324,9 +324,8 @@ class TableauConfig(
     )
 
     ingest_external_links_for_charts: Optional[bool] = Field(
-        default=False,
-        description="Ingest a URL to link out to from charts. Defaults to false because users need edit privileges to "
-                    "view chart links we generate.",
+        default=True,
+        description="Ingest a URL to link out to from charts.",
     )
 
     extract_project_hierarchy: bool = Field(
@@ -1849,8 +1848,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 self.datasource_ids_being_used.append(ds_id)
 
         # Chart Info
-        # sheet_external_url is not added as externalUrl by default.
-        # They are not visible to users without edit privileges
         chart_info = ChartInfoClass(
             description="",
             title=sheet.get(tableau_constant.NAME, ""),

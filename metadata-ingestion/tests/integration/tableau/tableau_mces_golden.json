@@ -679,6 +679,7 @@
                         "customProperties": {
                             "luid": "f0779f9d-6765-47a9-a8f6-c740cfd27783"
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Timeline - Sent",
                         "title": "Timeline - Sent",
                         "description": "",
                         "lastModified": {
@@ -944,6 +945,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Campaign List",
                         "title": "Campaign List",
                         "description": "",
                         "lastModified": {
@@ -1495,6 +1497,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Summary",
                         "title": "Summary",
                         "description": "",
                         "lastModified": {
@@ -2098,6 +2101,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Mobile - Sent by Campaign",
                         "title": "Mobile - Sent by Campaign",
                         "description": "",
                         "lastModified": {
@@ -2597,6 +2601,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet1",
                         "title": "Sheet 1",
                         "description": "",
                         "lastModified": {
@@ -2732,6 +2737,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet2",
                         "title": "Sheet 2",
                         "description": "",
                         "lastModified": {
@@ -3035,6 +3041,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet3",
                         "title": "Sheet 3",
                         "description": "",
                         "lastModified": {
@@ -3222,6 +3229,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Requests",
                         "title": "Opened Requests",
                         "description": "",
                         "lastModified": {
@@ -3713,6 +3721,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Top 10 Items by Requests and YoY Change",
                         "title": "Top 10 Items by Requests and YoY Change",
                         "description": "",
                         "lastModified": {
@@ -4172,6 +4181,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Problems",
                         "title": "Opened Problems",
                         "description": "",
                         "lastModified": {
@@ -4663,6 +4673,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue",
                         "title": "Overdue",
                         "description": "",
                         "lastModified": {
@@ -5035,6 +5046,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/High and Critical Priority Problems",
                         "title": "High and Critical Priority Problems",
                         "description": "",
                         "lastModified": {
@@ -5387,6 +5399,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Total Incidents by Category and YoY Change",
                         "title": "Total Incidents by Category and YoY Change",
                         "description": "",
                         "lastModified": {
@@ -5762,6 +5775,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Known Errors",
                         "title": "Known Errors",
                         "description": "",
                         "lastModified": {
@@ -6192,6 +6206,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Requests",
                         "title": "Overdue Requests",
                         "description": "",
                         "lastModified": {
@@ -6596,6 +6611,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/AVG Time to Solve an Incident",
                         "title": "AVG Time to Solve an Incident",
                         "description": "",
                         "lastModified": {
@@ -6916,6 +6932,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Made SLA?",
                         "title": "Made SLA?",
                         "description": "",
                         "lastModified": {
@@ -7268,6 +7285,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-IncidentBreakdownbyPriority",
                         "title": "Tooltip - Incident Breakdown by Priority",
                         "description": "",
                         "lastModified": {
@@ -7510,6 +7528,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Problems",
                         "title": "Overdue Problems",
                         "description": "",
                         "lastModified": {
@@ -7940,6 +7959,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-ProblemBreakdownbyPriority",
                         "title": "Tooltip - Problem Breakdown by Priority",
                         "description": "",
                         "lastModified": {
@@ -8266,6 +8286,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-RequestBreakdownbyPriority",
                         "title": "Tooltip - Request Breakdown by Priority",
                         "description": "",
                         "lastModified": {
@@ -8618,6 +8639,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Age of Active Problems",
                         "title": "Age of Active Problems",
                         "description": "",
                         "lastModified": {
@@ -8996,6 +9018,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Incidents",
                         "title": "Opened Incidents",
                         "description": "",
                         "lastModified": {
@@ -9426,6 +9449,7 @@
                         "customProperties": {
                             "luid": ""
                         },
+                        "externalUrl": "https://do-not-connect/#/site/acryl/views/Workbookpublishedds/Sheet1",
                         "title": "published sheet ds",
                         "description": "",
                         "lastModified": {
@@ -34452,9 +34476,9 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Problems",
+                            "/prod/tableau/default/Executive Dashboard/Requests",
                             "/prod/tableau/default/Executive Dashboard/Incidents",
-                            "/prod/tableau/default/Executive Dashboard/Requests"
+                            "/prod/tableau/default/Executive Dashboard/Problems"
                         ]
                     }
                 },
