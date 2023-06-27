@@ -8,6 +8,7 @@ export type LocalState = {
     selectedViewUrn?: string | null;
     selectedPath?: string | null;
     selectedSearch?: string | null;
+    showBrowseV2Sidebar?: boolean | null;
 };
 
 /**

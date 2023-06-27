@@ -51,7 +51,7 @@ export type FetchedEntity = {
     platform?: DataPlatform;
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
-    fineGrainedLineages?: [FineGrainedLineage];
+    fineGrainedLineages?: FineGrainedLineage[];
     siblings?: Maybe<SiblingProperties>;
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
