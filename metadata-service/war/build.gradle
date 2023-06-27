@@ -40,17 +40,24 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   testRuntime externalDependency.logbackClassic
   implementation externalDependency.charle
+  implementation externalDependency.common
+  implementation externalDependency.jline
+  implementation 'com.google.guava:guava:32.0.1-jre'
+
 }
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"
-  
+  exclude group: "commons-io", module:"commons-io"
+  exclude group: "jline", module:"jline"
+  exclude group: "com.google.guava", module:"guava"
+
 }
 configurations {
   jetty9
 }
 
 dependencies {
-  jetty9 "org.eclipse.jetty:jetty-runner:9.4.46.v20220331"
+  jetty9 "org.eclipse.jetty:jetty-runner:10.0.14"
 }
 
 task run(type: JavaExec, dependsOn: build) {

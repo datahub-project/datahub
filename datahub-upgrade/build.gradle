@@ -10,12 +10,16 @@ ext {
   docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
   docker_repo = 'datahub-upgrade'
 }
+configurations {
+  jetty9
+}
 
 dependencies {
   compile project(':metadata-io')
   compile project(':metadata-service:factories')
   compile project(':metadata-service:restli-client')
   implementation externalDependency.charle
+  jetty9 "org.eclipse.jetty:jetty-runner:10.0.14"
 
   compile externalDependency.javaxInject
   compile(externalDependency.hadoopClient) {

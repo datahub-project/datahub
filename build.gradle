@@ -12,7 +12,7 @@ buildscript {
   ext.elasticsearchVersion = '7.10.2'
   // TODO: Change to final release version once it's out ETA Mid-April
   ext.jacksonVersion = '2.15.0-rc2'
-  ext.jettyVersion = '10.0.4' //changed from 9.4.46.v20220331 for fix vulnerabilities
+  ext.jettyVersion = '10.0.14' //changed from 9.4.46.v20220331 for fix vulnerabilities
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
@@ -96,7 +96,7 @@ project.ext.externalDependency = [
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.3',
-    'guava': 'com.google.guava:guava:32.0.0-jre',
+    'guava': 'com.google.guava:guava:32.0.1-jre',
     'h2': 'com.h2database:h2:2.1.214',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
