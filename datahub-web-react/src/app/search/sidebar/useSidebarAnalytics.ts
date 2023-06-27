@@ -50,7 +50,7 @@ const useSidebarAnalytics = () => {
 
     const trackClickContainerLinkEvent = () => {
         analytics.event({
-            type: EventType.BrowseV2ClickContainerLinkEvent,
+            type: EventType.BrowseV2ContainerLinkClickEvent,
             entity: entityDisplayName,
             environment: environmentDisplayName,
             platform: platformDisplayName,
