@@ -72,6 +72,7 @@ public class AspectResourceTest {
     _aspectResource.ingestProposal(mcp, "true");
     verify(_producer, times(1)).produceMetadataChangeProposal(urn, mcp);
     verifyNoMoreInteractions(_producer);
+    verifyNoMoreInteractions(_aspectDao);
 
     reset(_producer, _aspectDao);
 
