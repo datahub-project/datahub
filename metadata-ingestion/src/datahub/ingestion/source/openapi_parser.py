@@ -145,40 +145,47 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
 
         url_details[p_k] = {"description": desc, "tags": tags, "method": method}
 
-        # trying if dataset is defined in swagger...
-        if "content" in base_res.keys():
-            res_cont = base_res["content"]
-            if "application/json" in res_cont.keys():
-                ex_field = None
-                if "example" in res_cont["application/json"]:
-                    ex_field = "example"
-                elif "examples" in res_cont["application/json"]:
-                    ex_field = "examples"
-
-                if ex_field:
-                    if isinstance(res_cont["application/json"][ex_field], dict):
-                        url_details[p_k]["data"] = res_cont["application/json"][
-                            ex_field
-                        ]
-                    elif isinstance(res_cont["application/json"][ex_field], list):
-                        # taking the first example
-                        url_details[p_k]["data"] = res_cont["application/json"][
-                            ex_field
-                        ][0]
-                else:
-                    logger.warning(
-                        f"Field in swagger file does not give consistent data --- {p_k}"
-                    )
-            elif "text/csv" in res_cont.keys():
-                url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
-        elif "examples" in base_res.keys():
-            url_details[p_k]["data"] = base_res["examples"]["application/json"]
+        example_data = check_for_api_example_data(base_res, key)
+        if example_data:
+            url_details[p_k]["data"] = example_data
 
         # checking whether there are defined parameters to execute the call...
         if "parameters" in p_o[method].keys():
             url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))
+
+
+def check_for_api_example_data(base_res: dict, key: str) -> dict:
+    """
+    Try to determine if example data is defined for the endpoint, and return it
+    """
+    data = {}
+    if "content" in base_res.keys():
+        res_cont = base_res["content"]
+        if "application/json" in res_cont.keys():
+            ex_field = None
+            if "example" in res_cont["application/json"]:
+                ex_field = "example"
+            elif "examples" in res_cont["application/json"]:
+                ex_field = "examples"
+
+            if ex_field:
+                if isinstance(res_cont["application/json"][ex_field], dict):
+                    data = res_cont["application/json"][ex_field]
+                elif isinstance(res_cont["application/json"][ex_field], list):
+                    # taking the first example
+                    data = res_cont["application/json"][ex_field][0]
+            else:
+                logger.warning(
+                    f"Field in swagger file does not give consistent data --- {key}"
+                )
+        elif "text/csv" in res_cont.keys():
+            data = res_cont["text/csv"]["schema"]
+    elif "examples" in base_res.keys():
+        data  = base_res["examples"]["application/json"]
+
+    return data
 
 
 def guessing_url_name(url: str, examples: dict) -> str:
@@ -316,7 +323,7 @@ def extract_fields(
             return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
             raise ValueError("unknown format")
-    if len(dict_data) > 0:
+    if len(dict_data) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
     dst_key = list(dict_data)[0]  # the first and unique key is the dataset's name
