@@ -183,7 +183,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
         elif "text/csv" in res_cont.keys():
             data = res_cont["text/csv"]["schema"]
     elif "examples" in base_res.keys():
-        data  = base_res["examples"]["application/json"]
+        data = base_res["examples"]["application/json"]
 
     return data
 
