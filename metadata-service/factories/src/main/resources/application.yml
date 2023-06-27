@@ -110,7 +110,7 @@ visualConfig:
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
-    domainDefaultTab: ${DOMAIN_DEFAULT_TAB:DOCUMENTATION_TAB} # set to DOCUMENTATION to show documentation tab first
+    domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION to show documentation tab first
 
 # Storage Layer
 
