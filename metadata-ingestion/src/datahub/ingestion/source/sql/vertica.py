@@ -48,6 +48,7 @@ from datahub.metadata.schema_classes import (
     ForeignKeyConstraintClass,
     SubTypesClass,
     UpstreamClass,
+    ViewPropertiesClass,
     _Aspect,
 )
 from datahub.utilities import config_clean
@@ -125,7 +126,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "vertica")
+        super(VerticaSource, self).__init__(config, ctx, "pluginview1")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.config: VerticaConfig = config
 
@@ -220,311 +221,63 @@ class VerticaSource(SQLAlchemySource):
             )
         return None
 
-    def loop_tables(  # noqa: C901
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: VerticaInspector,
+        schema: str,
+        table: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        table_owner = inspector.get_table_owner(table, schema)
+        yield from add_owner_to_entity_wu(
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+            owner_urn=f"urn:li:corpuser:{table_owner}",
+        )
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config
+        )
+
+    def loop_views(
         self,
         inspector: VerticaInspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        tables_seen: Set[str] = set()
         try:
-            tables = inspector.get_table_names(schema)
-            # created new function get_all_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
-            # And query in get_all_columns is modified to run at schema level.
-            columns = inspector.get_all_columns(schema)
-
-            primary_key = inspector.get_pk_constraint(schema)
-
-            description, properties, location_urn = self.get_table_properties(
-                inspector, schema, tables
-            )
-
-            # called get_table_owner function from vertica dialect , it returns a list of all owners of all table in the current schema
-            table_owner = inspector.get_table_owner(schema)
-
-            # loops on each table in the schema
-            for table_name in tables:
-                finalcolumns = []
-                # loops through columns in the schema and creates all columns on current table
-                for column in columns:
-                    if column["tablename"] == table_name.lower():
-                        finalcolumns.append(column)
-
-                final_primary_key: dict = {}
-                # loops through primary_key in the schema and saves the pk of current table
-                for primary_key_column in primary_key:
-
-                    if (
-                        isinstance(primary_key_column, dict)
-                        and primary_key_column.get("tablename", "").lower()
-                        == table_name.lower()
-                    ):
-                        final_primary_key = primary_key_column
-
-                table_properties: Dict[str, str] = {}
-                # loops through properties  in the schema and saves the properties of current table
-                for data in properties:
-                    if (
-                        isinstance(data, dict)
-                        and "table_name" in data
-                        and data["table_name"] == table_name.lower()
-                    ):
-                        if "create_time" in data:
-                            table_properties["create_time"] = data["create_time"]
-                        if "table_size" in data:
-                            table_properties["table_size"] = data["table_size"]
-
-                owner_name = None
-                # loops through all owners in the schema and saved the value of current table owner
-                for owner in table_owner:
-                    if owner[0].lower() == table_name.lower():
-                        owner_name = owner[1]
-
+            for view in inspector.get_view_names(schema):
                 dataset_name = self.get_identifier(
-                    schema=schema, entity=table_name, inspector=inspector
+                    schema=schema, entity=view, inspector=inspector
                 )
-
-                if dataset_name not in tables_seen:
-                    tables_seen.add(dataset_name)
-                else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
-                    continue
-                self.report.report_entity_scanned(dataset_name, ent_type="table")
-                if not sql_config.table_pattern.allowed(dataset_name):
-                    self.report.report_dropped(dataset_name)
-                    continue
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
-
-                yield from add_owner_to_entity_wu(
-                    entity_type="dataset",
-                    entity_urn=dataset_urn,
-                    owner_urn=f"urn:li:corpuser:{owner_name}",
-                )
-                dataset_snapshot = DatasetSnapshot(
-                    urn=dataset_urn,
-                    aspects=[StatusClass(removed=False)],
-                )
-
-                dataset_properties = DatasetPropertiesClass(
-                    name=table_name,
-                    description=description,
-                    customProperties=table_properties,
-                )
-
-                dataset_snapshot.aspects.append(dataset_properties)
-
-                pk_constraints: dict = final_primary_key
-                extra_tags: Optional[Dict[str, List[str]]] = None
-                foreign_keys: list = []
-
-                schema_fields = self.get_schema_fields(
-                    dataset_name, finalcolumns, pk_constraints, tags=extra_tags
-                )
-
-                schema_metadata = get_schema_metadata(
-                    self.report,
-                    dataset_name,
-                    self.platform,
-                    finalcolumns,
-                    pk_constraints,
-                    foreign_keys,
-                    schema_fields,
-                )
-                dataset_snapshot.aspects.append(schema_metadata)
-
-                db_name = self.get_db_name(inspector)
-                yield from self.add_table_to_schema_container(
-                    dataset_urn=dataset_urn, db_name=db_name, schema=schema
-                )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-
-                wu = SqlWorkUnit(id=dataset_name, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
-
-                dpi_aspect = self.get_dataplatform_instance_aspect(
-                    dataset_urn=dataset_urn
-                )
-                if dpi_aspect:
-                    yield dpi_aspect
-                subtypes_aspect = MetadataWorkUnit(
-                    id=f"{dataset_name}-subtypes",
-                    mcp=MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
-                    ),
-                )
-                self.report.report_workunit(subtypes_aspect)
-                yield subtypes_aspect
-                if self.config.domain:
-                    assert self.domain_registry
-
-                    yield from get_domain_wu(
-                        dataset_name=dataset_name,
-                        entity_urn=dataset_urn,
-                        domain_config=sql_config.domain,
-                        domain_registry=self.domain_registry,
-                    )
-
-        except Exception as e:
-            print(traceback.format_exc())
-            self.report.report_failure(f"{schema}", f"Tables error: {e}")
-
-    def loop_views(  # noqa: C901
-        self, inspector: VerticaInspector, schema: str, sql_config: SQLAlchemyConfig
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        views_seen: Set[str] = set()
-
-        try:
-            views = inspector.get_view_names(schema)
-
-            # created new function get_all_view_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
-            # And query in get_all_view_columns is modified to run at schema level.
-            columns = inspector.get_all_view_columns(schema)
-
-            # called get_view_properties function from dialect , it returns a list description and properties of all view in the schema
-            description, properties, location_urn = self.get_view_properties(
-                inspector, schema, views
-            )
-
-            # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
-            view_owner = inspector.get_view_owner(schema)
-
-            # started a loop on each view in the schema
-            for view_name in views:
-                finalcolumns = []
-                # loops through columns in the schema and creates all columns on current view
-                for column in columns:
-                    if column["tablename"].lower() == view_name.lower():
-                        finalcolumns.append(column)
-
-                view_properties = {}
-                # loops through properties  in the schema and saves the properties of current views
-                for data in properties:
-                    if (
-                        isinstance(data, dict)
-                        and data.get("table_name", "").lower() == view_name.lower()
-                    ):
-                        view_properties["create_time"] = data.get("create_time", "")
-
-                owner_name = None
-                # loops through all views in the schema and returns the owner name of current view
-                for owner in view_owner:
-                    if owner[0].lower() == view_name.lower():
-                        owner_name = owner[1]
-
-                try:
-                    view_definition = inspector.get_view_definition(view_name, schema)
-                    if view_definition is None:
-                        view_definition = ""
-                    else:
-                        # Some dialects return a TextClause instead of a raw string,
-                        # so we need to convert them to a string.
-                        view_definition = str(view_definition)
-
-                except NotImplementedError:
-                    view_definition = ""
-                view_properties["view_definition"] = view_definition
-                view_properties["is_view"] = "True"
-
-                dataset_name = self.get_identifier(
-                    schema=schema, entity=view_name, inspector=inspector
-                )
-
-                if dataset_name not in views_seen:
-                    views_seen.add(dataset_name)
-                else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
-                    continue
 
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
 
-                if not sql_config.table_pattern.allowed(dataset_name):
+                if not sql_config.view_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
 
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
-
-                yield from add_owner_to_entity_wu(
-                    entity_type="dataset",
-                    entity_urn=dataset_urn,
-                    owner_urn=f"urn:li:corpuser:{owner_name}",
-                )
-
-                dataset_snapshot = DatasetSnapshot(
-                    urn=dataset_urn,
-                    aspects=[StatusClass(removed=False)],
-                )
-
-                dataset_properties = DatasetPropertiesClass(
-                    name=view_name,
-                    description=description,
-                    customProperties=view_properties,
-                )
-
-                dataset_snapshot.aspects.append(dataset_properties)
-                pk_constraints: dict = {}
-                extra_tags: Optional[Dict[str, List[str]]] = None
-                foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None
-
-                schema_fields = self.get_schema_fields(
-                    dataset_name, finalcolumns, pk_constraints, tags=extra_tags
-                )
-
-                schema_metadata = get_schema_metadata(
-                    self.report,
-                    dataset_name,
-                    self.platform,
-                    finalcolumns,
-                    pk_constraints,
-                    foreign_keys,
-                    schema_fields,
-                )
-                dataset_snapshot.aspects.append(schema_metadata)
-
-                db_name = self.get_db_name(inspector)
-                yield from self.add_table_to_schema_container(
-                    dataset_urn=dataset_urn, db_name=db_name, schema=schema
-                )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-
-                wu = SqlWorkUnit(id=dataset_name, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
-
-                dpi_aspect = self.get_dataplatform_instance_aspect(
-                    dataset_urn=dataset_urn
-                )
-                if dpi_aspect:
-                    yield dpi_aspect
-                subtypes_aspect = MetadataWorkUnit(
-                    id=f"{dataset_name}-subtypes",
-                    mcp=MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
-                    ),
-                )
-                self.report.report_workunit(subtypes_aspect)
-                yield subtypes_aspect
-                if self.config.domain:
-                    assert self.domain_registry
-                    yield from get_domain_wu(
+                try:
+                    yield from self._process_view(
                         dataset_name=dataset_name,
-                        entity_urn=dataset_urn,
-                        domain_config=sql_config.domain,
-                        domain_registry=self.domain_registry,
+                        inspector=inspector,
+                        schema=schema,
+                        view=view,
+                        sql_config=sql_config,
                     )
-
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{view}", f"Ingestion error: {e}"
+                    )
                 if self.config.include_view_lineage:
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -539,7 +292,10 @@ class VerticaSource(SQLAlchemySource):
                         )
 
                         lineage_info = self._get_upstream_lineage_info(
-                            dataset_urn, schema, inspector
+                            dataset_urn,
+                            inspector,
+                            view,
+                            schema,
                         )
 
                         if lineage_info is not None:
@@ -557,24 +313,141 @@ class VerticaSource(SQLAlchemySource):
                                 id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
                                 mcp=lineage_mcpw,
                             )
-
                             self.report.report_workunit(lineage_wu)
                             yield lineage_wu
 
                     except Exception as e:
                         logger.warning(
-                            f"Unable to get lineage of view {view_name} due to an exception.\n {traceback.format_exc()}"
+                            f"Unable to get lineage of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                         )
                         self.report.report_warning(
-                            f"{view_name}", f"Ingestion error: {e}"
+                            f"{schema}.{view}", f"Ingestion error: {e}"
                         )
-
         except Exception as e:
-            print(traceback.format_exc())
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: VerticaInspector,
+        schema: str,
+        view: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        This function is used for performing operation and gets data for every view inside a schema
+
+        Args:
+            dataset_name (str)
+            inspector (Inspector)
+            schema (str): schema name
+            view (str): name of the view to inspect
+            sql_config (SQLAlchemyConfig)
+            table_tags (Dict[str, str], optional) Defaults to dict().
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]
+        """
+
+        try:
+            columns = inspector.get_view_columns(view, schema)
+        except KeyError:
+            # For certain types of views, we are unable to fetch the list of columns.
+            self.report.report_warning(
+                dataset_name, "unable to get schema for this view"
+            )
+            schema_metadata = None
+        else:
+            schema_fields = self.get_schema_fields(dataset_name, columns)
+            schema_metadata = get_schema_metadata(
+                self.report,
+                dataset_name,
+                self.platform,
+                columns,
+                canonical_schema=schema_fields,
+            )
+        description, properties, _ = self.get_view_properties(inspector, schema, view)
+        try:
+            view_definition = inspector.get_view_definition(view, schema)
+            if view_definition is None:
+                view_definition = ""
+            else:
+                view_definition = str(view_definition)
+        except NotImplementedError:
+            view_definition = ""
+        properties["view_definition"] = view_definition
+        properties["is_view"] = "True"
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],
+        )
+        db_name = self.get_db_name(inspector)
+        yield from self.add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            db_name=db_name,
+            schema=schema,
+        )
+
+        dataset_properties = DatasetPropertiesClass(
+            name=view,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+        if schema_metadata:
+            dataset_snapshot.aspects.append(schema_metadata)
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
+        ).as_workunit()
+        if "view_definition" in properties:
+            view_definition_string = properties["view_definition"]
+            view_properties_aspect = ViewPropertiesClass(
+                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
+            ).as_workunit()
+
+        if self.config.domain and self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=sql_config.domain,
+                domain_registry=self.domain_registry,
+            )
+
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
+        view_owner = inspector.get_view_owner(view, schema)
+        yield from add_owner_to_entity_wu(
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+            owner_urn=f"urn:li:corpuser:{view_owner}",
+        )
+
     def get_view_properties(
-        self, inspector: VerticaInspector, schema: str, view: Optional[str]
+        self, inspector: VerticaInspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -586,26 +459,32 @@ class VerticaSource(SQLAlchemySource):
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_view_comment(schema)
+            table_info: dict = inspector.get_view_comment(table, schema)
         except NotImplementedError:
             return description, properties, location
 
         description = table_info.get("text")
+        if type(description) is tuple:
+            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
+            description = table_info["text"][0]
 
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
-
         return description, properties, location
 
     def _get_upstream_lineage_info(
-        self, dataset_urn: str, schema: str, inspector: VerticaInspector
+        self,
+        dataset_urn: str,
+        inspector: VerticaInspector,
+        view: str,
+        schema: str,
     ) -> Optional[_Aspect]:
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
             return None
 
-        view_lineage_map = inspector._populate_view_lineage(schema)
+        view_lineage_map = inspector._populate_view_lineage(view, schema)
         if dataset_key.name is not None:
             dataset_name = dataset_key.name
 
@@ -645,162 +524,59 @@ class VerticaSource(SQLAlchemySource):
 
         return None
 
-    def loop_projections(  # noqa: C901
+    def loop_projections(
         self,
         inspector: VerticaInspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        projection_seen: Set[str] = set()
+        """
+        this function loop through all the projection in the given schema.
+        projection is just like table is introduced by vertica db to store data
+        a super projection is automatically created when a table is created
+
+        Args:
+            inspector (Inspector): inspector obj from reflection
+            schema (str): schema name
+            sql_config (SQLAlchemyConfig): config
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]: [description]
+        """
+        projections_seen: Set[str] = set()
+
         try:
-            projections = inspector.get_projection_names(schema)
 
-            # created new function get_all_projection_columns in vertica Dialect as the existing get_columns of SQLAlchemy VerticaInspector class is being used for profiling
-            # And query in get_all_projection_columns is modified to run at schema level.
-            columns = inspector.get_all_projection_columns(schema)
-
-            # called get_projection_properties function from dialect , it returns a list description and properties of all view in the schema
-            description, properties, location_urn = self.get_projection_properties(
-                inspector, schema, projections
-            )
-
-            # called get_view_owner function from dialect , it returns a list of all owner of all view in the schema
-            projection_owner = inspector.get_projection_owner(schema)
-
-            # started a loop on each view in the schema
-            for projection_name in projections:
-                finalcolumns = []
-                # loops through all the columns in the schema and find all the columns of current projection
-                for column in columns:
-                    if column["tablename"] == projection_name.lower():
-                        finalcolumns.append(column)
-
-                projection_properties = {}
-                # loops through all the properties in current schema and find all the properties of current projection
-                for projection_comment in properties:
-
-                    if (
-                        isinstance(projection_comment, dict)
-                        and projection_comment.get("projection_name")
-                        == projection_name.lower()
-                    ):
-
-                        projection_properties["Ros count"] = str(
-                            projection_comment.get("ROS_Count", "Not Available")
-                        )
-                        projection_properties["Projection Type"] = str(
-                            projection_comment.get("Projection_Type", "Not Available")
-                        )
-                        projection_properties["is_segmented"] = str(
-                            projection_comment.get("is_segmented", "Not Available")
-                        )
-                        projection_properties["Segmentation_key"] = str(
-                            projection_comment.get("Segmentation_key", "Not Available")
-                        )
-                        projection_properties["Partition_Key"] = str(
-                            projection_comment.get("Partition_Key", "Not Available")
-                        )
-                        projection_properties["Partition Size"] = str(
-                            projection_comment.get("Partition_Size", "0")
-                        )
-                        projection_properties["Projection Size"] = str(
-                            projection_comment.get("projection_size", "0 KB")
-                        )
-                        projection_properties["Projection Cached"] = str(
-                            projection_comment.get("Projection_Cached", "False")
-                        )
-
-                owner_name = None
-                # loops through all owners in the schema and saved the value of current projection owner
-                for owner in projection_owner:
-                    if owner[0].lower() == projection_name.lower():
-                        owner_name = owner[1]
+            for projection in inspector.get_projection_names(schema):
 
                 dataset_name = self.get_identifier(
-                    schema=schema, entity=projection_name, inspector=inspector
+                    schema=schema, entity=projection, inspector=inspector
                 )
-
-                if dataset_name not in projection_seen:
-                    projection_seen.add(dataset_name)
+                if dataset_name not in projections_seen:
+                    projections_seen.add(dataset_name)
                 else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    logger.debug("has already been seen, skipping... %s", dataset_name)
                     continue
-
                 self.report.report_entity_scanned(dataset_name, ent_type="projection")
                 if not sql_config.table_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
-
-                yield from add_owner_to_entity_wu(
-                    entity_type="dataset",
-                    entity_urn=dataset_urn,
-                    owner_urn=f"urn:li:corpuser:{owner_name}",
-                )
-                dataset_snapshot = DatasetSnapshot(
-                    urn=dataset_urn,
-                    aspects=[StatusClass(removed=False)],
-                )
-
-                dataset_properties = DatasetPropertiesClass(
-                    name=projection_name,
-                    description=description,
-                    customProperties=projection_properties,
-                )
-
-                dataset_snapshot.aspects.append(dataset_properties)
-
-                pk_constraints: dict = {}
-                extra_tags: Optional[Dict[str, List[str]]] = None
-                foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None
-
-                schema_fields = self.get_schema_fields(
-                    dataset_name, finalcolumns, pk_constraints, tags=extra_tags
-                )
-
-                schema_metadata = get_schema_metadata(
-                    self.report,
-                    dataset_name,
-                    self.platform,
-                    finalcolumns,
-                    pk_constraints,
-                    foreign_keys,
-                    schema_fields,
-                )
-                dataset_snapshot.aspects.append(schema_metadata)
-                db_name = self.get_db_name(inspector)
-                yield from self.add_table_to_schema_container(
-                    dataset_urn, db_name, schema
-                )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                yield SqlWorkUnit(id=dataset_name, mce=mce)
-                dpi_aspect = self.get_dataplatform_instance_aspect(
-                    dataset_urn=dataset_urn
-                )
-                if dpi_aspect:
-                    yield dpi_aspect
-                yield MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="subTypes",
-                    aspect=SubTypesClass(typeNames=["Projections"]),
-                ).as_workunit()
-
-                if self.config.domain:
-                    assert self.domain_registry
-                    yield from get_domain_wu(
-                        dataset_name=dataset_name,
-                        entity_urn=dataset_urn,
-                        domain_config=self.config.domain,
-                        domain_registry=self.domain_registry,
+                try:
+                    yield from self._process_projections(
+                        dataset_name, inspector, schema, projection, sql_config
                     )
-
+                except Exception as ex:
+                    print(traceback.format_exc())
+                    logger.warning(
+                        f"Unable to ingest {schema}.{projection} due to an exception %s",
+                        ex,
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{projection}", f"Ingestion error: {ex}"
+                    )
                 if self.config.include_projection_lineage:
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -815,7 +591,7 @@ class VerticaSource(SQLAlchemySource):
                         )
 
                         lineage_info = self._get_upstream_lineage_info_projection(
-                            dataset_urn, schema, inspector
+                            dataset_urn, inspector, projection, schema
                         )
 
                         if lineage_info is not None:
@@ -839,50 +615,144 @@ class VerticaSource(SQLAlchemySource):
 
                     except Exception as e:
                         logger.warning(
-                            f"Unable to get lineage of projection {projection_name} due to an exception.\n {traceback.format_exc()}"
+                            f"Unable to get lineage of projection {projection} due to an exception.\n {traceback.format_exc()}"
                         )
                         self.report.report_warning(f"{schema}", f"Ingestion error: {e}")
+        except Exception as ex:
+            self.report.report_failure(f"{schema}", f"Projection error: {ex}")
 
-        except Exception as e:
-            print(traceback.format_exc())
-            self.report.report_failure(f"{schema}", f"Projections error: {e}")
+    def _process_projections(
+        self,
+        dataset_name: str,
+        inspector: VerticaInspector,
+        schema: str,
+        projection: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        columns = inspector.get_projection_columns(projection, schema)
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],
+        )
+        description, properties, location_urn = self.get_projection_properties(
+            inspector, schema, projection
+        )
+
+        dataset_properties = DatasetPropertiesClass(
+            name=projection,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        if location_urn:
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_snapshot.urn,
+                aspectName="upstreamLineage",
+                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
+            ).as_workunit()
+
+        projection_owner = inspector.get_projection_owner(projection, schema)
+        yield from add_owner_to_entity_wu(
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+            owner_urn=f"urn:li:corpuser:{projection_owner}",
+        )
+        # extra_tags = self.get_extra_tags(inspector, schema, projection)
+        pk_constraints: dict = inspector.get_pk_constraint(projection, schema)
+        foreign_keys = self._get_foreign_keys(
+            dataset_urn, inspector, schema, projection
+        )
+        schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
+        schema_metadata = get_schema_metadata(
+            self.report,
+            dataset_name,
+            self.platform,
+            columns,
+            pk_constraints,
+            foreign_keys,
+            schema_fields,
+        )
+        dataset_snapshot.aspects.append(schema_metadata)
+        db_name = self.get_db_name(inspector)
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=dataset_urn,
+            aspectName="subTypes",
+            aspect=SubTypesClass(typeNames=["Projections"]),
+        ).as_workunit()
+
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+            )
 
     def get_projection_properties(
-        self, inspector: VerticaInspector, schema: str, projection: Optional[str]
+        self, inspector: VerticaInspector, schema: str, projection: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        """
+        Returns projection related metadata information to show in properties tab
+            eg. projection type like super, segmented etc
+                partition key, segmentation and so on
+
+        Args:
+            inspector (Inspector): inspector obj from reflection engine
+            schema (str): schema name
+            projection (str): projection name
+        Returns:
+            Tuple[Optional[str], Dict[str, str], Optional[str]]: [description]
+        """
         description: Optional[str] = None
         properties: Dict[str, str] = {}
-
         # The location cannot be fetched generically, but subclasses may override
         # this method and provide a location.
         location: Optional[str] = None
-
         try:
             # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_projection_comment(schema)
+            projection_info: dict = inspector.get_projection_comment(projection, schema)
         except NotImplementedError:
             return description, properties, location
-
-        description = table_info.get("text")
-        if type(description) is tuple:
+        description = projection_info.get("text")
+        if isinstance(description, tuple):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = table_info["text"][0]
-
+            description = projection_info["text"][0]
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-        properties = table_info.get("properties", {})
-
+        properties = projection_info.get("properties", {})
         return description, properties, location
 
     def _get_upstream_lineage_info_projection(
-        self, dataset_urn: str, schema: str, inspector: VerticaInspector
+        self, dataset_urn: str, inspector: VerticaInspector, projection, schema: str
     ) -> Optional[_Aspect]:
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
             return None
 
-        projection_lineage = inspector._populate_projection_lineage(schema)
+        projection_lineage = inspector._populate_projection_lineage(projection, schema)
         dataset_name = dataset_key.name
         lineage = projection_lineage[dataset_name]
 
@@ -1128,3 +998,18 @@ class VerticaSource(SQLAlchemySource):
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
         return description, properties, location
+
+    def _get_columns(
+        self, dataset_name: str, inspector: VerticaInspector, schema: str, table: str
+    ) -> List[dict]:
+        columns = []
+        try:
+            columns = inspector.get_all_columns(table, schema)
+            if len(columns) == 0:
+                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
+        except Exception as e:
+            self.report.report_warning(
+                dataset_name,
+                f"unable to get column information due to an error -> {e}",
+            )
+        return columns
