@@ -29,10 +29,8 @@ export const setupJiraIssueCollector = (customButtonId: string, entityUrn: strin
             fieldValues() {
                 const values: { summary?: string; fullname?: string; email?: string } = {};
 
-                document.querySelector('.error_message');
-
                 values.summary = getEntityUrn();
-                values.fullname = 'Enter Username';
+                values.fullname = 'Enter Sharp Username';
                 values.email = 'email@sharp.com';
 
                 return values;
@@ -42,10 +40,8 @@ export const setupJiraIssueCollector = (customButtonId: string, entityUrn: strin
         window.ATL_JQ_PAGE_PROPS.fieldValues = function () {
             const values: { summary?: string; fullname?: string; email?: string } = {};
 
-            document.querySelector('.error_message');
-
             values.summary = getEntityUrn();
-            values.fullname = 'Enter Username';
+            values.fullname = 'Enter Sharp Username';
             values.email = 'email@sharp.com';
 
             return values;
