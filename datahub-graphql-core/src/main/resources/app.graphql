@@ -211,6 +211,11 @@ type VisualConfig {
   Configuration for the queries tab
   """
   queriesTab: QueriesTabConfig
+
+  """
+  Configuration for the queries tab
+  """
+  entityProfile: EntityProfileConfig
 }
 
 """
@@ -221,6 +226,18 @@ type QueriesTabConfig {
   Number of queries to show in the queries tab
   """
   queriesTabResultSize: Int
+}
+
+
+"""
+Configuration for the queries tab
+"""
+type EntityProfileConfig {
+  """
+  The enum value from EntityProfileTab for which tab should be showed by default on
+  Domain profile pages. If null, rely on default sorting from React code.
+  """
+  domainDefaultTab: String
 }
 
 """
