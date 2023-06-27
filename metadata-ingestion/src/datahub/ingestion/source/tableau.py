@@ -1852,7 +1852,9 @@ class TableauSource(StatefulIngestionSourceBase):
             description="",
             title=sheet.get(tableau_constant.NAME, ""),
             lastModified=last_modified,
-            externalUrl=sheet_external_url if self.config.ingest_external_links_for_charts else None,
+            externalUrl=sheet_external_url
+            if self.config.ingest_external_links_for_charts
+            else None,
             inputs=sorted(datasource_urn),
             customProperties={
                 tableau_constant.LUID: sheet.get(tableau_constant.LUID) or ""
@@ -2148,7 +2150,9 @@ class TableauSource(StatefulIngestionSourceBase):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=dashboard_external_url if self.config.ingest_external_links_for_dashboards else None,
+            dashboardUrl=dashboard_external_url
+            if self.config.ingest_external_links_for_dashboards
+            else None,
             customProperties={
                 tableau_constant.LUID: dashboard.get(tableau_constant.LUID) or ""
             },
