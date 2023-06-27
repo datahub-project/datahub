@@ -279,8 +279,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         ignored_columns_by_pattern: List[str] = []
         ignored_columns_by_type: List[str] = []
 
-        types_to_ignore = _get_column_types_to_ignore(self.dataset.engine.dialect.name)
-
         for col_dict in self.dataset.columns:
             col = col_dict["name"]
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
@@ -288,7 +286,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"{self.dataset_name}.{col}"
             ):
                 ignored_columns_by_pattern.append(col)
-            elif col_dict.get("type") and str(col_dict["type"]) in types_to_ignore:
+            elif col_dict.get("type") and self._should_ignore_column(col_dict["type"]):
                 ignored_columns_by_type.append(col)
             else:
                 columns_to_profile.append(col)
@@ -315,6 +313,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
                     )
         return columns_to_profile
+
+    def _should_ignore_column(self, sqlalchemy_type: sa.types.TypeEngine) -> bool:
+        return str(sqlalchemy_type) in _get_column_types_to_ignore(
+            self.dataset.engine.dialect.name
+        )
 
     @_run_with_query_combiner
     def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
