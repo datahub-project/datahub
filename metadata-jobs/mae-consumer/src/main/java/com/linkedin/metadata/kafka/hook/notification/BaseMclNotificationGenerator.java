@@ -158,7 +158,9 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   @Nonnull
   protected List<NotificationRecipient> buildSubscriberRecipients(@Nonnull final Urn entityUrn, @Nonnull final
   EntityChangeType changeType) {
-    final Set<Urn> downstreamEntityUrns = getDownstreamEntities(entityUrn);
+    // TODO: flag out this downstream entities stuff
+//    final Set<Urn> downstreamEntityUrns = getDownstreamEntities(entityUrn);
+    final Set<Urn> downstreamEntityUrns = new HashSet<>();
     final Map<Urn, SubscriptionInfo> subscriptionInfoMap =
         getSubscriptionInfoMap(entityUrn, downstreamEntityUrns, changeType);
     // We split up the subscriptions by sink type.
@@ -181,8 +183,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   protected Map<Urn, SubscriptionInfo> getSubscriptionInfoMap(@Nonnull final Urn entityUrn,
       @Nonnull final Set<Urn> downstreamEntityUrns, @Nonnull final EntityChangeType changeType) {
     final Set<Urn> subscriptionUrns = getEntitySubscriptionUrns(entityUrn, changeType);
-    final Set<Urn> downstreamSubscriptionUrns = getDownstreamEntitySubscriptionUrns(downstreamEntityUrns, changeType);
-    subscriptionUrns.addAll(downstreamSubscriptionUrns);
+//    final Set<Urn> downstreamSubscriptionUrns = getDownstreamEntitySubscriptionUrns(downstreamEntityUrns, changeType);
+//    subscriptionUrns.addAll(downstreamSubscriptionUrns);
     Map<Urn, EntityResponse> subscriptions;
     try {
       subscriptions = Objects.requireNonNull(_entityClient.batchGetV2(SUBSCRIPTION_ENTITY_NAME, subscriptionUrns,

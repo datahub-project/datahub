@@ -63,6 +63,7 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
     }
   }
 
+  // TODO: make sure we can use the override slack channel/DM on the subscription itself
   @Override
   protected List<NotificationRecipient> buildUserNotificationRecipients(
       @Nonnull final List<NotificationSettings> userNotificationSettings) {

@@ -74,7 +74,9 @@ public class SlackNotificationSink implements NotificationSink {
       NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
       NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE
   );
+  // TODO: consolidate this fricken duplicated mess
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
+  private static final String SLACK_DM_CUSTOM_TYPE = "SLACK_DM";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
   private static final String DEFAULT_CHANNEL_CONFIG_NAME = "defaultChannel";
 
@@ -532,6 +534,11 @@ public class SlackNotificationSink implements NotificationSink {
     try {
       if (NotificationRecipientType.USER.equals(recipient.getType())) {
         sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text);
+      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_DM_CUSTOM_TYPE.equals(recipient.getCustomType())) {
+        if (!recipient.hasId() || recipient.getId() == null) {
+          throw new UnsupportedOperationException(String.format("Tried to send a DM to user without ID set", recipient.getType()));
+        }
+        sendMessage(recipient.getId(), text);
       } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
         // We only support "SLACK_CHANNEL" as a custom type.
         String channel = getRecipientChannelOrDefault(recipient.getId(GetMode.NULL));

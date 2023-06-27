@@ -9,6 +9,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.settings.NotificationSettings;
+import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.subscription.SubscriptionInfo;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,13 +86,16 @@ public abstract class NotificationRecipientBuilder {
     return notificationRecipients;
   }
 
+  // TODO: come back and clean this function up
+  //TODO: make this work for groups. it does not currently work for groups
   public List<NotificationSettings> getNotificationSettings(@Nonnull final String entityName,
       @Nonnull final Set<Urn> actorUrns, Predicate<? super NotificationSettings> predicate) {
     Map<Urn, EntityResponse> notificationSettingsMap;
+    String aspectName = entityName.equals(CORP_USER_ENTITY_NAME) ? CORP_USER_SETTINGS_ASPECT_NAME : CORP_GROUP_SETTINGS_ASPECT_NAME;
     try {
       notificationSettingsMap = Objects.requireNonNull(_entityClient.batchGetV2(entityName,
           actorUrns,
-          ImmutableSet.of(NOTIFICATION_SETTINGS_ASPECT_NAME),
+          ImmutableSet.of(aspectName),
           _authentication));
     } catch (Exception e) {
       log.error("Failed to fetch notification settings for actors {}", actorUrns, e);
@@ -101,9 +105,14 @@ public abstract class NotificationRecipientBuilder {
     return notificationSettingsMap
         .values()
         .stream()
-        .filter(entityResponse -> entityResponse.getAspects().containsKey(NOTIFICATION_SETTINGS_ASPECT_NAME))
-        .map(entityResponse -> new NotificationSettings(
-            entityResponse.getAspects().get(NOTIFICATION_SETTINGS_ASPECT_NAME).getValue().data()))
+        .filter(entityResponse -> entityResponse.getAspects().containsKey(aspectName))
+        .map(entityResponse -> {
+          CorpUserSettings corpUserSettings = new CorpUserSettings(entityResponse.getAspects().get(aspectName).getValue().data());
+          if (corpUserSettings.hasNotificationSettings()) {
+            return new NotificationSettings(corpUserSettings.getNotificationSettings().data());
+          }
+          return new NotificationSettings();
+        })
         .filter(predicate)
         .collect(Collectors.toList());
   }

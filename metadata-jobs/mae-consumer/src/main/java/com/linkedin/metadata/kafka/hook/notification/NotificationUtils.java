@@ -102,7 +102,7 @@ public class NotificationUtils {
     final Criterion changeTypeCriterion = buildChangeTypeCriterion(changeType);
     final CriterionArray criterionArray = new CriterionArray(ImmutableList.of(entityCriterion, changeTypeCriterion));
 
-    return new Filter().setCriteria(criterionArray);
+    return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criterionArray)));
   }
 
   @Nonnull
@@ -154,7 +154,8 @@ public class NotificationUtils {
     final Criterion changeTypeCriterion = new Criterion();
     changeTypeCriterion.setField(ENTITY_CHANGE_TYPES_FIELD_NAME);
     changeTypeCriterion.setValue(changeType.toString());
-    changeTypeCriterion.setCondition(Condition.IN);
+    changeTypeCriterion.setValues(new StringArray(changeType.toString()));
+    changeTypeCriterion.setCondition(Condition.EQUAL);
 
     return changeTypeCriterion;
   }
@@ -163,8 +164,9 @@ public class NotificationUtils {
   private static Criterion buildUpstreamCriterion() {
     final Criterion entityCriterion = new Criterion();
     entityCriterion.setField(SUBSCRIPTION_TYPES_FIELD_NAME);
+    entityCriterion.setValues(new StringArray(SubscriptionType.UPSTREAM_ENTITY_CHANGE.toString()));
     entityCriterion.setValue(SubscriptionType.UPSTREAM_ENTITY_CHANGE.toString());
-    entityCriterion.setCondition(Condition.IN);
+    entityCriterion.setCondition(Condition.EQUAL);
 
     return entityCriterion;
   }
