@@ -203,16 +203,20 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
     }
 }
 
+function sortTabsWithDefaultTabId(tabs: EntityTab[], defaultTabId: string) {
+    return tabs.sort((tabA, tabB) => {
+        if (tabA.id === defaultTabId) return -1;
+        if (tabB.id === defaultTabId) return 1;
+        return 0;
+    });
+}
+
 export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityType, tabs: EntityTab[]) {
     const sortedTabs = [...tabs];
 
     if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfile?.domainDefaultTab) {
         const defaultTabId = appConfig.visualConfig.entityProfile.domainDefaultTab;
-        sortedTabs.sort((tabA, tabB) => {
-            if (tabA.id === defaultTabId) return -1;
-            if (tabB.id === defaultTabId) return 1;
-            return 0;
-        });
+        sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
     }
 
     return sortedTabs;
