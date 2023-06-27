@@ -132,7 +132,6 @@ export const JoinPreview = ({
                 <Button
                     type="link"
                     className="btn-edit"
-                    hidden={!(joinData?.privileges?.canManageEntity || false)}
                     onClick={() => {
                         setModalVisible(true);
                     }}
