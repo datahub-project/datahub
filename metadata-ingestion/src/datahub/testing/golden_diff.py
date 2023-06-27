@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Sequence, Set, Tuple, Union
 
 import deepdiff.serialization
-import inflection
 import yaml
 from deepdiff import DeepDiff
 from deepdiff.model import DiffLevel
@@ -200,7 +199,17 @@ class GoldenDiff:
 
     @staticmethod
     def report_aspect(ga: GoldenAspect, idx: int, msg: str = "") -> str:
-        ordinal = f"{inflection.ordinalize(idx+1)} " if idx else ""
+        # Describe as "nth <aspect>" if n > 1
+        base = (idx + 1) % 10
+        if base == 1:
+            suffix = "st"
+        elif base == 2:
+            suffix = "nd"
+        elif base == 3:
+            suffix = "rd"
+        else:
+            suffix = "th"
+        ordinal = f"{(idx+1)}{suffix} " if idx else ""
         return f"{ordinal}<{ga.aspect_name}> {msg}"
 
     @staticmethod
