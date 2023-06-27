@@ -49,6 +49,9 @@ dependencies {
   compile(externalDependency.pac4jCore){
     exclude group: "org.pac4j", module: "pac4j-core"
   }
+  compile (externalDependency.nettyio){
+    exclude group:'io.netty', module: 'netty-handler'
+  }
 
   implementation 'com.nimbusds:nimbus-jose-jwt:8.18'
   implementation externalDependency.jsonSmart

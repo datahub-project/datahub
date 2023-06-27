@@ -40,9 +40,14 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   testRuntime externalDependency.logbackClassic
   implementation externalDependency.charle
+  implementation externalDependency.common
+  compile (externalDependency.nettyio){
+    exclude group:'io.netty', module: 'netty-handler'
+  }
 }
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"
+  exclude group: "commons-io", module:"commons-io"
   
 }
 configurations {
@@ -50,7 +55,7 @@ configurations {
 }
 
 dependencies {
-  jetty9 "org.eclipse.jetty:jetty-runner:9.4.46.v20220331"
+  jetty9 "org.eclipse.jetty:jetty-runner:10.0.14"
 }
 
 task run(type: JavaExec, dependsOn: build) {

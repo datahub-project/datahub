@@ -44,6 +44,10 @@ dependencies {
     exclude group: 'org.json', module: 'json'
   }
 
+//  compile('org.elasticsearch:elasticsearch:7.11.0'){
+//    exclude group:'org.elasticsearch', module: 'elasticsearch'
+//  }
+
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng
