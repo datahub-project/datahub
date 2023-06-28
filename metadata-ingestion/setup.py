@@ -132,6 +132,12 @@ sqllineage_lib = {
     "sqlparse==0.4.3",
 }
 
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
+    "acryl-sqlglot==16.7.1.dev8",
+}
+
 aws_common = {
     # AWS Python SDK
     "boto3",
@@ -276,7 +282,9 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {
+        # TODO: I doubt we need all three sql parsing libraries.
         *sqllineage_lib,
+        *sqlglot_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
@@ -285,6 +293,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {
         *sqllineage_lib,
+        *sqlglot_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility

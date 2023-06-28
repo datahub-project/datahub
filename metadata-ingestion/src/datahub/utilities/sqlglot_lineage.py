@@ -342,7 +342,7 @@ class SchemaResolver:
     # TODO add a method to load all from graphql
 
 
-class UnsupportedStatementTypeError(Exception):
+class UnsupportedStatementTypeError(TypeError):
     pass
 
 
@@ -600,7 +600,7 @@ def _translate_internal_column_lineage(
     )
 
 
-def sqlglot_tester(
+def sqlglot_lineage(
     sql: str,
     platform: str,
     schema_resolver: SchemaResolver,
@@ -688,7 +688,7 @@ def sqlglot_tester(
             output_table=downstream_table,
         )
     except UnsupportedStatementTypeError as e:
-        # Wrap with details about the outer statement type too.
+        # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
         debug_info.column_error = e
         logger.debug(debug_info.column_error)
