@@ -23,7 +23,7 @@ export enum EventType {
     BrowseV2ToggleSidebarEvent,
     BrowseV2ToggleNodeEvent,
     BrowseV2SelectNodeEvent,
-    BrowseV2ContainerLinkClickEvent,
+    BrowseV2EntityLinkClickEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
@@ -256,8 +256,9 @@ export interface BrowseV2SelectNodeEvent extends BaseEvent {
 /**
  * Logged when a user clicks a container link in the sidebar
  */
-export interface BrowseV2ContainerLinkClickEvent extends BaseEvent {
-    type: EventType.BrowseV2ContainerLinkClickEvent;
+export interface BrowseV2EntityLinkClickEvent extends BaseEvent {
+    type: EventType.BrowseV2EntityLinkClickEvent;
+    targetNode: 'browse';
     entity: string;
     environment?: string;
     platform?: string;
@@ -625,7 +626,7 @@ export type Event =
     | BrowseV2ToggleSidebarEvent
     | BrowseV2ToggleNodeEvent
     | BrowseV2SelectNodeEvent
-    | BrowseV2ContainerLinkClickEvent
+    | BrowseV2EntityLinkClickEvent
     | EntityViewEvent
     | EntitySectionViewEvent
     | EntityActionEvent

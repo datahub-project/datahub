@@ -9,8 +9,9 @@ import { ReactComponent as ExternalLink } from '../../../images/link-out.svg';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Entity, Maybe } from '../../../types.generated';
 import useSidebarAnalytics from './useSidebarAnalytics';
+import { BrowseV2EntityLinkClickEvent } from '../../analytics';
 
-const ContainerIcon = styled(Icon)<{ isSelected: boolean }>`
+const Linkicon = styled(Icon)<{ isSelected: boolean }>`
     && {
         color: ${(props) => props.theme.styles['primary-color']};
         ${(props) => !props.isSelected && 'display: none;'}
@@ -22,6 +23,7 @@ const ContainerIcon = styled(Icon)<{ isSelected: boolean }>`
 
 type Props = {
     entity?: Maybe<Entity>;
+    targetNode: BrowseV2EntityLinkClickEvent['targetNode'];
 };
 
 // The tooltip needs some text to hold onto
@@ -30,24 +32,24 @@ const EmptySpace = styled.span`
     content: ' ';
 `;
 
-const ContainerLink = ({ entity }: Props) => {
+const EntityLink = ({ entity, targetNode }: Props) => {
     const registry = useEntityRegistry();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const displayName = useBrowseDisplayName();
-    const { trackClickContainerLinkEvent } = useSidebarAnalytics();
-    const containerUrl = entity ? registry.getEntityUrl(entity.type, entity.urn) : null;
+    const { trackLinkClickEvent } = useSidebarAnalytics();
+    const entityUrl = entity ? registry.getEntityUrl(entity.type, entity.urn) : null;
 
     const onClickButton = () => {
-        trackClickContainerLinkEvent();
+        trackLinkClickEvent(targetNode);
     };
 
-    if (!containerUrl) return null;
+    if (!entityUrl) return null;
 
     return (
         <Tooltip placement="top" title={`View ${displayName} profile`} mouseEnterDelay={1}>
-            <Link to={containerUrl}>
+            <Link to={entityUrl}>
                 <ExpandableNode.StaticButton
-                    icon={<ContainerIcon isSelected={isBrowsePathSelected} component={ExternalLink} />}
+                    icon={<Linkicon isSelected={isBrowsePathSelected} component={ExternalLink} />}
                     onClick={onClickButton}
                 />
             </Link>
@@ -56,4 +58,4 @@ const ContainerLink = ({ entity }: Props) => {
     );
 };
 
-export default ContainerLink;
+export default EntityLink;

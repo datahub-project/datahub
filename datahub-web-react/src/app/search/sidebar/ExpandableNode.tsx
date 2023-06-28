@@ -160,7 +160,7 @@ ExpandableNode.Title = ({
 }) => {
     return (
         <BaseTitleContainer depth={depth} maxWidth={maxWidth} padLeft={padLeft}>
-            <BaseTitle ellipsis={{ tooltip: { mouseEnterDelay: 2 } }} color={color} size={size}>
+            <BaseTitle ellipsis={{ tooltip: { mouseEnterDelay: 1 } }} color={color} size={size}>
                 {children}
             </BaseTitle>
         </BaseTitleContainer>

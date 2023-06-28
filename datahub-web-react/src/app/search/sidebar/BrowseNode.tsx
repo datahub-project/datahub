@@ -20,8 +20,7 @@ import {
     useBrowseDisplayName,
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
-import { EntityType } from '../../../types.generated';
-import ContainerLink from './ContainerLink';
+import EntityLink from './EntityLink';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -44,10 +43,9 @@ const BrowseNode = () => {
     const browseResultGroup = useBrowseResultGroup();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
     const { count, entity } = browseResultGroup;
+    const hasEntityLink = !!entity;
     const displayName = useBrowseDisplayName();
     const { trackSelectNodeEvent } = useSidebarAnalytics();
-
-    const isContainer = entity?.type === EntityType.Container;
 
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
@@ -95,12 +93,12 @@ const BrowseNode = () => {
                             color={color}
                             size={14}
                             depth={browsePathLength}
-                            maxWidth={isContainer ? 175 : 200}
+                            maxWidth={hasEntityLink ? 175 : 200}
                             padLeft
                         >
                             {displayName}
                         </ExpandableNode.Title>
-                        {isContainer && <ContainerLink entity={entity} />}
+                        {hasEntityLink && <EntityLink entity={entity} targetNode="browse" />}
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(count)}</Count>
                 </ExpandableNode.SelectableHeader>
