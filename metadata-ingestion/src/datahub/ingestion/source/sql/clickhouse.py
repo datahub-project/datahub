@@ -1,3 +1,4 @@
+import importlib
 import json
 import textwrap
 from collections import defaultdict
@@ -13,9 +14,19 @@ from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url, reflection
+from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
+
+# Check the version of SQLAlchemy
+sqlalchemy = importlib.import_module('sqlalchemy')
+sqlalchemy_version = sqlalchemy.__version__
+
+# Import make_url based on the version
+if sqlalchemy_version >= '1.4':
+    from sqlalchemy.engine import make_url
+else:
+    from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
@@ -171,15 +182,19 @@ class ClickHouseConfig(
                 " secure and  protocol options is deprecated, please use "
                 "project_pattern instead."
             )
-            logger.info("Initializing uri_opts from deprecated secure or protocol options")
-            values['uri_opts'] = {}
+            logger.info(
+                "Initializing uri_opts from deprecated secure or protocol options"
+            )
+            values["uri_opts"] = {}
             if secure:
-                values['uri_opts']['secure'] = secure
+                values["uri_opts"]["secure"] = secure
             if protocol:
-                values['uri_opts']['protocol'] = protocol
+                values["uri_opts"]["protocol"] = protocol
             logger.debug(f"uri_opts: {uri_opts}")
         elif (secure or protocol) and uri_opts:
-            raise ValueError("secure and protocol options is deprecated. Please use uri_opts only.")
+            raise ValueError(
+                "secure and protocol options is deprecated. Please use uri_opts only."
+            )
 
         return values
 
