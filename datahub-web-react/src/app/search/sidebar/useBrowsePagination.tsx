@@ -67,8 +67,8 @@ const useBrowsePagination = ({ skip }: Props) => {
 
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
-        if (!data || newStart < 0) return;
-        initializing.current = false;
+        if (newStart === 0) initializing.current = false;
+        if (initializing.current || !data || newStart < 0) return;
 
         setStartToBrowseMap((previousMap) => {
             const newMap: typeof previousMap = { [newStart]: data };
