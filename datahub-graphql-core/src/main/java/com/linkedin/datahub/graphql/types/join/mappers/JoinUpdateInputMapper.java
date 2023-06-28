@@ -122,10 +122,12 @@ public class JoinUpdateInputMapper
       }
       if (input.getEditableProperties() != null) {
         final EditableJoinProperties editableJoinProperties = new EditableJoinProperties();
-        if (input.getEditableProperties().getName().trim().length() > 0) {
+        if (input.getEditableProperties().getName() != null
+                && input.getEditableProperties().getName().trim().length() > 0) {
           editableJoinProperties.setName(input.getEditableProperties().getName());
         }
-        if (input.getEditableProperties().getDescription().trim().length() > 0) {
+        if (input.getEditableProperties().getDescription() != null
+                && input.getEditableProperties().getDescription().trim().length() > 0) {
           editableJoinProperties.setDescription(input.getEditableProperties().getDescription());
         }
         proposals.add(updateMappingHelper.aspectToProposal(editableJoinProperties, EDITABLE_JOIN_PROPERTIES_ASPECT_NAME));

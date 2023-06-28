@@ -250,10 +250,10 @@ export const RelationTab = () => {
                     onContinue={async (selectedDataSet) => {
                         await getTable2LazySchema({
                             variables: {
-                                urn: JSON.parse(selectedDataSet[0])?.urn || '',
+                                urn: selectedDataSet[0] || '',
                             },
                         });
-                        setSelectDataset(JSON.parse(selectedDataSet[0])?.urn);
+                        setSelectDataset(selectedDataSet[0]);
                     }}
                     onCancel={() => setjoinModalVisible(false)}
                     fixedEntityTypes={[EntityType.Dataset]}
