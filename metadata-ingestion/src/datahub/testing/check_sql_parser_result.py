@@ -8,14 +8,14 @@ from datahub.utilities.sqlglot_lineage import (
     SchemaInfo,
     SchemaResolver,
     SqlParsingResult,
-    sqlglot_lineage as sqlglot_tester,
+    sqlglot_lineage,
 )
 
 # TODO: Hook this into the standard --update-golden-files mechanism.
 UPDATE_FILES = os.environ.get("UPDATE_SQLPARSER_FILES", "false").lower() == "true"
 
 
-def _assert_sql_result_with_resolver(
+def assert_sql_result_with_resolver(
     sql: str,
     *,
     dialect: str,
@@ -23,7 +23,7 @@ def _assert_sql_result_with_resolver(
     schema_resolver: SchemaResolver,
     **kwargs: Any,
 ) -> None:
-    res = sqlglot_tester(
+    res = sqlglot_lineage(
         sql,
         platform=dialect,
         schema_resolver=schema_resolver,
@@ -47,7 +47,7 @@ def _assert_sql_result_with_resolver(
     assert not full_diff, full_diff
 
 
-def _assert_sql_result(
+def assert_sql_result(
     sql: str,
     *,
     dialect: str,
@@ -60,7 +60,7 @@ def _assert_sql_result(
         for urn, schema in schemas.items():
             schema_resolver.add_raw_schema_info(urn, schema)
 
-    _assert_sql_result_with_resolver(
+    assert_sql_result_with_resolver(
         sql,
         dialect=dialect,
         expected_file=expected_file,
