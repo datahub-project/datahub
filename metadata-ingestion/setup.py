@@ -28,6 +28,7 @@ base_requirements = {
     # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
     "pydantic>=1.5.1,!=1.10.3,<2",
     "mixpanel>=4.9.0",
+    "sentry-sdk",
 }
 
 framework_common = {
@@ -195,12 +196,11 @@ snowflake_common = {
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    # Cannot upgrade to 3.0.0 because of dependency on pyarrow>=10.0.1, conflicts with feast
-    "snowflake-connector-python!=2.8.2, <3.0.0",
+    "snowflake-connector-python!=2.8.2",
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.6",
+    "acryl-datahub-classify==0.0.8",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -248,9 +248,9 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {
-    "databricks-cli>=0.17.7",
-    "databricks-sdk>=0.1.1",
+databricks = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    "databricks-sdk>=0.1.1, <0.1.11",
     "pyspark",
     "requests",
 }
@@ -311,7 +311,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.29.0",
+        "feast~=0.31.1",
         "flask-openid>=1.3.0",
         # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
         "typeguard<3",
@@ -384,7 +384,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
-    "unity-catalog": databricks_cli | sqllineage_lib,
+    "unity-catalog": databricks | sqllineage_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.

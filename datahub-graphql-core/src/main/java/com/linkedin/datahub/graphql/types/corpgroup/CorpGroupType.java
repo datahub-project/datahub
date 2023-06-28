@@ -24,14 +24,12 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
@@ -44,6 +42,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, MutableType<CorpGroupUpdateInput, CorpGroup> {
@@ -137,14 +136,9 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
             }
 
             // Create the MCP
-            final MetadataChangeProposal proposal = new MetadataChangeProposal();
-            proposal.setEntityUrn(Urn.createFromString(urn));
-            proposal.setEntityType(CORP_GROUP_ENTITY_NAME);
-            proposal.setAspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME);
-            proposal.setAspect(
-                GenericRecordUtils.serializeAspect(mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo)));
-            proposal.setChangeType(ChangeType.UPSERT);
-            _entityClient.ingestProposal(proposal, context.getAuthentication());
+            final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(urn),
+                CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo));
+            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
 
             return load(urn, context).getData();
         }

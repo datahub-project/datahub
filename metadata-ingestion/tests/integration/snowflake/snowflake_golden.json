@@ -318,6 +318,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -576,6 +587,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -834,6 +856,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1092,6 +1125,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1350,6 +1394,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1608,6 +1663,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1866,6 +1932,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2124,6 +2201,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2382,6 +2470,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2640,6 +2739,17 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:CloudRegion"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1654621200000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -4991,6 +5101,342 @@
                     "confidenceScore": 1.0
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_10,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1654473600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
         }
     },
     "systemMetadata": {

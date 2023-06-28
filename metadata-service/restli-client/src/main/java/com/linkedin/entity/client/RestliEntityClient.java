@@ -47,6 +47,7 @@ import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -88,6 +89,7 @@ import javax.annotation.Nullable;
 import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
 
 
 @Slf4j
@@ -292,6 +294,23 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.filterParam(newFilter(requestFilters));
     }
     return sendClientRequest(requestBuilder, authentication).getEntity();
+  }
+
+  /**
+   * Gets browse V2 snapshot of a given path
+   *
+   * @param entityName entity being browsed
+   * @param path path being browsed
+   * @param filter browse filter
+   * @param input search query
+   * @param start start offset of first group
+   * @param count max number of results requested
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
+                                 @Nonnull String input, int start, int count, @Nonnull Authentication authentication) {
+    throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
 
   public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)

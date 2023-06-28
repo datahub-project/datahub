@@ -14,7 +14,8 @@ record DatasetProfile includes TimeseriesAspectBase {
    * The total number of rows
    */
   @Searchable = {
-    "fieldType": "COUNT"
+    "fieldType": "COUNT",
+    "hasValuesFieldName": "hasRowCount"
   }
   rowCount: optional long
 
@@ -22,7 +23,8 @@ record DatasetProfile includes TimeseriesAspectBase {
    * The total number of columns (or schema fields)
    */
   @Searchable = {
-    "fieldType": "COUNT"
+    "fieldType": "COUNT",
+    "hasValuesFieldName": "hasColumnCount"
   }
   columnCount: optional long
 
@@ -35,7 +37,8 @@ record DatasetProfile includes TimeseriesAspectBase {
   * Storage size in bytes
   */
   @Searchable = {
-    "fieldType": "COUNT"
+    "fieldType": "COUNT",
+    "hasValuesFieldName": "hasSizeInBytes"
   }
   sizeInBytes: optional long
 }
