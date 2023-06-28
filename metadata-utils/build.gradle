@@ -26,6 +26,13 @@ dependencies {
 
   testCompile project(':test-models')
 
+  compile('jline:jline:2.11') {
+    exclude group: 'jline', module: 'jline'
+  }
+  compile ('com.google.guava:guava:32.0.1-jre'){
+    exclude group: 'com.google.guava', module: 'guava'
+  }
+
   constraints {
       implementation(externalDependency.log4jCore) {
           because("previous versions are vulnerable to CVE-2021-45105")

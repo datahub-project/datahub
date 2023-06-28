@@ -17,6 +17,9 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
   annotationProcessor externalDependency.lombok
+  compile ('com.google.guava:guava:32.0.1-jre'){
+    exclude group: 'com.google.guava', module: 'guava'
+  }
 }
 
 test {

@@ -36,6 +36,9 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     implementation externalDependency.awsMskIamAuth
+    compile (externalDependency.nettyio){
+        exclude group:'io.netty', module: 'netty-handler'
+    }
 }
 
 task avroSchemaSources(type: Copy) {

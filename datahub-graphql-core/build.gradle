@@ -9,6 +9,9 @@ dependencies {
     compile project(':metadata-service:auth-config')
     compile project(':metadata-io')
     compile project(':metadata-utils')
+    compile ('com.google.guava:guava:32.0.1-jre'){
+        exclude group: 'com.google.guava', module: 'guava'
+    }
 
     implementation externalDependency.graphqlJava
     implementation externalDependency.graphqlJavaScalars

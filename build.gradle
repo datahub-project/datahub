@@ -211,7 +211,7 @@ project.ext.externalDependency = [
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
-    'jline': 'jline:jline:2.11',
+   // 'jline': 'jline:jline:2.11',
     'jetbrains': 'org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
     'pac4jCore': 'org.pac4j:pac4j-core:5.2.0',
     'nettyio': 'io.netty:netty-handler:4.1.94.Final'
