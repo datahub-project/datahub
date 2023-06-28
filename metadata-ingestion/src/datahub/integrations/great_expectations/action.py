@@ -319,7 +319,9 @@ class DataHubValidationAction(ValidationAction):
                     else AssertionResultType.FAILURE,
                     rowCount=parse_int_or_default(result.get("element_count")),
                     missingCount=parse_int_or_default(result.get("missing_count")),
-                    unexpectedCount=parse_int_or_default(result.get("unexpected_count")),
+                    unexpectedCount=parse_int_or_default(
+                        result.get("unexpected_count")
+                    ),
                     actualAggValue=actualAggValue,
                     externalUrl=docs_link,
                     nativeResults=nativeResults,
@@ -698,11 +700,13 @@ class DataHubValidationAction(ValidationAction):
             )
         return None
 
+
 def parse_int_or_default(value, default_value=None):
     if value is None:
         return default_value
     else:
         return int(value)
+
 
 def make_dataset_urn_from_sqlalchemy_uri(
     sqlalchemy_uri,
