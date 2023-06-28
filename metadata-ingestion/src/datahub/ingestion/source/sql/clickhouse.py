@@ -18,16 +18,6 @@ from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
-# Check the version of SQLAlchemy
-sqlalchemy = importlib.import_module('sqlalchemy')
-sqlalchemy_version = sqlalchemy.__version__
-
-# Import make_url based on the version
-if sqlalchemy_version >= '1.4':
-    from sqlalchemy.engine import make_url
-else:
-    from sqlalchemy.engine.url import make_url
-
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
@@ -68,6 +58,16 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     UpstreamClass,
 )
+
+# Check the version of SQLAlchemy
+sqlalchemy = importlib.import_module("sqlalchemy")
+sqlalchemy_version = sqlalchemy.__version__
+
+# Import make_url based on the version
+if sqlalchemy_version >= "1.4":
+    from sqlalchemy.engine import make_url
+else:
+    from sqlalchemy.engine.url import make_url
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
