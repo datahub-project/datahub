@@ -36,11 +36,11 @@ const EntityLink = ({ entity, targetNode }: Props) => {
     const registry = useEntityRegistry();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const displayName = useBrowseDisplayName();
-    const { trackLinkClickEvent } = useSidebarAnalytics();
+    const { trackEntityLinkClickEvent } = useSidebarAnalytics();
     const entityUrl = entity ? registry.getEntityUrl(entity.type, entity.urn) : null;
 
     const onClickButton = () => {
-        trackLinkClickEvent(targetNode);
+        trackEntityLinkClickEvent(targetNode);
     };
 
     if (!entityUrl) return null;
