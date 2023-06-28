@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud import bigquery
+from google.cloud.bigquery import StandardSqlTypeNames
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.configuration.pattern_utils import is_schema_allowed
@@ -1139,13 +1140,28 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         columns: List[BigqueryColumn],
         dataset_name: str,
     ) -> MetadataWorkUnit:
+        if (
+            isinstance(table, BigqueryTable)
+            and table.partition_info
+            and table.partition_info.column is None
+        ):
+            columns.append(
+                BigqueryColumn(
+                    name=table.partition_info.field,
+                    ordinal_position=-1,
+                    field_path="",
+                    is_nullable=True,
+                    data_type=StandardSqlTypeNames.TIMESTAMP,
+                    comment=None,
+                    is_partition_column=True,
+                )
+            )
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            # fields=[],
             fields=self.gen_schema_fields(columns),
         )
         return MetadataChangeProposalWrapper(
