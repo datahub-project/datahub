@@ -1,16 +1,19 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useMemo } from 'react';
-import { scaleOrdinal } from '@visx/scale';
+import styled from 'styled-components';
+import { Axis, LineSeries, XYChart, Tooltip, GlyphSeries } from '@visx/xychart';
+import { curveMonotoneX } from '@visx/curve';
+import { ScaleConfig, scaleOrdinal } from '@visx/scale';
 import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
 import { lineColors } from './lineColors';
 import Legend from './Legend';
 import { addInterval } from '../../shared/time/timeUtils';
 import { formatNumber } from '../../shared/formatNumber';
+import { AxisScaleOutput } from '@visx/axis';
 
-type ScaleConfig = {
-    type: 'time' | 'timeUtc' | 'linear' | 'band' | 'ordinal';
-    includeZero?: boolean;
-};
+// type ScaleConfig = {
+//     type: 'time' | 'timeUtc' | 'linear' | 'band' | 'ordinal';
+//     includeZero?: boolean;
+// };
 
 type AxisConfig = {
     formatter: (tick: number) => string;
@@ -29,15 +32,25 @@ type Props = {
         crossHairLineColor?: string;
     };
     insertBlankPoints?: boolean;
-    yScale?: ScaleConfig;
+    yScale?: ScaleConfig<AxisScaleOutput, any, any>;
     yAxis?: AxisConfig;
 };
+
+const StyledTooltip = styled(Tooltip)`
+    font-family: inherit !important;
+    font-weight: 400;
+`;
 
 const MARGIN = {
     TOP: 40,
     RIGHT: 45,
     BOTTOM: 40,
     LEFT: 40,
+};
+
+const accessors = {
+    xAccessor: (d) => d.x,
+    yAccessor: (d) => d.y,
 };
 
 function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
@@ -93,5 +106,68 @@ export const TimeSeriesChart = ({
 
     const lines = useMemo(() => computeLines(chartData, insertBlankPoints || false), [chartData, insertBlankPoints]);
 
-    return null;
+    return (
+        <>
+            <XYChart
+                accessibilityLabel={chartData.title}
+                width={width}
+                height={height}
+                margin={{ top: MARGIN.TOP, right: MARGIN.RIGHT, bottom: MARGIN.BOTTOM, left: MARGIN.LEFT }}
+                xScale={{ type: 'time' }}
+                yScale={yScale ?? { type: 'linear' }}
+            >
+                <Axis
+                    orientation="right"
+                    stroke={style?.axisColor}
+                    strokeWidth={style?.axisWidth}
+                    tickFormat={(tick) => formatNumber(tick)}
+                    tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
+                    numTicks={3}
+                />
+                <Axis
+                    orientation="bottom"
+                    stroke={style?.axisColor}
+                    strokeWidth={style?.axisWidth}
+                    tickFormat={(tick) => (yAxis?.formatter ? yAxis.formatter(tick) : formatNumber(tick))}
+                    tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
+                    numTicks={3}
+                />
+                {lines.map((line, i) => (
+                    <>
+                        <LineSeries
+                            dataKey={line.name}
+                            data={line.data.map((point) => ({ x: new Date(point.x).getTime().toString(), y: point.y }))}
+                            stroke={(style && style.lineColor) || lineColors[i]}
+                            curve={curveMonotoneX}
+                            {...accessors}
+                        />
+                        <GlyphSeries
+                            dataKey={line.name}
+                            data={line.data.map((point) => ({ x: new Date(point.x).getTime().toString(), y: point.y }))}
+                            {...accessors}
+                        />
+                    </>
+                ))}
+                <StyledTooltip
+                    snapTooltipToDatumX
+                    showVerticalCrosshair
+                    showDatumGlyph
+                    verticalCrosshairStyle={{ stroke: '#D8D8D8', strokeDasharray: '5,2', strokeWidth: 1 }}
+                    renderTooltip={({ tooltipData }) =>
+                        tooltipData?.nearestDatum && (
+                            <div>
+                                <div>
+                                    {new Date(
+                                        Number(accessors.xAccessor(tooltipData.nearestDatum.datum)),
+                                    ).toDateString()}
+                                </div>
+                                <div>{accessors.yAccessor(tooltipData.nearestDatum.datum)}</div>
+                            </div>
+                        )
+                    }
+                />
+            </XYChart>
+            {!hideLegend && <Legend ordinalScale={ordinalColorScale} />}
+        </>
+    );
 };
