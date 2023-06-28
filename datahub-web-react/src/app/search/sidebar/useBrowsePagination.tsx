@@ -31,9 +31,8 @@ const useBrowsePagination = ({ skip }: Props) => {
     const total = latestData?.browseV2?.total ?? -1;
     const done = !!latestData && groups.length >= total;
 
-    const [getBrowseResultsV2, { data, error, loading, refetch }] = useGetBrowseResultsV2LazyQuery({
+    const [getBrowseResultsV2, { data, error, refetch }] = useGetBrowseResultsV2LazyQuery({
         fetchPolicy: 'cache-first',
-        notifyOnNetworkStatusChange: true,
     });
 
     const retry = () => {
@@ -85,10 +84,9 @@ const useBrowsePagination = ({ skip }: Props) => {
 
     const advancePage = useCallback(() => {
         const newStart = latestStart + BROWSE_PAGE_SIZE;
-        if (initializing.current || error || loading || done || latestStart < 0 || total <= 0 || newStart >= total)
-            return;
+        if (initializing.current || error || done || latestStart < 0 || total <= 0 || newStart >= total) return;
         getBrowseResultsV2WithDeps(newStart);
-    }, [done, error, getBrowseResultsV2WithDeps, latestStart, loading, total]);
+    }, [done, error, getBrowseResultsV2WithDeps, latestStart, total]);
 
     const { observableRef } = useIntersect({
         skip,
