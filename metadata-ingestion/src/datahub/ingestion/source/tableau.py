@@ -314,7 +314,7 @@ class TableauConfig(
     )
 
     ingest_embed_url: Optional[bool] = Field(
-        default=True,
+        default=False,
         description="Ingest a URL to render an embedded Preview of assets within Tableau.",
     )
 
