@@ -29,6 +29,7 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { LOOKER_URN } from '../../ingest/source/builder/constants';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -113,8 +114,12 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Preview',
                     component: EmbedTab,
                     display: {
-                        visible: (_, dashboard: GetDashboardQuery) => !!dashboard?.dashboard?.embed?.renderUrl,
-                        enabled: (_, dashboard: GetDashboardQuery) => !!dashboard?.dashboard?.embed?.renderUrl,
+                        visible: (_, dashboard: GetDashboardQuery) =>
+                            !!dashboard?.dashboard?.embed?.renderUrl &&
+                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                        enabled: (_, dashboard: GetDashboardQuery) =>
+                            !!dashboard?.dashboard?.embed?.renderUrl &&
+                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
                     },
                 },
                 {
