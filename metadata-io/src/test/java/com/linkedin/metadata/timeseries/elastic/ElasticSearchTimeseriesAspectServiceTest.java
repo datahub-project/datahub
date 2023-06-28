@@ -859,7 +859,8 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
   }
 
   @Test(groups = {"testCountAfterDelete"}, dependsOnGroups = {"deleteAspectValues1"})
-  public void testCountByFilterAfterDelete() {
+  public void testCountByFilterAfterDelete() throws InterruptedException {
+    syncAfterWrite(_bulkProcessor);
     // Test with filter
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
