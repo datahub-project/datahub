@@ -60,7 +60,7 @@ const BrowseNode = () => {
         trackSelectNodeEvent(isNowSelected ? 'select' : 'deselect', 'browse');
     };
 
-    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({
+    const { error, groups, loaded, observable, path, retry } = useBrowsePagination({
         skip: !isOpen || !browseResultGroup.hasSubGroups,
     });
 
@@ -107,7 +107,7 @@ const BrowseNode = () => {
                             <BrowseNode />
                         </BrowseProvider>
                     ))}
-                    {error && <SidebarLoadingError onClickRetry={refetch} />}
+                    {error && <SidebarLoadingError onClickRetry={retry} />}
                     {observable}
                 </ExpandableNode.Body>
             }

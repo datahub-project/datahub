@@ -64,7 +64,7 @@ const PlatformNode = () => {
         if (count) toggle();
     };
 
-    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip: !isOpen });
+    const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
     const color = '#000';
 
@@ -103,7 +103,7 @@ const PlatformNode = () => {
                                 <BrowseNode />
                             </BrowseProvider>
                         ))}
-                        {error && <SidebarLoadingError onClickRetry={refetch} />}
+                        {error && <SidebarLoadingError onClickRetry={retry} />}
                         {observable}
                     </BrowseGroupListContainer>
                 </ExpandableNode.Body>
