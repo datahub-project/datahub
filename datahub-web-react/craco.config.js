@@ -35,6 +35,13 @@ module.exports = {
                     fs: false,
                 },
             },
+            ignoreWarnings: [
+                // Ignore webpack 5's missing source map warnings from node_modules
+                {
+                    module: /node_modules/,
+                    message: /source-map-loader/,
+                },
+            ],
         },
         plugins: {
             add: [
