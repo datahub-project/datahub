@@ -62,7 +62,7 @@ class DeltaInfoOperator(BaseOperator):
     def __init__(self):
         super().__init__(types=[DeltaInfo])
 
-    def give_up_diffing(self, *args: Any) -> bool:
+    def give_up_diffing(self, *args: Any, **kwargs: Any) -> bool:
         return True
 
 
@@ -234,7 +234,7 @@ class MCPDiff:
                         s.append(self.report_diff_level(diff_level, i))
                     if verbose:
                         s.append(f"Old aspect:\n{serialize_aspect(old.aspect)}")
-                        s.append(f"New aspect:\n{serialize_aspect(old.aspect)}")
+                        s.append(f"New aspect:\n{serialize_aspect(new.aspect)}")
 
             s.append("")
 
