@@ -997,3 +997,18 @@ class VerticaSource(SQLAlchemySource):
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
         return description, properties, location
+
+    def _get_columns(
+        self, dataset_name: str, inspector: VerticaInspector, schema: str, table: str
+    ) -> List[dict]:
+        columns = []
+        try:
+            columns = inspector.get_all_columns(table, schema)
+            if len(columns) == 0:
+                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
+        except Exception as e:
+            self.report.report_warning(
+                dataset_name,
+                f"unable to get column information due to an error -> {e}",
+            )
+        return columns
