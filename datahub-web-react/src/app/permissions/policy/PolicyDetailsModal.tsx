@@ -105,7 +105,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
 
     const resourceOwnersField = (actors) => {
         if (!actors?.resourceOwners) {
-            return <PoliciesTag>Not applied</PoliciesTag>;
+            return <PoliciesTag>No</PoliciesTag>;
         }
         if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
@@ -116,7 +116,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                 </div>
             );
         }
-        return <PoliciesTag>Applies to all owners</PoliciesTag>;
+        return <PoliciesTag>Yes - All owners</PoliciesTag>;
     };
 
     return (
