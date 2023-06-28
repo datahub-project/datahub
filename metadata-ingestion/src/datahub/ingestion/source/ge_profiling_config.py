@@ -156,7 +156,7 @@ class GEProfilingConfig(ConfigModel):
             del values["bigquery_temp_table_schema"]
         return values
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(pre=True)
     def ensure_field_level_settings_are_normalized(
         cls: "GEProfilingConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:
