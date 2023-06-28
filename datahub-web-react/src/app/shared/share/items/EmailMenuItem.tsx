@@ -35,7 +35,7 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
         url: 'mailto:',
         query: {
             subject: `${name} | ${type}`,
-            body: `Check out this ${type} on DataHub: ${linkText}`,
+            body: `Check out this ${type} on DataHub: ${linkText}. Urn: ${urn}`,
         },
     });
 
@@ -43,7 +43,6 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
         <StyledMenuItem
             key={key}
             onClick={() => {
-                navigator.clipboard.writeText(urn);
                 setIsClicked(true);
             }}
         >
