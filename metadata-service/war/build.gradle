@@ -48,7 +48,7 @@ dependencies {
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"
   exclude group: "commons-io", module:"commons-io"
-  
+
 }
 configurations {
   jetty9
