@@ -2,7 +2,6 @@ source:
   type: clickhouse
   config:
     # Coordinates
-    scheme: clickhouse+native
     host_port: localhost:9000
 
     # Credentials
@@ -41,17 +40,16 @@ source:
       secure: "true"
 
 #------------------------------------------------------------------------
-#Example: using ingestion with configured SSL-TLS and uri_opts example
-#See https://clickhouse.com/docs/en/guides/sre/configuring-ssl for connection details
+# Example: using ingestion with configured SSL-TLS and uri_opts
+# See https://clickhouse.com/docs/en/guides/sre/configuring-ssl
 # ------------------------------------------------------------------------
-    #url form, prefered
-    sqlalchemy_uri: 'clickhouse+native://user:pass@localhost:900/db?&ca_certs=ca.crt'
+    # Url form, prefered
+    sqlalchemy_uri: 'clickhouse+native://user:pass@localhost:9000/db?&ca_certs=ca.crt'
 
-    #Non url form
+    # Non url form
     username: user
     password: pass
 
-    # Coordinates
     host_port: localhost:9000
 
     uri_opts:
