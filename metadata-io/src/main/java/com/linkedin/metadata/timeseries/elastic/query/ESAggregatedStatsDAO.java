@@ -470,12 +470,12 @@ public class ESAggregatedStatsDAO {
 
     Aggregations aggregations = searchResponse.getAggregations();
     Stack<String> rowAcc = new Stack<>();
-      rowGenHelper(aggregations, 0, groupingBuckets.length, rows, rowAcc,
-          ImmutableList.copyOf(groupingBuckets), ImmutableList.copyOf(aggregationSpecs), aspectSpec);
+    rowGenHelper(aggregations, 0, groupingBuckets.length, rows, rowAcc,
+        ImmutableList.copyOf(groupingBuckets), ImmutableList.copyOf(aggregationSpecs), aspectSpec);
 
-      if (!rowAcc.isEmpty()) {
-        throw new IllegalStateException("Expected stack to be empty.");
-      }
+    if (!rowAcc.isEmpty()) {
+      throw new IllegalStateException("Expected stack to be empty.");
+    }
 
     resultTable.setRows(new StringArrayArray(rows));
     return resultTable;
