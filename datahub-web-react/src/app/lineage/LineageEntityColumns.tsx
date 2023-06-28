@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Group } from '@vx/group';
+import { Group } from '@visx/group';
 import { Pagination } from 'antd';
 import styled from 'styled-components';
 import { NodeData, EntitySelectParams } from './types';

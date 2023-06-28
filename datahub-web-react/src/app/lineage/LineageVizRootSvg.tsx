@@ -1,4 +1,4 @@
-import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
+import { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
 import React, { SVGProps, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -15,7 +15,7 @@ type Props = {
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
-    zoom: ProvidedZoom & {
+    zoom: ProvidedZoom<any> & {
         transformMatrix: TransformMatrix;
         isDragging: boolean;
     };
