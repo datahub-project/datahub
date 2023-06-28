@@ -28,12 +28,12 @@ const PlatformIconContainer = styled.div`
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
+    padding-right: 8px;
 `;
 
 const BrowseGroupListContainer = styled.div`
     background: white;
     border-radius: 8px;
-    padding-bottom: 8px;
     padding-right: 8px;
 `;
 

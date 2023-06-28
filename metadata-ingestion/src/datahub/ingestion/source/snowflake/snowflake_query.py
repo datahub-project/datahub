@@ -1,23 +1,21 @@
 from typing import List, Optional
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
-from datahub.ingestion.source.snowflake.snowflake_config import (
-    DEFAULT_UPSTREAMS_DENY_LIST,
-)
+from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
 
 
 def create_deny_regex_sql_filter(
-    upstreams_deny_pattern: List[str], filter_cols: List[str]
+    deny_pattern: List[str], filter_cols: List[str]
 ) -> str:
     upstream_sql_filter = (
         " AND ".join(
             [
                 (f"NOT RLIKE({col_name},'{regexp}','i')")
                 for col_name in filter_cols
-                for regexp in upstreams_deny_pattern
+                for regexp in deny_pattern
             ]
         )
-        if upstreams_deny_pattern
+        if deny_pattern
         else ""
     )
 
@@ -158,7 +156,6 @@ class SnowflakeQuery:
 
     @staticmethod
     def get_all_tags_in_database_without_propagation(db_name: str) -> str:
-
         allowed_object_domains = (
             "("
             f"'{SnowflakeObjectDomain.DATABASE.upper()}',"
@@ -461,7 +458,7 @@ class SnowflakeQuery:
         end_time_millis: int,
         include_view_lineage: bool = True,
         include_column_lineage: bool = True,
-        upstreams_deny_pattern: List[str] = DEFAULT_UPSTREAMS_DENY_LIST,
+        upstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
     ) -> str:
         if include_column_lineage:
             return SnowflakeQuery.table_upstreams_with_column_lineage(
@@ -508,6 +505,7 @@ class SnowflakeQuery:
     def show_external_tables() -> str:
         return "show external tables in account"
 
+    # Note - This method should be removed once legacy lineage is removed
     @staticmethod
     def external_table_lineage_history(
         start_time_millis: int, end_time_millis: int
@@ -535,6 +533,34 @@ class SnowflakeQuery:
         FROM external_table_lineage_history
         WHERE downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
         QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1"""
+
+    @staticmethod
+    def copy_lineage_history(
+        start_time_millis: int,
+        end_time_millis: int,
+        downstreams_deny_pattern: List[str],
+    ) -> str:
+        temp_table_filter = create_deny_regex_sql_filter(
+            downstreams_deny_pattern,
+            ["DOWNSTREAM_TABLE_NAME"],
+        )
+
+        return f"""
+        SELECT
+            ARRAY_UNIQUE_AGG(h.stage_location) AS "UPSTREAM_LOCATIONS",
+            concat(
+                h.table_catalog_name, '.', h.table_schema_name,
+                '.', h.table_name
+            ) AS "DOWNSTREAM_TABLE_NAME"
+        FROM
+            snowflake.account_usage.copy_history h
+        WHERE h.status in ('Loaded','Partially loaded')
+            AND DOWNSTREAM_TABLE_NAME IS NOT NULL
+            AND h.last_load_time >= to_timestamp_ltz({start_time_millis}, 3)
+            AND h.last_load_time < to_timestamp_ltz({end_time_millis}, 3)
+            {("AND " + temp_table_filter) if temp_table_filter else ""}
+        GROUP BY DOWNSTREAM_TABLE_NAME;
+        """
 
     @staticmethod
     def get_access_history_date_range() -> str:

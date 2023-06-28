@@ -3,7 +3,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import dataclasses
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union
 from unittest.mock import patch
 
@@ -277,7 +277,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def _create_catalog(self, metastore: Metastore, obj: CatalogInfo) -> Catalog:
         return Catalog(
             name=obj.name,
-            id="{}.{}".format(metastore.id, self._escape_sequence(obj.name)),
+            id=f"{metastore.id}.{self._escape_sequence(obj.name)}",
             metastore=metastore,
             comment=obj.comment,
             owner=obj.owner,
@@ -287,7 +287,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Schema:
         return Schema(
             name=obj.name,
-            id="{}.{}".format(catalog.id, self._escape_sequence(obj.name)),
+            id=f"{catalog.id}.{self._escape_sequence(obj.name)}",
             catalog=catalog,
             comment=obj.comment,
             owner=obj.owner,
@@ -296,7 +296,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def _create_column(self, table_id: str, obj: ColumnInfo) -> Column:
         return Column(
             name=obj.name,
-            id="{}.{}".format(table_id, self._escape_sequence(obj.name)),
+            id=f"{table_id}.{self._escape_sequence(obj.name)}",
             type_text=obj.type_text,
             type_name=obj.type_name,
             type_scale=obj.type_scale,
@@ -307,7 +307,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def _create_table(self, schema: Schema, obj: TableInfoWithGeneration) -> Table:
-        table_id: str = "{}.{}".format(schema.id, self._escape_sequence(obj.name))
+        table_id = f"{schema.id}.{self._escape_sequence(obj.name)}"
         return Table(
             name=obj.name,
             id=table_id,
@@ -322,9 +322,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             properties=obj.properties or {},
             owner=obj.owner,
             generation=obj.generation,
-            created_at=datetime.utcfromtimestamp(obj.created_at / 1000),
+            created_at=datetime.fromtimestamp(obj.created_at / 1000, tz=timezone.utc),
             created_by=obj.created_by,
-            updated_at=datetime.utcfromtimestamp(obj.updated_at / 1000)
+            updated_at=datetime.fromtimestamp(obj.updated_at / 1000, tz=timezone.utc)
             if obj.updated_at
             else None,
             updated_by=obj.updated_by,
@@ -336,7 +336,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self, obj: DatabricksServicePrincipal
     ) -> ServicePrincipal:
         return ServicePrincipal(
-            id="{}.{}".format(obj.id, self._escape_sequence(obj.display_name)),
+            id=f"{obj.id}.{self._escape_sequence(obj.display_name)}",
             display_name=obj.display_name,
             application_id=obj.application_id,
             active=obj.active,
@@ -348,8 +348,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             query_id=info.query_id,
             query_text=info.query_text,
             statement_type=info.statement_type,
-            start_time=datetime.utcfromtimestamp(info.query_start_time_ms / 1000),
-            end_time=datetime.utcfromtimestamp(info.query_end_time_ms / 1000),
+            start_time=datetime.fromtimestamp(
+                info.query_start_time_ms / 1000, tz=timezone.utc
+            ),
+            end_time=datetime.fromtimestamp(
+                info.query_end_time_ms / 1000, tz=timezone.utc
+            ),
             user_id=info.user_id,
             user_name=info.user_name,
             executed_as_user_id=info.executed_as_user_id,

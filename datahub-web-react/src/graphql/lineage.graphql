@@ -42,6 +42,18 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        inputOutput {
+            fineGrainedLineages {
+                upstreams {
+                    urn
+                    path
+                }
+                downstreams {
+                    urn
+                    path
+                }
+            }
+        }
     }
     ... on DataFlow {
         orchestrator

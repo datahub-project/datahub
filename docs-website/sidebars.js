@@ -437,6 +437,7 @@ module.exports = {
             "docs/developers",
             "docs/docker/development",
             "metadata-ingestion/developing",
+            "docs/api/graphql/graphql-endpoint-development",
             {
               Modules: [
                 "datahub-web-react/README",
@@ -558,6 +559,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_9",
             "docs/managed-datahub/release-notes/v_0_2_8",
             "docs/managed-datahub/release-notes/v_0_2_7",
             "docs/managed-datahub/release-notes/v_0_2_6",

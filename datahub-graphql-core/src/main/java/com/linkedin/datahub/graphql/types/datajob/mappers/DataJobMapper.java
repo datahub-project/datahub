@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.FineGrainedLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -168,6 +169,10 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
             }).collect(Collectors.toList()));
         } else {
             result.setInputDatajobs(ImmutableList.of());
+        }
+
+        if (inputOutput.hasFineGrainedLineages() && inputOutput.getFineGrainedLineages() != null) {
+            result.setFineGrainedLineages(FineGrainedLineagesMapper.map(inputOutput.getFineGrainedLineages()));
         }
 
         return result;

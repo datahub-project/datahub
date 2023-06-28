@@ -696,7 +696,12 @@ public class EntityService {
   }
 
   @VisibleForTesting
-  static void validateUrn(@Nonnull final Urn urn) {
+  void validateUrn(@Nonnull final Urn urn) {
+    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(_entityRegistry);
+    validator.setCurrentEntitySpec(_entityRegistry.getEntitySpec(urn.getEntityType()));
+    RecordTemplateValidator.validate(buildKeyAspect(urn), validationResult -> {
+      throw new IllegalArgumentException("Invalid urn: " + urn + "\n Cause: "
+          + validationResult.getMessages()); }, validator);
 
     if (urn.toString().trim().length() != urn.toString().length()) {
       throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
@@ -706,6 +711,11 @@ public class EntityService {
     }
     if (urn.toString().contains(DELIMITER_SEPARATOR)) {
       throw new IllegalArgumentException("Error: URN cannot contain " + DELIMITER_SEPARATOR + " character");
+    }
+    try {
+      Urn.createFromString(urn.toString());
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
     }
   }
 
