@@ -515,7 +515,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            "vertica"
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
