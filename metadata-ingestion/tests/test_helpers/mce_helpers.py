@@ -17,7 +17,10 @@ from typing import (
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import MetadataChangeEventClass
-from datahub.testing.compare_goldens import assert_goldens_equal, load_json_file
+from datahub.testing.compare_metadata_json import (
+    assert_metadata_files_equal,
+    load_json_file,
+)
 from datahub.utilities.urns.urn import Urn
 from tests.test_helpers.type_helpers import PytestConfig
 
@@ -78,7 +81,7 @@ def check_golden_file(
 ) -> None:
     update_golden = pytestconfig.getoption("--update-golden-files")
     copy_output = pytestconfig.getoption("--copy-output-files")
-    assert_goldens_equal(
+    assert_metadata_files_equal(
         output_path=output_path,
         golden_path=golden_path,
         update_golden=update_golden,

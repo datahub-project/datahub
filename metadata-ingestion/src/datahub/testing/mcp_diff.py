@@ -1,12 +1,14 @@
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Sequence, Set, Tuple, Union
+from typing import Any, Dict, List, Sequence, Set, Tuple, Union
 
 import deepdiff.serialization
 import yaml
 from deepdiff import DeepDiff
 from deepdiff.model import DiffLevel
+from deepdiff.operator import BaseOperator
+from typing_extensions import Literal
 
 ReportType = Literal[
     "type_changes",
@@ -25,33 +27,50 @@ ReportType = Literal[
 ]
 
 
-@dataclass(frozen=True)
-class GoldenAspect:
+@dataclass
+class MCPDeltaInfo:
+    """Information about an MCP used to construct a diff delta.
+
+    In a separate class so it can be ignored by DeepDiff via MCPDeltaInfoOperator.
+    """
+
     idx: int  # Location in list of MCEs in golden file
+    original: Dict[str, Any]  # Original json-serialized MCP
+
+
+class MCPDeltaInfoOperator(BaseOperator):
+    def __init__(self):
+        super().__init__(types=[MCPDeltaInfo])
+
+    def give_up_diffing(self, level, diff_instance) -> bool:
+        return True
+
+
+@dataclass(frozen=True)
+class MCPAspect:
     urn: str
     change_type: str
     aspect_name: str
     aspect: Dict[str, Any] = field(hash=False)
-    original: Any = field(hash=False)
+    delta_info: MCPDeltaInfo = field(hash=False)
 
     @classmethod
-    def create_from_mcp(cls, idx: int, obj: Dict[str, Any]) -> "GoldenAspect":
+    def create_from_mcp(cls, idx: int, obj: Dict[str, Any]) -> "MCPAspect":
         aspect = obj["aspect"]
         return cls(
-            idx=idx,
             urn=obj["entityUrn"],
             change_type=obj["changeType"],
             aspect_name=obj["aspectName"],
             aspect=aspect.get("json", aspect),
-            original=obj,
+            delta_info=MCPDeltaInfo(idx=idx, original=obj),
         )
 
 
-AspectsByUrn = Dict[str, Dict[str, List[GoldenAspect]]]
+AspectsByUrn = Dict[str, Dict[str, List[MCPAspect]]]
 
 
 def get_aspects_by_urn(obj: object) -> AspectsByUrn:
-    """Restructure a list of MCPs by urn and aspect.
+    """Restructure a list of serialized MCPs by urn and aspect.
     Retains information like the original dict and index to facilitate `apply_delta` later.
 
     Raises:
@@ -66,7 +85,7 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
         elif "entityUrn" in entry and "aspectName" in entry and "aspect" in entry:
             urn = entry["entityUrn"]
             aspect_name = entry["aspectName"]
-            aspect = GoldenAspect.create_from_mcp(i, entry)
+            aspect = MCPAspect.create_from_mcp(i, entry)
             d[urn].setdefault(aspect_name, []).append(aspect)
         else:
             raise AssertionError(f"Unrecognized MCE: {entry}")
@@ -75,34 +94,43 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
 
 
 @dataclass
-class AspectDiff:
+class MCPAspectDiff:
     diff: DeepDiff
-    aspects_added: Dict[int, GoldenAspect] = field(init=False, default_factory=dict)
-    aspects_removed: Dict[int, GoldenAspect] = field(init=False, default_factory=dict)
-    aspects_changed: Dict[
-        Tuple[int, GoldenAspect, GoldenAspect], List[DiffLevel]
-    ] = field(init=False, default_factory=lambda: defaultdict(list))
+    aspects_added: Dict[int, MCPAspect]
+    aspects_removed: Dict[int, MCPAspect]
+    aspects_changed: Dict[Tuple[int, MCPAspect, MCPAspect], List[DiffLevel]]
 
-    def __post_init__(self):
+    @classmethod
+    def create(cls, diff: DeepDiff) -> "MCPAspectDiff":
         # Parse DeepDiff to distinguish between aspects that were added, removed, or changed
-        for key, diff_levels in self.diff.tree.items():
+        aspects_added = {}
+        aspects_removed = {}
+        aspects_changed = defaultdict(list)
+        for key, diff_levels in diff.tree.items():
             for diff_level in diff_levels:
                 path = diff_level.path(output_format="list")
                 idx = int(path[0])
                 if len(path) == 1 and key == "iterable_item_added":
-                    self.aspects_added[idx] = diff_level.t2
+                    aspects_added[idx] = diff_level.t2
                 elif len(path) == 1 and key == "iterable_item_removed":
-                    self.aspects_removed[idx] = diff_level.t1
+                    aspects_removed[idx] = diff_level.t1
                 else:
                     level = diff_level
-                    while not isinstance(level.t1, GoldenAspect):
+                    while not isinstance(level.t1, MCPAspect):
                         level = level.up
-                    self.aspects_changed[(idx, level.t1, level.t2)].append(diff_level)
+                    aspects_changed[(idx, level.t1, level.t2)].append(diff_level)
+
+        return cls(
+            diff,
+            aspects_added=aspects_added,
+            aspects_removed=aspects_removed,
+            aspects_changed=aspects_changed,
+        )
 
 
 @dataclass
-class GoldenDiff:
-    aspect_changes: Dict[str, Dict[str, AspectDiff]]  # urn -> aspect -> diff
+class MCPDiff:
+    aspect_changes: Dict[str, Dict[str, MCPAspectDiff]]  # urn -> aspect -> diff
     urns_added: Set[str]
     urns_removed: Set[str]
 
@@ -115,13 +143,10 @@ class GoldenDiff:
         golden: AspectsByUrn,
         output: AspectsByUrn,
         ignore_paths: Sequence[str],
-    ) -> "GoldenDiff":
-        ignore_paths = [cls.convert_path(path) for path in ignore_paths] + [
-            r"root\[\d+].idx",
-            r"root\[\d+].original",
-        ]
+    ) -> "MCPDiff":
+        ignore_paths = [cls.convert_path(path) for path in ignore_paths]
 
-        aspect_changes: Dict[str, Dict[str, AspectDiff]] = defaultdict(dict)
+        aspect_changes: Dict[str, Dict[str, MCPAspectDiff]] = defaultdict(dict)
         for urn in golden.keys() | output.keys():
             golden_map = golden.get(urn, {})
             output_map = output.get(urn, {})
@@ -131,9 +156,10 @@ class GoldenDiff:
                     t2=output_map.get(aspect_name, []),
                     exclude_regex_paths=ignore_paths,
                     ignore_order=True,
+                    custom_operators=[MCPDeltaInfoOperator()],
                 )
                 if diff:
-                    aspect_changes[urn][aspect_name] = AspectDiff(diff)
+                    aspect_changes[urn][aspect_name] = MCPAspectDiff.create(diff)
 
         return cls(
             urns_added=output.keys() - golden.keys(),
@@ -149,6 +175,23 @@ class GoldenDiff:
             r"root\[\\d+].aspect",
             path,
         )
+
+    def apply_delta(self, golden: List[Dict[str, Any]]) -> None:
+        aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
+        for aspect_diff in aspect_diffs:
+            for (_, old, new), diffs in aspect_diff.aspects_changed.items():
+                golden[old.delta_info.idx] = new.delta_info.original
+
+        indices_to_remove = set()
+        for aspect_diff in aspect_diffs:
+            for ga in aspect_diff.aspects_removed.values():
+                indices_to_remove.add(ga.delta_info.idx)
+        for idx in sorted(indices_to_remove, reverse=True):
+            del golden[idx]
+
+        for aspect_diff in aspect_diffs:  # Ideally would have smarter way to do this
+            for ga in aspect_diff.aspects_added.values():
+                golden.insert(ga.delta_info.idx, ga.delta_info.original)
 
     def pretty(self, verbose: bool = False) -> str:
         """The pretty human-readable string output of the diff between golden and output."""
@@ -198,7 +241,7 @@ class GoldenDiff:
         return "\n".join(s)
 
     @staticmethod
-    def report_aspect(ga: GoldenAspect, idx: int, msg: str = "") -> str:
+    def report_aspect(ga: MCPAspect, idx: int, msg: str = "") -> str:
         # Describe as "nth <aspect>" if n > 1
         base = (idx + 1) % 10
         if base == 1:
@@ -218,25 +261,8 @@ class GoldenDiff:
             f"root[{idx}].", ""
         )
 
-    def apply_delta(self, golden: List[Dict[str, Any]]) -> None:
-        aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
-        for aspect_diff in aspect_diffs:
-            for (_, old, new), diffs in aspect_diff.aspects_changed.items():
-                golden[old.idx] = new.original
 
-        indices_to_remove = set()
-        for aspect_diff in aspect_diffs:
-            for ga in aspect_diff.aspects_removed.values():
-                indices_to_remove.add(ga.idx)
-        for idx in sorted(indices_to_remove, reverse=True):
-            del golden[idx]
-
-        for aspect_diff in aspect_diffs:  # Ideally would have smarter way to do this
-            for ga in aspect_diff.aspects_added.values():
-                golden.insert(ga.idx, ga.original)
-
-
-def serialize_aspect(aspect: Union[GoldenAspect, Dict[str, Any]]) -> str:
-    if isinstance(aspect, GoldenAspect):  # Unpack aspect
+def serialize_aspect(aspect: Union[MCPAspect, Dict[str, Any]]) -> str:
+    if isinstance(aspect, MCPAspect):  # Unpack aspect
         aspect = aspect.aspect
     return "    " + yaml.dump(aspect, sort_keys=False).replace("\n", "\n    ").strip()

@@ -1,3 +1,5 @@
+"""Utilities for comparing MCE and MCP files."""
+
 import json
 import logging
 import os
@@ -5,17 +7,18 @@ import pathlib
 import pprint
 import shutil
 import tempfile
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Sequence, Union
 
 import pytest
 from deepdiff import DeepDiff
 
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import read_metadata_file
-from datahub.testing.golden_diff import GoldenDiff, get_aspects_by_urn
+from datahub.testing.mcp_diff import MCPDiff, get_aspects_by_urn
 
 logger = logging.getLogger(__name__)
 
+MetadataJson = List[Dict[str, Any]]
 
 default_exclude_paths = [
     r"root\[\d+]\['systemMetadata']\['lastObserved']",
@@ -26,12 +29,12 @@ default_exclude_paths = [
 ]
 
 
-def load_json_file(filename: Union[str, os.PathLike]) -> List[Dict[str, Any]]:
+def load_json_file(filename: Union[str, os.PathLike]) -> MetadataJson:
     with open(str(filename)) as f:
         return json.load(f)
 
 
-def assert_goldens_equal(
+def assert_metadata_files_equal(
     output_path: Union[str, os.PathLike],
     golden_path: Union[str, os.PathLike],
     update_golden: bool,
@@ -63,9 +66,9 @@ def assert_goldens_equal(
             write_metadata_file(pathlib.Path(temp.name), golden_metadata)
             golden = load_json_file(temp.name)
 
-    diff = check_mces_equal(output, golden, ignore_paths)
+    diff = diff_metadata_json(output, golden, ignore_paths)
     if diff and update_golden:
-        if isinstance(diff, GoldenDiff):
+        if isinstance(diff, MCPDiff):
             diff.apply_delta(golden)
             write_metadata_file(pathlib.Path(golden_path), golden)
         else:
@@ -73,44 +76,34 @@ def assert_goldens_equal(
         return
 
     if diff:
-        if isinstance(diff, GoldenDiff):
+        # Call pytest.fail rather than raise an exception to omit stack trace
+        if isinstance(diff, MCPDiff):
             print(diff.pretty(verbose=True))
             pytest.fail(diff.pretty(), pytrace=False)
         else:
             pytest.fail(pprint.pformat(diff), pytrace=False)
 
 
-def check_mces_equal(
-    output: List[Dict[str, Any]],
-    golden: List[Dict[str, Any]],
-    ignore_paths: Sequence[str],
-) -> Union[DeepDiff, GoldenDiff]:
+def diff_metadata_json(
+    output: MetadataJson,
+    golden: MetadataJson,
+    ignore_paths: Sequence[str] = (),
+) -> Union[DeepDiff, MCPDiff]:
     ignore_paths = (*ignore_paths, *default_exclude_paths)
     try:
         golden_map = get_aspects_by_urn(golden)
         output_map = get_aspects_by_urn(output)
-        return GoldenDiff.create(
+        return MCPDiff.create(
             golden=golden_map,
             output=output_map,
             ignore_paths=ignore_paths,
         )
-    except Exception as e:
+    except AssertionError as e:
         logger.warning(f"Reverting to old diff method: {e}")
         logger.debug("Error with new diff method", exc_info=True)
-        return diff_mces(output, golden, ignore_paths)
-
-
-def diff_mces(output: object, golden: object, ignore_paths: Sequence[str]) -> DeepDiff:
-    return DeepDiff(
-        golden,
-        output,
-        exclude_regex_paths=ignore_paths,
-        ignore_order=True,
-    )
-
-
-def assert_mces_equal(
-    output: object, golden: object, ignore_paths: Optional[List[str]] = None
-) -> None:
-    diff = diff_mces(output, golden, ignore_paths or ())
-    assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
+        return DeepDiff(
+            golden,
+            output,
+            exclude_regex_paths=ignore_paths,
+            ignore_order=True,
+        )

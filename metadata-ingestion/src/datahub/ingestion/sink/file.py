@@ -4,6 +4,7 @@ import pathlib
 from typing import Iterable, Union
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
@@ -30,8 +31,8 @@ def _to_obj_for_file(
     elif isinstance(obj, MetadataChangeProposal) and simplified_structure:
         serialized = obj.to_obj()
         if serialized.get("aspect") and serialized["aspect"].get("contentType") in [
-            "application/json",
-            "application/json-patch+json",
+            JSON_CONTENT_TYPE,
+            JSON_PATCH_CONTENT_TYPE,
         ]:
             serialized["aspect"] = {"json": json.loads(serialized["aspect"]["value"])}
         return serialized
@@ -90,7 +91,7 @@ def write_metadata_file(
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
             UsageAggregation,
-            dict,
+            dict,  # Serialized MCE or MCP
         ]
     ],
 ) -> None:
