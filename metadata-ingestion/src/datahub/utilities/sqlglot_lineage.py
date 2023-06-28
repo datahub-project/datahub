@@ -346,7 +346,7 @@ class UnsupportedStatementTypeError(TypeError):
     pass
 
 
-class SqlOptimizerError(Exception):
+class SqlUnderstandingError(Exception):
     # Usually hit when we need schema info for a given statement but don't have it.
     pass
 
@@ -429,9 +429,7 @@ def _column_level_lineage(
             identify=True,
         )
     except sqlglot.errors.OptimizeError as e:
-        # TODO replace the `raise OptimizeError(f"Unknown column: {column_name}")`
-        # line in sqlglot with a pass
-        raise SqlOptimizerError(
+        raise SqlUnderstandingError(
             f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
         ) from e
     logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
@@ -534,7 +532,9 @@ def _column_level_lineage(
 
         # TODO: Also extract referenced columns (e.g. non-SELECT lineage)
     except sqlglot.errors.OptimizeError as e:
-        raise SqlOptimizerError(f"sqlglot failed to compute some lineage: {e}") from e
+        raise SqlUnderstandingError(
+            f"sqlglot failed to compute some lineage: {e}"
+        ) from e
 
     return column_lineage
 
@@ -692,7 +692,7 @@ def sqlglot_lineage(
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
         debug_info.column_error = e
         logger.debug(debug_info.column_error)
-    except SqlOptimizerError as e:
+    except SqlUnderstandingError as e:
         logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
         debug_info.column_error = e
 
