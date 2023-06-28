@@ -27,8 +27,28 @@ ReportType = Literal[
 ]
 
 
+@dataclass(frozen=True)
+class AspectForDiff:
+    urn: str
+    change_type: str
+    aspect_name: str
+    aspect: Dict[str, Any] = field(hash=False)
+    delta_info: "DeltaInfo" = field(hash=False)
+
+    @classmethod
+    def create_from_mcp(cls, idx: int, obj: Dict[str, Any]) -> "AspectForDiff":
+        aspect = obj["aspect"]
+        return cls(
+            urn=obj["entityUrn"],
+            change_type=obj["changeType"],
+            aspect_name=obj["aspectName"],
+            aspect=aspect.get("json", aspect),
+            delta_info=DeltaInfo(idx=idx, original=obj),
+        )
+
+
 @dataclass
-class MCPDeltaInfo:
+class DeltaInfo:
     """Information about an MCP used to construct a diff delta.
 
     In a separate class so it can be ignored by DeepDiff via MCPDeltaInfoOperator.
@@ -38,35 +58,15 @@ class MCPDeltaInfo:
     original: Dict[str, Any]  # Original json-serialized MCP
 
 
-class MCPDeltaInfoOperator(BaseOperator):
+class DeltaInfoOperator(BaseOperator):
     def __init__(self):
-        super().__init__(types=[MCPDeltaInfo])
+        super().__init__(types=[DeltaInfo])
 
     def give_up_diffing(self, level, diff_instance) -> bool:
         return True
 
 
-@dataclass(frozen=True)
-class MCPAspect:
-    urn: str
-    change_type: str
-    aspect_name: str
-    aspect: Dict[str, Any] = field(hash=False)
-    delta_info: MCPDeltaInfo = field(hash=False)
-
-    @classmethod
-    def create_from_mcp(cls, idx: int, obj: Dict[str, Any]) -> "MCPAspect":
-        aspect = obj["aspect"]
-        return cls(
-            urn=obj["entityUrn"],
-            change_type=obj["changeType"],
-            aspect_name=obj["aspectName"],
-            aspect=aspect.get("json", aspect),
-            delta_info=MCPDeltaInfo(idx=idx, original=obj),
-        )
-
-
-AspectsByUrn = Dict[str, Dict[str, List[MCPAspect]]]
+AspectsByUrn = Dict[str, Dict[str, List[AspectForDiff]]]
 
 
 def get_aspects_by_urn(obj: object) -> AspectsByUrn:
@@ -85,7 +85,7 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
         elif "entityUrn" in entry and "aspectName" in entry and "aspect" in entry:
             urn = entry["entityUrn"]
             aspect_name = entry["aspectName"]
-            aspect = MCPAspect.create_from_mcp(i, entry)
+            aspect = AspectForDiff.create_from_mcp(i, entry)
             d[urn].setdefault(aspect_name, []).append(aspect)
         else:
             raise AssertionError(f"Unrecognized MCE: {entry}")
@@ -96,9 +96,9 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
 @dataclass
 class MCPAspectDiff:
     diff: DeepDiff
-    aspects_added: Dict[int, MCPAspect]
-    aspects_removed: Dict[int, MCPAspect]
-    aspects_changed: Dict[Tuple[int, MCPAspect, MCPAspect], List[DiffLevel]]
+    aspects_added: Dict[int, AspectForDiff]
+    aspects_removed: Dict[int, AspectForDiff]
+    aspects_changed: Dict[Tuple[int, AspectForDiff, AspectForDiff], List[DiffLevel]]
 
     @classmethod
     def create(cls, diff: DeepDiff) -> "MCPAspectDiff":
@@ -116,7 +116,7 @@ class MCPAspectDiff:
                     aspects_removed[idx] = diff_level.t1
                 else:
                     level = diff_level
-                    while not isinstance(level.t1, MCPAspect):
+                    while not isinstance(level.t1, AspectForDiff):
                         level = level.up
                     aspects_changed[(idx, level.t1, level.t2)].append(diff_level)
 
@@ -156,7 +156,7 @@ class MCPDiff:
                     t2=output_map.get(aspect_name, []),
                     exclude_regex_paths=ignore_paths,
                     ignore_order=True,
-                    custom_operators=[MCPDeltaInfoOperator()],
+                    custom_operators=[DeltaInfoOperator()],
                 )
                 if diff:
                     aspect_changes[urn][aspect_name] = MCPAspectDiff.create(diff)
@@ -241,7 +241,7 @@ class MCPDiff:
         return "\n".join(s)
 
     @staticmethod
-    def report_aspect(ga: MCPAspect, idx: int, msg: str = "") -> str:
+    def report_aspect(ga: AspectForDiff, idx: int, msg: str = "") -> str:
         # Describe as "nth <aspect>" if n > 1
         base = (idx + 1) % 10
         if base == 1:
@@ -262,7 +262,7 @@ class MCPDiff:
         )
 
 
-def serialize_aspect(aspect: Union[MCPAspect, Dict[str, Any]]) -> str:
-    if isinstance(aspect, MCPAspect):  # Unpack aspect
+def serialize_aspect(aspect: Union[AspectForDiff, Dict[str, Any]]) -> str:
+    if isinstance(aspect, AspectForDiff):  # Unpack aspect
         aspect = aspect.aspect
     return "    " + yaml.dump(aspect, sort_keys=False).replace("\n", "\n    ").strip()
