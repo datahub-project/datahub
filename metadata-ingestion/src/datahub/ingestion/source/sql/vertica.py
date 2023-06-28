@@ -142,7 +142,7 @@ class VerticaSource(SQLAlchemySource):
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options.setdefault("echo", False)
+            sql_config.options.setdefault("echo", True)
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -446,84 +446,6 @@ class VerticaSource(SQLAlchemySource):
             owner_urn=f"urn:li:corpuser:{view_owner}",
         )
 
-    def get_view_properties(
-        self, inspector: VerticaInspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
-        description: Optional[str] = None
-        properties: Dict[str, str] = {}
-
-        # The location cannot be fetched generically, but subclasses may override
-        # this method and provide a location.
-        location: Optional[str] = None
-
-        try:
-            # SQLAlchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_view_comment(table, schema)
-        except NotImplementedError:
-            return description, properties, location
-
-        description = table_info.get("text")
-        if type(description) is tuple:
-            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = table_info["text"][0]
-
-        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-        properties = table_info.get("properties", {})
-        return description, properties, location
-
-    def _get_upstream_lineage_info(
-        self,
-        dataset_urn: str,
-        inspector: VerticaInspector,
-        view: str,
-        schema: str,
-    ) -> Optional[_Aspect]:
-        dataset_key = dataset_urn_to_key(dataset_urn)
-        if dataset_key is None:
-            logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
-            return None
-
-        view_lineage_map = inspector._populate_view_lineage(view, schema)
-        if dataset_key.name is not None:
-            dataset_name = dataset_key.name
-
-        else:
-            # Handle the case when dataset_key.name is None
-            # You can raise an exception, log a warning, or take any other appropriate action
-            logger.warning("Invalid dataset name")
-
-        lineage = view_lineage_map[dataset_name]
-
-        if lineage is None:
-            logger.debug(f"No lineage found for {dataset_name}")
-            return None
-        upstream_tables: List[UpstreamClass] = []
-
-        for lineage_entry in lineage:
-            # Update the view-lineage
-            upstream_table_name = lineage_entry[0]
-
-            upstream_table = UpstreamClass(
-                dataset=make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    upstream_table_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                ),
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstream_tables.append(upstream_table)
-
-        if upstream_tables:
-            logger.debug(
-                f" lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
-            )
-
-            return UpstreamLineage(upstreams=upstream_tables)
-
-        return None
-
     def loop_projections(
         self,
         inspector: VerticaInspector,
@@ -549,9 +471,7 @@ class VerticaSource(SQLAlchemySource):
         projections_seen: Set[str] = set()
 
         try:
-
             for projection in inspector.get_projection_names(schema):
-
                 dataset_name = self.get_identifier(
                     schema=schema, entity=projection, inspector=inspector
                 )
@@ -708,81 +628,6 @@ class VerticaSource(SQLAlchemySource):
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
             )
-
-    def get_projection_properties(
-        self, inspector: VerticaInspector, schema: str, projection: str
-    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
-        """
-        Returns projection related metadata information to show in properties tab
-            eg. projection type like super, segmented etc
-                partition key, segmentation and so on
-
-        Args:
-            inspector (Inspector): inspector obj from reflection engine
-            schema (str): schema name
-            projection (str): projection name
-        Returns:
-            Tuple[Optional[str], Dict[str, str], Optional[str]]: [description]
-        """
-        description: Optional[str] = None
-        properties: Dict[str, str] = {}
-        # The location cannot be fetched generically, but subclasses may override
-        # this method and provide a location.
-        location: Optional[str] = None
-        try:
-            # SQLAlchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            projection_info: dict = inspector.get_projection_comment(projection, schema)
-        except NotImplementedError:
-            return description, properties, location
-        description = projection_info.get("text")
-        if isinstance(description, tuple):
-            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = projection_info["text"][0]
-        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-        properties = projection_info.get("properties", {})
-        return description, properties, location
-
-    def _get_upstream_lineage_info_projection(
-        self, dataset_urn: str, inspector: VerticaInspector, projection, schema: str
-    ) -> Optional[_Aspect]:
-        dataset_key = dataset_urn_to_key(dataset_urn)
-        if dataset_key is None:
-            logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
-            return None
-
-        projection_lineage = inspector._populate_projection_lineage(projection, schema)
-        dataset_name = dataset_key.name
-        lineage = projection_lineage[dataset_name]
-
-        if not (lineage):
-            logger.debug(f"No lineage found for {dataset_name}")
-            return None
-        upstream_tables: List[UpstreamClass] = []
-
-        for lineage_entry in lineage:
-            # Update the view-lineage
-            upstream_table_name = lineage_entry[0]
-
-            upstream_table = UpstreamClass(
-                dataset=make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    upstream_table_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                ),
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstream_tables.append(upstream_table)
-
-        if upstream_tables:
-            logger.debug(
-                f" lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
-            )
-
-            return UpstreamLineage(upstreams=upstream_tables)
-
-        return None
 
     def loop_profiler_requests(
         self,
@@ -969,6 +814,66 @@ class VerticaSource(SQLAlchemySource):
         except Exception as error:
             self.report.report_failure(f"{schema}", f"Model error: {error}")
 
+    def get_view_properties(
+        self, inspector: VerticaInspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        description: Optional[str] = None
+        properties: Dict[str, str] = {}
+
+        # The location cannot be fetched generically, but subclasses may override
+        # this method and provide a location.
+        location: Optional[str] = None
+
+        try:
+            # SQLAlchemy stubs are incomplete and missing this method.
+            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+            table_info: dict = inspector.get_view_comment(table, schema)
+        except NotImplementedError:
+            return description, properties, location
+
+        description = table_info.get("text")
+        if type(description) is tuple:
+            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
+            description = table_info["text"][0]
+
+        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+        properties = table_info.get("properties", {})
+        return description, properties, location
+
+    def get_projection_properties(
+        self, inspector: VerticaInspector, schema: str, projection: str
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        """
+        Returns projection related metadata information to show in properties tab
+            eg. projection type like super, segmented etc
+                partition key, segmentation and so on
+
+        Args:
+            inspector (Inspector): inspector obj from reflection engine
+            schema (str): schema name
+            projection (str): projection name
+        Returns:
+            Tuple[Optional[str], Dict[str, str], Optional[str]]: [description]
+        """
+        description: Optional[str] = None
+        properties: Dict[str, str] = {}
+        # The location cannot be fetched generically, but subclasses may override
+        # this method and provide a location.
+        location: Optional[str] = None
+        try:
+            # SQLAlchemy stubs are incomplete and missing this method.
+            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+            projection_info: dict = inspector.get_projection_comment(projection, schema)
+        except NotImplementedError:
+            return description, properties, location
+        description = projection_info.get("text")
+        if isinstance(description, tuple):
+            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
+            description = projection_info["text"][0]
+        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+        properties = projection_info.get("properties", {})
+        return description, properties, location
+
     def get_model_properties(
         self, inspector: VerticaInspector, schema: str, model: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
@@ -997,6 +902,99 @@ class VerticaSource(SQLAlchemySource):
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
         return description, properties, location
+
+    def _get_upstream_lineage_info(
+        self,
+        dataset_urn: str,
+        inspector: VerticaInspector,
+        view: str,
+        schema: str,
+    ) -> Optional[_Aspect]:
+        dataset_key = dataset_urn_to_key(dataset_urn)
+        if dataset_key is None:
+            logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
+            return None
+
+        view_lineage_map = inspector._populate_view_lineage(view, schema)
+        if dataset_key.name is not None:
+            dataset_name = dataset_key.name
+
+        else:
+            # Handle the case when dataset_key.name is None
+            # You can raise an exception, log a warning, or take any other appropriate action
+            logger.warning("Invalid dataset name")
+
+        lineage = view_lineage_map[dataset_name]
+
+        if lineage is None:
+            logger.debug(f"No lineage found for {dataset_name}")
+            return None
+        upstream_tables: List[UpstreamClass] = []
+
+        for lineage_entry in lineage:
+            # Update the view-lineage
+            upstream_table_name = lineage_entry[0]
+
+            upstream_table = UpstreamClass(
+                dataset=make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    upstream_table_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                ),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
+        if upstream_tables:
+            logger.debug(
+                f" lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
+            )
+
+            return UpstreamLineage(upstreams=upstream_tables)
+
+        return None
+
+    def _get_upstream_lineage_info_projection(
+        self, dataset_urn: str, inspector: VerticaInspector, projection, schema: str
+    ) -> Optional[_Aspect]:
+        dataset_key = dataset_urn_to_key(dataset_urn)
+        if dataset_key is None:
+            logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
+            return None
+
+        projection_lineage = inspector._populate_projection_lineage(projection, schema)
+        dataset_name = dataset_key.name
+        lineage = projection_lineage[dataset_name]
+
+        if not (lineage):
+            logger.debug(f"No lineage found for {dataset_name}")
+            return None
+        upstream_tables: List[UpstreamClass] = []
+
+        for lineage_entry in lineage:
+            # Update the view-lineage
+            upstream_table_name = lineage_entry[0]
+
+            upstream_table = UpstreamClass(
+                dataset=make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    upstream_table_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                ),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
+        if upstream_tables:
+            logger.debug(
+                f" lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
+            )
+
+            return UpstreamLineage(upstreams=upstream_tables)
+
+        return None
 
     def _get_columns(
         self, dataset_name: str, inspector: VerticaInspector, schema: str, table: str
