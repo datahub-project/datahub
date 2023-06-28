@@ -20,6 +20,7 @@ import {
     useBrowseDisplayName,
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
+import EntityLink from './EntityLink';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -29,6 +30,7 @@ const FolderStyled = styled(FolderOutlined)`
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
+    padding-right: 2px;
 `;
 
 const BrowseNode = () => {
@@ -40,7 +42,8 @@ const BrowseNode = () => {
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
-    const { count } = browseResultGroup;
+    const { count, entity } = browseResultGroup;
+    const hasEntityLink = !!entity;
     const displayName = useBrowseDisplayName();
     const { trackSelectNodeEvent } = useSidebarAnalytics();
 
@@ -86,9 +89,16 @@ const BrowseNode = () => {
                             dataTestId={`browse-node-expand-${displayName}`}
                         />
                         <FolderStyled />
-                        <ExpandableNode.Title color={color} size={14} depth={browsePathLength}>
+                        <ExpandableNode.Title
+                            color={color}
+                            size={14}
+                            depth={browsePathLength}
+                            maxWidth={hasEntityLink ? 175 : 200}
+                            padLeft
+                        >
                             {displayName}
                         </ExpandableNode.Title>
+                        {hasEntityLink && <EntityLink entity={entity} targetNode="browse" />}
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(count)}</Count>
                 </ExpandableNode.SelectableHeader>
