@@ -34,6 +34,10 @@ const useBrowsePagination = ({ skip }: Props) => {
         fetchPolicy: 'cache-first',
     });
 
+    const retry = () => {
+        if (refetch) refetch();
+    };
+
     const getBrowseResultsV2WithDeps = useCallback(
         (start: number) => {
             if (skip) return;
@@ -77,9 +81,9 @@ const useBrowsePagination = ({ skip }: Props) => {
 
     const advancePage = useCallback(() => {
         const newStart = latestStart + BROWSE_PAGE_SIZE;
-        if (done || latestStart < 0 || total <= 0 || newStart >= total) return;
+        if (error || done || latestStart < 0 || total <= 0 || newStart >= total) return;
         getBrowseResultsV2WithDeps(newStart);
-    }, [done, getBrowseResultsV2WithDeps, latestStart, total]);
+    }, [done, error, getBrowseResultsV2WithDeps, latestStart, total]);
 
     const { observableRef } = useIntersect({
         skip,
@@ -93,7 +97,7 @@ const useBrowsePagination = ({ skip }: Props) => {
         groups,
         path: latestData?.browseV2?.metadata.path,
         observable: <div ref={observableRef} style={{ width: '1px', height: '1px' }} />,
-        refetch,
+        retry,
     } as const;
 };
 
