@@ -17,5 +17,5 @@
         "noEmit": true,
         "jsx": "react-jsx"
     },
-    "include": ["src", "src/conf/theme/styled-components.d.ts"]
+    "include": ["src", "src/conf/theme/styled-components.d.ts", "craco.config.js", ".eslintrc.js"]
 }
