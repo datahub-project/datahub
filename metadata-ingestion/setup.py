@@ -59,7 +59,6 @@ framework_common = {
     "jsonref",
     "jsonschema",
     "ruamel.yaml",
-    "croniter==1.4.1",
 }
 
 rest_common = {"requests", "requests_file"}

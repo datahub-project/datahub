@@ -9,7 +9,6 @@ import tzlocal
 import pytz
 from datetime import datetime
 from typing import Optional, Union
-from croniter import croniter
 
 import click
 import click_spinner
@@ -211,7 +210,6 @@ def run(
 
 
 @ingest.command()
-@click.pass_context
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 @click.option(
@@ -239,29 +237,53 @@ def run(
     type=str,
     help="Provide a custom CLI version to use for ingestion. By default will use server default.",
     required=False,
+    default=None,
 )
 @click.option(
     "--schedule",
     type=str,
     help="Cron definition for schedule. If none is provided, ingestion recipe will not be scheduled",
     required=False,
+    default=None,
 )
 @click.option(
     "--time-zone",
     type=str,
     help=f"Timezone for the schedule. By default uses the timezone of the current system: {tzlocal.get_localzone_name()}.",
     required=False,
+    default=tzlocal.get_localzone_name()
 )
 def deploy(
-    ctx: click.Context,
     name: str,
     config: str,
-    executor_id: str = None,
-    cli_version: str = None,
-    schedule: str = None,
-    time_zone: str = tzlocal.get_localzone_name(),
+    executor_id: str,
+    cli_version: str,
+    schedule: str,
+    time_zone: str,
 ) -> None:
-    """Deploy ingestion recipe to your DataHub instance."""
+    """
+    Deploy an ingestion recipe to your DataHub instance.
+
+    The urn of the ingestion source will be based on the name parameter in the format:
+    urn:li:dataHubIngestionSource:<name>
+    """
+
+    datahub_graph = get_default_graph()
+
+    urns = list(datahub_graph.get_urns_by_filter(
+        entity_types=[IngestionSourceUrn.ENTITY_TYPE],
+        query=name
+    ))
+
+    print(urns)
+
+    if len(urns) > 1:
+        click.echo(f"Found multiple ingestion source urns for {name}: {urns}")
+        exit()
+
+    endpoint = ""
+    input_obj = {}
+    graphql_query = f"mutation {endpoint}({input_obj})"
 
     pipeline_config = load_config_file(
         config,
@@ -271,54 +293,40 @@ def deploy(
         resolve_env_vars=False,
     )
 
-    pipeline_config.pop("__raw_config")
+    print(pipeline_config)
 
-    if name.startswith(f"urn:li:{IngestionSourceUrn.ENTITY_TYPE}"):
-        ingestion_source_urn = IngestionSourceUrn.create_from_string(name)
-        ingestion_source_name = ingestion_source_urn.get_entity_id_as_string()
+    if len(urns) == 1:
+        logger.info(f"Found recipe urn {urns[0]} for {name}, will update this recipe.")
+        endpoint = "updateIngestionSource"
+        input_obj = {
+            "urn": urns[0],
+            "input": {
+                "name": name,
+                "type": pipeline_config["source"]["type"],
+                "schedule": {
+                    "interval": schedule,
+                    "timezone": time_zone,
+                },
+                "config": json.dumps(pipeline_config)
+            }
+        }
     else:
-        ingestion_source_name = name.lower().replace(' ', '_')
-        ingestion_source_urn = IngestionSourceUrn.create_from_id(ingestion_source_name)
+        logger.info(f"No ingestion source urn found for {name}. Will create a new recipe.")
+        endpoint = "createIngestionSource"
+        input_obj = {
+            "types": types,
+            "query": query,
+            "orFilters": orFilters,
+            "batchSize": batch_size,
+            "scrollId": scroll_id,
+        }
 
-    # Create ingestion source config
-    ingestion_source_config = IngestionSourceConfig(
-        recipe=json.dumps(pipeline_config),
-        version=cli_version,
-        executorId=executor_id,
-    )
+    exit()
+    #datahub_graph.execute_graphql(graphql_query)
 
-    # Construct the IngestionSourceInfo aspect
-    ingestion_source_info = IngestionSourceInfo(
-        name=ingestion_source_name,
-        type=pipeline_config['source']['type'],
-        config=ingestion_source_config,
-        platform=None,
-        schedule=_createIngestionSchedule(schedule, time_zone)
-    )
-
-    mcp = MetadataChangeProposalWrapper(entityUrn=str(ingestion_source_urn), aspect=ingestion_source_info)
-
-    print(mcp)
-
-    datahub_graph = get_default_graph()
-    datahub_graph.emit(mcp)
     click.echo(
         f"✅ Successfully wrote data ingestion source metadata for {ingestion_source_urn} to DataHub ({datahub_graph})"
     )
-
-def _createIngestionSchedule(schedule: str = None, time_zone: str = None) -> Union[None, IngestionSourceSchedule]:
-    if schedule:
-        if not croniter.is_valid(schedule):
-            click.echo(f"Schedule is invalid. You can check your Cron expression {schedule} at http://crontab.guru")
-            exit()
-        if time_zone not in pytz.all_timezones:
-            click.echo(f"Unknown time zone {time_zone}.")
-            exit()
-
-        return IngestionSourceSchedule(schedule, time_zone)
-
-
-    return None
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
     connection_report = None
