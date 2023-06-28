@@ -62,7 +62,7 @@ class DeltaInfoOperator(BaseOperator):
     def __init__(self):
         super().__init__(types=[DeltaInfo])
 
-    def give_up_diffing(self, level, diff_instance) -> bool:
+    def give_up_diffing(self, *args: Any) -> bool:
         return True
 
 

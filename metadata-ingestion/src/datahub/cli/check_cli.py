@@ -11,7 +11,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.testing.compare_metadata_json import load_json_file, diff_metadata_json
+from datahub.testing.compare_metadata_json import diff_metadata_json, load_json_file
 from datahub.testing.mcp_diff import MCPDiff
 
 
