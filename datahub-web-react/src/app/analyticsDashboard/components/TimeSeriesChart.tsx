@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useMemo } from 'react';
-import { XYChart, LineSeries, CrossHair, XAxis, YAxis } from '@data-ui/xy-chart';
-import { scaleOrdinal } from '@vx/scale';
+import { scaleOrdinal } from '@visx/scale';
 import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
 import { lineColors } from './lineColors';
 import Legend from './Legend';
@@ -93,47 +93,5 @@ export const TimeSeriesChart = ({
 
     const lines = useMemo(() => computeLines(chartData, insertBlankPoints || false), [chartData, insertBlankPoints]);
 
-    return (
-        <>
-            <XYChart
-                eventTrigger="container"
-                ariaLabel={chartData.title}
-                width={width}
-                height={height}
-                margin={{ top: MARGIN.TOP, right: MARGIN.RIGHT, bottom: MARGIN.BOTTOM, left: MARGIN.LEFT }}
-                xScale={{ type: 'time' }}
-                yScale={
-                    yScale ?? {
-                        type: 'linear',
-                    }
-                }
-                renderTooltip={({ datum }) => (
-                    <div>
-                        <div>{new Date(Number(datum.x)).toDateString()}</div>
-                        <div>{datum.y}</div>
-                    </div>
-                )}
-                snapTooltipToDataX={false}
-            >
-                <XAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
-                <YAxis
-                    axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }}
-                    tickFormat={(tick) => (yAxis?.formatter ? yAxis.formatter(tick) : formatNumber(tick))}
-                />
-                {lines.map((line, i) => (
-                    <LineSeries
-                        showPoints
-                        data={line.data.map((point) => ({ x: new Date(point.x).getTime().toString(), y: point.y }))}
-                        stroke={(style && style.lineColor) || lineColors[i]}
-                    />
-                ))}
-                <CrossHair
-                    showHorizontalLine={false}
-                    fullHeight
-                    stroke={(style && style.crossHairLineColor) || '#D8D8D8'}
-                />
-            </XYChart>
-            {!hideLegend && <Legend ordinalScale={ordinalColorScale} />}
-        </>
-    );
+    return null;
 };

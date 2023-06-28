@@ -4,9 +4,9 @@ import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import styled from 'styled-components';
-import { Group } from '@vx/group';
-import { curveBasis } from '@vx/curve';
-import { LinePath } from '@vx/shape';
+import { Group } from '@visx/group';
+import { curveBasis } from '@visx/curve';
+import { LinePath } from '@visx/shape';
 import { VizEdge } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 
