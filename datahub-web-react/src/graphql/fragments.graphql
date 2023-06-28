@@ -200,6 +200,7 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             actor
             time
         }
+        associatedUrn
     }
 }
 
@@ -981,7 +982,6 @@ fragment browsePathV2Fields on BrowsePathV2 {
                 properties {
                     name
                 }
-                
             }
             ... on DataFlow {
                 properties {
