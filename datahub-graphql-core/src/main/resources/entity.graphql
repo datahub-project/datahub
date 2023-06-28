@@ -2485,6 +2485,11 @@ type InstitutionalMemoryMetadata {
     Description of the resource
     """
     description: String! @deprecated
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
